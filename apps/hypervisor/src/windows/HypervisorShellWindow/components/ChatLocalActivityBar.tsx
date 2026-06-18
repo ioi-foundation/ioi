@@ -8,7 +8,6 @@ import {
   MountsIcon,
   NotificationsIcon,
   ProjectsIcon,
-  SessionsFilterIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -328,14 +327,6 @@ export function ChatLocalActivityBar({
               onClick={() => activateRoute(sessionsNavItem.route)}
             />
           ) : null}
-          <button
-            type="button"
-            className="chat-activity-session-filter"
-            aria-label="Filter sessions by project"
-          >
-            <span>Project</span>
-            <SessionsFilterIcon />
-          </button>
         </div>
         <div
           className="chat-activity-session-list chat-activity-session-list--empty"

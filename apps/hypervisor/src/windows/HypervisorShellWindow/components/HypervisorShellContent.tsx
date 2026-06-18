@@ -172,24 +172,24 @@ function HypervisorHarnessComparisonDashboard() {
     HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   );
   const [runState, setRunState] = useState<
-    "fixture" | "requesting_daemon" | "daemon_admitted" | "daemon_unavailable"
+    "fixture" | "requesting" | "admitted" | "unavailable"
   >("fixture");
   const [runMessage, setRunMessage] = useState(
     "Fixture projection is loaded until a governed run is requested.",
   );
 
-  async function handleDaemonFixtureRun() {
-    setRunState("requesting_daemon");
+  async function handleFixtureRun() {
+    setRunState("requesting");
     setRunMessage("Requesting governed public fixture run...");
     try {
       const nextComparison = await requestHarnessPublicFixtureRun();
       setComparison(nextComparison);
-      setRunState("daemon_admitted");
+      setRunState("admitted");
       setRunMessage(
         `Run returned ${nextComparison.receipt_refs.length} receipt refs for ${nextComparison.candidate_reports.length} harness candidates.`,
       );
     } catch (error) {
-      setRunState("daemon_unavailable");
+      setRunState("unavailable");
       setRunMessage(
         error instanceof Error
           ? error.message
@@ -217,16 +217,16 @@ function HypervisorHarnessComparisonDashboard() {
         </div>
         <button
           type="button"
-          data-harness-comparison-action="request-daemon-run"
-          disabled={runState === "requesting_daemon"}
-          onClick={handleDaemonFixtureRun}
+          data-harness-comparison-action="request-run"
+          disabled={runState === "requesting"}
+          onClick={handleFixtureRun}
         >
-          {runState === "requesting_daemon" ? "Requesting..." : "Run fixture"}
+          {runState === "requesting" ? "Requesting..." : "Run fixture"}
         </button>
       </div>
       <p
-        className="hypervisor-harness-comparison__daemon-state"
-        data-harness-comparison-daemon-state={runState}
+        className="hypervisor-harness-comparison__runtime-state"
+        data-harness-comparison-state={runState}
       >
         {runMessage}
       </p>

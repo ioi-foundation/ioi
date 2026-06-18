@@ -636,7 +636,7 @@ export function WorkspaceShell({
                       <span aria-hidden="true">⌄</span>
                     </div>
                     <div className="chat-workspace-oss-shell__adapter-pill">
-                      Hypervisor Core
+                      Workspace session
                       <span aria-hidden="true">⌄</span>
                     </div>
                   </div>
@@ -688,8 +688,8 @@ export function WorkspaceShell({
                       <div className="chat-workspace-oss-shell__timeline">
                         {[
                           ["Resolved workspace root", workbenchProject.rootPath],
-                          ["Loaded workspace refs", "Agentgres workspace state"],
-                          ["Selected adapter", sessionDescriptor?.runtimeLabel ?? "Hypervisor Core"],
+                          ["Loaded workspace refs", "Workspace state ready"],
+                          ["Selected adapter", sessionDescriptor?.runtimeLabel ?? "Workspace session"],
                           [
                             blockingError
                               ? "Waiting for host bridge"

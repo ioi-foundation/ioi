@@ -380,15 +380,15 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
 });
 
-test("Foundry exposes harness comparison as a daemon-runtime dashboard", () => {
+test("Foundry exposes harness comparison as a governed runtime dashboard", () => {
   assert.match(shellContent, /HypervisorHarnessComparisonDashboard/);
   assert.match(shellContent, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
   assert.match(shellContent, /requestHarnessPublicFixtureRun/);
   assert.match(shellContent, /data-hypervisor-harness-comparison-run/);
   assert.match(shellContent, /data-hypervisor-harness-comparison-state/);
-  assert.match(shellContent, /data-harness-comparison-action="request-daemon-run"/);
+  assert.match(shellContent, /data-harness-comparison-action="request-run"/);
   assert.match(shellContent, /setComparison\(nextComparison\)/);
-  assert.match(shellContent, /daemon_unavailable/);
+  assert.match(shellContent, /unavailable/);
   assert.match(shellContent, /Harness comparison dashboard/);
   assert.match(shellContent, /output, cost, verification, receipts, and evidence/);
   assert.match(shellContent, /candidate_reports\.map/);
@@ -611,6 +611,9 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(shellContent, /Review leases/);
   assert.doesNotMatch(shellContent, /Daemon Owned/);
   assert.doesNotMatch(shellContent, /Proposal Source Only/);
+  assert.doesNotMatch(shellContent, /AgentHarnessAdapter proposal source/);
+  assert.doesNotMatch(shellContent, /Reference HarnessProfile scaffold/);
+  assert.doesNotMatch(shellContent, /Hypervisor Daemon remains runtime truth/);
   assert.doesNotMatch(agentsSurface, /data-runtime-truth-source/);
   assert.doesNotMatch(shellContent, /formatAgentRuntimeBoundary/);
   assert.doesNotMatch(shellContent, /AgentMetric/);

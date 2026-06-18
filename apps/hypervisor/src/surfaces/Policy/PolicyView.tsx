@@ -392,7 +392,7 @@ export function PolicyView({
         const grantId = authorityString(grant?.grantId, capability.label);
         const receiptId = authorityString(grant?.receiptId, "");
         setAuthorityActionStatus(
-          `${grantId} issued; raw session token was discarded after daemon acknowledgement.`,
+          `${grantId} issued; raw session token was discarded after acknowledgement.`,
         );
         setAuthorityError(null);
         await refreshAuthorityCenter();
@@ -465,7 +465,7 @@ export function PolicyView({
             grant.grantId,
           ) ?? authorityString(revoked?.receiptId, grant.receiptRef);
         setAuthorityActionStatus(
-          `${grant.grantId} revoked through the daemon authority boundary.`,
+          `${grant.grantId} revoked through the authority boundary.`,
         );
         setAuthorityError(null);
         await refreshAuthorityCenter();

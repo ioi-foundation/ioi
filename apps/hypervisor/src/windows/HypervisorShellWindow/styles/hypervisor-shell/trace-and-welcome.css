@@ -2190,16 +2190,16 @@
 
 :root[data-hypervisor-theme^="light"] .chat-activity-bar {
   --chat-activity-bg: #f7f7f6;
-  --chat-activity-border: #d8d8d6;
-  --chat-activity-divider: #e7e7e5;
-  --chat-activity-text: #2f3034;
-  --chat-activity-text-strong: #171719;
-  --chat-activity-text-muted: #6f737b;
-  --chat-activity-hover-bg: #ececeb;
-  --chat-activity-active-bg: #ececeb;
-  --chat-activity-active-hover-bg: #e4e4e2;
-  --chat-activity-avatar-bg: #ffffff;
-  --chat-activity-avatar-text: #171719;
+  --chat-activity-border: #d7dce2;
+  --chat-activity-divider: #e2e5e9;
+  --chat-activity-text: #4e5967;
+  --chat-activity-text-strong: #161a20;
+  --chat-activity-text-muted: #7a8491;
+  --chat-activity-hover-bg: #eceff3;
+  --chat-activity-active-bg: #e7ebef;
+  --chat-activity-active-hover-bg: #e1e6eb;
+  --chat-activity-avatar-bg: #111827;
+  --chat-activity-avatar-text: #ffffff;
 }
 
 :root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {

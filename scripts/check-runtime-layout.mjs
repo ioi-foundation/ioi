@@ -818,8 +818,8 @@ assert(
     workspaceRepositoryGateSource.includes("<h1>Workbench</h1>") &&
     workspaceRepositoryGateSource.includes("Adapter targets") &&
     workspaceRepositoryGateSource.includes("Choose a governed adapter target") &&
-    workspaceRepositoryGateSource.includes("adapter targets over Hypervisor Core") &&
-    workspaceRepositoryGateSource.includes("not the parent product or runtime truth") &&
+    workspaceRepositoryGateSource.includes("interchangeable adapter targets") &&
+    workspaceRepositoryGateSource.includes("Pick the surface") &&
     workspaceRepositoryGateSource.includes("HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES") &&
     workspaceRepositoryGateSource.includes("getWorkbenchAdapterPreferenceRef") &&
     workspaceRepositoryGateSource.includes("data-workbench-adapter-preference") &&
@@ -828,7 +828,7 @@ assert(
       workspaceRepositoryGateSource,
     ),
   ["apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx"],
-  "Workbench must open as a governed adapter hub over Hypervisor Core, not a code-repository or pull-request console.",
+  "Workbench must open as a governed adapter hub with product-facing adapter language, not a code-repository, pull-request, or architecture-doctrine console.",
 );
 assert(
   "workbench-adapter-launch-plan-contract",
@@ -1091,7 +1091,7 @@ assert(
     ) &&
     hypervisorShellContentSource.includes("requestHarnessPublicFixtureRun") &&
     hypervisorShellContentSource.includes(
-      'data-harness-comparison-action="request-daemon-run"',
+      'data-harness-comparison-action="request-run"',
     ) &&
     hypervisorShellContentSource.includes(
       "data-hypervisor-harness-comparison-state",
@@ -1423,13 +1423,16 @@ assert(
       '[data-home-dashboard-variant="ioi-reference-home"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      'textarea[aria-label="Session intent"]',
+      "Welcome back, Operator",
     ) &&
     hypervisorAppShellContractSource.includes(
-      'button:has-text("Fix a bug")',
+      "Recommended applications",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Home does not expose the IOI-reference prompt input.",
+      "Search for anything in Hypervisor",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-home-start-session="true"]',
     ) &&
     hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
@@ -1546,7 +1549,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Home should keep the visual prompt cockpit clean while the Core cockpit projection model retains receipt-backed harness comparison evidence through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Home should keep the visual application shell clean while the cockpit projection model retains receipt-backed harness comparison evidence through the runtime route with fixture fallback.",
 );
 assert(
   "hypervisor-session-operations-live-projection",

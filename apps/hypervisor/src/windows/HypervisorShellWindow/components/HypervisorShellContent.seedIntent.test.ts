@@ -311,25 +311,25 @@ assert.match(
 assert.match(
   homeViewSource,
   /data-home-dashboard-variant="ioi-reference-home"/,
-  "Home should default to the IOI reference prompt workplane",
+  "Home should default to the IOI reference application workplane",
 );
 
 assert.match(
   homeCss,
-  /Phase 0A hard cut: Home mirrors the IOI reference prompt surface[\s\S]*\.chat-home-zero--ioi-reference \.chat-home-zero-composer \{/,
-  "Home should expose the IOI reference prompt composer as the default workplane",
+  /\.chat-home-zero-actions\s*\{[\s\S]*\.chat-home-zero-app-grid\s*\{/,
+  "Home should expose the IOI reference application portal as the default workplane",
 );
 
 assert.match(
   homeViewSource,
-  /What do you want to get done today\?/,
-  "Home should match the IOI reference prompt-first home copy",
+  /Welcome back, Operator[\s\S]*Recommended applications[\s\S]*HOME_REFERENCE_APPS/,
+  "Home should match the IOI reference application-home copy",
 );
 
 assert.doesNotMatch(
   homeViewSource,
-  /HOME_REFERENCE_RECENT_SESSIONS|Recent Sessions|data-home-recent-session-status/,
-  "Home should not add a second recent-sessions list under the reference prompt composer",
+  /What do you want to get done today\?|chat-home-zero-prompt-stage|chat-home-zero-composer/,
+  "Home should not fall back to the prompt-first shell",
 );
 
 assert.match(
@@ -346,7 +346,7 @@ assert.match(
 
 assert.doesNotMatch(
   source,
-  /Configured workers, skills, memory, and capability leases|Configure workers|>Leases<|Hypervisor Daemon remains runtime truth|Daemon Owned|Proposal Source Only|Encrypted Agentgres refs|weights exposed/i,
+  /Configured workers, skills, memory, and capability leases|Configure workers|>Leases<|Hypervisor Daemon remains runtime truth|Daemon Owned|Proposal Source Only|AgentHarnessAdapter proposal source|Reference HarnessProfile scaffold|Encrypted Agentgres refs|weights exposed/i,
   "Application surfaces should not put daemon/runtime-truth doctrine into visible product copy",
 );
 
@@ -382,20 +382,20 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /Phase 0A hard cut: mirror the IOI reference console rail[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*width: 300px;/,
-  "The primary rail should use the IOI reference light 300px console shell",
+  /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*width: 300px;/,
+  "The primary rail should use the IOI reference light navigation shell",
 );
 
 assert.match(
   traceAndWelcomeCss,
   /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;/,
-  "Light theme should preserve the IOI reference console rail palette",
+  "Light content theme should preserve the IOI reference light rail palette",
 );
 
 assert.doesNotMatch(
   traceAndWelcomeCss,
   /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;/,
-  "Light theme must not restore the deprecated dark IDE rail",
+  "Light content theme must not restore the deprecated dark IDE rail",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");

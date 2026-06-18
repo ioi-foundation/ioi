@@ -14,14 +14,14 @@ const shellCss = readFileSync(
   "utf8",
 );
 
-test("Workbench landing is an adapter hub over Hypervisor Core", () => {
+test("Workbench landing is a product-facing adapter hub", () => {
   assert.match(gateSource, /data-workbench-adapter-hub="true"/);
   assert.match(gateSource, /<h1>Workbench<\/h1>/);
   assert.match(gateSource, /Adapter targets/);
   assert.match(gateSource, /Choose a governed adapter target/);
   assert.match(gateSource, /editors, terminals, browsers, VMs, and/);
-  assert.match(gateSource, /adapter targets over Hypervisor Core/);
-  assert.match(gateSource, /not the parent product or runtime truth/);
+  assert.match(gateSource, /interchangeable adapter targets/);
+  assert.match(gateSource, /Pick the surface/);
   assert.match(gateSource, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(gateSource, /getWorkbenchAdapterPreferenceRef/);
   assert.match(gateSource, /data-workbench-adapter-preference/);
@@ -30,7 +30,10 @@ test("Workbench landing is an adapter hub over Hypervisor Core", () => {
   assert.match(gateSource, /Adapter targets request scoped access/);
   assert.match(gateSource, /receipts stay governed by Hypervisor/);
   assert.doesNotMatch(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
-  assert.doesNotMatch(gateSource, /daemon gates|Agentgres|wallet\.network/);
+  assert.doesNotMatch(
+    gateSource,
+    /daemon gates|Agentgres|wallet\.network|Hypervisor Core|runtime truth/,
+  );
 });
 
 test("Workbench landing no longer opens as a code repository PR console", () => {

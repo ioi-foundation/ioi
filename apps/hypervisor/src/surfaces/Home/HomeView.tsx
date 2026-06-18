@@ -7,10 +7,19 @@ import {
   type ComponentType,
 } from "react";
 import {
-  ArrowUp,
-  CircleDashed,
+  Bot,
+  Boxes,
+  BrainCircuit,
+  ChevronRight,
+  Code2,
+  Database,
+  Folder,
+  GraduationCap,
+  Network,
+  Search,
   ShieldCheck,
   Sparkles,
+  Workflow,
 } from "lucide-react";
 import "./Home.css";
 import {
@@ -214,30 +223,118 @@ function completionPercent(
   );
 }
 
-const HOME_REFERENCE_PROMPTS: Array<{
+const HOME_REFERENCE_ACTIONS: Array<{
+  title: string;
+  description: string;
+  cta: string;
   label: string;
   icon: unknown;
-  action: "workspace" | "session";
+  action: "workspace" | "session" | "capabilities";
   seedIntent?: string;
 }> = [
   {
-    label: "Automate env setup",
-    icon: CircleDashed,
+    title: "Get started",
+    description:
+      "Open a governed workspace and speedrun your first autonomous workflow.",
+    cta: "Start speedrun",
+    label: "Start speedrun",
+    icon: GraduationCap,
     action: "workspace",
   },
   {
-    label: "Fix a bug",
-    icon: ShieldCheck,
+    title: "Install examples",
+    description:
+      "Load reference agents, automations, and workspace templates into this session.",
+    cta: "Install",
+    label: "Install examples",
+    icon: Boxes,
     action: "session",
     seedIntent:
-      "Open a governed Workbench session to find, reproduce, and fix a bug in this project.",
+      "Open a governed Hypervisor session with example agents, workflows, model mounts, policy, and receipts wired.",
   },
   {
-    label: "Boost your test coverage",
+    title: "Join Developer Community",
+    description:
+      "Connect capabilities, review examples, and bring external harnesses under policy.",
+    cta: "Join",
+    label: "Join developer community",
     icon: Sparkles,
-    action: "session",
+    action: "capabilities",
     seedIntent:
-      "Open a governed Workbench session to identify coverage gaps and add focused tests.",
+      "Open a governed agent session to configure capabilities, external harnesses, and receipts.",
+  },
+] as const;
+
+const HOME_REFERENCE_APPS: Array<{
+  label: string;
+  detail: string;
+  icon: unknown;
+  tone: "blue" | "teal" | "orange" | "purple" | "green";
+  surface:
+    | "workspace"
+    | "automations"
+    | "agents"
+    | "models"
+    | "foundry"
+    | "authority"
+    | "providers"
+    | "receipts";
+}> = [
+  {
+    label: "Projects & files",
+    detail: "Open workspace state",
+    icon: Folder,
+    tone: "blue",
+    surface: "workspace",
+  },
+  {
+    label: "Data Connection",
+    detail: "Connect private sources",
+    icon: Database,
+    tone: "orange",
+    surface: "providers",
+  },
+  {
+    label: "Pipeline Builder",
+    detail: "Compose workflow graphs",
+    icon: Workflow,
+    tone: "teal",
+    surface: "automations",
+  },
+  {
+    label: "Workbench",
+    detail: "Open editor adapters",
+    icon: Code2,
+    tone: "purple",
+    surface: "workspace",
+  },
+  {
+    label: "Agents",
+    detail: "Configure workers",
+    icon: Bot,
+    tone: "green",
+    surface: "agents",
+  },
+  {
+    label: "Models",
+    detail: "Mount model routes",
+    icon: BrainCircuit,
+    tone: "blue",
+    surface: "models",
+  },
+  {
+    label: "Authority",
+    detail: "Review policy",
+    icon: ShieldCheck,
+    tone: "purple",
+    surface: "authority",
+  },
+  {
+    label: "Receipts",
+    detail: "Inspect evidence",
+    icon: Network,
+    tone: "teal",
+    surface: "receipts",
   },
 ] as const;
 
@@ -274,14 +371,21 @@ function renderIcon(Icon: unknown, props: IconProps = {}) {
 }
 
 function HomeDashboardView({
+  currentProject,
+  projects,
   onOpenNewSession,
   onOpenWorkspace,
   onOpenModels,
+  onOpenCapabilities,
+  onOpenPolicy,
+  onOpenCommandPalette,
+  onOpenCockpitSurface,
+  onSelectProject,
 }: HomeDashboardViewProps) {
   const seedIntent =
     "Open a governed Hypervisor session for this workspace with editor, terminal, model mount, policy, and receipts wired.";
   const runPromptAction = (
-    prompt: (typeof HOME_REFERENCE_PROMPTS)[number],
+    prompt: (typeof HOME_REFERENCE_ACTIONS)[number],
   ) => {
     switch (prompt.action) {
       case "workspace":
@@ -293,88 +397,168 @@ function HomeDashboardView({
           recipeId: "ioi-reference-home",
         });
         return;
+      case "capabilities":
+        onOpenCapabilities();
+        return;
       default:
         return;
     }
   };
+  const openAppSurface = (surface: (typeof HOME_REFERENCE_APPS)[number]["surface"]) => {
+    switch (surface) {
+      case "workspace":
+        onOpenWorkspace();
+        return;
+      case "automations":
+      case "agents":
+      case "foundry":
+      case "providers":
+      case "receipts":
+        onOpenCockpitSurface(`surface:${surface}`);
+        return;
+      case "models":
+        onOpenModels();
+        return;
+      case "authority":
+        onOpenPolicy();
+        return;
+      default:
+        return;
+    }
+  };
+  const visibleProjects = projects.length > 0 ? projects : [currentProject];
 
   return (
     <section
-      className="chat-home-zero chat-home-zero--ioi-reference"
+      className="chat-home-zero chat-home-zero--ioi-enterprise"
       aria-label="Hypervisor home"
       data-home-dashboard-variant="ioi-reference-home"
     >
       <div className="chat-home-zero-shell">
-        <main className="chat-home-zero-prompt-stage">
-          <div className="chat-home-zero-prompt-mark" aria-hidden="true">
-            <span className="chat-home-zero-prompt-tick" />
-            <span className="chat-home-zero-prompt-logo" />
-            <span className="chat-home-zero-prompt-tick" />
+        <main className="chat-home-zero-hero">
+          <div className="chat-home-zero-title-row">
+            <span className="chat-home-zero-brand-mark" aria-hidden="true">
+              <span className="chat-home-zero-brand-mark__glyph" />
+            </span>
+            <h1>Welcome back, Operator</h1>
           </div>
-          <h1>What do you want to get done today?</h1>
 
-          <section className="chat-home-zero-composer" aria-label="New Hypervisor session">
-            <textarea
-              aria-label="Session intent"
-              placeholder="Describe your task or type / for commands"
-            />
-            <div className="chat-home-zero-composer-footer">
-              <button
-                type="button"
-                className="chat-home-zero-composer-select"
-                onClick={onOpenWorkspace}
-              >
-                {renderIcon(CircleDashed, { size: 16, strokeWidth: 1.7 })}
-                <span>Work in a project</span>
-                <span aria-hidden="true">⌄</span>
-              </button>
-              <div className="chat-home-zero-composer-controls">
+          <button
+            type="button"
+            className="chat-home-zero-search"
+            onClick={onOpenCommandPalette}
+            aria-label="Search Hypervisor"
+          >
+            {renderIcon(Search, { size: 18, strokeWidth: 1.8 })}
+            <span>Search for anything in Hypervisor</span>
+            <kbd>ctrl + J</kbd>
+          </button>
+
+          <section className="chat-home-zero-actions" aria-label="Get started">
+            {HOME_REFERENCE_ACTIONS.map((action) => (
+              <article key={action.title}>
+                <span className="chat-home-zero-action-icon" aria-hidden="true">
+                  {renderIcon(action.icon, { size: 22, strokeWidth: 1.7 })}
+                </span>
+                <div>
+                  <h2>{action.title}</h2>
+                  <p>{action.description}</p>
+                </div>
                 <button
                   type="button"
-                  className="chat-home-zero-composer-add-context"
-                  aria-label="Add context"
-                  onClick={onOpenWorkspace}
+                  data-home-start-session={action.action === "session" ? "true" : undefined}
+                  onClick={() => runPromptAction(action)}
                 >
-                  +
+                  <span>{action.cta}</span>
+                  {renderIcon(ChevronRight, { size: 15, strokeWidth: 1.9 })}
                 </button>
-                <button
-                  type="button"
-                  className="chat-home-zero-composer-model"
-                  onClick={onOpenModels}
-                >
-                  <span>5.5 Medium</span>
-                  <span aria-hidden="true">⌄</span>
-                </button>
-                <button
-                  type="button"
-                  className="chat-home-zero-composer-submit"
-                  aria-label="Start session"
-                  onClick={() =>
-                    onOpenNewSession({
-                      seedIntent,
-                      recipeId: "ioi-reference-home",
-                    })
-                  }
-                >
-                  {renderIcon(ArrowUp, { size: 20, strokeWidth: 2 })}
+              </article>
+            ))}
+          </section>
+        </main>
+
+        <div className="chat-home-zero-body">
+          <main className="chat-home-zero-main" aria-label="Recent work">
+            <section>
+              <div className="chat-home-zero-section-heading">
+                <h2>Recent</h2>
+                <div className="chat-home-zero-filter" aria-label="Recent filters">
+                  <button type="button" className="is-active">
+                    Files
+                  </button>
+                  <button type="button">Projects</button>
+                </div>
+              </div>
+              <div className="chat-home-zero-table">
+                <div className="chat-home-zero-table-head">
+                  <span>File name</span>
+                  <span>Last updated</span>
+                </div>
+                <div className="chat-home-zero-project-rows">
+                  {visibleProjects.slice(0, 4).map((project) => (
+                    <button
+                      type="button"
+                      key={project.id}
+                      className={project.id === currentProject.id ? "is-active" : ""}
+                      onClick={() => {
+                        onSelectProject(project.id);
+                        onOpenWorkspace();
+                      }}
+                    >
+                      <span>
+                        <strong>{project.name || "Current workspace"}</strong>
+                        <em>{project.rootPath || project.description}</em>
+                      </span>
+                      <span>about 10 hours ago</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <aside className="chat-home-zero-sidebar" aria-label="Recommended applications">
+            <section className="chat-home-zero-side-card">
+              <div className="chat-home-zero-side-header">
+                <h2>Recommended applications</h2>
+                <button type="button" onClick={() => onOpenCockpitSurface("surface:applications")}>
+                  View all
                 </button>
               </div>
-            </div>
-          </section>
+              <div className="chat-home-zero-app-grid">
+                {HOME_REFERENCE_APPS.map((app) => (
+                  <button
+                    type="button"
+                    key={app.label}
+                    className={`chat-home-zero-app chat-home-zero-app--${app.tone}`}
+                    onClick={() => openAppSurface(app.surface)}
+                  >
+                    <span aria-hidden="true">
+                      {renderIcon(app.icon, { size: 24, strokeWidth: 1.7 })}
+                    </span>
+                    <strong>{app.label}</strong>
+                    <em>{app.detail}</em>
+                  </button>
+                ))}
+              </div>
+              <p>
+                Favorite applications will appear here once selected. Pin the
+                surfaces you use most from the applications portal.
+              </p>
+            </section>
 
-          <div className="chat-home-zero-prompt-chips" aria-label="Suggested prompts">
-            {HOME_REFERENCE_PROMPTS.map((prompt) => (
-              <button
-                type="button"
-                key={prompt.label}
-                onClick={() => runPromptAction(prompt)}
-              >
-                {renderIcon(prompt.icon, { size: 16, strokeWidth: 1.8 })}
-                <span>{prompt.label}</span>
+            <section className="chat-home-zero-side-card chat-home-zero-side-card--support">
+              <h2>Get in touch</h2>
+              <p>
+                Need a session template, provider lane, or agent capability
+                reviewed for this workspace?
+              </p>
+              <button type="button" onClick={() => onOpenNewSession({ seedIntent })}>
+                Open a governed session
               </button>
-            ))}
-          </div>
-        </main>
+            </section>
+          </aside>
+        </div>
       </div>
     </section>
   );

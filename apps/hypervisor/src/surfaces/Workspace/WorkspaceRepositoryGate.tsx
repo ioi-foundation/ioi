@@ -549,8 +549,8 @@ export function WorkspaceRepositoryGate({
                 <h2>Choose a governed adapter target</h2>
                 <p>
                   The Workbench opens editors, terminals, browsers, VMs, and
-                  nodes as adapter targets over Hypervisor Core. The Electron
-                  host is one target, not the parent product or runtime truth.
+                  nodes as interchangeable adapter targets. Pick the surface
+                  you want to use for this workspace.
                 </p>
                 <div
                   className="workspace-repository-gate__category-grid"

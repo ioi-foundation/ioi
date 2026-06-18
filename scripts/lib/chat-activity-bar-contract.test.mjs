@@ -22,7 +22,7 @@ const traceAndWelcomeCss = readFileSync(
 test("activity bar owns sidebar brand and can collapse without losing surface ids", () => {
   assert.match(activityBar, /CHAT_ACTIVITY_BAR_COLLAPSED_KEY/);
   assert.match(activityBar, /profile: AssistantUserProfile;/);
-  assert.match(activityBar, /stored === null \? true : stored === "true"/);
+  assert.match(activityBar, /return stored === "true";/);
   assert.match(
     activityBar,
     /className=\{`chat-activity-bar \$\{collapsed \? "is-collapsed" : ""\}`\}/,
@@ -33,25 +33,17 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
     /className="chat-activity-brand-row"[\s\S]*<ChatLogoIcon \/>/,
   );
   assert.match(activityBar, /className="chat-activity-collapse-button"/);
-  assert.match(
-    activityBar,
-    /<path d="M7 4h6" \/>[\s\S]*<path d="m2\.5 5\.5 2\.5 2\.5-2\.5 2\.5" \/>/,
-  );
-  assert.match(
-    activityBar,
-    /<path d="M6 4h7" \/>[\s\S]*<path d="m3\.5 5\.5-2\.5 2\.5 2\.5 2\.5" \/>/,
-  );
+  assert.match(activityBar, /function CollapseIcon\(\{ collapsed \}/);
+  assert.match(activityBar, /collapsed\s*\?/);
   assert.match(activityBar, /onOpenCommandPalette: \(\) => void;/);
-  assert.match(activityBar, /data-window-surface="search"/);
+  assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
+  assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);
   assert.match(
     activityBar,
     /const activateRoute = \(route: OperatorSurfaceRoute\)/,
   );
   assert.match(activityBar, /route\.kind === "command-palette"/);
-  assert.match(
-    activityBar,
-    /<SearchButton onClick=\{\(\) => activateRoute\(searchItem\.route\)\} \/>/,
-  );
+  assert.match(activityBar, /topReferenceNavItems\.map/);
   assert.match(activityBar, /data-window-surface=\{item\.dataWindowSurface\}/);
   assert.match(
     activityBar,
@@ -61,14 +53,15 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   assert.doesNotMatch(activityBar, /currentProject\.name/);
 });
 
-test("only the search rail item displays a keyboard shortcut", () => {
-  assert.match(activityBar, /chatCommandPaletteShortcutLabel/);
+test("only the primary rail action displays keyboard shortcut pills", () => {
   assert.equal(
     activityBar.match(/className="chat-activity-button-shortcut"/g)?.length,
-    1,
+    2,
   );
   assert.doesNotMatch(activityBar, /title=\{`\$\{item\.label\}/);
   assert.match(activityBar, /: item\.label/);
+  assert.match(activityBar, /<span className="chat-activity-button-shortcut">Ctrl<\/span>/);
+  assert.match(activityBar, /<span className="chat-activity-button-shortcut">O<\/span>/);
 });
 
 test("old client header leading block is removed so the rail is the single sidebar identity", () => {
@@ -83,8 +76,9 @@ test("old client header leading block is removed so the rail is the single sideb
 });
 
 test("activity bar styling matches the themeable collapsible rail contract", () => {
-  assert.match(shellBaseCss, /\.chat-activity-bar\s*\{[\s\S]*width: 230px;/);
-  assert.match(shellBaseCss, /--chat-activity-bg: #181818;/);
+  assert.match(shellBaseCss, /\.chat-activity-bar\s*\{[\s\S]*width: 300px;/);
+  assert.match(shellBaseCss, /--chat-activity-bg: #f7f7f6;/);
+  assert.doesNotMatch(shellBaseCss, /--chat-activity-bg: #17191f;/);
   assert.match(shellBaseCss, /background: var\(--chat-activity-bg\);/);
   assert.match(
     shellBaseCss,
@@ -96,17 +90,11 @@ test("activity bar styling matches the themeable collapsible rail contract", () 
   );
   assert.match(
     shellBaseCss,
-    /\.chat-activity-brand-row\s*\{[\s\S]*min-height: 48px;/,
+    /\.chat-activity-brand-row\s*\{[\s\S]*min-height: 52px;/,
   );
   assert.match(shellBaseCss, /\.chat-activity-group\s*\{[\s\S]*border-bottom:/);
-  assert.match(
-    shellBaseCss,
-    /\.chat-activity-button::before\s*\{[\s\S]*background: transparent;/,
-  );
-  assert.match(
-    shellBaseCss,
-    /\.chat-activity-button\.is-active::before\s*\{\s*background: var\(--chat-accent\);/,
-  );
+  assert.match(shellBaseCss, /\.chat-activity-button::before\s*\{[\s\S]*display: none;/);
+  assert.match(shellBaseCss, /\.chat-activity-button\.is-active\s*\{[\s\S]*box-shadow: none;/);
   assert.match(
     shellBaseCss,
     /\.chat-activity-button-label\s*\{[\s\S]*text-overflow: ellipsis;/,
@@ -127,13 +115,13 @@ test("activity bar styling matches the themeable collapsible rail contract", () 
   );
 });
 
-test("light workbench mode restores the old theme-inherited activity rail colors", () => {
+test("light workbench mode preserves the IOI reference light rail colors", () => {
   assert.doesNotMatch(
     traceAndWelcomeCss,
     /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-button,/,
   );
   assert.match(
     traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #f3f3f3;[\s\S]*--chat-activity-text: #424242;/,
+    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*--chat-activity-text: #4e5967;/,
   );
 });

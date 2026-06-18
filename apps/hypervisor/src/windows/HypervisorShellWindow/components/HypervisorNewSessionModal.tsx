@@ -442,8 +442,8 @@ export function HypervisorNewSessionModal({
               <strong>{selectedHarness.label}</strong>
               <span>
                 {isAgentHarnessAdapterOption(selectedHarness)
-                  ? "AgentHarnessAdapter proposal source"
-                  : "Reference HarnessProfile scaffold"}
+                  ? "External agent interface"
+                  : "Built-in session profile"}
               </span>
               <p>{harnessVerdict.summary}</p>
               {harnessVerdict.privacyWarning ? (

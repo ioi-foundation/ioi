@@ -600,7 +600,7 @@ interface MountsWorkbenchData {
 const READY_GUARD: ActionGuard = {
   tone: "ready",
   label: "ready",
-  reason: "Action is available through the governed daemon path.",
+  reason: "Action is available through the governed runtime path.",
   disabled: false,
 };
 
@@ -1726,10 +1726,10 @@ function combineGuards(...guards: Array<ActionGuard | null | undefined>) {
 }
 
 function connectionActionGuard(state: ConnectionState, action = "action") {
-  if (state === "connected") return guardReady("daemon ready", `${action} can reach the runtime daemon.`);
-  if (state === "loading") return guardWarn("loading", "Daemon snapshot is loading; wait for the current refresh before running this action.", true);
-  if (state === "degraded") return guardWarn("degraded", "Daemon snapshot is degraded; this action may fail until the endpoint refreshes.");
-  return guardBlocked("daemon offline", "Daemon is disconnected, so governed action calls are blocked.");
+  if (state === "connected") return guardReady("runtime ready", `${action} can reach the runtime service.`);
+  if (state === "loading") return guardWarn("loading", "Runtime snapshot is loading; wait for the current refresh before running this action.", true);
+  if (state === "degraded") return guardWarn("degraded", "Runtime snapshot is degraded; this action may fail until the endpoint refreshes.");
+  return guardBlocked("runtime offline", "Runtime service is disconnected, so governed action calls are blocked.");
 }
 
 function scopeMatches(pattern: string, scope: string) {
@@ -1749,7 +1749,7 @@ function tokenScopeGuard(data: MountsWorkbenchData, hasSessionToken: boolean, sc
   const expiredOrRevoked = data.tokens.length > 0 && activeTokens.length === 0 && data.tokens.some((token) => tokenExpired(token) || token.state === "revoked");
   const denied = activeTokens.find((token) => token.denied.some((pattern) => scopeMatches(pattern, scope)));
   if (denied) {
-    return guardBlocked("denied scope", `${denied.id} denies ${scope}; the daemon will reject this action.`);
+    return guardBlocked("denied scope", `${denied.id} denies ${scope}; policy will reject this action.`);
   }
   const allowed = activeTokens.find((token) => token.allowed.some((pattern) => scopeMatches(pattern, scope)));
   if (hasSessionToken && allowed) return guardReady("token ready", `${scope} is allowed by ${allowed.id}.`);
@@ -2150,12 +2150,12 @@ function useModelMountsDaemon() {
       const nextCatalogVariants = normalizeCatalogVariants(snapshot?.catalog?.results);
       setCatalogVariants((current) => (nextCatalogVariants.length > 0 ? nextCatalogVariants : current));
       setConnectionState("connected");
-      setMessage("Daemon snapshot loaded.");
+      setMessage("Runtime snapshot loaded.");
     } catch (error) {
       setData(fallbackData);
       setCatalogVariants((current) => (current.length > 0 ? current : fallbackCatalogVariants));
       setConnectionState("degraded");
-      setMessage(error instanceof Error ? error.message : "Daemon snapshot unavailable.");
+      setMessage(error instanceof Error ? error.message : "Runtime snapshot unavailable.");
     }
   }, [endpoint, requestJson]);
 
@@ -2212,7 +2212,7 @@ function useModelMountsDaemon() {
       },
     });
     if (typeof grant?.token !== "string") {
-      throw new Error("Daemon did not return an ephemeral token.");
+      throw new Error("Runtime service did not return an ephemeral token.");
     }
     setSessionToken(grant.token);
     return grant.token;
@@ -2300,7 +2300,7 @@ function useModelMountsDaemon() {
             body: tokenDraftPayload(draft),
           });
           if (typeof grant?.token !== "string") {
-            throw new Error("Daemon did not return an ephemeral token.");
+            throw new Error("Runtime service did not return an ephemeral token.");
           }
           setSessionToken(grant.token);
           const tokenId = stringValue(grant?.id, stringValue(grant?.public?.id, "capability grant"));
@@ -2887,7 +2887,7 @@ function useModelMountsDaemon() {
               input: { query: "workflow model mount probe" },
             },
           });
-          return "Workflow router, model call, embedding, and MCP nodes executed through the daemon contract.";
+          return "Workflow router, model call, embedding, and MCP nodes executed through the runtime contract.";
         }),
       receiptGatePassProbe: () =>
         runAction("receipt-gate-pass", async () => {
@@ -3397,7 +3397,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.baseUrl, "not configured"),
       providerAuthPreview(item),
       stringArray(item.capabilities),
-      stringArray(item.discovery?.evidenceRefs).join(", ") || "daemon provider profile",
+      stringArray(item.discovery?.evidenceRefs).join(", ") || "provider profile",
       providerAuthSchemeForUi(item?.authScheme),
       stringValue(item?.authHeaderName, "authorization"),
       providerVaultState(item),
@@ -3646,7 +3646,7 @@ function errorMessage(value: unknown, routePath: string) {
     const error = (value as { error?: { message?: unknown } }).error;
     if (typeof error?.message === "string") return error.message;
   }
-  return `Daemon request failed for ${routePath}.`;
+  return `Runtime request failed for ${routePath}.`;
 }
 
 function providerAuthPreview(item: any) {
@@ -4255,7 +4255,7 @@ function ModelPickerStrip({
 
       {compact ? null : (
         <div className="model-mounts-action-readiness" aria-label="Action readiness states">
-          <GuardFact label="Daemon" guard={connectionActionGuard(connectionState, "Mounts action")} />
+          <GuardFact label="Runtime" guard={connectionActionGuard(connectionState, "Mounts action")} />
           <GuardFact label="Token" guard={tokenGuard} />
           <GuardFact label="Endpoint" guard={endpointReadiness} />
           <GuardFact label="Route policy" guard={routeReadiness} />
@@ -4479,7 +4479,7 @@ function ServerPanel({
 
       <div className="model-mounts-control-row">
         <label>
-          <span>Daemon endpoint</span>
+          <span>Runtime endpoint</span>
           <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} spellCheck={false} />
         </label>
         <div className="model-mounts-actions">
@@ -4694,7 +4694,7 @@ function BackendsPanel({
   );
   const backendLogsGuard = combineGuards(
     connectionActionGuard(connectionState, "backend logs"),
-    nativeBackend ? guardReady("backend selected", `${nativeBackend.label} logs can be read through the daemon.`) : guardBlocked("backend missing", "No native backend is selected."),
+    nativeBackend ? guardReady("backend selected", `${nativeBackend.label} logs can be read through the runtime service.`) : guardBlocked("backend missing", "No native backend is selected."),
   );
   const runtimeSurveyGuard = connectionActionGuard(connectionState, "runtime survey");
   const runtimeUpdateGuard = connectionActionGuard(connectionState, "runtime profile");
@@ -5214,16 +5214,16 @@ function DownloadsPanel({
 	  const catalogConfigGuard = combineGuards(
     connectionActionGuard(connectionState, "provider.write:*"),
     tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
-    selectedConfigProvider ? guardReady("provider selected", "Catalog provider setup can be saved through the daemon.") : guardBlocked("provider missing", "Select a configurable catalog provider."),
+    selectedConfigProvider ? guardReady("provider selected", "Catalog provider setup can be saved through the runtime service.") : guardBlocked("provider missing", "Select a configurable catalog provider."),
 	    !configDraft.enabled
 	      ? guardReady("disabled", "Provider disablement can be saved without binding runtime material.")
 	      : configDraft.providerId === "catalog.local_manifest"
 	        ? configDraft.manifestPath.trim()
-	          ? guardReady("manifest path ready", "Manifest path is vault-backed through daemon source material; projections show only hashes.")
+	          ? guardReady("manifest path ready", "Manifest path is vault-backed through runtime source material; projections show only hashes.")
 	          : guardBlocked("manifest path missing", "Enter a manifest path for the local manifest catalog.")
 	      : configDraft.providerId === "catalog.custom_http"
 	        ? configDraft.baseUrl.trim()
-	          ? guardReady("base URL ready", "Custom catalog base URL is vault-backed through daemon source material; projections show only hashes.")
+	          ? guardReady("base URL ready", "Custom catalog base URL is vault-backed through runtime source material; projections show only hashes.")
 	          : guardBlocked("base URL missing", "Enter a base URL for the custom HTTP catalog.")
 	        : guardReady("live catalog auth ready", "Live catalog auth can be saved with a vault ref and hashed header metadata."),
 	  );
@@ -5243,7 +5243,7 @@ function DownloadsPanel({
     connectionActionGuard(connectionState, "catalog OAuth callback"),
     tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
     tokenScopeGuard(data, hasSessionToken, "vault.write:*"),
-    activeOAuthAuthorization ? guardReady("state pending", "The pending authorization state id will be sent with the callback.") : guardWarn("state by hash", "No transient state id is active; daemon will match by provider and callback state hash."),
+    activeOAuthAuthorization ? guardReady("state pending", "The pending authorization state id will be sent with the callback.") : guardWarn("state by hash", "No transient state id is active; runtime service will match by provider and callback state hash."),
     parsedOAuthCallback.code ? guardReady("code ready", "Authorization code will be exchanged through the vault-backed OAuth provider.") : guardBlocked("code missing", "Paste a callback URL or authorization code."),
     parsedOAuthCallback.state ? guardReady("state ready", "Callback state will be validated against the vault-bound state material.") : guardBlocked("state missing", "Paste a callback URL or callback state."),
   );
@@ -5275,7 +5275,7 @@ function DownloadsPanel({
       const cancelArmed = cancelConfirmId === download.id;
       const cancelGuard = combineGuards(
         downloadGuard,
-        canCancel ? guardReady("cancelable", "Queued and running jobs can be canceled through the daemon lifecycle endpoint.") : guardBlocked("not cancelable", "Only queued or running jobs can be canceled."),
+        canCancel ? guardReady("cancelable", "Queued and running jobs can be canceled through the runtime lifecycle endpoint.") : guardBlocked("not cancelable", "Only queued or running jobs can be canceled."),
         cancelArmed ? guardReady("cleanup confirmed", "Partial download cleanup has been explicitly confirmed.") : guardWarn("arm cancel", "Arm cancel first to confirm partial download cleanup."),
       );
       const retryGuard = combineGuards(
@@ -6099,7 +6099,7 @@ function TokensPanel({
           <h4>Capability tokens</h4>
           <div className="model-mounts-list">
             {data.tokens.length === 0 ? (
-              <p className="model-mounts-empty">No token grants returned by the daemon.</p>
+              <p className="model-mounts-empty">No token grants returned by the runtime service.</p>
             ) : (
               data.tokens.map((token) => (
                 <article key={token.id} className="model-mounts-token">
@@ -6202,7 +6202,7 @@ function TokensPanel({
           <h4>Vault refs</h4>
           <div className="model-mounts-list">
             {data.vaultRefs.length === 0 ? (
-              <p className="model-mounts-empty">No vault ref metadata returned by the daemon.</p>
+              <p className="model-mounts-empty">No vault ref metadata returned by the runtime service.</p>
             ) : (
               data.vaultRefs.map((vaultRef) => (
                 <article key={vaultRef.hash} className="model-mounts-token">

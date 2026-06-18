@@ -166,7 +166,7 @@ async function main() {
       );
       throw new Error(
         [
-          "Hypervisor Home reference prompt shell did not become visible.",
+          "Hypervisor Home reference application shell did not become visible.",
           `root_text=${JSON.stringify(rootText.slice(0, 600))}`,
           `console=${JSON.stringify(consoleMessages.slice(-10))}`,
           error instanceof Error ? error.message : String(error),
@@ -175,21 +175,22 @@ async function main() {
     }
     const bodyText = await page.locator("body").innerText();
     assert(
-      bodyText.includes("What do you want to get done today?"),
-      "Home does not expose the IOI-reference intent composer.",
+      bodyText.includes("Welcome back, Operator"),
+      "Home does not expose the IOI-reference application shell.",
     );
-    const homePromptPlaceholder = await page
-      .locator('textarea[aria-label="Session intent"]')
-      .getAttribute("placeholder");
     assert(
-      homePromptPlaceholder === "Describe your task or type / for commands",
-      "Home does not expose the IOI-reference prompt input.",
+      bodyText.includes("Recommended applications"),
+      "Home does not expose the IOI-reference applications panel.",
+    );
+    assert(
+      bodyText.includes("Search for anything in Hypervisor"),
+      "Home does not expose the IOI-reference command search.",
     );
     assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
 
     const seededIntent =
-      "Open a governed Workbench session to find, reproduce, and fix a bug in this project.";
-    await page.locator('button:has-text("Fix a bug")').click();
+      "Open a governed Hypervisor session with example agents, workflows, model mounts, policy, and receipts wired.";
+    await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
     const summarySeedIntent = await page
@@ -303,9 +304,9 @@ async function main() {
       ok: true,
       url,
       checks: [
-        "home_reference_prompt_shell_rendered",
+        "home_reference_application_shell_rendered",
         "home_seed_intent_reaches_new_session",
-        "home_reference_prompt_reaches_new_session",
+        "home_reference_application_action_reaches_new_session",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
