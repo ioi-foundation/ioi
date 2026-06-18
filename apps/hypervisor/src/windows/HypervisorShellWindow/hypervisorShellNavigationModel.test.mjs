@@ -365,13 +365,26 @@ test("new session modal is a shell-level governed launch flow", () => {
   );
   assert.match(newSessionModal, /hypervisor-new-session-modal__body--compact/);
   assert.match(newSessionModal, /compactLaunchChoices/);
-  assert.match(newSessionModal, /Start from project/);
-  assert.match(newSessionModal, /Start from URL/);
-  assert.match(newSessionModal, /Start from scratch/);
+  assert.match(newSessionModal, /HYPERVISOR_SESSION_LAUNCH_RECIPES\.map/);
+  assert.match(newSessionModal, /launchRecipeTone/);
+  assert.match(newSessionModal, /data-new-session-recipe-count/);
+  assert.match(newSessionModal, /<span>Launch type<\/span>/);
+  assert.match(newSessionModal, /data-new-session-start-selected="true"/);
   assert.match(
     newSessionModal,
     /data-new-session-recipe=\{choice\.recipe_id\}/,
   );
+  for (const recipeId of [
+    "mission.default",
+    "workbench.default",
+    "agent.default",
+    "automation.default",
+    "foundry.eval",
+    "environment.provider",
+    "privacy.workspace",
+  ]) {
+    assert.match(source, new RegExp(recipeId.replace(".", "\\.")));
+  }
   assert.match(newSessionModal, /data-new-session-seed-intent/);
   assert.match(newSessionModal, /launch_summary: nextLaunchSummary/);
   assert.match(newSessionModal, /data-new-session-launch-summary/);

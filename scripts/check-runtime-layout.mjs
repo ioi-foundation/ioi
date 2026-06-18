@@ -1731,9 +1731,23 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-launch-cockpit",
     ) &&
+    hypervisorNewSessionModalSource.includes(
+      "HYPERVISOR_SESSION_LAUNCH_RECIPES.map",
+    ) &&
+    hypervisorNewSessionModalSource.includes("launchRecipeTone") &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-recipe-count",
+    ) &&
+    hypervisorNewSessionModalSource.includes("<span>Launch type</span>") &&
     hypervisorNewSessionModalSource.includes("data-new-session-recipe") &&
     hypervisorNewSessionModalSource.includes(
-      "onClick={() => onLaunch(buildLaunchRequest(launchRecipe))}",
+      "void onLaunch(buildLaunchRequest(launchRecipe))",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-start-selected",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "void onLaunch(buildLaunchRequest(recipe))",
     ) &&
     hypervisorShellControllerSource.includes(
       "const summary = request.launch_summary",

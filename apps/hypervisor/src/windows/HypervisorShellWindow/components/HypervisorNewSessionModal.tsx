@@ -10,6 +10,7 @@ import {
   getCodeEditorAdapterPreferenceByRef,
   getCodeEditorAdapterPreferenceRef,
   type HypervisorNewSessionLaunchRequest,
+  type HypervisorSessionLaunchRecipe,
 } from "../hypervisorShellNavigationModel";
 import {
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
@@ -108,6 +109,10 @@ function initialRecipeSelectionRef(initialRecipeId: string | null | undefined): 
     return initialRecipeId;
   }
   return HYPERVISOR_SESSION_LAUNCH_RECIPES[0]?.recipe_id ?? "mission.default";
+}
+
+function launchRecipeTone(recipe: HypervisorSessionLaunchRecipe): string {
+  return recipe.kind.replace(/_/g, "-");
 }
 
 export function HypervisorNewSessionModal({
@@ -273,26 +278,14 @@ export function HypervisorNewSessionModal({
       launch_summary: nextLaunchSummary,
     };
   };
-  const compactLaunchChoices = [
-    {
-      label: "Start from project",
-      description: selectedProject.name,
-      recipe_id: "workbench.default",
-      tone: "project",
-    },
-    {
-      label: "Start from URL",
-      description: "Attach a repository, issue, doc, or remote environment.",
-      recipe_id: "environment.provider",
-      tone: "url",
-    },
-    {
-      label: "Start from scratch",
-      description: "Open a blank governed mission.",
-      recipe_id: "mission.default",
-      tone: "scratch",
-    },
-  ];
+  const compactLaunchChoices = HYPERVISOR_SESSION_LAUNCH_RECIPES.map(
+    (launchRecipe) => ({
+      label: launchRecipe.label,
+      description: launchRecipe.description,
+      recipe_id: launchRecipe.recipe_id,
+      tone: launchRecipeTone(launchRecipe),
+    }),
+  );
 
   if (!isOpen) {
     return null;
@@ -379,6 +372,7 @@ export function HypervisorNewSessionModal({
             data-new-session-requires-daemon-gate={String(
               launchSummary.requires_daemon_gate,
             )}
+            data-new-session-recipe-count={compactLaunchChoices.length}
           >
             {compactLaunchChoices.map((choice) => {
               const launchRecipe =
@@ -390,9 +384,16 @@ export function HypervisorNewSessionModal({
                   type="button"
                   key={choice.label}
                   data-new-session-recipe={choice.recipe_id}
-                  className={`hypervisor-new-session-modal__compact-choice hypervisor-new-session-modal__compact-choice--${choice.tone}`}
+                  className={[
+                    "hypervisor-new-session-modal__compact-choice",
+                    `hypervisor-new-session-modal__compact-choice--${choice.tone}`,
+                    recipe.recipe_id === choice.recipe_id ? "is-selected" : "",
+                  ].join(" ")}
                   disabled={launchBlockedByHarnessVerdict}
-                  onClick={() => onLaunch(buildLaunchRequest(launchRecipe))}
+                  onClick={() => {
+                    setRecipeId(launchRecipe.recipe_id);
+                    void onLaunch(buildLaunchRequest(launchRecipe));
+                  }}
                 >
                   <span aria-hidden="true" />
                   <strong>{choice.label}</strong>
@@ -408,6 +409,20 @@ export function HypervisorNewSessionModal({
             aria-label="Session launch governance"
             data-new-session-governance="harness-model-privacy"
           >
+            <label>
+              <span>Launch type</span>
+              <select
+                value={recipe.recipe_id}
+                onChange={(event) => setRecipeId(event.currentTarget.value)}
+              >
+                {HYPERVISOR_SESSION_LAUNCH_RECIPES.map((launchRecipe) => (
+                  <option key={launchRecipe.recipe_id} value={launchRecipe.recipe_id}>
+                    {launchRecipe.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label>
               <span>Project</span>
               <select
@@ -487,6 +502,14 @@ export function HypervisorNewSessionModal({
               {harnessVerdict.privacyWarning ? (
                 <em>{harnessVerdict.privacyWarning}</em>
               ) : null}
+              <button
+                type="button"
+                data-new-session-start-selected="true"
+                disabled={launchBlockedByHarnessVerdict}
+                onClick={() => void onLaunch(buildLaunchRequest(recipe))}
+              >
+                Start selected session
+              </button>
             </div>
           </section>
         </div>

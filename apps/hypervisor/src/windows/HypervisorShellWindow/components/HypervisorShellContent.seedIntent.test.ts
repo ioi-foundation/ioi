@@ -302,13 +302,13 @@ assert.match(
 
 assert.match(
   newSessionModalSource,
-  /data-new-session-governance="harness-model-privacy"[\s\S]*setHarnessSelectionRef\(event\.currentTarget\.value\)[\s\S]*setModelRouteRef\(event\.currentTarget\.value\)[\s\S]*setPrivacyPostureRef\(event\.currentTarget\.value\)[\s\S]*data-new-session-harness-verdict-card=\{harnessVerdict\.state\}/,
-  "New Session should expose the governed harness/model/privacy testbed selectors and verdict before launch",
+  /data-new-session-governance="harness-model-privacy"[\s\S]*<span>Launch type<\/span>[\s\S]*setRecipeId\(event\.currentTarget\.value\)[\s\S]*setHarnessSelectionRef\(event\.currentTarget\.value\)[\s\S]*setModelRouteRef\(event\.currentTarget\.value\)[\s\S]*setPrivacyPostureRef\(event\.currentTarget\.value\)[\s\S]*data-new-session-harness-verdict-card=\{harnessVerdict\.state\}/,
+  "New Session should expose the governed recipe/harness/model/privacy testbed selectors and verdict before launch",
 );
 
 assert.match(
   shellCss,
-  /\.hypervisor-new-session-modal__governance\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*\.hypervisor-new-session-modal__verdict\[data-new-session-harness-verdict-card="blocked"\]/,
+  /\.hypervisor-new-session-modal__governance\s*\{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*\.hypervisor-new-session-modal__verdict\[data-new-session-harness-verdict-card="blocked"\]/,
   "New Session governance controls should be visible and warn on blocked harness/privacy combinations",
 );
 
