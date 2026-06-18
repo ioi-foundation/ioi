@@ -303,20 +303,14 @@ assert.match(
 
 assert.doesNotMatch(
   homeViewSource,
-  /Recent Sessions|chat-home-zero-recent/,
-  "Home should keep recent session navigation in the left rail instead of duplicating it in the main prompt stage",
-);
-
-assert.doesNotMatch(
-  homeViewSource,
   /Welcome back, Operator|Recommended applications|HOME_REFERENCE_APPS|HOME_REFERENCE_ACTIONS|HOME_REFERENCE_SURFACES|Sessions and workspaces/,
   "Home should stay prompt-first instead of becoming an application-card portal",
 );
 
 assert.match(
   homeViewSource,
-  /What do you want to get done today\?|chat-home-zero-prompt-stage|chat-home-zero-composer/,
-  "Home should keep the prompt-first session launcher",
+  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*data-home-recent-sessions="ioi-reference"/,
+  "Home should keep the prompt-first session launcher with the IOI-reference recent-session list",
 );
 
 assert.match(

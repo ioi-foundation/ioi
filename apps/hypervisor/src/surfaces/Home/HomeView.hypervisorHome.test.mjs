@@ -25,8 +25,10 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /className="chat-home-zero-prompt-stage"/);
   assert.match(homeView, /className="chat-home-zero-composer"/);
   assert.match(homeView, /className="chat-home-zero-quickstarts"/);
-  assert.doesNotMatch(homeView, /Recent Sessions/);
-  assert.doesNotMatch(homeView, /chat-home-zero-recent/);
+  assert.match(homeView, /HOME_RECENT_SESSIONS/);
+  assert.match(homeView, /Recent Sessions/);
+  assert.match(homeView, /data-home-recent-sessions="ioi-reference"/);
+  assert.match(homeView, /chat-home-zero-recent-row/);
   assert.match(homeView, /HOME_AGENT_PROMPTS/);
   assert.match(homeView, /data-home-intent-composer="ioi-reference"/);
   assert.match(homeView, /data-home-agent-prompt/);
@@ -109,7 +111,9 @@ test("home dashboard launches governed sessions from the reference prompt", () =
   assert.match(homeCss, /\.chat-home-zero-prompt-stage \{/);
   assert.match(homeCss, /\.chat-home-zero-composer \{/);
   assert.match(homeCss, /\.chat-home-zero-quickstarts \{/);
-  assert.doesNotMatch(homeCss, /\.chat-home-zero-recent \{/);
+  assert.match(homeCss, /\.chat-home-zero-recent\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-recent-row\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-recent-row\[data-home-recent-session-status="active"\]/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-actions \{/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-app-grid \{/);
 });

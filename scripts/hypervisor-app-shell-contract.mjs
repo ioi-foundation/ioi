@@ -142,8 +142,13 @@ async function main() {
       "Home does not expose the reference prompt composer.",
     );
     assert(
-      !bodyText.includes("Recent Sessions"),
-      "Home should keep session history out of the primary prompt cockpit.",
+      bodyText.includes("Recent Sessions"),
+      "Home does not expose the IOI-reference recent session list.",
+    );
+    assert(
+      (await page.locator('[data-home-recent-sessions="ioi-reference"]').count()) ===
+        1,
+      "Home recent sessions list is not bound to the IOI-reference marker.",
     );
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";

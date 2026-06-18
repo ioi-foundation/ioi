@@ -53,6 +53,24 @@ const HOME_AGENT_PROMPTS = [
   },
 ] as const;
 
+const HOME_RECENT_SESSIONS = [
+  {
+    title: "Write Parent Harness Evidence Boundary Doc",
+    timestamp: "6h ago",
+    status: "active",
+  },
+  {
+    title: "Write Harness Tool Call Documentation",
+    timestamp: "6h ago",
+    status: "idle",
+  },
+  {
+    title: "Design Postquantum Computers Website",
+    timestamp: "6h ago",
+    status: "idle",
+  },
+] as const;
+
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
@@ -153,6 +171,31 @@ function HomeDashboardView({
               </button>
             ))}
           </div>
+
+          <section
+            className="chat-home-zero-recent"
+            aria-label="Recent Sessions"
+            data-home-recent-sessions="ioi-reference"
+          >
+            <h2>Recent Sessions</h2>
+            <div className="chat-home-zero-recent-list">
+              {HOME_RECENT_SESSIONS.map((session) => (
+                <button
+                  type="button"
+                  key={session.title}
+                  className="chat-home-zero-recent-row"
+                  data-home-recent-session-status={session.status}
+                  onClick={() => launchSession(session.title)}
+                >
+                  <span className="chat-home-zero-recent-dot" aria-hidden="true" />
+                  <span className="chat-home-zero-recent-copy">
+                    <strong>{session.title}</strong>
+                    <em>{session.timestamp}</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         </main>
       </div>
     </section>

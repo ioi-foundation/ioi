@@ -1176,10 +1176,11 @@ Current implementation cut:
   `route.autopilot` authority/model-route contract shape.
 
 0A.2 remaining visual implementation:
-  Home now carries the full IOI-reference prompt cockpit view; do not add
-  second-level session lists, doctrine dashboards, or architecture panels under
-  the prompt composer. Active session history belongs in the left session rail
-  and Sessions surface.
+  Home now carries the full IOI-reference prompt cockpit view: centered prompt
+  composer, quick action chips, and the lightweight Recent Sessions list under
+  the prompt. Do not add doctrine dashboards, architecture panels, or cockpit
+  metric cards under the composer; heavier session operation detail belongs in
+  the left session rail and Sessions surface.
   the secondary project rail now has a normalized
   `ioi.hypervisor.project_state_projection.v1` loader and
   `/v1/hypervisor/project-state` public runtime route dispatching through
@@ -1546,9 +1547,9 @@ Current implementation cut:
   in the shell.
 
 0A.2 reference-product copy sweep is implemented:
-  Home now carries the IOI-reference prompt surface without adding a second
-  main-canvas Recent Sessions strip. Application surfaces stay behind the same
-  shell, but visible copy avoids daemon/source-of-truth doctrine:
+  Home now carries the IOI-reference prompt surface with the main-canvas Recent
+  Sessions list from the reference shell. Application surfaces stay behind the
+  same shell, but visible copy avoids daemon/source-of-truth doctrine:
   Agents, Models, and Privacy render product labels such as Private workspace,
   Wallet authority, and Receipt recorded while preserving raw refs only as
   `data-*` attributes for conformance. The auxiliary chat pane, utility drawer,
@@ -1596,10 +1597,10 @@ Current implementation cut:
 0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
   `HomeView` now matches the IOI reference home posture: left rail session
   heading, centered prompt composer, project/add-context/model controls, prompt
-  chips, and no extra main-canvas session table. The default prompt selector
-  uses reference chrome (`5.5 Medium`) while model-mounting details remain
-  available in Models and New Session instead of sitting on top of the home
-  workplane.
+  chips, and a lightweight Recent Sessions list under the prompt. The default
+  prompt selector uses reference chrome (`5.5 Medium`) while model-mounting
+  details remain available in Models and New Session instead of sitting on top
+  of the home workplane.
   `HypervisorAutomationCompositorSurface` now matches the IOI reference
   automations posture: Webhooks and New actions in the topbar, three summary
   metrics, filter controls, an empty-state workplane, a wider suggested-template
@@ -1607,9 +1608,10 @@ Current implementation cut:
   projection data remains present as hidden
   contract/data attributes and behind the editor boundary, but visible
   automation rows are not rendered until the user has created automations.
-  Focused source guards reject the old Home recent strip and visible workflow
-  template rows, and Playwright probes verify `No automations yet`, Webhooks,
-  six suggestions, and zero visible `data-workflow-template-ref` rows.
+  Focused source guards verify the IOI-reference Home recent list and reject
+  visible workflow template rows, and Playwright probes verify `No automations
+  yet`, Webhooks, six suggestions, and zero visible
+  `data-workflow-template-ref` rows.
 
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built
