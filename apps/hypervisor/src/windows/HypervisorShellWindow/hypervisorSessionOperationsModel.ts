@@ -254,7 +254,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     project_ref: "project:hypervisor-core",
     environment_ref: "environment:local-workspace/hypervisor-core",
     provider_candidate_ref: "provider:local-workstation",
-    selected_adapter_ref: "workbench-adapter:embedded_workbench",
+    selected_adapter_ref: "code-editor-adapter:embedded_workbench",
     selected_adapter_admission_state: "daemon_admitted",
     authority_scope_refs: [
       "scope:workspace.read",
@@ -318,11 +318,11 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
         status: "available",
       },
       {
-        service_ref: "service:workbench-adapter",
-        label: "Workbench adapter host",
+        service_ref: "service:code-editor-adapter",
+        label: "Code editor adapter host",
         port: 17381,
         protocol: "grpc",
-        lease_ref: "lease:access/workbench-adapter/grpc",
+        lease_ref: "lease:access/code-editor-adapter/grpc",
         status: "lease_required",
       },
     ],
@@ -437,10 +437,10 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       },
       {
         step_ref: "session-step:adapter",
-        label: "Mounted workbench adapter",
-        detail: "Embedded workbench adapter target",
+        label: "Mounted code editor adapter",
+        detail: "Embedded code editor adapter target",
         status: "running",
-        evidence_ref: "receipt://workbench-adapter/embedded/mounted",
+        evidence_ref: "receipt://code-editor-adapter/embedded/mounted",
       },
     ],
     changed_file_groups: [

@@ -10,7 +10,7 @@ Run Hypervisor Web:
 npm run dev:web
 ```
 
-Run the packaged Workbench adapter host:
+Run the packaged Code editor adapter host:
 
 ```bash
 npm run dev:hypervisor-app

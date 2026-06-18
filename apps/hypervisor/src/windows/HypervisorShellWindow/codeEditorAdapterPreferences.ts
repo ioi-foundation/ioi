@@ -1,4 +1,4 @@
-export type HypervisorWorkbenchAdapterId =
+export type HypervisorCodeEditorAdapterId =
   | "embedded_workbench"
   | "external_editor"
   | "vscode_insiders"
@@ -15,79 +15,79 @@ export type HypervisorWorkbenchAdapterId =
   | "jetbrains_rustrover"
   | "jetbrains_rider";
 
-export type HypervisorWorkbenchAdapterLaunchMode =
+export type HypervisorCodeEditorAdapterLaunchMode =
   | "embedded"
   | "external"
   | "remote_url";
 
-export type HypervisorWorkbenchAdapterCustodyPosture =
+export type HypervisorCodeEditorAdapterCustodyPosture =
   | "local_projection"
   | "redacted_projection";
 
-export type HypervisorWorkbenchAdapterConnectionKind =
+export type HypervisorCodeEditorAdapterConnectionKind =
   | "embedded_host"
   | "desktop_editor"
   | "browser_editor_url";
 
-export type HypervisorWorkbenchAdapterExecutorLane =
+export type HypervisorCodeEditorAdapterExecutorLane =
   | "embedded_workbench_host"
   | "desktop_editor"
   | "browser_code_editor";
 
-export type HypervisorWorkbenchAdapterControlAction =
+export type HypervisorCodeEditorAdapterControlAction =
   | "open_embedded_workbench"
   | "open_desktop_editor"
   | "open_browser_editor";
 
-export interface WorkbenchAdapterPreference {
-  adapter_id: HypervisorWorkbenchAdapterId;
+export interface CodeEditorAdapterPreference {
+  adapter_id: HypervisorCodeEditorAdapterId;
   label: string;
   description: string;
-  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
+  launch_mode: HypervisorCodeEditorAdapterLaunchMode;
   target_ref: string;
-  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  custody_posture: HypervisorCodeEditorAdapterCustodyPosture;
   icon_label?: string;
   settings_group?: "editor";
   settings_visible?: boolean;
   default_for_project?: boolean;
 }
 
-export interface WorkbenchAdapterLaunchPlan {
-  schema_version: "ioi.hypervisor.workbench_adapter_launch_plan.v1";
+export interface CodeEditorAdapterLaunchPlan {
+  schema_version: "ioi.hypervisor.code_editor_adapter_launch_plan.v1";
   launch_plan_ref: string;
   adapter_ref: string;
   target_ref: string;
-  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
-  connection_kind: HypervisorWorkbenchAdapterConnectionKind;
+  launch_mode: HypervisorCodeEditorAdapterLaunchMode;
+  connection_kind: HypervisorCodeEditorAdapterConnectionKind;
   connection_contract_ref: string;
-  executor_lane: HypervisorWorkbenchAdapterExecutorLane;
-  control_action: HypervisorWorkbenchAdapterControlAction;
+  executor_lane: HypervisorCodeEditorAdapterExecutorLane;
+  control_action: HypervisorCodeEditorAdapterControlAction;
   control_channel_ref: string;
   required_access_lease_refs: string[];
   required_authority_scope_refs: string[];
   required_receipt_refs: string[];
-  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  custody_posture: HypervisorCodeEditorAdapterCustodyPosture;
   secret_release_policy: "no_durable_secret_release";
   requires_daemon_gate: true;
   runtimeTruthSource: "daemon-runtime";
 }
 
-export interface WorkbenchAdapterLaunchAdmission {
-  schema_version: "ioi.runtime.workbench_adapter_launch_plan_admission.v1";
+export interface CodeEditorAdapterLaunchAdmission {
+  schema_version: "ioi.runtime.code_editor_adapter_launch_plan_admission.v1";
   admission_id: string;
   launch_plan_ref: string;
   adapter_ref: string;
   target_ref: string;
-  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
-  connection_kind: HypervisorWorkbenchAdapterConnectionKind;
+  launch_mode: HypervisorCodeEditorAdapterLaunchMode;
+  connection_kind: HypervisorCodeEditorAdapterConnectionKind;
   connection_contract_ref: string;
-  executor_lane: HypervisorWorkbenchAdapterExecutorLane;
-  control_action: HypervisorWorkbenchAdapterControlAction;
+  executor_lane: HypervisorCodeEditorAdapterExecutorLane;
+  control_action: HypervisorCodeEditorAdapterControlAction;
   control_channel_ref: string;
   required_access_lease_refs: string[];
   required_authority_scope_refs: string[];
   required_receipt_refs: string[];
-  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  custody_posture: HypervisorCodeEditorAdapterCustodyPosture;
   secret_release_policy: "no_durable_secret_release";
   wallet_approval_ref: string | null;
   agentgres_operation_refs: string[];
@@ -100,7 +100,7 @@ export interface WorkbenchAdapterLaunchAdmission {
   admitted_at: string;
 }
 
-export class WorkbenchAdapterLaunchAdmissionError extends Error {
+export class CodeEditorAdapterLaunchAdmissionError extends Error {
   readonly endpoint: string;
   readonly responseBody: string;
   readonly status: number;
@@ -114,24 +114,24 @@ export class WorkbenchAdapterLaunchAdmissionError extends Error {
     responseBody: string;
     status: number;
   }) {
-    super(`Workbench adapter launch admission failed with ${status}`);
-    this.name = "WorkbenchAdapterLaunchAdmissionError";
+    super(`code editor adapter launch admission failed with ${status}`);
+    this.name = "CodeEditorAdapterLaunchAdmissionError";
     this.endpoint = endpoint;
     this.responseBody = responseBody;
     this.status = status;
   }
 }
 
-export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY =
+export const HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY =
   "hypervisor.workbench.adapterPreferenceRef";
-export const HYPERVISOR_WORKBENCH_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY =
+export const HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.hypervisor.daemonEndpoint";
-export const HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT =
+export const HYPERVISOR_CODE_EDITOR_ADAPTER_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
-export const HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH =
-  "/v1/hypervisor/workbench-adapter-launch-plans";
+export const HYPERVISOR_CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH =
+  "/v1/hypervisor/code-editor-adapter-launch-plans";
 
-export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreference[] =
+export const HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES: CodeEditorAdapterPreference[] =
   [
     {
       adapter_id: "embedded_workbench",
@@ -299,47 +299,47 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
     },
   ];
 
-export function getWorkbenchAdapterPreferenceRef(
-  preference: Pick<WorkbenchAdapterPreference, "adapter_id">,
+export function getCodeEditorAdapterPreferenceRef(
+  preference: Pick<CodeEditorAdapterPreference, "adapter_id">,
 ): string {
-  return `workbench-adapter:${preference.adapter_id}`;
+  return `code-editor-adapter:${preference.adapter_id}`;
 }
 
 export const DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF =
-  getWorkbenchAdapterPreferenceRef(
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+  getCodeEditorAdapterPreferenceRef(
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
       (preference) => preference.default_for_project,
-    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!,
+    ) ?? HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES[0]!,
   );
 
-export function getWorkbenchAdapterPreferenceByRef(
+export function getCodeEditorAdapterPreferenceByRef(
   preferenceRef: string,
-): WorkbenchAdapterPreference {
+): CodeEditorAdapterPreference {
   return (
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
       (preference) =>
-        getWorkbenchAdapterPreferenceRef(preference) === preferenceRef,
-    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!
+        getCodeEditorAdapterPreferenceRef(preference) === preferenceRef,
+    ) ?? HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES[0]!
   );
 }
 
-export function buildWorkbenchAdapterLaunchPlan(
-  workbenchAdapter: WorkbenchAdapterPreference,
-): WorkbenchAdapterLaunchPlan {
-  const adapterRef = getWorkbenchAdapterPreferenceRef(workbenchAdapter);
+export function buildCodeEditorAdapterLaunchPlan(
+  codeEditorAdapter: CodeEditorAdapterPreference,
+): CodeEditorAdapterLaunchPlan {
+  const adapterRef = getCodeEditorAdapterPreferenceRef(codeEditorAdapter);
   const base = {
-    schema_version: "ioi.hypervisor.workbench_adapter_launch_plan.v1" as const,
+    schema_version: "ioi.hypervisor.code_editor_adapter_launch_plan.v1" as const,
     launch_plan_ref: `${adapterRef}/launch-plan`,
     adapter_ref: adapterRef,
-    target_ref: workbenchAdapter.target_ref,
-    launch_mode: workbenchAdapter.launch_mode,
-    custody_posture: workbenchAdapter.custody_posture,
+    target_ref: codeEditorAdapter.target_ref,
+    launch_mode: codeEditorAdapter.launch_mode,
+    custody_posture: codeEditorAdapter.custody_posture,
     secret_release_policy: "no_durable_secret_release" as const,
     requires_daemon_gate: true as const,
     runtimeTruthSource: "daemon-runtime" as const,
   };
 
-  switch (workbenchAdapter.adapter_id) {
+  switch (codeEditorAdapter.adapter_id) {
     case "external_editor":
     case "vscode_insiders":
     case "cursor":
@@ -357,18 +357,18 @@ export function buildWorkbenchAdapterLaunchPlan(
         ...base,
         connection_kind: "desktop_editor",
         connection_contract_ref:
-          "connection-contract:workbench-adapter/desktop-bridge",
+          "connection-contract:code-editor-adapter/desktop-bridge",
         executor_lane: "desktop_editor",
         control_action: "open_desktop_editor",
-        control_channel_ref: "control-channel:workbench-adapter/desktop-bridge",
-        required_access_lease_refs: ["lease:workbench-adapter/desktop-bridge"],
+        control_channel_ref: "control-channel:code-editor-adapter/desktop-bridge",
+        required_access_lease_refs: ["lease:code-editor-adapter/desktop-bridge"],
         required_authority_scope_refs: [
           "scope:workspace.read",
           "scope:workspace.patch",
           "scope:receipt.write",
         ],
         required_receipt_refs: [
-          "receipt-policy:workbench-adapter/desktop-bridge",
+          "receipt-policy:code-editor-adapter/desktop-bridge",
         ],
       };
     case "vscode_browser":
@@ -376,17 +376,17 @@ export function buildWorkbenchAdapterLaunchPlan(
         ...base,
         connection_kind: "browser_editor_url",
         connection_contract_ref:
-          "connection-contract:workbench-adapter/browser-editor",
+          "connection-contract:code-editor-adapter/browser-editor",
         executor_lane: "browser_code_editor",
         control_action: "open_browser_editor",
-        control_channel_ref: "control-channel:workbench-adapter/browser-editor",
-        required_access_lease_refs: ["lease:workbench-adapter/browser-editor"],
+        control_channel_ref: "control-channel:code-editor-adapter/browser-editor",
+        required_access_lease_refs: ["lease:code-editor-adapter/browser-editor"],
         required_authority_scope_refs: [
           "scope:workspace.read",
           "scope:workspace.patch",
           "scope:receipt.write",
         ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/browser-editor"],
+        required_receipt_refs: ["receipt-policy:code-editor-adapter/browser-editor"],
       };
     case "embedded_workbench":
     default:
@@ -394,17 +394,17 @@ export function buildWorkbenchAdapterLaunchPlan(
         ...base,
         connection_kind: "embedded_host",
         connection_contract_ref:
-          "connection-contract:workbench-adapter/embedded-host",
+          "connection-contract:code-editor-adapter/embedded-host",
         executor_lane: "embedded_workbench_host",
         control_action: "open_embedded_workbench",
-        control_channel_ref: "control-channel:workbench-adapter/embedded-host",
-        required_access_lease_refs: ["lease:workbench-adapter/embedded-host"],
+        control_channel_ref: "control-channel:code-editor-adapter/embedded-host",
+        required_access_lease_refs: ["lease:code-editor-adapter/embedded-host"],
         required_authority_scope_refs: [
           "scope:workspace.read",
           "scope:workspace.patch",
           "scope:receipt.write",
         ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/embedded"],
+        required_receipt_refs: ["receipt-policy:code-editor-adapter/embedded"],
       };
   }
 }
@@ -422,23 +422,23 @@ type FetchLike = (
   text(): Promise<string>;
 }>;
 
-interface WorkbenchAdapterLaunchAdmissionOptions {
+interface CodeEditorAdapterLaunchAdmissionOptions {
   endpoint?: string;
   fetchImpl?: FetchLike;
 }
 
-function readHypervisorWorkbenchAdapterDaemonEndpoint(): string {
+function readHypervisorCodeEditorAdapterDaemonEndpoint(): string {
   try {
     if (typeof window === "undefined") {
-      return HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
+      return HYPERVISOR_CODE_EDITOR_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
     }
     return (
       window.localStorage.getItem(
-        HYPERVISOR_WORKBENCH_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
-      ) || HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      ) || HYPERVISOR_CODE_EDITOR_ADAPTER_DEFAULT_DAEMON_ENDPOINT
     );
   } catch {
-    return HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
+    return HYPERVISOR_CODE_EDITOR_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
   }
 }
 
@@ -458,39 +458,39 @@ function objectRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function normalizeWorkbenchAdapterLaunchAdmission(
+function normalizeCodeEditorAdapterLaunchAdmission(
   value: unknown,
-): WorkbenchAdapterLaunchAdmission {
+): CodeEditorAdapterLaunchAdmission {
   const record = objectRecord(value);
   return {
-    schema_version: "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+    schema_version: "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
     admission_id: nullableString(record.admission_id) ?? "admission:unknown",
     launch_plan_ref:
-      nullableString(record.launch_plan_ref) ?? "workbench-adapter:unknown",
-    adapter_ref: nullableString(record.adapter_ref) ?? "workbench-adapter:unknown",
+      nullableString(record.launch_plan_ref) ?? "code-editor-adapter:unknown",
+    adapter_ref: nullableString(record.adapter_ref) ?? "code-editor-adapter:unknown",
     target_ref: nullableString(record.target_ref) ?? "adapter-target:unknown",
     launch_mode:
-      (nullableString(record.launch_mode) as HypervisorWorkbenchAdapterLaunchMode) ??
+      (nullableString(record.launch_mode) as HypervisorCodeEditorAdapterLaunchMode) ??
       "embedded",
     connection_kind:
       (nullableString(
         record.connection_kind,
-      ) as HypervisorWorkbenchAdapterConnectionKind) ?? "embedded_host",
+      ) as HypervisorCodeEditorAdapterConnectionKind) ?? "embedded_host",
     connection_contract_ref:
       nullableString(record.connection_contract_ref) ??
-      "connection-contract:workbench-adapter/unknown",
+      "connection-contract:code-editor-adapter/unknown",
     executor_lane:
       (nullableString(
         record.executor_lane,
-      ) as HypervisorWorkbenchAdapterExecutorLane) ?? "embedded_workbench_host",
+      ) as HypervisorCodeEditorAdapterExecutorLane) ?? "embedded_workbench_host",
     control_action:
       (nullableString(
         record.control_action,
-      ) as HypervisorWorkbenchAdapterControlAction) ??
+      ) as HypervisorCodeEditorAdapterControlAction) ??
       "open_embedded_workbench",
     control_channel_ref:
       nullableString(record.control_channel_ref) ??
-      "control-channel:workbench-adapter/unknown",
+      "control-channel:code-editor-adapter/unknown",
     required_access_lease_refs: stringArray(record.required_access_lease_refs),
     required_authority_scope_refs: stringArray(
       record.required_authority_scope_refs,
@@ -499,7 +499,7 @@ function normalizeWorkbenchAdapterLaunchAdmission(
     custody_posture:
       (nullableString(
         record.custody_posture,
-      ) as HypervisorWorkbenchAdapterCustodyPosture) ?? "local_projection",
+      ) as HypervisorCodeEditorAdapterCustodyPosture) ?? "local_projection",
     secret_release_policy: "no_durable_secret_release",
     wallet_approval_ref: nullableString(record.wallet_approval_ref),
     agentgres_operation_refs: stringArray(record.agentgres_operation_refs),
@@ -513,17 +513,17 @@ function normalizeWorkbenchAdapterLaunchAdmission(
   };
 }
 
-export async function requestWorkbenchAdapterLaunchPlanAdmission(
-  launchPlan: WorkbenchAdapterLaunchPlan,
-  options: WorkbenchAdapterLaunchAdmissionOptions = {},
-): Promise<WorkbenchAdapterLaunchAdmission> {
+export async function requestCodeEditorAdapterLaunchPlanAdmission(
+  launchPlan: CodeEditorAdapterLaunchPlan,
+  options: CodeEditorAdapterLaunchAdmissionOptions = {},
+): Promise<CodeEditorAdapterLaunchAdmission> {
   const endpoint =
-    options.endpoint ?? readHypervisorWorkbenchAdapterDaemonEndpoint();
+    options.endpoint ?? readHypervisorCodeEditorAdapterDaemonEndpoint();
   const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
   if (!fetchImpl) {
-    throw new Error("fetch unavailable for Workbench adapter launch admission");
+    throw new Error("fetch unavailable for code editor adapter launch admission");
   }
-  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH}`;
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH}`;
   const response = await fetchImpl(url, {
     body: JSON.stringify(launchPlan),
     headers: {
@@ -534,11 +534,11 @@ export async function requestWorkbenchAdapterLaunchPlanAdmission(
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new WorkbenchAdapterLaunchAdmissionError({
+    throw new CodeEditorAdapterLaunchAdmissionError({
       endpoint: url,
       responseBody: text,
       status: response.status,
     });
   }
-  return normalizeWorkbenchAdapterLaunchAdmission(text ? JSON.parse(text) : {});
+  return normalizeCodeEditorAdapterLaunchAdmission(text ? JSON.parse(text) : {});
 }

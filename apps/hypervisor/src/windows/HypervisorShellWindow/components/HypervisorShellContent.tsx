@@ -1422,7 +1422,7 @@ function HypervisorSessionOperationsCockpit() {
           <div className="hypervisor-session-operations__top-actions">
             <button
               type="button"
-              aria-label={`${sessionOpenSurfaceLabel}: ${projection.selected_adapter_ref.replace(/^workbench-adapter:/, "")}`}
+              aria-label={`${sessionOpenSurfaceLabel}: ${projection.selected_adapter_ref.replace(/^code-editor-adapter:/, "")}`}
               data-session-adapter-ref={projection.selected_adapter_ref}
               data-session-operation-kind="request_access_lease"
               data-session-operation-session={projection.selected_session_ref}

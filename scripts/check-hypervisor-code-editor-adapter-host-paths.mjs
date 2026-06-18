@@ -11,10 +11,10 @@ const absentForkRoot = mkdtempSync(
 );
 rmSync(absentForkRoot, { recursive: true, force: true });
 
-process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT = absentForkRoot;
+process.env.HYPERVISOR_CODE_EDITOR_VSCODE_FORK_ROOT = absentForkRoot;
 
-const { HYPERVISOR_WORKBENCH_ADAPTER_HOST, syncWorkbenchExtensionTargets } =
-  await import("./lib/hypervisor-workbench-adapter-host-paths.mjs");
+const { HYPERVISOR_CODE_EDITOR_ADAPTER_HOST, syncCodeEditorExtensionTargets } =
+  await import("./lib/hypervisor-code-editor-adapter-host-paths.mjs");
 
 const failures = [];
 
@@ -28,7 +28,7 @@ function runNodeCheck(script) {
     encoding: "utf8",
     env: {
       ...process.env,
-      HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT: absentForkRoot,
+      HYPERVISOR_CODE_EDITOR_VSCODE_FORK_ROOT: absentForkRoot,
     },
   });
   if (result.status !== 0) {
@@ -42,27 +42,21 @@ if (existsSync(absentForkRoot)) {
   fail(`Absent fork simulation path unexpectedly exists: ${absentForkRoot}`);
 }
 
-if (HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot !== absentForkRoot) {
+if (HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.forkRoot !== absentForkRoot) {
   fail(
-    `Helper did not honor HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT=${absentForkRoot}`,
+    `Helper did not honor HYPERVISOR_CODE_EDITOR_VSCODE_FORK_ROOT=${absentForkRoot}`,
   );
 }
 
-if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary)) {
+if (!existsSync(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.extensionSource)) {
   fail(
-    `Packaged Hypervisor Workbench adapter binary is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary}`,
-  );
-}
-
-if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource)) {
-  fail(
-    `Canonical ioi-code-editor-adapter source is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource}`,
+    `Canonical ioi-code-editor-adapter source is missing: ${HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.extensionSource}`,
   );
 }
 
 let sync = null;
 try {
-  sync = syncWorkbenchExtensionTargets();
+  sync = syncCodeEditorExtensionTargets();
 } catch (error) {
   fail(
     `Packaged extension sync failed without source fork: ${error?.message || error}`,
@@ -81,7 +75,7 @@ if (sync) {
 }
 
 const packagedExtension = join(
-  HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedCodeEditorTarget,
   "extension.js",
 );
 if (!existsSync(packagedExtension)) {
@@ -90,24 +84,24 @@ if (!existsSync(packagedExtension)) {
   );
 }
 
-if (String(HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot).includes("/ide/")) {
+if (String(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedRoot).includes("/ide/")) {
   fail(
-    `Packaged root must not fall back to retired root ide/ path: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot}`,
+    `Packaged root must not fall back to retired root ide/ path: ${HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedRoot}`,
   );
 }
 
-if (String(HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot).includes("/ide/")) {
+if (String(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.forkRoot).includes("/ide/")) {
   fail(
-    `Fork root must not fall back to retired root ide/ path: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot}`,
+    `Fork root must not fall back to retired root ide/ path: ${HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.forkRoot}`,
   );
 }
 
-for (const script of ["scripts/launch-hypervisor-workbench-adapter-host.mjs"]) {
+for (const script of ["scripts/launch-hypervisor-code-editor-adapter-host.mjs"]) {
   runNodeCheck(script);
 }
 
 const launchScript = readFileSync(
-  join(repoRoot, "scripts/launch-hypervisor-workbench-adapter-host.mjs"),
+  join(repoRoot, "scripts/launch-hypervisor-code-editor-adapter-host.mjs"),
   "utf8",
 );
 const legacySiblingForkPath = ["..", "vscode"].join("/");
@@ -118,7 +112,7 @@ if (launchScript.includes(legacySiblingForkPath)) {
 }
 
 if (failures.length > 0) {
-  console.error("Hypervisor Workbench adapter host path check failed:");
+  console.error("Hypervisor Code editor adapter host path check failed:");
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
@@ -130,9 +124,10 @@ console.log(
     {
       ok: true,
       absentForkRoot,
-      binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
-      packagedWorkbenchTarget:
-        HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget,
+      binary: HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.binary,
+      binaryPresent: existsSync(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.binary),
+      packagedCodeEditorTarget:
+        HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedCodeEditorTarget,
       copied: sync?.copied ?? [],
       skipped: sync?.skipped ?? [],
     },

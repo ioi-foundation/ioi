@@ -1,15 +1,15 @@
 import {
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
-  buildWorkbenchAdapterLaunchPlan,
-  getWorkbenchAdapterPreferenceByRef,
-  getWorkbenchAdapterPreferenceRef,
-  type HypervisorWorkbenchAdapterControlAction,
-  type HypervisorWorkbenchAdapterCustodyPosture,
-  type HypervisorWorkbenchAdapterLaunchMode,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  buildCodeEditorAdapterLaunchPlan,
+  getCodeEditorAdapterPreferenceByRef,
+  getCodeEditorAdapterPreferenceRef,
+  type HypervisorCodeEditorAdapterControlAction,
+  type HypervisorCodeEditorAdapterCustodyPosture,
+  type HypervisorCodeEditorAdapterLaunchMode,
 } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
 
-function launchModeLabel(mode: HypervisorWorkbenchAdapterLaunchMode): string {
+function launchModeLabel(mode: HypervisorCodeEditorAdapterLaunchMode): string {
   switch (mode) {
     case "embedded":
       return "Embedded";
@@ -23,7 +23,7 @@ function launchModeLabel(mode: HypervisorWorkbenchAdapterLaunchMode): string {
 }
 
 function custodyPostureLabel(
-  posture: HypervisorWorkbenchAdapterCustodyPosture,
+  posture: HypervisorCodeEditorAdapterCustodyPosture,
 ): string {
   switch (posture) {
     case "local_projection":
@@ -35,7 +35,7 @@ function custodyPostureLabel(
   }
 }
 
-function controlActionLabel(action: HypervisorWorkbenchAdapterControlAction) {
+function controlActionLabel(action: HypervisorCodeEditorAdapterControlAction) {
   switch (action) {
     case "open_embedded_workbench":
       return "Open embedded";
@@ -48,15 +48,15 @@ function controlActionLabel(action: HypervisorWorkbenchAdapterControlAction) {
   }
 }
 
-export function SettingsWorkbenchAdapterSection({
+export function SettingsCodeEditorAdapterSection({
   view,
 }: {
   view: SettingsViewBodyView;
 }) {
-  const selectedPreference = getWorkbenchAdapterPreferenceByRef(
-    view.workbenchAdapterPreferenceRef,
+  const selectedPreference = getCodeEditorAdapterPreferenceByRef(
+    view.codeEditorAdapterPreferenceRef,
   );
-  const selectedLaunchPlan = buildWorkbenchAdapterLaunchPlan(selectedPreference);
+  const selectedLaunchPlan = buildCodeEditorAdapterLaunchPlan(selectedPreference);
 
   return (
     <div className="chat-settings-stack">
@@ -64,7 +64,7 @@ export function SettingsWorkbenchAdapterSection({
         <div className="chat-settings-card-head">
           <div>
             <span className="chat-settings-card-eyebrow">
-              Workbench adapter
+              code editor adapter
             </span>
             <h2>Default editor target</h2>
           </div>
@@ -78,11 +78,11 @@ export function SettingsWorkbenchAdapterSection({
           VM, node, and provider routes.
         </p>
         <div className="chat-settings-summary-grid">
-          {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
-            const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
-            const launchPlan = buildWorkbenchAdapterLaunchPlan(preference);
+          {HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.map((preference) => {
+            const preferenceRef = getCodeEditorAdapterPreferenceRef(preference);
+            const launchPlan = buildCodeEditorAdapterLaunchPlan(preference);
             const selected =
-              preferenceRef === view.workbenchAdapterPreferenceRef;
+              preferenceRef === view.codeEditorAdapterPreferenceRef;
 
             return (
               <button
@@ -91,19 +91,19 @@ export function SettingsWorkbenchAdapterSection({
                 className={`chat-settings-subcard ${
                   selected ? "is-live" : ""
                 }`}
-                data-workbench-adapter-preference={preferenceRef}
-                data-workbench-adapter-executor-lane={
+                data-code-editor-adapter-preference={preferenceRef}
+                data-code-editor-adapter-executor-lane={
                   launchPlan.executor_lane
                 }
-                data-workbench-adapter-control-action={
+                data-code-editor-adapter-control-action={
                   launchPlan.control_action
                 }
-                data-workbench-adapter-control-channel-ref={
+                data-code-editor-adapter-control-channel-ref={
                   launchPlan.control_channel_ref
                 }
                 aria-pressed={selected}
                 onClick={() =>
-                  view.setWorkbenchAdapterPreferenceRef(preferenceRef)
+                  view.setCodeEditorAdapterPreferenceRef(preferenceRef)
                 }
               >
                 <strong>{preference.label}</strong>

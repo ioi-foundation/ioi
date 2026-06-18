@@ -301,7 +301,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
     "utf8",
   );
   const bundledExtension = readFileSync(
-    "workbench-adapters/ioi-code-editor-adapter/extension.js",
+    "code-editor-adapters/ioi-code-editor-adapter/extension.js",
     "utf8",
   );
 

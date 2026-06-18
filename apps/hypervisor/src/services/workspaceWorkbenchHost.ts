@@ -33,7 +33,7 @@ export interface WorkspaceWorkbenchSubstratePreviewModel {
 export type WorkspaceWorkbenchSurfaceModel =
   WorkspaceWorkbenchSubstratePreviewModel;
 
-export interface WorkspaceWorkbenchAdapterWorkspaceModel {
+export interface WorkspaceCodeEditorAdapterWorkspaceModel {
   id: string;
   name: string;
   rootPath: string;
@@ -79,7 +79,7 @@ export interface WorkspaceWorkbenchHost {
   describeAdapterWorkspace(
     session: WorkspaceWorkbenchHostSession,
     project: WorkspaceWorkbenchProjectDescriptor,
-  ): WorkspaceWorkbenchAdapterWorkspaceModel;
+  ): WorkspaceCodeEditorAdapterWorkspaceModel;
   describeSession(
     session: WorkspaceWorkbenchHostSession,
   ): WorkspaceWorkbenchSessionDescriptor;

@@ -6,37 +6,37 @@ import {
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
 import {
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
-  WorkbenchAdapterLaunchAdmissionError,
-  buildWorkbenchAdapterLaunchPlan,
-  getWorkbenchAdapterPreferenceRef,
-  type HypervisorWorkbenchAdapterControlAction,
-  type HypervisorWorkbenchAdapterCustodyPosture,
-  type HypervisorWorkbenchAdapterExecutorLane,
-  type WorkbenchAdapterLaunchAdmission,
-  type WorkbenchAdapterLaunchPlan,
-  type WorkbenchAdapterPreference,
-} from "./workbenchAdapterPreferences.ts";
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  CodeEditorAdapterLaunchAdmissionError,
+  buildCodeEditorAdapterLaunchPlan,
+  getCodeEditorAdapterPreferenceRef,
+  type HypervisorCodeEditorAdapterControlAction,
+  type HypervisorCodeEditorAdapterCustodyPosture,
+  type HypervisorCodeEditorAdapterExecutorLane,
+  type CodeEditorAdapterLaunchAdmission,
+  type CodeEditorAdapterLaunchPlan,
+  type CodeEditorAdapterPreference,
+} from "./codeEditorAdapterPreferences.ts";
 
 export {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
-  buildWorkbenchAdapterLaunchPlan,
-  getWorkbenchAdapterPreferenceByRef,
-  getWorkbenchAdapterPreferenceRef,
-  requestWorkbenchAdapterLaunchPlanAdmission,
-  WorkbenchAdapterLaunchAdmissionError,
-  type HypervisorWorkbenchAdapterConnectionKind,
-  type HypervisorWorkbenchAdapterCustodyPosture,
-  type HypervisorWorkbenchAdapterControlAction,
-  type HypervisorWorkbenchAdapterExecutorLane,
-  type HypervisorWorkbenchAdapterId,
-  type HypervisorWorkbenchAdapterLaunchMode,
-  type WorkbenchAdapterLaunchAdmission,
-  type WorkbenchAdapterLaunchPlan,
-  type WorkbenchAdapterPreference,
-} from "./workbenchAdapterPreferences.ts";
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
+  buildCodeEditorAdapterLaunchPlan,
+  getCodeEditorAdapterPreferenceByRef,
+  getCodeEditorAdapterPreferenceRef,
+  requestCodeEditorAdapterLaunchPlanAdmission,
+  CodeEditorAdapterLaunchAdmissionError,
+  type HypervisorCodeEditorAdapterConnectionKind,
+  type HypervisorCodeEditorAdapterCustodyPosture,
+  type HypervisorCodeEditorAdapterControlAction,
+  type HypervisorCodeEditorAdapterExecutorLane,
+  type HypervisorCodeEditorAdapterId,
+  type HypervisorCodeEditorAdapterLaunchMode,
+  type CodeEditorAdapterLaunchAdmission,
+  type CodeEditorAdapterLaunchPlan,
+  type CodeEditorAdapterPreference,
+} from "./codeEditorAdapterPreferences.ts";
 
 export type HypervisorClientKind =
   | "app"
@@ -130,7 +130,7 @@ export type HypervisorShellRegion =
   | "settings";
 
 export type HypervisorSettingsSectionId =
-  | "workbench_adapter"
+  | "code_editor_adapter"
   | "secrets"
   | "git_auth"
   | "personal_access_tokens"
@@ -210,7 +210,7 @@ export interface HypervisorNewSessionTargetBinding {
   project_ref: string;
   operator_intent_ref: string | null;
   session_route_ref: string;
-  workbench_adapter_target_ref: string | null;
+  code_editor_adapter_target_ref: string | null;
   automation_recipe_ref: string | null;
   agent_template_ref: string | null;
   foundry_job_ref: string | null;
@@ -227,17 +227,17 @@ export interface HypervisorNewSessionLaunchSummary {
   target_binding_ref: string;
   target_binding: HypervisorNewSessionTargetBinding;
   project_ref: string;
-  workbench_adapter_ref: string;
-  workbench_adapter_target_ref: string;
-  workbench_adapter_custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
-  workbench_adapter_launch_plan_ref: string;
-  workbench_adapter_connection_contract_ref: string;
-  workbench_adapter_executor_lane: HypervisorWorkbenchAdapterExecutorLane;
-  workbench_adapter_control_action: HypervisorWorkbenchAdapterControlAction;
-  workbench_adapter_control_channel_ref: string;
-  workbench_adapter_access_lease_refs: string[];
-  workbench_adapter_authority_scope_refs: string[];
-  workbench_adapter_receipt_refs: string[];
+  code_editor_adapter_ref: string;
+  code_editor_adapter_target_ref: string;
+  code_editor_adapter_custody_posture: HypervisorCodeEditorAdapterCustodyPosture;
+  code_editor_adapter_launch_plan_ref: string;
+  code_editor_adapter_connection_contract_ref: string;
+  code_editor_adapter_executor_lane: HypervisorCodeEditorAdapterExecutorLane;
+  code_editor_adapter_control_action: HypervisorCodeEditorAdapterControlAction;
+  code_editor_adapter_control_channel_ref: string;
+  code_editor_adapter_access_lease_refs: string[];
+  code_editor_adapter_authority_scope_refs: string[];
+  code_editor_adapter_receipt_refs: string[];
   harness_selection_ref: string;
   harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
   harness_label: string;
@@ -268,8 +268,8 @@ export interface HypervisorNewSessionLaunchRequest {
   launch_summary: HypervisorNewSessionLaunchSummary;
 }
 
-export interface HypervisorWorkbenchAdapterLaunchAdmissionFailure {
-  schema_version: "ioi.hypervisor.workbench_adapter_launch_admission_failure.v1";
+export interface HypervisorCodeEditorAdapterLaunchAdmissionFailure {
+  schema_version: "ioi.hypervisor.code_editor_adapter_launch_admission_failure.v1";
   admission_id: string;
   launch_plan_ref: string;
   adapter_ref: string;
@@ -280,9 +280,9 @@ export interface HypervisorWorkbenchAdapterLaunchAdmissionFailure {
   runtimeTruthSource: "daemon-runtime";
 }
 
-export type HypervisorWorkbenchAdapterLaunchAdmissionRecord =
-  | WorkbenchAdapterLaunchAdmission
-  | HypervisorWorkbenchAdapterLaunchAdmissionFailure;
+export type HypervisorCodeEditorAdapterLaunchAdmissionRecord =
+  | CodeEditorAdapterLaunchAdmission
+  | HypervisorCodeEditorAdapterLaunchAdmissionFailure;
 
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
@@ -299,10 +299,10 @@ export interface HypervisorLaunchedSessionProjection {
     | "daemon_blocked"
     | "daemon_unavailable"
     | "pending_daemon_admission";
-  workbench_adapter_admission:
-    | HypervisorWorkbenchAdapterLaunchAdmissionRecord
+  code_editor_adapter_admission:
+    | HypervisorCodeEditorAdapterLaunchAdmissionRecord
     | null;
-  workbench_adapter_admission_ref: string | null;
+  code_editor_adapter_admission_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -319,12 +319,12 @@ function buildHypervisorNewSessionTargetBinding({
   recipe,
   seedIntent,
   projectId,
-  workbenchAdapter,
+  codeEditorAdapter,
 }: {
   recipe: HypervisorSessionLaunchRecipe;
   seedIntent: string | null;
   projectId: string;
-  workbenchAdapter: WorkbenchAdapterPreference;
+  codeEditorAdapter: CodeEditorAdapterPreference;
 }): HypervisorNewSessionTargetBinding {
   const recipeSlug = safeLaunchId(recipe.recipe_id);
   const projectSlug = safeLaunchId(projectId);
@@ -343,8 +343,8 @@ function buildHypervisorNewSessionTargetBinding({
     project_ref: projectId,
     operator_intent_ref: operatorIntentRef,
     session_route_ref: sessionRouteRef,
-    workbench_adapter_target_ref:
-      recipe.kind === "workbench" ? workbenchAdapter.target_ref : null,
+    code_editor_adapter_target_ref:
+      recipe.kind === "workbench" ? codeEditorAdapter.target_ref : null,
     automation_recipe_ref:
       recipe.kind === "automation"
         ? `automation-recipe:${recipeSlug}/${projectSlug}`
@@ -376,13 +376,13 @@ export function buildHypervisorLaunchedSessionProjection({
   recipe,
   projectLabel,
   launchedAtMs = Date.now(),
-  workbenchAdapterAdmission = null,
+  codeEditorAdapterAdmission = null,
 }: {
   request: HypervisorNewSessionLaunchRequest;
   recipe: HypervisorSessionLaunchRecipe;
   projectLabel: string;
   launchedAtMs?: number;
-  workbenchAdapterAdmission?: HypervisorWorkbenchAdapterLaunchAdmissionRecord | null;
+  codeEditorAdapterAdmission?: HypervisorCodeEditorAdapterLaunchAdmissionRecord | null;
 }): HypervisorLaunchedSessionProjection {
   const routeId = [
     safeLaunchId(recipe.kind),
@@ -391,11 +391,11 @@ export function buildHypervisorLaunchedSessionProjection({
     safeLaunchId(launchedAtMs),
   ].join("/");
   const admissionState =
-    workbenchAdapterAdmission?.decision === "admitted"
+    codeEditorAdapterAdmission?.decision === "admitted"
       ? "daemon_admitted"
-      : workbenchAdapterAdmission?.decision === "blocked"
+      : codeEditorAdapterAdmission?.decision === "blocked"
         ? "daemon_blocked"
-        : workbenchAdapterAdmission?.decision === "daemon_unavailable"
+        : codeEditorAdapterAdmission?.decision === "daemon_unavailable"
           ? "daemon_unavailable"
           : "pending_daemon_admission";
   return {
@@ -409,25 +409,25 @@ export function buildHypervisorLaunchedSessionProjection({
     project_label: projectLabel,
     launched_at_ms: launchedAtMs,
     admission_state: admissionState,
-    workbench_adapter_admission: workbenchAdapterAdmission,
-    workbench_adapter_admission_ref:
-      workbenchAdapterAdmission?.admission_id ?? null,
+    code_editor_adapter_admission: codeEditorAdapterAdmission,
+    code_editor_adapter_admission_ref:
+      codeEditorAdapterAdmission?.admission_id ?? null,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
   };
 }
 
-export function buildHypervisorWorkbenchAdapterAdmissionFailure({
+export function buildHypervisorCodeEditorAdapterAdmissionFailure({
   error,
   launchPlan,
 }: {
   error: unknown;
-  launchPlan: WorkbenchAdapterLaunchPlan;
-}): HypervisorWorkbenchAdapterLaunchAdmissionFailure {
+  launchPlan: CodeEditorAdapterLaunchPlan;
+}): HypervisorCodeEditorAdapterLaunchAdmissionFailure {
   const httpStatus =
-    error instanceof WorkbenchAdapterLaunchAdmissionError ? error.status : null;
+    error instanceof CodeEditorAdapterLaunchAdmissionError ? error.status : null;
   return {
-    schema_version: "ioi.hypervisor.workbench_adapter_launch_admission_failure.v1",
+    schema_version: "ioi.hypervisor.code_editor_adapter_launch_admission_failure.v1",
     admission_id: `${launchPlan.launch_plan_ref}/admission-failure`,
     launch_plan_ref: launchPlan.launch_plan_ref,
     adapter_ref: launchPlan.adapter_ref,
@@ -446,7 +446,7 @@ export function buildHypervisorNewSessionLaunchSummary({
   recipe,
   seedIntent = null,
   projectId,
-  workbenchAdapter,
+  codeEditorAdapter,
   harness,
   harnessVerdict,
   modelRouteAvailability,
@@ -458,7 +458,7 @@ export function buildHypervisorNewSessionLaunchSummary({
   recipe: HypervisorSessionLaunchRecipe;
   seedIntent?: string | null;
   projectId: string;
-  workbenchAdapter: WorkbenchAdapterPreference;
+  codeEditorAdapter: CodeEditorAdapterPreference;
   harness: HypervisorHarnessSelectionOption;
   harnessVerdict: HarnessCompatibilityVerdict;
   modelRouteAvailability: HypervisorModelRouteAvailability;
@@ -467,13 +467,13 @@ export function buildHypervisorNewSessionLaunchSummary({
   authorityScopeRefs: string[];
   receiptPreviewRef: string;
 }): HypervisorNewSessionLaunchSummary {
-  const adapterLaunchPlan = buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
+  const adapterLaunchPlan = buildCodeEditorAdapterLaunchPlan(codeEditorAdapter);
   const normalizedSeedIntent = seedIntent?.trim() || null;
   const targetBinding = buildHypervisorNewSessionTargetBinding({
     recipe,
     seedIntent: normalizedSeedIntent,
     projectId,
-    workbenchAdapter,
+    codeEditorAdapter,
   });
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
@@ -482,20 +482,20 @@ export function buildHypervisorNewSessionLaunchSummary({
     target_binding_ref: targetBinding.target_binding_ref,
     target_binding: targetBinding,
     project_ref: projectId,
-    workbench_adapter_ref: getWorkbenchAdapterPreferenceRef(workbenchAdapter),
-    workbench_adapter_target_ref: workbenchAdapter.target_ref,
-    workbench_adapter_custody_posture: workbenchAdapter.custody_posture,
-    workbench_adapter_launch_plan_ref: adapterLaunchPlan.launch_plan_ref,
-    workbench_adapter_connection_contract_ref:
+    code_editor_adapter_ref: getCodeEditorAdapterPreferenceRef(codeEditorAdapter),
+    code_editor_adapter_target_ref: codeEditorAdapter.target_ref,
+    code_editor_adapter_custody_posture: codeEditorAdapter.custody_posture,
+    code_editor_adapter_launch_plan_ref: adapterLaunchPlan.launch_plan_ref,
+    code_editor_adapter_connection_contract_ref:
       adapterLaunchPlan.connection_contract_ref,
-    workbench_adapter_executor_lane: adapterLaunchPlan.executor_lane,
-    workbench_adapter_control_action: adapterLaunchPlan.control_action,
-    workbench_adapter_control_channel_ref: adapterLaunchPlan.control_channel_ref,
-    workbench_adapter_access_lease_refs:
+    code_editor_adapter_executor_lane: adapterLaunchPlan.executor_lane,
+    code_editor_adapter_control_action: adapterLaunchPlan.control_action,
+    code_editor_adapter_control_channel_ref: adapterLaunchPlan.control_channel_ref,
+    code_editor_adapter_access_lease_refs:
       adapterLaunchPlan.required_access_lease_refs,
-    workbench_adapter_authority_scope_refs:
+    code_editor_adapter_authority_scope_refs:
       adapterLaunchPlan.required_authority_scope_refs,
-    workbench_adapter_receipt_refs: adapterLaunchPlan.required_receipt_refs,
+    code_editor_adapter_receipt_refs: adapterLaunchPlan.required_receipt_refs,
     harness_selection_ref: getHarnessSelectionRef(harness),
     harness_selection_kind: harness.selection_kind,
     harness_label: harness.label,
@@ -728,7 +728,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
     railGroup: "applications",
     defaultSessionTab: "workbench",
     inspectorPanels: ["changes", "ports_services", "terminal", "model_harness_provider"],
-    adapterTargets: HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map(
+    adapterTargets: HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.map(
       (preference) => preference.label,
     ),
   },
@@ -949,14 +949,14 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
     rightInspectorPanels: HYPERVISOR_RIGHT_INSPECTOR_PANELS,
     bottomInspectorPanels: HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
     settingsSections: [
-      "workbench_adapter",
+      "code_editor_adapter",
       "secrets",
       "git_auth",
       "personal_access_tokens",
       "integrations",
     ],
     editorAdapterTargets: [
-      ...HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map(
+      ...HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.map(
         (preference) => preference.label,
       ),
       "Workspace substrate",

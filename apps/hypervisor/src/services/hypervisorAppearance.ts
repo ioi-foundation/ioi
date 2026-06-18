@@ -34,7 +34,7 @@ export const HYPERVISOR_THEME_OPTIONS: HypervisorThemeOption[] = [
   {
     id: "light-modern",
     label: "Light Modern",
-    description: "The light Workbench adapter setup baseline, adapted for Hypervisor.",
+    description: "The light Code editor adapter setup baseline, adapted for Hypervisor.",
     openVsCodeColorTheme: "Default Light Modern",
     sourceMedia: "light.png",
   },

@@ -30,7 +30,7 @@ test("project state projection binds each project to Agentgres restore truth", (
     assert.ok(project.restore_ref.startsWith("agentgres://restore/"));
     assert.ok(project.artifact_refs.length >= 2);
     assert.ok(project.latest_receipt_refs.length >= 1);
-    assert.equal(project.adapter_preference_ref, "workbench-adapter:embedded_workbench");
+    assert.equal(project.adapter_preference_ref, "code-editor-adapter:embedded_workbench");
   }
 });
 
@@ -75,7 +75,7 @@ test("project state normalization preserves Agentgres truth refs from daemon pro
           current_session_ref: "session:normalized",
           environment_ref: "environment:normalized",
           provider_candidate_ref: "provider-candidate:normalized",
-          adapter_preference_ref: "workbench-adapter:normalized",
+          adapter_preference_ref: "code-editor-adapter:normalized",
           custody_posture: "encrypted_archive",
           restore_state: "restore_ready",
           agentgres_object_head_ref: "agentgres://object-head/project:normalized",

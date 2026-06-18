@@ -930,7 +930,7 @@ for await (const event of run.stream()) {
           <div className={bodyClass(isDark)}>
             <p>
               Prefer current Hypervisor App evidence for product screenshots because it exercises the
-              active Workbench adapter-host path. For web-applicable docs routes, use the developers app visual smoke
+              active Code editor adapter-host path. For web-applicable docs routes, use the developers app visual smoke
               lane after the Vite preview server is running:
             </p>
             <CodeBlock

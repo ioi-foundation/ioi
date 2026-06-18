@@ -6,8 +6,8 @@ const source = readFileSync(
   new URL("./hypervisorShellNavigationModel.ts", import.meta.url),
   "utf8",
 );
-const workbenchAdapterPreferences = readFileSync(
-  new URL("./workbenchAdapterPreferences.ts", import.meta.url),
+const codeEditorAdapterPreferences = readFileSync(
+  new URL("./codeEditorAdapterPreferences.ts", import.meta.url),
   "utf8",
 );
 const operatorSubstrate = readFileSync(
@@ -143,7 +143,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     assert.match(source, new RegExp(`"${shellRegion}"`));
   }
   for (const settingsSection of [
-    "workbench_adapter",
+    "code_editor_adapter",
     "secrets",
     "git_auth",
     "personal_access_tokens",
@@ -172,21 +172,21 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     source,
     /leftNavSurfaceIds: HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/,
   );
-  assert.match(source, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
-  assert.match(workbenchAdapterPreferences, /WorkbenchAdapterPreference/);
-  assert.match(workbenchAdapterPreferences, /WorkbenchAdapterLaunchPlan/);
-  assert.match(workbenchAdapterPreferences, /buildWorkbenchAdapterLaunchPlan/);
-  assert.match(workbenchAdapterPreferences, /executor_lane/);
-  assert.match(workbenchAdapterPreferences, /control_action/);
-  assert.match(workbenchAdapterPreferences, /control_channel_ref/);
+  assert.match(source, /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES/);
+  assert.match(codeEditorAdapterPreferences, /CodeEditorAdapterPreference/);
+  assert.match(codeEditorAdapterPreferences, /CodeEditorAdapterLaunchPlan/);
+  assert.match(codeEditorAdapterPreferences, /buildCodeEditorAdapterLaunchPlan/);
+  assert.match(codeEditorAdapterPreferences, /executor_lane/);
+  assert.match(codeEditorAdapterPreferences, /control_action/);
+  assert.match(codeEditorAdapterPreferences, /control_channel_ref/);
   assert.match(
-    workbenchAdapterPreferences,
-    /ioi\.hypervisor\.workbench_adapter_launch_plan\.v1/,
+    codeEditorAdapterPreferences,
+    /ioi\.hypervisor\.code_editor_adapter_launch_plan\.v1/,
   );
   assert.match(source, /DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF/);
-  assert.match(source, /workbench_adapter/);
+  assert.match(source, /code_editor_adapter/);
   assert.match(
-    workbenchAdapterPreferences,
+    codeEditorAdapterPreferences,
     /VS Code[\s\S]*VS Code Insiders[\s\S]*Cursor[\s\S]*Windsurf[\s\S]*IntelliJ IDEA Ultimate[\s\S]*CLion[\s\S]*RustRover[\s\S]*Rider/,
   );
   assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
@@ -222,9 +222,9 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
   assert.match(source, /adapter_preference_ref/);
-  assert.match(source, /workbench_adapter_launch_plan_ref/);
-  assert.match(source, /workbench_adapter_connection_contract_ref/);
-  assert.match(source, /workbench_adapter_access_lease_refs/);
+  assert.match(source, /code_editor_adapter_launch_plan_ref/);
+  assert.match(source, /code_editor_adapter_connection_contract_ref/);
+  assert.match(source, /code_editor_adapter_access_lease_refs/);
   assert.match(source, /"adapter_preference"/);
   for (const recipeId of [
     "mission.default",
@@ -337,7 +337,7 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
 
 test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
-  assert.match(newSessionModal, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(newSessionModal, /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES/);
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /buildHypervisorNewSessionLaunchSummary/);
@@ -371,7 +371,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /data-new-session-seed-intent/);
   assert.match(newSessionModal, /launch_summary: nextLaunchSummary/);
   assert.match(newSessionModal, /data-new-session-launch-summary/);
-  assert.match(newSessionModal, /data-new-session-workbench-adapter-ref/);
+  assert.match(newSessionModal, /data-new-session-code-editor-adapter-ref/);
   assert.match(newSessionModal, /data-new-session-harness-selection-kind/);
   assert.match(newSessionModal, /selectedPrivacy\.ref/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
@@ -392,7 +392,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /data-new-session-harness-verdict/);
   assert.match(newSessionModal, /cTEE private workspace/);
   assert.doesNotMatch(newSessionModal, /Launch governed session/);
-  assert.doesNotMatch(newSessionModal, /Workbench Adapter/);
+  assert.doesNotMatch(newSessionModal, /Code Editor Adapter/);
   assert.match(controller, /newSessionModalOpen/);
   assert.match(controller, /newSessionSeedIntent/);
   assert.match(controller, /newSessionRecipeId/);
@@ -404,21 +404,21 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /typeof seed === "string"/);
   assert.match(controller, /recipeId/);
   assert.match(controller, /launchNewSession = async/);
-  assert.match(controller, /requestWorkbenchAdapterLaunchPlanAdmission/);
-  assert.match(controller, /buildHypervisorWorkbenchAdapterAdmissionFailure/);
-  assert.match(controller, /buildWorkbenchAdapterLaunchPlan/);
-  assert.match(controller, /workbenchAdapterAdmission/);
+  assert.match(controller, /requestCodeEditorAdapterLaunchPlanAdmission/);
+  assert.match(controller, /buildHypervisorCodeEditorAdapterAdmissionFailure/);
+  assert.match(controller, /buildCodeEditorAdapterLaunchPlan/);
+  assert.match(controller, /codeEditorAdapterAdmission/);
   assert.match(source, /HypervisorLaunchedSessionProjection/);
   assert.match(source, /buildHypervisorLaunchedSessionProjection/);
   assert.match(source, /ioi\.hypervisor\.launched_session_projection\.v1/);
-  assert.match(source, /workbench_adapter_admission/);
-  assert.match(source, /workbench_adapter_executor_lane/);
-  assert.match(source, /workbench_adapter_control_action/);
-  assert.match(source, /workbench_adapter_control_channel_ref/);
+  assert.match(source, /code_editor_adapter_admission/);
+  assert.match(source, /code_editor_adapter_executor_lane/);
+  assert.match(source, /code_editor_adapter_control_action/);
+  assert.match(source, /code_editor_adapter_control_channel_ref/);
   assert.match(source, /daemon_admitted/);
   assert.match(source, /daemon_blocked/);
   assert.match(source, /daemon_unavailable/);
-  assert.match(source, /WorkbenchAdapterLaunchAdmissionError/);
+  assert.match(source, /CodeEditorAdapterLaunchAdmissionError/);
   assert.match(controller, /launchedSessionProjections/);
   assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{/);
   assert.match(controller, /setLaunchedSessionProjections\(\(current\) => \[/);
@@ -426,7 +426,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /summary\.seed_intent/);
   assert.match(controller, /summary\.harness_label/);
   assert.match(controller, /summary\.model_route_availability_state/);
-  assert.match(controller, /summary\.workbench_adapter_ref/);
+  assert.match(controller, /summary\.code_editor_adapter_ref/);
   assert.match(controller, /setCurrentProjectId\(project\.id\)/);
   assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);

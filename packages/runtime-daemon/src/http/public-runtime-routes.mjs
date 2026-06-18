@@ -14,7 +14,7 @@ import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-ad
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 import { admitWorkerPackageInstall } from "../runtime-worker-package-install-admission.mjs";
-import { admitWorkbenchAdapterLaunchPlan } from "../runtime-workbench-adapter-launch-plan-admission.mjs";
+import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter-launch-plan-admission.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -502,16 +502,16 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (
         request.method === "POST" &&
-        url.pathname === "/v1/hypervisor/workbench-adapter-launch-plans"
+        url.pathname === "/v1/hypervisor/code-editor-adapter-launch-plans"
       ) {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          admitWorkbenchAdapterLaunchPlan({
+          admitCodeEditorAdapterLaunchPlan({
             ...body,
             source:
               optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/workbench-adapter-launch-plans",
+              "public_runtime_routes./v1/hypervisor/code-editor-adapter-launch-plans",
           }),
           202,
         );

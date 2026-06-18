@@ -94,30 +94,30 @@ const architectureImplementationMatrix = read(
   "docs/architecture/_meta/implementation-matrix.md",
 );
 const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
-const workbenchAdapterLauncher = read(
-  "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+const codeEditorAdapterLauncher = read(
+  "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
 );
-const workbenchAdapterHostPaths = read(
-  "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
+const codeEditorAdapterHostPaths = read(
+  "scripts/lib/hypervisor-code-editor-adapter-host-paths.mjs",
 );
-const workbenchAdaptersReadme = read("workbench-adapters/README.md");
-const workbenchAdapterHostManifest = read(
-  "workbench-adapters/adapter-host.manifest.json",
+const codeEditorAdaptersReadme = read("code-editor-adapters/README.md");
+const codeEditorAdapterHostManifest = read(
+  "code-editor-adapters/code-editor-adapter-host.manifest.json",
 );
 const codeEditorAdapterPackage = read(
-  "workbench-adapters/ioi-code-editor-adapter/package.json",
+  "code-editor-adapters/ioi-code-editor-adapter/package.json",
 );
 const codeEditorAdapterExtension = read(
-  "workbench-adapters/ioi-code-editor-adapter/extension.js",
+  "code-editor-adapters/ioi-code-editor-adapter/extension.js",
 );
 const codeEditorAdapterTransport = read(
-  "workbench-adapters/ioi-code-editor-adapter/transport/context-transport.js",
+  "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
 );
 const codeEditorAdapterTransportClient = read(
-  "workbench-adapters/ioi-code-editor-adapter/transport/client.js",
+  "code-editor-adapters/ioi-code-editor-adapter/transport/client.js",
 );
 const codeEditorAdapterPublisher = read(
-  "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+  "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
 );
 const rootGitignore = read(".gitignore");
 const hypervisorInstallProductMetadataSource = read(
@@ -134,8 +134,8 @@ const hypervisorRustProductFixtureSources = [
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
-const workbenchAdapterPreferencesSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+const codeEditorAdapterPreferencesSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
 );
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
@@ -176,8 +176,8 @@ const hypervisorShellControllerSource = read(
 const runtimeHarnessContainerLaneSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
 );
-const runtimeWorkbenchAdapterLaunchPlanAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-workbench-adapter-launch-plan-admission.mjs",
+const runtimeCodeEditorAdapterLaunchPlanAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",
 );
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
@@ -505,9 +505,9 @@ assert(
   "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
 );
 assert(
-  "workbench-adapter-command-queue-retired",
+  "code-editor-adapter-command-queue-retired",
   !exists("apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts") &&
-    !/ensure_workbench_adapter_session|stop_workbench_adapter_session|write_workbench_adapter_bridge_state|enqueue_workbench_adapter_bridge_command|take_workbench_adapter_bridge_requests/.test(
+    !/ensure_code_editor_adapter_session|stop_code_editor_adapter_session|write_code_editor_adapter_bridge_state|enqueue_code_editor_adapter_bridge_command|take_code_editor_adapter_bridge_requests/.test(
       allFiles("apps/hypervisor/src", (relative) =>
         /\.(ts|tsx|js|jsx)$/.test(relative),
       )
@@ -554,7 +554,7 @@ assert(
   exists("internal-docs/implementation/runtime-module-map.md") &&
     runtimeModuleMap.includes("RuntimeSubstrate") &&
     runtimePackageBoundaries.includes("runtime-module-map.md") &&
-    runtimeModuleMap.includes("WorkbenchAdapterHost") &&
+    runtimeModuleMap.includes("CodeEditorAdapterHost") &&
     runtimeModuleMap.includes("root `ide/` product path") &&
     runtimeModuleMap.includes("not an active proof home"),
   [
@@ -636,7 +636,7 @@ assert(
       '"right_inspector"',
       '"bottom_inspector"',
     ].every((region) => hypervisorShellNavigationSource.includes(region)) &&
-    hypervisorShellNavigationSource.includes('"workbench_adapter"') &&
+    hypervisorShellNavigationSource.includes('"code_editor_adapter"') &&
     hypervisorShellNavigationSource.includes('"git_auth"') &&
     hypervisorShellNavigationSource.includes("Codex CLI") &&
     hypervisorShellNavigationSource.includes("Claude Code") &&
@@ -675,7 +675,7 @@ assert(
     readme.includes(
       "[`packages/hypervisor-workbench`](packages/hypervisor-workbench)",
     ) &&
-    readme.includes("[`workbench-adapters`](workbench-adapters)") &&
+    readme.includes("[`code-editor-adapters`](code-editor-adapters)") &&
     readme.includes("Hypervisor Workbench") &&
     !readme.includes("packages/agent-ide") &&
     !readme.includes("Hypervisor IDE"),
@@ -699,11 +699,11 @@ assert(
     ) &&
     !developersDocs.includes("daemon and Autopilot surfaces") &&
     !/configured-llama-cpp|IOI_DAEMON_ENDPOINT|IOI_DAEMON_TOKEN|IOI_MODEL_MOUNTING_API_URL/.test(
-      workbenchAdapterLauncher,
+      codeEditorAdapterLauncher,
     ),
   [
     "apps/developers-ioi-ai/src/content/docs.tsx",
-    "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+    "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
   ],
   "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language.",
 );
@@ -741,18 +741,18 @@ assert(
   "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels.",
 );
 assert(
-  "workbench-adapter-host-without-product-shell-patch",
+  "code-editor-adapter-host-without-product-shell-patch",
   !exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
     !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
     !/applyHypervisorWorkbenchShellPatch|applyAutopilotWorkbenchShellPatch|IOI_WORKBENCH_NATIVE_SHELL|ioi-hypervisor-native-shell|ioi-hypervisor-workbench-quickinput|workbench-shell-patch|ioi\.quickInput/.test(
-      workbenchAdapterLauncher,
+      codeEditorAdapterLauncher,
     ),
   [
     "scripts/lib/hypervisor-workbench-shell-patch.mjs",
     "scripts/lib/autopilot-workbench-shell-patch.mjs",
-    "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+    "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
   ],
-  "Workbench adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
+  "Code editor adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
 );
 assert(
   "code-editor-adapter-extension-only",
@@ -781,44 +781,44 @@ assert(
       codeEditorAdapterTransportClient,
     ),
   [
-    "workbench-adapters/ioi-code-editor-adapter/package.json",
-    "workbench-adapters/ioi-code-editor-adapter/extension.js",
-    "workbench-adapters/ioi-code-editor-adapter/transport/context-transport.js",
-    "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+    "code-editor-adapters/ioi-code-editor-adapter/package.json",
+    "code-editor-adapters/ioi-code-editor-adapter/extension.js",
+    "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
+    "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
   ],
   "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, and daemon model-mount state belong to the Hypervisor shell/daemon.",
 );
 assert(
-  "workbench-adapter-fork-sync-target-only",
-  /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
-    /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"adapterSource":\s*"workbench-adapters\/ioi-code-editor-adapter"/.test(
-      workbenchAdapterHostManifest,
+  "code-editor-adapter-fork-sync-target-only",
+  /code-editor-adapters\/vscode\/\n/.test(rootGitignore) &&
+    /code-editor-adapters\/builds\/\n/.test(rootGitignore) &&
+    /"adapterSource":\s*"code-editor-adapters\/ioi-code-editor-adapter"/.test(
+      codeEditorAdapterHostManifest,
     ) &&
-    /"optionalForRuntimeLaunch":\s*true/.test(workbenchAdapterHostManifest) &&
-    workbenchAdaptersReadme.includes(
-      "workbench-adapters/ioi-code-editor-adapter",
+    /"optionalForRuntimeLaunch":\s*true/.test(codeEditorAdapterHostManifest) &&
+    codeEditorAdaptersReadme.includes(
+      "code-editor-adapters/ioi-code-editor-adapter",
     ) &&
-    workbenchAdaptersReadme.includes("target optional local VS Code source") &&
-    /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-code-editor-adapter",\s*\);/.test(
-      workbenchAdapterHostPaths,
+    codeEditorAdaptersReadme.includes("target optional local VS Code source") &&
+    /const extensionSource = resolve\(\s*repoRoot,\s*"code-editor-adapters\/ioi-code-editor-adapter",\s*\);/.test(
+      codeEditorAdapterHostPaths,
     ) &&
-    /const forkWorkbenchTarget = resolve\(forkRoot, "extensions\/ioi-code-editor-adapter"\);/.test(
-      workbenchAdapterHostPaths,
+    /const forkCodeEditorTarget = resolve\(forkRoot, "extensions\/ioi-code-editor-adapter"\);/.test(
+      codeEditorAdapterHostPaths,
     ) &&
     /rmSync\(target\.path, \{ recursive: true, force: true \}\);\s*mkdirSync\(target\.path, \{ recursive: true \}\);\s*cpSync\(extensionSource, target\.path, \{ recursive: true, force: true \}\);/.test(
-      workbenchAdapterHostPaths,
+      codeEditorAdapterHostPaths,
     ) &&
-    !/const extensionSource = resolve\([\s\S]*workbench-adapters\/vscode/.test(
-      workbenchAdapterHostPaths,
+    !/const extensionSource = resolve\([\s\S]*code-editor-adapters\/vscode/.test(
+      codeEditorAdapterHostPaths,
     ),
   [
     ".gitignore",
-    "workbench-adapters/README.md",
-    "workbench-adapters/adapter-host.manifest.json",
-    "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
+    "code-editor-adapters/README.md",
+    "code-editor-adapters/code-editor-adapter-host.manifest.json",
+    "scripts/lib/hypervisor-code-editor-adapter-host-paths.mjs",
   ],
-  "Ignored VS Code fork/build trees must stay sync targets copied from the canonical Workbench adapter source, not duplicate tracked JS truth paths.",
+  "Ignored VS Code fork/build trees must stay sync targets copied from the canonical code editor adapter source, not duplicate tracked JS truth paths.",
 );
 assert(
   "home-prompt-shell-without-onboarding-fat",
@@ -1034,84 +1034,84 @@ assert(
   "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities.",
 );
 assert(
-  "workbench-adapter-launch-plan-contract",
-  hypervisorShellNavigationSource.includes("workbenchAdapterPreferences.ts") &&
-    workbenchAdapterPreferencesSource.includes("WorkbenchAdapterLaunchPlan") &&
-    workbenchAdapterPreferencesSource.includes(
-      "ioi.hypervisor.workbench_adapter_launch_plan.v1",
+  "code-editor-adapter-launch-plan-contract",
+  hypervisorShellNavigationSource.includes("codeEditorAdapterPreferences.ts") &&
+    codeEditorAdapterPreferencesSource.includes("CodeEditorAdapterLaunchPlan") &&
+    codeEditorAdapterPreferencesSource.includes(
+      "ioi.hypervisor.code_editor_adapter_launch_plan.v1",
     ) &&
-    workbenchAdapterPreferencesSource.includes(
-      "buildWorkbenchAdapterLaunchPlan",
+    codeEditorAdapterPreferencesSource.includes(
+      "buildCodeEditorAdapterLaunchPlan",
     ) &&
-    workbenchAdapterPreferencesSource.includes(
-      "requestWorkbenchAdapterLaunchPlanAdmission",
+    codeEditorAdapterPreferencesSource.includes(
+      "requestCodeEditorAdapterLaunchPlanAdmission",
     ) &&
-    workbenchAdapterPreferencesSource.includes(
-      "HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH",
+    codeEditorAdapterPreferencesSource.includes(
+      "HYPERVISOR_CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH",
     ) &&
-    workbenchAdapterPreferencesSource.includes(
-      "connection-contract:workbench-adapter/desktop-bridge",
+    codeEditorAdapterPreferencesSource.includes(
+      "connection-contract:code-editor-adapter/desktop-bridge",
     ) &&
-    workbenchAdapterPreferencesSource.includes("executor_lane") &&
-    workbenchAdapterPreferencesSource.includes("control_action") &&
-    workbenchAdapterPreferencesSource.includes("control_channel_ref") &&
-    workbenchAdapterPreferencesSource.includes(
-      "control-channel:workbench-adapter/desktop-bridge",
+    codeEditorAdapterPreferencesSource.includes("executor_lane") &&
+    codeEditorAdapterPreferencesSource.includes("control_action") &&
+    codeEditorAdapterPreferencesSource.includes("control_channel_ref") &&
+    codeEditorAdapterPreferencesSource.includes(
+      "control-channel:code-editor-adapter/desktop-bridge",
     ) &&
-    workbenchAdapterPreferencesSource.includes(
-      "connection-contract:workbench-adapter/browser-editor",
+    codeEditorAdapterPreferencesSource.includes(
+      "connection-contract:code-editor-adapter/browser-editor",
     ) &&
     !/adapter_id:\s*"remote_vm"|adapter_id:\s*"hypervisor_node"|adapter_id:\s*"terminal_workspace"|adapter_id:\s*"browser_workspace"|adapter_id:\s*"devin"|attach_provider_workspace|attach_hypervisor_node|attach_terminal_session|provider_environment|hypervisor_node_session|terminal_session/.test(
-      workbenchAdapterPreferencesSource,
+      codeEditorAdapterPreferencesSource,
     ) &&
-    workbenchAdapterPreferencesSource.includes(
+    codeEditorAdapterPreferencesSource.includes(
       'secret_release_policy: "no_durable_secret_release"',
     ) &&
     hypervisorNewSessionModalSource.includes(
-      "data-new-session-workbench-adapter-launch-plan-ref",
+      "data-new-session-code-editor-adapter-launch-plan-ref",
     ) &&
     hypervisorNewSessionModalSource.includes(
-      "data-new-session-workbench-adapter-connection-contract-ref",
+      "data-new-session-code-editor-adapter-connection-contract-ref",
     ) &&
-    hypervisorShellNavigationSource.includes("workbench_adapter_admission") &&
+    hypervisorShellNavigationSource.includes("code_editor_adapter_admission") &&
     hypervisorShellNavigationSource.includes(
-      "workbench_adapter_executor_lane",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "workbench_adapter_control_action",
+      "code_editor_adapter_executor_lane",
     ) &&
     hypervisorShellNavigationSource.includes(
-      "workbench_adapter_control_channel_ref",
+      "code_editor_adapter_control_action",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "code_editor_adapter_control_channel_ref",
     ) &&
     hypervisorShellNavigationSource.includes("daemon_admitted") &&
     hypervisorShellNavigationSource.includes("daemon_blocked") &&
     hypervisorShellNavigationSource.includes("daemon_unavailable") &&
     hypervisorShellControllerSource.includes(
-      "requestWorkbenchAdapterLaunchPlanAdmission",
+      "requestCodeEditorAdapterLaunchPlanAdmission",
     ) &&
     hypervisorShellControllerSource.includes(
-      "buildHypervisorWorkbenchAdapterAdmissionFailure",
+      "buildHypervisorCodeEditorAdapterAdmissionFailure",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
-      "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
-      "workbench_adapter_launch_durable_secret_release_blocked",
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "code_editor_adapter_launch_durable_secret_release_blocked",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
-      "workbench_adapter_runtime_truth_claim_blocked",
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "code_editor_adapter_runtime_truth_claim_blocked",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
       "browser_editor_url",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
       "browser_code_editor",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
       "open_browser_editor",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
-      "workbench_adapter_control_contract_mismatch",
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "code_editor_adapter_control_contract_mismatch",
     ) &&
     hypervisorShellContentSource.includes(
       "data-session-open-surface-enabled",
@@ -1120,17 +1120,17 @@ assert(
       "data-session-open-surface-admission-state",
     ) &&
     publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/workbench-adapter-launch-plans",
+      "/v1/hypervisor/code-editor-adapter-launch-plans",
     ),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
-    "packages/runtime-daemon/src/runtime-workbench-adapter-launch-plan-admission.mjs",
+    "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
   ],
-  "Workbench adapter preferences must compile into daemon-gated launch plans, call the public daemon admission route during New Session launch, preserve admission/block/offline state, and keep connection contracts, leases, receipts, and no durable secret release.",
+  "code editor adapter preferences must compile into daemon-gated launch plans, call the public daemon admission route during New Session launch, preserve admission/block/offline state, and keep connection contracts, leases, receipts, and no durable secret release.",
 );
 assert(
   "hypervisor-environment-ops-model",
@@ -1652,7 +1652,7 @@ assert(
       "data-new-session-target-session-route",
     ) &&
     hypervisorNewSessionModalSource.includes(
-      "data-new-session-workbench-adapter-ref",
+      "data-new-session-code-editor-adapter-ref",
     ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-selection-kind",
@@ -1674,7 +1674,7 @@ assert(
     hypervisorShellControllerSource.includes(
       "summary.model_route_availability_state",
     ) &&
-    hypervisorShellControllerSource.includes("summary.workbench_adapter_ref") &&
+    hypervisorShellControllerSource.includes("summary.code_editor_adapter_ref") &&
     !hypervisorNewSessionModalSource.includes(
       'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
     ) &&
@@ -1784,7 +1784,7 @@ assert(
   "retired-direct-openvscode-desktop-probes-absent",
   retiredDirectOpenVsCodeDesktopProbes.every((probePath) => !exists(probePath)),
   retiredDirectOpenVsCodeDesktopProbes,
-  "Retired direct-OpenVSCode desktop probes must stay deleted; editor behavior is verified through Hypervisor Workbench adapter preferences and shell contracts.",
+  "Retired direct-OpenVSCode desktop probes must stay deleted; editor behavior is verified through Hypervisor code editor adapter preferences and shell contracts.",
 );
 assert(
   "retired-home-onboarding-surfaces-absent",
@@ -2480,7 +2480,7 @@ assert(
     (file) => !/\bTauri\b|@tauri|tauri:\/\//.test(read(file)),
   ),
   hypervisorDesktopProbeFiles,
-  "Active Hypervisor desktop probes must target Hypervisor/App/Web/Workbench adapter hosts, not describe a Tauri app.",
+  "Active Hypervisor desktop probes must target Hypervisor/App/Web/Code editor adapter hosts, not describe a Tauri app.",
 );
 assert(
   "desktop-probes-no-ide-product-marker",
@@ -2488,7 +2488,7 @@ assert(
     (file) => !/\[Workspace IDE\]|Workspace IDE/.test(read(file)),
   ),
   hypervisorDesktopProbeFiles,
-  "Active Hypervisor desktop probes must target Workbench adapter hosts, not the retired Workspace IDE marker.",
+  "Active Hypervisor desktop probes must target Code editor adapter hosts, not the retired Workspace IDE marker.",
 );
 assert(
   "sdk-no-gui-harness-imports",

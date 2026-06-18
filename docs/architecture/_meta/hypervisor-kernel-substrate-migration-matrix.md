@@ -107,7 +107,7 @@ and the old optional `stateDir ?? null` handoff is retired.
 Slice 1416 additionally hard-cuts the active Hypervisor probe/adapter-host
 language boundary: `apps/hypervisor/src-tauri`, the root `ide/` artifact path,
 Tauri product wording, and the retired `Workspace IDE` marker are barred from
-active client probes; those probes now target Hypervisor/workbench-adapter host
+active client probes; those probes now target Hypervisor/code-editor-adapter host
 windows while Tauri remains legacy-only under `internal-docs/legacy`.
 Slice 1417 additionally hard-cuts the model_mount route-control topology
 candidate transport: mounted route selection and explicit-model endpoint
@@ -210,7 +210,7 @@ poison the retired `threadControlSurface`; and conformance rejects the deleted
 `runtime-thread-control-surface.mjs` files, retired factory/property names, and
 direct route calls into `store.threadControlSurface.*`.
 Slice 1433 additionally hard-cut the retired Workbench Studio intent local
-fallback in the former `workbench-adapters/ioi-workbench` tree: that historical
+fallback in the former `code-editor-adapters/ioi-workbench` tree: that historical
 adapter sent canonical snake_case protocol fields to `/v1/studio/intent-frame`,
 validated the returned Rust-authored `ioi.studio_intent_frame`, and blocked the
 Studio turn when Rust projection is unavailable instead of calling a local JS
@@ -1488,7 +1488,7 @@ scaffolding:
   readbacks, or compatibility aliases that can author accepted truth
 - retired pre-Hypervisor JS facade roots: former product-app and embedded
   Workbench implementation roots are deleted; the remaining client roots are
-  `apps/hypervisor` and `workbench-adapters/ioi-code-editor-adapter`
+  `apps/hypervisor` and `code-editor-adapters/ioi-code-editor-adapter`
 
 ## Conformance Posture
 

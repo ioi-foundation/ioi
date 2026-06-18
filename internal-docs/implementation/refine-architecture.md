@@ -390,7 +390,7 @@ HypervisorSessionLaunchRecipe
 HypervisorShellNavigationModel
 HypervisorAdapterTarget
 AgentHarnessAdapter
-WorkbenchAdapterPreference
+CodeEditorAdapterPreference
 VerticalOntologyPack
 IntegrationSurface
 ManagedWorkerInstanceLifecycle
@@ -453,7 +453,7 @@ Blocking object/API/schema gaps:
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
 HypervisorSessionLaunchRecipe live daemon admission and execution
-WorkbenchAdapterPreference external editor/browser/VM control wiring
+CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
 CapabilityLease product flows
@@ -821,7 +821,7 @@ interface HypervisorEnvironmentOpsProfile {
 interface HypervisorEnvironmentActivitySignal {
   signal_id: string;
   environment_id: string;
-  source: "hypervisor_app" | "hypervisor_web" | "workbench_adapter" | "agent_harness" | "daemon";
+  source: "hypervisor_app" | "hypervisor_web" | "code_editor_adapter" | "agent_harness" | "daemon";
   observed_at: string;
   lease_ref?: string;
   receipt_ref: string;
@@ -885,7 +885,7 @@ interface HypervisorScmAuthRequirement {
   satisfied_by_ref?: string;
 }
 
-interface WorkbenchAdapterPreference {
+interface CodeEditorAdapterPreference {
   adapter_id:
     | "vscode"
     | "cursor"
@@ -923,7 +923,7 @@ Storage backends may hold:
   encrypted workspace blobs, logs, archives, build artifacts, datasets,
   and delivery bundles, but they do not define restore truth.
 
-Workbench adapters and AgentHarnessAdapters may connect to environments
+code editor adapters and AgentHarnessAdapters may connect to environments
 through short-lived leases. They do not receive durable credentials or become
 the workspace custody domain.
 ```
@@ -951,7 +951,7 @@ Implementation phases:
 | Phase | Objective | Main files | Acceptance |
 | --- | --- | --- | --- |
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
-| 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
+| 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `code-editor-adapters/`. | `code-editor-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Code editor adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
 | 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Foundry/provider-environment names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not an editor-host console. |
@@ -987,7 +987,7 @@ Current implementation cut:
     publish context envelopes only; Hypervisor Home/Sessions/Projects owns
     product controls.
   `check:runtime-layout` rejects both retired `workspace_ide` command ids and
-    the later unused `workbench_adapter_bridge` command queue.
+    the later unused `code_editor_adapter_bridge` command queue.
   companion/work-graph shell entry points now route to the canonical `process`
     view instead of the retired `autopilot` Chat shell view id, with a
     `check:runtime-layout` guard
@@ -999,16 +999,16 @@ Current implementation cut:
     `apps/hypervisor/src/generated/hypervisor-contracts`, and active type
     wrappers import that path instead of `generated/autopilot-contracts`
   scripts/lib/autopilot-electron-app-paths.mjs ->
-    scripts/lib/hypervisor-workbench-adapter-host-paths.mjs
+    scripts/lib/hypervisor-code-editor-adapter-host-paths.mjs
   check:autopilot-electron-source-fork-optional ->
-    check:hypervisor-workbench-adapter-host-paths
-  active adapter metadata defaults to workbench-adapters/
+    check:hypervisor-code-editor-adapter-host-paths
+  active adapter metadata defaults to code-editor-adapters/
   active launch marker is IOI_HYPERVISOR_CANONICAL_CLIENT_HOST
 
 0A.1C is implemented for active app paths and remains a live regression guard:
   apps/hypervisor/src-tauri is absent from the live app path
   apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:hypervisor-app
-    launches the packaged Workbench adapter host, not a Tauri shell
+    launches the packaged Code editor adapter host, not a Tauri shell
   internal-docs/legacy/autopilot-tauri-src is deleted from the active tree;
     git history is the historical extraction inventory
   any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
@@ -1016,7 +1016,7 @@ Current implementation cut:
   active desktop probes and active contract tests no longer create or read
   `apps/hypervisor/src-tauri`; throwaway probe workspaces live under `.tmp/`
   and client-runtime checks read `HypervisorClientRuntime.ts`.
-  active desktop probes now target Hypervisor/workbench-adapter host windows by
+  active desktop probes now target Hypervisor/code-editor-adapter host windows by
     default and `check:runtime-layout` rejects Tauri product language in active
     Hypervisor probe files plus the retired `Workspace IDE` marker.
 
@@ -1028,8 +1028,8 @@ Current implementation cut:
   `apps/hypervisor/scripts/dev-desktop.sh` Tauri launcher, and
   rejects active desktop probe wording that describes Hypervisor as a Tauri app
   or as the retired `Workspace IDE`.
-  `check:hypervisor-workbench-adapter-host-paths` verifies the tracked
-  adapter path helper defaults to `workbench-adapters/`
+  `check:hypervisor-code-editor-adapter-host-paths` verifies the tracked
+  adapter path helper defaults to `code-editor-adapters/`
   active developer docs describe Hypervisor as a native operator client over
     Hypervisor Core and the IOI daemon, not as an Autopilot/Tauri desktop product
   editor adapter launch no longer owns configured local llama.cpp preloads;
@@ -1055,14 +1055,14 @@ Current implementation cut:
   and `buildBlockedHypervisorGuiHarnessResult`; `check:runtime-layout`
   rejects the retired helper filenames, exported symbols, and
   Autopilot-stamped active proof schemas.
-  the Workbench adapter shell patch path is retired entirely. The adapter host
+  the code editor adapter shell patch path is retired entirely. The adapter host
   syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
   target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,
   Receipts, and Settings stay in the Hypervisor App/Web clients.
   `check:runtime-layout` rejects both the retired Autopilot shell-patch helper
   and the later Hypervisor shell-patch helper so adapter targets cannot regain
   product-shell duties.
-  the tracked extension package is now `workbench-adapters/ioi-code-editor-adapter`.
+  the tracked extension package is now `code-editor-adapters/ioi-code-editor-adapter`.
   It contributes no command-palette/product routes; it activates on startup and
   publishes one-way `codeEditor.contextSnapshot` and
   `codeEditor.inspectionTargetIndex` request envelopes through the adapter
@@ -1076,7 +1076,7 @@ Current implementation cut:
 
 0A.1E repo-facing map cleanup is implemented:
   README points new implementers to `apps/hypervisor`,
-  `packages/hypervisor-workbench`, and `workbench-adapters` instead of the
+  `packages/hypervisor-workbench`, and `code-editor-adapters` instead of the
   retired `packages/agent-ide` / Hypervisor IDE framing.
   `check:runtime-layout` rejects a returned `packages/agent-ide` path, root
   `ide/` product path, active Tauri path, and README wording that makes
@@ -1216,7 +1216,7 @@ Current implementation cut:
   preserved as absence-test ballast.
   editor-adapter preference is a real New Session setting and shell launch
   request field
-  `workbenchAdapterPreferences.ts` now owns `WorkbenchAdapterLaunchPlan`,
+  `codeEditorAdapterPreferences.ts` now owns `CodeEditorAdapterLaunchPlan`,
   converting each adapter preference into a daemon-gated connection contract
   with access leases, authority scopes, receipt policy refs, typed executor
   lanes, typed control actions, and `no_durable_secret_release`. New Session
@@ -1226,15 +1226,15 @@ Current implementation cut:
   The primary left rail now exposes Workbench directly, and `WorkspaceShell`
   starts the governed code-editor workspace session for the active project
   without an intermediate chooser.
-  `runtime-workbench-adapter-launch-plan-admission.mjs` now admits those launch
-  plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
+  `runtime-code-editor-adapter-launch-plan-admission.mjs` now admits those launch
+  plans through `/v1/hypervisor/code-editor-adapter-launch-plans`, blocking durable
   secret release, adapter-runtime-truth claims, retired provider/VM/node/terminal
   adapter targets, and mismatched editor connection/control contracts.
-  `requestWorkbenchAdapterLaunchPlanAdmission` now calls that daemon route from
+  `requestCodeEditorAdapterLaunchPlanAdmission` now calls that daemon route from
   New Session launch. `HypervisorLaunchedSessionProjection` records the adapter
   admission as `daemon_admitted`, `daemon_blocked`, or `daemon_unavailable`,
   rather than treating adapter choice as local UI state.
-  `WorkbenchAdapterLaunchPlan` and daemon launch admissions now carry
+  `CodeEditorAdapterLaunchPlan` and daemon launch admissions now carry
   adapter-specific `executor_lane`, `control_action`, and
   `control_channel_ref` fields for embedded Workbench, desktop editor, browser
   code-editor URL, and browser IDE paths.
@@ -1242,7 +1242,7 @@ Current implementation cut:
   kind before admitting the launch plan. Product-facing adapter choice remains in
   New Session and Settings, not in a Workbench chooser.
   Sessions now render each launched session's adapter admission record and
-  disable target entry unless the Workbench adapter launch plan is
+  disable target entry unless the code editor adapter launch plan is
   `daemon_admitted`. `daemon_blocked` and `daemon_unavailable` launches remain
   inspectable as governed session records, but they cannot silently enter the
   target application surface. The session operations projection now also carries
@@ -1263,7 +1263,7 @@ Current implementation cut:
   `ioi.hypervisor.new_session_target_binding.v1` target binding for every
   launch. The binding preserves the selected recipe kind, surface, project,
   session route, operator-intent ref, and recipe-specific target refs for
-  Workbench adapter targets, agent templates, automation recipes, Foundry jobs,
+  code editor adapter targets, agent templates, automation recipes, Foundry jobs,
   provider/environment candidates, and private workspaces. The New Session DOM,
   shell controller seed narrative, focused tests, runtime-layout guard, and
   built-shell contract all verify the binding.
@@ -1531,7 +1531,7 @@ Current implementation cut:
   shell" rather than "runtime bridge", so implementation plumbing does not sit
   above the product surface.
   Settings now exposes the Advanced section as an operator-configurable panel,
-  and the Workbench adapter controls render product labels such as Embedded
+  and the code editor adapter controls render product labels such as Embedded
   Workbench, Open embedded, Open desktop, and Local workspace while preserving
   executor lane and control-action refs as metadata. The old Code tab /
   embedded-editor phrasing is now guarded against returning.
@@ -1581,7 +1581,7 @@ Current implementation cut:
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
   product-surface copy that keeps daemon, Agentgres, and wallet implementation
   truth out of the visible default chrome. It also verifies the Settings
-  reference shell and governed Workbench adapter controls.
+  reference shell and governed code editor adapter controls.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.
@@ -1606,8 +1606,8 @@ connections, or product navigation actions back into the app. Code-editor
 adapters publish passive context envelopes only; Hypervisor Home, Sessions,
 Projects, Workbench, and New Session own product actions.
 Do not let a root `ide/` artifact path or Electron/VS Code packaged host define
-the product. Root `ide/` is retired; current Workbench adapter-host metadata and
-ignored local adapter artifacts belong under `workbench-adapters/`.
+the product. Root `ide/` is retired; current code editor adapter-host metadata and
+ignored local adapter artifacts belong under `code-editor-adapters/`.
 Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy;
 the old Tauri tree is removed from the active repo, and `src-tauri` must not be
 recreated as a live product path.
@@ -1868,7 +1868,7 @@ Current implementation cut:
   receipt refs, and the harness adapter receipt schema.
 
   `HypervisorNewSessionModal` already lists these harness choices beside
-  workbench adapter, model route, privacy posture, authority scopes, and receipt
+  code editor adapter, model route, privacy posture, authority scopes, and receipt
   preview. Compatibility verdicts expose provider-trust, adapter-native-only,
   local-route-unavailable, compatible, and blocked states.
 
@@ -1952,7 +1952,7 @@ Current implementation cut:
 
   0B.2's launch contract is hardened: `HypervisorNewSessionModal` now emits an
   `ioi.hypervisor.new_session_launch_summary.v1` object binding recipe,
-  project, workbench adapter target/custody, harness selection/kind/truth
+  project, code editor adapter target/custody, harness selection/kind/truth
   boundary, harness verdict, model-route availability, privacy posture,
   authority scopes, receipt preview, and daemon-gate requirement. The
   controller seeds sessions from that summary instead of reconstructing loose UI
@@ -2295,6 +2295,6 @@ Verification for this guide:
 ```text
 git diff --check -- internal-docs/implementation/refine-architecture.md
 rg -n "Executive Verdict|Edge-Case Stress Tests|Coherence Findings|Proposed Patch Plan|Final Doctrine Delta" internal-docs/implementation/refine-architecture.md
-rg -n "Hypervisor App UX Master Plan|HypervisorSessionLaunchRecipe|WorkbenchAdapterPreference|HypervisorSessionDetailTab|HypervisorInspectorPanelId" internal-docs/implementation/refine-architecture.md
+rg -n "Hypervisor App UX Master Plan|HypervisorSessionLaunchRecipe|CodeEditorAdapterPreference|HypervisorSessionDetailTab|HypervisorInspectorPanelId" internal-docs/implementation/refine-architecture.md
 rg -n "Harness Adapter Testbed|AgentHarnessAdapterProfile|HarnessAdapterReceipt|HarnessComparisonRun" internal-docs/implementation/refine-architecture.md
 ```

@@ -10,7 +10,7 @@ EXTRA_ARGS=("$@")
 
 BASIC_QUERY="${AUTOPILOT_BASIC_QUERY:-Summarize what you can help me do in this repository in one short paragraph.}"
 
-echo "Launching Hypervisor Workbench adapter host with real inference."
+echo "Launching Hypervisor Code editor adapter host with real inference."
 echo "Use this basic dry-run query once the shell is ready:"
 echo "  ${BASIC_QUERY}"
 

@@ -30,13 +30,13 @@ const environmentSection = fs.readFileSync(
   new URL("./SettingsEnvironmentSection.tsx", import.meta.url),
   "utf8",
 );
-const workbenchAdapterSection = fs.readFileSync(
-  new URL("./SettingsWorkbenchAdapterSection.tsx", import.meta.url),
+const codeEditorAdapterSection = fs.readFileSync(
+  new URL("./SettingsCodeEditorAdapterSection.tsx", import.meta.url),
   "utf8",
 );
-const workbenchAdapterPreferences = fs.readFileSync(
+const codeEditorAdapterPreferences = fs.readFileSync(
   new URL(
-    "../../windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+    "../../windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
     import.meta.url,
   ),
   "utf8",
@@ -139,9 +139,9 @@ test("environment settings are labeled as compatibility, not authority truth", (
   assert.match(environmentSection, /Authority Center/);
 });
 
-test("settings expose Workbench adapter preference as a client default", () => {
-  assert.match(settingsViewBody, /selectedSection === "workbench_adapter"/);
-  assert.match(settingsViewBody, /SettingsWorkbenchAdapterSection/);
+test("settings expose code editor adapter preference as a client default", () => {
+  assert.match(settingsViewBody, /selectedSection === "code_editor_adapter"/);
+  assert.match(settingsViewBody, /SettingsCodeEditorAdapterSection/);
   assert.match(settingsViewBody, /data-settings-reference-shell="ioi-settings"/);
   assert.match(settingsViewBody, /Account/);
   assert.match(settingsViewBody, /Secrets/);
@@ -176,40 +176,40 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.doesNotMatch(settingsViewBody, /governed sessions/);
   assert.doesNotMatch(settingsViewBody, /plaintext custody domain/);
   assert.doesNotMatch(settingsViewBody, /adapter_preference_ref/);
-  assert.match(workbenchAdapterPreferences, /VS Code Insiders/);
-  assert.match(workbenchAdapterPreferences, /Cursor/);
-  assert.match(workbenchAdapterPreferences, /Windsurf/);
-  assert.match(workbenchAdapterPreferences, /IntelliJ IDEA Ultimate/);
-  assert.match(workbenchAdapterPreferences, /PyCharm Professional/);
-  assert.match(workbenchAdapterPreferences, /RubyMine/);
-  assert.match(workbenchAdapterPreferences, /WebStorm/);
-  assert.match(workbenchAdapterPreferences, /CLion/);
-  assert.match(workbenchAdapterPreferences, /RustRover/);
-  assert.match(workbenchAdapterPreferences, /Rider/);
-  assert.match(workbenchAdapterPreferences, /VS Code Browser/);
-  assert.match(settingsView, /workbenchAdapterPreferenceRef/);
+  assert.match(codeEditorAdapterPreferences, /VS Code Insiders/);
+  assert.match(codeEditorAdapterPreferences, /Cursor/);
+  assert.match(codeEditorAdapterPreferences, /Windsurf/);
+  assert.match(codeEditorAdapterPreferences, /IntelliJ IDEA Ultimate/);
+  assert.match(codeEditorAdapterPreferences, /PyCharm Professional/);
+  assert.match(codeEditorAdapterPreferences, /RubyMine/);
+  assert.match(codeEditorAdapterPreferences, /WebStorm/);
+  assert.match(codeEditorAdapterPreferences, /CLion/);
+  assert.match(codeEditorAdapterPreferences, /RustRover/);
+  assert.match(codeEditorAdapterPreferences, /Rider/);
+  assert.match(codeEditorAdapterPreferences, /VS Code Browser/);
+  assert.match(settingsView, /codeEditorAdapterPreferenceRef/);
   assert.match(settingsView, /chat-settings-view--reference/);
   assert.match(
     settingsView,
-    /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY/,
+    /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY/,
   );
-  assert.match(workbenchAdapterSection, /Default editor target/);
-  assert.match(workbenchAdapterSection, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
-  assert.match(workbenchAdapterSection, /buildWorkbenchAdapterLaunchPlan/);
-  assert.match(workbenchAdapterSection, /data-workbench-adapter-preference/);
-  assert.match(workbenchAdapterSection, /data-workbench-adapter-executor-lane/);
-  assert.match(workbenchAdapterSection, /data-workbench-adapter-control-action/);
-  assert.match(workbenchAdapterSection, /data-workbench-adapter-control-channel-ref/);
-  assert.match(workbenchAdapterSection, /controlActionLabel/);
-  assert.match(workbenchAdapterSection, /Open embedded/);
-  assert.match(workbenchAdapterSection, /Open desktop/);
-  assert.match(workbenchAdapterSection, /Open browser editor/);
-  assert.match(workbenchAdapterSection, /Local workspace/);
-  assert.match(workbenchAdapterSection, /Session preference/);
-  assert.match(workbenchAdapterSection, /Sessions and Environments own terminal/);
-  assert.doesNotMatch(workbenchAdapterSection, /adapter_preference_ref/);
-  assert.doesNotMatch(workbenchAdapterSection, /preference\.launch_mode\} \/ /);
-  assert.doesNotMatch(workbenchAdapterSection, /custody_posture\.split/);
+  assert.match(codeEditorAdapterSection, /Default editor target/);
+  assert.match(codeEditorAdapterSection, /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES/);
+  assert.match(codeEditorAdapterSection, /buildCodeEditorAdapterLaunchPlan/);
+  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-preference/);
+  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-executor-lane/);
+  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-control-action/);
+  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-control-channel-ref/);
+  assert.match(codeEditorAdapterSection, /controlActionLabel/);
+  assert.match(codeEditorAdapterSection, /Open embedded/);
+  assert.match(codeEditorAdapterSection, /Open desktop/);
+  assert.match(codeEditorAdapterSection, /Open browser editor/);
+  assert.match(codeEditorAdapterSection, /Local workspace/);
+  assert.match(codeEditorAdapterSection, /Session preference/);
+  assert.match(codeEditorAdapterSection, /Sessions and Environments own terminal/);
+  assert.doesNotMatch(codeEditorAdapterSection, /adapter_preference_ref/);
+  assert.doesNotMatch(codeEditorAdapterSection, /preference\.launch_mode\} \/ /);
+  assert.doesNotMatch(codeEditorAdapterSection, /custody_posture\.split/);
 });
 
 test("settings authority repair actions route to canonical surfaces", () => {

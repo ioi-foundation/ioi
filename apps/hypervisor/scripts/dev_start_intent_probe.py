@@ -838,7 +838,7 @@ def parse_args() -> argparse.Namespace:
         "--window-timeout-secs",
         type=float,
         default=WINDOW_WAIT_TIMEOUT_SECS,
-        help="How long to wait for the desktop window. Increase this for cold Workbench adapter host starts.",
+        help="How long to wait for the desktop window. Increase this for cold Code editor adapter host starts.",
     )
     parser.add_argument(
         "--window-name",

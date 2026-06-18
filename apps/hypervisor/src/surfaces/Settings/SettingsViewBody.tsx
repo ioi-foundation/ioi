@@ -1,7 +1,7 @@
 import {
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
-  getWorkbenchAdapterPreferenceByRef,
-  getWorkbenchAdapterPreferenceRef,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  getCodeEditorAdapterPreferenceByRef,
+  getCodeEditorAdapterPreferenceRef,
 } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import { SettingsAuthoritySection } from "./SettingsAuthoritySection";
 import { SettingsEnvironmentSection } from "./SettingsEnvironmentSection";
@@ -12,7 +12,7 @@ import { SettingsRuntimeSection } from "./SettingsRuntimeSection";
 import { SettingsSkillSourcesSection } from "./SettingsSkillSourcesSection";
 import { SettingsSourcesSection } from "./SettingsSourcesSection";
 import { SettingsStorageApiSection } from "./SettingsStorageApiSection";
-import { SettingsWorkbenchAdapterSection } from "./SettingsWorkbenchAdapterSection";
+import { SettingsCodeEditorAdapterSection } from "./SettingsCodeEditorAdapterSection";
 import { isEngineSection, type SettingsSection } from "./settingsViewShared";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
 
@@ -35,7 +35,7 @@ const ADVANCED_SETTINGS_NAV: Array<{
   { id: "knowledge", label: "Knowledge" },
   { id: "skill_sources", label: "Skill sources" },
   { id: "managed_settings", label: "Managed settings" },
-  { id: "workbench_adapter", label: "Workbench adapter" },
+  { id: "code_editor_adapter", label: "code editor adapter" },
   { id: "runtime", label: "Runtime" },
   { id: "storage_api", label: "Storage / API" },
   { id: "sources", label: "Sources" },
@@ -90,36 +90,36 @@ function SettingsSwitch({
 }
 
 function SettingsEditorTargetList({ view }: { view: SettingsViewBodyView }) {
-  const visibleTargets = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.filter(
+  const visibleTargets = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.filter(
     (preference) => preference.settings_visible !== false,
   );
   const selectedPreference =
-    getWorkbenchAdapterPreferenceByRef(view.workbenchAdapterPreferenceRef) ??
+    getCodeEditorAdapterPreferenceByRef(view.codeEditorAdapterPreferenceRef) ??
     visibleTargets[0];
 
   return (
     <label
       className="chat-settings-reference-editor-select"
       aria-label="Default editor adapter targets"
-      data-settings-editor-picker="workbench-adapter-targets"
+      data-settings-editor-picker="code-editor-adapter-targets"
     >
       <span className="chat-settings-reference-editor-icon" aria-hidden="true">
         {selectedPreference.icon_label ?? selectedPreference.label.slice(0, 2)}
       </span>
       <select
-        value={view.workbenchAdapterPreferenceRef}
+        value={view.codeEditorAdapterPreferenceRef}
         onChange={(event) =>
-          view.setWorkbenchAdapterPreferenceRef(event.currentTarget.value)
+          view.setCodeEditorAdapterPreferenceRef(event.currentTarget.value)
         }
       >
         {visibleTargets.map((preference) => {
-          const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
+          const preferenceRef = getCodeEditorAdapterPreferenceRef(preference);
           return (
             <option
               key={preference.adapter_id}
               value={preferenceRef}
               data-settings-editor-target={preference.adapter_id}
-              data-workbench-adapter-preference={preferenceRef}
+              data-code-editor-adapter-preference={preferenceRef}
             >
               {preference.label}
             </option>
@@ -131,8 +131,8 @@ function SettingsEditorTargetList({ view }: { view: SettingsViewBodyView }) {
 }
 
 function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
-  const selectedPreference = getWorkbenchAdapterPreferenceByRef(
-    view.workbenchAdapterPreferenceRef,
+  const selectedPreference = getCodeEditorAdapterPreferenceByRef(
+    view.codeEditorAdapterPreferenceRef,
   );
 
   return (
@@ -326,7 +326,7 @@ function SettingsReferencePrimaryPanel({
           body="Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services."
           rows={[
             {
-              label: "Workbench adapters",
+              label: "code editor adapters",
               value: "Embedded, desktop, and browser-based code editors.",
               action: "Open",
             },
@@ -361,8 +361,8 @@ function SettingsAdvancedPanel({ view }: { view: SettingsViewBodyView }) {
       {selectedSection === "managed_settings" ? (
         <SettingsManagedSection view={view} />
       ) : null}
-      {selectedSection === "workbench_adapter" ? (
-        <SettingsWorkbenchAdapterSection view={view} />
+      {selectedSection === "code_editor_adapter" ? (
+        <SettingsCodeEditorAdapterSection view={view} />
       ) : null}
       {selectedSection === "runtime" ? (
         <SettingsRuntimeSection view={view} />

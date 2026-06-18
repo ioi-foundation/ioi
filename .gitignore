@@ -77,12 +77,12 @@ scripts/internal/
 # provider state, and local model artifacts from GUI validation.
 .ioi/
 
-# Local Workbench adapter artifacts. The VS Code fork checkout and packaged
+# Local code editor adapter artifacts. The VS Code fork checkout and packaged
 # Electron build are large local artifacts; keep only adapter boundary docs and
 # patch metadata in git.
-workbench-adapters/vscode/
-workbench-adapters/builds/
-workbench-adapters/.cache/
+code-editor-adapters/vscode/
+code-editor-adapters/builds/
+code-editor-adapters/.cache/
 
 # Python cache/build artifacts
 __pycache__/

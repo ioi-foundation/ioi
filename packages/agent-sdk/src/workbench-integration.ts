@@ -2,7 +2,7 @@ export const WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION =
   "ioi.workbench-integration.v1" as const;
 
 export type WorkbenchRuntimeTruthSource = "daemon-runtime";
-export type WorkbenchProjectionOwner = "openvscode-workbench-adapter";
+export type WorkbenchProjectionOwner = "code-editor-adapter:openvscode";
 
 export interface WorkbenchRuntimeRefs {
   threadId?: string | null;
@@ -232,7 +232,7 @@ export function workbenchProjectionBase(
   return {
     schemaVersion: WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "code-editor-adapter:openvscode",
     ownsRuntimeState: false,
     runtimeRefs: emptyWorkbenchRuntimeRefs(runtimeRefs),
   };
@@ -248,7 +248,7 @@ export function isWorkbenchProjectionContract(
   return (
     candidate.schemaVersion === WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION &&
     candidate.runtimeTruthSource === "daemon-runtime" &&
-    candidate.projectionOwner === "openvscode-workbench-adapter" &&
+    candidate.projectionOwner === "code-editor-adapter:openvscode" &&
     candidate.ownsRuntimeState === false &&
     Boolean(candidate.runtimeRefs) &&
     Array.isArray(candidate.runtimeRefs?.receiptRefs) &&

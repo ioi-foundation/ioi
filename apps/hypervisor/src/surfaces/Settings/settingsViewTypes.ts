@@ -22,8 +22,8 @@ import type { SettingsSection } from "./settingsViewShared";
 export type SettingsViewBodyView = {
   selectedSection: SettingsSection;
   setSelectedSection: Dispatch<SetStateAction<SettingsSection>>;
-  workbenchAdapterPreferenceRef: string;
-  setWorkbenchAdapterPreferenceRef: Dispatch<SetStateAction<string>>;
+  codeEditorAdapterPreferenceRef: string;
+  setCodeEditorAdapterPreferenceRef: Dispatch<SetStateAction<string>>;
   profileDraft: AssistantUserProfile;
   profileSaving: boolean;
   profileError: string | null;

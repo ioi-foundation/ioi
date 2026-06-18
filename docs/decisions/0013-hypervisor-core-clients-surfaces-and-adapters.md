@@ -70,10 +70,10 @@ IOI L1 settles only selected public/economic/cross-domain commitments.
 - Retired Tauri code and `src-tauri` paths must not be recreated as an active
   product path.
 - The old root `ide/` artifact path is retired; adapter-host metadata and local
-  editor build conventions live under `workbench-adapters/`.
+  editor build conventions live under `code-editor-adapters/`.
 - Documentation must not use "Hypervisor IDE" as the live parent product.
   `Hypervisor Workbench` is the code/systems/workspace surface.
-- Electron/VS Code is one current Workbench adapter-host implementation, not
+- Electron/VS Code is one current Code editor adapter-host implementation, not
   the product identity.
 - Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workbench, Foundry,
   Fleet, external harness adapters, and provider integrations must share daemon
@@ -123,7 +123,7 @@ Agentgres = admitted truth
 - ADR 0009's "Electron/VS Code fork as canonical app shell" framing.
 
 Those ADRs remain useful implementation history for why Tauri was retired and
-why first-class Workbench adapter integration matters.
+why first-class Code editor adapter integration matters.
 
 ## Canonical References
 

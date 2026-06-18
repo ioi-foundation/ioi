@@ -66,7 +66,7 @@ parallel execution path.
 - `adaptive work graph` is the public execution-strategy term. `adaptive work graph` is
   legacy/historical vocabulary unless isolated in compatibility or old plan
   material.
-- `WorkbenchAdapterHost` means an editor/IDE host such as VS Code, Cursor,
+- `CodeEditorAdapterHost` means an editor/IDE host such as VS Code, Cursor,
   Windsurf, JetBrains, a browser IDE, or a terminal surface. It is not the
   Hypervisor product and must not live under a root `ide/` product path.
 
@@ -83,5 +83,5 @@ When moving runtime code, prefer this order:
    the active tree; git history is the recovery handle, and any external archive
    must be explicitly marked deprecated rather than used as a contract source.
 6. Do not add new root `ide/`, `agent-ide`, or Autopilot-named product paths.
-   Workbench adapter hosts belong under `workbench-adapters/`; active product
+   Code editor adapter hosts belong under `code-editor-adapters/`; active product
    scripts should expose Hypervisor names.

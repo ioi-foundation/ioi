@@ -407,27 +407,27 @@ async function main() {
     if (await settingsAdvancedSummary.isVisible()) {
       await settingsAdvancedSummary.click();
     }
-    const workbenchAdapterSettingsNav = settingsShell
+    const codeEditorAdapterSettingsNav = settingsShell
       .locator(
-        '.chat-settings-reference-advanced button:has-text("Workbench adapter")',
+        '.chat-settings-reference-advanced button:has-text("Code editor adapter")',
       )
       .first();
-    await workbenchAdapterSettingsNav.scrollIntoViewIfNeeded();
-    await workbenchAdapterSettingsNav.click();
+    await codeEditorAdapterSettingsNav.scrollIntoViewIfNeeded();
+    await codeEditorAdapterSettingsNav.click();
     const settingsMain = settingsShell.locator(".chat-settings-reference-main");
     await settingsMain
-      .locator("[data-workbench-adapter-executor-lane]")
+      .locator("[data-code-editor-adapter-executor-lane]")
       .first()
       .waitFor({ state: "visible", timeout: 30_000 });
     const settingsAdapterRows = await settingsMain
-      .locator("[data-workbench-adapter-executor-lane]")
+      .locator("[data-code-editor-adapter-executor-lane]")
       .count();
     assert(
       settingsAdapterRows >= 8,
       "Settings did not expose governed adapter target metadata.",
     );
     const settingsControlRows = await settingsMain
-      .locator("[data-workbench-adapter-control-action]")
+      .locator("[data-code-editor-adapter-control-action]")
       .count();
     assert(
       settingsControlRows === settingsAdapterRows,

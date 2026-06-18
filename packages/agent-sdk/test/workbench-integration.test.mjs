@@ -22,7 +22,7 @@ test("workbench projection base names daemon runtime as source of truth", () => 
 
   assert.equal(base.schemaVersion, WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION);
   assert.equal(base.runtimeTruthSource, "daemon-runtime");
-  assert.equal(base.projectionOwner, "openvscode-workbench-adapter");
+  assert.equal(base.projectionOwner, "code-editor-adapter:openvscode");
   assert.equal(base.ownsRuntimeState, false);
   assert.equal(base.runtimeRefs.runId, "run://workspace-codegen");
   assert.ok(isWorkbenchProjectionContract(base));

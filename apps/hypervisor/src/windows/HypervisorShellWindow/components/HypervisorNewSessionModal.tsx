@@ -4,11 +4,11 @@ import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_NEW_SESSION_SETUP_MODEL,
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
   buildHypervisorNewSessionLaunchSummary,
-  getWorkbenchAdapterPreferenceByRef,
-  getWorkbenchAdapterPreferenceRef,
+  getCodeEditorAdapterPreferenceByRef,
+  getCodeEditorAdapterPreferenceRef,
   type HypervisorNewSessionLaunchRequest,
 } from "../hypervisorShellNavigationModel";
 import {
@@ -80,17 +80,17 @@ function defaultHarnessSelectionRef(): string {
   return option ? getHarnessSelectionRef(option) : "harness-profile:default_harness_profile";
 }
 
-function readStoredWorkbenchAdapterPreferenceRef(): string {
+function readStoredCodeEditorAdapterPreferenceRef(): string {
   if (typeof window === "undefined") {
     return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
   }
   const stored = window.localStorage.getItem(
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
   );
   if (
     stored &&
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.some(
-      (preference) => getWorkbenchAdapterPreferenceRef(preference) === stored,
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.some(
+      (preference) => getCodeEditorAdapterPreferenceRef(preference) === stored,
     )
   ) {
     return stored;
@@ -125,7 +125,7 @@ export function HypervisorNewSessionModal({
   );
   const [projectId] = useState(currentProject.id);
   const [adapterPreferenceRef] = useState(
-    readStoredWorkbenchAdapterPreferenceRef,
+    readStoredCodeEditorAdapterPreferenceRef,
   );
   const [harnessSelectionRef, setHarnessSelectionRef] = useState(
     defaultHarnessSelectionRef(),
@@ -153,7 +153,7 @@ export function HypervisorNewSessionModal({
   const selectedProject =
     projects.find((project) => project.id === projectId) ?? currentProject;
   const selectedAdapterPreference =
-    getWorkbenchAdapterPreferenceByRef(adapterPreferenceRef);
+    getCodeEditorAdapterPreferenceByRef(adapterPreferenceRef);
   const selectedHarness =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.find(
       (option) => getHarnessSelectionRef(option) === harnessSelectionRef,
@@ -203,7 +203,7 @@ export function HypervisorNewSessionModal({
         recipe,
         seedIntent,
         projectId: selectedProject.id,
-        workbenchAdapter: selectedAdapterPreference,
+        codeEditorAdapter: selectedAdapterPreference,
         harness: selectedHarness,
         harnessVerdict,
         modelRouteAvailability,
@@ -242,7 +242,7 @@ export function HypervisorNewSessionModal({
       recipe: launchRecipe,
       seedIntent: nextSeedIntent,
       projectId: selectedProject.id,
-      workbenchAdapter: selectedAdapterPreference,
+      codeEditorAdapter: selectedAdapterPreference,
       harness: selectedHarness,
       harnessVerdict,
       modelRouteAvailability,
@@ -348,14 +348,14 @@ export function HypervisorNewSessionModal({
             data-new-session-target-session-route={
               launchSummary.target_binding.session_route_ref
             }
-            data-new-session-workbench-adapter-ref={
-              launchSummary.workbench_adapter_ref
+            data-new-session-code-editor-adapter-ref={
+              launchSummary.code_editor_adapter_ref
             }
-            data-new-session-workbench-adapter-launch-plan-ref={
-              launchSummary.workbench_adapter_launch_plan_ref
+            data-new-session-code-editor-adapter-launch-plan-ref={
+              launchSummary.code_editor_adapter_launch_plan_ref
             }
-            data-new-session-workbench-adapter-connection-contract-ref={
-              launchSummary.workbench_adapter_connection_contract_ref
+            data-new-session-code-editor-adapter-connection-contract-ref={
+              launchSummary.code_editor_adapter_connection_contract_ref
             }
             data-new-session-harness-selection-kind={
               launchSummary.harness_selection_kind

@@ -22,7 +22,7 @@ Hypervisor App
 │   ├── governance surfaces: Privacy, Authority, Receipts, Settings
 │   └── inspectors for changes, ports/services, tasks, terminal, logs, and receipts
 │
-├── Workbench adapter hosts
+├── Code editor adapter hosts
 │   ├── packaged Electron/VS Code host for the current development path
 │   ├── editor, browser IDE, terminal, VM, and hosted workspace targets
 │   └── daemon request bridge and adapter capability boundary
@@ -56,9 +56,9 @@ product path should not present any editor host as the parent product.
 
 - [Node.js](https://nodejs.org/) (v20+ LTS recommended)
 - Packaged Electron/VS Code app at
-  `workbench-adapters/builds/VSCode-linux-x64`, or set
-  `HYPERVISOR_WORKBENCH_VSCODE_PACKAGED_ROOT`.
-- Optional VS Code source checkout at `workbench-adapters/vscode` for adapter
+  `code-editor-adapters/builds/VSCode-linux-x64`, or set
+  `HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT`.
+- Optional VS Code source checkout at `code-editor-adapters/vscode` for adapter
   development.
 
 ### Setup
@@ -75,17 +75,17 @@ npm run build:workbench
 ```
 
 `npm run dev:hypervisor-app` currently launches the packaged Electron/VS Code
-Workbench adapter host through
-`scripts/launch-hypervisor-workbench-adapter-host.mjs`. The launcher role is
+Code editor adapter host through
+`scripts/launch-hypervisor-code-editor-adapter-host.mjs`. The launcher role is
 editor-host launch, not Hypervisor product identity. Hypervisor App/Core owns
 daemon access, model mounting, session authority, and receipts; the editor-host
 launcher does not start daemon sidecars, mount models, or pass daemon tokens to
 the extension. The launcher only syncs the current `ioi-code-editor-adapter`
 extension into the packaged host. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip
-extension sync. The `workbench-adapters/vscode` source checkout is optional for this
+extension sync. The `code-editor-adapters/vscode` source checkout is optional for this
 launch path; the required editor-host artifact is the packaged Electron app at
-`workbench-adapters/builds/VSCode-linux-x64` or
-`HYPERVISOR_WORKBENCH_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path
+`code-editor-adapters/builds/VSCode-linux-x64` or
+`HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path
 is retired.
 
 ### Project Structure
@@ -96,10 +96,10 @@ apps/hypervisor/
 ├── package.json                         # Hypervisor App scripts
 └── README.md
 
-workbench-adapters/
+code-editor-adapters/
 ├── README.md                            # adapter-host ownership notes
 ├── ioi-code-editor-adapter/                       # built-in code editor adapter extension
-├── adapter-host.manifest.json           # code-editor adapter-host manifest
+├── code-editor-adapter-host.manifest.json           # code-editor adapter-host manifest
 ├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
 └── vscode/                              # ignored optional VS Code source checkout
 
@@ -128,7 +128,7 @@ packages/
 - `npm run dev:hypervisor-app` launches the current packaged editor host with a
   supervised daemon sidecar by default.
 - GUI probes and goal scripts should target Hypervisor App surfaces and may use
-  the packaged editor host as one Workbench adapter target while retaining
+  the packaged editor host as one code editor adapter target while retaining
   screenshots, logs, receipts, and proof JSON.
 
 ## License

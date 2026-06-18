@@ -5,22 +5,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_HOST,
   envFlag,
   syncWorkbenchExtensionTargets,
-} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
+} from "./lib/hypervisor-code-editor-adapter-host-paths.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 
-const binary = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
+const binary = HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.binary;
 const extensionSyncEnabled = !envFlag("HYPERVISOR_SKIP_EXTENSION_SYNC");
 const args = process.argv.slice(2);
 const launchArgs = args.length > 0 ? args : [repoRoot];
 
 if (!existsSync(binary)) {
   console.error(
-    `Hypervisor Workbench adapter host binary not found at ${binary}. Set HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN to override.`,
+    `Hypervisor Code editor adapter host binary not found at ${binary}. Set HYPERVISOR_CODE_EDITOR_VSCODE_FORK_BIN to override.`,
   );
   process.exit(1);
 }
@@ -31,7 +31,7 @@ function syncCodeEditorAdapterExtension() {
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(
-    `[Hypervisor Workbench Adapter] Synced ioi-code-editor-adapter extension into ${copied}.` +
+    `[Hypervisor Code Editor Adapter] Synced ioi-code-editor-adapter extension into ${copied}.` +
       (skipped ? ` Skipped optional ${skipped}.` : ""),
   );
 }
@@ -42,8 +42,8 @@ const child = spawn(binary, launchArgs, {
   cwd: repoRoot,
   env: {
     ...process.env,
-    IOI_HYPERVISOR_WORKBENCH_ADAPTER_HOST: "vscode-electron-packaged-host",
-    IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
+    IOI_HYPERVISOR_CODE_EDITOR_ADAPTER_HOST: "vscode-electron-packaged-host",
+    IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-code-editor-adapter-host",
   },
   stdio: "inherit",
 });

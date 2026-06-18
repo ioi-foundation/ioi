@@ -1,19 +1,19 @@
 {
-  "schemaVersion": "ioi.hypervisor.workbench-adapter-host.manifest.v1",
+  "schemaVersion": "ioi.hypervisor.code_editor_adapter_host.manifest.v1",
   "adapterHost": "vscode-electron-packaged-host",
-  "targetRoot": "workbench-adapters",
+  "targetRoot": "code-editor-adapters",
   "sourceFork": {
-    "defaultPath": "workbench-adapters/vscode",
+    "defaultPath": "code-editor-adapters/vscode",
     "optionalForRuntimeLaunch": true,
     "upstream": "https://github.com/microsoft/vscode.git",
     "localBranchHint": "antigravity/main"
   },
   "packagedApp": {
-    "defaultPath": "workbench-adapters/builds/VSCode-linux-x64",
-    "binary": "workbench-adapters/builds/VSCode-linux-x64/bin/hypervisor",
+    "defaultPath": "code-editor-adapters/builds/VSCode-linux-x64",
+    "binary": "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor",
     "requiredForRuntimeLaunch": true
   },
-  "adapterSource": "workbench-adapters/ioi-code-editor-adapter",
+  "adapterSource": "code-editor-adapters/ioi-code-editor-adapter",
   "runtimeAuthority": "packages/runtime-daemon",
   "doctrine": [
     "Hypervisor App is the product client; Workbench is one application surface.",
@@ -21,6 +21,6 @@
     "ioi-code-editor-adapter is the current code editor adapter extension, not a product shell.",
     "IOI daemon is the runtime authority and durable execution boundary.",
     "Legacy native embedding paths are extraction inventory and must not be revived.",
-    "The tracked adapter metadata and ignored local adapter artifacts live under workbench-adapters/; the root ide/ artifact path is retired."
+    "The tracked adapter metadata and ignored local adapter artifacts live under code-editor-adapters/; the root ide/ artifact path is retired."
   ]
 }

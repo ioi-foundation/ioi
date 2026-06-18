@@ -22,13 +22,13 @@ import {
 } from "./harnessAdapterModel.ts";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
   buildHypervisorLaunchedSessionProjection,
   buildHypervisorNewSessionLaunchSummary,
-  buildHypervisorWorkbenchAdapterAdmissionFailure,
-  buildWorkbenchAdapterLaunchPlan,
-  requestWorkbenchAdapterLaunchPlanAdmission,
-  WorkbenchAdapterLaunchAdmissionError,
+  buildHypervisorCodeEditorAdapterAdmissionFailure,
+  buildCodeEditorAdapterLaunchPlan,
+  requestCodeEditorAdapterLaunchPlanAdmission,
+  CodeEditorAdapterLaunchAdmissionError,
 } from "./hypervisorShellNavigationModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
@@ -352,14 +352,14 @@ test("new session launch summary binds harness, model route, adapter target, pri
   const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
     (candidate) => candidate.recipe_id === "mission.default",
   );
-  const workbenchAdapter = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+  const codeEditorAdapter = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
     (candidate) => candidate.adapter_id === "external_editor",
   );
   const deepseek = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
     (profile) => profile.adapter_id === "deepseek_tui",
   );
   assert.ok(recipe);
-  assert.ok(workbenchAdapter);
+  assert.ok(codeEditorAdapter);
   assert.ok(deepseek);
 
   const routeAvailability = modelRouteSupportsHypervisorMountFromInventory(
@@ -378,7 +378,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
     recipe,
     seedIntent: "Fix flaky receipts",
     projectId: "project:ioi",
-    workbenchAdapter,
+    codeEditorAdapter,
     harness: deepseek,
     harnessVerdict,
     modelRouteAvailability: routeAvailability,
@@ -405,7 +405,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
       operator_intent_ref:
         "target-binding:new-session/mission-default/project-ioi/operator-intent",
       session_route_ref: "session-route:sessions/mission-default/project-ioi",
-      workbench_adapter_target_ref: null,
+      code_editor_adapter_target_ref: null,
       automation_recipe_ref: null,
       agent_template_ref: null,
       foundry_job_ref: null,
@@ -415,27 +415,27 @@ test("new session launch summary binds harness, model route, adapter target, pri
       runtimeTruthSource: "daemon-runtime",
     },
     project_ref: "project:ioi",
-    workbench_adapter_ref: "workbench-adapter:external_editor",
-    workbench_adapter_target_ref: "adapter-target:external-editor",
-    workbench_adapter_custody_posture: "redacted_projection",
-    workbench_adapter_launch_plan_ref:
-      "workbench-adapter:external_editor/launch-plan",
-    workbench_adapter_connection_contract_ref:
-      "connection-contract:workbench-adapter/desktop-bridge",
-    workbench_adapter_executor_lane: "desktop_editor",
-    workbench_adapter_control_action: "open_desktop_editor",
-    workbench_adapter_control_channel_ref:
-      "control-channel:workbench-adapter/desktop-bridge",
-    workbench_adapter_access_lease_refs: [
-      "lease:workbench-adapter/desktop-bridge",
+    code_editor_adapter_ref: "code-editor-adapter:external_editor",
+    code_editor_adapter_target_ref: "adapter-target:external-editor",
+    code_editor_adapter_custody_posture: "redacted_projection",
+    code_editor_adapter_launch_plan_ref:
+      "code-editor-adapter:external_editor/launch-plan",
+    code_editor_adapter_connection_contract_ref:
+      "connection-contract:code-editor-adapter/desktop-bridge",
+    code_editor_adapter_executor_lane: "desktop_editor",
+    code_editor_adapter_control_action: "open_desktop_editor",
+    code_editor_adapter_control_channel_ref:
+      "control-channel:code-editor-adapter/desktop-bridge",
+    code_editor_adapter_access_lease_refs: [
+      "lease:code-editor-adapter/desktop-bridge",
     ],
-    workbench_adapter_authority_scope_refs: [
+    code_editor_adapter_authority_scope_refs: [
       "scope:workspace.read",
       "scope:workspace.patch",
       "scope:receipt.write",
     ],
-    workbench_adapter_receipt_refs: [
-      "receipt-policy:workbench-adapter/desktop-bridge",
+    code_editor_adapter_receipt_refs: [
+      "receipt-policy:code-editor-adapter/desktop-bridge",
     ],
     harness_selection_ref: "agent-harness-adapter:deepseek_tui",
     harness_selection_kind: "agent_harness_adapter",
@@ -459,7 +459,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
       recipe_id: recipe.recipe_id,
       seed_intent: "Fix flaky receipts",
       project_id: "project:ioi",
-      adapter_preference_ref: "workbench-adapter:external_editor",
+      adapter_preference_ref: "code-editor-adapter:external_editor",
       harness_selection_ref: "agent-harness-adapter:deepseek_tui",
       model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
       privacy_posture_ref: "privacy:redacted-projection",
@@ -482,24 +482,24 @@ test("new session launch summary binds harness, model route, adapter target, pri
   );
   assert.equal(launchedSession.surface_id, "sessions");
   assert.equal(launchedSession.admission_state, "pending_daemon_admission");
-  assert.equal(launchedSession.workbench_adapter_admission, null);
-  assert.equal(launchedSession.workbench_adapter_admission_ref, null);
+  assert.equal(launchedSession.code_editor_adapter_admission, null);
+  assert.equal(launchedSession.code_editor_adapter_admission_ref, null);
   assert.equal(launchedSession.launch_summary, summary);
   assert.equal(launchedSession.runtimeTruthSource, "daemon-runtime");
 });
 
 test("new session target bindings preserve recipe-specific destinations", () => {
-  const workbenchAdapter = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+  const codeEditorAdapter = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
     (candidate) => candidate.adapter_id === "embedded_workbench",
   );
-  assert.ok(workbenchAdapter);
+  assert.ok(codeEditorAdapter);
 
   const summaries = Object.fromEntries(
     HYPERVISOR_SESSION_LAUNCH_RECIPES.map((recipe) => {
       const summary = buildHypervisorNewSessionLaunchSummary({
         recipe,
         projectId: "project:ioi",
-        workbenchAdapter,
+        codeEditorAdapter,
         harness: DEFAULT_HARNESS_PROFILE_OPTION,
         harnessVerdict: buildHarnessCompatibilityVerdict(
           DEFAULT_HARNESS_PROFILE_OPTION,
@@ -531,7 +531,7 @@ test("new session target bindings preserve recipe-specific destinations", () => 
   );
 
   assert.equal(
-    summaries["workbench.default"]?.workbench_adapter_target_ref,
+    summaries["workbench.default"]?.code_editor_adapter_target_ref,
     "adapter-target:vscode-embedded",
   );
   assert.equal(
@@ -560,11 +560,11 @@ test("new session target bindings preserve recipe-specific destinations", () => 
   );
 });
 
-test("workbench adapter launch plans bind connection contracts and leases", () => {
+test("code editor adapter launch plans bind connection contracts and leases", () => {
   const plans = Object.fromEntries(
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => [
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.map((preference) => [
       preference.adapter_id,
-      buildWorkbenchAdapterLaunchPlan(preference),
+      buildCodeEditorAdapterLaunchPlan(preference),
     ]),
   );
 
@@ -581,14 +581,14 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     "open_embedded_workbench",
   );
   assert.deepEqual(plans.embedded_workbench?.required_access_lease_refs, [
-    "lease:workbench-adapter/embedded-host",
+    "lease:code-editor-adapter/embedded-host",
   ]);
   assert.equal(
     plans.external_editor?.connection_contract_ref,
-    "connection-contract:workbench-adapter/desktop-bridge",
+    "connection-contract:code-editor-adapter/desktop-bridge",
   );
   assert.equal(plans.cursor?.connection_kind, "desktop_editor");
-  assert.equal(plans.cursor?.control_channel_ref, "control-channel:workbench-adapter/desktop-bridge");
+  assert.equal(plans.cursor?.control_channel_ref, "control-channel:code-editor-adapter/desktop-bridge");
   assert.equal(plans.windsurf?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_editor");
@@ -599,7 +599,7 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
   assert.equal(plans.vscode_browser?.control_action, "open_browser_editor");
 
   for (const plan of Object.values(plans)) {
-    assert.equal(plan?.schema_version, "ioi.hypervisor.workbench_adapter_launch_plan.v1");
+    assert.equal(plan?.schema_version, "ioi.hypervisor.code_editor_adapter_launch_plan.v1");
     assert.equal(plan?.runtimeTruthSource, "daemon-runtime");
     assert.equal(plan?.requires_daemon_gate, true);
     assert.equal(plan?.secret_release_policy, "no_durable_secret_release");
@@ -607,18 +607,18 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
   }
 });
 
-test("workbench adapter launch admission posts canonical plans to the daemon", async () => {
-  const preference = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+test("code editor adapter launch admission posts canonical plans to the daemon", async () => {
+  const preference = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
     (candidate) => candidate.adapter_id === "embedded_workbench",
   );
   assert.ok(preference);
-  const plan = buildWorkbenchAdapterLaunchPlan(preference);
-  const admission = await requestWorkbenchAdapterLaunchPlanAdmission(plan, {
+  const plan = buildCodeEditorAdapterLaunchPlan(preference);
+  const admission = await requestCodeEditorAdapterLaunchPlanAdmission(plan, {
     endpoint: "http://daemon.local",
     fetchImpl: async (input, init) => {
       assert.equal(
         input,
-        "http://daemon.local/v1/hypervisor/workbench-adapter-launch-plans",
+        "http://daemon.local/v1/hypervisor/code-editor-adapter-launch-plans",
       );
       assert.equal(init?.method, "POST");
       assert.equal(init?.headers?.["content-type"], "application/json");
@@ -634,14 +634,14 @@ test("workbench adapter launch admission posts canonical plans to the daemon", a
           JSON.stringify({
             ...plan,
             schema_version:
-              "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
-            admission_id: "workbench-adapter-launch:embedded-host",
+              "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
+            admission_id: "code-editor-adapter-launch:embedded-host",
             wallet_approval_ref: null,
             agentgres_operation_refs: [
-              "agentgres://operation/workbench-adapter-launch",
+              "agentgres://operation/code-editor-adapter-launch",
             ],
-            receipt_refs: ["receipt://workbench-adapter-launch/admitted"],
-            state_root: "state-root:workbench-adapter-launch",
+            receipt_refs: ["receipt://code-editor-adapter-launch/admitted"],
+            state_root: "state-root:code-editor-adapter-launch",
             adapter_runtime_truth_claimed: false,
             decision: "admitted",
             admitted_at: "2026-06-17T00:00:00.000Z",
@@ -652,17 +652,17 @@ test("workbench adapter launch admission posts canonical plans to the daemon", a
 
   assert.equal(
     admission.schema_version,
-    "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+    "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
   );
   assert.equal(admission.decision, "admitted");
-  assert.equal(admission.admission_id, "workbench-adapter-launch:embedded-host");
+  assert.equal(admission.admission_id, "code-editor-adapter-launch:embedded-host");
   assert.equal(admission.runtimeTruthSource, "daemon-runtime");
 
   const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
   const summary = buildHypervisorNewSessionLaunchSummary({
     recipe,
     projectId: "project:ioi",
-    workbenchAdapter: preference,
+    codeEditorAdapter: preference,
     harness: DEFAULT_HARNESS_PROFILE_OPTION,
     harnessVerdict: buildHarnessCompatibilityVerdict(
       DEFAULT_HARNESS_PROFILE_OPTION,
@@ -693,41 +693,41 @@ test("workbench adapter launch admission posts canonical plans to the daemon", a
     recipe,
     projectLabel: "IOI",
     launchedAtMs: 1_718_001,
-    workbenchAdapterAdmission: admission,
+    codeEditorAdapterAdmission: admission,
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
   assert.equal(
-    launchedSession.workbench_adapter_admission_ref,
-    "workbench-adapter-launch:embedded-host",
+    launchedSession.code_editor_adapter_admission_ref,
+    "code-editor-adapter-launch:embedded-host",
   );
-  assert.equal(launchedSession.workbench_adapter_admission, admission);
+  assert.equal(launchedSession.code_editor_adapter_admission, admission);
 });
 
-test("workbench adapter launch admission failures are explicit session state", async () => {
-  const preference = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+test("code editor adapter launch admission failures are explicit session state", async () => {
+  const preference = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
     (candidate) => candidate.adapter_id === "vscode_browser",
   );
   assert.ok(preference);
-  const plan = buildWorkbenchAdapterLaunchPlan(preference);
+  const plan = buildCodeEditorAdapterLaunchPlan(preference);
   let error: unknown = null;
   try {
-    await requestWorkbenchAdapterLaunchPlanAdmission(plan, {
+    await requestCodeEditorAdapterLaunchPlanAdmission(plan, {
       endpoint: "http://daemon.local",
       fetchImpl: async () => ({
         ok: false,
         status: 400,
         text: async () =>
           JSON.stringify({
-            code: "workbench_adapter_control_contract_mismatch",
+            code: "code_editor_adapter_control_contract_mismatch",
           }),
       }),
     });
   } catch (caught) {
     error = caught;
   }
-  assert.ok(error instanceof WorkbenchAdapterLaunchAdmissionError);
-  const failure = buildHypervisorWorkbenchAdapterAdmissionFailure({
+  assert.ok(error instanceof CodeEditorAdapterLaunchAdmissionError);
+  const failure = buildHypervisorCodeEditorAdapterAdmissionFailure({
     error,
     launchPlan: plan,
   });

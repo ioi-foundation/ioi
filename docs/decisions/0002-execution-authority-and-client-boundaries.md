@@ -7,7 +7,7 @@
 ## Context
 
 IOI has many operator and developer surfaces: Hypervisor App, Hypervisor Web,
-CLI/headless, optional TUI presentation, SDK, ADK, Workbench adapter hosts,
+CLI/headless, optional TUI presentation, SDK, ADK, Code editor adapter hosts,
 agent harness adapters, benchmarks, and browser applications. All of them need
 to submit, inspect, scaffold, control, or visualize work, but consequential
 Web4 work needs one execution authority boundary.
@@ -28,7 +28,7 @@ Client surfaces are operators or projections over daemon/domain contracts:
   contracts.
 - Hypervisor App and Hypervisor Web are product clients over Hypervisor Core
   and may manage local or remote daemon profiles.
-- Workbench adapter hosts, agent harness adapters, benchmarks, and browser apps
+- Code editor adapter hosts, agent harness adapters, benchmarks, and browser apps
   author or inspect work, but do not own execution semantics.
 
 Runtime and compute nodes initialize IOI daemon/runtime-node profiles. SDK code

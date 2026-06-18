@@ -1239,7 +1239,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
     let manifest = r#"{
       "scripts": {
         "dev": "vite",
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-workbench-adapter-host.mjs",
+        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
         "test": "vitest"
       }
     }"#;
@@ -1251,7 +1251,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:hypervisor-app".to_string(),
-            command: "node scripts/launch-hypervisor-workbench-adapter-host.mjs".to_string(),
+            command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
@@ -1260,7 +1260,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
 fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_match() {
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-workbench-adapter-host.mjs",
+        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
         "start:desktop": "electron ."
       }
     }"#;
@@ -1272,7 +1272,7 @@ fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_mat
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:hypervisor-app".to_string(),
-            command: "node scripts/launch-hypervisor-workbench-adapter-host.mjs".to_string(),
+            command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
@@ -1281,8 +1281,8 @@ fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_mat
 fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over_variants() {
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-workbench-adapter-host.mjs",
-        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-workbench-adapter-host.mjs --ozone-platform=wayland",
+        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland",
         "dryrun:hypervisor-app": "bash apps/hypervisor/scripts/dry-run-desktop.sh x11"
       }
     }"#;
@@ -1294,7 +1294,7 @@ fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:hypervisor-app".to_string(),
-            command: "node scripts/launch-hypervisor-workbench-adapter-host.mjs".to_string(),
+            command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
@@ -1307,8 +1307,8 @@ fn manifest_read_terminalization_emits_desktop_script_reply() {
 
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-workbench-adapter-host.mjs",
-        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-workbench-adapter-host.mjs --ozone-platform=wayland"
+        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland"
       }
     }"#;
 
@@ -1319,7 +1319,7 @@ fn manifest_read_terminalization_emits_desktop_script_reply() {
             Some(manifest),
         ),
         Some(
-            "In `package.json`, the npm script that launches the desktop app is `dev:hypervisor-app`. It runs `node scripts/launch-hypervisor-workbench-adapter-host.mjs`.".to_string()
+            "In `package.json`, the npm script that launches the desktop app is `dev:hypervisor-app`. It runs `node scripts/launch-hypervisor-code-editor-adapter-host.mjs`.".to_string()
         )
     );
 }
@@ -1339,7 +1339,7 @@ fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effe
         dir.join("package.json"),
         r#"{
           "scripts": {
-            "dev:hypervisor-app": "node scripts/launch-hypervisor-workbench-adapter-host.mjs"
+            "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs"
           }
         }"#,
     )
@@ -1373,7 +1373,7 @@ fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effe
     match reply_tool {
         AgentTool::ChatReply { message } => {
             assert!(message.contains("`dev:hypervisor-app`"));
-            assert!(message.contains("launch-hypervisor-workbench-adapter-host.mjs"));
+            assert!(message.contains("launch-hypervisor-code-editor-adapter-host.mjs"));
         }
         other => panic!("expected ChatReply recovery tool, got {:?}", other),
     }

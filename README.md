@@ -209,7 +209,7 @@ Stop renting tools. Hire workers.
 | [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
 | [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
-| [`workbench-adapters`](workbench-adapters) | Editor/terminal/browser adapter host metadata and current VS Code-family Workbench adapter assets; not product identity or runtime authority. |
+| [`code-editor-adapters`](code-editor-adapters) | Editor/terminal/browser adapter host metadata and current VS Code-family code editor adapter assets; not product identity or runtime authority. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |

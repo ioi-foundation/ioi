@@ -6,8 +6,8 @@ import {
   safeId,
 } from "./runtime-value-helpers.mjs";
 
-export const WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION =
-  "ioi.runtime.workbench_adapter_launch_plan_admission.v1";
+export const CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION =
+  "ioi.runtime.code_editor_adapter_launch_plan_admission.v1";
 
 const LAUNCH_MODES = new Set(["embedded", "external", "remote_url"]);
 
@@ -53,7 +53,7 @@ const RETIRED_ALIASES = [
   "agentgresOperationRefs",
 ];
 
-export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
+export function admitCodeEditorAdapterLaunchPlan(request = {}, deps = {}) {
   assertNoRetiredAliases(request);
 
   const nowIso = deps.nowIso ?? (() => new Date().toISOString());
@@ -120,7 +120,7 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
   const adapterRuntimeTruthClaimed =
     booleanValue(request.adapter_runtime_truth_claimed) ?? false;
 
-  assertWorkbenchAdapterLaunchPlan({
+  assertCodeEditorAdapterLaunchPlan({
     launchPlanRef,
     adapterRef,
     targetRef,
@@ -139,10 +139,10 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
 
   const admissionId =
     optionalString(request.admission_id) ??
-    `workbench-adapter-launch:${safeId(launchPlanRef)}:${safeId(connectionKind)}`;
+    `code-editor-adapter-launch:${safeId(launchPlanRef)}:${safeId(connectionKind)}`;
 
   return {
-    schema_version: WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION,
+    schema_version: CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION,
     admission_id: admissionId,
     launch_plan_ref: launchPlanRef,
     adapter_ref: adapterRef,
@@ -170,7 +170,7 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
   };
 }
 
-function assertWorkbenchAdapterLaunchPlan({
+function assertCodeEditorAdapterLaunchPlan({
   launchPlanRef,
   adapterRef,
   targetRef,
@@ -186,17 +186,17 @@ function assertWorkbenchAdapterLaunchPlan({
   secretReleasePolicy,
   adapterRuntimeTruthClaimed,
 }) {
-  requirePrefix(launchPlanRef, "workbench-adapter:", "launch_plan_ref");
-  requirePrefix(adapterRef, "workbench-adapter:", "adapter_ref");
+  requirePrefix(launchPlanRef, "code-editor-adapter:", "launch_plan_ref");
+  requirePrefix(adapterRef, "code-editor-adapter:", "adapter_ref");
   requirePrefix(targetRef, "adapter-target:", "target_ref");
   requirePrefix(
     connectionContractRef,
-    "connection-contract:workbench-adapter/",
+    "connection-contract:code-editor-adapter/",
     "connection_contract_ref",
   );
   requirePrefix(
     controlChannelRef,
-    "control-channel:workbench-adapter/",
+    "control-channel:code-editor-adapter/",
     "control_channel_ref",
   );
   requireNonEmpty(requiredAccessLeaseRefs, "required_access_lease_refs");
@@ -211,18 +211,18 @@ function assertWorkbenchAdapterLaunchPlan({
 
   if (secretReleasePolicy !== "no_durable_secret_release") {
     throw admissionError({
-      code: "workbench_adapter_launch_durable_secret_release_blocked",
+      code: "code_editor_adapter_launch_durable_secret_release_blocked",
       message:
-        "Workbench adapter launch plans must not release durable secrets to adapter targets.",
+        "code editor adapter launch plans must not release durable secrets to adapter targets.",
       details: { secret_release_policy: secretReleasePolicy },
     });
   }
 
   if (adapterRuntimeTruthClaimed) {
     throw admissionError({
-      code: "workbench_adapter_runtime_truth_claim_blocked",
+      code: "code_editor_adapter_runtime_truth_claim_blocked",
       message:
-        "Workbench adapter targets cannot claim Hypervisor runtime truth.",
+        "code editor adapter targets cannot claim Hypervisor runtime truth.",
       details: { adapter_runtime_truth_claimed: adapterRuntimeTruthClaimed },
     });
   }
@@ -255,9 +255,9 @@ function assertConnectionControlPair({
       controlAction !== expectedByConnection.controlAction)
   ) {
     throw admissionError({
-      code: "workbench_adapter_control_contract_mismatch",
+      code: "code_editor_adapter_control_contract_mismatch",
       message:
-        "Workbench adapter control metadata must match its connection kind.",
+        "code editor adapter control metadata must match its connection kind.",
       details: {
         connection_kind: connectionKind,
         executor_lane: executorLane,
@@ -279,8 +279,8 @@ function enumValue(value, field, allowedValues) {
   if (!normalized || !allowedValues.has(normalized)) {
     throw runtimeError({
       status: 400,
-      code: `workbench_adapter_launch_${field}_invalid`,
-      message: `Workbench adapter launch admission requires a valid ${field}.`,
+      code: `code_editor_adapter_launch_${field}_invalid`,
+      message: `code editor adapter launch admission requires a valid ${field}.`,
       details: {
         [field]: normalized ?? null,
         allowed_values: [...allowedValues],
@@ -295,8 +295,8 @@ function requiredString(value, field) {
   if (!normalized) {
     throw runtimeError({
       status: 400,
-      code: `workbench_adapter_launch_${field}_required`,
-      message: `Workbench adapter launch admission requires ${field}.`,
+      code: `code_editor_adapter_launch_${field}_required`,
+      message: `code editor adapter launch admission requires ${field}.`,
       details: { field },
     });
   }
@@ -307,8 +307,8 @@ function requireNonEmpty(value, field) {
   if (value.length > 0) return;
   throw runtimeError({
     status: 400,
-    code: `workbench_adapter_launch_${field}_required`,
-    message: `Workbench adapter launch admission requires ${field}.`,
+    code: `code_editor_adapter_launch_${field}_required`,
+    message: `code editor adapter launch admission requires ${field}.`,
     details: { field },
   });
 }
@@ -317,8 +317,8 @@ function requirePrefix(value, prefix, field) {
   if (typeof value === "string" && value.startsWith(prefix)) return;
   throw runtimeError({
     status: 400,
-    code: `workbench_adapter_launch_${field}_prefix_invalid`,
-    message: `Workbench adapter launch admission requires ${field} to start with ${prefix}.`,
+    code: `code_editor_adapter_launch_${field}_prefix_invalid`,
+    message: `code editor adapter launch admission requires ${field} to start with ${prefix}.`,
     details: { field, value },
   });
 }
@@ -334,9 +334,9 @@ function assertNoRetiredAliases(request) {
   if (present.length === 0) return;
   throw runtimeError({
     status: 400,
-    code: "workbench_adapter_launch_request_aliases_retired",
+    code: "code_editor_adapter_launch_request_aliases_retired",
     message:
-      "Workbench adapter launch admission uses canonical snake_case request fields.",
+      "code editor adapter launch admission uses canonical snake_case request fields.",
     details: { retired_aliases: present },
   });
 }

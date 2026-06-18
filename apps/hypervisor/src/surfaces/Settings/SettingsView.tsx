@@ -19,9 +19,9 @@ import type {
 } from "../../types";
 import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
-  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
-  getWorkbenchAdapterPreferenceRef,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  getCodeEditorAdapterPreferenceRef,
 } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import {
   applySessionPermissionProfileToRuntime,
@@ -42,17 +42,17 @@ import { type SettingsSection } from "./settingsViewShared";
 import { buildAuthorityCenterProjection } from "../Policy/authorityCenter";
 import { loadAuthorityCenterRuntimeProjection } from "../Policy/authorityCenterRuntime";
 
-function readStoredWorkbenchAdapterPreferenceRef(): string {
+function readStoredCodeEditorAdapterPreferenceRef(): string {
   if (typeof window === "undefined") {
     return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
   }
   const stored = window.localStorage.getItem(
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
   );
   if (
     stored &&
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.some(
-      (preference) => getWorkbenchAdapterPreferenceRef(preference) === stored,
+    HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.some(
+      (preference) => getCodeEditorAdapterPreferenceRef(preference) === stored,
     )
   ) {
     return stored;
@@ -129,8 +129,8 @@ export function SettingsView({
 }: SettingsViewProps) {
   const [selectedSection, setSelectedSection] =
     useState<SettingsSection>("identity");
-  const [workbenchAdapterPreferenceRef, setWorkbenchAdapterPreferenceRef] =
-    useState(readStoredWorkbenchAdapterPreferenceRef);
+  const [codeEditorAdapterPreferenceRef, setCodeEditorAdapterPreferenceRef] =
+    useState(readStoredCodeEditorAdapterPreferenceRef);
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,10 +229,10 @@ export function SettingsView({
       return;
     }
     window.localStorage.setItem(
-      HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
-      workbenchAdapterPreferenceRef,
+      HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY,
+      codeEditorAdapterPreferenceRef,
     );
-  }, [workbenchAdapterPreferenceRef]);
+  }, [codeEditorAdapterPreferenceRef]);
   const engineDirty =
     !!engineSnapshot &&
     !!engineDraft &&
@@ -840,8 +840,8 @@ export function SettingsView({
     onSaveProfile,
     selectedSection,
     setSelectedSection,
-    workbenchAdapterPreferenceRef,
-    setWorkbenchAdapterPreferenceRef,
+    codeEditorAdapterPreferenceRef,
+    setCodeEditorAdapterPreferenceRef,
     isResetting,
     setIsResetting,
     resetConfirmOpen,

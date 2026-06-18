@@ -40,12 +40,12 @@ import {
 } from "./hypervisorShellModel";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
-  buildHypervisorWorkbenchAdapterAdmissionFailure,
+  buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
-  buildWorkbenchAdapterLaunchPlan,
-  getWorkbenchAdapterPreferenceByRef,
+  buildCodeEditorAdapterLaunchPlan,
+  getCodeEditorAdapterPreferenceByRef,
   isHypervisorSurfaceId,
-  requestWorkbenchAdapterLaunchPlanAdmission,
+  requestCodeEditorAdapterLaunchPlanAdmission,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
@@ -363,25 +363,25 @@ export function useHypervisorShellController() {
     const project =
       PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ??
       PROJECT_SCOPES[0]!;
-    const workbenchAdapter = getWorkbenchAdapterPreferenceByRef(
+    const codeEditorAdapter = getCodeEditorAdapterPreferenceByRef(
       request.adapter_preference_ref,
     );
-    const workbenchAdapterLaunchPlan =
-      buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
-    const workbenchAdapterAdmission =
-      await requestWorkbenchAdapterLaunchPlanAdmission(
-        workbenchAdapterLaunchPlan,
+    const codeEditorAdapterLaunchPlan =
+      buildCodeEditorAdapterLaunchPlan(codeEditorAdapter);
+    const codeEditorAdapterAdmission =
+      await requestCodeEditorAdapterLaunchPlanAdmission(
+        codeEditorAdapterLaunchPlan,
       ).catch((error: unknown) =>
-        buildHypervisorWorkbenchAdapterAdmissionFailure({
+        buildHypervisorCodeEditorAdapterAdmissionFailure({
           error,
-          launchPlan: workbenchAdapterLaunchPlan,
+          launchPlan: codeEditorAdapterLaunchPlan,
         }),
       );
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
       projectLabel: project.name,
-      workbenchAdapterAdmission,
+      codeEditorAdapterAdmission,
     });
 
     setCurrentProjectId(project.id);
@@ -401,7 +401,7 @@ export function useHypervisorShellController() {
         ? `Intent: ${summary.seed_intent}. `
         : "";
       setHypervisorSeedIntent(
-        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Target: ${summary.target_binding.target_kind} via ${summary.target_binding.session_route_ref}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
+        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Target: ${summary.target_binding.target_kind} via ${summary.target_binding.session_route_ref}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Code editor adapter: ${summary.code_editor_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
       );
       setChatSurface("chat");
       setChatPaneVisible(true);

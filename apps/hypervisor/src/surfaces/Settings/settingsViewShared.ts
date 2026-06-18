@@ -8,7 +8,7 @@ export type SettingsSection =
   | "knowledge"
   | "skill_sources"
   | "managed_settings"
-  | "workbench_adapter"
+  | "code_editor_adapter"
   | "runtime"
   | "storage_api"
   | "sources"
