@@ -8,7 +8,6 @@ import {
   setActiveAssistantSessionRuntime,
   stopAssistantSession,
   type AssistantSessionRuntime,
-  SessionHistorySidebar,
   useAssistantWorkbenchState,
   useSessionApprovalState,
   useSessionConversationScroll,
@@ -17,6 +16,7 @@ import {
   useSessionShellShortcuts,
   useSessionChatArtifactDrawer,
 } from "@ioi/hypervisor-workbench";
+import { SessionHistorySidebar } from "./components/SessionHistorySidebar";
 import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
 import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
 import { recordChatLaunchReceipt } from "../../services/chatLaunchState";

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { formatSessionTimeAgo } from "../../runtime/use-session-history-browser";
-import type { SessionHistorySummaryLike } from "../../runtime/use-session-history-browser";
-import { getSessionId } from "../../runtime/session-status";
+import {
+  formatSessionTimeAgo,
+  getSessionId,
+  type SessionHistorySummaryLike,
+} from "@ioi/hypervisor-workbench";
 import {
   useSessionHistoryFolders,
   type SessionHistoryFolderRecord,
-} from "../../runtime/use-session-history-folders";
+} from "./useSessionHistoryFolders";
 
 function workspaceLabel(workspaceRoot?: string | null): string | null {
   const trimmed = workspaceRoot?.trim();

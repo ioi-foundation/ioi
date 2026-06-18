@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { AssistantWorkbenchView, type AgentWorkbenchRuntime, type AssistantSessionRuntime } from "@ioi/hypervisor-workbench";
+import type { AgentWorkbenchRuntime, AssistantSessionRuntime } from "@ioi/hypervisor-workbench";
 import { ChatCopilotView } from "../../windows/HypervisorShellWindow/components/ChatCopilot";
 import type { AssistantWorkbenchSession } from "../../types";
+import { AssistantWorkbenchView } from "./components/AssistantWorkbenchView";
 
 type SessionCapableRuntime = AgentWorkbenchRuntime & AssistantSessionRuntime;
 

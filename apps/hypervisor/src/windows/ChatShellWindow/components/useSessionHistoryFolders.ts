@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const STORAGE_KEY = "ioi.hypervisor-workbench.session-history-folders.v1";
-const UPDATE_EVENT = "ioi:hypervisor-workbench-session-history-folders-updated";
+const STORAGE_KEY = "ioi.hypervisor.session-history-folders.v1";
+const UPDATE_EVENT = "ioi:hypervisor-session-history-folders-updated";
 const STORAGE_VERSION = 1;
 
 export interface SessionHistoryFolderRecord {

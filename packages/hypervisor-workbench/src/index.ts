@@ -441,8 +441,6 @@ export {
   createRuntimeUsageMeterControlRequest,
   createRuntimeUsageMeterControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-usage-control-nodes";
-export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
-export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
 export { GenericConnectorPanel } from "./features/Connectors/components/GenericConnectorPanel";
 export { GoogleWorkspaceConnectorPanel } from "./features/Connectors/components/GoogleWorkspaceConnectorPanel";
 export { MailConnectorPanel } from "./features/Connectors/components/MailConnectorPanel";

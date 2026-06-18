@@ -1108,6 +1108,10 @@ Current implementation cut:
   Workflow-side Agents, Builder, and Runtime Catalog views now live under
   `apps/hypervisor/src/surfaces/MissionControl/components`; the Workbench
   package no longer exports those product screens.
+  Assistant handoff and session history sidebar components now live under the
+  Hypervisor app shell; `@ioi/hypervisor-workbench` no longer exports product
+  shell components. The browser-local session-history folder hook moved with
+  the sidebar and uses Hypervisor-owned storage/event keys.
   workflow dogfood probes request `automations` as the initial shell surface
   `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
   `internal-docs/reverse-engineering/ioi` reference contract: source reference

@@ -1,9 +1,11 @@
 import type {
   AgentWorkbenchRuntime,
   AssistantWorkbenchSession,
-} from "../../runtime/agent-runtime";
-import { formatWorkbenchEventTime } from "../../runtime/assistant-workbench-content";
-import { useAssistantWorkbenchActions } from "../../runtime/use-assistant-workbench-controller";
+} from "@ioi/hypervisor-workbench";
+import {
+  formatWorkbenchEventTime,
+  useAssistantWorkbenchActions,
+} from "@ioi/hypervisor-workbench";
 
 interface AssistantWorkbenchViewProps {
   session: AssistantWorkbenchSession | null;
