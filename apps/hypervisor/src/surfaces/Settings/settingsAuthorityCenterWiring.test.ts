@@ -10,6 +10,13 @@ const settingsViewBody = fs.readFileSync(
   new URL("./SettingsViewBody.tsx", import.meta.url),
   "utf8",
 );
+const settingsPanelStyles = fs.readFileSync(
+  new URL(
+    "../../windows/HypervisorShellWindow/styles/hypervisor-shell/settings-and-panels.css",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const authorityRuntime = fs.readFileSync(
   new URL("../Policy/authorityCenterRuntime.ts", import.meta.url),
   "utf8",
@@ -121,7 +128,7 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.match(settingsViewBody, /Embedded code editor/);
   assert.doesNotMatch(
     settingsViewBody,
-    /chat-settings-reference-advanced|<summary>Advanced<\/summary>/,
+    /hypervisor-settings-reference-advanced|<summary>Advanced<\/summary>/,
   );
   assert.match(
     settingsViewBody,
@@ -153,7 +160,10 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.match(codeEditorAdapterPreferences, /Rider/);
   assert.match(codeEditorAdapterPreferences, /VS Code Browser/);
   assert.match(settingsView, /codeEditorAdapterPreferenceRef/);
-  assert.match(settingsView, /chat-settings-view--reference/);
+  assert.match(settingsView, /hypervisor-settings-view--reference/);
+  assert.doesNotMatch(settingsView, /chat-settings/);
+  assert.doesNotMatch(settingsViewBody, /chat-settings/);
+  assert.doesNotMatch(settingsPanelStyles, /chat-settings/);
   assert.match(
     settingsView,
     /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY/,

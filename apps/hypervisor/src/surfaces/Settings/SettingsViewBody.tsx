@@ -31,7 +31,7 @@ function SettingsNavButton({
   return (
     <button
       type="button"
-      className={`chat-settings-reference-nav-item ${
+      className={`hypervisor-settings-reference-nav-item ${
         selectedSection === section ? "active" : ""
       }`}
       onClick={() => setSelectedSection(section)}
@@ -52,7 +52,7 @@ function SettingsSwitch({
   description: string;
 }) {
   return (
-    <label className="chat-settings-reference-switch">
+    <label className="hypervisor-settings-reference-switch">
       <input type="checkbox" defaultChecked={checked} />
       <span aria-hidden="true" />
       <strong>{label}</strong>
@@ -71,11 +71,11 @@ function SettingsEditorTargetList({ view }: { view: SettingsViewBodyView }) {
 
   return (
     <label
-      className="chat-settings-reference-editor-select"
+      className="hypervisor-settings-reference-editor-select"
       aria-label="Default editor adapter targets"
       data-settings-editor-picker="code-editor-adapter-targets"
     >
-      <span className="chat-settings-reference-editor-icon" aria-hidden="true">
+      <span className="hypervisor-settings-reference-editor-icon" aria-hidden="true">
         {selectedPreference.icon_label ?? selectedPreference.label.slice(0, 2)}
       </span>
       <select
@@ -109,13 +109,13 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
 
   return (
     <section
-      className="chat-settings-reference-panel"
+      className="hypervisor-settings-reference-panel"
       aria-label="Account settings"
     >
-      <div className="chat-settings-reference-section">
+      <div className="hypervisor-settings-reference-section">
         <h2>Account details</h2>
-        <div className="chat-settings-reference-account-row">
-          <span className="chat-settings-reference-avatar" aria-hidden="true">
+        <div className="hypervisor-settings-reference-account-row">
+          <span className="hypervisor-settings-reference-avatar" aria-hidden="true">
             IO
           </span>
           <div>
@@ -123,9 +123,9 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
             <em>operator@ioi.local</em>
           </div>
         </div>
-        <label className="chat-settings-reference-field">
+        <label className="hypervisor-settings-reference-field">
           <span>Account ID</span>
-          <span className="chat-settings-reference-copy-field">
+          <span className="hypervisor-settings-reference-copy-field">
             <input
               readOnly
               value="019ed02a-f5e1-701e-af22-57676d837f9c"
@@ -137,12 +137,12 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
         </label>
       </div>
 
-      <div className="chat-settings-reference-section">
+      <div className="hypervisor-settings-reference-section">
         <h2>Preferences</h2>
 
-        <div className="chat-settings-reference-preference">
+        <div className="hypervisor-settings-reference-preference">
           <span>Appearance</span>
-          <div className="chat-settings-reference-segmented" role="group">
+          <div className="hypervisor-settings-reference-segmented" role="group">
             <button type="button">System</button>
             <button type="button" className="active">
               Light
@@ -151,7 +151,7 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
           </div>
         </div>
 
-        <div className="chat-settings-reference-field">
+        <div className="hypervisor-settings-reference-field">
           <span>Default code editor target</span>
           <SettingsEditorTargetList view={view} />
           <em>
@@ -175,7 +175,7 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
           description="Use Cmd/Ctrl + 1-9 to switch between sidebar sessions."
         />
 
-        <label className="chat-settings-reference-field">
+        <label className="hypervisor-settings-reference-field">
           <span>Dotfiles repository</span>
           <input placeholder="https://github.com/your-username/dotfiles" />
           <em>
@@ -199,13 +199,13 @@ function SettingsSimplePanel({
 }) {
   return (
     <section
-      className="chat-settings-reference-panel"
+      className="hypervisor-settings-reference-panel"
       aria-label={`${title} settings`}
     >
-      <div className="chat-settings-reference-section">
+      <div className="hypervisor-settings-reference-section">
         <h2>{title}</h2>
         <p>{body}</p>
-        <div className="chat-settings-reference-list">
+        <div className="hypervisor-settings-reference-list">
           {rows.map((row) => (
             <article key={row.label}>
               <div>
@@ -330,19 +330,19 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
 
   return (
     <div
-      className="chat-settings-reference-shell"
+      className="hypervisor-settings-reference-shell"
       data-settings-reference-shell="ioi-settings"
     >
-      <header className="chat-settings-reference-header">
+      <header className="hypervisor-settings-reference-header">
         <h1>User settings</h1>
         <button type="button" aria-label="Close settings">
           ×
         </button>
       </header>
 
-      <div className="chat-settings-reference-layout">
-        <aside className="chat-settings-reference-nav">
-          <div className="chat-settings-reference-nav-primary">
+      <div className="hypervisor-settings-reference-layout">
+        <aside className="hypervisor-settings-reference-nav">
+          <div className="hypervisor-settings-reference-nav-primary">
             {PRIMARY_SETTINGS_NAV.map((item) => (
               <SettingsNavButton
                 key={item.id}
@@ -356,7 +356,7 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
 
           <button
             type="button"
-            className="chat-settings-reference-org"
+            className="hypervisor-settings-reference-org"
             data-settings-reference-organization-link="true"
           >
             <span aria-hidden="true">&larr;</span>
@@ -364,7 +364,7 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
           </button>
         </aside>
 
-        <main className="chat-settings-reference-main">
+        <main className="hypervisor-settings-reference-main">
           <SettingsReferencePrimaryPanel
             view={{ ...view, selectedSection: selectedPrimarySection }}
           />

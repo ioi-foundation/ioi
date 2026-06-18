@@ -335,6 +335,13 @@ const hypervisorVisibleSurfaceSources = [
 ]
   .map(read)
   .join("\n");
+const hypervisorSettingsSurfaceSources = [
+  "apps/hypervisor/src/surfaces/Settings/SettingsView.tsx",
+  "apps/hypervisor/src/surfaces/Settings/SettingsViewBody.tsx",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/settings-and-panels.css",
+]
+  .map(read)
+  .join("\n");
 const hypervisorClientNamespaceSources = [
   "apps/hypervisor/index.html",
   "apps/hypervisor/src/services/workspaceShellState.ts",
@@ -965,6 +972,21 @@ assert(
     ...retiredHomeOnboardingSurfacePaths,
   ],
   "Hypervisor Home must be the IOI-reference prompt shell; retired onboarding/walkthrough source must stay deleted.",
+);
+assert(
+  "settings-reference-surface-hypervisor-named",
+  hypervisorSettingsSurfaceSources.includes("hypervisor-settings-view--reference") &&
+    hypervisorSettingsSurfaceSources.includes("hypervisor-settings-reference-shell") &&
+    hypervisorSettingsSurfaceSources.includes(
+      'data-settings-reference-shell="ioi-settings"',
+    ) &&
+    !/chat-settings/.test(hypervisorSettingsSurfaceSources),
+  [
+    "apps/hypervisor/src/surfaces/Settings/SettingsView.tsx",
+    "apps/hypervisor/src/surfaces/Settings/SettingsViewBody.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/settings-and-panels.css",
+  ],
+  "Active IOI-reference Settings surface must use Hypervisor class namespaces, not retired chat settings classes.",
 );
 assert(
   "active-visible-surfaces-hypervisor-named",

@@ -59,8 +59,8 @@ export function SettingsView({
   }, [codeEditorAdapterPreferenceRef]);
 
   return (
-    <div className="chat-settings-view chat-settings-view--reference">
-      <div className="chat-settings-layout">
+    <div className="hypervisor-settings-view hypervisor-settings-view--reference">
+      <div className="hypervisor-settings-layout">
         <SettingsViewBody
           view={{
             selectedSection,

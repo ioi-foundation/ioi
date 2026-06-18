@@ -348,7 +348,7 @@
    SETTINGS / RESET
    ========================================= */
 
-.chat-settings-view {
+.hypervisor-settings-view {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -358,13 +358,13 @@
   background: var(--chat-bg);
 }
 
-.chat-settings-layout {
+.hypervisor-settings-layout {
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
-.chat-settings-view--reference {
+.hypervisor-settings-view--reference {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -376,7 +376,7 @@
   backdrop-filter: blur(10px);
 }
 
-.chat-settings-view--reference .chat-settings-layout {
+.hypervisor-settings-view--reference .hypervisor-settings-layout {
   width: min(1024px, calc(100vw - 300px));
   max-height: calc(100vh - 100px);
   min-height: 0;
@@ -385,7 +385,7 @@
   margin: 0 auto;
 }
 
-.chat-settings-reference-shell {
+.hypervisor-settings-reference-shell {
   width: 100%;
   min-height: min(798px, calc(100vh - 100px));
   max-height: calc(100vh - 100px);
@@ -405,7 +405,7 @@
     sans-serif;
 }
 
-.chat-settings-reference-header {
+.hypervisor-settings-reference-header {
   height: 56px;
   min-height: 56px;
   display: flex;
@@ -415,7 +415,7 @@
   border-bottom: 1px solid #dedede;
 }
 
-.chat-settings-reference-header h1 {
+.hypervisor-settings-reference-header h1 {
   margin: 0;
   color: #171717;
   font-size: 18px;
@@ -423,7 +423,7 @@
   letter-spacing: 0;
 }
 
-.chat-settings-reference-header button {
+.hypervisor-settings-reference-header button {
   width: 30px;
   height: 30px;
   border: 0;
@@ -436,19 +436,19 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-header button:hover {
+.hypervisor-settings-reference-header button:hover {
   background: #eeeeee;
   color: #171717;
 }
 
-.chat-settings-reference-layout {
+.hypervisor-settings-reference-layout {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
 }
 
-.chat-settings-reference-nav {
+.hypervisor-settings-reference-nav {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -457,13 +457,13 @@
   background: #f8f8f8;
 }
 
-.chat-settings-reference-nav-primary {
+.hypervisor-settings-reference-nav-primary {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.chat-settings-reference-nav-item {
+.hypervisor-settings-reference-nav-item {
   min-height: 32px;
   display: flex;
   align-items: center;
@@ -479,13 +479,13 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-nav-item:hover,
-.chat-settings-reference-nav-item.active {
+.hypervisor-settings-reference-nav-item:hover,
+.hypervisor-settings-reference-nav-item.active {
   background: #e9e9e9;
   color: #161616;
 }
 
-.chat-settings-reference-org {
+.hypervisor-settings-reference-org {
   margin-top: auto;
   min-height: 32px;
   display: inline-flex;
@@ -500,11 +500,11 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-org:hover {
+.hypervisor-settings-reference-org:hover {
   color: #111111;
 }
 
-.chat-settings-reference-main {
+.hypervisor-settings-reference-main {
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -512,14 +512,14 @@
   background: #ffffff;
 }
 
-.chat-settings-reference-panel {
+.hypervisor-settings-reference-panel {
   width: min(600px, 100%);
   display: flex;
   flex-direction: column;
   gap: 28px;
 }
 
-.chat-settings-reference-section {
+.hypervisor-settings-reference-section {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -527,11 +527,11 @@
   border-bottom: 1px solid #eeeeee;
 }
 
-.chat-settings-reference-section:last-child {
+.hypervisor-settings-reference-section:last-child {
   border-bottom: 0;
 }
 
-.chat-settings-reference-section h2 {
+.hypervisor-settings-reference-section h2 {
   margin: 0;
   color: #252525;
   font-size: 18px;
@@ -539,11 +539,11 @@
   letter-spacing: 0;
 }
 
-.chat-settings-reference-section p,
-.chat-settings-reference-field em,
-.chat-settings-reference-switch em,
-.chat-settings-reference-account-row em,
-.chat-settings-reference-list span {
+.hypervisor-settings-reference-section p,
+.hypervisor-settings-reference-field em,
+.hypervisor-settings-reference-switch em,
+.hypervisor-settings-reference-account-row em,
+.hypervisor-settings-reference-list span {
   margin: 0;
   color: #6b6b6b;
   font-size: 12px;
@@ -551,22 +551,22 @@
   line-height: 1.45;
 }
 
-.chat-settings-reference-field a {
+.hypervisor-settings-reference-field a {
   color: #0969da;
   text-decoration: none;
 }
 
-.chat-settings-reference-field a:hover {
+.hypervisor-settings-reference-field a:hover {
   text-decoration: underline;
 }
 
-.chat-settings-reference-account-row {
+.hypervisor-settings-reference-account-row {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.chat-settings-reference-avatar {
+.hypervisor-settings-reference-avatar {
   width: 40px;
   height: 40px;
   display: inline-flex;
@@ -579,35 +579,35 @@
   font-weight: 700;
 }
 
-.chat-settings-reference-account-row div {
+.hypervisor-settings-reference-account-row div {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.chat-settings-reference-account-row strong,
-.chat-settings-reference-list strong,
-.chat-settings-reference-switch strong {
+.hypervisor-settings-reference-account-row strong,
+.hypervisor-settings-reference-list strong,
+.hypervisor-settings-reference-switch strong {
   color: #262626;
   font-size: 14px;
   font-weight: 600;
 }
 
-.chat-settings-reference-field {
+.hypervisor-settings-reference-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
-.chat-settings-reference-field span,
-.chat-settings-reference-preference > span {
+.hypervisor-settings-reference-field span,
+.hypervisor-settings-reference-preference > span {
   color: #2b2b2b;
   font-size: 13px;
   font-weight: 600;
 }
 
-.chat-settings-reference-field input,
-.chat-settings-reference-field select {
+.hypervisor-settings-reference-field input,
+.hypervisor-settings-reference-field select {
   width: 100%;
   min-height: 38px;
   border: 1px solid #d1d1d1;
@@ -619,14 +619,14 @@
   font-size: 13px;
 }
 
-.chat-settings-reference-field input:focus,
-.chat-settings-reference-field select:focus {
+.hypervisor-settings-reference-field input:focus,
+.hypervisor-settings-reference-field select:focus {
   outline: none;
   border-color: #9a9a9a;
   box-shadow: 0 0 0 1px rgba(32, 32, 32, 0.08);
 }
 
-.chat-settings-reference-editor-picker {
+.hypervisor-settings-reference-editor-picker {
   max-height: 288px;
   display: flex;
   flex-direction: column;
@@ -636,7 +636,7 @@
   background: #ffffff;
 }
 
-.chat-settings-reference-editor-select {
+.hypervisor-settings-reference-editor-select {
   position: relative;
   min-height: 36px;
   display: grid;
@@ -649,7 +649,7 @@
   padding: 0 8px;
 }
 
-.chat-settings-reference-editor-select::after {
+.hypervisor-settings-reference-editor-select::after {
   content: "⌄";
   position: absolute;
   right: 13px;
@@ -660,7 +660,7 @@
   pointer-events: none;
 }
 
-.chat-settings-reference-editor-select select {
+.hypervisor-settings-reference-editor-select select {
   min-height: 34px;
   border: 0;
   background: transparent;
@@ -671,11 +671,11 @@
   padding-right: 28px;
 }
 
-.chat-settings-reference-editor-select select:focus {
+.hypervisor-settings-reference-editor-select select:focus {
   outline: none;
 }
 
-.chat-settings-reference-editor-option {
+.hypervisor-settings-reference-editor-option {
   width: 100%;
   min-height: 36px;
   display: grid;
@@ -692,16 +692,16 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-editor-option:last-child {
+.hypervisor-settings-reference-editor-option:last-child {
   border-bottom: 0;
 }
 
-.chat-settings-reference-editor-option:hover,
-.chat-settings-reference-editor-option.is-selected {
+.hypervisor-settings-reference-editor-option:hover,
+.hypervisor-settings-reference-editor-option.is-selected {
   background: #f0f0f0;
 }
 
-.chat-settings-reference-editor-icon {
+.hypervisor-settings-reference-editor-icon {
   width: 22px;
   height: 22px;
   display: inline-flex;
@@ -715,42 +715,42 @@
   line-height: 1;
 }
 
-.chat-settings-reference-editor-option[data-settings-editor-target="embedded_code_editor"]
-  .chat-settings-reference-editor-icon,
-.chat-settings-reference-editor-option[data-settings-editor-target="vscode_insiders"]
-  .chat-settings-reference-editor-icon,
-.chat-settings-reference-editor-option[data-settings-editor-target="vscode_browser"]
-  .chat-settings-reference-editor-icon {
+.hypervisor-settings-reference-editor-option[data-settings-editor-target="embedded_code_editor"]
+  .hypervisor-settings-reference-editor-icon,
+.hypervisor-settings-reference-editor-option[data-settings-editor-target="vscode_insiders"]
+  .hypervisor-settings-reference-editor-icon,
+.hypervisor-settings-reference-editor-option[data-settings-editor-target="vscode_browser"]
+  .hypervisor-settings-reference-editor-icon {
   background: linear-gradient(135deg, #1f8cf0 0%, #0f5da8 100%);
   color: #ffffff;
 }
 
-.chat-settings-reference-editor-option[data-settings-editor-target="cursor"]
-  .chat-settings-reference-editor-icon {
+.hypervisor-settings-reference-editor-option[data-settings-editor-target="cursor"]
+  .hypervisor-settings-reference-editor-icon {
   background: linear-gradient(135deg, #f6f6f6 0%, #141414 58%);
   color: #ffffff;
 }
 
-.chat-settings-reference-editor-option[data-settings-editor-target="windsurf"]
-  .chat-settings-reference-editor-icon {
+.hypervisor-settings-reference-editor-option[data-settings-editor-target="windsurf"]
+  .hypervisor-settings-reference-editor-icon {
   background: linear-gradient(135deg, #21d1b6 0%, #1477ff 100%);
   color: #071313;
 }
 
-.chat-settings-reference-editor-option[data-settings-editor-target^="jetbrains_"]
-  .chat-settings-reference-editor-icon {
+.hypervisor-settings-reference-editor-option[data-settings-editor-target^="jetbrains_"]
+  .hypervisor-settings-reference-editor-icon {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 42%),
     linear-gradient(135deg, #ff3d7f 0%, #7c4dff 48%, #00c2ff 100%);
   color: #ffffff;
 }
 
-.chat-settings-reference-editor-copy {
+.hypervisor-settings-reference-editor-copy {
   min-width: 0;
   display: block;
 }
 
-.chat-settings-reference-editor-copy strong {
+.hypervisor-settings-reference-editor-copy strong {
   overflow: hidden;
   color: #252525;
   font-size: 13px;
@@ -760,19 +760,19 @@
   white-space: nowrap;
 }
 
-.chat-settings-reference-editor-check {
+.hypervisor-settings-reference-editor-check {
   color: #242424;
   font-size: 13px;
   text-align: right;
 }
 
-.chat-settings-reference-copy-field {
+.hypervisor-settings-reference-copy-field {
   position: relative;
   display: block;
 }
 
-.chat-settings-reference-copy-field button,
-.chat-settings-reference-list button {
+.hypervisor-settings-reference-copy-field button,
+.hypervisor-settings-reference-list button {
   border: 1px solid #d4d4d4;
   border-radius: 7px;
   background: #fafafa;
@@ -783,7 +783,7 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-copy-field button {
+.hypervisor-settings-reference-copy-field button {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -796,26 +796,26 @@
   font-size: 0;
 }
 
-.chat-settings-reference-copy-field button::before {
+.hypervisor-settings-reference-copy-field button::before {
   content: "⧉";
   color: #7d7d7d;
   font-size: 17px;
   line-height: 1;
 }
 
-.chat-settings-reference-copy-field button:hover,
-.chat-settings-reference-list button:hover {
+.hypervisor-settings-reference-copy-field button:hover,
+.hypervisor-settings-reference-list button:hover {
   background: #eeeeee;
 }
 
-.chat-settings-reference-preference {
+.hypervisor-settings-reference-preference {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
 }
 
-.chat-settings-reference-segmented {
+.hypervisor-settings-reference-segmented {
   display: inline-flex;
   align-items: center;
   padding: 3px;
@@ -824,7 +824,7 @@
   background: #f7f7f7;
 }
 
-.chat-settings-reference-segmented button {
+.hypervisor-settings-reference-segmented button {
   min-height: 30px;
   padding: 0 14px;
   border: 0;
@@ -836,14 +836,14 @@
   cursor: pointer;
 }
 
-.chat-settings-reference-segmented button.active,
-.chat-settings-reference-segmented button:hover {
+.hypervisor-settings-reference-segmented button.active,
+.hypervisor-settings-reference-segmented button:hover {
   background: #ffffff;
   color: #222222;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
 }
 
-.chat-settings-reference-switch {
+.hypervisor-settings-reference-switch {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
   column-gap: 16px;
@@ -851,13 +851,13 @@
   align-items: center;
 }
 
-.chat-settings-reference-switch input {
+.hypervisor-settings-reference-switch input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-.chat-settings-reference-switch > span {
+.hypervisor-settings-reference-switch > span {
   grid-row: 1 / span 2;
   width: 36px;
   height: 20px;
@@ -867,7 +867,7 @@
   border: 1px solid #dddddd;
 }
 
-.chat-settings-reference-switch > span::after {
+.hypervisor-settings-reference-switch > span::after {
   content: "";
   position: absolute;
   width: 16px;
@@ -879,16 +879,16 @@
   transition: transform 0.14s ease;
 }
 
-.chat-settings-reference-switch input:checked + span {
+.hypervisor-settings-reference-switch input:checked + span {
   background: #14c414;
   border-color: #14c414;
 }
 
-.chat-settings-reference-switch input:checked + span::after {
+.hypervisor-settings-reference-switch input:checked + span::after {
   transform: translateX(16px);
 }
 
-.chat-settings-reference-list {
+.hypervisor-settings-reference-list {
   display: flex;
   flex-direction: column;
   border: 1px solid #2e2e2e;
@@ -896,7 +896,7 @@
   overflow: hidden;
 }
 
-.chat-settings-reference-list article {
+.hypervisor-settings-reference-list article {
   min-height: 64px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 104px;
@@ -907,22 +907,22 @@
   background: #ffffff;
 }
 
-.chat-settings-reference-list article:last-child {
+.hypervisor-settings-reference-list article:last-child {
   border-bottom: 0;
 }
 
-.chat-settings-reference-list article div {
+.hypervisor-settings-reference-list article div {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.chat-settings-reference-list button {
+.hypervisor-settings-reference-list button {
   min-height: 32px;
 }
 
-.chat-settings-sidebar {
+.hypervisor-settings-sidebar {
   width: 284px;
   min-width: 284px;
   display: flex;
@@ -933,26 +933,26 @@
   background: rgba(255, 255, 255, 0.015);
 }
 
-.chat-settings-sidebar-head {
+.hypervisor-settings-sidebar-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 4px 8px;
 }
 
-.chat-settings-sidebar-head strong {
+.hypervisor-settings-sidebar-head strong {
   color: var(--chat-text);
   font-size: 12px;
 }
 
-.chat-settings-sidebar-head span {
+.hypervisor-settings-sidebar-head span {
   color: var(--chat-text-secondary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.chat-settings-target {
+.hypervisor-settings-target {
   width: 100%;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -969,24 +969,24 @@
     background 0.15s ease;
 }
 
-.chat-settings-target strong {
+.hypervisor-settings-target strong {
   color: var(--chat-text);
   font-size: 14px;
 }
 
-.chat-settings-target span {
+.hypervisor-settings-target span {
   color: var(--chat-text-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.chat-settings-target:hover,
-.chat-settings-target.active {
+.hypervisor-settings-target:hover,
+.hypervisor-settings-target.active {
   border-color: var(--chat-selection-border);
   background: var(--chat-selection-bg);
 }
 
-.chat-settings-panel {
+.hypervisor-settings-panel {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -994,13 +994,13 @@
   overflow: auto;
 }
 
-.chat-settings-diagnostics {
+.hypervisor-settings-diagnostics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 280px));
   gap: 14px;
 }
 
-.chat-settings-status-card {
+.hypervisor-settings-status-card {
   border: 1px solid var(--chat-border);
   border-radius: 14px;
   background: var(--surface-2);
@@ -1010,25 +1010,25 @@
   gap: 8px;
 }
 
-.chat-settings-status-card span {
+.hypervisor-settings-status-card span {
   color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
-.chat-settings-status-card strong {
+.hypervisor-settings-status-card strong {
   color: var(--chat-text);
   font-size: 16px;
 }
 
-.chat-settings-status-card.tone-warning {
+.hypervisor-settings-status-card.tone-warning {
   border-color: rgba(234, 179, 8, 0.22);
 }
 
-.chat-settings-status-card.tone-muted {
+.hypervisor-settings-status-card.tone-muted {
   opacity: 0.86;
 }
 
-.chat-settings-card {
+.hypervisor-settings-card {
   border: 1px solid var(--chat-border);
   background: var(--surface-2);
   border-radius: 18px;
@@ -1036,14 +1036,14 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
 }
 
-.chat-settings-card-head {
+.hypervisor-settings-card-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
 }
 
-.chat-settings-card-eyebrow {
+.hypervisor-settings-card-eyebrow {
   display: inline-block;
   margin-bottom: 8px;
   color: var(--chat-accent-soft);
@@ -1052,13 +1052,13 @@
   text-transform: uppercase;
 }
 
-.chat-settings-card h2 {
+.hypervisor-settings-card h2 {
   margin: 0;
   font-size: 22px;
   line-height: 1.15;
 }
 
-.chat-settings-pill {
+.hypervisor-settings-pill {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -1069,50 +1069,50 @@
   text-transform: uppercase;
 }
 
-.chat-settings-pill-warning {
+.hypervisor-settings-pill-warning {
   color: var(--chat-warning);
   background: var(--chat-warning-muted);
   border: 1px solid var(--status-warning-ring);
 }
 
-.chat-settings-pill-ready {
+.hypervisor-settings-pill-ready {
   color: var(--chat-success);
   background: var(--chat-success-muted);
   border: 1px solid rgba(52, 211, 153, 0.34);
 }
 
-.chat-settings-pill-blocked {
+.hypervisor-settings-pill-blocked {
   color: var(--chat-error);
   background: var(--chat-error-muted);
   border: 1px solid var(--status-error-ring);
 }
 
-.chat-settings-body {
+.hypervisor-settings-body {
   margin: 16px 0 0;
   color: var(--chat-text-secondary);
   font-size: 14px;
   line-height: 1.6;
 }
 
-.chat-settings-profile-grid {
+.hypervisor-settings-profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
 
-.chat-settings-field {
+.hypervisor-settings-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.chat-settings-field span {
+.hypervisor-settings-field span {
   color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
-.chat-settings-field input {
+.hypervisor-settings-field input {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--chat-border);
@@ -1122,19 +1122,19 @@
   font: inherit;
 }
 
-.chat-settings-field input:focus {
+.hypervisor-settings-field input:focus {
   outline: none;
   border-color: var(--chat-border-focus);
   box-shadow: 0 0 0 1px var(--chat-focus-ring);
 }
 
-.chat-settings-field input::placeholder {
+.hypervisor-settings-field input::placeholder {
   color: var(--chat-text-muted);
 }
 
-.chat-settings-field select,
-.chat-settings-field textarea,
-.chat-settings-binding-row input {
+.hypervisor-settings-field select,
+.hypervisor-settings-field textarea,
+.hypervisor-settings-binding-row input {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--chat-border);
@@ -1144,41 +1144,41 @@
   font: inherit;
 }
 
-.chat-settings-field select:focus,
-.chat-settings-field textarea:focus,
-.chat-settings-binding-row input:focus {
+.hypervisor-settings-field select:focus,
+.hypervisor-settings-field textarea:focus,
+.hypervisor-settings-binding-row input:focus {
   outline: none;
   border-color: var(--chat-border-focus);
   box-shadow: 0 0 0 1px var(--chat-focus-ring);
 }
 
-.chat-settings-field textarea {
+.hypervisor-settings-field textarea {
   min-height: 112px;
   resize: vertical;
 }
 
-.chat-settings-field--wide {
+.hypervisor-settings-field--wide {
   grid-column: 1 / -1;
 }
 
-.chat-settings-stack {
+.hypervisor-settings-stack {
   display: grid;
   gap: 18px;
 }
 
-.chat-settings-stack--compact {
+.hypervisor-settings-stack--compact {
   gap: 12px;
 }
 
-.chat-settings-form-grid,
-.chat-settings-summary-grid {
+.hypervisor-settings-form-grid,
+.hypervisor-settings-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
 
-.chat-settings-toggle {
+.hypervisor-settings-toggle {
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -1188,18 +1188,18 @@
   padding: 14px 15px;
 }
 
-.chat-settings-toggle input[type="checkbox"] {
+.hypervisor-settings-toggle input[type="checkbox"] {
   margin-top: 2px;
   accent-color: var(--chat-accent);
 }
 
-.chat-settings-toggle strong {
+.hypervisor-settings-toggle strong {
   display: block;
   color: var(--chat-text);
   font-size: 13px;
 }
 
-.chat-settings-toggle span {
+.hypervisor-settings-toggle span {
   display: block;
   margin-top: 4px;
   color: var(--chat-text-secondary);
@@ -1207,7 +1207,7 @@
   line-height: 1.5;
 }
 
-.chat-settings-subcard {
+.hypervisor-settings-subcard {
   border: 1px solid var(--chat-border);
   border-radius: 16px;
   background: rgba(232, 237, 242, 0.025);
@@ -1216,39 +1216,39 @@
   gap: 12px;
 }
 
-.chat-settings-subcard.is-live {
+.hypervisor-settings-subcard.is-live {
   border-color: rgba(124, 198, 163, 0.24);
 }
 
-.chat-settings-subcard.is-muted {
+.hypervisor-settings-subcard.is-muted {
   opacity: 0.76;
 }
 
-.chat-settings-subcard-head {
+.hypervisor-settings-subcard-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: baseline;
 }
 
-.chat-settings-subcard-head strong {
+.hypervisor-settings-subcard-head strong {
   color: var(--chat-text);
   font-size: 14px;
 }
 
-.chat-settings-subcard-head span,
-.chat-settings-subcard small,
-.chat-settings-subcard p {
+.hypervisor-settings-subcard-head span,
+.hypervisor-settings-subcard small,
+.hypervisor-settings-subcard p {
   color: var(--chat-text-secondary);
 }
 
-.chat-settings-subcard p,
-.chat-settings-subcard small {
+.hypervisor-settings-subcard p,
+.hypervisor-settings-subcard small {
   margin: 0;
   line-height: 1.55;
 }
 
-.chat-settings-repair-trail {
+.hypervisor-settings-repair-trail {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1257,18 +1257,18 @@
   font-size: 11px;
 }
 
-.chat-settings-repair-trail span {
+.hypervisor-settings-repair-trail span {
   color: var(--chat-text);
   font-weight: 650;
 }
 
-.chat-settings-chip-row {
+.hypervisor-settings-chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.chat-settings-chip {
+.hypervisor-settings-chip {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -1281,49 +1281,49 @@
   letter-spacing: 0.05em;
 }
 
-.chat-settings-chip-ready {
+.hypervisor-settings-chip-ready {
   border-color: var(--status-success-ring);
   background: var(--status-success-dim);
   color: var(--status-success);
 }
 
-.chat-settings-chip-warning {
+.hypervisor-settings-chip-warning {
   border-color: var(--status-warning-ring);
   background: var(--status-warning-dim);
   color: var(--status-warning);
 }
 
-.chat-settings-chip-blocked {
+.hypervisor-settings-chip-blocked {
   border-color: var(--status-error-ring);
   background: var(--status-error-dim);
   color: var(--status-error);
 }
 
-.chat-settings-advanced {
+.hypervisor-settings-advanced {
   display: grid;
   gap: 6px;
 }
 
-.chat-settings-advanced summary {
+.hypervisor-settings-advanced summary {
   cursor: pointer;
   color: var(--chat-text-secondary);
   font-size: 11px;
 }
 
-.chat-settings-inline-actions {
+.hypervisor-settings-inline-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
 }
 
-.chat-settings-binding-row {
+.hypervisor-settings-binding-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: center;
 }
 
-.chat-settings-binding-secret {
+.hypervisor-settings-binding-secret {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1333,11 +1333,11 @@
   white-space: nowrap;
 }
 
-.chat-settings-binding-secret input[type="checkbox"] {
+.hypervisor-settings-binding-secret input[type="checkbox"] {
   accent-color: var(--chat-accent);
 }
 
-.chat-settings-list {
+.hypervisor-settings-list {
   margin: 18px 0 0;
   padding-left: 18px;
   color: var(--chat-text);
@@ -1345,12 +1345,12 @@
   gap: 8px;
 }
 
-.chat-settings-list li {
+.hypervisor-settings-list li {
   color: var(--chat-text-secondary);
   line-height: 1.6;
 }
 
-.chat-settings-callout {
+.hypervisor-settings-callout {
   margin-top: 20px;
   border: 1px solid var(--chat-border);
   background: rgba(232, 237, 242, 0.03);
@@ -1358,50 +1358,50 @@
   padding: 14px 16px;
 }
 
-.chat-settings-callout strong {
+.hypervisor-settings-callout strong {
   display: block;
   margin-bottom: 6px;
   color: var(--chat-text);
 }
 
-.chat-settings-callout p,
-.chat-settings-success,
-.chat-settings-error {
+.hypervisor-settings-callout p,
+.hypervisor-settings-success,
+.hypervisor-settings-error {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
 }
 
-.chat-settings-success {
+.hypervisor-settings-success {
   margin-top: 16px;
   color: var(--chat-success);
 }
 
-.chat-settings-error {
+.hypervisor-settings-error {
   margin-top: 16px;
   color: var(--chat-error);
 }
 
-.chat-settings-actions {
+.hypervisor-settings-actions {
   display: flex;
   gap: 12px;
   margin-top: 22px;
   flex-wrap: wrap;
 }
 
-.chat-settings-actions--top {
+.hypervisor-settings-actions--top {
   margin-top: 0;
   margin-bottom: 18px;
 }
 
-.chat-settings-actions--compact {
+.hypervisor-settings-actions--compact {
   gap: 8px;
   margin-top: 12px;
 }
 
-.chat-settings-primary,
-.chat-settings-secondary,
-.chat-settings-danger {
+.hypervisor-settings-primary,
+.hypervisor-settings-secondary,
+.hypervisor-settings-danger {
   border-radius: 12px;
   padding: 11px 16px;
   font: inherit;
@@ -1413,19 +1413,19 @@
     opacity 0.16s ease;
 }
 
-.chat-settings-primary {
+.hypervisor-settings-primary {
   border: 1px solid var(--chat-primary-border);
   background: var(--chat-primary-bg);
   color: var(--button-primary-text);
 }
 
-.chat-settings-secondary {
+.hypervisor-settings-secondary {
   border: 1px solid var(--chat-border);
   background: var(--warm-a5);
   color: var(--chat-text-secondary);
 }
 
-.chat-settings-danger {
+.hypervisor-settings-danger {
   border: 1px solid var(--status-error-ring);
   background: linear-gradient(
     180deg,
@@ -1435,32 +1435,32 @@
   color: var(--chat-text);
 }
 
-.chat-settings-primary:hover:not(:disabled),
-.chat-settings-secondary:hover:not(:disabled),
-.chat-settings-danger:hover:not(:disabled) {
+.hypervisor-settings-primary:hover:not(:disabled),
+.hypervisor-settings-secondary:hover:not(:disabled),
+.hypervisor-settings-danger:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.06);
 }
 
-.chat-settings-primary:disabled,
-.chat-settings-secondary:disabled,
-.chat-settings-danger:disabled {
+.hypervisor-settings-primary:disabled,
+.hypervisor-settings-secondary:disabled,
+.hypervisor-settings-danger:disabled {
   cursor: progress;
   opacity: 0.72;
 }
 
 @media (max-width: 860px) {
-  .chat-settings-profile-grid {
+  .hypervisor-settings-profile-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .chat-settings-form-grid,
-  .chat-settings-summary-grid,
-  .chat-settings-binding-row {
+  .hypervisor-settings-form-grid,
+  .hypervisor-settings-summary-grid,
+  .hypervisor-settings-binding-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .chat-settings-inline-actions {
+  .hypervisor-settings-inline-actions {
     justify-content: stretch;
   }
 }
@@ -2329,23 +2329,23 @@
     flex-direction: column;
   }
 
-  .chat-settings-layout,
+  .hypervisor-settings-layout,
   .shield-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .chat-settings-layout {
+  .hypervisor-settings-layout {
     flex-direction: column;
   }
 
-  .chat-settings-sidebar {
+  .hypervisor-settings-sidebar {
     width: 100%;
     min-width: 0;
     border-right: none;
     border-bottom: 1px solid var(--chat-border);
   }
 
-  .chat-settings-diagnostics,
+  .hypervisor-settings-diagnostics,
   .shield-form-grid,
   .shield-authority-profile-grid,
   .shield-authority-profile-footer,
