@@ -124,7 +124,7 @@ export function createWorkflowCodeGenerationProposalPlan(
     evalProfileRef: request.evalProfileRef || null,
     proposalOnly: true,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
   };
 
@@ -137,7 +137,7 @@ export function createWorkflowCodeGenerationProposalPlan(
     summary: "A human or policy approval is required before source files can be changed.",
     blockers,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
   };
 
@@ -152,7 +152,7 @@ export function createWorkflowCodeGenerationProposalPlan(
       "No workspace source files were changed. Apply is blocked until IOI runtime settles an approved patch.",
     blockers,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
   };
 
@@ -165,7 +165,7 @@ export function createWorkflowCodeGenerationProposalPlan(
     summary: "Checks are pending an approved patch and apply receipt.",
     blockers: ["approved patch and apply receipt missing"],
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
   };
 
@@ -179,7 +179,7 @@ export function createWorkflowCodeGenerationProposalPlan(
     summary: "Evaluation is pending check evidence from the applied proposal.",
     blockers: ["check receipt evidence missing"],
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
   };
 
@@ -208,7 +208,7 @@ export function createWorkflowCodeGenerationProposalPlan(
     evalReceiptRefs: [evalReceiptRef],
     promotionBlockers: blockers,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
     runtimeRefs: {
       threadId: null,

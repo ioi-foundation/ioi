@@ -68,7 +68,7 @@ test("workflow code generation proposal plan writes proposal-only artifacts", ()
   const checkReceipt = JSON.parse(checkReceiptFile.content);
   const evalReceipt = JSON.parse(evalReceiptFile.content);
   assert.equal(request.runtimeTruthSource, "daemon-runtime");
-  assert.equal(request.projectionOwner, "openvscode-workbench-adapter");
+  assert.equal(request.projectionOwner, "hypervisor-code-editor-adapter");
   assert.equal(request.ownsRuntimeState, false);
   assert.equal(request.proposalOnly, true);
   assert.equal(receipt.status, "proposed");
@@ -80,7 +80,7 @@ test("workflow code generation proposal plan writes proposal-only artifacts", ()
   assert.equal(evalReceipt.status, "blocked");
   assert.equal(applyReceipt.ownsRuntimeState, false);
   assert.equal(checkReceipt.runtimeTruthSource, "daemon-runtime");
-  assert.equal(evalReceipt.projectionOwner, "openvscode-workbench-adapter");
+  assert.equal(evalReceipt.projectionOwner, "hypervisor-code-editor-adapter");
   assert.deepEqual(receipt.applyReceiptRefs, [applyReceipt.receiptId]);
   assert.deepEqual(receipt.evalReceiptRefs, [evalReceipt.receiptId]);
   assert.match(

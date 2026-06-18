@@ -35,7 +35,7 @@ function buildWorkbenchCommandRouteReceipt({
     schemaVersion: "ioi.code-editor-adapter.v1",
     receiptId: `code-editor-command-route:${crypto.randomUUID()}`,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-code-editor-adapter",
+    projectionOwner: "hypervisor-code-editor-adapter",
     ownsRuntimeState: false,
     commandId,
     routedAtMs: Date.now(),

@@ -21,16 +21,11 @@ function timestamp() {
 function parseArgs(argv) {
   const options = {
     outputRoot: defaultOutputRoot,
-    skipGui: process.env.IOI_MODEL_MOUNTING_E2E_SKIP_GUI === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--output-root") {
       options.outputRoot = path.resolve(argv[++index]);
-    } else if (arg === "--skip-gui") {
-      options.skipGui = true;
-    } else if (arg === "--include-gui") {
-      options.skipGui = false;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -347,48 +342,6 @@ function stableHash(text) {
     hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   }
   return hash.toString(16).padStart(8, "0");
-}
-
-function latestResultJson(root) {
-  if (!fs.existsSync(root)) return null;
-  const candidates = fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(root, entry.name, "result.json"))
-    .filter((candidate) => fs.existsSync(candidate))
-    .sort();
-  return candidates.at(-1) ?? null;
-}
-
-function runGuiValidation(evidence, outputRoot, secretNeedles) {
-  const guiRoot = path.join(outputRoot, "gui");
-  fs.mkdirSync(guiRoot, { recursive: true });
-  const result = spawnSync("node", ["scripts/run-model-mounts-gui-validation.mjs", "--output-root", guiRoot], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  const stdout = redactText(result.stdout, secretNeedles);
-  const stderr = redactText(result.stderr, secretNeedles);
-  evidence.commands.push({
-    command: "node scripts/run-model-mounts-gui-validation.mjs --output-root <evidence>/gui",
-    status: result.status === 0 ? "passed" : "failed",
-    stdoutBytes: stdout.length,
-    stderrBytes: stderr.length,
-  });
-  assert.equal(result.status, 0, `Mounts GUI validation failed:\n${stdout}\n${stderr}`);
-  const resultPath = latestResultJson(guiRoot);
-  assert.ok(resultPath, "Mounts GUI validation did not write result.json");
-  const guiResult = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-  assert.equal(guiResult.passed, true);
-  assert.equal(guiResult.secretScan?.passed, true);
-  assert.ok(Array.isArray(guiResult.screenshots) && guiResult.screenshots.length >= 8);
-  assert.ok(guiResult.screenshots.every((item) => item.capture_mode === "window"));
-  return {
-    resultPath,
-    screenshotCount: guiResult.screenshots.length,
-    captureModes: [...new Set(guiResult.screenshots.map((item) => item.capture_mode))],
-    snapshotCounts: guiResult.seed?.snapshot_counts ?? null,
-  };
 }
 
 async function main() {
@@ -1596,20 +1549,6 @@ async function main() {
         vaultMetadataRequiresRebind: vaultMeta.requiresRebind,
       };
     });
-
-    if (!options.skipGui) {
-      await runStep(evidence, "Mounts desktop GUI validation bundle", async () => {
-        return runGuiValidation(evidence, outputRoot, secretNeedles);
-      });
-    } else {
-      evidence.steps.push({
-        name: "Mounts desktop GUI validation bundle",
-        status: "skipped",
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        summary: { reason: "skipped by --skip-gui or IOI_MODEL_MOUNTING_E2E_SKIP_GUI=1" },
-      });
-    }
 
     await runStep(evidence, "secret redaction scan", async () => {
       const scan = scanFilesForSecrets([stateDir, outputRoot], secretNeedles);

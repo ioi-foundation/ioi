@@ -140,12 +140,6 @@ test("operator substrate code does not introduce runtime ownership", () => {
 test("workspace substrate target index exposes controlled UI before coordinate fallback", () => {
   const index = buildWorkspaceSubstrateTargetIndex({
     generatedAtMs: 1_763_000_001_000,
-    directWebview: {
-      surfaceId: "surface:workspace",
-      label: "OpenVSCode",
-      bounds: { x: 10, y: 20, width: 900, height: 700 },
-      screenBounds: { x: 100, y: 200, width: 900, height: 700 },
-    },
   });
 
   assert.equal(index.schemaVersion, "ioi.workspace-substrate-target-index.v1");
@@ -160,13 +154,6 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
   assert.ok(
     index.targets.some((target) => target.targetId === "workflow.node"),
-  );
-  assert.ok(
-    index.targets.some(
-      (target) =>
-        target.targetId === "direct-webview.surface:workspace" &&
-        target.locators.some((locator) => locator.kind === "direct-webview"),
-    ),
   );
   assert.ok(
     index.targets
@@ -186,10 +173,6 @@ test("workspace embedding defers global command center to HypervisorClientHeader
   );
   const workspaceShell = readFileSync(
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
-    "utf8",
-  );
-  const openVsCodeDirectSurface = readFileSync(
-    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
     "utf8",
   );
   const bundledExtension = readFileSync(
@@ -225,31 +208,10 @@ test("workspace embedding defers global command center to HypervisorClientHeader
   assert.match(workspaceShell, /hideGlobalCommandCenter/);
   assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
   assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
-  assert.match(workspaceShell, /directSurfaceReservedRightPx/);
-  assert.match(
-    workspaceShell,
-    /reservedRightPx=\{directSurfaceReservedRightPx\}/,
-  );
   assert.match(workspaceShell, /mode\?: "default" \| "tools"/);
   assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
-  assert.match(openVsCodeDirectSurface, /reservedRightPx\?: number/);
-  assert.match(openVsCodeDirectSurface, /suspended\?: boolean/);
-  assert.match(openVsCodeDirectSurface, /const visible = active && !suspended/);
-  assert.match(
-    openVsCodeDirectSurface,
-    /hideWorkspaceDirectWebview\(surface\.surfaceId\)/,
-  );
-  assert.match(openVsCodeDirectSurface, /readElementBoundsWithReservedRight/);
-  assert.match(openVsCodeDirectSurface, /constrainBoundsForReservedRight/);
-  assert.match(openVsCodeDirectSurface, /surfaceWidth - reservedRightWidth/);
-  assert.match(
-    openVsCodeDirectSurface,
-    /\[reservedRightPx, scheduleSettledSyncBounds, visible\]/,
-  );
-  assert.match(openVsCodeDirectSurface, /const availableWidth = Math\.max\(1, surfaceWidth - reservedRightWidth\)/);
-  assert.match(openVsCodeDirectSurface, /width: availableWidth/);
-  assert.match(bundledExtension, /createNativeCommandRegistrar/);
-  assert.match(bundledExtension, /syncWorkbenchAppearance/);
+  assert.match(bundledExtension, /registerAdapterCommands/);
+  assert.match(bundledExtension, /Code editor adapter active\./);
   assert.match(
     workspaceRuntimeNavigation,
     /case "commandCenter\.open":[\s\S]*onOpenCommandPalette\?\.\(/,
@@ -267,14 +229,7 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     /routeHandlers\?: WorkspaceBridgeRouteHandlers[\s\S]*params\.routeHandlers/,
   );
   assert.match(shellContent, /const workspaceOperatorChatPane/);
-  assert.match(shellContent, /workspaceUsesNativeWorkbenchChat/);
-  assert.match(shellContent, /workspaceHost === directWorkspaceWorkbenchHost/);
-  assert.match(shellContent, /workspaceHost === openVsCodeWorkbenchHost/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
-  assert.match(
-    shellContent,
-    /commandPaletteOpen=\{controller\.modals\.commandPaletteOpen\}/,
-  );
   assert.match(
     shellContent,
     /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/,
@@ -286,29 +241,6 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     /mode: "default" \| "tools" = "default"[\s\S]*setCommandPaletteMode\(mode\)/,
   );
   assert.match(chatHeader, /data-operator-command-center/);
-});
-
-test("direct OpenVSCode workspace failures stay in integrated surface chrome", () => {
-  const workspaceShell = readFileSync(
-    "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
-    "utf8",
-  );
-  const workspaceStyles = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
-    "utf8",
-  );
-
-  assert.match(workspaceShell, /directOpenVsCodeSurfaceVisible/);
-  assert.match(workspaceShell, /surfaceRuntimeNotice/);
-  assert.match(workspaceShell, /!overlayVisible && surfaceNotice/);
-  assert.match(workspaceShell, /chat-workspace-oss-shell__surface-notice/);
-  assert.match(workspaceShell, /chat-workspace-oss-shell__diagnostics/);
-  assert.doesNotMatch(
-    workspaceShell,
-    /const effectiveError = error \?\? surfaceRuntimeError/,
-  );
-  assert.doesNotMatch(workspaceShell, /Force reveal now/);
-  assert.match(workspaceStyles, /chat-workspace-oss-shell__surface-notice/);
 });
 
 test("workspace docked chat is real operator chrome, not screenshot hitboxes", () => {
@@ -484,17 +416,9 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
 });
 
-test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
-  const openVsCodeDirectSurface = readFileSync(
-    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
-    "utf8",
-  );
+test("workspace adapter commands defer global search to Hypervisor chrome", () => {
   const homeView = readFileSync(
     "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
-    "utf8",
-  );
-  const homeOnboardingModel = readFileSync(
-    "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
     "utf8",
   );
   const bundledExtension = readFileSync(
@@ -502,30 +426,19 @@ test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
     "utf8",
   );
 
-  assert.match(openVsCodeDirectSurface, /hideWorkspaceDirectWebview\(surface\.surfaceId\)/);
-  assert.match(openVsCodeDirectSurface, /data-workspace-native-bounds/);
-  assert.match(openVsCodeDirectSurface, /data-workspace-native-screen-bounds/);
-  assert.match(
-    homeView,
-    /case "quickOpen\.open":[\s\S]*onOpenCommandPalette\(\);[\s\S]*return;/,
-  );
   assert.doesNotMatch(
     homeView,
     /case "quickOpen\.open":[\s\S]*queueWorkbenchCommand\("workbench\.action\.quickOpen"\)/,
   );
-  assert.match(homeOnboardingModel, /targetRoute: "Hypervisor command center"/);
   assert.doesNotMatch(
-    homeOnboardingModel,
+    homeView,
     /toSide:workbench\.action\.quickOpen/,
   );
   assert.doesNotMatch(
     bundledExtension,
     /label: "Open command palette"[\s\S]*command: "workbench\.action\.showCommands"/,
   );
-  assert.match(
-    bundledExtension,
-    /syncAppearanceFromBridge[\s\S]*syncWorkbenchAppearance/,
-  );
+  assert.match(bundledExtension, /startWorkbenchContextSnapshotPublisher/);
 });
 
 test("Hypervisor command palette anchors to the header command center", () => {
@@ -593,10 +506,6 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
     "utf8",
   );
-  const directSurface = readFileSync(
-    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
-    "utf8",
-  );
   const workspaceRail = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceRail.tsx",
     "utf8",
@@ -620,11 +529,6 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
 
   assert.match(chatHeader, /data-inspection-target="operator-command-center"/);
   assert.match(activityRail, /data-inspection-target="operator-activity-rail"/);
-  assert.match(directSurface, /__AUTOPILOT_GET_WORKBENCH_TARGET_INDEX__/);
-  assert.match(
-    directSurface,
-    /data-inspection-target="direct-openvscode-webview"/,
-  );
   assert.match(workspaceRail, /data-inspection-target="workspace-rail"/);
   assert.match(explorer, /data-inspection-target="workspace-explorer-row"/);
   assert.match(editor, /data-inspection-target="workspace-editor-stage"/);

@@ -85,7 +85,7 @@ async function openCodeAdapter() {
       workspaceRoot: workspaceSummary().path,
       sourceCommand: "ioi.code.open",
       runtimeAuthority: "daemon-owned",
-      projectionOwner: "openvscode-code-editor-adapter",
+      projectionOwner: "hypervisor-code-editor-adapter",
       ownsRuntimeState: false,
       vscodeSubstrateVisible: true,
     },

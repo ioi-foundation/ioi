@@ -21,49 +21,6 @@ const contentTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 
-const homeOnboardingCompletedState = {
-  selectedStepId: "setup-theme",
-  completedStepIds: [
-    "setup-theme",
-    "setup-ui-density",
-    "setup-web-extensions",
-    "setup-language-extensions",
-    "setup-sync-settings",
-    "setup-command-palette",
-    "setup-open-code",
-    "setup-quick-open",
-    "setup-desktop-theme",
-    "setup-video-tutorial",
-    "fundamentals-settings",
-    "fundamentals-extensions",
-    "fundamentals-terminal",
-    "fundamentals-debug",
-    "fundamentals-git-clone",
-    "fundamentals-git-init",
-    "fundamentals-git",
-    "fundamentals-install-git",
-    "fundamentals-tasks",
-    "fundamentals-shortcuts",
-    "fundamentals-workspace-trust",
-    "accessibility-help",
-    "accessibility-view",
-    "accessibility-verbosity",
-    "accessibility-command-palette",
-    "accessibility-keybindings",
-    "accessibility-signals",
-    "accessibility-hover",
-    "accessibility-symbols",
-    "accessibility-folding",
-    "accessibility-intellisense",
-    "accessibility-settings",
-    "accessibility-dictation",
-    "notebook-profile",
-  ],
-  completedAtMs: 1_780_000_000_000,
-  skippedAtMs: 1_780_000_000_000,
-  actionReceipts: [],
-};
-
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -132,12 +89,6 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
     page.setDefaultTimeout(90_000);
-    await page.addInitScript((completedState) => {
-      window.localStorage.setItem(
-        "hypervisor.home.onboarding.v1",
-        JSON.stringify(completedState),
-      );
-    }, homeOnboardingCompletedState);
     page.on("console", (message) => {
       if (["error", "warning"].includes(message.type())) {
         consoleMessages.push({

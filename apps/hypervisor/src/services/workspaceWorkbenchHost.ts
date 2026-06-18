@@ -19,25 +19,6 @@ export interface WorkspaceWorkbenchProjectDescriptor {
   rootPath: string;
 }
 
-export interface WorkspaceWorkbenchFrameModel {
-  kind: "frame";
-  key: string;
-  title: string;
-  src: string;
-}
-
-export interface WorkspaceWorkbenchOpenVsCodeDirectModel {
-  kind: "openvscode-direct";
-  key: string;
-  surfaceId: string;
-  title: string;
-  rootPath: string;
-  workbenchUrl: string;
-  version: string;
-  port: number;
-  bridgePort: number;
-}
-
 export interface WorkspaceWorkbenchSubstratePreviewModel {
   kind: "substrate-preview";
   key: string;
@@ -52,9 +33,7 @@ export interface WorkspaceWorkbenchSubstratePreviewModel {
 }
 
 export type WorkspaceWorkbenchSurfaceModel =
-  | WorkspaceWorkbenchFrameModel
-  | WorkspaceWorkbenchOpenVsCodeDirectModel
-  | WorkspaceWorkbenchSubstratePreviewModel;
+  WorkspaceWorkbenchSubstratePreviewModel;
 
 export interface WorkspaceWorkbenchBridgeWorkspaceModel {
   id: string;

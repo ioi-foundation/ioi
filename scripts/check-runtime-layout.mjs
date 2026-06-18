@@ -46,12 +46,28 @@ const retiredAutopilotWorkflowCanvasFixtures = [
   "scripts/custom-hypervisor-agenda.mjs",
 ];
 const retiredDirectOpenVsCodeDesktopProbes = [
+  "apps/hypervisor/scripts/desktop_chat_codebase_probe.py",
+  "apps/hypervisor/scripts/desktop_workspace_probe.py",
   "apps/hypervisor/scripts/desktop_home_menu_bar_bridge_probe.py",
   "apps/hypervisor/scripts/desktop_openvscode_bridge_routing_probe.py",
   "apps/hypervisor/scripts/desktop_openvscode_direct_probe.py",
   "apps/hypervisor/scripts/desktop_openvscode_fullscreen_first_load_probe.py",
   "apps/hypervisor/scripts/desktop_openvscode_hot_lifecycle_probe.py",
   "apps/hypervisor/scripts/desktop_openvscode_onboarding_pass.py",
+];
+const retiredHomeOnboardingSurfacePaths = [
+  "apps/hypervisor/scripts/desktop_home_onboarding_probe.py",
+  "apps/hypervisor/scripts/desktop_home_zero_state_probe.py",
+  "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
+  "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
+  "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
+];
+const retiredDirectWorkspaceSurfacePaths = [
+  "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+  "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
+  "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
+  "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+  "apps/hypervisor/src/services/workspaceDirectWebview.ts",
 ];
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
@@ -176,9 +192,6 @@ const hypervisorActivityBarSource = read(
 );
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
-  "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
-  "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
-  "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
   "apps/hypervisor/src/surfaces/Home/index.ts",
 ].map(read).join("\n");
 const hypervisorHomeCockpitModelSource = read(
@@ -207,10 +220,7 @@ const activeHypervisorFixtureSources = [
 ].map(read).join("\n");
 const workspaceWorkbenchCopySources = [
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
-  "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
-  "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
-  "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
-  "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+  "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
   "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
   "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
@@ -283,7 +293,6 @@ const hypervisorModelMountIdentitySources = [
   "scripts/validate-model-mounting-e2e.mjs",
   "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   "scripts/live-model-mounting-gate.mjs",
-  "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
   "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
   "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
   "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
@@ -331,8 +340,7 @@ const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/servic
   /\.(rs|md)$/.test(file),
 );
 const hypervisorDesktopProbeFiles = allFiles("apps/hypervisor/scripts", (file) =>
-  /^apps\/hypervisor\/scripts\/(?:desktop_.*_probe|dev_.*_probe)\.py$/.test(file) ||
-  file === "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
+  /^apps\/hypervisor\/scripts\/(?:desktop_.*_probe|dev_.*_probe)\.py$/.test(file),
 );
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
@@ -655,20 +663,20 @@ assert(
   "Ignored VS Code fork/build trees must stay sync targets copied from the canonical Workbench adapter source, not duplicate tracked JS truth paths.",
 );
 assert(
-  "home-onboarding-hypervisor-taxonomy",
-  hypervisorHomeSource.includes("HYPERVISOR_ONBOARDING_FAMILIES") &&
-    hypervisorHomeSource.includes("HypervisorOnboardingStep") &&
-    hypervisorHomeSource.includes("Get Started with Hypervisor") &&
-    hypervisorHomeSource.includes("governed Workbench adapter") &&
-    hypervisorHomeSource.includes("Workbench adapter") &&
-    !/AUTOPILOT_ONBOARDING|AutopilotOnboarding|autopilot\.home\.onboarding|autopilot\.onboarding|OpenVSCode|contained OpenVSCode/.test(hypervisorHomeSource),
+  "home-prompt-shell-without-onboarding-fat",
+  hypervisorHomeSource.includes("data-home-dashboard-variant=\"ioi-reference-home\"") &&
+    hypervisorHomeSource.includes("What do you want to get done today?") &&
+    hypervisorHomeSource.includes("data-home-start-session=\"true\"") &&
+    retiredHomeOnboardingSurfacePaths.every((surfacePath) => !exists(surfacePath)) &&
+    !/AUTOPILOT_ONBOARDING|AutopilotOnboarding|autopilot\.home\.onboarding|autopilot\.onboarding|HYPERVISOR_ONBOARDING|HomeWalkthroughDocument|homeOnboardingModel|OpenVSCode|contained OpenVSCode/.test(
+      hypervisorHomeSource,
+    ),
   [
     "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
-    "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
-    "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
     "apps/hypervisor/src/surfaces/Home/index.ts",
+    ...retiredHomeOnboardingSurfacePaths,
   ],
-  "Home onboarding must use Hypervisor and Workbench adapter language instead of retired Autopilot/OpenVSCode product framing.",
+  "Hypervisor Home must be the IOI-reference prompt shell; retired onboarding/walkthrough source must stay deleted.",
 );
 assert(
   "active-visible-surfaces-hypervisor-named",
@@ -731,25 +739,22 @@ assert(
   "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
 );
 assert(
-  "workspace-workbench-copy-adapter-named",
-  workspaceWorkbenchCopySources.includes("Direct Workbench adapter") &&
-    workspaceWorkbenchCopySources.includes("Workbench adapter session is ready") &&
-    workspaceWorkbenchCopySources.includes("Direct Workbench adapter webview") &&
-    workspaceWorkbenchCopySources.includes("Workbench adapter context") &&
-    !/Direct OpenVSCode workbench|OpenVSCode session is ready|current OpenVSCode|available OpenVSCode|native OpenVSCode contribution|Code repositories<\/span>|Direct OpenVSCode workbench webview|OpenVSCode setup baseline/.test(
+  "workspace-workbench-adapter-hub-only",
+  workspaceWorkbenchCopySources.includes("Workspace adapter hub") &&
+    workspaceWorkbenchCopySources.includes("Opening the governed code-editor adapter hub") &&
+    retiredDirectWorkspaceSurfacePaths.every((surfacePath) => !exists(surfacePath)) &&
+    !/Direct Workbench adapter|Direct OpenVSCode workbench|OpenVSCode session is ready|current OpenVSCode|available OpenVSCode|native OpenVSCode contribution|Code repositories<\/span>|Direct OpenVSCode workbench webview|OpenVSCode setup baseline|openvscode-direct|direct-openvscode|direct-openvscode-webview|direct-webview/.test(
       workspaceWorkbenchCopySources,
     ),
   [
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
-    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
-    "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
-    "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
-    "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+    "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
     "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
     "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
     "apps/hypervisor/src/services/hypervisorAppearance.ts",
+    ...retiredDirectWorkspaceSurfacePaths,
   ],
-  "Visible Workbench copy must describe adapter targets, not present OpenVSCode as the parent product.",
+  "Workspace must use the adapter hub path; direct OpenVSCode/webview host code must stay deleted.",
 );
 assert(
   "agent-model-matrix-session-scope-named",
@@ -813,10 +818,6 @@ assert(
     "hypervisor.native_local.fixture",
     "endpoint.hypervisor.native-fixture",
     "hypervisor:native-fixture",
-    "hypervisor:gui-lifecycle",
-    "hypervisor:gui-download",
-    "hypervisor:gui-failed-download",
-    "endpoint.hypervisor.gui-lifecycle",
     "hypervisor-local-server",
     "hypervisor_native_local_openai_compatible_serving",
     "hypervisor_native_local_provider_native_stream",
@@ -1604,6 +1605,18 @@ assert(
   retiredDirectOpenVsCodeDesktopProbes.every((probePath) => !exists(probePath)),
   retiredDirectOpenVsCodeDesktopProbes,
   "Retired direct-OpenVSCode desktop probes must stay deleted; editor behavior is verified through Hypervisor Workbench adapter preferences and shell contracts.",
+);
+assert(
+  "retired-home-onboarding-surfaces-absent",
+  retiredHomeOnboardingSurfacePaths.every((surfacePath) => !exists(surfacePath)),
+  retiredHomeOnboardingSurfacePaths,
+  "Retired Home onboarding walkthrough sources/probes must stay deleted; Home is the IOI-reference prompt shell.",
+);
+assert(
+  "retired-direct-workspace-surfaces-absent",
+  retiredDirectWorkspaceSurfacePaths.every((surfacePath) => !exists(surfacePath)),
+  retiredDirectWorkspaceSurfacePaths,
+  "Retired direct workspace webview hosts must stay deleted; Workbench resolves through the adapter hub.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",

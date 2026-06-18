@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const homeView = readFileSync(
@@ -8,14 +8,6 @@ const homeView = readFileSync(
 );
 const homeCss = readFileSync(new URL("./Home.css", import.meta.url), "utf8");
 const homeIndex = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-const homeOnboardingModel = readFileSync(
-  new URL("./homeOnboardingModel.ts", import.meta.url),
-  "utf8",
-);
-const homeWalkthroughDocument = readFileSync(
-  new URL("./HomeWalkthroughDocument.tsx", import.meta.url),
-  "utf8",
-);
 const shellContent = readFileSync(
   new URL(
     "../../windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
@@ -54,29 +46,29 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.doesNotMatch(homeView, /Daemon|runtime truth|configured workers/i);
 });
 
-test("home onboarding uses Hypervisor and Workbench adapter language", () => {
-  const homeSource = [
-    homeView,
-    homeIndex,
-    homeOnboardingModel,
-    homeWalkthroughDocument,
-  ].join("\n");
-  assert.match(homeSource, /HYPERVISOR_ONBOARDING_FAMILIES/);
-  assert.match(homeSource, /HypervisorOnboardingStep/);
-  assert.match(homeSource, /Get Started with Hypervisor/);
-  assert.match(homeSource, /governed Workbench adapter/);
-  assert.match(homeSource, /Workbench adapter/);
+test("home no longer ships a legacy onboarding walkthrough surface", () => {
+  assert.equal(
+    existsSync(new URL("./HomeWalkthroughDocument.tsx", import.meta.url)),
+    false,
+  );
+  assert.equal(
+    existsSync(new URL("./homeOnboardingModel.ts", import.meta.url)),
+    false,
+  );
+  const homeSource = [homeView, homeIndex].join("\n");
   assert.doesNotMatch(homeSource, /AUTOPILOT_ONBOARDING/);
   assert.doesNotMatch(homeSource, /AutopilotOnboarding/);
   assert.doesNotMatch(homeSource, /autopilot\.home\.onboarding/);
   assert.doesNotMatch(homeSource, /autopilot\.onboarding/);
   assert.doesNotMatch(homeSource, /OpenVSCode/);
   assert.doesNotMatch(homeSource, /contained OpenVSCode/);
+  assert.doesNotMatch(homeSource, /HomeWalkthroughDocument/);
+  assert.doesNotMatch(homeSource, /homeOnboardingModel/);
 });
 
 test("home dashboard launches governed sessions from the reference prompt", () => {
-  assert.match(homeView, /const showDashboard = !reviewingCompletedSetup;/);
-  assert.doesNotMatch(homeView, /const showDashboard = allStepsComplete && !reviewingCompletedSetup;/);
+  assert.doesNotMatch(homeView, /reviewingCompletedSetup/);
+  assert.doesNotMatch(homeView, /const showDashboard = /);
   assert.doesNotMatch(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
   assert.match(homeView, /data-home-intent-composer/);
   assert.match(homeView, /Describe your task or type \/ for commands/);

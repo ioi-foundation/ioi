@@ -194,19 +194,11 @@ export interface WorkflowProjectMaterializationReceipt {
 }
 
 export interface SubstrateElementLocator {
-  kind: "dom" | "aria" | "data-attribute" | "coordinate" | "direct-webview";
+  kind: "dom" | "aria" | "data-attribute" | "coordinate";
   selector?: string;
   accessibleName?: string;
   dataAttribute?: string;
   coordinates?: { x: number; y: number };
-  surfaceId?: string;
-}
-
-export interface DirectWebviewInspectionTarget {
-  surfaceId: string;
-  label: string;
-  bounds: { x: number; y: number; width: number; height: number };
-  screenBounds?: { x: number; y: number; width: number; height: number } | null;
 }
 
 export interface OperatorInspectionTargetModel {
@@ -220,8 +212,7 @@ export interface OperatorInspectionTargetModel {
     | "terminal"
     | "chat-composer"
     | "workflow-composer"
-    | "run-evidence"
-    | "direct-webview";
+    | "run-evidence";
   locators: SubstrateElementLocator[];
   runtimeTruthSource: "daemon-runtime";
 }
@@ -231,7 +222,6 @@ export interface WorkspaceSubstrateTargetIndex {
   indexId: string;
   generatedAtMs: number;
   targets: OperatorInspectionTargetModel[];
-  directWebview?: DirectWebviewInspectionTarget | null;
 }
 
 export interface WorkspaceSubstrateObservationBundle {
@@ -258,7 +248,6 @@ export interface BuildOperatorInspectionTargetModelOptions {
   includeWorkspaceTargets?: boolean;
   includeWorkflowTargets?: boolean;
   includeRunEvidenceTargets?: boolean;
-  directWebview?: DirectWebviewInspectionTarget | null;
 }
 
 export interface BuildWorkspaceSubstrateTargetIndexOptions
@@ -419,7 +408,6 @@ export function buildOperatorInspectionTargetModel({
   includeWorkspaceTargets = true,
   includeWorkflowTargets = true,
   includeRunEvidenceTargets = true,
-  directWebview = null,
 }: BuildOperatorInspectionTargetModelOptions = {}): OperatorInspectionTargetModel[] {
   const targets: OperatorInspectionTargetModel[] = [
     {
@@ -572,22 +560,6 @@ export function buildOperatorInspectionTargetModel({
     });
   }
 
-  if (directWebview) {
-    targets.push({
-      targetId: `direct-webview.${directWebview.surfaceId}`,
-      label: directWebview.label,
-      surface: "direct-webview",
-      runtimeTruthSource: "daemon-runtime",
-      locators: [
-        dataTarget("direct-openvscode-webview"),
-        {
-          kind: "direct-webview",
-          surfaceId: directWebview.surfaceId,
-        },
-      ],
-    });
-  }
-
   return targets;
 }
 
@@ -599,7 +571,6 @@ export function buildWorkspaceSubstrateTargetIndex({
     schemaVersion: "ioi.workspace-substrate-target-index.v1",
     indexId: `workspace-substrate-target-index:${generatedAtMs}`,
     generatedAtMs,
-    directWebview: options.directWebview ?? null,
     targets: buildOperatorInspectionTargetModel(options),
   };
 }

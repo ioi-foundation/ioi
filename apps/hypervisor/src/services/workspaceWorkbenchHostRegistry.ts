@@ -1,32 +1,16 @@
 import {
   type WorkspaceWorkbenchHost,
 } from "./workspaceWorkbenchHost";
-import {
-  directWorkspaceWorkbenchHost,
-  substratePreviewWorkspaceWorkbenchHost,
-} from "./directWorkspaceWorkbenchHost";
-import { openVsCodeWorkbenchHost } from "./openVsCodeWorkbenchHost";
+import { substratePreviewWorkspaceWorkbenchHost } from "./workspaceSubstratePreviewHost";
 
 export function getDefaultWorkspaceWorkbenchHost(): WorkspaceWorkbenchHost {
   const requestedHost = (
-    import.meta.env.VITE_AUTOPILOT_WORKSPACE_HOST ?? ""
+    import.meta.env.VITE_HYPERVISOR_WORKSPACE_HOST ?? ""
   ).trim().toLowerCase();
-  if (
-    requestedHost === "iframe-oracle" ||
-    requestedHost === "openvscode-iframe-oracle"
-  ) {
-    return openVsCodeWorkbenchHost;
-  }
-  if (
-    requestedHost === "substrate" ||
-    requestedHost === "substrate-preview" ||
-    requestedHost === "direct-react"
-  ) {
+  if (["substrate", "substrate-preview", "direct-react"].includes(requestedHost)) {
     return substratePreviewWorkspaceWorkbenchHost;
   }
-  return directWorkspaceWorkbenchHost;
+  return substratePreviewWorkspaceWorkbenchHost;
 }
 
-export { directWorkspaceWorkbenchHost };
 export { substratePreviewWorkspaceWorkbenchHost };
-export { openVsCodeWorkbenchHost };

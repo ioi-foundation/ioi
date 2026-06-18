@@ -26,7 +26,6 @@ import {
   loadWorkspaceShellState,
   persistWorkspaceShellState,
 } from "../../services/workspaceShellState";
-import { OpenVsCodeDirectSurface } from "./OpenVsCodeDirectSurface";
 import {
   createExtensionsModel,
   createOperatorModel,
@@ -65,7 +64,6 @@ interface WorkspaceShellProps {
   fullBleed?: boolean;
   operatorChatPane?: ReactNode;
   operatorChatPaneWidthPx?: number;
-  commandPaletteOpen?: boolean;
   onOpenCommandPalette?: (
     initialQuery?: string,
     mode?: "default" | "tools",
@@ -106,7 +104,6 @@ export function WorkspaceShell({
   fullBleed = false,
   operatorChatPane = null,
   operatorChatPaneWidthPx = 360,
-  commandPaletteOpen = false,
   onOpenCommandPalette,
 }: WorkspaceShellProps) {
   const seedProjects = useMemo(
@@ -235,7 +232,6 @@ export function WorkspaceShell({
     surfaceReady,
     surface,
     bootPhase,
-    markSurfaceReady,
     restartWorkspace,
   } = useWorkspaceWorkbenchSession({
     active: workbenchActive,
@@ -276,12 +272,7 @@ export function WorkspaceShell({
 
   const surfaceKind = surface?.kind ?? null;
   const substratePreviewSurfaceVisible = surfaceKind === "substrate-preview";
-  const directOpenVsCodeSurfaceVisible = surfaceKind === "openvscode-direct";
-  const showOperatorChatPane =
-    Boolean(operatorChatPane) && directOpenVsCodeSurfaceVisible;
-  const directSurfaceReservedRightPx = showOperatorChatPane
-    ? operatorChatPaneWidthPx
-    : 0;
+  const showOperatorChatPane = Boolean(operatorChatPane);
   const surfaceRuntimeError = useMemo(
     () =>
       surfaceError
@@ -289,39 +280,9 @@ export function WorkspaceShell({
         : null,
     [surfaceError],
   );
-  const surfaceRuntimeNotice =
-    surfaceRuntimeError && directOpenVsCodeSurfaceVisible
-      ? {
-          ...surfaceRuntimeError,
-          title: "Workspace surface did not attach",
-          message:
-            "The project session is ready, but the embedded Workbench adapter surface has not attached to the window. Keep working if it appears, or retry the surface.",
-          repairLabel: "Retry workspace surface",
-        }
-      : null;
-  const surfaceAttachNotice =
-    !surfaceRuntimeNotice &&
-    directOpenVsCodeSurfaceVisible &&
-    status === "ready" &&
-    !surfaceReady
-      ? {
-          code: "workspace_surface_attaching",
-          title: "Attaching workspace surface",
-          message:
-            "The Workbench adapter session is ready. Hypervisor is attaching the embedded editor surface.",
-          repairLabel: "Retry workspace surface",
-          technicalDetail: `surface=openvscode-direct surfaceReady=${surfaceReady} phase=${bootPhase}`,
-        }
-      : null;
-  const surfaceNotice = surfaceRuntimeNotice ?? surfaceAttachNotice;
-  const blockingError =
-    error ??
-    (surfaceRuntimeError && !surfaceRuntimeNotice ? surfaceRuntimeError : null);
+  const blockingError = error ?? surfaceRuntimeError;
   const workspaceSurfaceReadyEnough =
-    Boolean(surface) &&
-    (substratePreviewSurfaceVisible ||
-      directOpenVsCodeSurfaceVisible ||
-      surfaceReady);
+    Boolean(surface) && (substratePreviewSurfaceVisible || surfaceReady);
   const overlayVisible =
     Boolean(blockingError) ||
     status !== "ready" ||
@@ -547,30 +508,6 @@ export function WorkspaceShell({
           >
             <div className="chat-workspace-oss-shell__surface-stage">
               {session && surface ? (
-              surface.kind === "frame" ? (
-                <iframe
-                  key={surface.key}
-                  className={clsx(
-                    "chat-workspace-oss-shell__frame",
-                    surfaceReady && "is-ready",
-                  )}
-                  title={surface.title}
-                  src={surface.src}
-                  onLoad={() => {
-                    markSurfaceReady();
-                  }}
-                />
-              ) : surface.kind === "openvscode-direct" ? (
-                <OpenVsCodeDirectSurface
-                  key={surface.key}
-                  active={workbenchActive}
-                  suspended={commandPaletteOpen}
-                  surface={surface}
-                  reservedRightPx={directSurfaceReservedRightPx}
-                  onReady={markSurfaceReady}
-                  onError={setSurfaceError}
-                />
-              ) : (
                 <WorkspaceHost
                   key={surface.key}
                   className="chat-workspace-host"
@@ -600,30 +537,6 @@ export function WorkspaceShell({
                     );
                   }}
                 />
-              )
-              ) : null}
-
-              {!overlayVisible && surfaceNotice ? (
-              <div className="chat-workspace-oss-shell__surface-notice">
-                <strong>{surfaceNotice.title}</strong>
-                <span>{surfaceNotice.message}</span>
-                <div className="chat-workspace-oss-shell__surface-notice-actions">
-                  <button
-                    type="button"
-                    className="chat-workspace-oss-shell__button"
-                    onClick={() => {
-                      setSurfaceError(null);
-                      restartWorkspace();
-                    }}
-                  >
-                    {surfaceNotice.repairLabel}
-                  </button>
-                  <details>
-                    <summary>Diagnostics</summary>
-                    <code>{surfaceNotice.technicalDetail}</code>
-                  </details>
-                </div>
-              </div>
               ) : null}
 
               {overlayVisible ? (

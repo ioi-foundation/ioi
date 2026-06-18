@@ -1318,7 +1318,7 @@
   }
 }
 
-/* Workbench-grade Chat composition, aligned to the OpenVSCode agent reference. */
+/* Workbench-grade Chat composition aligned to the governed session reference. */
 .spot-window--chat .spot-chat-shell {
   grid-template-columns: clamp(248px, 18vw, 292px) minmax(0, 1fr);
   background: var(--spot-bg-primary);

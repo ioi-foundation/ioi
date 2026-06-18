@@ -54,7 +54,7 @@ test("adapter bridge and context files keep daemon ownership language", async ()
   ]).then((parts) => parts.join("\n"));
 
   assert.match(composite, /runtimeTruthSource: "daemon-runtime"/);
-  assert.match(composite, /projectionOwner: "openvscode-code-editor-adapter"/);
+  assert.match(composite, /projectionOwner: "hypervisor-code-editor-adapter"/);
   assert.match(composite, /ownsRuntimeState: false/);
   assert.match(composite, /activeEditor/);
   assert.match(composite, /diagnostics/);

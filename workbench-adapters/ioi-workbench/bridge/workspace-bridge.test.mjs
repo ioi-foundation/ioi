@@ -18,7 +18,7 @@ test("workspace bridge receipts keep command route envelope stable", () => {
 
   assert.equal(receipt.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.equal(receipt.runtimeTruthSource, "daemon-runtime");
-  assert.equal(receipt.projectionOwner, "openvscode-code-editor-adapter");
+  assert.equal(receipt.projectionOwner, "hypervisor-code-editor-adapter");
   assert.equal(receipt.ownsRuntimeState, false);
   assert.equal(receipt.commandId, "ioi.code.open");
   assert.equal(receipt.route, "ioi-runtime-action");

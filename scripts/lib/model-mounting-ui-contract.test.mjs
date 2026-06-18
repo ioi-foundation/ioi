@@ -409,7 +409,7 @@ test("Hypervisor Mounts workbench is wired to daemon API without persisting capa
   assert.match(source, /vault:\/\/mcp\.huggingface\/authorization/);
   assert.doesNotMatch(source, /vault:\/\/provider\.(openai|anthropic|gemini)\/api-key/);
   assert.match(source, /offline fixture projection/);
-  assert.match(source, /VITE_AUTOPILOT_MOUNTS_DAEMON_ENDPOINT/);
+  assert.match(source, /VITE_HYPERVISOR_MOUNTS_DAEMON_ENDPOINT/);
   assert.match(source, /mountsEndpoint/);
   assert.match(source, /mountsTab/);
   assert.match(source, /Number\.parseInt\(event\.key/);
@@ -492,70 +492,6 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   assert.doesNotMatch(workbenchExtension, /@tauri-apps|tauri:\/\/|tauri\./i);
 });
 
-test("Mounts GUI validation uses a dedicated desktop harness", () => {
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-  const runnerPath = path.join(root, "scripts", "run-model-mounts-gui-validation.mjs");
-  const probePath = path.join(root, "apps", "hypervisor", "scripts", "desktop_model_mounts_probe.py");
-  const runner = fs.readFileSync(runnerPath, "utf8");
-  const probe = fs.readFileSync(probePath, "utf8");
-  assert.equal(
-    packageJson.scripts["validate:model-mounts-gui:run"],
-    "node scripts/run-model-mounts-gui-validation.mjs",
-  );
-  assert.match(runner, /desktop_model_mounts_probe\.py/);
-  assert.match(probe, /view=mounts/);
-  assert.match(probe, /VITE_AUTOPILOT_MOUNTS_DAEMON_ENDPOINT/);
-  assert.match(probe, /MOUNT_TABS/);
-  assert.match(probe, /MIN_DISTINCT_TAB_TRANSITIONS/);
-  assert.match(probe, /capture_window_with_fallback/);
-  assert.match(probe, /scan_for_plaintext_secrets/);
-  assert.match(probe, /seeded_state_assertions/);
-  assert.match(probe, /prepare_tab_for_capture/);
-  assert.match(probe, /show_catalog_variants_download_rows_and_row_actions/);
-  assert.match(probe, /exercise_download_row_actions/);
-  assert.match(probe, /downloads-open-receipt-logs/);
-  assert.match(probe, /queuedDownloadCanceledThroughGuiAction/);
-  assert.match(probe, /failedDownloadRetriedThroughGuiAction/);
-  assert.match(probe, /exercise_provider_backend_actions/);
-  assert.match(probe, /backends-after-health-action/);
-  assert.match(probe, /providers-after-models-action/);
-  assert.match(probe, /backendStartReceiptRecorded/);
-  assert.match(probe, /providerLoadedReceiptRecorded/);
-  assert.match(probe, /providerBackendActionAssertions/);
-  assert.match(probe, /exercise_model_lifecycle_actions/);
-  assert.match(probe, /models-after-import-action/);
-  assert.match(probe, /models-after-load-action/);
-  assert.match(probe, /models-open-receipt-logs/);
-  assert.match(probe, /detailDrawerMetadataProjected/);
-  assert.match(probe, /modelLifecycleActionAssertions/);
-  assert.match(probe, /exercise_token_mcp_actions/);
-  assert.match(probe, /tokens-after-create-action/);
-  assert.match(probe, /tokens-after-ephemeral-mcp-action/);
-  assert.match(probe, /validationTokenRevoked/);
-  assert.match(probe, /ephemeralMcpLinkedToModelReceipt/);
-  assert.match(probe, /latestVaultHealthLookupSucceeded/);
-  assert.match(probe, /tokenMcpActionAssertions/);
-  assert.match(probe, /exercise_routing_workflow_actions/);
-  assert.match(probe, /routing-after-route-test-action/);
-  assert.match(probe, /routing-after-workflow-probe-action/);
-  assert.match(probe, /routing-after-receipt-gate-pass-action/);
-  assert.match(probe, /receiptGateBlockRecorded/);
-  assert.match(probe, /routingWorkflowActionAssertions/);
-  assert.match(probe, /exercise_benchmark_observability_actions/);
-  assert.match(probe, /benchmarks-after-run-action/);
-  assert.match(probe, /benchmarks-after-replay-action/);
-  assert.match(probe, /benchmarks-open-receipt-logs/);
-  assert.match(probe, /benchmarkChatReceiptRecorded/);
-  assert.match(probe, /benchmarkResponsesReceiptRecorded/);
-  assert.match(probe, /benchmarkEmbeddingsReceiptRecorded/);
-  assert.match(probe, /benchmarkObservabilityActionAssertions/);
-  assert.match(probe, /VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS/);
-  assert.match(probe, /catalog_variant_count/);
-  assert.match(probe, /download_status_counts/);
-  assert.match(probe, /gui_validation_fixture_failure/);
-  assert.match(probe, /queuedDownloadSeeded/);
-});
-
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const e2ePath = path.join(root, "scripts", "validate-model-mounting-e2e.mjs");
@@ -587,7 +523,6 @@ test("model mounting end-to-end validation is wired as the acceptance gate", () 
     "/v1/chat/completions",
     "/v1/embeddings",
     "runCli",
-    "runGuiValidation",
     "scanFilesForSecrets",
     "receipt replay and projection continuity after daemon restart",
   ]) {

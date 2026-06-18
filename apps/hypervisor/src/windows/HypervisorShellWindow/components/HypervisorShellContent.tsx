@@ -28,14 +28,9 @@ import { HomeView } from "../../../surfaces/Home";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
-import {
-  directWorkspaceWorkbenchHost,
-  getDefaultWorkspaceWorkbenchHost,
-  openVsCodeWorkbenchHost,
-} from "../../../services/workspaceWorkbenchHostRegistry";
+import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
-import type { PrimaryView } from "../hypervisorShellModel";
 import {
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
   loadHypervisorAgentsProjection,
@@ -2797,9 +2792,6 @@ export function HypervisorShellContent({
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();
-  const workspaceUsesNativeWorkbenchChat =
-    workspaceHost === directWorkspaceWorkbenchHost ||
-    workspaceHost === openVsCodeWorkbenchHost;
   const workspaceActive = activeView === "workbench";
   const settingsActive = activeView === "settings";
   const workflowActive = activeView === "automations";
@@ -2861,7 +2853,6 @@ export function HypervisorShellContent({
     : 360;
   const workspaceOperatorChatPane =
     workspaceActive &&
-    !workspaceUsesNativeWorkbenchChat &&
     !workspaceChatDismissed ? (
       <ChatLeftUtilityPane
         surface={controller.chat.surface}
@@ -2927,7 +2918,6 @@ export function HypervisorShellContent({
             host={workspaceHost}
             operatorChatPane={workspaceOperatorChatPane}
             operatorChatPaneWidthPx={workspaceOperatorChatPaneWidthPx}
-            commandPaletteOpen={controller.modals.commandPaletteOpen}
             onOpenCommandPalette={controller.modals.openCommandPalette}
           />
 

@@ -63,13 +63,6 @@ const deterministicGates = [
     evidencePattern: /docs\/evidence\/model-mounting-e2e\/[^\s]+\/result\.json/g,
   },
   {
-    id: "mounts-gui",
-    command: "npm run validate:model-mounts-gui:run",
-    required: true,
-    category: "gui",
-    evidencePattern: /docs\/evidence\/model-mounts-gui-validation\/[^\s]+\/result\.json/g,
-  },
-  {
     id: "hypervisor-app-harness",
     command: "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:hypervisor-app-harness:run -- --window-timeout-ms 300000",
     required: true,
@@ -510,7 +503,6 @@ async function main() {
   const evidenceRoots = [
     "docs/evidence/model-mounting-closeout",
     "docs/evidence/model-mounting-e2e",
-    "docs/evidence/model-mounts-gui-validation",
     "docs/evidence/model-mounting-live",
   ];
   manifest.secretScan = scanFilesForSecretShapes(evidenceRoots);

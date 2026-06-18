@@ -2063,7 +2063,7 @@ function readInitialEndpoint() {
   try {
     const requested = new URLSearchParams(window.location.search).get("mountsEndpoint");
     if (requested) return requested;
-    const envEndpoint = import.meta.env.VITE_AUTOPILOT_MOUNTS_DAEMON_ENDPOINT;
+    const envEndpoint = import.meta.env.VITE_HYPERVISOR_MOUNTS_DAEMON_ENDPOINT;
     if (typeof envEndpoint === "string" && envEndpoint.trim()) return envEndpoint.trim();
     return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) ?? DEFAULT_DAEMON_ENDPOINT;
   } catch {
@@ -2075,7 +2075,7 @@ function readInitialTab(): MountsTab {
   try {
     const requested = new URLSearchParams(window.location.search).get("mountsTab");
     if (isMountsTab(requested)) return requested;
-    const envTab = import.meta.env.VITE_AUTOPILOT_MOUNTS_INITIAL_TAB;
+    const envTab = import.meta.env.VITE_HYPERVISOR_MOUNTS_INITIAL_TAB;
     if (isMountsTab(envTab)) return envTab;
   } catch {
     // The default tab is enough if the URL cannot be inspected.
@@ -2093,7 +2093,7 @@ function readValidationActionsEnabled() {
   } catch {
     // Query parsing is optional; the desktop harness also enables this through Vite env.
   }
-  return import.meta.env.VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS === "1";
+  return import.meta.env.VITE_HYPERVISOR_MOUNTS_VALIDATION_ACTIONS === "1";
 }
 
 function useModelMountsDaemon() {

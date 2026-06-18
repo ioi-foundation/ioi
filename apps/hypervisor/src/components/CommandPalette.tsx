@@ -33,10 +33,6 @@ import type {
   PrimaryView,
   ProjectScope,
 } from "../windows/HypervisorShellWindow/hypervisorShellModel";
-import {
-  HYPERVISOR_ONBOARDING_STEPS,
-  HOME_ONBOARDING_FOCUS_EVENT,
-} from "../surfaces/Home/homeOnboardingModel";
 import "./CommandPalette.css";
 
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
@@ -525,45 +521,6 @@ export function CommandPalette({
   }, [currentProject?.rootPath]);
 
   const sections = useMemo<CommandPaletteSection[]>(() => {
-    const focusHomeStep = (stepId: string) => {
-      window.dispatchEvent(
-        new CustomEvent(HOME_ONBOARDING_FOCUS_EVENT, {
-          detail: { stepId },
-        }),
-      );
-    };
-
-    const homeOnboardingIcon = (stepId: string) => {
-      if (stepId.includes("workspace") || stepId.includes("project")) {
-        return icons.code;
-      }
-      if (stepId.includes("policy")) {
-        return icons.lock;
-      }
-      if (stepId.includes("runtime") || stepId.includes("appearance")) {
-        return icons.settings;
-      }
-      if (stepId.includes("evidence")) {
-        return icons.check;
-      }
-      return icons.sparkles;
-    };
-
-    const homeOnboardingItems: CommandPaletteItem[] = HYPERVISOR_ONBOARDING_STEPS.map(
-      (step) => ({
-        id: `home-onboarding-${step.id}`,
-        title: step.primaryAction.commandPaletteLabel,
-        description: step.body,
-        meta: step.familyId === "accessibility" ? "Onboarding · Indexed" : "Onboarding",
-        icon: homeOnboardingIcon(step.id),
-        onSelect: () =>
-          runAction(() => {
-            onOpenPrimaryView("home");
-            window.setTimeout(() => focusHomeStep(step.id), 50);
-          }),
-      }),
-    );
-
     const quickPickItems: CommandPaletteItem[] = [
       {
         id: "quick-go-file",
@@ -1128,9 +1085,6 @@ export function CommandPalette({
                   }),
               }));
 
-    const onboardingItems = homeOnboardingItems.filter((item) =>
-      matchesQuery(normalizedQuery, item.title, item.description, item.meta),
-    );
     const recentFileItems: CommandPaletteItem[] =
       fileContextStatus === "loading"
         ? [
@@ -1253,10 +1207,7 @@ export function CommandPalette({
     }
 
     if (computedMode === "commands") {
-      return [
-        { id: "commands", items: commandItems },
-        { id: "onboarding", title: "Onboarding", items: onboardingItems },
-      ];
+      return [{ id: "commands", items: commandItems }];
     }
 
     if (computedMode === "workspace") {
@@ -1289,7 +1240,6 @@ export function CommandPalette({
       { id: "live-tools", title: "Live Tools", items: liveToolItems },
       { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
       { id: "skills", title: "Skills", items: skillItems },
-      { id: "onboarding", title: "Onboarding", items: onboardingItems },
     ];
   }, [
     activeView,

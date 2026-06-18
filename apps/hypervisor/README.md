@@ -24,7 +24,7 @@ Hypervisor App
 │
 ├── Workbench adapter hosts
 │   ├── packaged Electron/VS Code host for the current development path
-│   ├── OpenVSCode, VS Code, Cursor, Windsurf, JetBrains, browser IDE, and terminal targets
+│   ├── editor, browser IDE, terminal, VM, and hosted workspace targets
 │   └── daemon request bridge and adapter capability boundary
 │
 └── IOI daemon
@@ -47,9 +47,8 @@ Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
 ```
 
-Tauri/OpenVSCode embedding is legacy extraction inventory. The active product
-path should not revive Tauri or present OpenVSCode, VS Code, or any other editor
-as the parent product.
+Legacy native/embedded editor experiments are extraction inventory. The active
+product path should not present any editor host as the parent product.
 
 ## Development
 
@@ -72,9 +71,6 @@ npm install
 # This also starts a supervised IOI daemon sidecar and projects discovered
 # local LM Studio/Ollama model artifacts into Models.
 npm run dev:hypervisor-app
-
-# Validate the direct Workspace shell and retain a GUI receipt bundle
-npm run probe:hypervisor-app:workspace
 
 # Build the Hypervisor Workbench package
 npm run build:workbench
