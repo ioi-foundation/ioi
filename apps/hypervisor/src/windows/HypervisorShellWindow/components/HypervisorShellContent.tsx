@@ -1405,32 +1405,6 @@ function PortEmptyIcon() {
   );
 }
 
-function WorkspaceIoiMark() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M8 1.75 13.75 12.5H2.25L8 1.75Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.1"
-      />
-      <path
-        d="M8 4.35 10.95 10H5.05L8 4.35Z"
-        fill="currentColor"
-        opacity="0.2"
-      />
-      <path
-        d="M5.05 10 8 4.35 10.95 10 8 12.25 5.05 10Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1"
-      />
-    </svg>
-  );
-}
-
 function HypervisorSessionOperationsCockpit() {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
@@ -1621,7 +1595,7 @@ function HypervisorSessionOperationsCockpit() {
                 aria-hidden="true"
               >
                 <span />
-                <WorkspaceIoiMark />
+                <span className="hypervisor-session-operations__workspace-mark-symbol" />
                 <span />
               </div>
               <h2>What do you want to get done today?</h2>
@@ -1709,17 +1683,23 @@ function HypervisorSessionOperationsCockpit() {
             </div>
             <div className="hypervisor-session-operations__right-actions">
               {[
-                { label: "Preview", icon: <EyeIcon /> },
-                { label: "Graph", icon: <BranchIcon /> },
-                { label: "Split", icon: <SplitPanelIcon /> },
+                { label: "Preview", icon: <EyeIcon />, variant: "icon" },
+                { label: "Create PR", icon: <BranchIcon />, variant: "primary" },
+                { label: "Split", icon: <SplitPanelIcon />, variant: "icon" },
               ].map((action, index) => (
                 <button
                   key={action.label}
                   type="button"
                   aria-pressed={index === 1}
                   aria-label={`${action.label} changes inspector`}
+                  data-session-review-action={action.label
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")}
+                  data-session-review-action-variant={action.variant}
                 >
                   {action.icon}
+                  {action.variant === "primary" ? <strong>{action.label}</strong> : null}
                 </button>
               ))}
             </div>

@@ -2056,16 +2056,21 @@
   color: #171719;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-mark span {
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-mark > span:not(.hypervisor-session-operations__workspace-mark-symbol) {
   width: 1px;
   height: 14px;
   background: #171719;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-mark svg {
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-mark-symbol {
   width: 14px;
   height: 14px;
-  display: block;
+  display: inline-block;
+  background:
+    linear-gradient(145deg, transparent 0 42%, #a8c7ff 43% 56%, transparent 57%),
+    linear-gradient(35deg, transparent 0 40%, #315cff 41% 58%, transparent 59%),
+    linear-gradient(180deg, #dbe8ff 0%, #6e98ff 100%);
+  clip-path: polygon(50% 0, 95% 84%, 50% 66%, 5% 84%);
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__workspace h2 {
@@ -2255,6 +2260,24 @@
   color: #44444a;
   font: inherit;
   padding: 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-actions button[data-session-review-action-variant="primary"] {
+  width: auto;
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-actions button[data-session-review-action-variant="primary"] strong {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-actions svg {

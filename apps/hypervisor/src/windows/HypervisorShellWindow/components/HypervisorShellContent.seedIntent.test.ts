@@ -301,6 +301,18 @@ assert.match(
   "Sessions should render Changes, All Files, and Comments as visible right-inspector tabs",
 );
 
+assert.match(
+  source,
+  /hypervisor-session-operations__workspace-mark-symbol[\s\S]*label: "Create PR"[\s\S]*data-session-review-action=\{action\.label/,
+  "Sessions should render the captured IOI reference mark and visible Create PR review action",
+);
+
+assert.doesNotMatch(
+  source,
+  /function WorkspaceIoiMark|<WorkspaceIoiMark \/>/,
+  "Sessions should not use the old inline triangle mark that rendered as a warning-like glyph",
+);
+
 assert.doesNotMatch(
   `${source}\n${shellCss}`,
   /hypervisor-session-operations__activity-grid|hypervisor-session-operations__activity-signals|hypervisor-session-operations__lease-stack|data-session-activity-signal|data-session-lease=|data-session-archive-ref|data-session-restore-ref/,
@@ -309,7 +321,7 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace-mark-symbol[\s\S]*clip-path: polygon\(50% 0, 95% 84%, 50% 66%, 5% 84%\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
   "Sessions should use first-class reference icons for tabs, editor controls, chevrons, files, and inspector actions",
 );
 
