@@ -283,6 +283,7 @@ const activeHypervisorFixtureSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
   "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
   "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
+  "packages/agent-sdk/test/computer-use.test.mjs",
   "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
 ]
   .map(read)
@@ -908,16 +909,18 @@ assert(
     activeHypervisorFixtureSources.includes(
       '"captureAppName"] = "Hypervisor"',
     ) &&
+    activeHypervisorFixtureSources.includes('appName: "Hypervisor"') &&
     activeHypervisorFixtureSources.includes(
       "internal-docs/implementation/refine-architecture.md:50",
     ) &&
-    !/Autopilot validation run|install autopilot|captureAppName["'\]]+\s*=\s*["']Autopilot|autopilot-chat-agent-ux/.test(
+    !/Autopilot validation run|install autopilot|(?:appName|captureAppName)["'\]]*\s*[:=]\s*["']Autopilot|autopilot-chat-agent-ux/.test(
       activeHypervisorFixtureSources,
     ),
   [
     "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
+    "packages/agent-sdk/test/computer-use.test.mjs",
     "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
   ],
   "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",

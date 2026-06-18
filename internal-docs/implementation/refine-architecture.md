@@ -1055,6 +1055,10 @@ Current implementation cut:
   and `buildBlockedHypervisorGuiHarnessResult`; `check:runtime-layout`
   rejects the retired helper filenames, exported symbols, and
   Autopilot-stamped active proof schemas.
+  active Agent SDK computer-use fixtures now identify the app target as
+  Hypervisor rather than Autopilot; `check:runtime-layout` includes
+  `packages/agent-sdk/test/computer-use.test.mjs` in the active fixture source
+  bundle and rejects returned `appName` or `captureAppName` Autopilot targets.
   the code editor adapter shell patch path is retired entirely. The adapter host
   syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
   target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,

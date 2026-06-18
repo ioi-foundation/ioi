@@ -1002,7 +1002,7 @@ test("runtime daemon brokers read-only visual GUI observations for later visual 
         screenshotPath,
         somPath,
         axPath,
-        appName: "Autopilot",
+        appName: "Hypervisor",
         windowTitle: "Workflow Composer",
         coordinateSpaceId: "screen-workflow-composer",
         viewportWidth: 1440,
@@ -1051,7 +1051,7 @@ test("runtime daemon brokers read-only visual GUI observations for later visual 
         screenshotRef,
         somRef,
         axRef,
-        appName: "Autopilot",
+        appName: "Hypervisor",
         windowTitle: "Workflow Composer",
         coordinateSpaceId: "screen-workflow-composer",
         viewportWidth: 1440,
@@ -1099,7 +1099,7 @@ test("runtime daemon observes local visual GUI captures through read-only fixtur
         captureProvider: "fixture",
         captureFixturePngBase64: fixturePngBase64,
         captureFixtureAxTree: { role: "window", name: "Workflow Composer" },
-        captureAppName: "Autopilot",
+        captureAppName: "Hypervisor",
         captureWindowTitle: "Workflow Composer",
         sessionMode: "foreground_desktop",
       },
@@ -1108,7 +1108,7 @@ test("runtime daemon observes local visual GUI captures through read-only fixtur
     assert.equal(observe.status, "completed");
     assert.equal(observe.result.action.action_kind, "inspect");
     assert.equal(observe.result.lease.authority_scope, "computer_use.visual_gui.read");
-    assert.equal(observe.result.observation.app_name, "Autopilot");
+    assert.equal(observe.result.observation.app_name, "Hypervisor");
     assert.equal(observe.result.observation.window_title, "Workflow Composer");
     assert.match(observe.result.observation.screenshot_ref, /^artifact_computer_use_visual_/);
     assert.match(observe.result.observation.ax_ref, /^artifact_computer_use_visual_/);
@@ -1166,7 +1166,7 @@ test("runtime daemon executes approved visual GUI actions through local fixture 
         captureScreen: true,
         captureProvider: "fixture",
         captureFixturePngBase64: fixturePngBase64,
-        captureAppName: "Autopilot",
+        captureAppName: "Hypervisor",
         captureWindowTitle: "Workflow Composer",
         visualTargets: [
           {
@@ -1195,7 +1195,7 @@ test("runtime daemon executes approved visual GUI actions through local fixture 
         approvalRef: "approval_visual_click",
         targetRef: "target-run-button",
         screenshotRef: observe.result.observation.screenshot_ref,
-        appName: "Autopilot",
+        appName: "Hypervisor",
         windowTitle: "Workflow Composer",
         coordinateSpaceId: "screen_executor_observe_fixture_local_capture",
         viewportWidth: 1,
