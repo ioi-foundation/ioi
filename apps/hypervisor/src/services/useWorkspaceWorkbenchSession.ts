@@ -155,7 +155,7 @@ export function useWorkspaceWorkbenchSession(params: {
       runtime,
       currentProject,
       session,
-      refreshMs: host.describeLifecyclePolicy().bridgeStateRefreshMs,
+      refreshMs: host.describeLifecyclePolicy().adapterStateRefreshMs,
     });
   }, [currentProject, host, runtime, session]);
 

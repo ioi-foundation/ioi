@@ -31,7 +31,7 @@ import {
   createOperatorModel,
   createRunDebugModel,
   loadDirectWorkspaceWorkbenchData,
-  type DirectWorkspaceBridgeState,
+  type DirectWorkspaceAdapterState,
 } from "../../services/workspaceDirectWorkbenchModel";
 import type {
   WorkspaceWorkbenchHost,
@@ -240,8 +240,8 @@ export function WorkspaceShell({
     loadWorkspaceShellState(workbenchProject.rootPath),
   );
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
-  const [bridgeState, setBridgeState] =
-    useState<DirectWorkspaceBridgeState | null>(null);
+  const [adapterState, setAdapterState] =
+    useState<DirectWorkspaceAdapterState | null>(null);
   const [extensionManifests, setExtensionManifests] = useState<
     Awaited<
       ReturnType<typeof loadDirectWorkspaceWorkbenchData>
@@ -356,7 +356,7 @@ export function WorkspaceShell({
       !surface ||
       surface.kind !== "substrate-preview"
     ) {
-      setBridgeState(null);
+      setAdapterState(null);
       setExtensionManifests([]);
       return;
     }
@@ -375,7 +375,7 @@ export function WorkspaceShell({
         if (cancelled) {
           return;
         }
-        setBridgeState(next.bridgeState);
+        setAdapterState(next.adapterState);
         setExtensionManifests(next.extensionManifests);
       } catch (error) {
         if (!cancelled) {
@@ -403,28 +403,28 @@ export function WorkspaceShell({
   const runDebugModel = useMemo<WorkspaceRunDebugModel>(
     () =>
       createRunDebugModel({
-        bridgeState,
+        adapterState,
         runtime,
         rootPath: workbenchProject.rootPath,
         activeFilePath,
       }),
-    [activeFilePath, bridgeState, runtime, workbenchProject.rootPath],
+    [activeFilePath, adapterState, runtime, workbenchProject.rootPath],
   );
 
   const extensionsModel = useMemo<WorkspaceExtensionsModel>(
     () =>
       createExtensionsModel({
-        bridgeState,
+        adapterState,
         extensionManifests,
         runtime,
       }),
-    [bridgeState, extensionManifests, runtime],
+    [adapterState, extensionManifests, runtime],
   );
 
   const operatorModel = useMemo<WorkspaceOperatorModel>(
     () =>
       createOperatorModel({
-        bridgeState,
+        adapterState,
         activeSurface: activeOperatorSurface,
         onSelectSurface: persistOperatorSurface,
         runtime,
@@ -434,7 +434,7 @@ export function WorkspaceShell({
     [
       activeFilePath,
       activeOperatorSurface,
-      bridgeState,
+      adapterState,
       runtime,
       workbenchProject.rootPath,
     ],
@@ -599,7 +599,7 @@ export function WorkspaceShell({
                           ["Selected adapter", sessionDescriptor?.runtimeLabel ?? "Workspace session"],
                           [
                             blockingError
-                              ? "Waiting for host bridge"
+                              ? "Waiting for host adapter"
                               : "Starting governed session",
                             blockingError
                               ? blockingError.message

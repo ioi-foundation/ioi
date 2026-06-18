@@ -1,12 +1,12 @@
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
-import { buildWorkspaceBridgeState } from "./workspaceBridgeState";
+import { buildWorkspaceAdapterState } from "./workspaceAdapterState";
 import type {
   WorkspaceWorkbenchHost,
   WorkspaceWorkbenchHostSession,
   WorkspaceWorkbenchProjectDescriptor,
 } from "./workspaceWorkbenchHost";
 
-export function startWorkspaceBridgeStateSync(params: {
+export function startWorkspaceAdapterStateSync(params: {
   host: WorkspaceWorkbenchHost;
   runtime: HypervisorClientRuntime;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
@@ -16,9 +16,9 @@ export function startWorkspaceBridgeStateSync(params: {
   let cancelled = false;
   let intervalHandle: number | null = null;
 
-  const syncBridgeState = async () => {
+  const syncAdapterState = async () => {
     try {
-      const snapshot = await buildWorkspaceBridgeState(
+      const snapshot = await buildWorkspaceAdapterState(
         params.runtime,
         params.host,
         params.currentProject,
@@ -27,14 +27,14 @@ export function startWorkspaceBridgeStateSync(params: {
       if (cancelled) {
         return;
       }
-      await params.host.publishState(params.session, snapshot);
+      await params.host.publishAdapterState(params.session, snapshot);
     } catch (error) {
-      console.error("[Workspace] Failed to sync bridge snapshot:", error);
+      console.error("[Workspace] Failed to sync adapter state snapshot:", error);
     }
   };
 
-  void syncBridgeState();
-  intervalHandle = window.setInterval(syncBridgeState, params.refreshMs);
+  void syncAdapterState();
+  intervalHandle = window.setInterval(syncAdapterState, params.refreshMs);
 
   return () => {
     cancelled = true;

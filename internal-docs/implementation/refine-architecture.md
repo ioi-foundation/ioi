@@ -1213,7 +1213,7 @@ Current implementation cut:
   rather than treating adapter choice as local UI state.
   `WorkbenchAdapterLaunchPlan` and daemon launch admissions now carry
   adapter-specific `executor_lane`, `control_action`, and
-  `control_channel_ref` fields for embedded Workbench, desktop bridge, browser
+  `control_channel_ref` fields for embedded Workbench, desktop editor, browser
   workspace, terminal session, provider workspace, and HypervisorOS node paths.
   The runtime daemon validates that the control action matches the connection
   kind before admitting the launch plan, and the Workbench adapter hub renders
@@ -1510,7 +1510,7 @@ Current implementation cut:
   above the product surface.
   Settings now exposes the Advanced section as an operator-configurable panel,
   and the Workbench adapter controls render product labels such as Embedded
-  Workbench, Open embedded, Request bridge, and Local workspace while preserving
+  Workbench, Open embedded, Open desktop, and Local workspace while preserving
   executor lane and control-action refs as metadata. The old Code tab /
   embedded-editor phrasing is now guarded against returning.
   The old Home onboarding walkthrough, condition matrix, and direct editor

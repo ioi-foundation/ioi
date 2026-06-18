@@ -1656,11 +1656,11 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
         adapter_ref: "workbench-adapter:external_editor",
         target_ref: "adapter-target:external-editor",
         launch_mode: "external",
-        connection_kind: "desktop_bridge",
+        connection_kind: "desktop_editor",
         connection_contract_ref:
           "connection-contract:workbench-adapter/desktop-bridge",
-        executor_lane: "desktop_bridge",
-        control_action: "request_desktop_bridge",
+        executor_lane: "desktop_editor",
+        control_action: "open_desktop_editor",
         control_channel_ref:
           "control-channel:workbench-adapter/desktop-bridge",
         required_access_lease_refs: [
@@ -1694,9 +1694,9 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
     payload.schema_version,
     "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
   );
-  assert.equal(payload.connection_kind, "desktop_bridge");
-  assert.equal(payload.executor_lane, "desktop_bridge");
-  assert.equal(payload.control_action, "request_desktop_bridge");
+  assert.equal(payload.connection_kind, "desktop_editor");
+  assert.equal(payload.executor_lane, "desktop_editor");
+  assert.equal(payload.control_action, "open_desktop_editor");
   assert.equal(
     payload.control_channel_ref,
     "control-channel:workbench-adapter/desktop-bridge",

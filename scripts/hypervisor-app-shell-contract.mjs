@@ -380,7 +380,7 @@ async function main() {
     const settingsAdapterText = await page.locator("body").innerText();
     assert(
       settingsAdapterText.includes("Open embedded") &&
-        settingsAdapterText.includes("Request bridge") &&
+        settingsAdapterText.includes("Open desktop") &&
         settingsAdapterText.includes("Local workspace"),
       "Settings adapter section did not render product-facing adapter control labels.",
     );

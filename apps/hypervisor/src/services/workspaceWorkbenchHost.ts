@@ -33,7 +33,7 @@ export interface WorkspaceWorkbenchSubstratePreviewModel {
 export type WorkspaceWorkbenchSurfaceModel =
   WorkspaceWorkbenchSubstratePreviewModel;
 
-export interface WorkspaceWorkbenchBridgeWorkspaceModel {
+export interface WorkspaceWorkbenchAdapterWorkspaceModel {
   id: string;
   name: string;
   rootPath: string;
@@ -49,7 +49,7 @@ export interface WorkspaceWorkbenchSessionDescriptor {
 
 export interface WorkspaceWorkbenchLifecyclePolicy {
   idlePrewarmDelayMs: number;
-  bridgeStateRefreshMs: number;
+  adapterStateRefreshMs: number;
 }
 
 export interface WorkspaceWorkbenchHost {
@@ -58,7 +58,7 @@ export interface WorkspaceWorkbenchHost {
     runtime: HypervisorClientRuntime;
     forceRestart?: boolean;
   }): Promise<WorkspaceWorkbenchHostSession>;
-  publishState(
+  publishAdapterState(
     session: WorkspaceWorkbenchHostSession,
     state: Record<string, unknown>,
   ): Promise<void>;
@@ -76,10 +76,10 @@ export interface WorkspaceWorkbenchHost {
       refreshNonce: number;
     },
   ): WorkspaceWorkbenchSurfaceModel;
-  describeBridgeWorkspace(
+  describeAdapterWorkspace(
     session: WorkspaceWorkbenchHostSession,
     project: WorkspaceWorkbenchProjectDescriptor,
-  ): WorkspaceWorkbenchBridgeWorkspaceModel;
+  ): WorkspaceWorkbenchAdapterWorkspaceModel;
   describeSession(
     session: WorkspaceWorkbenchHostSession,
   ): WorkspaceWorkbenchSessionDescriptor;

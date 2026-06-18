@@ -427,7 +427,7 @@ export function ChatUtilityDrawer({
               {sessionSurfaceError ? (
                 <article className="chat-utility-card">
                   <div className="chat-utility-card-head">
-                    <span>bridge</span>
+                    <span>runtime</span>
                     <strong>Session continuity needs attention</strong>
                   </div>
                   <p>{sessionSurfaceError}</p>

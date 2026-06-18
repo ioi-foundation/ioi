@@ -21,13 +21,13 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
       },
     };
   },
-  async publishState() {
+  async publishAdapterState() {
     return;
   },
   describeLifecyclePolicy() {
     return {
       idlePrewarmDelayMs: 900,
-      bridgeStateRefreshMs: 10_000,
+      adapterStateRefreshMs: 10_000,
     };
   },
   startStateSync() {
@@ -55,7 +55,7 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
       initialSnapshot: internal?.initialSnapshot ?? null,
     };
   },
-  describeBridgeWorkspace(_session, project) {
+  describeAdapterWorkspace(_session, project) {
     return {
       id: project.id,
       name: project.name,

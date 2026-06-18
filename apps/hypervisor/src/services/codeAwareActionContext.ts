@@ -20,14 +20,11 @@ export type CodeAwareActionContext = {
     | "explorer"
     | "workbench-view"
     | "ioi.chat"
-    | "workflow-code-generation"
     | "workspace-runtime"
     | "artifact-source"
     | "artifact-render"
     | "validation";
 };
-
-export type CodeAwareBridgeRequestPayload = Record<string, unknown>;
 
 function formatCodeAwareLocation(context: CodeAwareActionContext | null | undefined) {
   const parts = [

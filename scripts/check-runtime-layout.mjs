@@ -235,7 +235,6 @@ const activeHypervisorFixtureSources = [
 const workspaceWorkbenchCopySources = [
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
   "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
-  "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
 ].map(read).join("\n");
 const agentModelMatrixScopeSources = [
@@ -794,7 +793,6 @@ assert(
   [
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
     "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
-    "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
     "apps/hypervisor/src/services/hypervisorAppearance.ts",
     ...retiredDirectWorkspaceSurfacePaths,
   ],

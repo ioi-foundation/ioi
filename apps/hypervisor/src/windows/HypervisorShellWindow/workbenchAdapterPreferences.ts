@@ -34,7 +34,7 @@ export type HypervisorWorkbenchAdapterCustodyPosture =
 
 export type HypervisorWorkbenchAdapterConnectionKind =
   | "embedded_host"
-  | "desktop_bridge"
+  | "desktop_editor"
   | "browser_workspace_url"
   | "terminal_session"
   | "provider_workspace"
@@ -42,7 +42,7 @@ export type HypervisorWorkbenchAdapterConnectionKind =
 
 export type HypervisorWorkbenchAdapterExecutorLane =
   | "embedded_workbench_host"
-  | "desktop_bridge"
+  | "desktop_editor"
   | "browser_workspace"
   | "terminal_session"
   | "provider_environment"
@@ -50,7 +50,7 @@ export type HypervisorWorkbenchAdapterExecutorLane =
 
 export type HypervisorWorkbenchAdapterControlAction =
   | "open_embedded_workbench"
-  | "request_desktop_bridge"
+  | "open_desktop_editor"
   | "open_browser_workspace"
   | "attach_terminal_session"
   | "attach_provider_workspace"
@@ -438,11 +438,11 @@ export function buildWorkbenchAdapterLaunchPlan(
     case "jetbrains_rider":
       return {
         ...base,
-        connection_kind: "desktop_bridge",
+        connection_kind: "desktop_editor",
         connection_contract_ref:
           "connection-contract:workbench-adapter/desktop-bridge",
-        executor_lane: "desktop_bridge",
-        control_action: "request_desktop_bridge",
+        executor_lane: "desktop_editor",
+        control_action: "open_desktop_editor",
         control_channel_ref: "control-channel:workbench-adapter/desktop-bridge",
         required_access_lease_refs: ["lease:workbench-adapter/desktop-bridge"],
         required_authority_scope_refs: [

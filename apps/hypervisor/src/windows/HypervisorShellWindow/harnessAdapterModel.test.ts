@@ -422,8 +422,8 @@ test("new session launch summary binds harness, model route, adapter target, pri
       "workbench-adapter:external_editor/launch-plan",
     workbench_adapter_connection_contract_ref:
       "connection-contract:workbench-adapter/desktop-bridge",
-    workbench_adapter_executor_lane: "desktop_bridge",
-    workbench_adapter_control_action: "request_desktop_bridge",
+    workbench_adapter_executor_lane: "desktop_editor",
+    workbench_adapter_control_action: "open_desktop_editor",
     workbench_adapter_control_channel_ref:
       "control-channel:workbench-adapter/desktop-bridge",
     workbench_adapter_access_lease_refs: [
@@ -588,13 +588,13 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     plans.external_editor?.connection_contract_ref,
     "connection-contract:workbench-adapter/desktop-bridge",
   );
-  assert.equal(plans.cursor?.connection_kind, "desktop_bridge");
+  assert.equal(plans.cursor?.connection_kind, "desktop_editor");
   assert.equal(plans.cursor?.control_channel_ref, "control-channel:workbench-adapter/desktop-bridge");
-  assert.equal(plans.windsurf?.connection_kind, "desktop_bridge");
-  assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_bridge");
-  assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_bridge");
-  assert.equal(plans.jetbrains_rustrover?.connection_kind, "desktop_bridge");
-  assert.equal(plans.jetbrains_rider?.connection_kind, "desktop_bridge");
+  assert.equal(plans.windsurf?.connection_kind, "desktop_editor");
+  assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_editor");
+  assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_editor");
+  assert.equal(plans.jetbrains_rustrover?.connection_kind, "desktop_editor");
+  assert.equal(plans.jetbrains_rider?.connection_kind, "desktop_editor");
   assert.equal(plans.vscode_browser?.connection_kind, "browser_workspace_url");
   assert.equal(plans.vscode_browser?.executor_lane, "browser_workspace");
   assert.equal(plans.vscode_browser?.control_action, "open_browser_workspace");

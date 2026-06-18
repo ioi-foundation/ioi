@@ -14,7 +14,7 @@ function launchModeLabel(mode: HypervisorWorkbenchAdapterLaunchMode): string {
     case "embedded":
       return "Embedded";
     case "external":
-      return "Desktop bridge";
+      return "Desktop editor";
     case "remote_url":
       return "Browser session";
     case "headless":
@@ -45,8 +45,8 @@ function controlActionLabel(action: HypervisorWorkbenchAdapterControlAction) {
   switch (action) {
     case "open_embedded_workbench":
       return "Open embedded";
-    case "request_desktop_bridge":
-      return "Request bridge";
+    case "open_desktop_editor":
+      return "Open desktop";
     case "open_browser_workspace":
       return "Open browser";
     case "attach_terminal_session":

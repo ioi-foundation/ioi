@@ -13,7 +13,7 @@ const LAUNCH_MODES = new Set(["embedded", "external", "remote_url", "headless"])
 
 const CONNECTION_KINDS = new Set([
   "embedded_host",
-  "desktop_bridge",
+  "desktop_editor",
   "browser_workspace_url",
   "terminal_session",
   "provider_workspace",
@@ -22,7 +22,7 @@ const CONNECTION_KINDS = new Set([
 
 const EXECUTOR_LANES = new Set([
   "embedded_workbench_host",
-  "desktop_bridge",
+  "desktop_editor",
   "browser_workspace",
   "terminal_session",
   "provider_environment",
@@ -31,7 +31,7 @@ const EXECUTOR_LANES = new Set([
 
 const CONTROL_ACTIONS = new Set([
   "open_embedded_workbench",
-  "request_desktop_bridge",
+  "open_desktop_editor",
   "open_browser_workspace",
   "attach_terminal_session",
   "attach_provider_workspace",
@@ -333,9 +333,9 @@ function assertConnectionControlPair({
       executorLane: "embedded_workbench_host",
       controlAction: "open_embedded_workbench",
     },
-    desktop_bridge: {
-      executorLane: "desktop_bridge",
-      controlAction: "request_desktop_bridge",
+    desktop_editor: {
+      executorLane: "desktop_editor",
+      controlAction: "open_desktop_editor",
     },
     browser_workspace_url: {
       executorLane: "browser_workspace",

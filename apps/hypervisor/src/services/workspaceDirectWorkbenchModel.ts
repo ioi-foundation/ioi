@@ -17,15 +17,15 @@ import {
   openRuntimeRunsView,
   openRuntimeWorkflowView,
 } from "./runtimeChatNavigation";
-import { buildWorkspaceBridgeState } from "./workspaceBridgeState";
+import { buildWorkspaceAdapterState } from "./workspaceAdapterState";
 import type {
   WorkspaceWorkbenchHost,
   WorkspaceWorkbenchHostSession,
   WorkspaceWorkbenchProjectDescriptor,
 } from "./workspaceWorkbenchHost";
 
-export type DirectWorkspaceBridgeState = Awaited<
-  ReturnType<typeof buildWorkspaceBridgeState>
+export type DirectWorkspaceAdapterState = Awaited<
+  ReturnType<typeof buildWorkspaceAdapterState>
 >;
 
 export async function loadDirectWorkspaceWorkbenchData(params: {
@@ -34,11 +34,11 @@ export async function loadDirectWorkspaceWorkbenchData(params: {
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   session: WorkspaceWorkbenchHostSession;
 }): Promise<{
-  bridgeState: DirectWorkspaceBridgeState;
+  adapterState: DirectWorkspaceAdapterState;
   extensionManifests: ExtensionManifestRecord[];
 }> {
-  const [bridgeState, extensionManifests] = await Promise.all([
-    buildWorkspaceBridgeState(
+  const [adapterState, extensionManifests] = await Promise.all([
+    buildWorkspaceAdapterState(
       params.runtime,
       params.host,
       params.currentProject,
@@ -48,7 +48,7 @@ export async function loadDirectWorkspaceWorkbenchData(params: {
   ]);
 
   return {
-    bridgeState,
+    adapterState,
     extensionManifests,
   };
 }
@@ -68,12 +68,12 @@ function statusDetailLabel(timestampMs: number | null | undefined): string | nul
 }
 
 export function createRunDebugModel(params: {
-  bridgeState: DirectWorkspaceBridgeState | null;
+  adapterState: DirectWorkspaceAdapterState | null;
   runtime: HypervisorClientRuntime;
   rootPath: string;
   activeFilePath: string | null;
 }): WorkspaceRunDebugModel {
-  const runs = params.bridgeState?.runs ?? [];
+  const runs = params.adapterState?.runs ?? [];
 
   return {
     entries: runs.slice(0, 8).map((run) => ({
@@ -97,11 +97,11 @@ export function createRunDebugModel(params: {
 }
 
 export function createExtensionsModel(params: {
-  bridgeState: DirectWorkspaceBridgeState | null;
+  adapterState: DirectWorkspaceAdapterState | null;
   extensionManifests: ExtensionManifestRecord[];
   runtime: HypervisorClientRuntime;
 }): WorkspaceExtensionsModel {
-  const primaryConnectorId = params.bridgeState?.connections[0]?.id ?? null;
+  const primaryConnectorId = params.adapterState?.connections[0]?.id ?? null;
   const statusForExtension = (
     extension: ExtensionManifestRecord,
   ): "enabled" | "available" | "attention" => {
@@ -135,19 +135,19 @@ export function createExtensionsModel(params: {
 }
 
 export function createOperatorModel(params: {
-  bridgeState: DirectWorkspaceBridgeState | null;
+  adapterState: DirectWorkspaceAdapterState | null;
   activeSurface: WorkspaceOperatorSurface;
   onSelectSurface: (surface: WorkspaceOperatorSurface) => void;
   runtime: HypervisorClientRuntime;
   rootPath: string;
   activeFilePath: string | null;
 }): WorkspaceOperatorModel {
-  const bridgeState = params.bridgeState;
-  const workflows = bridgeState?.workflows ?? [];
-  const runs = bridgeState?.runs ?? [];
-  const artifacts = bridgeState?.artifacts ?? [];
-  const policy = bridgeState?.policy ?? null;
-  const connections = bridgeState?.connections ?? [];
+  const adapterState = params.adapterState;
+  const workflows = adapterState?.workflows ?? [];
+  const runs = adapterState?.runs ?? [];
+  const artifacts = adapterState?.artifacts ?? [];
+  const policy = adapterState?.policy ?? null;
+  const connections = adapterState?.connections ?? [];
   const latestRun = runs[0] ?? null;
   const latestArtifact = artifacts[0] ?? null;
   const primaryConnectorId =

@@ -340,8 +340,8 @@ function adapterControlActionLabel(
   switch (action) {
     case "open_embedded_workbench":
       return "Open embedded";
-    case "request_desktop_bridge":
-      return "Request bridge";
+    case "open_desktop_editor":
+      return "Open desktop";
     case "open_browser_workspace":
       return "Open browser";
     case "attach_terminal_session":

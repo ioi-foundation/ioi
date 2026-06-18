@@ -209,7 +209,7 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(workbenchAdapterSection, /data-workbench-adapter-control-channel-ref/);
   assert.match(workbenchAdapterSection, /controlActionLabel/);
   assert.match(workbenchAdapterSection, /Open embedded/);
-  assert.match(workbenchAdapterSection, /Request bridge/);
+  assert.match(workbenchAdapterSection, /Open desktop/);
   assert.match(workbenchAdapterSection, /Local workspace/);
   assert.match(workbenchAdapterSection, /Session preference/);
   assert.doesNotMatch(workbenchAdapterSection, /adapter_preference_ref/);

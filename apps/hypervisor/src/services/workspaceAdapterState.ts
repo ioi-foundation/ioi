@@ -62,7 +62,7 @@ function projectWorkspaceChatState(
   };
 }
 
-export async function buildWorkspaceBridgeState(
+export async function buildWorkspaceAdapterState(
   runtime: HypervisorClientRuntime,
   host: WorkspaceWorkbenchHost,
   currentProject: WorkspaceWorkbenchProjectDescriptor,
@@ -122,7 +122,7 @@ export async function buildWorkspaceBridgeState(
     authoritativeRuntime: true,
     appearance: buildHypervisorAppearanceBridgeState(),
     workspace: {
-      ...host.describeBridgeWorkspace(session, currentProject),
+      ...host.describeAdapterWorkspace(session, currentProject),
     },
     chat: projectWorkspaceChatState(sessionProjection),
     summary: {
