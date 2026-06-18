@@ -1061,6 +1061,12 @@ Current implementation cut:
   bundle and rejects returned `appName` or `captureAppName` Autopilot targets.
   active dev-start probes no longer accept both `[Autopilot]` and
   `[Hypervisor]` log prefixes; the compatibility shim is cut and guarded.
+  active harness/dev environment names now use the Hypervisor prefix:
+  `HYPERVISOR_LOCAL_GPU_DEV`, `HYPERVISOR_RESET_DATA_ON_BOOT`,
+  `HYPERVISOR_DEV_START_INTENT`, `HYPERVISOR_DATA_PROFILE`,
+  `HYPERVISOR_HARNESS_DEFAULT_PROMOTION`, and
+  `HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT`. The old
+  `AUTOPILOT_*` harness/dev env family is rejected by `check:runtime-layout`.
   the code editor adapter shell patch path is retired entirely. The adapter host
   syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
   target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,

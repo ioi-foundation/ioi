@@ -15,8 +15,8 @@ echo "Use this basic dry-run query once the shell is ready:"
 echo "  ${BASIC_QUERY}"
 
 cd "$ROOT_DIR"
-export AUTOPILOT_LOCAL_GPU_DEV=1
-export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"
+export HYPERVISOR_LOCAL_GPU_DEV=1
+export HYPERVISOR_RESET_DATA_ON_BOOT="${HYPERVISOR_RESET_DATA_ON_BOOT:-1}"
 
 if [[ "$MODE" == "wayland" ]]; then
   npm run dev:hypervisor-app:wayland -- "${EXTRA_ARGS[@]}"

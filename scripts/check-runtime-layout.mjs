@@ -442,6 +442,26 @@ const hypervisorDesktopProbeFiles = allFiles(
       file,
     ),
 );
+const activeHypervisorEnvFiles = [
+  "scripts/validate-model-mounting-closeout.mjs",
+  "scripts/lib/hypervisor-app-harness-contract.mjs",
+  "scripts/lib/hypervisor-app-harness-contract.test.mjs",
+  "apps/hypervisor/scripts/dev_start_intent_probe.py",
+  "apps/hypervisor/scripts/dev_reuse_session_probe.py",
+  "apps/hypervisor/scripts/desktop_prompt_probe.py",
+  "apps/hypervisor/scripts/dry-run-desktop.sh",
+  "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+  "crates/api/src/chat.rs",
+  "crates/node/src/bin/ioi-local.rs",
+  "crates/types/src/app/runtime_contracts.rs",
+  "crates/types/src/app/harness/activation.rs",
+  "crates/types/src/app/harness/tests.rs",
+  "crates/services/src/agentic/runtime/service/output/direct_inline.rs",
+  "crates/services/src/agentic/runtime/service/tool_execution/processing/repair/core.rs",
+  "crates/services/src/agentic/runtime/service/decision_loop/cognition/inference.rs",
+  "crates/services/src/agentic/runtime/service/decision_loop/cognition/inference/tests.rs",
+];
+const activeHypervisorEnvSource = activeHypervisorEnvFiles.map(read).join("\n");
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
   ...allFiles("crates/api/src", (file) => file.endsWith(".rs")),
@@ -506,11 +526,28 @@ assert(
     hypervisorAppHarnessContractSource.includes(
       "HYPERVISOR_RETAINED_QUERIES",
     ) &&
-    !/autopilotGuiHarnessContract|validateAutopilotGuiHarnessResult|buildBlockedAutopilotGuiHarnessResult|AUTOPILOT_(?:GUI_HARNESS|REQUIRED|RETAINED|PROVIDER_GATED|READ_ONLY)/.test(
+    hypervisorAppHarnessContractSource.includes("HYPERVISOR_LOCAL_GPU_DEV") &&
+    !/autopilotGuiHarnessContract|validateAutopilotGuiHarnessResult|buildBlockedAutopilotGuiHarnessResult|AUTOPILOT_(?:GUI_HARNESS|REQUIRED|RETAINED|PROVIDER_GATED|READ_ONLY|LOCAL_GPU_DEV|HARNESS_DEFAULT_PROMOTION|WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT)/.test(
       hypervisorAppHarnessContractSource,
     ),
   ["scripts/lib/hypervisor-app-harness-contract.mjs"],
   "keep the compact app harness contract as the app-harness authority",
+);
+assert(
+  "active-hypervisor-env-family-renamed",
+  [
+    "HYPERVISOR_LOCAL_GPU_DEV",
+    "HYPERVISOR_RESET_DATA_ON_BOOT",
+    "HYPERVISOR_DEV_START_INTENT",
+    "HYPERVISOR_DATA_PROFILE",
+    "HYPERVISOR_HARNESS_DEFAULT_PROMOTION",
+    "HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
+  ].every((token) => activeHypervisorEnvSource.includes(token)) &&
+    !/AUTOPILOT_(?:LOCAL_GPU_DEV|RESET_DATA_ON_BOOT|DEV_START_|DATA_PROFILE|HARNESS_DEFAULT_PROMOTION|WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT|DESKTOP_CAPTURE_URL|DEV_CLEAN_INSTANCE)/.test(
+      activeHypervisorEnvSource,
+    ),
+  activeHypervisorEnvFiles,
+  "Active Hypervisor harness/dev environment names must use Hypervisor prefixes; retired AUTOPILOT_* env shims must not return.",
 );
 assert(
   "hypervisor-client-runtime-command-names",

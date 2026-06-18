@@ -2010,7 +2010,7 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     );
     assert_eq!(
         dispatch.model_provider_gated_visible_output_activation_flag,
-        "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT"
+        "HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT"
     );
     assert_eq!(
         dispatch.model_provider_gated_visible_output_activation_id,

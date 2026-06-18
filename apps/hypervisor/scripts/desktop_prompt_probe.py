@@ -1190,7 +1190,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--browser-capture-url",
-        default=os.environ.get("AUTOPILOT_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
+        default=os.environ.get("HYPERVISOR_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
         help=(
             "Browser URL to use when Linux/X11 window capture comes back blank. "
             f"Default: {BROWSER_CAPTURE_URL}"

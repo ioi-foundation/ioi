@@ -72,7 +72,7 @@ fn chat_modal_first_html_override() -> Option<bool> {
 fn chat_modal_first_html_enabled() -> bool {
     chat_modal_first_html_override().unwrap_or_else(|| {
         truthy_env_var("AUTOPILOT_CHAT_ARTIFACT_MODAL_FIRST_HTML")
-            || truthy_env_var("AUTOPILOT_LOCAL_GPU_DEV")
+            || truthy_env_var("HYPERVISOR_LOCAL_GPU_DEV")
     })
 }
 

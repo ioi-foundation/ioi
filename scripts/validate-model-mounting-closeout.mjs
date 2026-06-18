@@ -64,7 +64,7 @@ const deterministicGates = [
   },
   {
     id: "hypervisor-app-harness",
-    command: "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:hypervisor-app-harness:run -- --window-timeout-ms 300000",
+    command: "HYPERVISOR_LOCAL_GPU_DEV=1 npm run validate:hypervisor-app-harness:run -- --window-timeout-ms 300000",
     required: true,
     category: "gui",
     evidencePattern: /docs\/evidence\/hypervisor-app-ux-readiness\/[^\s]+\/result\.json/g,

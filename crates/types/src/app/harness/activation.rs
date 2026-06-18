@@ -735,7 +735,7 @@ pub fn default_blessed_live_handoff_proof(
         reviewed_import_activation_apply_activation_id: None,
         activation_blockers: Vec::new(),
         default_promotion_gate: HarnessDefaultPromotionGate {
-            config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
+            config_key: "HYPERVISOR_HARNESS_DEFAULT_PROMOTION".to_string(),
             enabled: false,
             eligible: false,
             non_mutating_only: true,
@@ -786,7 +786,7 @@ pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDeci
         reviewed_import_activation_apply_proof_blockers: Vec::new(),
         reviewed_import_activation_apply_activation_id: None,
         default_promotion_gate: HarnessDefaultPromotionGate {
-            config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
+            config_key: "HYPERVISOR_HARNESS_DEFAULT_PROMOTION".to_string(),
             enabled: false,
             eligible: false,
             non_mutating_only: true,
@@ -1899,7 +1899,7 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             "retained_no_tool_answer".to_string(),
         ),
         model_provider_gated_visible_output_activation_flag:
-            "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT".to_string(),
+            "HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT".to_string(),
         model_provider_gated_visible_output_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID
             .to_string(),
         model_provider_gated_visible_output_authority: "workflow_model_provider_call".to_string(),

@@ -16,7 +16,7 @@ fn cognition_timeout_defaults_to_thirty_seconds() {
 #[test]
 fn cognition_timeout_expands_in_local_gpu_dev_mode() {
     assert_eq!(
-        timeout_with_env(&[("AUTOPILOT_LOCAL_GPU_DEV", "1")]),
+        timeout_with_env(&[("HYPERVISOR_LOCAL_GPU_DEV", "1")]),
         Duration::from_secs(90)
     );
 }
@@ -25,7 +25,7 @@ fn cognition_timeout_expands_in_local_gpu_dev_mode() {
 fn explicit_timeout_env_overrides_local_gpu_dev_default() {
     assert_eq!(
         timeout_with_env(&[
-            ("AUTOPILOT_LOCAL_GPU_DEV", "1"),
+            ("HYPERVISOR_LOCAL_GPU_DEV", "1"),
             ("IOI_COGNITION_INFERENCE_TIMEOUT_SECS", "23"),
         ]),
         Duration::from_secs(23)

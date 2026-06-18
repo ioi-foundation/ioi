@@ -20,7 +20,7 @@ pub const RUNTIME_CONTRACT_SCHEMA_VERSION_V1: &str = "ioi.agent-runtime.substrat
 pub const AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION_V1: &str = "ioi.autopilot.gui-harness-validation.v1";
 pub const COMPUTER_USE_CONTRACT_SCHEMA_VERSION_V1: &str = "ioi.computer-use.harness.v1";
 pub const AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND: &str =
-    "AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:hypervisor-app";
+    "HYPERVISOR_LOCAL_GPU_DEV=1 npm run dev:hypervisor-app";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -185,7 +185,7 @@ impl Default for EffectiveAgentConfig {
                 ),
                 EffectiveAgentConfigEntry::new(
                     "desktop.local_gpu_dev",
-                    "AUTOPILOT_LOCAL_GPU_DEV",
+                    "HYPERVISOR_LOCAL_GPU_DEV",
                     EffectiveAgentConfigSource::LocalOperatorConfig,
                     false,
                     true,
@@ -2605,7 +2605,7 @@ pub struct AutopilotGuiHarnessValidationContract {
 impl Default for AutopilotGuiHarnessValidationContract {
     fn default() -> Self {
         let mut required_env = BTreeMap::new();
-        required_env.insert("AUTOPILOT_LOCAL_GPU_DEV".to_string(), "1".to_string());
+        required_env.insert("HYPERVISOR_LOCAL_GPU_DEV".to_string(), "1".to_string());
         Self {
             schema_version: AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION_V1.to_string(),
             launch_command: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND.to_string(),
@@ -3277,7 +3277,7 @@ mod tests {
         assert_eq!(
             contract
                 .required_env
-                .get("AUTOPILOT_LOCAL_GPU_DEV")
+                .get("HYPERVISOR_LOCAL_GPU_DEV")
                 .map(String::as_str),
             Some("1")
         );

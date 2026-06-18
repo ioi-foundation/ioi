@@ -19,7 +19,7 @@ fn env_var_truthy(name: &str) -> bool {
 }
 
 fn conversation_refusal_repair_timeout() -> Duration {
-    let default_timeout_secs = if env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") {
+    let default_timeout_secs = if env_var_truthy("HYPERVISOR_LOCAL_GPU_DEV") {
         CONVERSATION_REFUSAL_REPAIR_LOCAL_GPU_TIMEOUT_SECS
     } else {
         CONVERSATION_REFUSAL_REPAIR_TIMEOUT_SECS

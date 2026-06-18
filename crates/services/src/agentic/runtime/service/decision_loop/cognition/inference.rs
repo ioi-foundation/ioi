@@ -42,7 +42,7 @@ where
 {
     const DEFAULT_TIMEOUT_SECS: u64 = 30;
     const LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS: u64 = 90;
-    let default_timeout_secs = if env_var_truthy_from(|| get_env("AUTOPILOT_LOCAL_GPU_DEV")) {
+    let default_timeout_secs = if env_var_truthy_from(|| get_env("HYPERVISOR_LOCAL_GPU_DEV")) {
         LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS
     } else {
         DEFAULT_TIMEOUT_SECS

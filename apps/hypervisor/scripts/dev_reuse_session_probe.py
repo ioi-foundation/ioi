@@ -581,22 +581,22 @@ def launch_dev_desktop(
     env = os.environ.copy()
     env.update(
         {
-            "AUTOPILOT_LOCAL_GPU_DEV": "1",
-            "AUTOPILOT_DEV_START_SURFACE": "chat",
-            "AUTOPILOT_DEV_START_INTENT": prompt,
-            "AUTOPILOT_DATA_PROFILE": profile,
+            "HYPERVISOR_LOCAL_GPU_DEV": "1",
+            "HYPERVISOR_DEV_START_SURFACE": "chat",
+            "HYPERVISOR_DEV_START_INTENT": prompt,
+            "HYPERVISOR_DATA_PROFILE": profile,
         }
     )
     if reset_on_boot:
-        env["AUTOPILOT_RESET_DATA_ON_BOOT"] = "1"
+        env["HYPERVISOR_RESET_DATA_ON_BOOT"] = "1"
     else:
-        env["AUTOPILOT_RESET_DATA_ON_BOOT"] = "0"
+        env["HYPERVISOR_RESET_DATA_ON_BOOT"] = "0"
     if mcp_profile:
         env["IOI_CHAT_ARTIFACT_MCP_PROFILE"] = mcp_profile
     if start_session_id:
-        env["AUTOPILOT_DEV_START_SESSION_ID"] = start_session_id
+        env["HYPERVISOR_DEV_START_SESSION_ID"] = start_session_id
     else:
-        env.pop("AUTOPILOT_DEV_START_SESSION_ID", None)
+        env.pop("HYPERVISOR_DEV_START_SESSION_ID", None)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
@@ -720,7 +720,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--browser-capture-url",
-        default=os.environ.get("AUTOPILOT_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
+        default=os.environ.get("HYPERVISOR_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
         help=(
             "Browser URL to use when Linux/X11 window capture comes back blank. "
             f"Default: {BROWSER_CAPTURE_URL}"

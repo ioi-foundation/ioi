@@ -28,7 +28,7 @@ fn env_var_truthy(name: &str) -> bool {
 }
 
 fn direct_inline_author_timeout() -> Duration {
-    let default_timeout_secs = if env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") {
+    let default_timeout_secs = if env_var_truthy("HYPERVISOR_LOCAL_GPU_DEV") {
         DIRECT_INLINE_AUTHOR_LOCAL_GPU_TIMEOUT_SECS
     } else {
         DIRECT_INLINE_AUTHOR_TIMEOUT_SECS

@@ -5982,7 +5982,7 @@ export function makeBlessedHarnessLiveHandoffProof(
         ?.activationId ?? null,
     activationBlockers,
     defaultPromotionGate: {
-      configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
+      configKey: "HYPERVISOR_HARNESS_DEFAULT_PROMOTION",
       enabled: defaultPromotionGateEnabled,
       eligible: defaultPromotionGateEligible,
       nonMutatingOnly: true,
@@ -6204,7 +6204,7 @@ export function makeHarnessRuntimeSelectorDecision(
       options.packageImportActivationApplyProof?.activationResult
         ?.activationId ?? null,
     defaultPromotionGate: {
-      configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
+      configKey: "HYPERVISOR_HARNESS_DEFAULT_PROMOTION",
       enabled: defaultPromotionGateEnabled,
       eligible: defaultPromotionGateEligible,
       nonMutatingOnly: true,
@@ -9424,7 +9424,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     modelProviderGatedVisibleOutputScenarioCoverageKey:
       "retained_no_tool_answer",
     modelProviderGatedVisibleOutputActivationFlag:
-      "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
+      "HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
     modelProviderGatedVisibleOutputActivationId:
       DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     modelProviderGatedVisibleOutputAuthority: "workflow_model_provider_call",
@@ -9515,7 +9515,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
         "retained_harness_dogfooding",
       ],
       scenarioCoverageKey: "retained_no_tool_answer",
-      activationFlag: "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
+      activationFlag: "HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
       activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       selectedVisibleOutputAuthority: "workflow_model_provider_call",
       selectedVisibleOutputHash: actualVisibleOutputHash,

@@ -252,9 +252,9 @@ function promotionInvariantUiAssertions(proof = reviewedImportActivationApplyPro
 test("Hypervisor app harness contract preserves retained query pack", () => {
   const contract = hypervisorGuiHarnessContract();
   assert.equal(contract.launchCommand, HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND);
-  assert.equal(contract.requiredEnv.AUTOPILOT_LOCAL_GPU_DEV, "1");
-  assert.equal(contract.requiredEnv.AUTOPILOT_HARNESS_DEFAULT_PROMOTION, "1");
-  assert.equal(contract.requiredEnv.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT, "1");
+  assert.equal(contract.requiredEnv.HYPERVISOR_LOCAL_GPU_DEV, "1");
+  assert.equal(contract.requiredEnv.HYPERVISOR_HARNESS_DEFAULT_PROMOTION, "1");
+  assert.equal(contract.requiredEnv.HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT, "1");
   assert.equal(contract.retainedQueries.length, 8);
   assert.deepEqual(contract.providerGatedVisibleOutputRequiredScenarios, [
     ...HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,

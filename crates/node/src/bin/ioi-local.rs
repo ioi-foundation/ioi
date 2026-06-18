@@ -314,7 +314,7 @@ async fn async_main() -> Result<()> {
     };
 
     let session_id = [0u8; 32];
-    let local_gpu_dev_mode = std::env::var("AUTOPILOT_LOCAL_GPU_DEV")
+    let local_gpu_dev_mode = std::env::var("HYPERVISOR_LOCAL_GPU_DEV")
         .ok()
         .map(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
         .unwrap_or(false);
