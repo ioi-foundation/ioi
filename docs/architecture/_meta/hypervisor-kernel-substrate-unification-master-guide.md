@@ -4089,7 +4089,11 @@ hypervisor-conformance:negative
 ```
 
 Terminal acceptance should cite the exact command names that exist in the repo.
-Until those commands exist, Phase 11 is not complete.
+The current command contract is implemented by
+`scripts/conformance/hypervisor-conformance.mjs` and the
+`hypervisor-conformance:*` npm scripts; Phase 11 remains incomplete only when
+the terminal migration conditions fail, not because the command names are
+missing.
 
 ### Phase dependency graph
 

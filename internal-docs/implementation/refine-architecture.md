@@ -2306,7 +2306,25 @@ Verification for this guide:
 
 ```text
 git diff --check -- internal-docs/implementation/refine-architecture.md
+npm run hypervisor-conformance:docs
+npm run hypervisor-conformance:bridge
+npm run hypervisor-conformance
 rg -n "Executive Verdict|Edge-Case Stress Tests|Coherence Findings|Proposed Patch Plan|Final Doctrine Delta" internal-docs/implementation/refine-architecture.md
 rg -n "Hypervisor App UX Master Plan|HypervisorSessionLaunchRecipe|CodeEditorAdapterPreference|HypervisorSessionDetailTab|HypervisorInspectorPanelId" internal-docs/implementation/refine-architecture.md
 rg -n "Harness Adapter Testbed|AgentHarnessAdapterProfile|HarnessAdapterReceipt|HarnessComparisonRun" internal-docs/implementation/refine-architecture.md
+```
+
+Current conformance command contract:
+
+```text
+scripts/conformance/hypervisor-conformance.mjs
+  owns the canon-named Hypervisor conformance entrypoint and tier runner.
+
+package.json
+  exposes npm run hypervisor-conformance plus docs, abi, bridge, receipts,
+  ctee, app, compositor, negative, wallet, and candidates tier commands.
+
+scripts/check-runtime-layout.mjs
+  guards the command family so canon/source maps cannot point at a missing
+  terminal proof command again.
 ```

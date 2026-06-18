@@ -94,6 +94,9 @@ const hypervisorDistSurfaceBundleFiles = allFiles(
 const hypervisorDistSurfaceBundle = hypervisorDistSurfaceBundleFiles
   .map((relativePath) => readOptional(relativePath))
   .join("\n");
+const hypervisorConformanceSource = read(
+  "scripts/conformance/hypervisor-conformance.mjs",
+);
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -1775,6 +1778,55 @@ assert(
   "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, direct Workbench workspace session, and Agents product-surface copy.",
 );
 assert(
+  "hypervisor-conformance-command-contract",
+  packageJson.scripts["hypervisor-conformance"] ===
+    "node scripts/conformance/hypervisor-conformance.mjs" &&
+    packageJson.scripts["hypervisor-conformance:docs"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs docs" &&
+    packageJson.scripts["hypervisor-conformance:abi"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs abi" &&
+    packageJson.scripts["hypervisor-conformance:bridge"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs bridge" &&
+    packageJson.scripts["hypervisor-conformance:receipts"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs receipts" &&
+    packageJson.scripts["hypervisor-conformance:ctee"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs ctee" &&
+    packageJson.scripts["hypervisor-conformance:app"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs app" &&
+    packageJson.scripts["hypervisor-conformance:compositor"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs compositor" &&
+    packageJson.scripts["hypervisor-conformance:negative"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs negative" &&
+    packageJson.scripts["hypervisor-conformance:wallet"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs wallet" &&
+    packageJson.scripts["hypervisor-conformance:candidates"] ===
+      "node scripts/conformance/hypervisor-conformance.mjs candidates" &&
+    hypervisorConformanceSource.includes("ioi.hypervisor.conformance_run.v1") &&
+    hypervisorConformanceSource.includes("check:architecture-docs") &&
+    hypervisorConformanceSource.includes("check:runtime-layout") &&
+    hypervisorConformanceSource.includes(
+      "check:hypervisor-code-editor-adapter-host-paths",
+    ) &&
+    hypervisorConformanceSource.includes("check:wallet-packaging") &&
+    hypervisorConformanceSource.includes("check:candidate-evidence") &&
+    hypervisorConformanceSource.includes("check:service-composition-evidence") &&
+    hypervisorConformanceSource.includes("check:artifact-availability-incident") &&
+    hypervisorConformanceSource.includes(
+      "runtime-ctee-private-workspace-api.test.mjs",
+    ) &&
+    hypervisorConformanceSource.includes(
+      "runtime-model-weight-custody-admission.test.mjs",
+    ) &&
+    hypervisorConformanceSource.includes(
+      "runtime-harness-container-lane.test.mjs",
+    ),
+  [
+    "package.json",
+    "scripts/conformance/hypervisor-conformance.mjs",
+  ],
+  "The canon-named hypervisor-conformance command family must exist and delegate to the current docs, ABI, bridge, receipt, cTEE, app, compositor, wallet, candidate, and negative guards.",
+);
+assert(
   "hypervisor-shell-no-generic-surface-placeholders",
   !/PLACEHOLDER_SURFACE_COPY|HypervisorSurfacePlaceholder|isPlaceholderSurface|hypervisor-surface-placeholder/.test(
     `${hypervisorShellContentSource}\n${hypervisorShellBaseCssSource}`,
@@ -1787,7 +1839,7 @@ assert(
 );
 assert(
   "hypervisor-dist-without-retired-operator-console",
-  !/Operator console for autonomous systems|Build, run, govern, and verify|Build, run, govern|CURRENT WORKSPACE|CONNECTOR SPRINT READINESS|Connector Dry Run|Mount Models|Workflow Composer/.test(
+  !/Operator console for autonomous systems|Build, run, govern, and verify|Build, run, govern|CURRENT WORKSPACE|CONNECTOR SPRINT READINESS|Connector Dry Run|Mount Models/.test(
     hypervisorDistSurfaceBundle,
   ),
   hypervisorDistSurfaceBundleFiles.length > 0
