@@ -493,6 +493,17 @@ assert(
   "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
 );
 assert(
+  "refine-architecture-hard-cut-editor-surface-drift",
+  refineArchitectureGuide.includes("code-editor and workspace target choice") &&
+    refineArchitectureGuide.includes("deleted onboarding walkthroughs") &&
+    refineArchitectureGuide.includes("default Workbench target") &&
+    !/OpenVSCode direct surface|VS Code\/OpenVSCode|home onboarding condition-matrix|OpenVSCode parent chrome|Autopilot\/OpenVSCode|Code repositories\/OpenVSCode|embedded VS Code/.test(
+      refineArchitectureGuide,
+    ),
+  ["internal-docs/implementation/refine-architecture.md"],
+  "refine-architecture Phase 0A must describe code-editor adapters and deleted onboarding fat, not a direct editor product surface.",
+);
+assert(
   "hypervisor-shell-ioi-reference-contract",
   hypervisorShellNavigationSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
     hypervisorShellNavigationSource.includes('primaryReference: "internal-docs/reverse-engineering/ioi"') &&

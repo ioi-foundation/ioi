@@ -130,7 +130,7 @@ Top implementation-pressure discoveries:
 | Rank | Cleaner shape revealed by pressure | Why it matters |
 | --- | --- | --- |
 | 1 | Hypervisor needs the Core/client/surface/adapter taxonomy everywhere. | Prevents the old "Hypervisor IDE" or "CLI/TUI" framing from collapsing product clients, app surfaces, external harnesses, and runtime truth into one bucket. |
-| 2 | Hypervisor App should become the reference operator cockpit, not a VS Code/IDE shell. | The current UX opens into code-repository/OpenVSCode gravity; the target is one Core with sessions, projects, surfaces, adapters, model mounts, authority, privacy, and receipts. |
+| 2 | Hypervisor App should become the reference operator cockpit, not a code-editor shell. | The retired UX opened into code-repository/editor gravity; the target is one Core with sessions, projects, surfaces, adapters, model mounts, authority, privacy, and receipts. |
 | 3 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
 | 4 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | This is now canonized through the aiagent ontology docs and worker-package install admission; live marketplace endpoints remain the adoption frontier. |
 | 5 | Physical/embodied action needs a canonical safety envelope owner. | This is now canonized through Physical Action Safety and daemon admission; live actuator adapters remain the adoption frontier. |
@@ -285,10 +285,10 @@ ExecutionPrivacyPosture for every model/provider route.
 | --- | --- |
 | Severity | High |
 | Current UX evidence | Legacy screenshot showed the product trapped inside editor tabs for composer, models, runs, policy, connectors, and code. That shape is retired: code editors are adapter targets only, while Home/Sessions/Projects live in the Hypervisor shell. |
-| Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default editor selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
+| Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default Workbench target selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
 | Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry are application surfaces, provider/environment posture is a default Hypervisor view, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
 | Why it matters | If the UX stays IDE-first, the architecture will keep drifting back toward "Hypervisor IDE" instead of "Hypervisor of IDEs / governed autonomous-work cockpit." |
-| Recommended change | Add a staged implementation plan that converts the app shell from Autopilot/OpenVSCode gravity into a Hypervisor Core cockpit with sessions, projects, application surfaces, adapter targets, model/harness/provider setup, cTEE/privacy posture, authority, and receipts. |
+| Recommended change | Add a staged implementation plan that converts the app shell from legacy editor gravity into a Hypervisor Core cockpit with sessions, projects, application surfaces, adapter targets, model/harness/provider setup, cTEE/privacy posture, authority, and receipts. |
 | Fix type | Internal implementation plan now; UI/code migration next. |
 
 ### 9. Service composition needs nested contribution defaults
@@ -360,7 +360,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Concept | Current state | Needed owner |
 | --- | --- | --- |
 | Hypervisor client/surface/adapter taxonomy | Canon docs patched, implementation plans must stay aligned | `docs/architecture/components/hypervisor/core-clients-surfaces.md` |
-| Hypervisor App UX shell | Current app code exists but still carries Autopilot/OpenVSCode gravity | `internal-docs/implementation/refine-architecture.md` for implementation plan, then `apps/hypervisor/src/windows/HypervisorShellWindow/*` or renamed Hypervisor shell modules for implementation |
+| Hypervisor App UX shell | Current app code now uses the Hypervisor shell, but this guide remains the source of truth for keeping old editor-shell gravity from returning | `internal-docs/implementation/refine-architecture.md` for implementation plan, then `apps/hypervisor/src/windows/HypervisorShellWindow/*` or renamed Hypervisor shell modules for implementation |
 | Digital Worker Ontology | Plan doc only | `docs/architecture/domains/aiagent/digital-worker-ontology.md` |
 | Vertical Ontology Packs | Plan doc only | `docs/architecture/domains/aiagent/vertical-ontology-packs.md` |
 | Managed Worker Instance lifecycle | Partly in worker marketplace/endpoints | `docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md` |
@@ -499,7 +499,7 @@ cTEE candidate-lattice math
 | Doc | Anti-pattern |
 | --- | --- |
 | Hypervisor core/client/surface docs | Treating Hypervisor Workbench or a VS Code shell as the parent product/runtime. |
-| Hypervisor app implementation | Treating current Autopilot/OpenVSCode tabs as the target product IA. |
+| Hypervisor app implementation | Treating legacy editor/application tabs as the target product IA. |
 | Hypervisor app implementation | Treating model mounting as the primary user job instead of global infrastructure plus contextual session setup. |
 | Hypervisor app implementation | Creating one separate GUI app per surface instead of one Core with App/Web/CLI-headless clients and application surfaces. |
 | Hypervisor core/client/surface docs | Treating TUI as a first-class runtime lane instead of optional CLI/headless presentation. |
@@ -529,14 +529,15 @@ cTEE candidate-lattice math
 
 ### Phase 0A: Hypervisor App UX Master Plan
 
-Status: implementation leg for moving the current Autopilot/OpenVSCode-shaped
-UX into the Hypervisor Core product architecture.
+Status: implementation leg for moving the legacy editor-shaped UX into the
+Hypervisor Core product architecture. The active tree must stay hard-cut away
+from direct editor product surfaces and deleted onboarding walkthroughs.
 
 Reference inputs:
 
 ```text
 Retired screenshot:
-  OpenVSCode parent chrome
+  editor parent chrome
   editor-owned composer / models / runs / policy / connectors / code tabs
   active Code repositories gate
 
@@ -552,8 +553,9 @@ Primary IOI reference mirror:
     Right inspector: Changes, changed-file tree, review controls
     Bottom inspector: Ports & Services, Tasks, Terminal
     Automations: metrics, filters, run actions, suggested templates
-    Settings: account, default editor, embedded VS Code toggle, secrets,
-          git authentications, personal access tokens, integrations
+    Settings: account, default Workbench target selection, embedded editor
+          toggle, secrets, git authentications, personal access tokens,
+          integrations
   note: the mirror contains sanitized reference labels; translate them into
         Hypervisor product language instead of copying names literally.
   corrected comparison evidence:
@@ -627,16 +629,16 @@ Target information architecture:
 Core UX decisions:
 
 ```text
-1. Default screen becomes Hypervisor Home, not embedded OpenVSCode.
+1. Default screen becomes Hypervisor Home, not an embedded code editor.
 2. "New Session" is the primary CTA.
 3. "Create Agent" and "Create Mission" are guided setup flows, not raw tabs.
 4. Model mounting appears in two places:
    - global Models surface for inventory, providers, endpoints, downloads;
    - contextual step inside New Session / Create Agent / Mission setup.
-5. Workbench owns editor choice:
-   VS Code, Cursor, Windsurf, JetBrains, browser IDE, terminal/tmux,
-   OpenVSCode direct surface, or substrate editor.
-6. Embedded VS Code is optional, not the product identity.
+5. Workbench owns code-editor and workspace target choice:
+   embedded editor host, desktop editor bridge, browser IDE, terminal/tmux,
+   provider workspace, HypervisorOS node, or substrate preview.
+6. Embedded editor hosts are optional adapter targets, not product identity.
 7. IOI-reference "Automations" maps to Hypervisor Workflow Compositor:
    templates, repeatable graphs, scheduled runs, and reusable run recipes,
    not a separate runtime.
@@ -952,10 +954,10 @@ Implementation phases:
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
 | 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Foundry/provider-environment names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
-| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
+| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories or an editor-host console. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, provider/environment job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
-| 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
+| 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose Workbench target preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | Code editors are adapter targets; browser IDE, terminal, provider workspace, HypervisorOS node, and substrate preview targets can be represented without becoming product identity. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
@@ -1169,10 +1171,10 @@ Current implementation cut:
 0A.5 Workbench adapter-hub landing is implemented through the primary shell:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
   Hypervisor Core instead of a `Code repositories` / pull-request console
-  the landing models VS Code/OpenVSCode, Cursor/Windsurf,
-  JetBrains/Terminal, and Browser/VM/Node as adapter targets
-  the landing states that the Electron host is one target, not the parent
-  product or runtime truth
+  the landing models code-editor, browser IDE, terminal, VM, provider
+  workspace, HypervisorOS node, and substrate-preview targets
+  the landing states that any editor host is one target, not the parent product
+  or runtime truth
   existing workspace-root creation, recents, favorites, and open-workspace
   behavior are preserved under the Workbench surface
   `WorkspaceRepositoryGate.workbenchHub.test.mjs` and `check:runtime-layout`
@@ -1498,15 +1500,14 @@ Current implementation cut:
   Settings now exposes the Advanced section as an operator-configurable panel,
   and the Workbench adapter controls render product labels such as Embedded
   Workbench, Open embedded, Request bridge, and Local workspace while preserving
-  executor lane and control-action refs as metadata. The old Code tab / embedded
-  VS Code phrasing is now guarded against returning.
-  The home onboarding condition-matrix receipt now describes conditional
-  Workbench adapter variants instead of conditional OpenVSCode walkthroughs,
-  and the runtime-layout guard includes that active script in the Home taxonomy
-  scan.
-  Settings now describes the preference as a Default Workbench target rather
-  than a Default Editor, and the shell contract rejects the old singular-editor
-  label and helper copy.
+  executor lane and control-action refs as metadata. The old Code tab /
+  embedded-editor phrasing is now guarded against returning.
+  The old Home onboarding walkthrough, condition matrix, and direct editor
+  walkthrough assets are deleted from the active tree. Runtime-layout guards
+  assert those paths stay absent and that Home remains the IOI-reference prompt
+  shell.
+  Settings now describes the preference as a Default Workbench target, and the
+  shell contract rejects the old singular-editor label and helper copy.
   Current comparison evidence:
     `/tmp/reference-ioi-current.png`
     `/tmp/hypervisor-agents-current.png`
@@ -1557,7 +1558,7 @@ WorkspaceShell from Hypervisor; do delete adapter-local product chrome and
 rehome valuable surfaces under the sharper IA.
 Do not clone the IOI mirror literally; translate it:
   New Session, persistent sessions rail, session detail tabs, changes,
-  ports/services/tasks/terminal, automations, settings, default editor.
+  ports/services/tasks/terminal, automations, settings, default Workbench target.
 Do not make model mounting a lonely infra page; make it contextual in launch.
 Do not make Workbench the parent product; make it one surface.
 Do not let a root `ide/` artifact path or Electron/VS Code packaged host define
@@ -2231,7 +2232,7 @@ This guide is complete when it contains:
 - an executive verdict;
 - at least ten edge-case stress tests;
 - at least ten coherence findings;
-- a Hypervisor App UX implementation plan from Autopilot/OpenVSCode gravity to
+- a Hypervisor App UX implementation plan from legacy editor-shell gravity to
   an IOI-reference Hypervisor Core cockpit with session tabs and inspectors;
 - a Harness Adapter Testbed plan for Codex-style, Claude-style, DeepSeek-style,
   and generic CLI harness comparison under daemon gates;
