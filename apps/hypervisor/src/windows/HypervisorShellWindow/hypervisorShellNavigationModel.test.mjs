@@ -15,11 +15,11 @@ const operatorSubstrate = readFileSync(
   "utf8",
 );
 const activityBar = readFileSync(
-  new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
+  new URL("./components/HypervisorActivityRail.tsx", import.meta.url),
   "utf8",
 );
 const activityBarIcons = readFileSync(
-  new URL("./components/ChatActivityBarIcons.tsx", import.meta.url),
+  new URL("./components/HypervisorActivityRailIcons.tsx", import.meta.url),
   "utf8",
 );
 const newSessionModal = readFileSync(
@@ -310,7 +310,7 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /referenceLeftNavSurfaceIds\.flatMap/);
   assert.match(activityBar, /const topNavItems = primaryNavItems\.filter/);
   assert.match(activityBar, /sessionsNavItem/);
-  assert.match(activityBar, /chat-activity-button--new-session/);
+  assert.match(activityBar, /hypervisor-activity-button--new-session/);
   assert.match(activityBar, /data-window-surface="new-session"/);
   assert.match(activityBar, /New Session/);
   assert.match(activityBar, /topNavItems\.map/);
@@ -319,9 +319,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /shortcutKeys=\{\["Project"\]\}/);
   assert.match(activityBar, /shortcutVariant="label"/);
   assert.match(activityBar, /trailingIcon=\{<SessionsFilterIcon \/>\}/);
-  assert.match(activityBar, /chat-activity-project-label/);
+  assert.match(activityBar, /hypervisor-activity-project-label/);
   assert.match(activityBar, /From scratch/);
-  assert.match(activityBar, /chat-activity-session-list/);
+  assert.match(activityBar, /hypervisor-activity-session-list/);
   assert.match(activityBar, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
   assert.match(activityBar, /data-ioi-reference-session-list="from-launched-sessions"/);
   assert.match(activityBar, /data-launched-session-ref/);
@@ -339,7 +339,7 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
   assert.doesNotMatch(activityBar, /Write Harness Tool Call Documentation/);
   assert.doesNotMatch(activityBar, /Design Postquantum Computers Website/);
-  assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
+  assert.doesNotMatch(activityBar, /hypervisor-activity-project-skeleton/);
   assert.doesNotMatch(
     activityBar,
     /data-ioi-reference-session-list="project-skeleton"/,
@@ -357,10 +357,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBarIcons, /hypervisor-ioi-gem-vert/);
   assert.match(activityBarIcons, /<polygon points=/);
   assert.doesNotMatch(activityBarIcons, /strokeWidth="12"/);
-  assert.match(activityBar, /chat-activity-profile-indicator/);
-  assert.match(activityBar, /chat-activity-profile-label/);
-  assert.match(activityBar, /chat-activity-profile-menu-indicator/);
-  assert.doesNotMatch(activityBar, /chat-activity-button--account/);
+  assert.match(activityBar, /hypervisor-activity-profile-indicator/);
+  assert.match(activityBar, /hypervisor-activity-profile-label/);
+  assert.match(activityBar, /hypervisor-activity-profile-menu-indicator/);
+  assert.doesNotMatch(activityBar, /hypervisor-activity-button--account/);
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.match(activityBar, /aria-label="Session shortcuts"/);
   assert.doesNotMatch(activityBar, /aria-label="Projects"/);

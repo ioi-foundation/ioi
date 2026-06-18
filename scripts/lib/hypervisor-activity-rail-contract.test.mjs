@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const activityBar = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
   "utf8",
 );
 const hypervisorClientHeader = readFileSync(
@@ -19,20 +19,20 @@ const traceAndWelcomeCss = readFileSync(
   "utf8",
 );
 
-test("activity bar owns sidebar brand and can collapse without losing surface ids", () => {
-  assert.match(activityBar, /CHAT_ACTIVITY_BAR_COLLAPSED_KEY/);
+test("hypervisor activity rail owns sidebar brand and can collapse without losing surface ids", () => {
+  assert.match(activityBar, /HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY/);
   assert.match(activityBar, /profile: AssistantUserProfile;/);
   assert.match(activityBar, /return stored === "true";/);
   assert.match(
     activityBar,
-    /className=\{`chat-activity-bar \$\{collapsed \? "is-collapsed" : ""\}`\}/,
+    /className=\{`hypervisor-activity-bar \$\{collapsed \? "is-collapsed" : ""\}`\}/,
   );
   assert.match(activityBar, /data-collapsed=\{collapsed \? "true" : "false"\}/);
   assert.match(
     activityBar,
-    /className="chat-activity-brand-row"[\s\S]*<ChatLogoIcon \/>/,
+    /className="hypervisor-activity-brand-row"[\s\S]*<HypervisorRailLogoIcon \/>/,
   );
-  assert.match(activityBar, /className="chat-activity-collapse-button"/);
+  assert.match(activityBar, /className="hypervisor-activity-collapse-button"/);
   assert.match(activityBar, /function CollapseIcon\(\{ collapsed \}/);
   assert.match(activityBar, /collapsed\s*\?/);
   assert.match(activityBar, /onOpenCommandPalette: \(\) => void;/);
@@ -44,12 +44,12 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   );
   assert.match(activityBar, /route\.kind === "command-palette"/);
   assert.match(activityBar, /data-hypervisor-quick-switcher-anchor=/);
-  assert.match(activityBar, /chat-activity-button--new-session/);
+  assert.match(activityBar, /hypervisor-activity-button--new-session/);
   assert.match(activityBar, /data-window-surface="new-session"/);
   assert.match(activityBar, /New Session/);
   assert.match(activityBar, /Organization settings/);
-  assert.match(activityBar, /chat-activity-project-label/);
-  assert.match(activityBar, /chat-activity-session-row/);
+  assert.match(activityBar, /hypervisor-activity-project-label/);
+  assert.match(activityBar, /hypervisor-activity-session-row/);
   assert.match(
     activityBar,
     /data-ioi-reference-session-list="from-launched-sessions"/,
@@ -75,11 +75,11 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
 test("reference rail exposes new session and session context shortcut pills", () => {
   assert.doesNotMatch(activityBar, /title=\{`\$\{item\.label\}/);
   assert.match(activityBar, /: item\.label/);
-  assert.match(activityBar, /chat-activity-button-shortcut">Ctrl/);
-  assert.match(activityBar, /chat-activity-button-shortcut">O/);
+  assert.match(activityBar, /hypervisor-activity-button-shortcut">Ctrl/);
+  assert.match(activityBar, /hypervisor-activity-button-shortcut">O/);
   assert.match(activityBar, /shortcutKeys=\{\["Project"\]\}/);
   assert.match(activityBar, /shortcutKeys\.map\(\(key\) =>/);
-  assert.match(activityBar, /className="chat-activity-button-shortcut"/);
+  assert.match(activityBar, /className="hypervisor-activity-button-shortcut"/);
 });
 
 test("old client header leading block is removed so the rail is the single sidebar identity", () => {
@@ -93,66 +93,66 @@ test("old client header leading block is removed so the rail is the single sideb
   );
 });
 
-test("activity bar styling matches the themeable collapsible rail contract", () => {
+test("hypervisor activity rail styling matches the themeable collapsible rail contract", () => {
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*width: 300px;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.hypervisor-activity-bar\s*\{[\s\S]*width: 300px;/,
   );
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--chat-activity-bg: #ffffff;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--hypervisor-activity-bg: #ffffff;/,
   );
   assert.doesNotMatch(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--chat-activity-bg: #252b33;[\s\S]*width: 230px;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--hypervisor-activity-bg: #252b33;[\s\S]*width: 230px;/,
   );
-  assert.match(shellBaseCss, /background: var\(--chat-activity-bg\);/);
+  assert.match(shellBaseCss, /background: var\(--hypervisor-activity-bg\);/);
   assert.match(
     shellBaseCss,
-    /\.chat-activity-brand\s*\{[\s\S]*color: var\(--chat-activity-text\);/,
-  );
-  assert.match(
-    shellBaseCss,
-    /\.chat-activity-bar\.is-collapsed\s*\{\s*width: 48px;/,
+    /\.hypervisor-activity-brand\s*\{[\s\S]*color: var\(--hypervisor-activity-text\);/,
   );
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-brand-row\s*\{[\s\S]*min-height: 51px;/,
-  );
-  assert.match(shellBaseCss, /\.chat-activity-group\s*\{[\s\S]*border-bottom:/);
-  assert.match(shellBaseCss, /\.chat-activity-button::before\s*\{[\s\S]*display: none;/);
-  assert.match(shellBaseCss, /\.chat-activity-button\.is-active\s*\{[\s\S]*box-shadow: none;/);
-  assert.match(
-    shellBaseCss,
-    /\.chat-activity-button-label\s*\{[\s\S]*text-overflow: ellipsis;/,
-  );
-  assert.match(shellBaseCss, /\.chat-activity-button-shortcut\s*\{/);
-  assert.match(shellBaseCss, /\.chat-activity-apps\s*\{/);
-  assert.match(
-    shellBaseCss,
-    /\.chat-activity-bar\.is-collapsed \.chat-activity-button-label,/,
+    /\.hypervisor-activity-bar\.is-collapsed\s*\{\s*width: 48px;/,
   );
   assert.match(
     shellBaseCss,
-    /\.chat-activity-bar\.is-collapsed \.chat-activity-brand\s*\{\s*display: none;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.hypervisor-activity-brand-row\s*\{[\s\S]*min-height: 51px;/,
+  );
+  assert.match(shellBaseCss, /\.hypervisor-activity-group\s*\{[\s\S]*border-bottom:/);
+  assert.match(shellBaseCss, /\.hypervisor-activity-button::before\s*\{[\s\S]*display: none;/);
+  assert.match(shellBaseCss, /\.hypervisor-activity-button\.is-active\s*\{[\s\S]*box-shadow: none;/);
+  assert.match(
+    shellBaseCss,
+    /\.hypervisor-activity-button-label\s*\{[\s\S]*text-overflow: ellipsis;/,
+  );
+  assert.match(shellBaseCss, /\.hypervisor-activity-button-shortcut\s*\{/);
+  assert.match(shellBaseCss, /\.hypervisor-activity-apps\s*\{/);
+  assert.match(
+    shellBaseCss,
+    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-button-label,/,
   );
   assert.match(
     shellBaseCss,
-    /\.chat-activity-bar\.is-collapsed \.chat-activity-collapse-button\s*\{[\s\S]*width: 42px;[\s\S]*height: 42px;/,
+    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-brand\s*\{\s*display: none;/,
+  );
+  assert.match(
+    shellBaseCss,
+    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-collapse-button\s*\{[\s\S]*width: 42px;[\s\S]*height: 42px;/,
   );
 });
 
 test("light workbench mode preserves the IOI reference light rail colors", () => {
   assert.doesNotMatch(
     traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-button,/,
+    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-button,/,
   );
   assert.match(
     traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #ffffff;[\s\S]*--chat-activity-text: #6f737a;/,
+    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar \{[\s\S]*--hypervisor-activity-bg: #ffffff;[\s\S]*--hypervisor-activity-text: #6f737a;/,
   );
   assert.doesNotMatch(
     traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #252b33;/,
+    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar \{[\s\S]*--hypervisor-activity-bg: #252b33;/,
   );
 });

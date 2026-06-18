@@ -262,10 +262,10 @@ const runtimeWorkerPackageInstallAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-worker-package-install-admission.test.mjs",
 );
 const hypervisorActivityBarSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
 );
 const hypervisorActivityBarIconsSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatActivityBarIcons.tsx",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRailIcons.tsx",
 );
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
@@ -344,7 +344,7 @@ const hypervisorClientNamespaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
   "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
   "packages/workspace-substrate/src/codeOss.ts",
   "packages/workspace-substrate/src/notebook.ts",
   "packages/workspace-substrate/src/types.ts",
@@ -735,29 +735,29 @@ assert(
       "launchedSessions={controller.sessions.launchedSessionProjections}",
     ) &&
     hypervisorActivityBarSource.includes("WORKSPACE_NAME") &&
-    hypervisorActivityBarSource.includes("chat-activity-profile-indicator") &&
-    hypervisorActivityBarSource.includes("chat-activity-profile-label") &&
-    hypervisorActivityBarSource.includes("chat-activity-profile-menu-indicator") &&
+    hypervisorActivityBarSource.includes("hypervisor-activity-profile-indicator") &&
+    hypervisorActivityBarSource.includes("hypervisor-activity-profile-label") &&
+    hypervisorActivityBarSource.includes("hypervisor-activity-profile-menu-indicator") &&
     hypervisorActivityBarIconsSource.includes("hypervisor-ioi-gem-vert") &&
     hypervisorActivityBarIconsSource.includes("<polygon points=") &&
     !hypervisorActivityBarIconsSource.includes('strokeWidth="12"') &&
     !/REFERENCE_SESSION_ROWS|Write Parent Harness Evidence Boundary Doc|Write Harness Tool Call Documentation|Design Postquantum Computers Website/.test(
       hypervisorActivityBarSource,
     ) &&
-    /\.chat-activity-brand svg\s*\{[\s\S]*width: 18px;[\s\S]*height: 18px;/.test(
+    /\.hypervisor-activity-brand svg\s*\{[\s\S]*width: 18px;[\s\S]*height: 18px;/.test(
       hypervisorShellBaseCssSource,
     ) &&
-    /\.chat-activity-brand-tick\s*\{[\s\S]*width: 1px;[\s\S]*height: 13px;/.test(
+    /\.hypervisor-activity-brand-tick\s*\{[\s\S]*width: 1px;[\s\S]*height: 13px;/.test(
       hypervisorShellBaseCssSource,
     ) &&
-    !hypervisorActivityBarSource.includes("chat-activity-button--account") &&
+    !hypervisorActivityBarSource.includes("hypervisor-activity-button--account") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
       hypervisorShellNavigationSource,
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatActivityBarIcons.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRailIcons.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   ],
   "Hypervisor shell must bind Phase 0A to the IOI reference cockpit contract and derive rail shortcuts from that contract.",
@@ -1096,7 +1096,7 @@ assert(
     "apps/hypervisor/src/services/workspaceShellState.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell",
     "packages/workspace-substrate/src/codeOss.ts",
     "packages/workspace-substrate/src/types.ts",

@@ -13,7 +13,7 @@ import { useHypervisorShellController } from "../useHypervisorShellController";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "../hypervisorDaemonEndpoint";
-import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
+import { HypervisorActivityRail } from "./HypervisorActivityRail";
 import { CapabilitiesView } from "../../../surfaces/Capabilities";
 import { EnvironmentEstateView } from "../../../surfaces/Environments/EnvironmentEstateView";
 import { InboxView } from "../../../surfaces/Inbox";
@@ -3061,7 +3061,7 @@ export function HypervisorShellContent({
           workspaceActive && "chat-workspace--workspace-mode",
         )}
       >
-        <ChatLocalActivityBar
+        <HypervisorActivityRail
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
           onOpenNewSession={controller.modals.openNewSessionModal}

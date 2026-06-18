@@ -1427,18 +1427,18 @@
   color: #424242;
 }
 
-:root[data-hypervisor-theme^="light"] .chat-activity-bar {
-  --chat-activity-bg: #ffffff;
-  --chat-activity-border: #e5e7eb;
-  --chat-activity-divider: #eef0f2;
-  --chat-activity-text: #6f737a;
-  --chat-activity-text-strong: #1f1f1f;
-  --chat-activity-text-muted: #9b9da3;
-  --chat-activity-hover-bg: #f3f3f3;
-  --chat-activity-active-bg: #eeeeee;
-  --chat-activity-active-hover-bg: #e8e8e8;
-  --chat-activity-avatar-bg: #ffffff;
-  --chat-activity-avatar-text: #1f1f1f;
+:root[data-hypervisor-theme^="light"] .hypervisor-activity-bar {
+  --hypervisor-activity-bg: #ffffff;
+  --hypervisor-activity-border: #e5e7eb;
+  --hypervisor-activity-divider: #eef0f2;
+  --hypervisor-activity-text: #6f737a;
+  --hypervisor-activity-text-strong: #1f1f1f;
+  --hypervisor-activity-text-muted: #9b9da3;
+  --hypervisor-activity-hover-bg: #f3f3f3;
+  --hypervisor-activity-active-bg: #eeeeee;
+  --hypervisor-activity-active-hover-bg: #e8e8e8;
+  --hypervisor-activity-avatar-bg: #ffffff;
+  --hypervisor-activity-avatar-text: #1f1f1f;
 }
 
 :root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {

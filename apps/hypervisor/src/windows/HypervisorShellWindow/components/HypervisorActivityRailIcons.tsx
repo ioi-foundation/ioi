@@ -119,7 +119,7 @@ export const ComposeIcon = () => (
   </svg>
 );
 
-export const ChatLogoIcon = () => (
+export const HypervisorRailLogoIcon = () => (
   <svg
     width="20"
     height="20"

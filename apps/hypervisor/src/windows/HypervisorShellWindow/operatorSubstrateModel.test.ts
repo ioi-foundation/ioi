@@ -328,7 +328,7 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
     "utf8",
   );
   const activityRail = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     "utf8",
   );
   const workspaceRail = readFileSync(

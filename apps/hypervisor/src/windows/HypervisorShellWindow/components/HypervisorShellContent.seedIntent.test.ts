@@ -400,19 +400,19 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #ffffff;[\s\S]*width: 300px;/,
+  /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.hypervisor-activity-bar\s*\{[\s\S]*--hypervisor-activity-bg: #ffffff;[\s\S]*width: 300px;/,
   "The primary rail should use the IOI reference light navigation shell",
 );
 
 assert.match(
   traceAndWelcomeCss,
-  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #ffffff;/,
+  /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar\s*\{[\s\S]*--hypervisor-activity-bg: #ffffff;/,
   "Light content theme should preserve the IOI reference light rail palette",
 );
 
 assert.doesNotMatch(
   traceAndWelcomeCss,
-  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #252b33;/,
+  /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar\s*\{[\s\S]*--hypervisor-activity-bg: #252b33;/,
   "Light content theme should keep the reference light rail palette",
 );
 

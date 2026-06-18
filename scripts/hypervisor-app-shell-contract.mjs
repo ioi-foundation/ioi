@@ -152,7 +152,7 @@ async function main() {
       (await page.locator("[data-home-recent-sessions]").count()) === 0,
       "Home revived the old static recent-session shortcut model.",
     );
-    const initialSessionRows = page.locator(".chat-activity-session-row");
+    const initialSessionRows = page.locator(".hypervisor-activity-session-row");
     const initialSessionRowCount = await initialSessionRows.count();
     assert(
       initialSessionRowCount >= 3,
@@ -169,16 +169,16 @@ async function main() {
       "Fresh Home session rail rows are not backed by launched-session projection refs.",
     );
     assert(
-      (await page.locator(".chat-activity-profile-indicator").count()) === 1 &&
+      (await page.locator(".hypervisor-activity-profile-indicator").count()) === 1 &&
         bodyText.includes("IOI Workspace") &&
         bodyText.includes("Operator"),
       "Left rail does not expose the reference-style workspace/user footer.",
     );
-    const brandMark = page.locator(".chat-activity-brand svg").first();
+    const brandMark = page.locator(".hypervisor-activity-brand svg").first();
     const brandMarkBox = await brandMark.boundingBox();
-    const brandTickCount = await page.locator(".chat-activity-brand-tick").count();
+    const brandTickCount = await page.locator(".hypervisor-activity-brand-tick").count();
     assert(
-      (await page.locator(".chat-activity-brand svg polygon").count()) >= 10 &&
+      (await page.locator(".hypervisor-activity-brand svg polygon").count()) >= 10 &&
         brandMarkBox &&
         brandMarkBox.width <= 22 &&
         brandMarkBox.height <= 22 &&
@@ -272,7 +272,7 @@ async function main() {
       "Compatible redacted external harness launch should be available.",
     );
     const launchedSessionRowCountBeforeRecipeSelection = await page
-      .locator(".chat-activity-session-row")
+      .locator(".hypervisor-activity-session-row")
       .count();
     assert(
       launchedSessionRowCountBeforeRecipeSelection >= 3,
@@ -299,18 +299,18 @@ async function main() {
       "Selecting a New Session recipe should keep the governed setup modal open.",
     );
     assert(
-      (await page.locator(".chat-activity-session-row").count()) ===
+      (await page.locator(".hypervisor-activity-session-row").count()) ===
         launchedSessionRowCountBeforeRecipeSelection,
       "Selecting a New Session recipe must not create an additional launched session projection.",
     );
     await page.locator('[data-new-session-start-selected="true"]').click();
     await page.waitForFunction(() =>
-      Array.from(document.querySelectorAll(".chat-activity-session-row")).some(
+      Array.from(document.querySelectorAll(".hypervisor-activity-session-row")).some(
         (row) => row.textContent?.includes("Workbench for IOI Workspace"),
       ),
     );
     const launchedSessionRows = await page
-      .locator(".chat-activity-session-row")
+      .locator(".hypervisor-activity-session-row")
       .allInnerTexts();
     assert(
       launchedSessionRows.some((row) =>

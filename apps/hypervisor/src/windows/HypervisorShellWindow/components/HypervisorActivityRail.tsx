@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  ChatLogoIcon,
+  HypervisorRailLogoIcon,
   ComposeIcon,
   EnvironmentIcon,
   HomeIcon,
@@ -14,7 +14,7 @@ import {
   ShieldIcon,
   SparklesIcon,
   WorkspaceIcon,
-} from "./ChatActivityBarIcons";
+} from "./HypervisorActivityRailIcons";
 import type { PrimaryView } from "../hypervisorShellModel";
 import { WORKSPACE_NAME } from "../hypervisorShellModel";
 import {
@@ -31,7 +31,7 @@ import {
 } from "../operatorSubstrateModel";
 import type { AssistantUserProfile } from "../../../types";
 
-interface ChatLocalActivityBarProps {
+interface HypervisorActivityRailProps {
   activeView: PrimaryView;
   onViewChange: (view: PrimaryView) => void;
   onOpenNewSession: () => void;
@@ -61,7 +61,7 @@ interface ReferenceRailButtonProps {
   onClick: () => void;
 }
 
-const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
+const HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY =
   "hypervisor.primaryRailCollapsed.v2";
 const GENERIC_HOME_NEW_SESSION_INTENT =
   "Open a governed Hypervisor session for this workspace.";
@@ -119,7 +119,7 @@ function ActivityButton({
   return (
     <button
       type="button"
-      className={`chat-activity-button ${isActive ? "is-active" : ""} ${
+      className={`hypervisor-activity-button ${isActive ? "is-active" : ""} ${
         item.routeState === "planned_surface" ? "is-planned" : ""
       }`}
       data-window-surface={item.dataWindowSurface}
@@ -137,16 +137,16 @@ function ActivityButton({
       }
     >
       <span
-        className={`chat-activity-button-icon ${
+        className={`hypervisor-activity-button-icon ${
           item.dataWindowSurface === "agents" ? "is-capabilities" : ""
         }`}
         aria-hidden="true"
       >
         {icon}
       </span>
-      <span className="chat-activity-button-label">{item.label}</span>
+      <span className="hypervisor-activity-button-label">{item.label}</span>
       {item.badgeCount && item.badgeCount > 0 ? (
-        <span className="chat-activity-button-badge" aria-label={`${item.badgeCount} pending`}>
+        <span className="hypervisor-activity-button-badge" aria-label={`${item.badgeCount} pending`}>
           {item.badgeCount > 9 ? "9+" : item.badgeCount}
         </span>
       ) : null}
@@ -169,7 +169,7 @@ function ReferenceRailButton({
   return (
     <button
       type="button"
-      className={`chat-activity-button chat-activity-button--reference ${
+      className={`hypervisor-activity-button hypervisor-activity-button--reference ${
         isActive ? "is-active" : ""
       }`}
       data-window-surface={dataWindowSurface}
@@ -178,20 +178,20 @@ function ReferenceRailButton({
       aria-label={label}
       title={title}
     >
-      <span className="chat-activity-button-icon" aria-hidden="true">
+      <span className="hypervisor-activity-button-icon" aria-hidden="true">
         {icon}
       </span>
-      <span className="chat-activity-button-label">{label}</span>
+      <span className="hypervisor-activity-button-label">{label}</span>
       {shortcutKeys.length > 0 || trailingIcon ? (
-        <span className="chat-activity-button-trailing" aria-hidden="true">
+        <span className="hypervisor-activity-button-trailing" aria-hidden="true">
           {shortcutKeys.length > 0 ? (
             <span
-              className={`chat-activity-button-shortcuts chat-activity-button-shortcuts--${shortcutVariant}`}
+              className={`hypervisor-activity-button-shortcuts hypervisor-activity-button-shortcuts--${shortcutVariant}`}
             >
               {shortcutKeys.map((key) => (
                 <span
                   key={key}
-                  className={`chat-activity-button-shortcut chat-activity-button-shortcut--${shortcutVariant}`}
+                  className={`hypervisor-activity-button-shortcut hypervisor-activity-button-shortcut--${shortcutVariant}`}
                 >
                   {key}
                 </span>
@@ -199,14 +199,14 @@ function ReferenceRailButton({
             </span>
           ) : null}
           {trailingIcon ? (
-            <span className="chat-activity-button-trailing-icon">
+            <span className="hypervisor-activity-button-trailing-icon">
               {trailingIcon}
             </span>
           ) : null}
         </span>
       ) : null}
       {badgeCount && badgeCount > 0 ? (
-        <span className="chat-activity-button-badge" aria-label={`${badgeCount} pending`}>
+        <span className="hypervisor-activity-button-badge" aria-label={`${badgeCount} pending`}>
           {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       ) : null}
@@ -315,7 +315,7 @@ function launchedSessionRailBadge(
   }
 }
 
-export function ChatLocalActivityBar({
+export function HypervisorActivityRail({
   activeView,
   onViewChange,
   onOpenNewSession,
@@ -323,10 +323,10 @@ export function ChatLocalActivityBar({
   notificationCount,
   profile,
   launchedSessions,
-}: ChatLocalActivityBarProps) {
+}: HypervisorActivityRailProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    const stored = window.localStorage.getItem(CHAT_ACTIVITY_BAR_COLLAPSED_KEY);
+    const stored = window.localStorage.getItem(HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY);
     return stored === "true";
   });
 
@@ -348,7 +348,7 @@ export function ChatLocalActivityBar({
 
   useEffect(() => {
     window.localStorage.setItem(
-      CHAT_ACTIVITY_BAR_COLLAPSED_KEY,
+      HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY,
       collapsed ? "true" : "false",
     );
   }, [collapsed]);
@@ -393,7 +393,7 @@ export function ChatLocalActivityBar({
 
   return (
     <aside
-      className={`chat-activity-bar ${collapsed ? "is-collapsed" : ""}`}
+      className={`hypervisor-activity-bar ${collapsed ? "is-collapsed" : ""}`}
       role="navigation"
       aria-label="Hypervisor navigation"
       data-collapsed={collapsed ? "true" : "false"}
@@ -402,48 +402,48 @@ export function ChatLocalActivityBar({
       data-ioi-reference-primary-rail="true"
       data-left-nav-surfaces={referenceLeftNavSurfaceIds.join(" ")}
     >
-      <div className="chat-activity-brand-row">
+      <div className="hypervisor-activity-brand-row">
         <button
           type="button"
-          className="chat-activity-brand"
+          className="hypervisor-activity-brand"
           aria-label="Open Hypervisor home"
           onClick={() => onViewChange("home")}
         >
-          <span className="chat-activity-brand-tick" aria-hidden="true" />
-          <ChatLogoIcon />
-          <span className="chat-activity-brand-tick" aria-hidden="true" />
+          <span className="hypervisor-activity-brand-tick" aria-hidden="true" />
+          <HypervisorRailLogoIcon />
+          <span className="hypervisor-activity-brand-tick" aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="chat-activity-collapse-button"
-          aria-label={collapsed ? "Expand activity bar" : "Collapse activity bar"}
+          className="hypervisor-activity-collapse-button"
+          aria-label={collapsed ? "Expand hypervisor activity rail" : "Collapse hypervisor activity rail"}
           aria-pressed={collapsed}
-          title={collapsed ? "Expand activity bar" : "Collapse activity bar"}
+          title={collapsed ? "Expand hypervisor activity rail" : "Collapse hypervisor activity rail"}
           onClick={() => setCollapsed((value) => !value)}
         >
           <CollapseIcon collapsed={collapsed} />
         </button>
       </div>
 
-      <div className="chat-activity-group" aria-label="Primary surfaces">
+      <div className="hypervisor-activity-group" aria-label="Primary surfaces">
         <button
           type="button"
-          className="chat-activity-button chat-activity-button--new-session"
+          className="hypervisor-activity-button hypervisor-activity-button--new-session"
           data-window-surface="new-session"
           onClick={onOpenNewSession}
           aria-label="New Session"
           title={HYPERVISOR_PRIMARY_ACTION.description}
         >
           <span
-            className="chat-activity-button-icon chat-activity-button-icon--plus"
+            className="hypervisor-activity-button-icon hypervisor-activity-button-icon--plus"
             aria-hidden="true"
           >
             +
           </span>
-          <span className="chat-activity-button-label">New Session</span>
-          <span className="chat-activity-button-shortcuts" aria-hidden="true">
-            <span className="chat-activity-button-shortcut">Ctrl</span>
-            <span className="chat-activity-button-shortcut">O</span>
+          <span className="hypervisor-activity-button-label">New Session</span>
+          <span className="hypervisor-activity-button-shortcuts" aria-hidden="true">
+            <span className="hypervisor-activity-button-shortcut">Ctrl</span>
+            <span className="hypervisor-activity-button-shortcut">O</span>
           </span>
         </button>
         {topNavItems.map((item) => (
@@ -456,7 +456,7 @@ export function ChatLocalActivityBar({
         ))}
       </div>
 
-      <div className="chat-activity-group chat-activity-group--sessions" aria-label="Sessions">
+      <div className="hypervisor-activity-group hypervisor-activity-group--sessions" aria-label="Sessions">
         {sessionsNavItem ? (
           <ReferenceRailButton
             label="Sessions"
@@ -473,20 +473,20 @@ export function ChatLocalActivityBar({
       </div>
 
       {launchedSessions.length > 0 ? (
-        <div className="chat-activity-projects" aria-label="Session shortcuts">
-          <div className="chat-activity-project-label">
+        <div className="hypervisor-activity-projects" aria-label="Session shortcuts">
+          <div className="hypervisor-activity-project-label">
             <span aria-hidden="true">⌄</span>
             <span>From scratch</span>
           </div>
           <div
-            className="chat-activity-session-list"
+            className="hypervisor-activity-session-list"
             data-ioi-reference-session-list="from-launched-sessions"
           >
             {launchedSessions.slice(0, 3).map((session) => (
               <button
                 type="button"
                 key={session.session_ref}
-                className="chat-activity-session-row"
+                className="hypervisor-activity-session-row"
                 data-session-status={
                   session.admission_state === "daemon_admitted" ? "active" : "idle"
                 }
@@ -495,12 +495,12 @@ export function ChatLocalActivityBar({
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}
               >
-                <span className="chat-activity-session-row__dot" aria-hidden="true" />
-                <span className="chat-activity-session-row__copy">
+                <span className="hypervisor-activity-session-row__dot" aria-hidden="true" />
+                <span className="hypervisor-activity-session-row__copy">
                   <strong>{launchedSessionRailTitle(session)}</strong>
                   <em>{launchedSessionRailMeta(session)}</em>
                 </span>
-                <span className="chat-activity-session-row__badge">
+                <span className="hypervisor-activity-session-row__badge">
                   {launchedSessionRailBadge(session)}
                 </span>
               </button>
@@ -509,9 +509,9 @@ export function ChatLocalActivityBar({
         </div>
       ) : null}
 
-      <div className="chat-activity-spacer" />
+      <div className="hypervisor-activity-spacer" />
 
-      <div className="chat-activity-group chat-activity-group--bottom">
+      <div className="hypervisor-activity-group hypervisor-activity-group--bottom">
         <ReferenceRailButton
           label="Organization settings"
           dataWindowSurface="organization-settings"
@@ -521,7 +521,7 @@ export function ChatLocalActivityBar({
         />
         <button
           type="button"
-          className="chat-activity-profile-indicator"
+          className="hypervisor-activity-profile-indicator"
           data-window-surface="account"
           onClick={() => {
             onViewChange("settings");
@@ -529,14 +529,14 @@ export function ChatLocalActivityBar({
           aria-label={`${workspaceLabel} account for ${profileDisplayName}`}
           title={`${workspaceLabel} · ${profileDisplayName} · ${profileRoleLabel}`}
         >
-          <span className="chat-activity-profile-avatar" aria-hidden="true">
+          <span className="hypervisor-activity-profile-avatar" aria-hidden="true">
             {profileInitials}
           </span>
-          <span className="chat-activity-profile-label">
+          <span className="hypervisor-activity-profile-label">
             <strong>{workspaceLabel}</strong>
             <em>{profileDisplayName}</em>
           </span>
-          <span className="chat-activity-profile-menu-indicator" aria-hidden="true">
+          <span className="hypervisor-activity-profile-menu-indicator" aria-hidden="true">
             ⌄
           </span>
         </button>
@@ -544,5 +544,3 @@ export function ChatLocalActivityBar({
     </aside>
   );
 }
-
-export const LocalActivityBar = ChatLocalActivityBar;
