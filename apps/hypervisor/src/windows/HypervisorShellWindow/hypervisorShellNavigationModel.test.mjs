@@ -262,8 +262,9 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /HYPERVISOR_SESSION_WORKSPACE_MODES/);
   assert.match(
     source,
-    /HYPERVISOR_SESSION_WORKSPACE_MODES = \[[\s\S]*mode_id: "code"[\s\S]*label: "Code"[\s\S]*mode_id: "conversation"[\s\S]*label: "Conversation"/,
+    /HYPERVISOR_SESSION_WORKSPACE_MODES = \[[\s\S]*mode_id: "code"[\s\S]*label: "Code"[\s\S]*\] as const/,
   );
+  assert.doesNotMatch(source, /mode_id: "conversation"|label: "Conversation"/);
   assert.match(source, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
   assert.match(
     source,
@@ -282,14 +283,15 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
 });
 
 test("visible shell chrome uses Hypervisor labels over compatibility route keys", () => {
-  assert.match(operatorSubstrate, /sessions: "Sessions"/);
-  assert.match(operatorSubstrate, /projects: "Projects"/);
-  assert.match(operatorSubstrate, /workbench: "Workbench"/);
-  assert.match(operatorSubstrate, /automations: "Automations"/);
-  assert.match(operatorSubstrate, /insights: "Insights"/);
-  assert.match(operatorSubstrate, /models: "Models"/);
-  assert.match(operatorSubstrate, /agents: "Agents"/);
-  assert.match(operatorSubstrate, /authority: "Authority"/);
+  assert.match(source, /id: "sessions"[\s\S]*label: "Sessions"/);
+  assert.match(source, /id: "projects"[\s\S]*label: "Projects"/);
+  assert.match(source, /id: "workbench"[\s\S]*label: "Workbench"/);
+  assert.match(source, /id: "automations"[\s\S]*label: "Automations"/);
+  assert.match(source, /id: "insights"[\s\S]*label: "Insights"/);
+  assert.match(source, /id: "models"[\s\S]*label: "Models"/);
+  assert.match(source, /id: "agents"[\s\S]*label: "Agents"/);
+  assert.match(source, /id: "authority"[\s\S]*label: "Authority"/);
+  assert.match(operatorSubstrate, /label: surface\.label/);
   assert.doesNotMatch(
     operatorSubstrate,
     /HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES/,
@@ -297,7 +299,7 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(operatorSubstrate, /routeState: "active_route"/);
   assert.match(
     operatorSubstrate,
-    /Search Hypervisor, projects, insights, sessions, and commands/,
+    /Search sessions, surfaces, commands, receipts, and workspace context/,
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
   assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);
@@ -526,11 +528,7 @@ test("new session modal is a shell-level governed launch flow", () => {
     launchedSessionPersistence,
     /runtimeTruthSource !== "daemon-runtime"/,
   );
-  assert.match(controller, /const summary = request\.launch_summary/);
-  assert.match(controller, /summary\.seed_intent/);
-  assert.match(controller, /summary\.harness_label/);
-  assert.match(controller, /summary\.model_route_availability_state/);
-  assert.match(controller, /summary\.code_editor_adapter_ref/);
+  assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{[\s\S]*request,[\s\S]*recipe,[\s\S]*projectLabel: project\.name,[\s\S]*codeEditorAdapterAdmission/);
   assert.match(controller, /setCurrentProjectId\(project\.id\)/);
   assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);
@@ -635,7 +633,7 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
   assert.match(
     shellContent,
-    /data-session-reference-detail="code-conversation"/,
+    /data-session-reference-detail="code-workspace"/,
   );
   assert.match(shellContent, /aria-label="Session workspace modes"/);
   assert.match(shellContent, /data-session-workspace-mode-list/);
@@ -644,8 +642,8 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
     /\.filter\(\s*\(mode\) => mode\.mode_id === "code"/,
   );
   assert.match(shellContent, /data-session-workspace-mode=\{mode\.mode_id\}/);
-  assert.match(shellContent, /data-session-reference-page="conversation-detail"/);
-  assert.match(shellContent, /data-session-conversation-cockpit/);
+  assert.match(shellContent, /data-session-reference-page="workspace-detail"/);
+  assert.match(shellContent, /data-session-workspace-cockpit/);
   assert.match(shellContent, /What do you want to get done today\?/);
   assert.match(shellContent, /Describe your task or type \/ for commands/);
   assert.match(

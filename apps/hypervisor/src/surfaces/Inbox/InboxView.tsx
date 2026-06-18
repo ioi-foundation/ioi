@@ -10,7 +10,7 @@ import {
 } from "../../lib/operatorInboxQueue";
 import { runAssistantNotificationAction } from "../../lib/operatorNotifications";
 import { NotificationDetailPanel } from "./NotificationDetailPanel";
-import type { AssistantNotificationRecord, AssistantWorkbenchSession } from "../../types";
+import type { AssistantNotificationRecord } from "../../types";
 
 interface InboxViewProps {
   onOpenHypervisor: () => void;
@@ -18,12 +18,6 @@ interface InboxViewProps {
   onOpenLocalEngine: () => void;
   onOpenShield: (connectorId?: string | null) => void;
   onOpenSettings: () => void;
-  onOpenReplyComposer: (
-    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
-  ) => void;
-  onOpenMeetingPrep: (
-    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
-  ) => void;
 }
 
 export function InboxView({
@@ -32,8 +26,6 @@ export function InboxView({
   onOpenLocalEngine,
   onOpenShield,
   onOpenSettings,
-  onOpenReplyComposer,
-  onOpenMeetingPrep,
 }: InboxViewProps) {
   const {
     interventions,
@@ -208,8 +200,6 @@ export function InboxView({
           onClose={() => setSelectedItemKey(null)}
           onOpenHypervisor={onOpenHypervisor}
           onOpenLocalEngine={onOpenLocalEngine}
-          onOpenReplyComposer={onOpenReplyComposer}
-          onOpenMeetingPrep={onOpenMeetingPrep}
           onOpenIntegrations={onOpenIntegrations}
           onOpenShield={onOpenShield}
         />

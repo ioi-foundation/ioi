@@ -1401,7 +1401,7 @@ function PortEmptyIcon() {
   );
 }
 
-function ConversationIoiMark() {
+function WorkspaceIoiMark() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path
@@ -1505,7 +1505,7 @@ function HypervisorSessionOperationsCockpit() {
       <div
         className="hypervisor-session-operations__reference-page"
         aria-label="Selected session detail"
-        data-session-reference-page="conversation-detail"
+        data-session-reference-page="workspace-detail"
       >
         <header className="hypervisor-session-operations__session-topbar">
           <button
@@ -1548,7 +1548,7 @@ function HypervisorSessionOperationsCockpit() {
         <div
           className="hypervisor-session-operations__session-tabs"
           aria-label="Session workspace and detail tabs"
-          data-session-reference-detail="code-conversation"
+          data-session-reference-detail="code-workspace"
         >
           <div
             className="hypervisor-session-operations__workspace-modes"
@@ -1584,7 +1584,7 @@ function HypervisorSessionOperationsCockpit() {
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
               <SessionOctagonIcon />
             </span>
-            <strong>Conversation</strong>
+            <strong>Workspace</strong>
           </button>
           <span
             hidden
@@ -1605,23 +1605,23 @@ function HypervisorSessionOperationsCockpit() {
 
         <div className="hypervisor-session-operations__body">
           <main
-            className="hypervisor-session-operations__conversation"
-            aria-label="Conversation task cockpit"
-            data-session-conversation-cockpit={projection.selected_session_ref}
+            className="hypervisor-session-operations__workspace"
+            aria-label="Session workspace cockpit"
+            data-session-workspace-cockpit={projection.selected_session_ref}
             data-session-environment-lifecycle-state={projection.lifecycle_state}
           >
-            <div className="hypervisor-session-operations__conversation-center">
+            <div className="hypervisor-session-operations__workspace-center">
               <div
-                className="hypervisor-session-operations__conversation-mark"
+                className="hypervisor-session-operations__workspace-mark"
                 aria-hidden="true"
               >
                 <span />
-                <ConversationIoiMark />
+                <WorkspaceIoiMark />
                 <span />
               </div>
               <h2>What do you want to get done today?</h2>
               <p>Here are some suggestions to get you started</p>
-              <div className="hypervisor-session-operations__conversation-suggestions">
+              <div className="hypervisor-session-operations__workspace-suggestions">
                 {[
                   "Automate env setup",
                   "Fix a bug",
@@ -3217,8 +3217,6 @@ export function HypervisorShellContent({
                       onOpenSettings={() =>
                         controller.changePrimaryView("settings")
                       }
-                      onOpenReplyComposer={controller.chat.openReplyComposer}
-                      onOpenMeetingPrep={controller.chat.openMeetingPrep}
                     />
                   ) : null}
 

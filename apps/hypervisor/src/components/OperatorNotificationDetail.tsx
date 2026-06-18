@@ -8,7 +8,6 @@ import {
 import { notificationTargetConnectorId } from "../lib/notificationTargets";
 import type {
   AssistantNotificationRecord,
-  AssistantWorkbenchSession,
   InterventionRecord,
 } from "../types";
 
@@ -20,12 +19,6 @@ type OperatorNotificationDetailProps = {
   onClose: () => void;
   onOpenChat: () => void;
   onOpenInbox?: () => void;
-  onOpenReplyComposer: (
-    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
-  ) => void;
-  onOpenMeetingPrep: (
-    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
-  ) => void;
   onOpenCapabilities: (connectorId?: string | null) => void;
   onOpenPolicy: (connectorId?: string | null) => void;
   onOpenLocalEngine: () => void;
@@ -83,8 +76,6 @@ export function OperatorNotificationDetail({
   onClose,
   onOpenChat,
   onOpenInbox,
-  onOpenReplyComposer,
-  onOpenMeetingPrep,
   onOpenCapabilities,
   onOpenPolicy,
   onOpenLocalEngine,
@@ -291,8 +282,6 @@ export function OperatorNotificationDetail({
           subscription={subscription}
           busy={busy}
           runSubscriptionAction={runSubscriptionAction}
-          onOpenReplyComposer={onOpenReplyComposer}
-          onOpenMeetingPrep={onOpenMeetingPrep}
           onOpenCapabilities={onOpenCapabilities}
           onOpenPolicy={onOpenPolicy}
           onOpenInbox={onOpenInbox}

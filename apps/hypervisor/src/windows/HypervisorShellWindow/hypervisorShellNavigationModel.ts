@@ -90,7 +90,7 @@ export type HypervisorSessionDetailTab =
   | "receipts"
   | "replay";
 
-export type HypervisorSessionWorkspaceMode = "code" | "conversation";
+export type HypervisorSessionWorkspaceMode = "code";
 
 export type HypervisorSessionChangeInspectorMode =
   | "changes"
@@ -857,11 +857,6 @@ export const HYPERVISOR_SESSION_WORKSPACE_MODES = [
     mode_id: "code",
     label: "Code",
     summary: "Adapter-backed workspace view for files, diffs, terminals, and patches.",
-  },
-  {
-    mode_id: "conversation",
-    label: "Conversation",
-    summary: "Session transcript, model turns, approvals, blockers, and ownership passes.",
   },
 ] as const satisfies ReadonlyArray<{
   mode_id: HypervisorSessionWorkspaceMode;

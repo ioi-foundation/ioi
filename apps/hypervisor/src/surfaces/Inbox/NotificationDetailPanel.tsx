@@ -1,6 +1,5 @@
 import { OperatorNotificationDetail } from "../../components/OperatorNotificationDetail";
 import type {
-  AssistantWorkbenchSession,
   AssistantNotificationRecord,
   InterventionRecord,
 } from "../../types";
@@ -10,12 +9,6 @@ interface NotificationDetailPanelProps {
   onClose: () => void;
   onOpenHypervisor: () => void;
   onOpenLocalEngine: () => void;
-  onOpenReplyComposer: (
-    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
-  ) => void;
-  onOpenMeetingPrep: (
-    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
-  ) => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
   onOpenShield: (connectorId?: string | null) => void;
 }
@@ -25,8 +18,6 @@ export function NotificationDetailPanel({
   onClose,
   onOpenHypervisor,
   onOpenLocalEngine,
-  onOpenReplyComposer,
-  onOpenMeetingPrep,
   onOpenIntegrations,
   onOpenShield,
 }: NotificationDetailPanelProps) {
@@ -36,8 +27,6 @@ export function NotificationDetailPanel({
       containerTag="aside"
       onClose={onClose}
       onOpenChat={onOpenHypervisor}
-      onOpenReplyComposer={onOpenReplyComposer}
-      onOpenMeetingPrep={onOpenMeetingPrep}
       onOpenCapabilities={onOpenIntegrations}
       onOpenPolicy={onOpenShield}
       onOpenLocalEngine={onOpenLocalEngine}
@@ -49,7 +38,7 @@ export function NotificationDetailPanel({
       }}
       copy={{
         close: "Close",
-        openChat: "Open chat",
+        openChat: "Open session",
         openCapabilities: "Open Capabilities",
         openPolicy: "Open Shield",
         openLocalEngine: "Open local engine",

@@ -1845,16 +1845,10 @@ assert(
       "onLaunch(buildLaunchRequest(launchRecipe))",
     ) &&
     hypervisorShellControllerSource.includes(
-      "const summary = request.launch_summary",
+      "buildHypervisorLaunchedSessionProjection",
     ) &&
-    hypervisorShellControllerSource.includes("summary.harness_label") &&
-    hypervisorShellControllerSource.includes(
-      "summary.target_binding.session_route_ref",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "summary.model_route_availability_state",
-    ) &&
-    hypervisorShellControllerSource.includes("summary.code_editor_adapter_ref") &&
+    hypervisorShellControllerSource.includes("request,") &&
+    hypervisorShellControllerSource.includes("codeEditorAdapterAdmission") &&
     !hypervisorNewSessionModalSource.includes(
       'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
     ) &&
@@ -2159,9 +2153,9 @@ assert(
     ) &&
     hypervisorShellContentSource.includes("projection.branch_label") &&
     hypervisorShellContentSource.includes(
-      'data-session-reference-page="conversation-detail"',
+      'data-session-reference-page="workspace-detail"',
     ) &&
-    hypervisorShellContentSource.includes("data-session-conversation-cockpit") &&
+    hypervisorShellContentSource.includes("data-session-workspace-cockpit") &&
     hypervisorShellContentSource.includes(
       "What do you want to get done today?",
     ) &&
@@ -2221,7 +2215,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Sessions should hydrate branch, conversation cockpit, detail metadata, inspectors, lifecycle refs, changed files, services, tasks, terminal events, and restore refs through daemon/public runtime routes without reintroducing the non-reference center activity card grid or Sessions-local launch strip.",
+  "Hypervisor Sessions should hydrate branch, workspace cockpit, detail metadata, inspectors, lifecycle refs, changed files, services, tasks, terminal events, and restore refs through daemon/public runtime routes without reintroducing the non-reference center activity card grid or Sessions-local launch strip.",
 );
 assert(
   "hypervisor-project-state-live-projection",

@@ -7,7 +7,6 @@ import {
   sendNotification,
 } from "../../services/hypervisorHostBridge";
 import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
-import { useAssistantWorkbenchState } from "@ioi/hypervisor-workbench";
 import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
 import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
 import { safelyDisposeHostListener } from "../../services/hostListeners";
@@ -16,13 +15,11 @@ import {
   peekPendingChatLaunchRequest,
   type PendingChatLaunchEnvelope,
   recordChatLaunchReceipt,
-  summarizeAssistantWorkbenchSession,
   summarizePendingChatLaunchRequest,
 } from "../../services/chatLaunchState";
 import type {
   AssistantNotificationRecord,
   AssistantUserProfile,
-  AssistantWorkbenchSession,
   ChatCapabilityDetailSection,
   InterventionRecord,
 } from "../../types";
@@ -71,7 +68,6 @@ type ToastCandidate = Pick<
     >
   >;
 
-type ChatSurface = "chat" | "reply-composer" | "meeting-prep";
 type NewSessionModalSeed =
   | string
   | {
@@ -152,28 +148,6 @@ function resolveInitialPrimaryView(): PrimaryView {
   return "home";
 }
 
-function waitForChatHypervisorSurfaceFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") {
-      resolve();
-      return;
-    }
-    let resolved = false;
-    const finish = () => {
-      if (resolved) {
-        return;
-      }
-      resolved = true;
-      resolve();
-    };
-    const timeoutId = window.setTimeout(finish, 48);
-    window.requestAnimationFrame(() => {
-      window.clearTimeout(timeoutId);
-      finish();
-    });
-  });
-}
-
 async function sendNativeHypervisorNotification(
   candidate: ToastCandidate,
 ): Promise<void> {
@@ -218,17 +192,11 @@ function hypervisorBrowserStorage(): Storage | null {
 
 export function useHypervisorShellController() {
   const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
-  const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
-  const [chatPaneVisible, setChatPaneVisible] = useState(false);
-  const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<
     string | null
   >(null);
   const [capabilityGovernanceRequest, setCapabilityGovernanceRequest] =
     useState<CapabilityGovernanceRequest | null>(null);
-  const [hypervisorSeedIntent, setHypervisorSeedIntent] = useState<string | null>(
-    null,
-  );
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
   const [shieldPolicy, setShieldPolicy] = useState<ShieldPolicyState>(() =>
     loadShieldPolicyState(),
@@ -284,36 +252,6 @@ export function useHypervisorShellController() {
     PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
     PROJECT_SCOPES[0];
 
-  const {
-    assistantWorkbench,
-    activateAssistantWorkbench: activateWorkbenchSession,
-    openReplyComposer: activateReplyComposer,
-    openMeetingPrep: activateMeetingPrep,
-  } = useAssistantWorkbenchState({
-    onActivateSession: (_session, surface) => {
-      setChatSurface(surface);
-      setChatPaneVisible(true);
-      setActiveView("missions");
-    },
-  });
-
-  const hideChatPane = () => {
-    setChatPaneVisible(false);
-    setChatPaneMaximized(false);
-  };
-
-  const showChatPane = () => {
-    setChatPaneVisible(true);
-  };
-
-  const toggleChatPaneVisibility = () => {
-    if (chatPaneVisible) {
-      hideChatPane();
-      return;
-    }
-    setChatPaneVisible(true);
-  };
-
   const openRequestedSurface = (view: string) => {
     if (isHypervisorSurfaceId(view)) {
       setActiveView(view);
@@ -322,18 +260,16 @@ export function useHypervisorShellController() {
 
     switch (view) {
       case "reply-composer":
-        setChatSurface("reply-composer");
-        setChatPaneVisible(true);
+        setActiveView("missions");
         return;
       case "meeting-prep":
-        setChatSurface("meeting-prep");
-        setChatPaneVisible(true);
+        setActiveView("missions");
         return;
       case "catalog":
         setActiveView("agents");
         return;
       default:
-        setChatSurface("chat");
+        setActiveView("sessions");
     }
   };
 
@@ -368,10 +304,10 @@ export function useHypervisorShellController() {
   };
 
   const openHypervisorSessionWithIntent = (intent: string) => {
-    setHypervisorSeedIntent(intent);
+    setNewSessionSeedIntent(intent);
+    setNewSessionRecipeId("mission.default");
+    setNewSessionModalOpen(true);
     setActiveView("sessions");
-    setChatSurface("chat");
-    setChatPaneVisible(true);
   };
 
   const launchNewSession = async (request: HypervisorNewSessionLaunchRequest) => {
@@ -427,18 +363,6 @@ export function useHypervisorShellController() {
       });
       return next;
     });
-
-    if (recipe.surface_id === "sessions") {
-      const summary = request.launch_summary;
-      const intentPrefix = summary.seed_intent
-        ? `Intent: ${summary.seed_intent}. `
-        : "";
-      setHypervisorSeedIntent(
-        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Target: ${summary.target_binding.target_kind} via ${summary.target_binding.session_route_ref}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Code editor adapter: ${summary.code_editor_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
-      );
-      setChatSurface("chat");
-      setChatPaneVisible(true);
-    }
 
     setActiveView(recipe.surface_id);
   };
@@ -541,10 +465,7 @@ export function useHypervisorShellController() {
             await bootstrapHypervisorSession({
               refreshCurrentTask: false,
             });
-            setChatSurface("chat");
-            setChatPaneVisible(true);
             setActiveView("sessions");
-            await waitForChatHypervisorSurfaceFrame();
             await recordChatLaunchReceipt(
               "chat_session_followup_submit_dispatching",
               {
@@ -594,12 +515,13 @@ export function useHypervisorShellController() {
           });
           return;
         case "assistant-workbench":
-          activateWorkbenchSession(pendingRequest.session);
+          setActiveView("missions");
           await recordChatLaunchReceipt("chat_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
-            session: summarizeAssistantWorkbenchSession(pendingRequest.session),
+            sessionKind: pendingRequest.session.kind,
+            target: "missions",
           });
           return;
         default:
@@ -850,18 +772,6 @@ export function useHypervisorShellController() {
     setActiveView("automations");
   };
 
-  const openReplyComposer = (
-    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
-  ) => {
-    activateReplyComposer(session);
-  };
-
-  const openMeetingPrep = (
-    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
-  ) => {
-    activateMeetingPrep(session);
-  };
-
   const openSessionTarget = async (sessionId: string) => {
     await bootstrapHypervisorSession({
       refreshCurrentTask: false,
@@ -869,7 +779,6 @@ export function useHypervisorShellController() {
     const store = useHypervisorSessionStore.getState();
     await store.loadSession(sessionId);
     await store.refreshSessionHistory();
-    setChatSurface("chat");
     setActiveView("sessions");
   };
 
@@ -925,33 +834,12 @@ export function useHypervisorShellController() {
     }
   };
 
-  const chatFullscreen =
-    activeView !== "sessions" && chatPaneVisible && chatPaneMaximized;
-
   return {
     activeView,
     notificationBadgeCount,
     currentProject,
     projects: PROJECT_SCOPES,
-    chatFullscreen,
     changePrimaryView,
-    chat: {
-      surface: chatSurface,
-      paneVisible: chatPaneVisible,
-      paneMaximized: chatPaneMaximized,
-      assistantWorkbench,
-      seedIntent: hypervisorSeedIntent,
-      hidePane: hideChatPane,
-      showPane: showChatPane,
-      togglePaneVisibility: toggleChatPaneVisibility,
-      setSurface: setChatSurface,
-      toggleMaximize: () =>
-        setChatPaneMaximized((maximized) => !maximized),
-      consumeSeedIntent: () => setHypervisorSeedIntent(null),
-      openHypervisorSessionWithIntent,
-      openReplyComposer,
-      openMeetingPrep,
-    },
     workflow: {
       openPreflight: openWorkflowPreflight,
       selectProject: setCurrentProjectId,

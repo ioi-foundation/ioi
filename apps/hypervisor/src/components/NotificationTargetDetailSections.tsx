@@ -1,9 +1,7 @@
 import type { ConnectorSubscriptionSummary } from "@ioi/hypervisor-workbench";
-import { buildOperatorWorkbenchSummary } from "../lib/operatorWorkbenchSummary";
 import { notificationTargetConnectorId } from "../lib/notificationTargets";
 import type {
   AssistantNotificationRecord,
-  AssistantWorkbenchSession,
   CalendarEventDetail,
   GmailThreadDetail,
   InterventionRecord,
@@ -37,12 +35,6 @@ interface NotificationTargetDetailSectionsProps {
   runSubscriptionAction: (
     action: "renew" | "resume" | "stop",
   ) => Promise<void>;
-  onOpenReplyComposer: (
-    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
-  ) => void;
-  onOpenMeetingPrep: (
-    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
-  ) => void;
   onOpenCapabilities: (connectorId?: string | null) => void;
   onOpenPolicy: (connectorId?: string | null) => void;
   onOpenInbox?: () => void;
@@ -76,8 +68,6 @@ export function NotificationTargetDetailSections({
   subscription,
   busy,
   runSubscriptionAction,
-  onOpenReplyComposer,
-  onOpenMeetingPrep,
   onOpenCapabilities,
   onOpenPolicy,
   onOpenInbox,
@@ -89,11 +79,6 @@ export function NotificationTargetDetailSections({
   showCalendarCapabilitiesAction = false,
 }: NotificationTargetDetailSectionsProps) {
   const connectorId = notificationTargetConnectorId(item.target);
-  const workbenchSummary = buildOperatorWorkbenchSummary(
-    item,
-    gmailThread,
-    calendarEvent,
-  );
 
   return (
     <>
@@ -108,31 +93,6 @@ export function NotificationTargetDetailSections({
           </div>
           {gmailThread.snippet ? (
             <p className={classNames.snippet}>{gmailThread.snippet}</p>
-          ) : null}
-          {workbenchSummary?.kind === "gmail_reply" ? (
-            <article className={classNames.card}>
-              <div className={classNames.cardHead}>
-                <strong>{workbenchSummary.title}</strong>
-                <span>{workbenchSummary.ctaLabel}</span>
-              </div>
-              <p>{workbenchSummary.summary}</p>
-              {workbenchSummary.meta.length > 0 ? (
-                <div className={classNames.tags}>
-                  {workbenchSummary.meta.map((value) => (
-                    <span key={value}>{value}</span>
-                  ))}
-                </div>
-              ) : null}
-              <div className={classNames.actions}>
-                <button
-                  type="button"
-                  className={classNames.primaryButton}
-                  onClick={() => onOpenReplyComposer(workbenchSummary.session)}
-                >
-                  {workbenchSummary.ctaLabel}
-                </button>
-              </div>
-            </article>
           ) : null}
           <div className={classNames.stack}>
             {gmailThread.messages
@@ -159,24 +119,10 @@ export function NotificationTargetDetailSections({
               ))}
           </div>
           <div className={classNames.actions}>
-            <button
-              type="button"
-              className={classNames.primaryButton}
-              onClick={() =>
-                onOpenReplyComposer({
-                  kind: "gmail_reply",
-                  connectorId: connectorId ?? "google.workspace",
-                  thread: gmailThread,
-                  sourceNotificationId: item.itemId,
-                })
-              }
-            >
-              Open reply composer
-            </button>
             {onOpenInbox ? (
               <button
                 type="button"
-                className={classNames.secondaryButton}
+                className={classNames.primaryButton}
                 onClick={onOpenInbox}
               >
                 Open inbox
@@ -215,31 +161,6 @@ export function NotificationTargetDetailSections({
           {calendarEvent.description ? (
             <p className={classNames.snippet}>{calendarEvent.description}</p>
           ) : null}
-          {workbenchSummary?.kind === "meeting_prep" ? (
-            <article className={classNames.card}>
-              <div className={classNames.cardHead}>
-                <strong>{workbenchSummary.title}</strong>
-                <span>{workbenchSummary.ctaLabel}</span>
-              </div>
-              <p>{workbenchSummary.summary}</p>
-              {workbenchSummary.meta.length > 0 ? (
-                <div className={classNames.tags}>
-                  {workbenchSummary.meta.map((value) => (
-                    <span key={value}>{value}</span>
-                  ))}
-                </div>
-              ) : null}
-              <div className={classNames.actions}>
-                <button
-                  type="button"
-                  className={classNames.primaryButton}
-                  onClick={() => onOpenMeetingPrep(workbenchSummary.session)}
-                >
-                  {workbenchSummary.ctaLabel}
-                </button>
-              </div>
-            </article>
-          ) : null}
           {calendarEvent.attendees.length > 0 ? (
             <div className={classNames.stack}>
               {calendarEvent.attendees
@@ -263,20 +184,6 @@ export function NotificationTargetDetailSections({
             </div>
           ) : null}
           <div className={classNames.actions}>
-            <button
-              type="button"
-              className={classNames.primaryButton}
-              onClick={() =>
-                onOpenMeetingPrep({
-                  kind: "meeting_prep",
-                  connectorId: connectorId ?? "google.workspace",
-                  event: calendarEvent,
-                  sourceNotificationId: item.itemId,
-                })
-              }
-            >
-              Open prep workbench
-            </button>
             {showCalendarExternalLink &&
             calendarEvent.htmlLink &&
             classNames.secondaryLink ? (
@@ -292,7 +199,7 @@ export function NotificationTargetDetailSections({
             {onOpenInbox ? (
               <button
                 type="button"
-                className={classNames.secondaryButton}
+                className={classNames.primaryButton}
                 onClick={onOpenInbox}
               >
                 Open inbox

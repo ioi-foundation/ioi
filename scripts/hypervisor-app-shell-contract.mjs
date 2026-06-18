@@ -339,14 +339,14 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector('[data-session-reference-page="conversation-detail"]');
+    await page.waitForSelector('[data-session-reference-page="workspace-detail"]');
     const sessionsText = await page.locator("body").innerText();
     assert(
       sessionsText.includes("What do you want to get done today?") &&
         sessionsText.includes("Automate env setup") &&
         sessionsText.includes("Fix a bug") &&
         sessionsText.includes("Boost your test coverage"),
-      "Sessions did not render the IOI-reference conversation cockpit.",
+      "Sessions did not render the IOI-reference workspace cockpit.",
     );
     assert(
       (await page
@@ -680,7 +680,7 @@ async function main() {
         "new_session_recipe_selection_review_gated",
         "new_session_launch_creates_readable_session_row",
         "new_session_workbench_launch_opens_workspace_shell",
-        "sessions_reference_conversation_cockpit_rendered",
+        "sessions_reference_workspace_cockpit_rendered",
         "automations_reference_rows_rendered",
         "projects_reference_state_list_rendered",
         "workbench_workspace_session_surface_rendered",
