@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildWorkerPackageInstallAdmissionRequest,
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
+  HYPERVISOR_WORKER_PACKAGE_INSTALL_ADMISSION_PATH,
   loadHypervisorAgentsProjection,
   normalizeHypervisorAgentsProjection,
+  requestWorkerPackageInstallAdmission,
 } from "./hypervisorAgentsModel.ts";
 
 test("agents projection models configured workers without product-surface doctrine", () => {
@@ -141,4 +144,77 @@ test("agents projection loader calls the Hypervisor daemon route", async () => {
     JSON.stringify(projection.records),
     /Daemon agent|Daemon worker|runtime truth/i,
   );
+});
+
+test("worker package install admission request preserves prim and scope boundaries", () => {
+  const agent = HYPERVISOR_AGENTS_PROJECTION_FIXTURE.records[0];
+  assert.ok(agent);
+
+  const request = buildWorkerPackageInstallAdmissionRequest(agent, {
+    ownerRef: "wallet://user/test",
+  });
+
+  assert.equal(request.install_id, "install://aiagent/quant-research-private/managed");
+  assert.equal(request.owner_ref, "wallet://user/test");
+  assert.equal(request.install_mode, "managed_instance_initialization");
+  assert.equal(request.base_ontology_ref, "ontology:aiagent.base.v1");
+  assert.equal(request.runtime_profile, "private_workspace_ctee");
+  assert.ok(request.policy_profile_refs.includes("policy://ctee/private-workspace"));
+  assert.ok(
+    request.primitive_capability_requirements.every((capability) =>
+      capability.startsWith("prim:"),
+    ),
+  );
+  assert.ok(
+    request.authority_scope_requirements.every((scope) =>
+      scope.startsWith("scope:"),
+    ),
+  );
+  assert.ok(
+    request.agentgres_operation_refs.every((ref) =>
+      ref.startsWith("agentgres://operation/"),
+    ),
+  );
+  assert.ok(request.receipt_refs.length > 0);
+  assert.equal(request.managed_instance_ref, "agent://quant-research-private");
+});
+
+test("worker package install admission client posts to daemon route", async () => {
+  const agent = HYPERVISOR_AGENTS_PROJECTION_FIXTURE.records[1];
+  assert.ok(agent);
+  const requests: Array<{ input: string; init?: { body?: string } }> = [];
+
+  const admission = await requestWorkerPackageInstallAdmission({
+    agent,
+    endpoint: "http://daemon.test/",
+    fetchImpl: async (input, init) => {
+      requests.push({ input, init });
+      return {
+        ok: true,
+        status: 202,
+        async text() {
+          return JSON.stringify({
+            schema_version: "ioi.runtime.worker_package_install_admission.v1",
+            admission_id: "worker-package-install:test",
+            install_id: "install://aiagent/discord-community-steward/managed",
+            worker_package_ref: "package://aiagent/discord-community-steward@1",
+            decision: "admitted",
+            requiresDaemonGate: true,
+            runtimeTruthSource: "daemon-runtime",
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(
+    requests[0]?.input,
+    `http://daemon.test${HYPERVISOR_WORKER_PACKAGE_INSTALL_ADMISSION_PATH}`,
+  );
+  const body = JSON.parse(requests[0]?.init?.body ?? "{}");
+  assert.equal(body.install_id, "install://aiagent/discord-community-steward/managed");
+  assert.equal(body.runtime_profile, "local");
+  assert.deepEqual(body.physical_action_policy_refs, []);
+  assert.equal(admission.decision, "admitted");
+  assert.equal(admission.runtimeTruthSource, "daemon-runtime");
 });

@@ -91,10 +91,12 @@ export const HYPERVISOR_AGENTS_DAEMON_ENDPOINT_STORAGE_KEY =
 export const HYPERVISOR_AGENTS_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_AGENTS_PROJECTION_PATH = "/v1/hypervisor/agents";
+export const HYPERVISOR_WORKER_PACKAGE_INSTALL_ADMISSION_PATH =
+  "/v1/hypervisor/worker-package-install-admissions";
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -112,7 +114,82 @@ interface LoadAgentsProjectionOptions extends NormalizeAgentsProjectionOptions {
   projectId?: string | null;
 }
 
+export interface HypervisorWorkerPackageInstallAdmissionRequest {
+  install_id: string;
+  worker_package_ref: string;
+  worker_manifest_ref: string;
+  owner_ref: string;
+  install_mode:
+    | "local_hypervisor_install"
+    | "managed_instance_initialization"
+    | "api_worker_binding"
+    | "workflow_node_install";
+  base_ontology_ref: string;
+  vertical_pack_refs: string[];
+  integration_surface_refs: string[];
+  primitive_capability_requirements: string[];
+  authority_scope_requirements: string[];
+  risk_classes: string[];
+  policy_profile_refs: string[];
+  receipt_policy_ref: string;
+  evidence_requirement_refs: string[];
+  benchmark_profile_refs: string[];
+  runtime_profile:
+    | "local"
+    | "hosted"
+    | "provider"
+    | "depin"
+    | "private_workspace_ctee"
+    | "tee"
+    | "customer_vpc";
+  persistence_profile: "ephemeral" | "session" | "zero_to_idle" | "persistent";
+  memory_policy_ref: string;
+  archive_policy_ref: string;
+  package_artifact_refs: string[];
+  wallet_approval_ref: string;
+  install_right_ref: string;
+  managed_instance_ref: string;
+  physical_action_policy_refs: string[];
+  safety_envelope_refs: string[];
+  emergency_stop_authority_refs: string[];
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root: string;
+}
+
+export interface HypervisorWorkerPackageInstallAdmission {
+  schema_version: "ioi.runtime.worker_package_install_admission.v1";
+  admission_id: string;
+  install_id: string;
+  worker_package_ref: string;
+  decision: "admitted";
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  [key: string]: unknown;
+}
+
+interface BuildWorkerPackageInstallAdmissionOptions {
+  ownerRef?: string;
+  packageSlug?: string;
+}
+
+interface RequestWorkerPackageInstallAdmissionOptions
+  extends BuildWorkerPackageInstallAdmissionOptions {
+  agent: HypervisorAgentRecord;
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+}
+
 const defaultHarnessRef = getHarnessSelectionRef(DEFAULT_HARNESS_PROFILE_OPTION);
+
+function safeRefSlug(value: string): string {
+  return value
+    .replace(/^[a-z]+:\/\//i, "")
+    .replace(/^[a-z]+:/i, "")
+    .replace(/[^a-zA-Z0-9_.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "agent";
+}
 
 export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
   {
@@ -661,4 +738,104 @@ export async function loadHypervisorAgentsProjection(
     source: options.source ?? "daemon-agents-projection",
     selectedProjectRef: options.projectId ?? undefined,
   });
+}
+
+export function buildWorkerPackageInstallAdmissionRequest(
+  agent: HypervisorAgentRecord,
+  options: BuildWorkerPackageInstallAdmissionOptions = {},
+): HypervisorWorkerPackageInstallAdmissionRequest {
+  const slug = safeRefSlug(options.packageSlug ?? agent.agent_ref);
+  const cteePrivateWorkspace =
+    agent.runtime.privacy_posture_ref === HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF;
+  const authorityScopes = Array.from(
+    new Set(
+      agent.capability_leases.flatMap((lease) =>
+        lease.wallet_authority_scope_refs.filter((scope) =>
+          scope.startsWith("scope:"),
+        ),
+      ),
+    ),
+  );
+  const policyProfileRefs = ["policy://aiagent/worker-install"];
+  if (cteePrivateWorkspace) {
+    policyProfileRefs.push("policy://ctee/private-workspace");
+  }
+
+  return {
+    install_id: `install://aiagent/${slug}/managed`,
+    worker_package_ref: `package://aiagent/${slug}@1`,
+    worker_manifest_ref: `manifest://aiagent/${slug}@1`,
+    owner_ref: options.ownerRef ?? "wallet://current-user",
+    install_mode: "managed_instance_initialization",
+    base_ontology_ref: "ontology:aiagent.base.v1",
+    vertical_pack_refs: ["vertical_pack:aiagent.general.v1"],
+    integration_surface_refs: [
+      "integration_surface:hypervisor_agents",
+      "integration_surface:workspace",
+    ],
+    primitive_capability_requirements: [
+      "prim:worker.run",
+      "prim:workspace.read",
+    ],
+    authority_scope_requirements:
+      authorityScopes.length > 0
+        ? authorityScopes
+        : ["scope:worker.lifecycle"],
+    risk_classes: ["agentic_work"],
+    policy_profile_refs: policyProfileRefs,
+    receipt_policy_ref: "receipt_policy://aiagent/worker-install",
+    evidence_requirement_refs: [
+      "evidence_requirement:worker.install.admission.v1",
+    ],
+    benchmark_profile_refs: ["benchmark://aiagent/general-worker.v1"],
+    runtime_profile: cteePrivateWorkspace ? "private_workspace_ctee" : "local",
+    persistence_profile: "persistent",
+    memory_policy_ref: "policy://memory/worker-instance",
+    archive_policy_ref: "policy://archive/worker-instance",
+    package_artifact_refs: [`artifact://package/aiagent/${slug}/v1`],
+    wallet_approval_ref: `approval://wallet/worker-install/${slug}`,
+    install_right_ref: `license://aiagent/install/${slug}`,
+    managed_instance_ref: `agent://${slug}`,
+    physical_action_policy_refs: [],
+    safety_envelope_refs: [],
+    emergency_stop_authority_refs: [],
+    agentgres_operation_refs: agent.agentgres_operation_refs,
+    receipt_refs: agent.latest_receipt_refs,
+    state_root: agent.state_root_ref,
+  };
+}
+
+export async function requestWorkerPackageInstallAdmission(
+  options: RequestWorkerPackageInstallAdmissionOptions,
+): Promise<HypervisorWorkerPackageInstallAdmission> {
+  const endpoint = options.endpoint ?? readHypervisorAgentsDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for worker package install admission");
+  }
+  const body = buildWorkerPackageInstallAdmissionRequest(options.agent, {
+    ownerRef: options.ownerRef,
+    packageSlug: options.packageSlug,
+  });
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_WORKER_PACKAGE_INSTALL_ADMISSION_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    const error = new Error(
+      `Worker package install admission failed with ${response.status}`,
+    );
+    Object.assign(error, { status: response.status, payload: value });
+    throw error;
+  }
+  return value as HypervisorWorkerPackageInstallAdmission;
 }

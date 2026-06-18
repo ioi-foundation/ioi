@@ -112,6 +112,9 @@ const hypervisorAutomationCompositorModelSource = read(
 const hypervisorAgentsModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
 );
+const hypervisorAgentsModelTestSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.test.ts",
+);
 const hypervisorModelInfrastructureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
 );
@@ -1861,9 +1864,18 @@ assert(
   "hypervisor-agents-live-projection",
   hypervisorAgentsModelSource.includes("HYPERVISOR_AGENTS_PROJECTION_PATH") &&
     hypervisorAgentsModelSource.includes(
+      "HYPERVISOR_WORKER_PACKAGE_INSTALL_ADMISSION_PATH",
+    ) &&
+    hypervisorAgentsModelSource.includes(
       "normalizeHypervisorAgentsProjection",
     ) &&
     hypervisorAgentsModelSource.includes("loadHypervisorAgentsProjection") &&
+    hypervisorAgentsModelSource.includes(
+      "buildWorkerPackageInstallAdmissionRequest",
+    ) &&
+    hypervisorAgentsModelSource.includes(
+      "requestWorkerPackageInstallAdmission",
+    ) &&
     hypervisorAgentsModelSource.includes(
       "ioi.hypervisor.agents_projection.v1",
     ) &&
@@ -1872,6 +1884,13 @@ assert(
     hypervisorAgentsModelSource.includes("state_root_ref") &&
     hypervisorShellContentSource.includes("HypervisorAgentsSurface") &&
     hypervisorShellContentSource.includes("loadHypervisorAgentsProjection") &&
+    hypervisorShellContentSource.includes(
+      "data-agent-worker-package-install-admission",
+    ) &&
+    hypervisorShellContentSource.includes("Admit package") &&
+    hypervisorShellContentSource.includes(
+      "requestWorkerPackageInstallAdmission",
+    ) &&
     hypervisorShellContentSource.includes("data-hypervisor-agents-source") &&
     hypervisorShellContentSource.includes(
       "data-agent-capability-management-boundary",
@@ -1886,12 +1905,19 @@ assert(
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor agents through lifecycle projection",
     ) &&
+    hypervisorAgentsModelTestSource.includes(
+      "worker package install admission request preserves prim and scope boundaries",
+    ) &&
+    hypervisorAgentsModelTestSource.includes(
+      "worker package install admission client posts to daemon route",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/agents") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_agents",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",

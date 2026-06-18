@@ -34,8 +34,10 @@ import { materializeWorkflowProject } from "../../../services/workflowProjectMat
 import {
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
   loadHypervisorAgentsProjection,
+  requestWorkerPackageInstallAdmission,
   type HypervisorAgentRecord,
   type HypervisorAgentsProjection,
+  type HypervisorWorkerPackageInstallAdmission,
 } from "../hypervisorAgentsModel";
 import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
@@ -226,6 +228,10 @@ function HypervisorAgentsSurface({
   const [projection, setProjection] = useState<HypervisorAgentsProjection>(
     HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
   );
+  const [installAdmissionState, setInstallAdmissionState] =
+    useState<HypervisorWorkerPackageInstallAdmissionState>({
+      status: "idle",
+    });
 
   useEffect(() => {
     let cancelled = false;
@@ -274,6 +280,10 @@ function HypervisorAgentsSurface({
     null;
 
   useEffect(() => {
+    setInstallAdmissionState({ status: "idle" });
+  }, [selectedAgent?.agent_ref]);
+
+  useEffect(() => {
     if (
       !selectedAgentRef ||
       !projection.records.some((agent) => agent.agent_ref === selectedAgentRef)
@@ -281,6 +291,31 @@ function HypervisorAgentsSurface({
       setSelectedAgentRef(projection.records[0]?.agent_ref ?? null);
     }
   }, [projection.records, selectedAgentRef]);
+
+  const requestSelectedAgentInstallAdmission = async () => {
+    if (!selectedAgent) return;
+    setInstallAdmissionState({ status: "requesting" });
+    try {
+      const admission = await requestWorkerPackageInstallAdmission({
+        agent: selectedAgent,
+      });
+      setInstallAdmissionState({ status: "admitted", admission });
+    } catch (error) {
+      const hasHttpStatus = Boolean(
+        typeof error === "object" &&
+          error !== null &&
+          "status" in error &&
+          Number.isFinite(Number((error as { status?: unknown }).status)),
+      );
+      const status: "blocked" | "unavailable" = hasHttpStatus
+        ? "blocked"
+        : "unavailable";
+      setInstallAdmissionState({
+        status,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   return (
     <section
@@ -373,6 +408,8 @@ function HypervisorAgentsSurface({
             >
               <HypervisorAgentDetail
                 agent={selectedAgent}
+                installAdmission={installAdmissionState}
+                onRequestInstallAdmission={requestSelectedAgentInstallAdmission}
                 onOpenSessions={onOpenSessions}
                 onOpenReceipts={onOpenReceipts}
                 onOpenAuthority={onOpenAuthority}
@@ -391,6 +428,33 @@ function HypervisorAgentsSurface({
       </div>
     </section>
   );
+}
+
+type HypervisorWorkerPackageInstallAdmissionState =
+  | { status: "idle" }
+  | { status: "requesting" }
+  | {
+      status: "admitted";
+      admission: HypervisorWorkerPackageInstallAdmission;
+    }
+  | { status: "blocked" | "unavailable"; message: string };
+
+function formatWorkerPackageInstallAdmission(
+  state: HypervisorWorkerPackageInstallAdmissionState,
+): string {
+  if (state.status === "admitted") {
+    return "Daemon admitted";
+  }
+  if (state.status === "blocked") {
+    return "Daemon blocked";
+  }
+  if (state.status === "unavailable") {
+    return "Daemon unavailable";
+  }
+  if (state.status === "requesting") {
+    return "Requesting";
+  }
+  return "Not requested";
 }
 
 function firstCapabilityLease(agent: HypervisorAgentRecord) {
@@ -634,11 +698,15 @@ function HypervisorAgentRow({
 
 function HypervisorAgentDetail({
   agent,
+  installAdmission,
+  onRequestInstallAdmission,
   onOpenSessions,
   onOpenReceipts,
   onOpenAuthority,
 }: {
   agent: HypervisorAgentRecord;
+  installAdmission: HypervisorWorkerPackageInstallAdmissionState;
+  onRequestInstallAdmission: () => void;
   onOpenSessions: () => void;
   onOpenReceipts: () => void;
   onOpenAuthority: () => void;
@@ -732,11 +800,28 @@ function HypervisorAgentDetail({
             <dt>Checkpoint</dt>
             <dd>Current</dd>
           </div>
+          <div
+            data-agent-worker-package-install-admission={
+              installAdmission.status
+            }
+          >
+            <dt>Install admission</dt>
+            <dd>{formatWorkerPackageInstallAdmission(installAdmission)}</dd>
+          </div>
         </dl>
 
         <div className="hypervisor-agents__actions">
           <button type="button" onClick={onOpenSessions}>
             Open session
+          </button>
+          <button
+            type="button"
+            onClick={onRequestInstallAdmission}
+            disabled={installAdmission.status === "requesting"}
+          >
+            {installAdmission.status === "requesting"
+              ? "Requesting"
+              : "Admit package"}
           </button>
           <button type="button" onClick={onOpenAuthority}>
             Manage access
