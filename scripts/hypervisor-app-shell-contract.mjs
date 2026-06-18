@@ -238,6 +238,51 @@ async function main() {
         brandTickCount === 2,
       "Left rail brand mark must render as the small filled IOI reference mark.",
     );
+    const deepLinkPage = await browser.newPage({
+      viewport: { width: 1440, height: 960 },
+    });
+    try {
+      await deepLinkPage.goto(new URL("workspaces", url).toString(), {
+        waitUntil: "domcontentloaded",
+        timeout: 90_000,
+      });
+      await deepLinkPage.waitForSelector(
+        '[data-session-reference-page="workspace-detail"]',
+      );
+      assert(
+        (await deepLinkPage.locator('[data-window-surface="sessions"].is-active').count()) ===
+          1,
+        "/workspaces should cold boot into the retained Sessions cockpit.",
+      );
+      await deepLinkPage.goto(
+        new URL("details/019ed128-a3fd-7433-8cc3-99afed4a8ac4/logs", url)
+          .toString(),
+        { waitUntil: "domcontentloaded", timeout: 90_000 },
+      );
+      await deepLinkPage.waitForSelector(
+        '[data-session-reference-page="workspace-detail"]',
+      );
+      assert(
+        (await deepLinkPage.locator('[data-window-surface="sessions"].is-active').count()) ===
+          1,
+        "/details/:sessionId/logs should cold boot into the retained Sessions cockpit.",
+      );
+      await deepLinkPage.goto(new URL("ai?user-settings=profile", url).toString(), {
+        waitUntil: "domcontentloaded",
+        timeout: 90_000,
+      });
+      await deepLinkPage.waitForSelector(
+        '[data-settings-reference-shell="ioi-settings"]',
+      );
+      const settingsText = await deepLinkPage.locator("body").innerText();
+      assert(
+        settingsText.includes("User settings") &&
+          settingsText.includes("Account details"),
+        "/ai?user-settings=profile should cold boot into the Settings account surface.",
+      );
+    } finally {
+      await deepLinkPage.close().catch(() => undefined);
+    }
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
     await page.locator('[data-home-start-session="true"]').click();
@@ -865,6 +910,7 @@ async function main() {
         "home_reference_clean_boot_has_no_seeded_recent_sessions",
         "left_rail_workspace_account_footer_rendered",
         "left_rail_reference_brand_mark_rendered",
+        "reference_deep_links_boot_owning_surfaces",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
         "clean_boot_has_no_seeded_session_rail_rows",

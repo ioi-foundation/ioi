@@ -32,12 +32,21 @@ assert.match(
 
 assert.match(
   source,
-  /function resolvePathnamePrimaryView\(pathname: string\): PrimaryView \| null \{[\s\S]*segment === "ai"[\s\S]*return "home";[\s\S]*isSupportedInitialPrimaryView\(segment\) \? segment : null;/,
+  /function resolvePathnamePrimaryView\(pathname: string\): PrimaryView \| null \{[\s\S]*segment === "ai"[\s\S]*return "home";[\s\S]*segment === "workspaces" \|\| segment === "details" \|\| segment === "logs"[\s\S]*return "sessions";[\s\S]*isSupportedInitialPrimaryView\(segment\) \? segment : null;/,
   "canonical Hypervisor paths should boot into their owning surface before pending-launch hydration runs",
 );
 
+assert.match(
+  source,
+  /function resolveInitialSettingsSectionSeed\(\): SettingsSection \| null \{[\s\S]*params\.get\("user-settings"\)[\s\S]*params\.get\("settings"\)[\s\S]*resolveInitialPrimaryView[\s\S]*if \(resolveInitialSettingsSectionSeed\(\)\) \{[\s\S]*return "settings";/,
+  "IOI-reference settings deep links should boot into Settings with a seeded section",
+);
+
 for (const route of [
+  "/workspaces",
   "/sessions",
+  "/details/:sessionId",
+  "/details/:sessionId/logs",
   "/projects",
   "/automations",
   "/insights",

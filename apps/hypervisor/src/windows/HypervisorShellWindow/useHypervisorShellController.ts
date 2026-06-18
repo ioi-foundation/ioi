@@ -118,7 +118,49 @@ function resolvePathnamePrimaryView(pathname: string): PrimaryView | null {
     return "home";
   }
 
+  if (segment === "workspaces" || segment === "details" || segment === "logs") {
+    return "sessions";
+  }
+
   return isSupportedInitialPrimaryView(segment) ? segment : null;
+}
+
+function normalizeSettingsSection(value: string | null): SettingsSection | null {
+  switch (value?.trim().toLowerCase().replace(/-/g, "_")) {
+    case "account":
+    case "identity":
+    case "profile":
+      return "identity";
+    case "secret":
+    case "secrets":
+      return "secrets";
+    case "git":
+    case "git_auth":
+    case "git_authentications":
+      return "git_auth";
+    case "pat":
+    case "pats":
+    case "personal_access_token":
+    case "personal_access_tokens":
+      return "personal_access_tokens";
+    case "integration":
+    case "integrations":
+      return "integrations";
+    default:
+      return null;
+  }
+}
+
+function resolveInitialSettingsSectionSeed(): SettingsSection | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return (
+    normalizeSettingsSection(params.get("user-settings")) ??
+    normalizeSettingsSection(params.get("settings"))
+  );
 }
 
 function resolveInitialPrimaryView(): PrimaryView {
@@ -126,6 +168,10 @@ function resolveInitialPrimaryView(): PrimaryView {
     const requested = new URLSearchParams(window.location.search).get("view");
     if (isSupportedInitialPrimaryView(requested)) {
       return requested;
+    }
+
+    if (resolveInitialSettingsSectionSeed()) {
+      return "settings";
     }
   }
 
@@ -145,6 +191,27 @@ function resolveInitialPrimaryView(): PrimaryView {
   }
 
   return "home";
+}
+
+function waitForChatHypervisorSurfaceFrame(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    const timeoutId = window.setTimeout(finish, 48);
+    window.requestAnimationFrame(() => {
+      window.clearTimeout(timeoutId);
+      finish();
+    });
+  });
 }
 
 async function sendNativeHypervisorNotification(
@@ -234,7 +301,7 @@ export function useHypervisorShellController() {
   const [capabilitiesTargetDetailSection, setCapabilitiesTargetDetailSection] =
     useState<ChatCapabilityDetailSection | null>(null);
   const [settingsSectionSeed, setSettingsSectionSeed] =
-    useState<SettingsSection | null>(null);
+    useState<SettingsSection | null>(resolveInitialSettingsSectionSeed);
   const [workflowPreflightSeed, setWorkflowPreflightSeed] =
     useState<WorkflowComposerPreflightSeed | null>(null);
 
@@ -462,6 +529,7 @@ export function useHypervisorShellController() {
               refreshCurrentTask: false,
             });
             setActiveView("sessions");
+            await waitForChatHypervisorSurfaceFrame();
             await recordChatLaunchReceipt(
               "chat_session_followup_submit_dispatching",
               {
