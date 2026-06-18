@@ -2072,8 +2072,15 @@ assert(
     hypervisorSessionOperationsModelSource.includes("activity_signals") &&
     hypervisorSessionOperationsModelSource.includes("access_log_leases") &&
     hypervisorSessionOperationsModelSource.includes("resource_health_state") &&
+    hypervisorSessionOperationsModelSource.includes("Started remote environment") &&
+    hypervisorSessionOperationsModelSource.includes("Initialized repository") &&
+    hypervisorSessionOperationsModelSource.includes("Loaded secrets") &&
+    hypervisorSessionOperationsModelSource.includes("Loaded automations") &&
+    hypervisorSessionOperationsModelSource.includes("Started dev container") &&
+    hypervisorSessionOperationsModelSource.includes("ports_services: []") &&
+    hypervisorSessionOperationsModelSource.includes(".devcontainer/") &&
     hypervisorSessionOperationsModelSource.includes(
-      "Workspace control service",
+      "parent-harness-evidence-boundary.md",
     ) &&
     hypervisorShellContentSource.includes("projection.display_title") &&
     hypervisorShellContentSource.includes("projection.branch_label") &&

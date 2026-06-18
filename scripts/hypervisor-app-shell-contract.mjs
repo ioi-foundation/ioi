@@ -238,6 +238,41 @@ async function main() {
     );
     await page.locator('button[aria-label="Close New Session"]').click();
 
+    await page.goto(new URL("?view=sessions", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
+    await page.waitForSelector('[data-session-reference-page="environment-detail"]');
+    const sessionsText = await page.locator("body").innerText();
+    assert(
+      sessionsText.includes("Started remote environment") &&
+        sessionsText.includes("Initialized repository") &&
+        sessionsText.includes("Loaded secrets") &&
+        sessionsText.includes("Loaded automations") &&
+        sessionsText.includes("Started dev container"),
+      "Sessions did not render the IOI-reference environment lifecycle.",
+    );
+    assert(
+      sessionsText.includes("No open ports"),
+      "Sessions did not render the reference empty ports state.",
+    );
+    assert(
+      sessionsText.includes(".devcontainer/") &&
+        sessionsText.includes("devcontainer.json") &&
+        sessionsText.includes("Dockerfile") &&
+        sessionsText.includes("parent-harness-evidence-boundary.md"),
+      "Sessions did not render the reference changed-file tree.",
+    );
+    assert(
+      (await page.locator(".hypervisor-session-operations__activity-grid").count()) ===
+        0,
+      "Sessions reintroduced the non-reference center activity card grid.",
+    );
+    assert(
+      (await page.locator("[data-session-port-service]").count()) === 0,
+      "Sessions should render empty ports until daemon reports an opened service.",
+    );
+
     await page.locator('[data-window-surface="projects"]').click();
     await page.waitForSelector("[data-hypervisor-project-state]");
     const projectsText = await page.locator("body").innerText();
@@ -457,6 +492,7 @@ async function main() {
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
+        "sessions_reference_environment_lifecycle_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
         "agents_reference_product_surface_rendered",

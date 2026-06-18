@@ -240,10 +240,10 @@ function formatPanelLabel(value: string): string {
 export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSessionOperationsProjection =
   {
     schema_version: "ioi.hypervisor.session_operations_projection.v1",
-    projection_id: "hypervisor-session-operations:active-mission",
+    projection_id: "hypervisor-session-operations:active-session",
     source: "fixture",
-    selected_session_ref: "session:mission/hypervisor-core-refine-architecture",
-    display_title: "Hypervisor architecture refinement",
+    selected_session_ref: "session:project/write-parent-harness-evidence-boundary",
+    display_title: "Write Parent Harness Evidence Boundary Doc",
     branch_label: "main",
     lifecycle_state: "active",
     auto_stop_label: "30m of inactivity",
@@ -251,9 +251,9 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     last_started_label: "5h ago",
     resource_health_label: "Healthy",
     resource_health_state: "healthy",
-    project_ref: "project:hypervisor-core",
-    environment_ref: "environment:local-workspace/hypervisor-core",
-    provider_candidate_ref: "provider:local-workstation",
+    project_ref: "project:ioi",
+    environment_ref: "environment:remote-vm/hypervisor-us01",
+    provider_candidate_ref: "provider:hypervisor-cloud/us01",
     selected_adapter_ref: "code-editor-adapter:embedded_code_editor",
     selected_adapter_admission_state: "daemon_admitted",
     authority_scope_refs: [
@@ -308,24 +308,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
         `receipt://bottom-inspector/${panel_id}`,
       ],
     })),
-    ports_services: [
-      {
-        service_ref: "service:hypervisor-core",
-        label: "Workspace control service",
-        port: 17380,
-        protocol: "http",
-        lease_ref: "lease:access/hypervisor-core/http",
-        status: "available",
-      },
-      {
-        service_ref: "service:code-editor-adapter",
-        label: "Code editor adapter host",
-        port: 17381,
-        protocol: "grpc",
-        lease_ref: "lease:access/code-editor-adapter/grpc",
-        status: "lease_required",
-      },
-    ],
+    ports_services: [],
     tasks: [
       {
         task_ref: "task:refine-architecture/session-inspector",
@@ -366,8 +349,8 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       {
         signal_ref: "signal:service/workspace-control",
         kind: "service",
-        label: "2 services visible",
-        detail: "One service can open now; one requires an access lease.",
+        label: "No open ports",
+        detail: "Ports stay closed until an approved lease opens a service.",
         status: "normal",
         receipt_ref: "receipt://activity/service/visibility",
       },
@@ -409,71 +392,71 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     environment_lifecycle_steps: [
       {
         step_ref: "session-step:workspace",
-        label: "Attached workspace",
-        detail: "Local Hypervisor project root",
+        label: "Started remote environment",
+        detail: "Hypervisor Cloud (US01)",
         status: "completed",
-        evidence_ref: "receipt://environment/workspace/attached",
+        evidence_ref: "receipt://environment/remote-vm/started",
       },
       {
-        step_ref: "session-step:project-state",
-        label: "Loaded project state",
-        detail: "Object heads and restore refs",
+        step_ref: "session-step:repository",
+        label: "Initialized repository",
+        detail: "ioi",
         status: "completed",
-        evidence_ref: "agentgres://projection/project-state/hypervisor-core",
+        evidence_ref: "agentgres://projection/repository/ioi",
       },
       {
         step_ref: "session-step:secrets",
-        label: "Bound secret leases",
-        detail: "1 workspace-scoped lease available",
+        label: "Loaded secrets",
+        detail: "1 project secret",
         status: "completed",
         evidence_ref: "receipt://wallet/secret-lease/workspace",
       },
       {
         step_ref: "session-step:automations",
         label: "Loaded automations",
-        detail: "Workflow templates and compositor recipes",
+        detail: ".ioi/automations.yaml",
         status: "completed",
         evidence_ref: "receipt://workflow-compositor/templates/loaded",
       },
       {
-        step_ref: "session-step:adapter",
-        label: "Mounted code editor adapter",
-        detail: "Embedded code editor adapter target",
-        status: "running",
-        evidence_ref: "receipt://code-editor-adapter/embedded/mounted",
+        step_ref: "session-step:devcontainer",
+        label: "Started dev container",
+        detail: ".devcontainer/devcontainer.json",
+        status: "completed",
+        evidence_ref: "receipt://environment/devcontainer/started",
       },
     ],
     changed_file_groups: [
       {
-        group_ref: "changed-group:docs-architecture",
-        folder: "docs/architecture/",
+        group_ref: "changed-group:devcontainer",
+        folder: ".devcontainer/",
         files: [
           {
-            file_ref: "changed-file:docs-architecture-surfaces",
-            name: "components/hypervisor/core-clients-surfaces.md",
-            delta: "+42",
-            status: "modified",
-            receipt_ref: "receipt://changes/hypervisor-core-surfaces",
+            file_ref: "changed-file:devcontainer-json",
+            name: "devcontainer.json",
+            delta: "+20",
+            status: "untracked",
+            receipt_ref: "receipt://changes/devcontainer-json",
           },
           {
-            file_ref: "changed-file:source-map",
-            name: "_meta/source-of-truth-map.md",
-            delta: "+18",
-            status: "modified",
-            receipt_ref: "receipt://changes/source-of-truth-map",
+            file_ref: "changed-file:dockerfile",
+            name: "Dockerfile",
+            delta: "+5",
+            status: "untracked",
+            receipt_ref: "receipt://changes/dockerfile",
           },
         ],
       },
       {
-        group_ref: "changed-group:app-shell",
-        folder: "apps/hypervisor/",
+        group_ref: "changed-group:docs",
+        folder: "docs/",
         files: [
           {
-            file_ref: "changed-file:session-cockpit",
-            name: "src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-            delta: "+91",
+            file_ref: "changed-file:parent-harness-evidence",
+            name: "parent-harness-evidence-boundary.md",
+            delta: "+138",
             status: "modified",
-            receipt_ref: "receipt://changes/session-cockpit",
+            receipt_ref: "receipt://changes/parent-harness-evidence",
           },
         ],
       },
@@ -644,7 +627,15 @@ function normalizeServicePortProjection(
 ): HypervisorServicePortProjection {
   const fallback =
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.ports_services[index] ??
-    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.ports_services[0]!;
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.ports_services[0] ??
+    ({
+      service_ref: "service:unverified",
+      label: "Unverified service",
+      port: 0,
+      protocol: "tcp",
+      lease_ref: "lease:access/unverified",
+      status: "lease_required",
+    } satisfies HypervisorServicePortProjection);
   return {
     service_ref: stringValue(item.service_ref, fallback.service_ref),
     label: stringValue(item.label, fallback.label),

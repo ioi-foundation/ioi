@@ -27,7 +27,10 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
   );
   assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
-  assert.equal(projection.display_title, "Hypervisor architecture refinement");
+  assert.equal(
+    projection.display_title,
+    "Write Parent Harness Evidence Boundary Doc",
+  );
   assert.equal(projection.branch_label, "main");
   assert.equal(projection.selected_adapter_admission_state, "daemon_admitted");
   assert.equal(projection.resource_health_state, "healthy");
@@ -62,6 +65,16 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
     ),
   );
   assert.ok(projection.environment_lifecycle_steps.length >= 5);
+  assert.deepEqual(
+    projection.environment_lifecycle_steps.map((step) => step.label),
+    [
+      "Started remote environment",
+      "Initialized repository",
+      "Loaded secrets",
+      "Loaded automations",
+      "Started dev container",
+    ],
+  );
   assert.ok(
     projection.environment_lifecycle_steps.every((step) =>
       step.evidence_ref.startsWith("receipt://") ||
@@ -223,8 +236,9 @@ test("session operations fixture exposes provider, lease, restore, and receipt e
   assert.match(projection.archive_ref, /^artifact:\/\//);
   assert.match(projection.restore_ref, /^agentgres:\/\/restore/);
   assert.ok(projection.authority_scope_refs.includes("scope:workspace.patch"));
-  assert.ok(projection.ports_services.length >= 2);
-  assert.equal(projection.ports_services[0]?.label, "Workspace control service");
+  assert.equal(projection.provider_candidate_ref, "provider:hypervisor-cloud/us01");
+  assert.equal(projection.environment_ref, "environment:remote-vm/hypervisor-us01");
+  assert.deepEqual(projection.ports_services, []);
   assert.ok(projection.tasks.length >= 2);
   assert.ok(projection.terminal_events.length >= 2);
   assert.ok(projection.activity_signals.length >= 4);

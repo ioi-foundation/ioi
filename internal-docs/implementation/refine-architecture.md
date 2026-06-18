@@ -1391,6 +1391,12 @@ Current implementation cut:
   grid was cut so the main canvas moves from environment status directly into
   lifecycle truth, while lease/archive/restore refs remain model and proposal
   data rather than a separate visible console surface.
+  The default fixture now mirrors the IOI reference session semantics in
+  Hypervisor language: remote environment started, repository initialized,
+  secrets loaded, automations loaded from `.ioi/automations.yaml`, dev
+  container started from `.devcontainer/devcontainer.json`, changed files
+  grouped under `.devcontainer/` and `docs/`, and the Ports pane starts empty
+  until the daemon reports an opened service.
   The Sessions surface exposes session operation proposal buttons for
   adapter access, open port, run task, and terminal command review. Those
   actions call
@@ -1404,9 +1410,10 @@ Current implementation cut:
   of executing locally.
   Focused model and shell source tests guard the tab/inspector arrays, lease
   refs, restore refs, projected lifecycle steps, projected changed files,
-  projected port/service rows, task rows, terminal events, session operation
-  proposal schema, daemon route, absence of the non-reference center activity
-  card grid, and `runtimeTruthSource: "daemon-runtime"` boundary.
+  empty-or-populated port/service state, task rows, terminal events, session
+  operation proposal schema, daemon route, visible Playwright lifecycle
+  rendering, absence of the non-reference center activity card grid, and
+  `runtimeTruthSource: "daemon-runtime"` boundary.
 
 0A.9 first provider/environment surface cut is implemented:
   `hypervisorProviderPlacementModel.ts` defines
