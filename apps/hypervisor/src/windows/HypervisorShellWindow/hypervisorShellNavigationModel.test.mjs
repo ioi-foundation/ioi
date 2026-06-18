@@ -467,7 +467,7 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /activeView === "sessions"/);
 });
 
-test("Projects surface renders workspace, restore, artifact, and state-root projection", () => {
+test("Projects surface renders the reference Projects page over hidden project truth", () => {
   assert.match(projectStateModel, /HypervisorProjectStateProjection/);
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/);
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_PATH/);
@@ -485,21 +485,30 @@ test("Projects surface renders workspace, restore, artifact, and state-root proj
   assert.match(shellContent, /\[Hypervisor\]\[Projects\] state projection unavailable/);
   assert.match(shellContent, /data-hypervisor-project-state/);
   assert.match(shellContent, /data-project-state-source/);
+  assert.match(shellContent, /data-project-state-record-count/);
+  assert.match(shellContent, /data-project-state-records/);
   assert.match(shellContent, /data-project-state-record/);
   assert.match(shellContent, /data-project-restore-state/);
   assert.match(shellContent, /data-project-custody-posture/);
-  assert.match(shellContent, /onSelectProject: \(projectId: string\) => void/);
-  assert.match(shellContent, /onOpenSurface: \(surface: PrimaryView\) => void/);
-  assert.match(shellContent, /data-project-select-action/);
-  assert.match(shellContent, /onClick=\{\(\) => onSelectProject\(project\.project_id\)\}/);
-  assert.match(shellContent, /data-project-open-session/);
-  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("sessions"\)\}/);
-  assert.match(shellContent, /data-project-open-provider/);
-  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("providers"\)\}/);
-  assert.match(shellContent, /data-project-open-restore/);
-  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("receipts"\)\}/);
-  assert.match(shellContent, /onSelectProject=\{controller\.workflow\.selectProject\}/);
-  assert.match(shellContent, /onOpenSurface=\{controller\.changePrimaryView\}/);
+  assert.match(shellContent, /data-project-workspace-ref/);
+  assert.match(shellContent, /data-project-object-head-ref/);
+  assert.match(shellContent, /data-project-state-root-ref/);
+  assert.match(shellContent, /data-project-archive-ref/);
+  assert.match(shellContent, /data-project-restore-ref/);
+  assert.match(shellContent, /<h2>Projects<\/h2>/);
+  assert.match(shellContent, /placeholder="Search projects"/);
+  assert.match(shellContent, /No projects/);
+  assert.match(shellContent, /Projects bundle your repo/);
+  assert.match(shellContent, /New project/);
+  assert.doesNotMatch(shellContent, /Code repositories/);
+  assert.doesNotMatch(shellContent, /No pull requests created by you/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-project-state__repositories"/);
+  assert.doesNotMatch(shellContent, /"hypervisor-project-state__repo"/);
+  assert.doesNotMatch(shellContent, /data-project-select-action/);
+  assert.doesNotMatch(shellContent, /data-project-open-provider/);
+  assert.doesNotMatch(shellContent, /data-project-open-restore/);
+  assert.doesNotMatch(shellContent, /hypervisor-project-state__card/);
+  assert.doesNotMatch(shellContent, /hypervisor-project-state__refs/);
   assert.match(shellContent, /activeView === "projects"/);
   assert.match(shellContent, /activeView !== "projects"/);
   assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);

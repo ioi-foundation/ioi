@@ -25,6 +25,11 @@ const newSessionModalSource = fs.readFileSync(
   new URL("./HypervisorNewSessionModal.tsx", import.meta.url),
   "utf8",
 );
+const projectSurfaceStart = source.indexOf("function HypervisorProjectStateSurface");
+const projectSurfaceEnd = source.indexOf("function HypervisorProviderPlacementDashboard");
+assert.ok(projectSurfaceStart >= 0, "Projects surface source should exist");
+assert.ok(projectSurfaceEnd > projectSurfaceStart, "Projects surface source should be bounded");
+const projectSurfaceSource = source.slice(projectSurfaceStart, projectSurfaceEnd);
 
 assert.doesNotMatch(
   source,
@@ -109,6 +114,18 @@ assert.match(
   source,
   /className="hypervisor-automation-compositor hypervisor-automation-compositor--ioi-reference"/,
   "Automations should use the IOI-reference operator console shell",
+);
+
+assert.match(
+  projectSurfaceSource,
+  /className="hypervisor-project-state__content"[\s\S]*<h2>Projects<\/h2>[\s\S]*placeholder="Search projects"[\s\S]*No projects[\s\S]*Projects bundle your repo[\s\S]*New project[\s\S]*data-project-state-records/,
+  "Projects should render the IOI-reference Projects page while keeping project truth in hidden metadata",
+);
+
+assert.doesNotMatch(
+  projectSurfaceSource,
+  /Code repositories|Pull requests|No pull requests created by you|Repositories|Workspace refs, sessions, restore posture, and state roots|<dt>Object Head<\/dt>|<dt>State Root<\/dt>|<dt>Archive<\/dt>|<dt>Restore<\/dt>|hypervisor-project-state__refs|hypervisor-project-state__card|hypervisor-project-state__sidebar/,
+  "Projects should not expose architecture refs as the visible product surface",
 );
 
 assert.match(
@@ -211,6 +228,18 @@ assert.match(
   shellCss,
   /\.hypervisor-automation-compositor--ioi-reference\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family:[\s\S]*"ABC Diatype"/,
   "Automations should share the IOI-reference light workplane and typography",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-project-state\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family: "ABC Diatype"[\s\S]*\.hypervisor-project-state__content\s*\{[\s\S]*padding: 26px 24px 48px;[\s\S]*\.hypervisor-project-state__search\s*\{[\s\S]*grid-template-columns: 28px minmax\(0, 1fr\);[\s\S]*\.hypervisor-project-state__empty-icon\s*\{/,
+  "Projects should share the IOI-reference Projects empty-state layout instead of the old architecture-card grid",
+);
+
+assert.doesNotMatch(
+  shellCss,
+  /\.hypervisor-project-state\s*\{[\s\S]*background: rgba\(15,\s*23,\s*42|hypervisor-project-state__sidebar|hypervisor-project-state__repositories|hypervisor-project-state__tabs/,
+  "Projects should not regress into the old dark architecture-card or repository-sidebar treatment",
 );
 
 assert.match(

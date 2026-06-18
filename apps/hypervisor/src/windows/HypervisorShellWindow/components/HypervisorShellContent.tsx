@@ -1870,12 +1870,8 @@ function HypervisorSessionOperationsCockpit() {
 
 function HypervisorProjectStateSurface({
   selectedProjectId,
-  onSelectProject,
-  onOpenSurface,
 }: {
   selectedProjectId: string;
-  onSelectProject: (projectId: string) => void;
-  onOpenSurface: (surface: PrimaryView) => void;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
@@ -1907,127 +1903,61 @@ function HypervisorProjectStateSurface({
       data-hypervisor-project-state={projection.projection_id}
       data-project-state-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
+      data-project-state-record-count={projection.records.length}
     >
-      <div className="hypervisor-project-state__header">
-        <span>Projects</span>
-        <h2>Workspace refs, sessions, restore posture, and state roots.</h2>
-        <p>
-          Open a workspace, inspect its current session, or review archive and
-          restore posture before moving work across environments.
-        </p>
-      </div>
+      <div className="hypervisor-project-state__content">
+        <header className="hypervisor-project-state__header">
+          <h2>Projects</h2>
+        </header>
 
-      <div className="hypervisor-project-state__grid">
-        {projection.records.map((project) => {
-          const selected = project.project_id === selectedProjectId;
-          return (
-            <article
+        <label className="hypervisor-project-state__search">
+          <span aria-hidden="true">
+            <SearchIcon />
+          </span>
+          <input type="search" placeholder="Search projects" readOnly />
+        </label>
+
+        <section
+          className="hypervisor-project-state__empty"
+          aria-label="Project empty state"
+        >
+          <span className="hypervisor-project-state__empty-icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+          <h3>No projects</h3>
+          <p>
+            Projects bundle your repo, secrets, and other configuration into a
+            shareable template-prebuilt in the background for faster startup
+            times.
+          </p>
+          <a href="/projects" aria-label="Learn more about projects in IOI">
+            Learn more about projects in IOI.
+          </a>
+          <button type="button" className="hypervisor-project-state__new">
+            New project
+          </button>
+        </section>
+
+        <div hidden aria-hidden="true" data-project-state-records>
+          {projection.records.map((project) => (
+            <div
               key={project.project_id}
-              className={clsx(
-                "hypervisor-project-state__card",
-                selected && "is-selected",
-              )}
               data-project-state-record={project.project_id}
               data-project-restore-state={project.restore_state}
               data-project-custody-posture={project.custody_posture}
+              data-project-workspace-ref={project.workspace_ref}
+              data-project-object-head-ref={project.agentgres_object_head_ref}
+              data-project-state-root-ref={project.state_root_ref}
+              data-project-archive-ref={project.archive_ref}
+              data-project-restore-ref={project.restore_ref}
             >
-              <div className="hypervisor-project-state__card-head">
-                <span>{project.environment}</span>
-                <strong>{project.restore_state.split("_").join(" ")}</strong>
-              </div>
-              <h3>{project.name}</h3>
-              <p>{project.description}</p>
-              <dl>
-                <div>
-                  <dt>Workspace</dt>
-                  <dd>{project.workspace_ref}</dd>
-                </div>
-                <div>
-                  <dt>Root</dt>
-                  <dd>{project.root_path}</dd>
-                </div>
-                <div>
-                  <dt>Session</dt>
-                  <dd>{project.current_session_ref ?? "idle"}</dd>
-                </div>
-                <div>
-                  <dt>Environment</dt>
-                  <dd>{project.environment_ref ?? "not attached"}</dd>
-                </div>
-                <div>
-                  <dt>Provider</dt>
-                  <dd>{project.provider_candidate_ref ?? "not selected"}</dd>
-                </div>
-                <div>
-                  <dt>Adapter</dt>
-                  <dd>{project.adapter_preference_ref}</dd>
-                </div>
-                <div>
-                  <dt>Object Head</dt>
-                  <dd>{project.agentgres_object_head_ref}</dd>
-                </div>
-                <div>
-                  <dt>State Root</dt>
-                  <dd>{project.state_root_ref}</dd>
-                </div>
-                <div>
-                  <dt>Archive</dt>
-                  <dd>{project.archive_ref}</dd>
-                </div>
-                <div>
-                  <dt>Restore</dt>
-                  <dd>{project.restore_ref}</dd>
-                </div>
-              </dl>
-              <div className="hypervisor-project-state__refs" aria-label="Project artifact and receipt refs">
-                {[...project.artifact_refs, ...project.latest_receipt_refs].map(
-                  (ref) => (
-                    <span key={ref}>{ref}</span>
-                  ),
-                )}
-              </div>
-              <div
-                className="hypervisor-project-state__actions"
-                aria-label={`Project actions for ${project.name}`}
-              >
-                <button
-                  type="button"
-                  data-project-select-action={project.project_id}
-                  onClick={() => onSelectProject(project.project_id)}
-                >
-                  Select project
-                </button>
-                {project.current_session_ref ? (
-                  <button
-                    type="button"
-                    data-project-open-session={project.current_session_ref}
-                    onClick={() => onOpenSurface("sessions")}
-                  >
-                    Open session
-                  </button>
-                ) : null}
-                {project.provider_candidate_ref ? (
-                  <button
-                    type="button"
-                    data-project-open-provider={project.provider_candidate_ref}
-                    onClick={() => onOpenSurface("providers")}
-                  >
-                    Open provider
-                  </button>
-                ) : null}
-                {project.restore_state === "restore_ready" ? (
-                  <button
-                    type="button"
-                    data-project-open-restore={project.restore_ref}
-                    onClick={() => onOpenSurface("receipts")}
-                  >
-                    Review restore
-                  </button>
-                ) : null}
-              </div>
-            </article>
-          );
-        })}
+              {project.name}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -2928,8 +2858,6 @@ export function HypervisorShellContent({
                   {activeView === "projects" ? (
                     <HypervisorProjectStateSurface
                       selectedProjectId={currentProject.id}
-                      onSelectProject={controller.workflow.selectProject}
-                      onOpenSurface={controller.changePrimaryView}
                     />
                   ) : null}
 
