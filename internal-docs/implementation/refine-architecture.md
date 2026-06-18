@@ -1113,6 +1113,11 @@ Current implementation cut:
   `fixture://catalog/hypervisor-native-3b-q4`.
   The native-local daemon fixture tests now use the same Hypervisor ids, and
   `check:runtime-layout` rejects the retired Autopilot mount identities.
+  Model catalog E2E and CLI validation now search for `hypervisor` catalog
+  entries instead of the retired `autopilot` product query, and
+  `check:runtime-layout` rejects active `catalog/search?q=autopilot`,
+  `catalog/search?query=autopilot`, snapshot `lastSearch.query` assertions, or
+  `catalog-search --query autopilot` usage in the model-mounting path.
   Authority Center model-route fixtures now use Hypervisor ids
   (`model-capability:route.hypervisor`, `route.hypervisor`, and
   `model.route.hypervisor`) and `check:runtime-layout` rejects the retired

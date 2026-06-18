@@ -985,7 +985,7 @@ async function main() {
     });
 
     await runStep(evidence, "catalog search, import modes, cleanup, and download lifecycle", async () => {
-      const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?query=autopilot");
+      const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?query=hypervisor");
       assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4"));
       const catalogImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
         method: "POST",
@@ -1331,7 +1331,7 @@ async function main() {
       assert.equal(runtimeSelect.selectedEngineId, "backend.hypervisor.native-local.fixture");
       const runtimeEngineRemove = await runCli(cli, ["backends", "--json", "engine-remove", "backend.hypervisor.native-local.fixture"], common);
       assert.equal(runtimeEngineRemove.removed, true);
-      const catalogSearch = await runCli(cli, ["models", "--json", "catalog-search", "--query", "autopilot"], common);
+      const catalogSearch = await runCli(cli, ["models", "--json", "catalog-search", "--query", "hypervisor"], common);
       assert.ok(catalogSearch.results.length > 0);
       const catalogImport = await runCli(
         cli,

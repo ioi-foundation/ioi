@@ -450,7 +450,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
 
     const nativeProviderModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.hypervisor.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "hypervisor:native-fixture"));
-    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=autopilot");
+    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=hypervisor");
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
     const fixtureCatalogEntry = catalog.results.find((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4");
     assert.ok(fixtureCatalogEntry);
@@ -463,7 +463,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(fixtureCatalogEntry.selectionReceiptFields.includes("approval_decision"));
     assert.equal(JSON.stringify(catalog).includes("sk-"), false);
     const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
-    assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
+    assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "hypervisor");
     assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4" && entry.recommendation?.primaryBackend));
 
     const backends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
