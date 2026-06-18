@@ -657,15 +657,15 @@ assert(
 assert(
   "code-editor-adapter-extension-only",
   /"name":\s*"ioi-code-editor-adapter"/.test(codeEditorAdapterPackage) &&
-    /"commands":\s*\[\s*\{\s*"command":\s*"ioi\.code\.open"/.test(
+    /"activationEvents":\s*\[\s*"onStartupFinished"\s*\]/.test(
       codeEditorAdapterPackage,
     ) &&
-    !/viewsContainers|viewsWelcome|ioi\.hypervisor\.(home|studio|workflow|models|runs|policy|connectors)/.test(
+    !/"contributes"|ioi\.code\.open|viewsContainers|viewsWelcome|ioi\.hypervisor\.(home|studio|workflow|models|runs|policy|connectors)/.test(
       codeEditorAdapterPackage,
     ) &&
     codeEditorAdapterExtension.includes("createCodeEditorAdapterBridge") &&
     codeEditorAdapterExtension.includes("startCodeEditorContextPublisher") &&
-    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot/.test(
+    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot|registerCommand|code\.open|ioi\.code\.open/.test(
       codeEditorAdapterExtension,
     ) &&
     codeEditorAdapterBridge.includes("ioi.code_editor_adapter_request.v1") &&

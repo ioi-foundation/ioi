@@ -1060,11 +1060,12 @@ Current implementation cut:
   and the later Hypervisor shell-patch helper so adapter targets cannot regain
   product-shell duties.
   the tracked extension package is now `workbench-adapters/ioi-code-editor-adapter`.
-  It contributes only `ioi.code.open` plus one-way `codeEditor.contextSnapshot`
-  and `codeEditor.inspectionTargetIndex` requests. The adapter no longer polls
-  bridge command queues, reads daemon model-mount state, emits command-route
-  receipt envelopes, or accepts product-shell routes such as command center,
-  workflow, models, runs, policy, or connectors.
+  It contributes no command-palette/product routes; it activates on startup and
+  publishes one-way `codeEditor.contextSnapshot` and
+  `codeEditor.inspectionTargetIndex` request envelopes. The adapter no longer
+  emits an open-surface request, polls bridge command queues, reads daemon model-mount
+  state, emits command-route receipt envelopes, or accepts product-shell routes
+  such as command center, workflow, models, runs, policy, or connectors.
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.

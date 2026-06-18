@@ -209,11 +209,12 @@ acknowledgement routes enter through store-owned daemon methods; focused tests
 poison the retired `threadControlSurface`; and conformance rejects the deleted
 `runtime-thread-control-surface.mjs` files, retired factory/property names, and
 direct route calls into `store.threadControlSurface.*`.
-Slice 1433 additionally hard-cuts the Workbench Studio intent local fallback:
-`workbench-adapters/ioi-workbench` now sends canonical snake_case protocol
-fields to `/v1/studio/intent-frame`, validates the returned
-Rust-authored `ioi.studio_intent_frame`, and blocks the Studio turn when Rust
-projection is unavailable instead of calling a local JS prompt classifier.
+Slice 1433 additionally hard-cut the retired Workbench Studio intent local
+fallback in the former `workbench-adapters/ioi-workbench` tree: that historical
+adapter sent canonical snake_case protocol fields to `/v1/studio/intent-frame`,
+validated the returned Rust-authored `ioi.studio_intent_frame`, and blocked the
+Studio turn when Rust projection is unavailable instead of calling a local JS
+prompt classifier.
 The retired `fallbackStudioPromptIntentFrame()` resolver, fallback schema,
 `local_fallback_feature_resolver` source marker, and prompt-regex
 artifact/runtime-cockpit route override are absent from production Workbench
@@ -1487,7 +1488,7 @@ scaffolding:
   readbacks, or compatibility aliases that can author accepted truth
 - retired pre-Hypervisor JS facade roots: former product-app and embedded
   Workbench implementation roots are deleted; the remaining client roots are
-  `apps/hypervisor` and `workbench-adapters/ioi-workbench`
+  `apps/hypervisor` and `workbench-adapters/ioi-code-editor-adapter`
 
 ## Conformance Posture
 

@@ -4,9 +4,6 @@ const vscode = require("vscode");
 const { bridgeUrl } = require("./bridge/client");
 const { createCodeEditorAdapterBridge } = require("./bridge/workspace-bridge");
 const {
-  buildWorkspaceActionContext: buildWorkspaceActionContextFromEditor,
-} = require("./editor-context/action-context");
-const {
   startCodeEditorContextPublisher,
 } = require("./editor-context/context-publisher");
 const {
@@ -48,42 +45,6 @@ const editorContext = createCodeEditorContextSnapshot({
   refSafe,
 });
 
-function buildWorkspaceActionContext(source, uri) {
-  return buildWorkspaceActionContextFromEditor({ vscode, workspaceSummary }, source, uri);
-}
-
-async function openCodeAdapter() {
-  await writeBridgeRequest(
-    "code.open",
-    {
-      workspaceRoot: workspaceSummary().path,
-      sourceCommand: "ioi.code.open",
-      runtimeAuthority: "daemon-owned",
-      projectionOwner: "hypervisor-code-editor-adapter",
-      ownsRuntimeState: false,
-      vscodeSubstrateVisible: true,
-    },
-    buildWorkspaceActionContext("code-editor-adapter"),
-  ).catch(() => undefined);
-
-  await vscode.commands.executeCommand("workbench.view.explorer").catch(() => undefined);
-}
-
-function registerAdapterCommands(context, output) {
-  const status = (message) => {
-    vscode.window.setStatusBarMessage(`$(symbol-keyword) ${message}`, 3_000);
-  };
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("ioi.code.open", async () => {
-      await openCodeAdapter();
-      status("Code editor adapter active.");
-    }),
-  );
-
-  output.appendLine("Registered IOI code editor adapter commands.");
-}
-
 function activate(context) {
   const output = vscode.window.createOutputChannel("IOI Code Adapter");
   output.appendLine("IOI Code Adapter extension activated.");
@@ -101,16 +62,13 @@ function activate(context) {
     setLastTaskExitCode: editorContext.setLastTaskExitCode,
   });
 
-  registerAdapterCommands(context, output);
-
   const statusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     80,
   );
   statusItem.name = "IOI Code Adapter";
   statusItem.text = "$(symbol-keyword) IOI";
-  statusItem.tooltip = "Activate IOI Code Adapter.";
-  statusItem.command = "ioi.code.open";
+  statusItem.tooltip = "IOI Code Adapter publishes editor context to Hypervisor.";
   statusItem.show();
   context.subscriptions.push(statusItem);
 }

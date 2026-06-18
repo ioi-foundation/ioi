@@ -12081,9 +12081,9 @@ routes call the Rust-owned model_mount methods and the retired aliases return
 methods; conformance scans product/proof/SDK/CLI/IDE/workbench source clients so
 the old aliases cannot return as client fallbacks.
 
-Slice 1385 hard-cuts shipped workbench workflow-composer generated media. The
-tracked `ioi-workbench` workflow-composer bundle and sourcemap have been
-regenerated from the stable protocol client sources and refreshed
+Slice 1385 hard-cut shipped workbench workflow-composer generated media in the
+retired `ioi-workbench` tree. The historical workflow-composer bundle and
+sourcemap were regenerated from the stable protocol client sources and refreshed
 `@ioi/hypervisor-workbench` build output, so the shipped webview media now carries
 `/v1/model-mount/projection` and
 `/v1/model-mount/workflows/nodes/execute` instead of the retired
@@ -12474,7 +12474,7 @@ Slice 1412 hard-cuts the pre-Hypervisor JS facade roots. The former product app
 root and former embedded Workbench implementation root are deleted instead of
 kept as compatibility aliases. The product client now lives under
 `apps/hypervisor` as `@ioi/hypervisor-app`, Workbench adapter code lives under
-`workbench-adapters/ioi-workbench`, root scripts and conformance scan those new
+`workbench-adapters/ioi-code-editor-adapter`, root scripts and conformance scan those new
 roots, and active Rust/Node tests no longer include or execute the deleted
 paths. The remaining JS there is product/workbench protocol-client surface over
 daemon `/v1` APIs; conformance now fails if the retired live JS facade roots,

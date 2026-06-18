@@ -482,12 +482,10 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   assert.match(liveGate, /ioi:\/\/mounts\/oauth\/callback/);
   assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
   assert.match(liveGate, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
-  assert.match(workbenchExtension, /ioi\.code\.open/);
-  assert.ok(
-    workbenchPackage.contributes?.commands?.some(
-      (command) => command.command === "ioi.code.open",
-    ),
-  );
+  assert.deepEqual(workbenchPackage.activationEvents, ["onStartupFinished"]);
+  assert.equal(workbenchPackage.contributes, undefined);
+  assert.match(workbenchExtension, /startCodeEditorContextPublisher/);
+  assert.doesNotMatch(workbenchExtension, /registerCommand|code\.open|ioi\.code\.open/);
   assert.doesNotMatch(
     workbenchExtension,
     /@tauri-apps|tauri:\/\/|tauri\.|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/i,

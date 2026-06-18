@@ -17,30 +17,12 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:ioi.code.open"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "browser": "./extension.js",
   "extensionKind": [
     "ui",
     "workspace"
-  ],
-  "contributes": {
-    "commands": [
-      {
-        "command": "ioi.code.open",
-        "title": "IOI: Open Code Editor Adapter",
-        "category": "IOI",
-        "icon": "$(code)"
-      }
-    ],
-    "menus": {
-      "commandPalette": [
-        {
-          "command": "ioi.code.open"
-        }
-      ]
-    }
-  }
+  ]
 }

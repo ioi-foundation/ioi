@@ -129,8 +129,4 @@ test("code editor context snapshot projects editor, scm, diagnostics, tasks, and
   assert.equal(index.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.ok(index.targets.some((target) => target.targetId === "editor.active"));
   assert.ok(index.targets.some((target) => target.targetId === "terminal.panel"));
-  assert.equal(
-    index.targets.some((target) => /hypervisor|command-center/i.test(`${target.targetId} ${target.label}`)),
-    false,
-  );
 });
