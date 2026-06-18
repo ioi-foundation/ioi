@@ -4188,8 +4188,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 42px 40px;
+  gap: 14px;
+  padding: 34px 40px;
   background: #ffffff;
   color: #171719;
   overflow: auto;
@@ -4197,7 +4197,7 @@
 
 .hypervisor-agents__header {
   flex: 0 0 auto;
-  width: min(940px, 100%);
+  width: min(1120px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -4205,11 +4205,8 @@
 }
 
 .hypervisor-agents__header span,
-.hypervisor-agents__metric span,
-.hypervisor-agents__card-kicker,
 .hypervisor-agents__refs dt,
-.hypervisor-agents__lease-list em,
-.hypervisor-agents__invariants span {
+.hypervisor-agents__lease-list em {
   color: #6f737b;
   font-size: 11px;
   font-weight: 600;
@@ -4219,18 +4216,18 @@
 .hypervisor-agents__header h2 {
   margin: 0;
   color: #171719;
-  font-size: clamp(30px, 3.1vw, 42px);
+  font-size: 28px;
   font-weight: 650;
   letter-spacing: 0;
-  line-height: 1.04;
+  line-height: 1.1;
 }
 
 .hypervisor-agents__header p {
-  max-width: 660px;
-  margin: 8px 0 0;
+  max-width: 560px;
+  margin: 7px 0 0;
   color: #4b4f58;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .hypervisor-agents__header button {
@@ -4253,79 +4250,204 @@
   outline: none;
 }
 
-.hypervisor-agents__summary {
+.hypervisor-agents__tabs {
   flex: 0 0 auto;
-  width: min(940px, 100%);
+  width: min(1120px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e7e7e5;
+  padding-bottom: 8px;
+}
+
+.hypervisor-agents__tabs button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5f646d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 10px;
+}
+
+.hypervisor-agents__tabs button:hover,
+.hypervisor-agents__tabs button.is-active {
+  background: #f3f4f4;
+  color: #171719;
+}
+
+.hypervisor-agents__tabs span {
+  color: #8a8f98;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.hypervisor-agents__workplane {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) 336px;
+  gap: 20px;
+}
+
+.hypervisor-agents__list {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid #dededc;
-  border-radius: 8px;
-  background: #fbfbfa;
+  border-radius: 10px;
+  background: #ffffff;
   overflow: hidden;
 }
 
-.hypervisor-agents__metric {
-  min-height: 70px;
+.hypervisor-agents__list-head,
+.hypervisor-agents__row {
   display: grid;
-  align-content: center;
-  gap: 4px;
-  padding: 14px 18px;
-  border-right: 1px solid #e7e7e5;
+  grid-template-columns: minmax(220px, 1.25fr) minmax(130px, 0.72fr) minmax(180px, 0.9fr) minmax(180px, 0.9fr);
+  align-items: center;
+  gap: 14px;
 }
 
-.hypervisor-agents__metric:last-child {
-  border-right: 0;
-}
-
-.hypervisor-agents__metric strong {
-  color: #171719;
-  font-size: 24px;
+.hypervisor-agents__list-head {
+  min-height: 39px;
+  border-bottom: 1px solid #ededeb;
+  background: #fbfbfa;
+  color: #6f737b;
+  font-size: 11px;
   font-weight: 650;
-  line-height: 1;
+  padding: 0 14px;
 }
 
-.hypervisor-agents__grid {
-  flex: 0 0 auto;
-  width: min(1120px, 100%);
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
+.hypervisor-agents__row {
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-bottom: 1px solid #ededeb;
+  background: transparent;
+  color: #171719;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0 14px;
 }
 
-.hypervisor-agents__card {
-  min-height: 0;
+.hypervisor-agents__row:last-child {
+  border-bottom: 0;
+}
+
+.hypervisor-agents__row:hover,
+.hypervisor-agents__row[aria-current="true"] {
+  background: #f7f7f6;
+}
+
+.hypervisor-agents__row-agent {
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(220px, 0.92fr) minmax(300px, 1.1fr) minmax(220px, 0.78fr);
-  grid-template-areas:
-    "head runtime leases"
-    "objective runtime leases"
-    "chips refs actions";
-  align-items: start;
-  gap: 12px 22px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.hypervisor-agents__row-agent i {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  border-radius: 999px;
+  background: #a9adb5;
+}
+
+.hypervisor-agents__row[data-agent-status="running"] .hypervisor-agents__row-agent i {
+  background: #1fa971;
+}
+
+.hypervisor-agents__row[data-agent-status="blocked"] .hypervisor-agents__row-agent i {
+  background: #e65b5b;
+}
+
+.hypervisor-agents__row-agent span,
+.hypervisor-agents__row-agent strong,
+.hypervisor-agents__row-agent em,
+.hypervisor-agents__row-harness,
+.hypervisor-agents__row-lease,
+.hypervisor-agents__row-receipt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-agents__row-agent span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hypervisor-agents__row-agent strong {
+  color: #171719;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hypervisor-agents__row-agent em {
+  color: #6f737b;
+  font-size: 12px;
+  font-style: normal;
+  text-transform: capitalize;
+}
+
+.hypervisor-agents__row-harness,
+.hypervisor-agents__row-lease,
+.hypervisor-agents__row-receipt {
+  color: #4b4f58;
+  font-size: 12px;
+}
+
+.hypervisor-agents__row-receipt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.hypervisor-agents__detail {
+  min-width: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   border: 1px solid #dededc;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 18px 18px 16px;
-  box-shadow: none;
+  border-radius: 10px;
+  background: #fbfbfa;
+  padding: 16px;
 }
 
-.hypervisor-agents__card[data-agent-status="running"] {
-  border-color: #b8d8c2;
+.hypervisor-agents__detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.hypervisor-agents__card[data-agent-status="blocked"] {
-  border-color: #e8c5c5;
+.hypervisor-agents__detail-head > span {
+  width: fit-content;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eeeeec;
+  color: #4b4f58;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 0 8px;
+  text-transform: capitalize;
 }
 
-.hypervisor-agents__card-head {
-  grid-area: head;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
-}
-
-.hypervisor-agents__card h3 {
+.hypervisor-agents__detail h3 {
   margin: 0;
   color: #171719;
   font-size: 18px;
@@ -4334,35 +4456,19 @@
   line-height: 1.2;
 }
 
-.hypervisor-agents__card p {
-  grid-area: objective;
+.hypervisor-agents__detail p {
   margin: 0;
   color: #4b4f58;
   font-size: 13px;
   line-height: 1.55;
 }
 
-.hypervisor-agents__status {
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid #dededc;
-  border-radius: 999px;
-  background: #f7f7f6;
-  color: #2f3034;
-  font-size: 11px;
-  font-weight: 650;
-  padding: 0 9px;
-  text-transform: capitalize;
-}
-
 .hypervisor-agents__runtime {
-  grid-area: runtime;
   display: grid;
   gap: 6px;
-  border: 0;
-  border-left: 1px solid #ededeb;
-  padding: 0 0 0 18px;
+  margin: 0;
+  border-top: 1px solid #ededeb;
+  padding: 14px 0 0;
 }
 
 .hypervisor-agents__runtime div {
@@ -4409,7 +4515,6 @@
 }
 
 .hypervisor-agents__chips {
-  grid-area: chips;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -4430,7 +4535,6 @@
 }
 
 .hypervisor-agents__lease-list {
-  grid-area: leases;
   display: grid;
   gap: 8px;
 }
@@ -4455,13 +4559,11 @@
 }
 
 .hypervisor-agents__refs {
-  grid-area: refs;
   display: grid;
   gap: 8px;
   margin-top: 0;
-  border-top: 0;
-  border-left: 1px solid #ededeb;
-  padding: 0 0 0 18px;
+  border-top: 1px solid #ededeb;
+  padding: 14px 0 0;
 }
 
 .hypervisor-agents__refs div {
@@ -4477,11 +4579,9 @@
 }
 
 .hypervisor-agents__actions {
-  grid-area: actions;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
 }
 
 .hypervisor-agents__actions button {
@@ -4503,43 +4603,17 @@
   outline: none;
 }
 
-.hypervisor-agents__invariants {
-  flex: 0 0 auto;
-  width: min(1120px, 100%);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.hypervisor-agents__invariants p {
-  margin: 0;
-  border: 1px solid #dededc;
-  border-radius: 8px;
-  background: #f7f7f6;
-  color: #4b4f58;
-  font-size: 12px;
-  line-height: 1.5;
-  padding: 12px;
-}
-
-.hypervisor-agents__invariants span {
-  display: block;
-  margin-bottom: 4px;
-  color: #171719;
-}
-
 .hypervisor-agents__capability-client[hidden] {
   display: none !important;
 }
 
 @media (max-width: 1240px) {
-  .hypervisor-agents__card {
-    grid-template-columns: minmax(220px, 0.95fr) minmax(300px, 1fr);
-    grid-template-areas:
-      "head runtime"
-      "objective runtime"
-      "chips leases"
-      "refs actions";
+  .hypervisor-agents__workplane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hypervisor-agents__detail {
+    align-self: stretch;
   }
 }
 
@@ -4553,37 +4627,26 @@
     align-items: start;
   }
 
-  .hypervisor-agents__summary,
-  .hypervisor-agents__invariants {
+  .hypervisor-agents__tabs {
+    overflow-x: auto;
+  }
+
+  .hypervisor-agents__list-head {
+    display: none;
+  }
+
+  .hypervisor-agents__row {
+    min-height: 86px;
     grid-template-columns: 1fr;
+    align-items: start;
+    gap: 4px;
+    padding: 12px 14px;
   }
 
-  .hypervisor-agents__card {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "head"
-      "objective"
-      "runtime"
-      "chips"
-      "leases"
-      "refs"
-      "actions";
-  }
-
-  .hypervisor-agents__runtime,
-  .hypervisor-agents__refs {
-    border-left: 0;
-    border-top: 1px solid #ededeb;
-    padding: 12px 0 0;
-  }
-
-  .hypervisor-agents__metric {
-    border-right: 0;
-    border-bottom: 1px solid #e7e7e5;
-  }
-
-  .hypervisor-agents__metric:last-child {
-    border-bottom: 0;
+  .hypervisor-agents__row-harness,
+  .hypervisor-agents__row-lease,
+  .hypervisor-agents__row-receipt {
+    padding-left: 28px;
   }
 }
 

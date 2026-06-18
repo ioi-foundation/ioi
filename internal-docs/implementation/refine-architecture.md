@@ -1378,28 +1378,33 @@ Current implementation cut:
   projections. `HomeView` now follows the IOI-reference shape by leading with a
   centered intent composer (`What do you want to get done today?`) that routes
   into New Session while showing project, harness, model-route, and cTEE
-  privacy posture hints. Under that primary composer, Home renders a Core
-  cockpit status strip over the same sessions/projects/privacy/providers/
-  receipts/Foundry evidence rather than a detached dashboard. The invariant is
-  explicit: Home summarizes evidence and does not become runtime, authority,
-  restore, or storage truth. The cockpit metric cards now route through each
-  metric's `surface_ref`, and `HypervisorShellContent` validates that ref with
-  the canonical Hypervisor surface registry before switching surfaces. This
-  makes Home an operator cockpit over the shared Core substrate rather than a
-  passive dashboard. Home cockpit metrics now also carry `drill_refs` for
-  project/session/privacy/provider/receipt/harness evidence rows, rendering
-  row-level drill-through buttons that route to the owning surfaces while Home
-  remains a read-only projection. The Home intent composer now seeds New
-  Session through the shell-owned modal state: `seed_intent` is normalized into
-  `HypervisorNewSessionLaunchSummary`, included in the receipt preview binding,
-  shown in the modal setup/summary, and carried into session launch seeding when
-  the chosen recipe opens Sessions. This preserves the boundary that Home
-  supplies operator intent while New Session binds the governed launch contract.
-  Home quickstart templates also seed the initial New Session recipe destination
-  for automation, workbench, and Foundry jobs; the modal validates the recipe
-  against `HYPERVISOR_SESSION_LAUNCH_RECIPES` before selecting it. Remaining
-  work is live projection hydration and durable selected-target parameters once
-  daemon projections provide real project/session destinations.
+  privacy posture hints. The hard cut is visual as well as architectural: Home
+  no longer reintroduces a doctrine dashboard under the composer. It uses the
+  IOI-reference prompt cockpit as the primary workplane, while evidence,
+  receipts, project state, provider posture, and harness comparison remain
+  accessible through their owning surfaces. The Home intent composer now seeds
+  New Session through the shell-owned modal state: `seed_intent` is normalized
+  into `HypervisorNewSessionLaunchSummary`, included in the receipt preview
+  binding, shown in the modal setup/summary, and carried into session launch
+  seeding when the chosen recipe opens Sessions. This preserves the boundary
+  that Home supplies operator intent while New Session binds the governed launch
+  contract. Home quickstart templates also seed the initial New Session recipe
+  destination for automation, workbench, and Foundry jobs; the modal validates
+  the recipe against `HYPERVISOR_SESSION_LAUNCH_RECIPES` before selecting it.
+  Remaining work is live projection hydration and durable selected-target
+  parameters once daemon projections provide real project/session destinations.
+
+0A.2 Agents reference-list cut is implemented:
+  `HypervisorShellContent` now renders Agents as an IOI-reference list/detail
+  workplane instead of a card grid with visible runtime-invariant banners. The
+  surface keeps `data-runtime-truth-source`, `data-agent-harness-boundary`, and
+  capability-lease attributes for conformance and replay, but the visible UX is
+  product-facing: agent rows, status dots, harness labels, capability lease
+  summaries, latest receipts, and a selected detail inspector. Runtime binding
+  remains available as muted detail metadata and no longer appears as a top-level
+  "daemon/Core owns this" badge. The source guard rejects the old Agents grid,
+  invariant banner, and status-badge DOM from returning. Verification screenshot:
+  `/tmp/hypervisor-agents-parity.png`.
 
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built

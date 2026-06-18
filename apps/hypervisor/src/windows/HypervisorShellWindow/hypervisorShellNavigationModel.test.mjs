@@ -537,6 +537,12 @@ test("Agents surface renders configured runtime actors over Core", () => {
   assert.match(shellContent, /data-agent-capability-lease/);
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /className="hypervisor-agents__workplane"/);
+  assert.match(shellContent, /className="hypervisor-agents__list"/);
+  assert.match(shellContent, /className="hypervisor-agents__detail"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__grid"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__invariants"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__status"/);
   assert.match(shellContent, /activeView === "agents"/);
   assert.match(shellContent, /activeView !== "agents"/);
   assert.match(shellContent, /<CapabilitiesView/);

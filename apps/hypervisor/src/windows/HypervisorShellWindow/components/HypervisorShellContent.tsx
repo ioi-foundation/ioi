@@ -320,6 +320,22 @@ function HypervisorAgentsSurface({
     (total, agent) => total + agent.memory_bindings.length,
     0,
   );
+  const [selectedAgentRef, setSelectedAgentRef] = useState<string | null>(
+    projection.records[0]?.agent_ref ?? null,
+  );
+  const selectedAgent =
+    projection.records.find((agent) => agent.agent_ref === selectedAgentRef) ??
+    projection.records[0] ??
+    null;
+
+  useEffect(() => {
+    if (
+      !selectedAgentRef ||
+      !projection.records.some((agent) => agent.agent_ref === selectedAgentRef)
+    ) {
+      setSelectedAgentRef(projection.records[0]?.agent_ref ?? null);
+    }
+  }, [projection.records, selectedAgentRef]);
 
   return (
     <section
@@ -334,8 +350,8 @@ function HypervisorAgentsSurface({
           <span>Workspace</span>
           <h2>Agents</h2>
           <p>
-            Configure workers, harness adapters, memory, model routes, and
-            scoped capability leases for this workspace.
+            Runtime actors, skills, memory, sessions, and capability leases for
+            this workspace.
           </p>
         </div>
         <button type="button" onClick={onOpenAuthority}>
@@ -343,39 +359,47 @@ function HypervisorAgentsSurface({
         </button>
       </div>
 
-      <div className="hypervisor-agents__summary" aria-label="Agents summary">
-        <AgentMetric label="Configured agents" value={projection.records.length} />
-        <AgentMetric label="Running" value={activeAgents} />
-        <AgentMetric label="Capability leases" value={leaseCount} />
-        <AgentMetric label="Memory bindings" value={memoryCount} />
+      <div className="hypervisor-agents__tabs" aria-label="Agent filters">
+        <button type="button" className="is-active">
+          All <span>{projection.records.length}</span>
+        </button>
+        <button type="button">
+          Running <span>{activeAgents}</span>
+        </button>
+        <button type="button">
+          Leases <span>{leaseCount}</span>
+        </button>
+        <button type="button">
+          Memory <span>{memoryCount}</span>
+        </button>
       </div>
 
-      <div className="hypervisor-agents__grid">
-        {projection.records.map((agent) => (
-          <HypervisorAgentCard
-            key={agent.agent_ref}
-            agent={agent}
+      <div className="hypervisor-agents__workplane">
+        <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
+          <div className="hypervisor-agents__list-head" role="presentation">
+            <span>Agent</span>
+            <span>Harness</span>
+            <span>Lease</span>
+            <span>Last receipt</span>
+          </div>
+          {projection.records.map((agent) => (
+            <HypervisorAgentRow
+              key={agent.agent_ref}
+              agent={agent}
+              selected={selectedAgent?.agent_ref === agent.agent_ref}
+              onSelect={() => setSelectedAgentRef(agent.agent_ref)}
+            />
+          ))}
+        </div>
+
+        {selectedAgent ? (
+          <HypervisorAgentDetail
+            agent={selectedAgent}
             onOpenSessions={onOpenSessions}
             onOpenReceipts={onOpenReceipts}
             onOpenAuthority={onOpenAuthority}
           />
-        ))}
-      </div>
-
-      <div className="hypervisor-agents__invariants" aria-label="Agents invariants">
-        <p>
-          <span>Memory</span>
-          {projection.memory_invariant}
-        </p>
-        <p>
-          <span>Capability</span>
-          {projection.capability_invariant}
-        </p>
-        <p>
-          <span>Execution</span>
-          Agent harness adapters may propose work, while Core keeps sessions,
-          authority gates, receipts, and Agentgres refs accountable.
-        </p>
+        ) : null}
       </div>
 
       <div
@@ -389,26 +413,71 @@ function HypervisorAgentsSurface({
   );
 }
 
-function AgentMetric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="hypervisor-agents__metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 function formatAgentRuntimeBoundary(boundary: string): string {
   if (boundary === "daemon_owned") {
-    return "Core managed";
+    return "Managed session";
   }
   if (boundary === "proposal_source_only") {
-    return "Proposal source";
+    return "Adapter proposal";
   }
   return boundary.replace(/_/g, " ");
 }
 
-function HypervisorAgentCard({
+function firstCapabilityLease(agent: HypervisorAgentRecord) {
+  return agent.capability_leases[0] ?? null;
+}
+
+function statusLabel(status: string): string {
+  return status.replace(/_/g, " ");
+}
+
+function HypervisorAgentRow({
+  agent,
+  selected,
+  onSelect,
+}: {
+  agent: HypervisorAgentRecord;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const lease = firstCapabilityLease(agent);
+
+  return (
+    <button
+      type="button"
+      className="hypervisor-agents__row"
+      role="listitem"
+      aria-current={selected ? "true" : undefined}
+      data-hypervisor-agent-record={agent.agent_ref}
+      data-agent-status={agent.status}
+      data-agent-harness-boundary={agent.runtime.truth_boundary}
+      onClick={onSelect}
+    >
+      <span className="hypervisor-agents__row-agent">
+        <i aria-hidden="true" />
+        <span>
+          <strong>{agent.label}</strong>
+          <em>{statusLabel(agent.status)}</em>
+        </span>
+      </span>
+      <span className="hypervisor-agents__row-harness">
+        {agent.runtime.harness_label}
+      </span>
+      <span
+        className="hypervisor-agents__row-lease"
+        data-agent-capability-lease={lease?.lease_ref ?? "none"}
+        data-agent-capability-lease-status={lease?.status ?? "none"}
+      >
+        {lease ? lease.capability_ref : "No active lease"}
+      </span>
+      <span className="hypervisor-agents__row-receipt">
+        {agent.latest_receipt_refs[0] ?? "No receipt"}
+      </span>
+    </button>
+  );
+}
+
+function HypervisorAgentDetail({
   agent,
   onOpenSessions,
   onOpenReceipts,
@@ -420,24 +489,18 @@ function HypervisorAgentCard({
   onOpenAuthority: () => void;
 }) {
   return (
-    <article
-      className="hypervisor-agents__card"
-      data-hypervisor-agent-record={agent.agent_ref}
+    <aside
+      className="hypervisor-agents__detail"
+      aria-label={`${agent.label} details`}
+      data-hypervisor-agent-detail={agent.agent_ref}
       data-agent-status={agent.status}
       data-agent-harness-boundary={agent.runtime.truth_boundary}
     >
-      <div className="hypervisor-agents__card-head">
-        <div>
-          <span className="hypervisor-agents__card-kicker">
-            {agent.status}
-          </span>
-          <h3>{agent.label}</h3>
-        </div>
-        <strong className="hypervisor-agents__status">
-          {formatAgentRuntimeBoundary(agent.runtime.truth_boundary)}
-        </strong>
+      <div className="hypervisor-agents__detail-head">
+        <span>{statusLabel(agent.status)}</span>
+        <h3>{agent.label}</h3>
+        <p>{agent.objective}</p>
       </div>
-      <p>{agent.objective}</p>
 
       <dl className="hypervisor-agents__runtime">
         <div>
@@ -464,8 +527,16 @@ function HypervisorAgentCard({
             <code>{agent.workspace_ref}</code>
           </dd>
         </div>
+        <div>
+          <dt>Binding</dt>
+          <dd>
+            <span>{formatAgentRuntimeBoundary(agent.runtime.truth_boundary)}</span>
+          </dd>
+        </div>
       </dl>
 
+      <section className="hypervisor-agents__detail-section">
+        <h4>Skills</h4>
       <div className="hypervisor-agents__chips" aria-label="Agent skills">
         {agent.skill_bindings.slice(0, 3).map((skill) => (
           <span key={skill.skill_ref} data-agent-skill-ref={skill.skill_ref}>
@@ -473,7 +544,10 @@ function HypervisorAgentCard({
           </span>
         ))}
       </div>
+      </section>
 
+      <section className="hypervisor-agents__detail-section">
+        <h4>Capability leases</h4>
       <div className="hypervisor-agents__lease-list" aria-label="Capability leases">
         {agent.capability_leases.slice(0, 2).map((lease) => (
           <span
@@ -487,6 +561,7 @@ function HypervisorAgentCard({
           </span>
         ))}
       </div>
+      </section>
 
       <dl className="hypervisor-agents__refs">
         <div>
@@ -510,7 +585,7 @@ function HypervisorAgentCard({
           Receipts
         </button>
       </div>
-    </article>
+    </aside>
   );
 }
 
