@@ -285,7 +285,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     ports_services: [
       {
         service_ref: "service:hypervisor-core",
-        label: "Session runtime service",
+        label: "Hypervisor Core service",
         port: 17380,
         protocol: "http",
         lease_ref: "lease:access/hypervisor-core/http",
