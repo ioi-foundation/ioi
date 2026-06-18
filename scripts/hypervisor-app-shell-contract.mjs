@@ -249,10 +249,22 @@ async function main() {
       await deepLinkPage.waitForSelector(
         '[data-session-reference-page="workspace-detail"]',
       );
+      const workspaceText = await deepLinkPage.locator("body").innerText();
       assert(
         (await deepLinkPage.locator('[data-window-surface="sessions"].is-active').count()) ===
           1,
         "/workspaces should cold boot into the retained Sessions cockpit.",
+      );
+      assert(
+        workspaceText.includes("Code") &&
+          workspaceText.includes("Conversation") &&
+          workspaceText.includes("Changes") &&
+          workspaceText.includes("All Files") &&
+          workspaceText.includes("Comments") &&
+          workspaceText.includes("Ports & Services") &&
+          workspaceText.includes("Tasks") &&
+          workspaceText.includes("Terminal"),
+        "/workspaces should expose the IOI-reference session tabs, right inspector modes, and bottom dock.",
       );
       await deepLinkPage.goto(
         new URL("details/019ed128-a3fd-7433-8cc3-99afed4a8ac4/logs", url)
@@ -262,10 +274,17 @@ async function main() {
       await deepLinkPage.waitForSelector(
         '[data-session-reference-page="workspace-detail"]',
       );
+      const detailsText = await deepLinkPage.locator("body").innerText();
       assert(
         (await deepLinkPage.locator('[data-window-surface="sessions"].is-active').count()) ===
           1,
         "/details/:sessionId/logs should cold boot into the retained Sessions cockpit.",
+      );
+      assert(
+        detailsText.includes("Conversation") &&
+          detailsText.includes("All Files") &&
+          detailsText.includes("Comments"),
+        "/details/:sessionId/logs should retain the visible conversation and change-inspector tabs.",
       );
       await deepLinkPage.goto(new URL("ai?user-settings=profile", url).toString(), {
         waitUntil: "domcontentloaded",

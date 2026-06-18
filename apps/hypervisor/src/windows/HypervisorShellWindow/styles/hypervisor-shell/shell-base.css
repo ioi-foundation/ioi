@@ -1898,7 +1898,8 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button,
-.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button {
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button {
   position: relative;
   flex: 0 0 auto;
   min-height: 48px;
@@ -1912,7 +1913,8 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button[aria-selected="true"],
-.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button[aria-selected="true"] {
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button[aria-selected="true"],
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button[aria-selected="true"] {
   color: #111113;
   background: transparent;
   box-shadow: inset 0 -2px 0 #111113;
@@ -2212,11 +2214,18 @@
   border-bottom: 1px solid #e7e7e5;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__right-title,
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-actions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector {
+  min-width: 0;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 12px;
+  overflow: hidden;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-title {

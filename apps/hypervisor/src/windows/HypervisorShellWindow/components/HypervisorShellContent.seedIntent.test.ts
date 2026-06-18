@@ -144,8 +144,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="workspace-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*<strong>Workspace<\/strong>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*data-session-lifecycle-state=\{projection\.lifecycle_state\}/,
-  "Sessions should render the IOI reference workspace detail page with Code/Workspace tabs and hidden lifecycle metadata",
+  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="workspace-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*data-session-detail-tab="agent"[\s\S]*<SessionOctagonIcon \/>[\s\S]*<strong>Conversation<\/strong>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*data-session-lifecycle-state=\{projection\.lifecycle_state\}/,
+  "Sessions should render the IOI reference workspace detail page with Code/Conversation tabs and hidden lifecycle metadata",
 );
 
 assert.match(
@@ -287,6 +287,18 @@ assert.match(
   shellCss,
   /\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-content[\s\S]*> \.hypervisor-session-operations__panel:not\(:first-child\)\s*\{[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\s*\{[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\.has-session-services/,
   "Sessions should render the active Ports pane as IOI-reference empty or populated projection rows while retaining tabbed dock panels",
+);
+
+assert.match(
+  source,
+  /data-session-detail-tab="agent"[\s\S]*<strong>Conversation<\/strong>/,
+  "Sessions should expose the reference-style Conversation tab while binding it to the agent detail model",
+);
+
+assert.match(
+  source,
+  /className="hypervisor-session-operations__change-inspector"[\s\S]*HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES\.map[\s\S]*data-session-change-mode=\{mode\.mode_id\}[\s\S]*\{mode\.label\}/,
+  "Sessions should render Changes, All Files, and Comments as visible right-inspector tabs",
 );
 
 assert.doesNotMatch(

@@ -1582,13 +1582,14 @@ function HypervisorSessionOperationsCockpit() {
           <button
             type="button"
             className="hypervisor-session-operations__session-title"
+            data-session-detail-tab="agent"
             data-session-ref={projection.selected_session_ref}
             aria-selected="true"
           >
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
               <SessionOctagonIcon />
             </span>
-            <strong>Workspace</strong>
+            <strong>Conversation</strong>
           </button>
           <span
             hidden
@@ -1688,15 +1689,24 @@ function HypervisorSessionOperationsCockpit() {
           ).join(" ")}
         >
           <header className="hypervisor-session-operations__right-header">
-            <button
-              type="button"
-              className="hypervisor-session-operations__right-title"
+            <div
+              className="hypervisor-session-operations__change-inspector"
+              role="tablist"
+              aria-label="Change inspector modes"
             >
-              <strong>Changes</strong>
-              <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
-                <ChevronDownIcon />
-              </span>
-            </button>
+              {HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map((mode, index) => (
+                <button
+                  key={mode.mode_id}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === 0}
+                  data-session-change-mode={mode.mode_id}
+                  title={mode.summary}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
             <div className="hypervisor-session-operations__right-actions">
               {[
                 { label: "Preview", icon: <EyeIcon /> },
