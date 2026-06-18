@@ -1420,28 +1420,22 @@ assert(
     "node scripts/hypervisor-app-shell-contract.mjs" &&
     hypervisorAppShellContractSource.includes("ioi.hypervisor.app_shell_contract.v1") &&
     hypervisorAppShellContractSource.includes(
-      '[data-home-dashboard-variant="hypervisor-zero-state"]',
+      '[data-home-dashboard-variant="ioi-reference-home"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      '[data-home-intent-submit="new-session"]',
+      'textarea[aria-label="Session intent"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      '[data-home-intent-recipe="automation.default"]',
+      'button:has-text("Fix a bug")',
     ) &&
     hypervisorAppShellContractSource.includes(
-      "New Session did not receive the Home quickstart recipe destination.",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      '[data-new-session-field="seed-intent"]',
+      "Home does not expose the IOI-reference prompt input.",
     ) &&
     hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "New Session did not receive the Home composer seed intent.",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      '[data-new-session-field="harness"]',
+      'label:has-text("Harness") select',
     ) &&
     hypervisorAppShellContractSource.includes(
       "agent-harness-adapter:codex_cli",
@@ -1453,13 +1447,25 @@ assert(
       "privacy:redacted-projection",
     ) &&
     hypervisorAppShellContractSource.includes(
-      '[data-window-surface="providers"]',
+      '[data-window-surface="projects"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      '[data-provider-operation-kind="archive"]',
+      "Projects page leaked repository-console or runtime-truth copy",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "[data-provider-operation-proposal]",
+      '[data-window-surface="workbench"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-workbench-adapter-hub="true"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-workbench-adapter-target="cursor"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-window-surface="agents"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "Agents surface leaked implementation-truth copy into the visible product surface.",
     ) &&
     hypervisorAppShellContractSource.includes(
       "apps/hypervisor/dist/index.html is missing",
@@ -1469,7 +1475,7 @@ assert(
     "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
-  "Phase 0A.10 must include a built-shell contract covering Home, New Session harness/privacy gating, and provider operation proposals.",
+  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, Workbench adapter hub, and Agents product-surface copy.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",

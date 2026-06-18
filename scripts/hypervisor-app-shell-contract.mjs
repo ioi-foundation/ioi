@@ -159,14 +159,14 @@ async function main() {
       await onboardingSkip.first().click({ force: true });
     }
     try {
-      await page.waitForSelector('[data-home-dashboard-variant="hypervisor-zero-state"]');
+      await page.waitForSelector('[data-home-dashboard-variant="ioi-reference-home"]');
     } catch (error) {
       const rootText = await page.locator("#root").innerText({ timeout: 1_000 }).catch(
         () => "",
       );
       throw new Error(
         [
-          "Hypervisor Home cockpit did not become visible.",
+          "Hypervisor Home reference prompt shell did not become visible.",
           `root_text=${JSON.stringify(rootText.slice(0, 600))}`,
           `console=${JSON.stringify(consoleMessages.slice(-10))}`,
           error instanceof Error ? error.message : String(error),
@@ -174,37 +174,24 @@ async function main() {
       );
     }
     const bodyText = await page.locator("body").innerText();
-    assert(bodyText.includes("Welcome back to Hypervisor"), "Home cockpit did not render Hypervisor copy.");
     assert(
       bodyText.includes("What do you want to get done today?"),
       "Home does not expose the IOI-reference intent composer.",
     );
+    const homePromptPlaceholder = await page
+      .locator('textarea[aria-label="Session intent"]')
+      .getAttribute("placeholder");
+    assert(
+      homePromptPlaceholder === "Describe your task or type / for commands",
+      "Home does not expose the IOI-reference prompt input.",
+    );
     assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
-    await page.waitForSelector('[data-home-intent-composer="ioi-reference-primary"]');
-    await page.waitForSelector('[data-home-intent-submit="new-session"]');
 
-    const seededIntent = "Automate env setup";
-    await page
-      .locator('[data-home-intent-recipe="automation.default"]')
-      .click();
-    await page.locator('[data-home-intent-submit="new-session"]').click();
+    const seededIntent =
+      "Open a governed Workbench session to find, reproduce, and fix a bug in this project.";
+    await page.locator('button:has-text("Fix a bug")').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
-    const recipeSelection = await page
-      .locator('button:has-text("Automation")')
-      .first()
-      .getAttribute("class");
-    assert(
-      recipeSelection?.includes("is-selected"),
-      "New Session did not receive the Home quickstart recipe destination.",
-    );
-    const modalSeedIntent = await page
-      .locator('[data-new-session-field="seed-intent"]')
-      .inputValue();
-    assert(
-      modalSeedIntent === seededIntent,
-      "New Session did not receive the Home composer seed intent.",
-    );
     const summarySeedIntent = await page
       .locator("[data-new-session-seed-intent]")
       .getAttribute("data-new-session-seed-intent");
@@ -213,23 +200,24 @@ async function main() {
       "New Session launch summary did not bind the seed intent.",
     );
     const defaultPrivacy = await page
-      .locator('[data-new-session-field="privacy"]')
+      .locator('label:has-text("Privacy") select')
       .inputValue();
     assert(
       defaultPrivacy === "privacy:ctee-private-workspace",
       "New Session should default to cTEE private workspace posture.",
     );
-    await page.selectOption('[data-new-session-field="harness"]', "agent-harness-adapter:codex_cli");
+    await page.selectOption('label:has-text("Harness") select', "agent-harness-adapter:codex_cli");
     await page.waitForFunction(() => {
       const summary = document.querySelector("[data-new-session-harness-verdict]");
       return summary?.getAttribute("data-new-session-harness-verdict") === "blocked";
     });
     const blockedLaunchDisabled = await page
-      .locator('[data-new-session-action="launch"]')
+      .locator(".hypervisor-new-session-modal__compact-choice")
+      .first()
       .isDisabled();
     assert(blockedLaunchDisabled, "External harness with cTEE private workspace should disable launch.");
 
-    await page.selectOption('[data-new-session-field="privacy"]', "privacy:redacted-projection");
+    await page.selectOption('label:has-text("Privacy") select', "privacy:redacted-projection");
     await page.waitForFunction(() => {
       const summary = document.querySelector("[data-new-session-harness-verdict]");
       return [
@@ -239,24 +227,69 @@ async function main() {
       ].includes(summary?.getAttribute("data-new-session-harness-verdict") ?? "");
     });
     const compatibleLaunchDisabled = await page
-      .locator('[data-new-session-action="launch"]')
+      .locator(".hypervisor-new-session-modal__compact-choice")
+      .first()
       .isDisabled();
     assert(!compatibleLaunchDisabled, "Compatible redacted external harness launch should be available.");
     await page.locator('button[aria-label="Close New Session"]').click();
 
-    await page.locator('[data-window-surface="providers"]').click();
-    await page.waitForSelector("[data-hypervisor-provider-placement]");
-    await page
-      .locator('[data-provider-operation-kind="archive"]')
-      .first()
-      .click();
-    await page.waitForSelector("[data-provider-operation-proposal]");
-    const proposalAdmission = await page
-      .locator("[data-provider-operation-proposal]")
-      .getAttribute("data-provider-operation-admission");
+    await page.locator('[data-window-surface="projects"]').click();
+    await page.waitForSelector("[data-hypervisor-project-state]");
+    const projectsText = await page.locator("body").innerText();
+    assert(projectsText.includes("No projects"), "Projects page did not render the IOI-reference empty state.");
+    assert(projectsText.includes("New project"), "Projects page did not expose the New project action.");
     assert(
-      proposalAdmission === "ready_for_daemon_admission",
-      "Provider operation proposal did not surface daemon admission posture.",
+      !(projectsText.match(/Code repositories|Pull requests|No pull requests created by you|Object Head|State Root|Agentgres op|restore posture and state roots/i)),
+      "Projects page leaked repository-console or runtime-truth copy into the visible surface.",
+    );
+    const projectsSearchPlaceholder = await page
+      .locator(".hypervisor-project-state__search input")
+      .getAttribute("placeholder");
+    assert(
+      projectsSearchPlaceholder === "Search projects",
+      "Projects page did not expose the reference search control.",
+    );
+
+    await page.locator('[data-window-surface="workbench"]').click();
+    await page.waitForSelector('[data-workbench-adapter-hub="true"]');
+    const workbenchText = await page.locator("body").innerText();
+    assert(workbenchText.includes("Choose a governed adapter target"), "Workbench adapter hub did not render.");
+    assert(workbenchText.includes("Adapter targets"), "Workbench did not expose adapter targets.");
+    assert(
+      !(workbenchText.match(/Code repositories|Pull requests|No pull requests created by you|daemon gates|Agentgres/i)),
+      "Workbench leaked repository-console or implementation-truth copy into the visible surface.",
+    );
+    const adapterTargetCount = await page
+      .locator("[data-workbench-adapter-target]")
+      .count();
+    assert(adapterTargetCount >= 8, "Workbench did not render enough adapter target choices.");
+    await page.locator('[data-workbench-adapter-target="cursor"]').click();
+    const cursorPressed = await page
+      .locator('[data-workbench-adapter-target="cursor"]')
+      .getAttribute("aria-pressed");
+    assert(cursorPressed === "true", "Workbench adapter target selection is not live.");
+
+    await page.locator('[data-window-surface="agents"]').click();
+    await page.waitForSelector("[data-hypervisor-agents]");
+    const agentsText = await page.locator("body").innerText();
+    assert(agentsText.includes("Agents"), "Agents surface did not render.");
+    const agentsSearchPlaceholder = await page
+      .locator(".hypervisor-agents__search input")
+      .getAttribute("placeholder");
+    assert(
+      agentsSearchPlaceholder === "Search agents...",
+      "Agents surface did not expose the reference search control.",
+    );
+    assert(agentsText.includes("Selected agent"), "Agents surface did not expose a selected agent detail pane.");
+    assert(agentsText.includes("Interface"), "Agents surface did not expose the product-facing interface column.");
+    assert(agentsText.includes("Access"), "Agents surface did not expose the product-facing access controls.");
+    assert(
+      !(
+        agentsText.match(
+          /Configured workers|Review leases|Daemon Owned|Proposal Source Only|Default Harness Profile|Hypervisor Daemon|Agentgres|wallet\.network/i,
+        )
+      ),
+      "Agents surface leaked implementation-truth copy into the visible product surface.",
     );
 
     const result = {
@@ -264,14 +297,16 @@ async function main() {
       ok: true,
       url,
       checks: [
-        "home_intent_composer_rendered",
+        "home_reference_prompt_shell_rendered",
         "home_seed_intent_reaches_new_session",
-        "home_quickstart_recipe_reaches_new_session",
-        "home_cockpit_rendered",
+        "home_reference_prompt_reaches_new_session",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
-        "provider_operation_proposal_rendered",
+        "projects_reference_empty_state_rendered",
+        "workbench_adapter_hub_rendered",
+        "workbench_adapter_selection_live",
+        "agents_reference_product_surface_rendered",
       ],
       consoleMessages,
     };

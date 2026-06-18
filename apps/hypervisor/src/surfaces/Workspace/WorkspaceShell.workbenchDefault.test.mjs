@@ -21,25 +21,30 @@ const traceCss = readFileSync(
   "utf8",
 );
 
-test("Workspace shell opens directly into the governed workbench", () => {
+test("Workspace shell opens on the adapter hub before a governed workbench target", () => {
   assert.match(
     shellSource,
-    /useState<WorkspaceShellMode>\("workbench"\)/,
-    "Workbench must be the first impression for the workspace route.",
+    /useState<WorkspaceShellMode>\("repository-gate"\)/,
+    "The Workbench surface must first present governed adapter targets.",
   );
   assert.match(
     shellSource,
     /const workbenchProject = selectedRepository \?\? currentProject;/,
-    "The current project must be a valid workbench target without repository gate selection.",
+    "The current project must remain a valid workbench target after adapter selection.",
   );
   assert.match(
     shellSource,
     /const workbenchActive = active && shellMode === "workbench";/,
-    "Workbench startup must not be blocked on selecting a repository first.",
+    "Workbench runtime startup must wait until an explicit target open.",
+  );
+  assert.match(
+    shellSource,
+    /setShellMode\("workbench"\);/,
+    "Opening a repository or target must still enter the governed workbench.",
   );
 });
 
-test("Repository chooser remains an explicit secondary action", () => {
+test("Repository chooser remains the adapter-hub entry and return path", () => {
   assert.match(shellSource, /const returnToRepositoryGate = \(\) => \{/);
   assert.match(shellSource, /setShellMode\("repository-gate"\);/);
   assert.match(shellSource, /<WorkspaceRepositoryGate/);

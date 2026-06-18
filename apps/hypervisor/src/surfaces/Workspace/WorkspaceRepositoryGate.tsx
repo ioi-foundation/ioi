@@ -613,9 +613,8 @@ export function WorkspaceRepositoryGate({
                     <time dateTime="2026-06-17">Jun 17, 2026</time>
                   </div>
                   <p>
-                    Adapter targets propose work through daemon gates. Authority,
-                    privacy posture, and receipts stay owned by Hypervisor Core,
-                    wallet.network, and Agentgres.
+                    Adapter targets request scoped access. Authority, privacy
+                    posture, and receipts stay governed by Hypervisor.
                   </p>
                   <button type="button">Review policy</button>
                 </article>

@@ -804,6 +804,7 @@ export const HYPERVISOR_BOTTOM_INSPECTOR_PANELS: HypervisorInspectorPanelId[] = 
 export const HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = [
   "home",
   "projects",
+  "workbench",
   "automations",
   "insights",
   "agents",

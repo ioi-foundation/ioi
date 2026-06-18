@@ -1162,7 +1162,7 @@ Current implementation cut:
   execution after wallet authority plus broader non-fixture project/session
   data coverage.
 
-0A.5 Workbench adapter-hub landing is partially implemented:
+0A.5 Workbench adapter-hub landing is implemented through the primary shell:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
   Hypervisor Core instead of a `Code repositories` / pull-request console
   the landing models VS Code/OpenVSCode, Cursor/Windsurf,
@@ -1182,6 +1182,10 @@ Current implementation cut:
   Session receipt previews surface the launch plan and connection contract
   before launch, so adapter targets are governed session routes rather than
   decorative editor choices.
+  The primary left rail now exposes Workbench directly, and `WorkspaceShell`
+  lands on the adapter hub before starting an embedded editor or other
+  workbench target. Explicit repository/session opens still transition into the
+  governed workbench runtime.
   `runtime-workbench-adapter-launch-plan-admission.mjs` now admits those launch
   plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
   secret release, adapter-runtime-truth claims, missing provider posture, and
@@ -1473,10 +1477,12 @@ Current implementation cut:
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
-  contract in Chromium. The contract covers the Home cockpit, New Session launch
+  contract in Chromium. The contract covers the Home prompt shell, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
-  harness allowance, Providers navigation, and provider operation proposal
-  rendering. The command is exposed as `npm run check:hypervisor-app-shell` and
+  harness allowance, Projects reference empty state, Workbench adapter-hub
+  landing and selection, and Agents product-surface copy that keeps daemon,
+  Agentgres, and wallet implementation truth out of the visible default chrome.
+  The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.
 ```

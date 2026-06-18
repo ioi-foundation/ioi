@@ -27,7 +27,10 @@ test("Workbench landing is an adapter hub over Hypervisor Core", () => {
   assert.match(gateSource, /data-workbench-adapter-preference/);
   assert.match(gateSource, /aria-pressed=\{selected\}/);
   assert.match(gateSource, /persistWorkbenchAdapterPreferenceRef/);
+  assert.match(gateSource, /Adapter targets request scoped access/);
+  assert.match(gateSource, /receipts stay governed by Hypervisor/);
   assert.doesNotMatch(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
+  assert.doesNotMatch(gateSource, /daemon gates|Agentgres|wallet\.network/);
 });
 
 test("Workbench landing no longer opens as a code repository PR console", () => {

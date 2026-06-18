@@ -114,7 +114,7 @@ export function WorkspaceShell({
     [currentProject, projects],
   );
   const [shellMode, setShellMode] =
-    useState<WorkspaceShellMode>("workbench");
+    useState<WorkspaceShellMode>("repository-gate");
   const [repositories, setRepositories] = useState(() =>
     loadWorkspaceRepositories(seedProjects),
   );

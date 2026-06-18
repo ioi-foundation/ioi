@@ -152,7 +152,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(source, /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/);
   assert.match(
     source,
-    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"agents"[\s\S]*"models"[\s\S]*"privacy"[\s\S]*"authority"[\s\S]*"sessions"[\s\S]*\]/,
+    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"workbench"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"agents"[\s\S]*"models"[\s\S]*"privacy"[\s\S]*"authority"[\s\S]*"sessions"[\s\S]*\]/,
   );
   assert.match(
     source,
