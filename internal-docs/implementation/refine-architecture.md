@@ -1381,8 +1381,11 @@ Current implementation cut:
   `project_id` and `session_ref` to the evidence request. The Receipts surface
   marks fixture-vs-daemon source explicitly through
   `data-receipt-evidence-source`, preserving the boundary that clients inspect
-  receipt evidence while Agentgres admits receipt truth. Remaining work is
-  filtering, drill-in replay, and durable Agentgres-backed receipt pagination.
+  receipt evidence while Agentgres admits receipt truth. Receipt filtering and
+  drill-in replay detail are now implemented in the client projection surface:
+  operators can filter by kind/status, select a receipt, and inspect replay,
+  state-root, operation, artifact, and trace refs without making the client
+  receipt truth. Remaining work is durable Agentgres-backed receipt pagination.
 
 0A.8/0A.9 first Privacy/cTEE admission posture surface is implemented:
   `hypervisorPrivacyPostureModel.ts` defines

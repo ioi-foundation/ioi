@@ -1523,6 +1523,22 @@ assert(
     hypervisorAppShellContractSource.includes(
       "Agents surface leaked implementation-truth copy into the visible product surface.",
     ) &&
+    hypervisorAppShellContractSource.includes("?view=receipts") &&
+    hypervisorAppShellContractSource.includes(
+      '[data-receipt-evidence-filter-controls="true"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-receipt-evidence-filtered-count]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-receipt-evidence-review]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-receipt-evidence-detail]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "receipts_filter_and_drill_in_rendered",
+    ) &&
     hypervisorAppShellContractSource.includes(
       "apps/hypervisor/dist/index.html is missing",
     ),
@@ -1968,6 +1984,20 @@ assert(
     ) &&
     hypervisorShellContentSource.includes("data-receipt-evidence-source") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-record") &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-filter-controls",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-filtered-count",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-selected-ref",
+    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-detail") &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-replay-ref",
+    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-review") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/receipt-evidence") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_receipt_evidence",

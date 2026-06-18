@@ -6,7 +6,7 @@ import {
   HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH,
   loadHypervisorReceiptEvidenceProjection,
   normalizeHypervisorReceiptEvidenceProjection,
-} from "./hypervisorReceiptEvidenceModel";
+} from "./hypervisorReceiptEvidenceModel.ts";
 
 test("receipt evidence projection binds receipts to Agentgres, artifacts, traces, state roots, and replay", () => {
   const projection = HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE;

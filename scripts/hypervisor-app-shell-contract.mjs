@@ -334,6 +334,46 @@ async function main() {
       "Agents surface leaked implementation-truth copy into the visible product surface.",
     );
 
+    await page.goto(new URL("?view=receipts", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
+    await page.waitForSelector('[data-receipt-evidence-filter-controls="true"]');
+    const initialReceiptCount = Number(
+      await page
+        .locator("[data-receipt-evidence-filtered-count]")
+        .getAttribute("data-receipt-evidence-filtered-count"),
+    );
+    assert(initialReceiptCount > 1, "Receipts surface did not render evidence records.");
+    await page.selectOption('label:has-text("Status") select', "draft");
+    await page.waitForFunction(() => {
+      const root = document.querySelector("[data-receipt-evidence-filtered-count]");
+      const cards = Array.from(
+        document.querySelectorAll("[data-receipt-evidence-status]"),
+      );
+      return (
+        Number(root?.getAttribute("data-receipt-evidence-filtered-count") ?? "0") > 0 &&
+        cards.every(
+          (card) => card.getAttribute("data-receipt-evidence-status") === "draft",
+        )
+      );
+    });
+    await page.locator("[data-receipt-evidence-review]").first().click();
+    const receiptDetailRef = await page
+      .locator("[data-receipt-evidence-detail]")
+      .getAttribute("data-receipt-evidence-detail");
+    const receiptReplayRef = await page
+      .locator("[data-receipt-evidence-detail]")
+      .getAttribute("data-receipt-evidence-replay-ref");
+    assert(
+      receiptDetailRef?.startsWith("receipt:"),
+      "Receipts surface did not expose selected receipt detail.",
+    );
+    assert(
+      receiptReplayRef?.startsWith("agentgres://replay/"),
+      "Receipts surface did not expose selected replay ref.",
+    );
+
     await page.goto(new URL("?view=settings", url).toString(), {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
@@ -409,6 +449,7 @@ async function main() {
         "workbench_adapter_hub_rendered",
         "workbench_adapter_selection_live",
         "agents_reference_product_surface_rendered",
+        "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",
         "settings_adapter_controls_rendered",
       ],

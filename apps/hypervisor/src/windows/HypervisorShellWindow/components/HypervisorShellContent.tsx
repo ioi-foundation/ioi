@@ -3,6 +3,7 @@ import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -74,6 +75,8 @@ import {
 import {
   HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
   loadHypervisorReceiptEvidenceProjection,
+  type HypervisorReceiptEvidenceKind,
+  type HypervisorReceiptEvidenceRecord,
 } from "../hypervisorReceiptEvidenceModel";
 import {
   buildHypervisorSessionOperationProposal,
@@ -2232,6 +2235,15 @@ function HypervisorReceiptEvidenceSurface({
   const [projection, setProjection] = useState(
     HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
   );
+  const [kindFilter, setKindFilter] = useState<
+    "all" | HypervisorReceiptEvidenceKind
+  >("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | HypervisorReceiptEvidenceRecord["status"]
+  >("all");
+  const [selectedReceiptRef, setSelectedReceiptRef] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -2255,6 +2267,29 @@ function HypervisorReceiptEvidenceSurface({
     };
   }, [currentProjectId]);
 
+  const kindOptions = useMemo(
+    () => Array.from(new Set(projection.records.map((record) => record.kind))),
+    [projection.records],
+  );
+  const statusOptions = useMemo(
+    () =>
+      Array.from(new Set(projection.records.map((record) => record.status))),
+    [projection.records],
+  );
+  const filteredRecords = useMemo(
+    () =>
+      projection.records.filter(
+        (record) =>
+          (kindFilter === "all" || record.kind === kindFilter) &&
+          (statusFilter === "all" || record.status === statusFilter),
+      ),
+    [kindFilter, projection.records, statusFilter],
+  );
+  const selectedRecord =
+    filteredRecords.find((record) => record.receipt_ref === selectedReceiptRef) ??
+    filteredRecords[0] ??
+    null;
+
   return (
     <section
       className="hypervisor-receipt-evidence"
@@ -2262,6 +2297,10 @@ function HypervisorReceiptEvidenceSurface({
       data-hypervisor-receipt-evidence={projection.projection_id}
       data-receipt-evidence-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
+      data-receipt-evidence-kind-filter={kindFilter}
+      data-receipt-evidence-status-filter={statusFilter}
+      data-receipt-evidence-filtered-count={filteredRecords.length}
+      data-receipt-evidence-selected-ref={selectedRecord?.receipt_ref ?? ""}
     >
       <div className="hypervisor-receipt-evidence__header">
         <span>Receipts</span>
@@ -2272,14 +2311,59 @@ function HypervisorReceiptEvidenceSurface({
         </p>
       </div>
 
+      <div
+        className="hypervisor-receipt-evidence__toolbar"
+        aria-label="Receipt evidence filters"
+        data-receipt-evidence-filter-controls="true"
+      >
+        <label>
+          <span>Kind</span>
+          <select
+            value={kindFilter}
+            onChange={(event) =>
+              setKindFilter(event.currentTarget.value as typeof kindFilter)
+            }
+          >
+            <option value="all">All receipts</option>
+            {kindOptions.map((kind) => (
+              <option key={kind} value={kind}>
+                {kind.split("_").join(" ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.currentTarget.value as typeof statusFilter)
+            }
+          >
+            <option value="all">All states</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </label>
+        <strong>{filteredRecords.length} shown</strong>
+      </div>
+
       <div className="hypervisor-receipt-evidence__grid">
-        {projection.records.map((record) => (
+        {filteredRecords.map((record) => (
           <article
             key={`${record.kind}:${record.receipt_ref}`}
             className="hypervisor-receipt-evidence__card"
             data-receipt-evidence-record={record.receipt_ref}
             data-receipt-evidence-kind={record.kind}
             data-receipt-evidence-status={record.status}
+            data-receipt-evidence-selected={
+              selectedRecord?.receipt_ref === record.receipt_ref
+                ? "true"
+                : "false"
+            }
           >
             <div className="hypervisor-receipt-evidence__card-head">
               <span>{record.kind.split("_").join(" ")}</span>
@@ -2287,6 +2371,14 @@ function HypervisorReceiptEvidenceSurface({
             </div>
             <h3>{record.receipt_ref}</h3>
             <p>{record.summary}</p>
+            <button
+              type="button"
+              className="hypervisor-receipt-evidence__review"
+              data-receipt-evidence-review={record.receipt_ref}
+              onClick={() => setSelectedReceiptRef(record.receipt_ref)}
+            >
+              Review evidence
+            </button>
             <dl>
               <div>
                 <dt>Source</dt>
@@ -2316,6 +2408,50 @@ function HypervisorReceiptEvidenceSurface({
           </article>
         ))}
       </div>
+
+      {selectedRecord ? (
+        <aside
+          className="hypervisor-receipt-evidence__detail"
+          aria-label="Selected receipt evidence"
+          data-receipt-evidence-detail={selectedRecord.receipt_ref}
+          data-receipt-evidence-replay-ref={selectedRecord.replay_ref}
+        >
+          <div>
+            <span>Selected receipt</span>
+            <h3>{selectedRecord.receipt_ref}</h3>
+            <p>{selectedRecord.summary}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Replay</dt>
+              <dd>{selectedRecord.replay_ref}</dd>
+            </div>
+            <div>
+              <dt>State root</dt>
+              <dd>{selectedRecord.state_root_ref}</dd>
+            </div>
+            <div>
+              <dt>Operations</dt>
+              <dd>{selectedRecord.agentgres_operation_refs.join(", ")}</dd>
+            </div>
+            <div>
+              <dt>Artifacts</dt>
+              <dd>{selectedRecord.artifact_refs.join(", ")}</dd>
+            </div>
+            <div>
+              <dt>Traces</dt>
+              <dd>{selectedRecord.trace_refs.join(", ")}</dd>
+            </div>
+          </dl>
+        </aside>
+      ) : (
+        <p
+          className="hypervisor-receipt-evidence__empty"
+          data-receipt-evidence-empty="true"
+        >
+          No receipts match the selected filters.
+        </p>
+      )}
     </section>
   );
 }

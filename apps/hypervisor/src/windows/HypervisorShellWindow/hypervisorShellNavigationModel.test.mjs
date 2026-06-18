@@ -808,6 +808,12 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /data-receipt-evidence-record/);
   assert.match(shellContent, /data-receipt-evidence-kind/);
   assert.match(shellContent, /data-receipt-evidence-status/);
+  assert.match(shellContent, /data-receipt-evidence-filter-controls/);
+  assert.match(shellContent, /data-receipt-evidence-filtered-count/);
+  assert.match(shellContent, /data-receipt-evidence-selected-ref/);
+  assert.match(shellContent, /data-receipt-evidence-detail/);
+  assert.match(shellContent, /data-receipt-evidence-replay-ref/);
+  assert.match(shellContent, /data-receipt-evidence-review/);
   assert.match(shellContent, /\[Hypervisor\]\[Receipts\] evidence projection unavailable/);
   assert.doesNotMatch(shellContent, /projection\.receipt_boundary_invariant/);
   assert.match(shellContent, /activeView === "receipts"/);
