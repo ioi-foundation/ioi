@@ -974,7 +974,9 @@ Current implementation cut:
     replace the previous shell-facing Autopilot names
   the default project seed is Hypervisor Core
   VITE_HYPERVISOR_INITIAL_VIEW replaces the old initial-view flag
-  workspace repository storage keys use the hypervisor.* namespace
+  the retired Workbench repository registry/materialization path is deleted;
+    Projects/New Session own project creation and Workbench opens the active
+    governed code-editor workspace session directly
   apps/hypervisor/vite.config.ts no longer carries Tauri dev host or src-tauri
     watch configuration
 

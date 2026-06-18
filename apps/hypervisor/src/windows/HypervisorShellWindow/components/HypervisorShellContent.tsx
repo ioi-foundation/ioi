@@ -30,7 +30,6 @@ import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
-import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import {
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
   loadHypervisorAgentsProjection,
@@ -3075,12 +3074,6 @@ export function HypervisorShellContent({
                         onConsumeWorkflowPreflightSeed={
                           controller.workflow.consumePreflightSeed
                         }
-                        onMaterializeWorkflowProject={async (request) => {
-                          const result =
-                            await materializeWorkflowProject(request);
-                          controller.changePrimaryView("workbench");
-                          return result;
-                        }}
                         onAddBuilderConfigToCanvas={(config) => {
                           controller.workflow.queueBuilderConfigToCanvas(
                             config,

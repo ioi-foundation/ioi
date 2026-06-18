@@ -141,58 +141,6 @@ export interface OperatorContextPickerModel {
   runtimeTruthSource: "daemon-runtime";
 }
 
-export interface AutonomousSystemPackageRef {
-  packageId: string;
-  manifestRef: string;
-  workflowRef: string;
-}
-
-export interface ProjectArtifactRefs {
-  fileRefs: string[];
-  manifestRefs: string[];
-  receiptRefs: string[];
-}
-
-export interface EvaluationFixtureRefs {
-  fixtureRefs: string[];
-  scorecardRefs: string[];
-  expectedReceiptRefs: string[];
-}
-
-export interface WorkflowProjectMaterializationRequest {
-  workflowId: string;
-  projectName: string;
-  packageRef?: AutonomousSystemPackageRef;
-  targetRootHint?: string;
-  dryRun: boolean;
-}
-
-export interface GeneratedProjectDescriptor {
-  id: string;
-  name: string;
-  rootPath: string;
-  packageRef: AutonomousSystemPackageRef;
-  artifactRefs: ProjectArtifactRefs;
-  evaluationRefs: EvaluationFixtureRefs;
-}
-
-export interface WorkspaceOpenReceipt {
-  receiptId: string;
-  projectId: string;
-  rootPath: string;
-  openedAtMs: number;
-  surfaceRoute: OperatorSurfaceRoute;
-}
-
-export interface WorkflowProjectMaterializationReceipt {
-  receiptId: string;
-  request: WorkflowProjectMaterializationRequest;
-  generatedProject: GeneratedProjectDescriptor;
-  workspaceOpenReceipt?: WorkspaceOpenReceipt;
-  status: "proposed" | "materialized" | "opened" | "blocked";
-  blockers: string[];
-}
-
 export interface SubstrateElementLocator {
   kind: "dom" | "aria" | "data-attribute" | "coordinate";
   selector?: string;

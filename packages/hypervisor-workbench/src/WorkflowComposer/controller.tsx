@@ -349,7 +349,6 @@ import {
 } from "./support";
 import type {
   WorkflowComposerProps,
-  WorkflowProjectMaterializationState,
 } from "./types";
 
 const HARNESS_GROUP_NODE_PREFIX = "harness.group.";
@@ -389,20 +388,6 @@ type HarnessWorkbenchDeepLinkProbeCase = {
   selectedRailTestId: string;
   expectedParsedKey?: keyof HarnessWorkbenchDeepLink;
 };
-
-function formatWorkflowProjectMaterializationError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-  if (
-    normalized.includes("reading 'invoke'") ||
-    normalized.includes('reading "invoke"') ||
-    normalized.includes("__tauri") ||
-    (normalized.includes("tauri") && normalized.includes("invoke"))
-  ) {
-    return "Creating a project from a workflow requires the Hypervisor runtime bridge. Open this flow in the desktop app and try again.";
-  }
-  return message || "Project materialization failed.";
-}
 
 const HARNESS_GROUP_BOUNDARY_PORTS: WorkflowPortDefinition[] = [
   {
@@ -2533,7 +2518,6 @@ export function useWorkflowComposerController({
   onInitialFileLoaded,
   preflightSeed,
   onPreflightSeedConsumed,
-  onMaterializeProject,
 }: WorkflowComposerProps) {
   const defaultWorkflow = useMemo(() => makeDefaultWorkflow(), []);
   const {
@@ -2706,12 +2690,6 @@ export function useWorkflowComposerController({
   const [newTestExpected, setNewTestExpected] = useState("");
   const [newTestExpression, setNewTestExpression] = useState("");
   const [statusMessage, setStatusMessage] = useState("Ready");
-  const [projectMaterialization, setProjectMaterialization] =
-    useState<WorkflowProjectMaterializationState>({
-      status: "idle",
-      message: null,
-      result: null,
-    });
   const [testResult, setTestResult] = useState<WorkflowTestRunResult | null>(
     null,
   );
@@ -12612,61 +12590,6 @@ export function useWorkflowComposerController({
     setStatusMessage("Saved");
   };
 
-  const handleCreateProjectFromWorkflow = async () => {
-    if (!onMaterializeProject) {
-      setProjectMaterialization({
-        status: "blocked",
-        message: "Project materialization is not wired for this surface.",
-        result: null,
-      });
-      setStatusMessage("Project materialization unavailable");
-      return;
-    }
-
-    const next = toWorkflowProject(nodes, edges, globalConfig, workflow);
-    const projectRoot = currentProject?.rootPath || ".";
-    setProjectMaterialization({
-      status: "running",
-      message: "Creating project package from workflow...",
-      result: null,
-    });
-
-    try {
-      const result = await onMaterializeProject({
-        workflowId: next.metadata.id,
-        workflowName: next.metadata.name,
-        workflowPath,
-        projectRoot,
-        projectName: next.metadata.name,
-        dryRun: false,
-        workflowSnapshot: next,
-        testsSnapshot: tests,
-        requestedAtMs: Date.now(),
-      });
-      setProjectMaterialization({
-        status: result.status === "blocked" ? "blocked" : "done",
-        message:
-          result.status === "blocked"
-            ? result.blockers.join("; ") || "Project materialization blocked."
-            : `Project package ready at ${result.rootPath}`,
-        result,
-      });
-      setStatusMessage(
-        result.status === "blocked"
-          ? "Project materialization blocked"
-          : "Project materialized and opened in Workspace",
-      );
-    } catch (error) {
-      const message = formatWorkflowProjectMaterializationError(error);
-      setProjectMaterialization({
-        status: "blocked",
-        message,
-        result: null,
-      });
-      setStatusMessage(`Project materialization failed: ${message}`);
-    }
-  };
-
   const handleGenerateBindingManifest = async () => {
     if (!runtime.generateWorkflowBindingManifest) {
       setStatusMessage("Binding manifest unavailable");
@@ -15785,7 +15708,6 @@ export function useWorkflowComposerController({
     handleConnectSelectedNodes,
     handleCopyHarnessDeepLink,
     handleCreateProposal,
-    handleCreateProjectFromWorkflow,
     handleCreateWorkflow,
     handleDragStart,
     handleDryRunFunction,
@@ -15892,7 +15814,6 @@ export function useWorkflowComposerController({
     Plus,
     packageImportReview,
     portablePackage,
-    projectMaterialization,
     proposalBoundedTargetCount,
     ProposalPreviewModal,
     proposals,

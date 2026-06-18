@@ -57,7 +57,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     executionStatusCounts,
     filteredNodeLibrary,
     filteredCompositionHelpers,
-    FileOutput,
     FlaskConical,
     functionDryRunResult,
     GitPullRequest,
@@ -82,7 +81,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleConnectSelectedNodes,
     handleCopyHarnessDeepLink,
     handleCreateProposal,
-    handleCreateProjectFromWorkflow,
     handleCreateWorkflow,
     handleDragStart,
     handleDryRunFunction,
@@ -190,7 +188,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     Plus,
     packageImportReview,
     portablePackage,
-    projectMaterialization,
     proposalBoundedTargetCount,
     ProposalPreviewModal,
     proposals,
@@ -677,16 +674,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               }
             />
             <WorkflowHeaderAction
-              label="Create project"
-              icon={FileOutput}
-              testId="workflow-materialize-project-button"
-              onClick={() => {
-                void handleCreateProjectFromWorkflow();
-              }}
-              disabled={projectMaterialization.status === "running"}
-              title="Create a VS Code Studio project package from this workflow"
-            />
-            <WorkflowHeaderAction
               label="Deploy"
               icon={Rocket}
               testId="workflow-deploy-button"
@@ -704,25 +691,6 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             />
           </div>
         </div>
-        {projectMaterialization.status !== "idle" ? (
-          <div
-            className={`workflow-project-materialization-status is-${projectMaterialization.status}`}
-            data-testid="workflow-project-materialization-status"
-          >
-            <strong>
-              {projectMaterialization.status === "running"
-                ? "Creating project package"
-                : projectMaterialization.status === "done"
-                  ? "Project package ready"
-                  : "Project materialization blocked"}
-            </strong>
-            <span>
-              {projectMaterialization.message ??
-                projectMaterialization.result?.rootPath ??
-                "No materialization detail available."}
-            </span>
-          </div>
-        ) : null}
       </header>
 
       <div
