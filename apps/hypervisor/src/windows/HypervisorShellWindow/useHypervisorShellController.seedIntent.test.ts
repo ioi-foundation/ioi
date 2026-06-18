@@ -66,7 +66,7 @@ assert.match(
 assert.match(
   source,
   /if \(isHypervisorSurfaceId\(view\)\) \{[\s\S]*setActiveView\(view\);[\s\S]*return;/,
-  "workspace bridge view launch targets should accept canonical Hypervisor surfaces directly",
+  "Hypervisor surface launch targets should accept canonical Hypervisor surfaces directly",
 );
 
 assert.doesNotMatch(

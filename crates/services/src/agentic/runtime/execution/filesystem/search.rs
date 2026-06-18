@@ -252,7 +252,7 @@ fn search_noise_rank(relative_path: &str) -> usize {
         || path.ends_with(".spec.js")
         || path.ends_with(".spec.mjs")
         || path.ends_with(".spec.ts")
-        || path.ends_with("autopilot-agent-studio-chat-scenarios.mjs")
+        || path.ends_with("hypervisor-session-workbench-scenarios.mjs")
     {
         1
     } else {

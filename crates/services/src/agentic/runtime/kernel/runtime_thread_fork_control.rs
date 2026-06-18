@@ -213,7 +213,7 @@ impl RuntimeThreadForkControlCore {
             "turn_id": string_field(&request.request, "turn_id").unwrap_or_default(),
             "item_id": format!("{thread_id}:item:thread_fork:{fork_hash}"),
             "idempotency_key": idempotency_key,
-            "source": string_field(&request.request, "source").unwrap_or_else(|| "agent_studio".to_string()),
+            "source": string_field(&request.request, "source").unwrap_or_else(|| "hypervisor_session".to_string()),
             "source_event_kind": "OperatorControl.ThreadFork",
             "event_kind": "thread.forked",
             "status": "planned",
@@ -549,7 +549,7 @@ mod tests {
             source_agent: Value::Null,
             request: json!({
                 "idempotency_key": "fork-key",
-                "source": "agent_studio",
+                "source": "hypervisor_session",
                 "requested_by": "operator",
                 "reason": "branch investigation",
                 "workflow_graph_id": "graph",

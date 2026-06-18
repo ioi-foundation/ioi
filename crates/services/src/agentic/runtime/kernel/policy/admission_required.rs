@@ -349,7 +349,7 @@ mod tests {
                 workflow_graph_id: Some("graph_alpha".to_string()),
                 workflow_node_id: Some("node_alpha".to_string()),
                 workflow_path: Some("workflows/demo.json".to_string()),
-                source: Some("agent_studio".to_string()),
+                source: Some("hypervisor_session".to_string()),
                 evidence_refs: vec![
                     "workflow_edit_proposal_js_facade_retired".to_string(),
                     "rust_daemon_core_workflow_edit_proposal_required".to_string(),
@@ -389,7 +389,7 @@ mod tests {
                 workflow_graph_id: Some("graph_alpha".to_string()),
                 workflow_node_id: Some("node_alpha".to_string()),
                 workflow_path: Some("workflows/demo.json".to_string()),
-                source: Some("agent_studio".to_string()),
+                source: Some("hypervisor_session".to_string()),
                 evidence_refs: vec!["rust_daemon_core_workflow_edit_required".to_string()],
             })
             .expect("workflow edit direct record");
@@ -403,7 +403,7 @@ mod tests {
             response["schema_version"],
             WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(response["source"], "agent_studio");
+        assert_eq!(response["source"], "hypervisor_session");
         assert!(response.get("backend").is_none());
         assert!(response.get("record").is_none());
     }
@@ -421,7 +421,7 @@ mod tests {
                 gate_event_id: Some("event_gate".to_string()),
                 gate_id: Some("gate_alpha".to_string()),
                 snapshot_id: Some("snapshot_alpha".to_string()),
-                source: Some("agent_studio".to_string()),
+                source: Some("hypervisor_session".to_string()),
                 evidence_refs: vec![
                     "diagnostics_repair_decision_execution_js_facade_retired".to_string(),
                     "rust_daemon_core_diagnostics_repair_admission_required".to_string(),
@@ -463,7 +463,7 @@ mod tests {
                 gate_event_id: Some("event_gate".to_string()),
                 gate_id: Some("gate_alpha".to_string()),
                 snapshot_id: Some("snapshot_alpha".to_string()),
-                source: Some("agent_studio".to_string()),
+                source: Some("hypervisor_session".to_string()),
                 evidence_refs: vec!["rust_daemon_core_diagnostics_repair_required".to_string()],
             })
             .expect("diagnostics repair direct record");
@@ -480,7 +480,7 @@ mod tests {
             response["schema_version"],
             DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(response["source"], "agent_studio");
+        assert_eq!(response["source"], "hypervisor_session");
         assert!(response.get("backend").is_none());
         assert!(response.get("record").is_none());
     }

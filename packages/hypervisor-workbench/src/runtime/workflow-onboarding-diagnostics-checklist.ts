@@ -120,7 +120,7 @@ function defaultDetail(
   state: WorkflowOnboardingDiagnosticState,
 ): string {
   if (state === "ready") return `${check.label} is available.`;
-  if (check.requirement === "required") return `${check.label} is required before Agent Studio can run local workflows.`;
+  if (check.requirement === "required") return `${check.label} is required before Hypervisor Workbench can run local workflows.`;
   return `${check.label} is not required, but setup will improve local workflow coverage.`;
 }
 

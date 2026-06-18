@@ -686,7 +686,7 @@ fn artifact_for(artifact_class: Option<&str>, artifact_required: bool, prompt: &
         "summary": if class_id == "static_html_js" {
             "Sandboxed website preview generated through the daemon-owned artifact lifecycle."
         } else {
-            "Agent Studio conversation artifact created through the daemon-owned artifact lifecycle."
+            "Hypervisor Workbench conversation artifact created through the daemon-owned artifact lifecycle."
         },
     })
 }
@@ -870,12 +870,12 @@ mod tests {
 
     #[test]
     fn rust_routes_local_runtime_action_without_retained_shell_collapse() {
-        let command = frame("Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.");
+        let command = frame("Run `node --check scripts/lib/hypervisor-session-workbench-scenarios.mjs` and summarize the exit code.");
         assert_eq!(command["intentId"], "command.exec");
         assert_eq!(command["routeDirective"], "runtime_action");
         assert_eq!(
             command["runtimeAction"]["targetCommand"],
-            "node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs"
+            "node --check scripts/lib/hypervisor-session-workbench-scenarios.mjs"
         );
         assert_eq!(command["workspace"]["required"], false);
         assert_eq!(command["retrieval"]["required"], false);

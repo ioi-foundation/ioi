@@ -176,7 +176,7 @@ impl RuntimeSubagentControlCore {
             ),
             "idempotency_key": string_field(&request.request, "idempotency_key")
                 .unwrap_or_else(|| format!("thread:{thread_id}:subagent.{operation}:{subagent_id}:{event_hash}")),
-            "source": string_field(&request.request, "source").unwrap_or_else(|| "agent_studio".to_string()),
+            "source": string_field(&request.request, "source").unwrap_or_else(|| "hypervisor_session".to_string()),
             "source_event_kind": subagent_operator_control_kind(&operation),
             "event_kind": subagent_runtime_event_kind(&operation),
             "status": status,
@@ -469,7 +469,7 @@ mod tests {
                 "updated_at": "2026-06-12T12:00:00.000Z",
             }),
             request: json!({
-                "source": "agent_studio",
+                "source": "hypervisor_session",
                 "receipt_refs": ["receipt_request"],
                 "policy_decision_refs": ["policy_request"],
             }),

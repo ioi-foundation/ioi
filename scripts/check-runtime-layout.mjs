@@ -726,9 +726,9 @@ assert(
 assert(
   "rust-product-fixtures-hypervisor-named",
   hypervisorRustProductFixtureSources.includes("IOI Hypervisor") &&
-    hypervisorRustProductFixtureSources.includes("Hypervisor Agent Studio") &&
+    hypervisorRustProductFixtureSources.includes("Hypervisor Workbench") &&
     hypervisorRustProductFixtureSources.includes(
-      "/tmp/hypervisor-agent-studio-",
+      "/tmp/hypervisor-workbench-",
     ) &&
     !/IOI Autopilot|Autopilot Agent Studio|autopilot_agent_studio|autopilot-agent-studio|\/tmp\/autopilot|\.tmp\/autopilot/.test(
       hypervisorRustProductFixtureSources,

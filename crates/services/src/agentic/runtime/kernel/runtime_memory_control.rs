@@ -675,7 +675,7 @@ fn event_payload(
         "idempotency_key": idempotency_key,
         "source": string_field(&request.request, "source")
             .or_else(|| optional_trimmed(request.source.as_deref()))
-            .unwrap_or_else(|| "agent_studio".to_string()),
+            .unwrap_or_else(|| "hypervisor_session".to_string()),
         "source_event_kind": string_field(&request.request, "source_event_kind")
             .unwrap_or_else(|| format!("OperatorControl.Memory{}", title_case(operation))),
         "event_kind": event_kind,

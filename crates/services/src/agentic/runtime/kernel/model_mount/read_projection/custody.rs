@@ -358,7 +358,7 @@ mod tests {
                     "wallet_authority_boundary": "wallet.network.capability_token",
                     "capability_token_authority": {
                         "authority_hash": "sha256:token-authority",
-                        "audience": "agent-studio",
+                        "audience": "hypervisor-session",
                         "grant_id": "grant://wallet/capability",
                         "allowed_scopes": ["model.chat:*"],
                         "denied_scopes": ["shell.exec"]

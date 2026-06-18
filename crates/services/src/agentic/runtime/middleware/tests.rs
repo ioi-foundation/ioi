@@ -53,7 +53,7 @@ fn test_normalize_chat_reply_preserves_fenced_markdown_inside_json_argument() {
     let input = r#"{
         "name":"chat__reply",
         "arguments":{
-            "message":"Provider registration lives in `packages/runtime-daemon/src/model-mounting.mjs`.\n```javascript\nthis.upsertDefault(this.providers, nativeLocalProvider);\n```\nThat route is then exposed to Agent Studio."
+            "message":"Provider registration lives in `packages/runtime-daemon/src/model-mounting.mjs`.\n```javascript\nthis.upsertDefault(this.providers, nativeLocalProvider);\n```\nThat route is then exposed to Hypervisor Workbench."
         }
     }"#;
     let result = normalize_tool_call_with_observation(input).unwrap();

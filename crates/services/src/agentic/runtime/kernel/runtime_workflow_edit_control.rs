@@ -154,7 +154,7 @@ impl RuntimeWorkflowEditControlCore {
             .or_else(|| string_field(&request.request, "workspace_root"));
         let source = optional_trimmed(request.source.as_deref())
             .or_else(|| string_field(&request.request, "source"))
-            .unwrap_or_else(|| "agent_studio".to_string());
+            .unwrap_or_else(|| "hypervisor_session".to_string());
         let status = optional_trimmed(request.status.as_deref())
             .or_else(|| string_field(&request.request, "status"))
             .unwrap_or_else(|| default_status(&operation_kind).to_string());
@@ -418,7 +418,7 @@ mod tests {
             workflow_node_id: Some("node_alpha".to_string()),
             workflow_path: Some("workflows/demo.json".to_string()),
             request: json!({
-                "source": "agent_studio",
+                "source": "hypervisor_session",
                 "workflow_patch": { "nodes": [{ "id": "node_alpha" }] },
                 "target_workflow_node_ids": ["node_alpha"],
                 "receipt_refs": ["receipt_request"],

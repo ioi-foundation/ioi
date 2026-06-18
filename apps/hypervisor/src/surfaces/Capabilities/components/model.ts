@@ -475,13 +475,13 @@ export function buildExtensionTrustProfile(
     case "runtime_bridge":
       return {
         tierId: "governed",
-        tierLabel: "Runtime bridge",
+        tierLabel: "Runtime endpoint",
         governedProfileId: extension.governedProfile,
         governedProfileLabel: governedProfileLabel(extension.governedProfile),
         summary:
-          "This extension contributes runtime bridge surfaces such as MCP servers or apps in addition to local metadata.",
+          "This extension contributes governed runtime endpoints such as MCP servers or apps in addition to local metadata.",
         detail:
-          "Bridge packages deserve policy review because they can expand what the runtime can call, not just what it can describe.",
+          "Endpoint packages deserve policy review because they can expand what the runtime can call, not just what it can describe.",
         signals: [
           `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
           extension.sourceLabel,
@@ -495,7 +495,7 @@ export function buildExtensionTrustProfile(
         governedProfileId: extension.governedProfile,
         governedProfileLabel: governedProfileLabel(extension.governedProfile),
         summary:
-          "This extension is currently a local skill bundle without additional runtime bridge surfaces.",
+          "This extension is currently a local skill bundle without additional runtime endpoints.",
         detail:
           "Contained local bundles stay closest to the source registry and mostly expand reusable instructions rather than network-facing authority.",
         signals: [

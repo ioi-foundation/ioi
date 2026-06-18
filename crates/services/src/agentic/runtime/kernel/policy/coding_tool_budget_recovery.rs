@@ -683,7 +683,7 @@ mod tests {
             action: Some(action.to_string()),
             approval_id: Some("approval_alpha".to_string()),
             source_event_id: Some("event_budget".to_string()),
-            source: Some("agent_studio".to_string()),
+            source: Some("hypervisor_session".to_string()),
             run: json!({
                 "id": "run_alpha",
                 "agentId": "agent_alpha",

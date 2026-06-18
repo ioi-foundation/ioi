@@ -301,7 +301,7 @@ impl RuntimeManagedSessionControlCore {
             request.evidence_refs.clone()
         };
         let source =
-            string_field(&request.request, "source").unwrap_or_else(|| "agent_studio".to_string());
+            string_field(&request.request, "source").unwrap_or_else(|| "hypervisor_session".to_string());
         let turn_id = string_field(&request.request, "turn_id");
         let turn_or_thread = turn_id.clone().unwrap_or_else(|| thread_id.clone());
         let event = json!({
@@ -943,7 +943,7 @@ mod tests {
             event_seed: Some("2026-06-12T12:00:00.000Z".to_string()),
             managed_session: Value::Null,
             request: json!({
-                "source": "agent_studio",
+                "source": "hypervisor_session",
                 "workspace_root": "/workspace/project",
                 "receipt_refs": ["receipt_request"],
                 "policy_decision_refs": ["policy_request"],
@@ -1021,7 +1021,7 @@ mod tests {
         request.control_state = None;
         request.request = json!({
             "action": "take_over",
-            "source": "agent_studio",
+            "source": "hypervisor_session",
             "workspace_root": "/workspace/project",
         });
         let error = RuntimeManagedSessionControlCore

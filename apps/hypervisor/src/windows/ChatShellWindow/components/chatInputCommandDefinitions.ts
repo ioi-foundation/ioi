@@ -198,7 +198,7 @@ export function buildSharedSessionCommandItems({
           ? `${mcpContributionCount} bridge server${mcpContributionCount === 1 ? "" : "s"}`
           : capabilityRegistryStatus === "loading"
             ? "Loading"
-            : "Bridge surface",
+            : "Runtime endpoints",
       icon: icons.code,
       onSelect: () => {
         dismissCommandSurface(false);

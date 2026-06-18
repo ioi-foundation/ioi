@@ -439,7 +439,7 @@ fn search_files_skips_generated_maps_and_prioritizes_registry_over_fixture_promp
     )
     .expect("vendored example noise should be written");
     fs::write(
-        dir.join("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs"),
+        dir.join("scripts/lib/hypervisor-session-workbench-scenarios.mjs"),
         "prompt: \"Where are local/native model providers registered in this repo?\"",
     )
     .expect("scenario fixture should be written");
@@ -464,7 +464,7 @@ fn search_files_skips_generated_maps_and_prioritizes_registry_over_fixture_promp
         .unwrap_or(usize::MAX);
     let scenario_position = lines
         .iter()
-        .position(|line| line.contains("autopilot-agent-studio-chat-scenarios.mjs"))
+        .position(|line| line.contains("hypervisor-session-workbench-scenarios.mjs"))
         .unwrap_or(usize::MAX);
     let rust_test_position = lines
         .iter()

@@ -413,7 +413,7 @@ export function McpView({
         <strong>{overview.statusLabel}</strong>
         <p>{overview.statusDetail}</p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-          <span>{overview.bridgeCount} bridge package(s)</span>
+          <span>{overview.bridgeCount} endpoint package(s)</span>
           <span>{overview.serverCount} server contribution(s)</span>
           <span>{overview.reviewCount} require review</span>
         </div>
@@ -421,11 +421,11 @@ export function McpView({
 
       <section className="artifact-hub-permissions-card">
         <div className="artifact-hub-permissions-card__head">
-          <strong>Governed MCP bridge</strong>
+          <strong>Governed MCP endpoints</strong>
           <span className="artifact-hub-policy-pill">Capability registry</span>
         </div>
         <p>
-          Treat MCP servers as governed extension-backed bridge surfaces instead
+          Treat MCP servers as governed extension-backed runtime endpoints instead
           of shell-local setup hidden behind raw config files.
         </p>
         {capabilityRegistryError ? (
@@ -468,7 +468,7 @@ export function McpView({
 
       <section className="artifact-hub-task-section">
         <div className="artifact-hub-task-section-head">
-          <span>MCP bridge packages</span>
+          <span>MCP endpoint packages</span>
           <span>{overview.servers.length}</span>
         </div>
         {overview.servers.length > 0 ? (
@@ -485,7 +485,7 @@ export function McpView({
                 <div className="artifact-hub-generic-title">{server.sourceLabel}</div>
                 <p className="artifact-hub-generic-summary">
                   {server.contributionDetail ||
-                    "This extension publishes MCP bridge surfaces into the governed runtime lane."}
+                    "This extension publishes MCP endpoints into the governed runtime lane."}
                 </p>
                 <p className="artifact-hub-generic-summary">
                   {humanizeStatus(server.trustPosture)} trust ·{" "}

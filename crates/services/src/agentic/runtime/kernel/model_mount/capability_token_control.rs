@@ -575,7 +575,7 @@ mod tests {
             generated_at: Some("2026-06-13T12:00:00.000Z".to_string()),
             state_dir: Some("/tmp/ioi-model-mount-state".to_string()),
             body: json!({
-                "audience": "agent-studio",
+                "audience": "hypervisor-session",
                 "allowed": ["model.chat:*"],
                 "denied": ["shell.exec"],
                 "grant_id": "grant://wallet/capability"

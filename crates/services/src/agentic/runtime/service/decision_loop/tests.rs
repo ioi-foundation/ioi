@@ -816,7 +816,7 @@ fn typed_runtime_workspace_frame_does_not_reuse_previous_search_context_for_new_
     let mut state = test_agent_state();
     state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
         "workspace_search",
-        "Explain how Agent Studio decides between Ask and Agent mode in this repo.",
+        "Explain how Hypervisor Workbench decides between Ask and Agent mode in this repo.",
     ));
     record_execution_evidence_with_value(
         &mut state.tool_execution_log,
@@ -832,7 +832,7 @@ fn typed_runtime_workspace_frame_does_not_reuse_previous_search_context_for_new_
     let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
         .expect("a different workspace search target should get its own search");
     assert!(tool_call.contains("\"name\":\"file__search\""));
-    assert!(tool_call.contains("Agent|Studio|decides|Ask|mode"));
+    assert!(tool_call.contains("Hypervisor|Workbench|decides|Ask|Agent|mode"));
 }
 
 #[test]
@@ -909,13 +909,13 @@ fn typed_runtime_workspace_frame_keeps_code_domain_search_terms() {
     let mut state = test_agent_state();
     state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
         "workspace_search",
-        "Explain how Agent Studio decides between Ask and Agent mode in this repo.",
+        "Explain how Hypervisor Workbench decides between Ask and Agent mode in this repo.",
     ));
 
     let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state)
         .expect("workspace search route frame should dispatch file__search");
     assert!(tool_call.contains("\"name\":\"file__search\""));
-    assert!(tool_call.contains("Agent|Studio|decides|Ask|mode"));
+    assert!(tool_call.contains("Hypervisor|Workbench|decides|Ask|Agent|mode"));
     assert!(!tool_call.contains("and|"));
 }
 
