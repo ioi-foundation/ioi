@@ -166,7 +166,7 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
 });
 
-test("workspace embedding defers global command center to HypervisorClientHeader", () => {
+test("workspace embedding keeps command center in Hypervisor shell, not editor adapter bridge", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "utf8",
@@ -176,7 +176,7 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     "utf8",
   );
   const bundledExtension = readFileSync(
-    "workbench-adapters/ioi-workbench/extension.js",
+    "workbench-adapters/ioi-code-editor-adapter/extension.js",
     "utf8",
   );
   const workspaceRuntimeNavigation = readFileSync(
@@ -208,25 +208,20 @@ test("workspace embedding defers global command center to HypervisorClientHeader
   assert.match(workspaceShell, /hideGlobalCommandCenter/);
   assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
   assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
-  assert.match(workspaceShell, /mode\?: "default" \| "tools"/);
   assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
   assert.match(bundledExtension, /registerAdapterCommands/);
   assert.match(bundledExtension, /Code editor adapter active\./);
   assert.match(
     workspaceRuntimeNavigation,
-    /case "commandCenter\.open":[\s\S]*onOpenCommandPalette\?\.\(/,
+    /case "codeEditor\.contextSnapshot":[\s\S]*routedTo: "code-editor\.context-snapshot"/,
   );
   assert.match(
     workspaceRuntimeNavigation,
-    /readString\(request\.payload, "mode"\) === "tools" \? "tools" : "default"/,
-  );
-  assert.match(
-    workspaceRuntimeNavigation,
-    /readString\(request\.payload, "initialQuery"\) \?\? undefined,\s*requestedMode/,
+    /case "codeEditor\.inspectionTargetIndex":[\s\S]*routedTo: "code-editor\.inspection-target-index"/,
   );
   assert.match(
     workspaceBridgeLifecycle,
-    /routeHandlers\?: WorkspaceBridgeRouteHandlers[\s\S]*params\.routeHandlers/,
+    /routeWorkspaceBridgeRequest\(\s*params\.runtime,\s*request,\s*params\.recordMetric,\s*\)/,
   );
   assert.match(shellContent, /const workspaceOperatorChatPane/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
@@ -422,7 +417,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
     "utf8",
   );
   const bundledExtension = readFileSync(
-    "workbench-adapters/ioi-workbench/extension.js",
+    "workbench-adapters/ioi-code-editor-adapter/extension.js",
     "utf8",
   );
 
@@ -438,7 +433,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
     bundledExtension,
     /label: "Open command palette"[\s\S]*command: "workbench\.action\.showCommands"/,
   );
-  assert.match(bundledExtension, /startWorkbenchContextSnapshotPublisher/);
+  assert.match(bundledExtension, /startCodeEditorContextPublisher/);
 });
 
 test("Hypervisor command palette anchors to the header command center", () => {

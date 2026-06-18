@@ -1,10 +1,7 @@
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import { buildWorkspaceBridgeState } from "./workspaceBridgeState";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
-import {
-  routeWorkspaceBridgeRequest,
-  type WorkspaceBridgeRouteHandlers,
-} from "./workspaceRuntimeNavigation";
+import { routeWorkspaceBridgeRequest } from "./workspaceRuntimeNavigation";
 import type {
   WorkspaceWorkbenchHost,
   WorkspaceWorkbenchHostSession,
@@ -58,7 +55,6 @@ export function startWorkspaceBridgeRequestPolling(params: {
   session: WorkspaceWorkbenchHostSession;
   pollMs: number;
   recordMetric?: MetricRecorder;
-  routeHandlers?: WorkspaceBridgeRouteHandlers;
 }) {
   if (!params.active) {
     return () => {};
@@ -78,7 +74,6 @@ export function startWorkspaceBridgeRequestPolling(params: {
           params.runtime,
           request,
           params.recordMetric,
-          params.routeHandlers,
         );
       }
     } catch (error) {

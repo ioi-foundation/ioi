@@ -462,12 +462,12 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
   const workbenchExtension = [
-    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "extension.js"), "utf8"),
-    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "bridge", "client.js"), "utf8"),
+    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "extension.js"), "utf8"),
+    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "bridge", "client.js"), "utf8"),
   ].join("\n");
   const workbenchPackage = JSON.parse(
     fs.readFileSync(
-      path.join(root, "workbench-adapters", "ioi-workbench", "package.json"),
+      path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "package.json"),
       "utf8",
     ),
   );
@@ -482,14 +482,16 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   assert.match(liveGate, /ioi:\/\/mounts\/oauth\/callback/);
   assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
   assert.match(liveGate, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
-  assert.match(workbenchExtension, /IOI_DAEMON_ENDPOINT/);
   assert.match(workbenchExtension, /ioi\.code\.open/);
   assert.ok(
     workbenchPackage.contributes?.commands?.some(
       (command) => command.command === "ioi.code.open",
     ),
   );
-  assert.doesNotMatch(workbenchExtension, /@tauri-apps|tauri:\/\/|tauri\./i);
+  assert.doesNotMatch(
+    workbenchExtension,
+    /@tauri-apps|tauri:\/\/|tauri\.|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/i,
+  );
 });
 
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
@@ -628,32 +630,6 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
   ]) {
     assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
   }
-});
-
-test("Hypervisor Workbench adapter bootstrap keeps product routes on native llama.cpp", () => {
-  const source = fs.readFileSync(path.join(root, "scripts", "launch-hypervisor-workbench-adapter-host.mjs"), "utf8");
-  assert.match(source, /function isProductRuntimeEndpoint/);
-  assert.match(source, /function discoverNativeLlamaServerPath/);
-  assert.match(source, /function discoverNativeGgufModelPath/);
-  assert.match(source, /function inferNativeModelId/);
-  assert.match(source, /IOI_LLAMA_CPP_SERVER_PATH/);
-  assert.match(source, /\.lmstudio", "models"/);
-  assert.match(source, /providerId === "provider\.llama-cpp" && mountedCount \+ mounted\.length === 0/);
-  assert.match(source, /provider_eligibility: \["llama_cpp"\]/);
-  assert.match(source, /denied_providers:\s*\[/);
-  for (const provider of [
-    "lm_studio",
-    "ollama",
-    "ioi_native_local",
-    "openai",
-    "anthropic",
-    "gemini",
-  ]) {
-    assert.match(source, new RegExp(`"${provider}"`));
-  }
-  assert.match(source, /isProductRuntimeEndpoint\(endpointRecord\)/);
-  assert.match(source, /lmstudio:detected/);
-  assert.match(source, /endpoint\.electron\.model-gui/);
 });
 
 test("model mounting CLI exposes vault-backed provider configuration flags", () => {

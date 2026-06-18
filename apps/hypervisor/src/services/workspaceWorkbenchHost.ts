@@ -1,6 +1,5 @@
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
-import type { WorkspaceBridgeRouteHandlers } from "./workspaceRuntimeNavigation";
 import type {
   WorkspaceAdapter,
   WorkspaceLayoutMode,
@@ -81,7 +80,6 @@ export interface WorkspaceWorkbenchHost {
     session: WorkspaceWorkbenchHostSession;
     pollMs: number;
     recordMetric?: (name: string, detail?: Record<string, unknown>) => void;
-    routeHandlers?: WorkspaceBridgeRouteHandlers;
   }): () => void;
   buildSurface(
     session: WorkspaceWorkbenchHostSession,

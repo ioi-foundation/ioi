@@ -64,10 +64,6 @@ interface WorkspaceShellProps {
   fullBleed?: boolean;
   operatorChatPane?: ReactNode;
   operatorChatPaneWidthPx?: number;
-  onOpenCommandPalette?: (
-    initialQuery?: string,
-    mode?: "default" | "tools",
-  ) => void;
 }
 
 type WorkspaceShellMode = "repository-gate" | "workbench";
@@ -104,7 +100,6 @@ export function WorkspaceShell({
   fullBleed = false,
   operatorChatPane = null,
   operatorChatPaneWidthPx = 360,
-  onOpenCommandPalette,
 }: WorkspaceShellProps) {
   const seedProjects = useMemo(
     () => (projects && projects.length > 0 ? projects : [currentProject]),
@@ -239,7 +234,6 @@ export function WorkspaceShell({
     currentProject: workbenchProject,
     runtime,
     host,
-    onOpenCommandPalette,
   });
   const sessionDescriptor = session ? host.describeSession(session) : null;
   const [persistedState, setPersistedState] = useState(() =>

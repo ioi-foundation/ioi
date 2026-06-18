@@ -1,20 +1,17 @@
 "use strict";
 
 const vscode = require("vscode");
+const { bridgeUrl } = require("./bridge/client");
+const { createCodeEditorAdapterBridge } = require("./bridge/workspace-bridge");
 const {
-  bridgeUrl,
-  readDaemonModelSnapshot,
-} = require("./bridge/client");
-const { createWorkspaceBridge } = require("./bridge/workspace-bridge");
+  buildWorkspaceActionContext: buildWorkspaceActionContextFromEditor,
+} = require("./editor-context/action-context");
 const {
-  buildWorkspaceActionContext: buildWorkspaceActionContextFromWorkbench,
-} = require("./workbench/action-context");
+  startCodeEditorContextPublisher,
+} = require("./editor-context/context-publisher");
 const {
-  startWorkbenchContextSnapshotPublisher,
-} = require("./workbench/context-publisher");
-const {
-  createWorkbenchContextSnapshot,
-} = require("./workbench/context-snapshot");
+  createCodeEditorContextSnapshot,
+} = require("./editor-context/context-snapshot");
 
 function workspaceSummary() {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -35,22 +32,16 @@ function refSafe(value) {
   return String(value ?? "unknown").replace(/[^a-z0-9._:-]+/gi, "-");
 }
 
-const workspaceBridge = createWorkspaceBridge({
+const workspaceBridge = createCodeEditorAdapterBridge({
   bridgeUrl,
-  readDaemonModelSnapshot,
-  workspaceSummary,
-  vscode,
-  modelSnapshotTimeoutMs: 1_000,
-  refreshStateTimeoutMs: 1_000,
 });
 
 const {
   buildRuntimeRefs,
-  startBridgeCommandPolling,
   writeBridgeRequest,
 } = workspaceBridge;
 
-const workbenchContext = createWorkbenchContextSnapshot({
+const editorContext = createCodeEditorContextSnapshot({
   vscode,
   workspaceSummary,
   buildRuntimeRefs,
@@ -58,7 +49,7 @@ const workbenchContext = createWorkbenchContextSnapshot({
 });
 
 function buildWorkspaceActionContext(source, uri) {
-  return buildWorkspaceActionContextFromWorkbench({ vscode, workspaceSummary }, source, uri);
+  return buildWorkspaceActionContextFromEditor({ vscode, workspaceSummary }, source, uri);
 }
 
 async function openCodeAdapter() {
@@ -98,17 +89,16 @@ function activate(context) {
   output.appendLine("IOI Code Adapter extension activated.");
   context.subscriptions.push(output);
 
-  startBridgeCommandPolling(context, output);
-  startWorkbenchContextSnapshotPublisher({
+  startCodeEditorContextPublisher({
     context,
     output,
     vscode,
-    buildWorkbenchContextSnapshot: workbenchContext.buildWorkbenchContextSnapshot,
-    buildWorkbenchInspectionTargetIndex: workbenchContext.buildWorkbenchInspectionTargetIndex,
+    buildCodeEditorContextSnapshot: editorContext.buildCodeEditorContextSnapshot,
+    buildCodeEditorInspectionTargetIndex: editorContext.buildCodeEditorInspectionTargetIndex,
     writeBridgeRequest,
-    rememberRecentTaskLabel: workbenchContext.rememberRecentTaskLabel,
-    getLastTaskExitCode: workbenchContext.getLastTaskExitCode,
-    setLastTaskExitCode: workbenchContext.setLastTaskExitCode,
+    rememberRecentTaskLabel: editorContext.rememberRecentTaskLabel,
+    getLastTaskExitCode: editorContext.getLastTaskExitCode,
+    setLastTaskExitCode: editorContext.setLastTaskExitCode,
   });
 
   registerAdapterCommands(context, output);

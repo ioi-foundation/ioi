@@ -1,11 +1,11 @@
 const crypto = require("crypto");
 
-function startWorkbenchContextSnapshotPublisher({
+function startCodeEditorContextPublisher({
   context,
   output,
   vscode,
-  buildWorkbenchContextSnapshot,
-  buildWorkbenchInspectionTargetIndex,
+  buildCodeEditorContextSnapshot,
+  buildCodeEditorInspectionTargetIndex,
   writeBridgeRequest,
   rememberRecentTaskLabel,
   getLastTaskExitCode,
@@ -21,7 +21,7 @@ function startWorkbenchContextSnapshotPublisher({
     }
     publishing = true;
     try {
-      const snapshot = buildWorkbenchContextSnapshot(reason);
+      const snapshot = buildCodeEditorContextSnapshot(reason);
       const comparableSnapshot = {
         ...snapshot,
         snapshotId: "",
@@ -34,13 +34,13 @@ function startWorkbenchContextSnapshotPublisher({
         .digest("hex");
       if (hash !== lastHash) {
         lastHash = hash;
-        await writeBridgeRequest("workbench.contextSnapshot", snapshot, {
-          source: "ioi-workbench",
+        await writeBridgeRequest("codeEditor.contextSnapshot", snapshot, {
+          source: "ioi-code-editor-adapter",
           reason,
         });
       }
 
-      const targetIndex = buildWorkbenchInspectionTargetIndex(reason);
+      const targetIndex = buildCodeEditorInspectionTargetIndex(reason);
       const comparableTargetIndex = {
         ...targetIndex,
         generatedAtMs: 0,
@@ -52,8 +52,8 @@ function startWorkbenchContextSnapshotPublisher({
         .digest("hex");
       if (targetHash !== lastTargetHash) {
         lastTargetHash = targetHash;
-        await writeBridgeRequest("workbench.inspectionTargetIndex", targetIndex, {
-          source: "ioi-workbench",
+        await writeBridgeRequest("codeEditor.inspectionTargetIndex", targetIndex, {
+          source: "ioi-code-editor-adapter",
           reason,
         });
       }
@@ -93,5 +93,5 @@ function startWorkbenchContextSnapshotPublisher({
 }
 
 module.exports = {
-  startWorkbenchContextSnapshotPublisher,
+  startCodeEditorContextPublisher,
 };

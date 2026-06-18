@@ -2,7 +2,7 @@
 
 const crypto = require("crypto");
 
-function createWorkbenchContextSnapshot({
+function createCodeEditorContextSnapshot({
   vscode,
   workspaceSummary,
   buildRuntimeRefs,
@@ -24,7 +24,7 @@ function createWorkbenchContextSnapshot({
     recentTaskLabels.splice(8);
   }
 
-  function toWorkbenchRange(range) {
+  function toCodeEditorRange(range) {
     if (!range) {
       return null;
     }
@@ -74,7 +74,7 @@ function createWorkbenchContextSnapshot({
     return uri?.fsPath || uri?.toString?.() || null;
   }
 
-  function buildWorkbenchScmState(openEditors) {
+  function buildCodeEditorScmState(openEditors) {
     const dirtyEditors = openEditors
       .filter((editor) => editor.isDirty && editor.filePath)
       .map((editor) => editor.filePath);
@@ -131,7 +131,7 @@ function createWorkbenchContextSnapshot({
     }
   }
 
-  function buildWorkbenchTaskState() {
+  function buildCodeEditorTaskState() {
     const activeTaskLabels = (vscode.tasks.taskExecutions || [])
       .map((execution) => execution.task?.name)
       .filter((label) => typeof label === "string" && label.trim());
@@ -149,7 +149,7 @@ function createWorkbenchContextSnapshot({
       return null;
     }
     const selection = editor.selection && !editor.selection.isEmpty
-      ? toWorkbenchRange(editor.selection)
+      ? toCodeEditorRange(editor.selection)
       : null;
     const selectedText =
       selection && editor.selection
@@ -165,7 +165,7 @@ function createWorkbenchContextSnapshot({
     };
   }
 
-  function buildWorkbenchContextSnapshot(reason = "poll") {
+  function buildCodeEditorContextSnapshot(reason = "poll") {
     const activeEditor = vscode.window.activeTextEditor;
     const workspace = workspaceSummary();
     const openEditors = vscode.window.tabGroups.all.flatMap((group, groupIndex) =>
@@ -190,7 +190,7 @@ function createWorkbenchContextSnapshot({
           severity: diagnosticSeverityLabel(entry.severity),
           source: entry.source || null,
           code: entry.code ? String(entry.code) : null,
-          range: toWorkbenchRange(entry.range),
+          range: toCodeEditorRange(entry.range),
         })),
       );
 
@@ -220,8 +220,8 @@ function createWorkbenchContextSnapshot({
         tabId: editor.tabId,
       })),
       diagnostics,
-      scmState: buildWorkbenchScmState(openEditors),
-      taskState: buildWorkbenchTaskState(),
+      scmState: buildCodeEditorScmState(openEditors),
+      taskState: buildCodeEditorTaskState(),
       terminalState: {
         terminalCount: vscode.window.terminals.length,
         activeTerminalName: vscode.window.activeTerminal?.name || null,
@@ -242,7 +242,7 @@ function createWorkbenchContextSnapshot({
     };
   }
 
-  function buildWorkbenchInspectionTargetIndex(reason = "poll") {
+  function buildCodeEditorInspectionTargetIndex(reason = "poll") {
     const activeEditor = vscode.window.activeTextEditor;
     const openEditorTargets = vscode.window.tabGroups.all.flatMap((group, groupIndex) =>
       group.tabs.map((tab, tabIndex) => ({
@@ -272,7 +272,7 @@ function createWorkbenchContextSnapshot({
               {
                 kind: "editor-range",
                 filePath: activeEditor.document.uri.fsPath,
-                range: toWorkbenchRange(activeEditor.selection),
+                range: toCodeEditorRange(activeEditor.selection),
               },
             ],
             fallbackAllowed: true,
@@ -289,7 +289,7 @@ function createWorkbenchContextSnapshot({
               {
                 kind: "editor-range",
                 filePath: activeEditor.document.uri.fsPath,
-                range: toWorkbenchRange(activeEditor.selection),
+                range: toCodeEditorRange(activeEditor.selection),
               },
             ],
             fallbackAllowed: true,
@@ -424,20 +424,20 @@ function createWorkbenchContextSnapshot({
 
   return {
     activeEditorRef,
-    buildWorkbenchContextSnapshot,
-    buildWorkbenchInspectionTargetIndex,
-    buildWorkbenchScmState,
-    buildWorkbenchTaskState,
+    buildCodeEditorContextSnapshot,
+    buildCodeEditorInspectionTargetIndex,
+    buildCodeEditorScmState,
+    buildCodeEditorTaskState,
     diagnosticSeverityLabel,
     getLastTaskExitCode: () => lastTaskExitCode,
     rememberRecentTaskLabel,
     selectedTextHash,
     setLastTaskExitCode,
-    toWorkbenchRange,
+    toCodeEditorRange,
     uriToRef,
   };
 }
 
 module.exports = {
-  createWorkbenchContextSnapshot,
+  createCodeEditorContextSnapshot,
 };

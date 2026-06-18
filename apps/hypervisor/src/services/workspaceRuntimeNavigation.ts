@@ -23,13 +23,6 @@ type WorkspaceMetricRecorder = (
   detail?: Record<string, unknown>,
 ) => void;
 
-export interface WorkspaceBridgeRouteHandlers {
-  onOpenCommandPalette?: (
-    initialQuery?: string,
-    mode?: "default" | "tools",
-  ) => void;
-}
-
 function readString(
   source: Record<string, unknown> | undefined,
   key: string,
@@ -148,7 +141,6 @@ export async function routeWorkspaceBridgeRequest(
   runtime: HypervisorClientRuntime,
   request: WorkspaceBridgeRouteRequest,
   recordMetric?: WorkspaceMetricRecorder,
-  handlers: WorkspaceBridgeRouteHandlers = {},
 ) {
   const context =
     request.context && typeof request.context === "object"
@@ -165,48 +157,22 @@ export async function routeWorkspaceBridgeRequest(
   });
 
   switch (request.requestType) {
-    case "commandCenter.open":
-      {
-        const requestedMode =
-          readString(request.payload, "mode") === "tools" ? "tools" : "default";
-        handlers.onOpenCommandPalette?.(
-          readString(request.payload, "initialQuery") ?? undefined,
-          requestedMode,
-        );
-      }
+    case "codeEditor.contextSnapshot":
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "hypervisor-header.command-center",
-        commandId: readString(request.payload, "sourceCommand"),
-      });
-      return;
-    case "workbench.contextSnapshot":
-      recordMetric?.("bridge_request_handled", {
-        requestId: request.requestId,
-        requestType: request.requestType,
-        routedTo: "workbench.context-snapshot",
+        routedTo: "code-editor.context-snapshot",
         workspaceRoot: readString(request.payload, "workspaceRoot"),
       });
       return;
-    case "workbench.inspectionTargetIndex":
+    case "codeEditor.inspectionTargetIndex":
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "workbench.inspection-target-index",
+        routedTo: "code-editor.inspection-target-index",
         targetCount: Array.isArray(request.payload.targets)
           ? request.payload.targets.length
           : 0,
-      });
-      return;
-    case "workbench.commandRouteReceipt":
-      recordMetric?.("bridge_request_handled", {
-        requestId: request.requestId,
-        requestType: request.requestType,
-        routedTo: "workbench.command-route-receipt",
-        commandId: readString(request.payload, "commandId"),
-        route: readString(request.payload, "route"),
-        status: readString(request.payload, "status"),
       });
       return;
     case "chat.submit": {

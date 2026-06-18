@@ -67,9 +67,7 @@ product path should not present any editor host as the parent product.
 # Install dependencies
 npm install
 
-# Run the current Workbench editor host in development.
-# This also starts a supervised IOI daemon sidecar and projects discovered
-# local LM Studio/Ollama model artifacts into Models.
+# Run the current Workbench code-editor adapter host in development.
 npm run dev:hypervisor-app
 
 # Build the Hypervisor Workbench package
@@ -79,16 +77,12 @@ npm run build:workbench
 `npm run dev:hypervisor-app` currently launches the packaged Electron/VS Code
 Workbench adapter host through
 `scripts/launch-hypervisor-workbench-adapter-host.mjs`. The launcher role is
-editor-host launch, not Hypervisor product identity. If `IOI_DAEMON_ENDPOINT`
-is not already set, the launcher syncs the current `ioi-workbench` extension
-into the packaged host, starts an IOI daemon sidecar, grants the workbench a
-scoped daemon token, asks the daemon to discover local model providers, mounts
-discovered local models as daemon endpoints, and passes the daemon
-endpoint/token to `ioi-workbench`. Set
-`HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip extension sync,
-`HYPERVISOR_SKIP_DAEMON=1` to opt out of daemon startup, or
-`HYPERVISOR_SKIP_MODEL_AUTODISCOVERY=1` to start the daemon without local model
-discovery. The `workbench-adapters/vscode` source checkout is optional for this
+editor-host launch, not Hypervisor product identity. Hypervisor App/Core owns
+daemon access, model mounting, session authority, and receipts; the editor-host
+launcher does not start daemon sidecars, mount models, or pass daemon tokens to
+the extension. The launcher only syncs the current `ioi-code-editor-adapter`
+extension into the packaged host. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip
+extension sync. The `workbench-adapters/vscode` source checkout is optional for this
 launch path; the required editor-host artifact is the packaged Electron app at
 `workbench-adapters/builds/VSCode-linux-x64` or
 `HYPERVISOR_WORKBENCH_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path
@@ -104,7 +98,7 @@ apps/hypervisor/
 
 workbench-adapters/
 ├── README.md                            # adapter-host ownership notes
-├── ioi-workbench/                       # built-in code editor adapter extension
+├── ioi-code-editor-adapter/                       # built-in code editor adapter extension
 ├── adapter-host.manifest.json           # code-editor adapter-host manifest
 ├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
 └── vscode/                              # ignored optional VS Code source checkout

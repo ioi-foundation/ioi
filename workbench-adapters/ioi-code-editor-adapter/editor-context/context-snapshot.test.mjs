@@ -5,7 +5,7 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 
 const {
-  createWorkbenchContextSnapshot,
+  createCodeEditorContextSnapshot,
 } = require("./context-snapshot.js");
 
 function uri(path) {
@@ -100,8 +100,8 @@ function createMockVscode() {
   };
 }
 
-test("workbench context snapshot projects editor, scm, diagnostics, tasks, and runtime refs", () => {
-  const helpers = createWorkbenchContextSnapshot({
+test("code editor context snapshot projects editor, scm, diagnostics, tasks, and runtime refs", () => {
+  const helpers = createCodeEditorContextSnapshot({
     vscode: createMockVscode(),
     workspaceSummary: () => ({ name: "workspace", path: "/workspace" }),
     buildRuntimeRefs: () => ({ daemon: "runtime://local" }),
@@ -111,7 +111,7 @@ test("workbench context snapshot projects editor, scm, diagnostics, tasks, and r
   helpers.rememberRecentTaskLabel("cargo test");
   helpers.setLastTaskExitCode(0);
 
-  const snapshot = helpers.buildWorkbenchContextSnapshot("unit");
+  const snapshot = helpers.buildCodeEditorContextSnapshot("unit");
   assert.equal(snapshot.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.equal(snapshot.reason, "unit");
   assert.equal(snapshot.workspaceRoot, "/workspace");
@@ -125,7 +125,7 @@ test("workbench context snapshot projects editor, scm, diagnostics, tasks, and r
   assert.deepEqual(snapshot.taskState.recentTaskLabels, ["npm test", "cargo test"]);
   assert.deepEqual(snapshot.runtimeRefs, { daemon: "runtime://local" });
 
-  const index = helpers.buildWorkbenchInspectionTargetIndex("unit");
+  const index = helpers.buildCodeEditorInspectionTargetIndex("unit");
   assert.equal(index.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.ok(index.targets.some((target) => target.targetId === "editor.active"));
   assert.ok(index.targets.some((target) => target.targetId === "terminal.panel"));

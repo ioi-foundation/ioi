@@ -80,6 +80,21 @@ const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapt
 const workbenchAdapterHostPaths = read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs");
 const workbenchAdaptersReadme = read("workbench-adapters/README.md");
 const workbenchAdapterHostManifest = read("workbench-adapters/adapter-host.manifest.json");
+const codeEditorAdapterPackage = read(
+  "workbench-adapters/ioi-code-editor-adapter/package.json",
+);
+const codeEditorAdapterExtension = read(
+  "workbench-adapters/ioi-code-editor-adapter/extension.js",
+);
+const codeEditorAdapterBridge = read(
+  "workbench-adapters/ioi-code-editor-adapter/bridge/workspace-bridge.js",
+);
+const codeEditorAdapterClient = read(
+  "workbench-adapters/ioi-code-editor-adapter/bridge/client.js",
+);
+const codeEditorAdapterPublisher = read(
+  "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+);
 const rootGitignore = read(".gitignore");
 const hypervisorInstallProductMetadataSource = read(
   "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
@@ -261,6 +276,7 @@ const hypervisorClientNamespaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
   "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
   "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
   "packages/workspace-substrate/src/codeOss.ts",
   "packages/workspace-substrate/src/notebook.ts",
   "packages/workspace-substrate/src/types.ts",
@@ -293,7 +309,6 @@ const hypervisorModelMountIdentitySources = [
   "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
   "scripts/lib/model-mounting-daemon-contract.test.mjs",
   "scripts/validate-model-mounting-e2e.mjs",
-  "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   "scripts/live-model-mounting-gate.mjs",
   "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
   "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
@@ -383,7 +398,7 @@ assert(
     retiredHypervisorHarnessValidationScripts.length === 0 &&
     packageJson.scripts["test:hypervisor-app-harness"] &&
     !packageJson.scripts["build:hypervisor-workbench-composer"] &&
-    !packageJson.scripts["build:ioi-workbench-composer"],
+    !packageJson.scripts["build:ioi-code-editor-adapter-composer"],
   ["package.json"],
   "root package scripts must expose focused Hypervisor checks and keep adapter-local composer builds retired",
 );
@@ -589,8 +604,9 @@ assert(
     !developersDocs.includes("Autopilot exists today as a local Tauri desktop product") &&
     !developersDocs.includes("'apps/hypervisor/src/windows/AutopilotShellWindow'") &&
     !developersDocs.includes("daemon and Autopilot surfaces") &&
-    workbenchAdapterLauncher.includes("hypervisor-workbench-configured-llama-cpp") &&
-    !workbenchAdapterLauncher.includes("autopilot-ide-configured-llama-cpp"),
+    !/configured-llama-cpp|IOI_DAEMON_ENDPOINT|IOI_DAEMON_TOKEN|IOI_MODEL_MOUNTING_API_URL/.test(
+      workbenchAdapterLauncher,
+    ),
   [
     "apps/developers-ioi-ai/src/content/docs.tsx",
     "scripts/launch-hypervisor-workbench-adapter-host.mjs",
@@ -639,17 +655,51 @@ assert(
   "Workbench adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
 );
 assert(
+  "code-editor-adapter-extension-only",
+  /"name":\s*"ioi-code-editor-adapter"/.test(codeEditorAdapterPackage) &&
+    /"commands":\s*\[\s*\{\s*"command":\s*"ioi\.code\.open"/.test(
+      codeEditorAdapterPackage,
+    ) &&
+    !/viewsContainers|viewsWelcome|ioi\.hypervisor\.(home|studio|workflow|models|runs|policy|connectors)/.test(
+      codeEditorAdapterPackage,
+    ) &&
+    codeEditorAdapterExtension.includes("createCodeEditorAdapterBridge") &&
+    codeEditorAdapterExtension.includes("startCodeEditorContextPublisher") &&
+    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot/.test(
+      codeEditorAdapterExtension,
+    ) &&
+    codeEditorAdapterBridge.includes("ioi.code_editor_adapter_request.v1") &&
+    !/readBridgeState|readBridgeCommands|defaultBridgeState|commandRouteReceipt/.test(
+      codeEditorAdapterBridge,
+    ) &&
+    codeEditorAdapterPublisher.includes("codeEditor.contextSnapshot") &&
+    codeEditorAdapterPublisher.includes("codeEditor.inspectionTargetIndex") &&
+    !/workbench\.contextSnapshot|workbench\.inspectionTargetIndex/.test(
+      codeEditorAdapterPublisher,
+    ) &&
+    !/daemonEndpoint|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/.test(
+      codeEditorAdapterClient,
+    ),
+  [
+    "workbench-adapters/ioi-code-editor-adapter/package.json",
+    "workbench-adapters/ioi-code-editor-adapter/extension.js",
+    "workbench-adapters/ioi-code-editor-adapter/bridge/workspace-bridge.js",
+    "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+  ],
+  "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, and daemon model-mount state belong to the Hypervisor shell/daemon.",
+);
+assert(
   "workbench-adapter-fork-sync-target-only",
   /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
     /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"adapterSource":\s*"workbench-adapters\/ioi-workbench"/.test(workbenchAdapterHostManifest) &&
+    /"adapterSource":\s*"workbench-adapters\/ioi-code-editor-adapter"/.test(workbenchAdapterHostManifest) &&
     /"optionalForRuntimeLaunch":\s*true/.test(workbenchAdapterHostManifest) &&
-    workbenchAdaptersReadme.includes("workbench-adapters/ioi-workbench") &&
+    workbenchAdaptersReadme.includes("workbench-adapters/ioi-code-editor-adapter") &&
     workbenchAdaptersReadme.includes("target optional local VS Code source") &&
-    /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-workbench",\s*\);/.test(
+    /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-code-editor-adapter",\s*\);/.test(
       workbenchAdapterHostPaths,
     ) &&
-    /const forkWorkbenchTarget = resolve\(forkRoot, "extensions\/ioi-workbench"\);/.test(
+    /const forkWorkbenchTarget = resolve\(forkRoot, "extensions\/ioi-code-editor-adapter"\);/.test(
       workbenchAdapterHostPaths,
     ) &&
     /rmSync\(target\.path, \{ recursive: true, force: true \}\);\s*mkdirSync\(target\.path, \{ recursive: true \}\);\s*cpSync\(extensionSource, target\.path, \{ recursive: true, force: true \}\);/.test(
@@ -780,7 +830,7 @@ assert(
     "hypervisor.pending_chat_shell_launch.v1",
     "hypervisor.chat_session.vim_mode.v1",
     "hypervisor:chat-session-vim-mode-updated",
-    "hypervisor-header.command-center",
+    "operator-command-center",
     "hypervisor-share",
     "hypervisor-trace",
     "hypervisor-dark",
@@ -832,7 +882,6 @@ assert(
     "Hypervisor native local model response",
     "Hypervisor native fixture e2e",
     "Hypervisor native fixture tuned",
-    "Hypervisor native-local route backed by configured llama.cpp runtime.",
     "Hypervisor received the catalog OAuth callback.",
     "governed Hypervisor model mounting path",
   ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&

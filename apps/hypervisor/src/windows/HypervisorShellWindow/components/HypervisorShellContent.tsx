@@ -3003,7 +3003,6 @@ export function HypervisorShellContent({
             host={workspaceHost}
             operatorChatPane={workspaceOperatorChatPane}
             operatorChatPaneWidthPx={workspaceOperatorChatPaneWidthPx}
-            onOpenCommandPalette={controller.modals.openCommandPalette}
           />
 
           {!workspaceActive ? (

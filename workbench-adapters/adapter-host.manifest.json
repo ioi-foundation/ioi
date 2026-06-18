@@ -13,12 +13,12 @@
     "binary": "workbench-adapters/builds/VSCode-linux-x64/bin/hypervisor",
     "requiredForRuntimeLaunch": true
   },
-  "adapterSource": "workbench-adapters/ioi-workbench",
+  "adapterSource": "workbench-adapters/ioi-code-editor-adapter",
   "runtimeAuthority": "packages/runtime-daemon",
   "doctrine": [
     "Hypervisor App is the product client; Workbench is one application surface.",
     "Electron/VS Code is one code-editor adapter host, not product identity or runtime truth.",
-    "ioi-workbench is the current code editor adapter extension, not a product shell.",
+    "ioi-code-editor-adapter is the current code editor adapter extension, not a product shell.",
     "IOI daemon is the runtime authority and durable execution boundary.",
     "Legacy native embedding paths are extraction inventory and must not be revived.",
     "The tracked adapter metadata and ignored local adapter artifacts live under workbench-adapters/; the root ide/ artifact path is retired."

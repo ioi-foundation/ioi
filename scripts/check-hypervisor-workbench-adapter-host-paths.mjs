@@ -56,7 +56,7 @@ if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary)) {
 
 if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource)) {
   fail(
-    `Canonical ioi-workbench source is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource}`,
+    `Canonical ioi-code-editor-adapter source is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource}`,
   );
 }
 
@@ -86,7 +86,7 @@ const packagedExtension = join(
 );
 if (!existsSync(packagedExtension)) {
   fail(
-    `Packaged ioi-workbench extension missing after sync: ${packagedExtension}`,
+    `Packaged ioi-code-editor-adapter extension missing after sync: ${packagedExtension}`,
   );
 }
 

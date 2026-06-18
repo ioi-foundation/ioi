@@ -1029,8 +1029,9 @@ Current implementation cut:
   adapter path helper defaults to `workbench-adapters/`
   active developer docs describe Hypervisor as a native operator client over
     Hypervisor Core and the IOI daemon, not as an Autopilot/Tauri desktop product
-  configured local llama.cpp model preloads identify as
-    `hypervisor-workbench-configured-llama-cpp`, not an `autopilot-ide` host
+  editor adapter launch no longer owns configured local llama.cpp preloads;
+    model discovery, routing, and mount state stay in Hypervisor App/Core and
+    daemon-owned model-mounting paths
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
 
@@ -1052,14 +1053,20 @@ Current implementation cut:
   rejects the retired helper filenames, exported symbols, and
   Autopilot-stamped active proof schemas.
   the Workbench adapter shell patch path is retired entirely. The adapter host
-  syncs the `ioi-workbench` extension and launches a normal code-editor adapter
+  syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
   target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,
   Receipts, and Settings stay in the Hypervisor App/Web clients.
   `check:runtime-layout` rejects both the retired Autopilot shell-patch helper
   and the later Hypervisor shell-patch helper so adapter targets cannot regain
   product-shell duties.
+  the tracked extension package is now `workbench-adapters/ioi-code-editor-adapter`.
+  It contributes only `ioi.code.open` plus one-way `codeEditor.contextSnapshot`
+  and `codeEditor.inspectionTargetIndex` requests. The adapter no longer polls
+  bridge command queues, reads daemon model-mount state, emits command-route
+  receipt envelopes, or accepts product-shell routes such as command center,
+  workflow, models, runs, policy, or connectors.
   the adapter-local Workflow Composer webview build command is retired; the
-  `ioi-workbench` directory is a code editor adapter implementation detail,
+  `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.
 
 0A.1E repo-facing map cleanup is implemented:

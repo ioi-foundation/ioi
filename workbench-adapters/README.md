@@ -20,7 +20,7 @@ workbench-adapters/
 
 Canonical ownership stays split:
 
-- `workbench-adapters/ioi-workbench` is the current code editor adapter
+- `workbench-adapters/ioi-code-editor-adapter` is the current code editor adapter
   extension source.
 - `workbench-adapters/vscode` is the target optional local VS Code source
   checkout for adapter-host development and rebuilds.

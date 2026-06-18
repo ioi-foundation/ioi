@@ -1,5 +1,5 @@
 {
-  "name": "ioi-workbench",
+  "name": "ioi-code-editor-adapter",
   "displayName": "IOI Code Adapter",
   "description": "IOI-native code editor adapter for Hypervisor sessions.",
   "version": "0.0.1",

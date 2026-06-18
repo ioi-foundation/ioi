@@ -39,13 +39,13 @@ const forkRoot = resolveEnvPath(
 );
 const extensionSource = resolve(
   repoRoot,
-  "workbench-adapters/ioi-workbench",
+  "workbench-adapters/ioi-code-editor-adapter",
 );
 const packagedWorkbenchTarget = resolve(
   packagedRoot,
-  "resources/app/extensions/ioi-workbench",
+  "resources/app/extensions/ioi-code-editor-adapter",
 );
-const forkWorkbenchTarget = resolve(forkRoot, "extensions/ioi-workbench");
+const forkWorkbenchTarget = resolve(forkRoot, "extensions/ioi-code-editor-adapter");
 const binary = process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN
   ? resolve(process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN)
   : resolve(packagedRoot, "bin/hypervisor");
