@@ -2560,7 +2560,7 @@ mod tests {
         state.tool_execution_log.insert(
             "file__write:docs".to_string(),
             ToolCallStatus::Executed(
-                "step=6;tool=file__write;path=internal-docs/specs/runtime/autopilot-chat-agent-ux.md"
+                "step=6;tool=file__write;path=internal-docs/implementation/refine-architecture.md"
                     .to_string(),
             ),
         );
@@ -2592,7 +2592,7 @@ mod tests {
         assert!(impact
             .affected_docs
             .iter()
-            .any(|path| path.contains("autopilot-chat-agent-ux.md")));
+            .any(|path| path.contains("refine-architecture.md")));
         assert!(impact
             .generated_files_needing_refresh
             .iter()
