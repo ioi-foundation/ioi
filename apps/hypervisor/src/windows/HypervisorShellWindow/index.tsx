@@ -19,7 +19,11 @@ import {
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   type HypervisorModelMountInventorySnapshot,
 } from "./harnessAdapterModel";
-import { loadHypervisorModelMountInventorySnapshot } from "./modelMountInventoryModel";
+import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
+import {
+  HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
+  loadHypervisorModelMountInventorySnapshot,
+} from "./modelMountInventoryModel";
 import { useHypervisorShellController } from "./useHypervisorShellController";
 
 import "@ioi/hypervisor-workbench/dist/style.css";
@@ -252,6 +256,13 @@ function HypervisorShellWindowLoaded() {
   }, []);
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorModelMountInventorySnapshot()
       .then((snapshot) => {

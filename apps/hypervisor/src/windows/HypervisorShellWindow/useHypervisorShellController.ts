@@ -49,12 +49,14 @@ import {
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildCodeEditorAdapterLaunchPlan,
+  HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
   getCodeEditorAdapterPreferenceByRef,
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
+import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 
@@ -386,14 +388,23 @@ export function useHypervisorShellController() {
     const codeEditorAdapterLaunchPlan =
       buildCodeEditorAdapterLaunchPlan(codeEditorAdapter);
     const codeEditorAdapterAdmission =
-      await requestCodeEditorAdapterLaunchPlanAdmission(
-        codeEditorAdapterLaunchPlan,
-      ).catch((error: unknown) =>
-        buildHypervisorCodeEditorAdapterAdmissionFailure({
-          error,
-          launchPlan: codeEditorAdapterLaunchPlan,
-        }),
-      );
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestCodeEditorAdapterLaunchPlanAdmission(
+            codeEditorAdapterLaunchPlan,
+          ).catch((error: unknown) =>
+            buildHypervisorCodeEditorAdapterAdmissionFailure({
+              error,
+              launchPlan: codeEditorAdapterLaunchPlan,
+            }),
+          )
+        : buildHypervisorCodeEditorAdapterAdmissionFailure({
+            error: new Error(
+              "Attach a Hypervisor Daemon endpoint before requesting code-editor adapter launch admission.",
+            ),
+            launchPlan: codeEditorAdapterLaunchPlan,
+          });
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,

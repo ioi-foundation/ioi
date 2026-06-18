@@ -12,6 +12,7 @@ import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useHypervisorShellController } from "../useHypervisorShellController";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
+import { shouldAttemptHypervisorDaemonProjectionFetch } from "../hypervisorDaemonEndpoint";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
 import { CapabilitiesView } from "../../../surfaces/Capabilities";
 import { EnvironmentEstateView } from "../../../surfaces/Environments/EnvironmentEstateView";
@@ -27,6 +28,7 @@ import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceSessionHost } from "../../../services/workspaceSessionHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import {
+  HYPERVISOR_AGENTS_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
   loadHypervisorAgentsProjection,
   requestWorkerPackageInstallAdmission,
@@ -35,14 +37,17 @@ import {
   type HypervisorWorkerPackageInstallAdmission,
 } from "../hypervisorAgentsModel";
 import {
+  HYPERVISOR_AUTOMATION_COMPOSITOR_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   loadHypervisorAutomationCompositorProjection,
 } from "../hypervisorAutomationCompositorModel";
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
   requestHarnessPublicFixtureRun,
 } from "../harnessAdapterModel";
 import {
+  HYPERVISOR_MODEL_INFRASTRUCTURE_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
   loadHypervisorModelInfrastructureProjection,
   type HypervisorModelInfrastructureProvider,
@@ -52,10 +57,12 @@ import {
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import {
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
+  HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
   loadHypervisorProjectStateProjection,
 } from "../hypervisorProjectStateModel";
 import {
   buildHypervisorProviderOperationProposal,
+  HYPERVISOR_PROVIDER_PLACEMENT_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
   HYPERVISOR_PROVIDER_OPERATION_KINDS,
   loadHypervisorProviderPlacementProjection,
@@ -65,6 +72,7 @@ import {
   type HypervisorProviderPlacementCandidate,
 } from "../hypervisorProviderPlacementModel";
 import {
+  HYPERVISOR_RECEIPT_EVIDENCE_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
   loadHypervisorReceiptEvidenceProjection,
   type HypervisorReceiptEvidenceKind,
@@ -72,6 +80,7 @@ import {
 } from "../hypervisorReceiptEvidenceModel";
 import {
   buildHypervisorSessionOperationProposal,
+  HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   loadHypervisorSessionOperationsProjection,
   proposeHypervisorSessionOperation,
@@ -108,6 +117,17 @@ function HypervisorHarnessComparisonDashboard() {
   async function handleFixtureRun() {
     setRunState("requesting");
     setRunMessage("Requesting governed public fixture run...");
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      setRunState("unavailable");
+      setRunMessage(
+        "Attach a Hypervisor Daemon endpoint before requesting a governed public fixture run.",
+      );
+      return;
+    }
     try {
       const nextComparison = await requestHarnessPublicFixtureRun();
       setComparison(nextComparison);
@@ -229,6 +249,13 @@ function HypervisorAgentsSurface({
     });
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_AGENTS_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorAgentsProjection({ projectId: currentProjectId })
       .then((nextProjection) => {
@@ -842,6 +869,13 @@ function HypervisorAutomationCompositorSurface({
   );
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_AUTOMATION_COMPOSITOR_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorAutomationCompositorProjection({
       projectId: currentProjectId,
@@ -1402,6 +1436,13 @@ function HypervisorSessionOperationsCockpit() {
     useState<HypervisorSessionOperationProposal | null>(null);
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorSessionOperationsProjection()
       .then((nextProjection) => {
@@ -1925,6 +1966,13 @@ function HypervisorProjectStateSurface({
   );
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorProjectStateProjection({ projectId: selectedProjectId })
       .then((nextProjection) => {
@@ -2118,6 +2166,13 @@ function HypervisorProviderPlacementDashboard() {
     useState<HypervisorProviderOperationProposal | null>(null);
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_PROVIDER_PLACEMENT_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorProviderPlacementProjection()
       .then((nextProjection) => {
@@ -2326,6 +2381,13 @@ function HypervisorReceiptEvidenceSurface({
   );
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_RECEIPT_EVIDENCE_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorReceiptEvidenceProjection({
       projectId: currentProjectId,
@@ -2548,6 +2610,13 @@ function HypervisorModelInfrastructureSurface({
   );
 
   useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_MODEL_INFRASTRUCTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
     let cancelled = false;
     loadHypervisorModelInfrastructureProjection({
       projectId: currentProjectId,

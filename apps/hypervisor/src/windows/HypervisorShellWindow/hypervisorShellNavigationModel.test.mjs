@@ -738,9 +738,11 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /data-project-restore-ref/);
   assert.match(shellContent, /<h2>Projects<\/h2>/);
   assert.match(shellContent, /placeholder="Search projects"/);
-  assert.match(shellContent, /No projects/);
-  assert.match(shellContent, /Projects bundle your repo/);
-  assert.match(shellContent, /New project/);
+  assert.match(shellContent, /aria-label="Project state records"/);
+  assert.match(shellContent, /Restore ready/);
+  assert.match(shellContent, /className="hypervisor-project-state__inspector"/);
+  assert.match(shellContent, /aria-label="Selected project restore context"/);
+  assert.match(shellContent, /Agentgres owns project truth/);
   assert.match(shellContent, /activeView === "projects"/);
 });
 

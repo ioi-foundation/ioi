@@ -1670,6 +1670,14 @@ Current implementation cut:
   is tuned to the sparse reference posture. Source guards reject the old stroked
   wireframe mark and the built-shell contract verifies the rendered mark size
   and faceted polygon structure.
+  The built shell is fixture-first until a Hypervisor Daemon endpoint is
+  explicitly attached through the shared endpoint preference or a surface-specific
+  endpoint key. Home, Sessions, Projects, Automations, Agents, Models,
+  Providers, Receipts, New Session model inventory, Foundry fixture runs, and
+  code-editor adapter launch admission no longer issue doomed localhost daemon
+  requests in offline/reference mode. The app-shell contract rejects offline
+  reference-shell console warnings/errors, so degraded daemon state cannot sit
+  on top of the Home/Sessions/Projects shell.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.

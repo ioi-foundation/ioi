@@ -656,6 +656,10 @@ async function main() {
         settingsAdapterText.includes("Dotfiles repository"),
       "Settings did not render reference account preferences.",
     );
+    assert(
+      consoleMessages.length === 0,
+      `Offline reference shell emitted console warnings/errors: ${JSON.stringify(consoleMessages)}`,
+    );
 
     const result = {
       schema_version: "ioi.hypervisor.app_shell_contract.v1",
@@ -687,6 +691,7 @@ async function main() {
         "settings_reference_surface_rendered",
         "settings_reference_primary_nav_rendered",
         "settings_code_editor_preference_rendered",
+        "offline_reference_shell_console_clean",
       ],
       consoleMessages,
     };
