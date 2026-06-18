@@ -604,7 +604,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
   {
     id: "sessions",
     label: "Sessions",
-    description: "Live governed workspaces and runs managed by Hypervisor Core.",
+    description: "Live governed workspaces and runs managed by Hypervisor.",
     kind: "core",
     railGroup: "primary",
     defaultSessionTab: "agent",

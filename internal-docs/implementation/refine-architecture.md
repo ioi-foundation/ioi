@@ -1409,6 +1409,18 @@ Current implementation cut:
   invariant banner, and status-badge DOM from returning. Verification screenshot:
   `/tmp/hypervisor-agents-parity.png`.
 
+0A.2 visible doctrine-copy sweep is implemented:
+  Product surfaces keep runtime/authority/truth metadata in data attributes and
+  model projections, but top-level headers and operation proposals no longer
+  render raw invariant strings. Projects, Providers, Environments, Receipts,
+  Privacy, and session/provider proposal panels now use operator-facing copy
+  that explains the review or action available on that surface. Focused shell
+  tests reject direct `*_invariant` JSX bindings and the old Hypervisor Core
+  environment-estate header copy so implementation detail does not sit on top
+  of the cockpit. Seed project/session/service/receipt labels were also
+  renamed away from implementation-layer "Core" phrasing where they are visible
+  in the shell.
+
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell

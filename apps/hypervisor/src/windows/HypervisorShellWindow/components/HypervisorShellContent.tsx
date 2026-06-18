@@ -1474,7 +1474,10 @@ function HypervisorSessionOperationsCockpit() {
           <div>
             <span>Session proposal</span>
             <h3>{operationProposal.operation_kind.split("_").join(" ")}</h3>
-            <p>{operationProposal.custody_invariant}</p>
+            <p>
+              Review the requested lease, scope, receipt, and restore refs
+              before this operation is allowed to run.
+            </p>
           </div>
           <dl>
             <div>
@@ -1551,7 +1554,10 @@ function HypervisorProjectStateSurface({
       <div className="hypervisor-project-state__header">
         <span>Projects</span>
         <h2>Workspace refs, sessions, restore posture, and state roots.</h2>
-        <p>{projection.project_boundary_invariant}</p>
+        <p>
+          Open a workspace, inspect its current session, or review archive and
+          restore posture before moving work across environments.
+        </p>
       </div>
 
       <div className="hypervisor-project-state__grid">
@@ -1731,7 +1737,10 @@ function HypervisorProviderPlacementDashboard() {
       <div className="hypervisor-provider-placement__header">
         <span>Providers</span>
         <h2>Direct provider integrations for governed sessions.</h2>
-        <p>{projection.anti_gateway_invariant}</p>
+        <p>
+          Compare local, cloud, DePIN, storage, and confidential-compute options
+          before attaching infrastructure to a session.
+        </p>
       </div>
 
       <div className="hypervisor-provider-placement__grid">
@@ -1807,7 +1816,10 @@ function HypervisorProviderPlacementDashboard() {
           <div>
             <span>Operation proposal</span>
             <h3>{operationProposal.operation_kind.split("_").join(" ")}</h3>
-            <p>{operationProposal.custody_invariant}</p>
+            <p>
+              Review the selected provider, lease, receipt, restore, and state
+              refs before approving this infrastructure operation.
+            </p>
           </div>
           <dl>
             <div>
@@ -1852,9 +1864,8 @@ function HypervisorEnvironmentEstateSurface({
         <span>Environments</span>
         <h2>Managed sessions, ports, services, tasks, and restore posture.</h2>
         <p>
-          This view reads the live environment estate through Hypervisor Core.
-          Provider resources are execution placements, while wallet.network
-          authorizes spend and Agentgres records lifecycle and restore truth.
+          Monitor active workspaces, services, ports, leases, tasks, logs, and
+          restore posture across the infrastructure attached to this workspace.
         </p>
       </div>
       <EnvironmentEstateView runtime={runtime} />
@@ -1904,7 +1915,10 @@ function HypervisorReceiptEvidenceSurface({
       <div className="hypervisor-receipt-evidence__header">
         <span>Receipts</span>
         <h2>Operational evidence, replay, and state-root continuity.</h2>
-        <p>{projection.receipt_boundary_invariant}</p>
+        <p>
+          Review the activity trail, evidence refs, replay handles, and state
+          continuity for recent work.
+        </p>
       </div>
 
       <div className="hypervisor-receipt-evidence__grid">
@@ -2245,7 +2259,10 @@ function HypervisorPrivacyPostureSurface() {
       <div className="hypervisor-privacy-posture__header">
         <span>Privacy / cTEE</span>
         <h2>Workspace custody, model custody, and provider admission.</h2>
-        <p>{projection.invariant}</p>
+        <p>
+          See which workspace segments, model weights, and provider candidates
+          can be used without exposing protected state.
+        </p>
       </div>
 
       <div className="hypervisor-privacy-posture__summary">

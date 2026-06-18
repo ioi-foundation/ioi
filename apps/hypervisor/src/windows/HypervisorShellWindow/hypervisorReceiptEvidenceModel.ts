@@ -109,7 +109,7 @@ export const HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE: HypervisorReceiptEv
             ? "wallet.network scope and approval evidence for the selected session."
             : index === 2
               ? "Environment log/access lease evidence for the selected session."
-              : "Session lifecycle transition admitted through Hypervisor Core.",
+              : "Session lifecycle transition completed for the selected workspace.",
           sessionProjection.projection_id,
         ),
       ),
@@ -127,7 +127,7 @@ export const HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE: HypervisorReceiptEv
         receiptRecord(
           receiptRef,
           "harness_comparison",
-          "Harness comparison draft receipt; candidate output is not runtime truth until admitted.",
+          "Harness comparison draft receipt; candidate output is awaiting approval.",
           harnessComparison.run_id,
           receiptRef.startsWith("receipt:draft:") ? "draft" : "pending",
         ),

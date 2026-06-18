@@ -218,7 +218,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     projection_id: "hypervisor-session-operations:active-mission",
     source: "fixture",
     selected_session_ref: "session:mission/hypervisor-core-refine-architecture",
-    display_title: "Hypervisor Core refine architecture",
+    display_title: "Hypervisor architecture refinement",
     branch_label: "main",
     lifecycle_state: "active",
     auto_stop_label: "30m of inactivity",
@@ -250,7 +250,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       summary:
         tab_id === "environment"
           ? "Provider, ports, services, leases, archive refs, and restore posture."
-          : `${formatPanelLabel(tab_id)} state is projected from Core and Agentgres receipts.`,
+          : `${formatPanelLabel(tab_id)} state is available for the selected session.`,
       evidence_refs: [
         `agentgres://projection/session-detail/${tab_id}`,
         `receipt://session-detail/${tab_id}`,
@@ -262,7 +262,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       summary:
         panel_id === "authority"
           ? "wallet.network scopes, leases, and approvals remain the action gate."
-          : `${formatPanelLabel(panel_id)} evidence is read-only until a Core operation admits an update.`,
+          : `${formatPanelLabel(panel_id)} evidence is read-only until an approved update is available.`,
       status: panel_id === "authority" ? "attention" : "clear",
       evidence_refs: [
         `agentgres://projection/right-inspector/${panel_id}`,
@@ -285,7 +285,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     ports_services: [
       {
         service_ref: "service:hypervisor-core",
-        label: "Hypervisor Core service",
+        label: "Session runtime service",
         port: 17380,
         protocol: "http",
         lease_ref: "lease:access/hypervisor-core/http",
@@ -339,7 +339,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       {
         step_ref: "session-step:project-state",
         label: "Loaded project state",
-        detail: "Agentgres object heads and restore refs",
+        detail: "Object heads and restore refs",
         status: "completed",
         evidence_ref: "agentgres://projection/project-state/hypervisor-core",
       },
