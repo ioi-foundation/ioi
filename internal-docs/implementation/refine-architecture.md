@@ -1129,8 +1129,10 @@ Current implementation cut:
   coverage.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
-  normalized `ioi.hypervisor.home_cockpit_projection.v1` loader and renders its
-  fixture or daemon source explicitly via `data-home-cockpit-source`.
+  normalized `ioi.hypervisor.home_cockpit_projection.v1` loader while the
+  visible Home surface remains the clean IOI-reference prompt cockpit. Harness
+  comparison and cockpit metrics stay in the projection model rather than
+  becoming visible Home dashboard chrome.
   `/v1/hypervisor/home-cockpit` is implemented as a public runtime route that
   dispatches through `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_home_cockpit`, returning only the
@@ -1142,7 +1144,10 @@ Current implementation cut:
   `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_session_operations`. The route
   returns only the client projection body and preserves explicit
-  fixture-vs-daemon source markers.
+  fixture-vs-daemon source markers. The projection now owns the visible session
+  title, branch label, lifecycle timing labels, resource health, lifecycle step
+  evidence, changed-file groups, and ports/services rows so the shell no longer
+  hard-codes remote-VM or repository-change placeholders.
   Projects now preserves the same fixture-vs-daemon source marker while
   carrying workspace refs, adapter preference refs, Agentgres object heads,
   state roots, artifact refs, archive refs, restore refs, and receipt refs.
@@ -1258,7 +1263,10 @@ Current implementation cut:
   the canonical session rail, session detail tabs, right inspector panels,
   bottom inspector panels, provider/environment refs, access/log leases,
   archive/restore refs, services, tasks, terminal events, authority scopes, and
-  latest receipt refs.
+  latest receipt refs. The same projection now also binds display title, branch
+  label, auto-stop/created/last-started labels, resource-health state,
+  environment lifecycle evidence steps, and changed-file groups with receipt
+  refs.
   `HypervisorShellContent` renders that projection in the Sessions surface as
   a read-only operations cockpit before the chat/work session view. This makes
   the IOI-reference session-detail tabs and ports/services/tasks/terminal
@@ -1275,8 +1283,9 @@ Current implementation cut:
   unavailable, the client renders an explicitly `unverified` proposal instead
   of executing locally.
   Focused model and shell source tests guard the tab/inspector arrays, lease
-  refs, restore refs, port/service rows, task rows, terminal events, session
-  operation proposal schema, daemon route, and
+  refs, restore refs, projected lifecycle steps, projected changed files,
+  projected port/service rows, task rows, terminal events, session operation
+  proposal schema, daemon route, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
 
 0A.9 first provider/environment surface cut is implemented:

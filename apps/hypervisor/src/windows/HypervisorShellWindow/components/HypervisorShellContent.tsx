@@ -752,6 +752,23 @@ function formatSessionLifecycleLabel(lifecycleState: string): string {
   return lifecycleState.split("_").join(" ");
 }
 
+function formatSessionStepStatus(status: string): string {
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatChangedFileStatus(status: string): string {
+  const statusLabel: Record<string, string> = {
+    added: "A",
+    modified: "M",
+    deleted: "D",
+    untracked: "U",
+  };
+  return statusLabel[status] ?? status.charAt(0).toUpperCase();
+}
+
 function SessionCodeIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -947,62 +964,6 @@ function HypervisorSessionOperationsCockpit() {
       });
   }
 
-  const startupSteps = [
-    {
-      label: "Started remote virtual machine",
-      detail: "IOI Cloud (US01)",
-    },
-    {
-      label: "Initialized repository",
-      detail: "",
-    },
-    {
-      label: "Loaded secrets",
-      detail: "1 project secret",
-    },
-    {
-      label: "Loaded automations",
-      detail: ".ioi/automations.yaml",
-    },
-    {
-      label: "Started dev container",
-      detail: ".devcontainer/devcontainer.json",
-    },
-  ];
-
-  const changedFileGroups = [
-    {
-      folder: ".devcontainer/",
-      count: 2,
-      files: [
-        {
-          name: "devcontainer.json",
-          delta: "+20",
-          status: "U",
-          receipt_ref: projection.latest_receipt_refs[0] ?? projection.access_lease_ref,
-        },
-        {
-          name: "Dockerfile",
-          delta: "+5",
-          status: "U",
-          receipt_ref: projection.latest_receipt_refs[1] ?? projection.log_lease_ref,
-        },
-      ],
-    },
-    {
-      folder: "docs/",
-      count: 1,
-      files: [
-        {
-          name: "parent-harness-evidence-boundary.md",
-          delta: "+138",
-          status: "U",
-          receipt_ref: projection.restore_ref,
-        },
-      ],
-    },
-  ];
-
   return (
     <section
       className="hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"
@@ -1021,10 +982,10 @@ function HypervisorSessionOperationsCockpit() {
           <button
             type="button"
             className="hypervisor-session-operations__branch-picker"
-            data-session-branch="main"
+            data-session-branch={projection.branch_label}
           >
             <span className="hypervisor-session-operations__status-dot" />
-            <strong>main</strong>
+            <strong>{projection.branch_label}</strong>
             <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
               <ChevronDownIcon />
             </span>
@@ -1086,7 +1047,7 @@ function HypervisorSessionOperationsCockpit() {
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
               <SessionOctagonIcon />
             </span>
-            <strong>{formatSessionDisplayTitle(projection.selected_session_ref)}</strong>
+            <strong>{projection.display_title || formatSessionDisplayTitle(projection.selected_session_ref)}</strong>
             <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
               <ChevronDownIcon />
             </span>
@@ -1142,7 +1103,7 @@ function HypervisorSessionOperationsCockpit() {
                 <div>
                   <dt>Auto-stop after</dt>
                   <dd>
-                    30m of inactivity
+                    {projection.auto_stop_label}
                     <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
                       <ChevronDownIcon />
                     </span>
@@ -1150,17 +1111,20 @@ function HypervisorSessionOperationsCockpit() {
                 </div>
                 <div>
                   <dt>Created</dt>
-                  <dd>5h ago</dd>
+                  <dd>{projection.created_label}</dd>
                 </div>
                 <div>
                   <dt>Last started</dt>
-                  <dd>5h ago</dd>
+                  <dd>{projection.last_started_label}</dd>
                 </div>
                 <div>
                   <dt>Resource usage</dt>
                   <dd>
-                    <span className="hypervisor-session-operations__health-pill">
-                      Healthy
+                    <span
+                      className="hypervisor-session-operations__health-pill"
+                      data-resource-health-state={projection.resource_health_state}
+                    >
+                      {projection.resource_health_label}
                     </span>
                   </dd>
                 </div>
@@ -1168,12 +1132,20 @@ function HypervisorSessionOperationsCockpit() {
             </div>
 
             <ol className="hypervisor-session-operations__startup-list">
-              {startupSteps.map((step) => (
-                <li key={step.label}>
-                  <span className="hypervisor-session-operations__check-dot">✓</span>
+              {projection.environment_lifecycle_steps.map((step) => (
+                <li
+                  key={step.step_ref}
+                  data-session-lifecycle-step={step.step_ref}
+                  data-session-lifecycle-step-status={step.status}
+                  data-session-lifecycle-step-evidence={step.evidence_ref}
+                >
+                  <span className="hypervisor-session-operations__check-dot">
+                    {step.status === "completed" ? "✓" : "•"}
+                  </span>
                   <div>
                     <strong>{step.label}</strong>
                     {step.detail ? <span>{step.detail}</span> : null}
+                    <em>{formatSessionStepStatus(step.status)}</em>
                   </div>
                 </li>
               ))}
@@ -1241,8 +1213,12 @@ function HypervisorSessionOperationsCockpit() {
           </div>
 
           <div className="hypervisor-session-operations__change-list">
-            {changedFileGroups.map((group) => (
-              <div key={group.folder} className="hypervisor-session-operations__file-group">
+            {projection.changed_file_groups.map((group) => (
+              <div
+                key={group.group_ref}
+                className="hypervisor-session-operations__file-group"
+                data-session-changed-file-group={group.group_ref}
+              >
                 <span className="hypervisor-session-operations__folder">
                   <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
                     <ChevronDownIcon />
@@ -1251,14 +1227,15 @@ function HypervisorSessionOperationsCockpit() {
                     <FolderIcon />
                   </span>
                   {group.folder}
-                  <em>{group.count}</em>
+                  <em>{group.files.length}</em>
                 </span>
                 {group.files.map((file) => (
                   <button
                     type="button"
-                    key={`${group.folder}${file.name}`}
+                    key={file.file_ref}
                     data-session-changed-file={`${group.folder}${file.name}`}
                     data-session-changed-file-receipt={file.receipt_ref}
+                    data-session-changed-file-status={file.status}
                   >
                     <span className="hypervisor-session-operations__file-name">
                       <span className="hypervisor-session-operations__file-icon" aria-hidden="true">
@@ -1268,7 +1245,7 @@ function HypervisorSessionOperationsCockpit() {
                     </span>
                     <span className="hypervisor-session-operations__delta">{file.delta}</span>
                     <span className="hypervisor-session-operations__file-status">
-                      {file.status}
+                      {formatChangedFileStatus(file.status)}
                     </span>
                   </button>
                 ))}
@@ -1317,13 +1294,43 @@ function HypervisorSessionOperationsCockpit() {
                   </button>
                 </div>
                 <div
-                  className="hypervisor-session-operations__empty-state"
+                  className={clsx("hypervisor-session-operations__empty-state", {
+                    "has-session-services": projection.ports_services.length > 0,
+                  })}
                   data-session-port-services-count={projection.ports_services.length}
                 >
-                  <span aria-hidden="true">
-                    <PortEmptyIcon />
-                  </span>
-                  <p>No open ports</p>
+                  {projection.ports_services.length === 0 ? (
+                    <>
+                      <span aria-hidden="true">
+                        <PortEmptyIcon />
+                      </span>
+                      <p>No open ports</p>
+                    </>
+                  ) : (
+                    projection.ports_services.map((service) => (
+                      <div
+                        key={service.service_ref}
+                        className="hypervisor-session-operations__row"
+                        data-session-port-service={service.service_ref}
+                        data-session-port-service-status={service.status}
+                      >
+                        <strong>{service.label}</strong>
+                        <span>
+                          {service.protocol.toUpperCase()}:{service.port}
+                        </span>
+                        <em>{service.lease_ref}</em>
+                        <button
+                          type="button"
+                          data-session-service-open-port={service.service_ref}
+                          onClick={() =>
+                            handleSessionOperation("open_port", service.service_ref)
+                          }
+                        >
+                          {service.status === "available" ? "Open" : "Lease"}
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
               <div className="hypervisor-session-operations__panel">

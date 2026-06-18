@@ -58,12 +58,41 @@ export interface HypervisorTerminalEventProjection {
   receipt_ref: string;
 }
 
+export interface HypervisorEnvironmentLifecycleStepProjection {
+  step_ref: string;
+  label: string;
+  detail: string;
+  status: "completed" | "running" | "waiting_for_approval" | "blocked";
+  evidence_ref: string;
+}
+
+export interface HypervisorChangedFileProjection {
+  file_ref: string;
+  name: string;
+  delta: string;
+  status: "added" | "modified" | "deleted" | "untracked";
+  receipt_ref: string;
+}
+
+export interface HypervisorChangedFileGroupProjection {
+  group_ref: string;
+  folder: string;
+  files: HypervisorChangedFileProjection[];
+}
+
 export interface HypervisorSessionOperationsProjection {
   schema_version: "ioi.hypervisor.session_operations_projection.v1";
   projection_id: string;
   source: "daemon-session-operations-projection" | "fixture" | "unverified";
   selected_session_ref: string;
+  display_title: string;
+  branch_label: string;
   lifecycle_state: HypervisorSessionLifecycleState;
+  auto_stop_label: string;
+  created_label: string;
+  last_started_label: string;
+  resource_health_label: string;
+  resource_health_state: "healthy" | "attention" | "blocked";
   project_ref: string;
   environment_ref: string;
   provider_candidate_ref: string;
@@ -80,6 +109,8 @@ export interface HypervisorSessionOperationsProjection {
   ports_services: HypervisorServicePortProjection[];
   tasks: HypervisorTaskProjection[];
   terminal_events: HypervisorTerminalEventProjection[];
+  environment_lifecycle_steps: HypervisorEnvironmentLifecycleStepProjection[];
+  changed_file_groups: HypervisorChangedFileGroupProjection[];
   latest_receipt_refs: string[];
   runtimeTruthSource: "daemon-runtime";
 }
@@ -187,7 +218,14 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     projection_id: "hypervisor-session-operations:active-mission",
     source: "fixture",
     selected_session_ref: "session:mission/hypervisor-core-refine-architecture",
+    display_title: "Hypervisor Core refine architecture",
+    branch_label: "main",
     lifecycle_state: "active",
+    auto_stop_label: "30m of inactivity",
+    created_label: "5h ago",
+    last_started_label: "5h ago",
+    resource_health_label: "Healthy",
+    resource_health_state: "healthy",
     project_ref: "project:hypervisor-core",
     environment_ref: "environment:local-workspace/hypervisor-core",
     provider_candidate_ref: "provider:local-workstation",
@@ -246,11 +284,11 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     })),
     ports_services: [
       {
-        service_ref: "service:hypervisor-daemon",
-        label: "Hypervisor daemon",
+        service_ref: "service:hypervisor-core",
+        label: "Hypervisor Core service",
         port: 17380,
         protocol: "http",
-        lease_ref: "lease:access/hypervisor-daemon/http",
+        lease_ref: "lease:access/hypervisor-core/http",
         status: "available",
       },
       {
@@ -288,6 +326,78 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
         command_summary: "npm --workspace apps/hypervisor run build",
         status: "proposed",
         receipt_ref: "receipt://terminal/build/proposed",
+      },
+    ],
+    environment_lifecycle_steps: [
+      {
+        step_ref: "session-step:workspace",
+        label: "Attached workspace",
+        detail: "Local Hypervisor project root",
+        status: "completed",
+        evidence_ref: "receipt://environment/workspace/attached",
+      },
+      {
+        step_ref: "session-step:project-state",
+        label: "Loaded project state",
+        detail: "Agentgres object heads and restore refs",
+        status: "completed",
+        evidence_ref: "agentgres://projection/project-state/hypervisor-core",
+      },
+      {
+        step_ref: "session-step:secrets",
+        label: "Bound secret leases",
+        detail: "1 workspace-scoped lease available",
+        status: "completed",
+        evidence_ref: "receipt://wallet/secret-lease/workspace",
+      },
+      {
+        step_ref: "session-step:automations",
+        label: "Loaded automations",
+        detail: "Workflow templates and compositor recipes",
+        status: "completed",
+        evidence_ref: "receipt://workflow-compositor/templates/loaded",
+      },
+      {
+        step_ref: "session-step:adapter",
+        label: "Mounted workbench adapter",
+        detail: "Embedded workbench adapter target",
+        status: "running",
+        evidence_ref: "receipt://workbench-adapter/embedded/mounted",
+      },
+    ],
+    changed_file_groups: [
+      {
+        group_ref: "changed-group:docs-architecture",
+        folder: "docs/architecture/",
+        files: [
+          {
+            file_ref: "changed-file:docs-architecture-surfaces",
+            name: "components/hypervisor/core-clients-surfaces.md",
+            delta: "+42",
+            status: "modified",
+            receipt_ref: "receipt://changes/hypervisor-core-surfaces",
+          },
+          {
+            file_ref: "changed-file:source-map",
+            name: "_meta/source-of-truth-map.md",
+            delta: "+18",
+            status: "modified",
+            receipt_ref: "receipt://changes/source-of-truth-map",
+          },
+        ],
+      },
+      {
+        group_ref: "changed-group:app-shell",
+        folder: "apps/hypervisor/",
+        files: [
+          {
+            file_ref: "changed-file:session-cockpit",
+            name: "src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+            delta: "+91",
+            status: "modified",
+            receipt_ref: "receipt://changes/session-cockpit",
+          },
+        ],
       },
     ],
     latest_receipt_refs: [
@@ -506,6 +616,64 @@ function normalizeTerminalEventProjection(
   };
 }
 
+function normalizeEnvironmentLifecycleStepProjection(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorEnvironmentLifecycleStepProjection {
+  const fallback =
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.environment_lifecycle_steps[index] ??
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.environment_lifecycle_steps[0]!;
+  return {
+    step_ref: stringValue(item.step_ref, fallback.step_ref),
+    label: stringValue(item.label, fallback.label),
+    detail: stringValue(item.detail, fallback.detail),
+    status: enumValue(item.status, fallback.status, [
+      "completed",
+      "running",
+      "waiting_for_approval",
+      "blocked",
+    ]),
+    evidence_ref: stringValue(item.evidence_ref, fallback.evidence_ref),
+  };
+}
+
+function normalizeChangedFileProjection(
+  item: Record<string, unknown>,
+  index: number,
+  fallbackFiles: HypervisorChangedFileProjection[],
+): HypervisorChangedFileProjection {
+  const fallback = fallbackFiles[index] ?? fallbackFiles[0]!;
+  return {
+    file_ref: stringValue(item.file_ref, fallback.file_ref),
+    name: stringValue(item.name, fallback.name),
+    delta: stringValue(item.delta, fallback.delta),
+    status: enumValue(item.status, fallback.status, [
+      "added",
+      "modified",
+      "deleted",
+      "untracked",
+    ]),
+    receipt_ref: stringValue(item.receipt_ref, fallback.receipt_ref),
+  };
+}
+
+function normalizeChangedFileGroupProjection(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorChangedFileGroupProjection {
+  const fallback =
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.changed_file_groups[index] ??
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.changed_file_groups[0]!;
+  const files = arrayOf(item.files).map((file, fileIndex) =>
+    normalizeChangedFileProjection(file, fileIndex, fallback.files),
+  );
+  return {
+    group_ref: stringValue(item.group_ref, fallback.group_ref),
+    folder: stringValue(item.folder, fallback.folder),
+    files: files.length > 0 ? files : fallback.files,
+  };
+}
+
 export function readHypervisorSessionOperationsDaemonEndpoint(): string {
   try {
     if (typeof window === "undefined") {
@@ -542,6 +710,12 @@ export function normalizeHypervisorSessionOperationsProjection(
   const terminalEvents = arrayOf(value.terminal_events).map(
     normalizeTerminalEventProjection,
   );
+  const environmentLifecycleSteps = arrayOf(value.environment_lifecycle_steps).map(
+    normalizeEnvironmentLifecycleStepProjection,
+  );
+  const changedFileGroups = arrayOf(value.changed_file_groups).map(
+    normalizeChangedFileGroupProjection,
+  );
   return {
     schema_version: "ioi.hypervisor.session_operations_projection.v1",
     projection_id: stringValue(value.projection_id, fallback.projection_id),
@@ -550,6 +724,8 @@ export function normalizeHypervisorSessionOperationsProjection(
       value.selected_session_ref,
       fallback.selected_session_ref,
     ),
+    display_title: stringValue(value.display_title, fallback.display_title),
+    branch_label: stringValue(value.branch_label, fallback.branch_label),
     lifecycle_state: enumValue(value.lifecycle_state, fallback.lifecycle_state, [
       "active",
       "waiting_for_approval",
@@ -557,6 +733,21 @@ export function normalizeHypervisorSessionOperationsProjection(
       "idle",
       "archived",
     ]),
+    auto_stop_label: stringValue(value.auto_stop_label, fallback.auto_stop_label),
+    created_label: stringValue(value.created_label, fallback.created_label),
+    last_started_label: stringValue(
+      value.last_started_label,
+      fallback.last_started_label,
+    ),
+    resource_health_label: stringValue(
+      value.resource_health_label,
+      fallback.resource_health_label,
+    ),
+    resource_health_state: enumValue(
+      value.resource_health_state,
+      fallback.resource_health_state,
+      ["healthy", "attention", "blocked"],
+    ),
     project_ref: stringValue(value.project_ref, fallback.project_ref),
     environment_ref: stringValue(value.environment_ref, fallback.environment_ref),
     provider_candidate_ref: stringValue(
@@ -586,6 +777,14 @@ export function normalizeHypervisorSessionOperationsProjection(
     tasks: tasks.length > 0 ? tasks : fallback.tasks,
     terminal_events:
       terminalEvents.length > 0 ? terminalEvents : fallback.terminal_events,
+    environment_lifecycle_steps:
+      environmentLifecycleSteps.length > 0
+        ? environmentLifecycleSteps
+        : fallback.environment_lifecycle_steps,
+    changed_file_groups:
+      changedFileGroups.length > 0
+        ? changedFileGroups
+        : fallback.changed_file_groups,
     latest_receipt_refs: stringList(
       value.latest_receipt_refs,
       fallback.latest_receipt_refs,

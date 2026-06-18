@@ -3266,6 +3266,18 @@
   font-weight: 600;
 }
 
+.hypervisor-session-detail-shell
+  .hypervisor-session-operations__health-pill[data-resource-health-state="attention"] {
+  background: #fff3cc;
+  color: #8a5a00;
+}
+
+.hypervisor-session-detail-shell
+  .hypervisor-session-operations__health-pill[data-resource-health-state="blocked"] {
+  background: #ffe2e2;
+  color: #aa1e1e;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__startup-list {
   max-width: 720px;
   display: grid;
@@ -3327,6 +3339,20 @@
   color: #5f6067;
   font-size: 13px;
   line-height: 19px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list div em {
+  display: inline-flex;
+  width: max-content;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #f1f4f8;
+  color: #5f6067;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 14px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
@@ -3647,6 +3673,17 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__empty-state p {
   margin: 0;
   font-size: 14px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__empty-state.has-session-services {
+  min-height: 0;
+  display: grid;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  margin-top: 10px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__panel + .hypervisor-session-operations__panel {

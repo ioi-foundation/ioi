@@ -125,8 +125,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*className="hypervisor-session-operations__detail-status-dot"[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
-  "Sessions should render the IOI reference environment detail page with Code/title/Environment tab icons, status dot, human title, and lifecycle status",
+  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*projection\.display_title \|\| formatSessionDisplayTitle\(projection\.selected_session_ref\)[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*className="hypervisor-session-operations__detail-status-dot"[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
+  "Sessions should render the IOI reference environment detail page with Code/title/Environment tab icons, status dot, projected title, and lifecycle status",
 );
 
 assert.doesNotMatch(
@@ -137,8 +137,14 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /folder: "\.devcontainer\/"[\s\S]*name: "devcontainer\.json"[\s\S]*name: "Dockerfile"[\s\S]*folder: "docs\/"[\s\S]*name: "parent-harness-evidence-boundary\.md"[\s\S]*className="hypervisor-session-operations__search-icon"[\s\S]*<SearchIcon \/>[\s\S]*className="hypervisor-session-operations__file-status"[\s\S]*panel\.panel_id === "ports_services"[\s\S]*\? "Ports & Services"/,
-  "Sessions should mirror the reference changed-file tree shape with search icon, folder rows, file icons, deltas, status pills, and dock label",
+  /className="hypervisor-session-operations__search-icon"[\s\S]*<SearchIcon \/>[\s\S]*projection\.changed_file_groups\.map[\s\S]*data-session-changed-file-group=\{group\.group_ref\}[\s\S]*group\.files\.length[\s\S]*group\.files\.map[\s\S]*data-session-changed-file-status=\{file\.status\}[\s\S]*formatChangedFileStatus\(file\.status\)/,
+  "Sessions should mirror the reference changed-file tree shape from the projection with search icon, folder rows, file icons, deltas, status pills, and dock label",
+);
+
+assert.match(
+  source,
+  /panel\.panel_id === "ports_services"[\s\S]*\? "Ports & Services"[\s\S]*projection\.ports_services\.map[\s\S]*data-session-port-service=\{service\.service_ref\}/,
+  "Sessions should render Ports & Services from the session projection instead of hard-coded empty state copy",
 );
 
 assert.doesNotMatch(
@@ -209,8 +215,8 @@ assert.match(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-content[\s\S]*> \.hypervisor-session-operations__panel:not\(:first-child\)\s*\{[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\s*\{/,
-  "Sessions should render the active Ports pane as an IOI-reference empty state while retaining tabbed dock panels",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-content[\s\S]*> \.hypervisor-session-operations__panel:not\(:first-child\)\s*\{[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\s*\{[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\.has-session-services/,
+  "Sessions should render the active Ports pane as IOI-reference empty or populated projection rows while retaining tabbed dock panels",
 );
 
 assert.match(

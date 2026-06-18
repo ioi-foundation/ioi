@@ -1510,11 +1510,13 @@ assert(
 );
 assert(
   "hypervisor-home-harness-comparison-preview",
-  hypervisorHomeSource.includes("HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE") &&
-    hypervisorHomeSource.includes("data-home-harness-comparison-run") &&
-    hypervisorHomeSource.includes("Harness comparison preview") &&
-    hypervisorHomeSource.includes("loadHypervisorHomeCockpitProjection") &&
-    hypervisorHomeSource.includes("data-home-cockpit-source") &&
+  !hypervisorHomeSource.includes("HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE") &&
+    !hypervisorHomeSource.includes("data-home-harness-comparison-run") &&
+    !hypervisorHomeSource.includes("Harness comparison preview") &&
+    hypervisorHomeCockpitModelSource.includes(
+      "HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE",
+    ) &&
+    hypervisorHomeCockpitModelSource.includes("Harness comparison") &&
     hypervisorHomeCockpitModelSource.includes(
       "HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH",
     ) &&
@@ -1542,7 +1544,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Home should surface a receipt-backed harness comparison preview and hydrate the Core cockpit projection through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Home should keep the visual prompt cockpit clean while the Core cockpit projection model retains receipt-backed harness comparison evidence through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "hypervisor-session-operations-live-projection",
@@ -1562,19 +1564,19 @@ assert(
       "loadHypervisorSessionOperationsProjection",
     ) &&
     hypervisorShellContentSource.includes("data-session-operations-source") &&
-    hypervisorShellContentSource.includes("data-launched-session-admission-ref") &&
-    hypervisorShellContentSource.includes(
-      "data-launched-session-admission-decision",
-    ) &&
-    hypervisorShellContentSource.includes(
-      "data-launched-session-open-disabled",
-    ) &&
-    hypervisorShellContentSource.includes("canOpenLaunchedSessionSurface") &&
-    hypervisorShellContentSource.includes(
-      'session.admission_state === "daemon_admitted"',
-    ) &&
-    hypervisorShellContentSource.includes("Adapter admission") &&
-    hypervisorShellContentSource.includes("is-admission-blocked") &&
+    hypervisorSessionOperationsModelSource.includes("display_title") &&
+    hypervisorSessionOperationsModelSource.includes("branch_label") &&
+    hypervisorSessionOperationsModelSource.includes("environment_lifecycle_steps") &&
+    hypervisorSessionOperationsModelSource.includes("changed_file_groups") &&
+    hypervisorSessionOperationsModelSource.includes("resource_health_state") &&
+    hypervisorSessionOperationsModelSource.includes("Hypervisor Core service") &&
+    hypervisorShellContentSource.includes("projection.display_title") &&
+    hypervisorShellContentSource.includes("projection.branch_label") &&
+    hypervisorShellContentSource.includes("projection.environment_lifecycle_steps.map") &&
+    hypervisorShellContentSource.includes("projection.changed_file_groups.map") &&
+    hypervisorShellContentSource.includes("projection.ports_services.map") &&
+    hypervisorShellContentSource.includes("data-session-port-service") &&
+    hypervisorShellContentSource.includes("data-session-lifecycle-step") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_session_operations",
@@ -1593,7 +1595,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Sessions should hydrate session rails, detail tabs, inspectors, leases, services, tasks, terminal events, restore refs, and launched-session adapter admission state through daemon/public runtime routes; blocked/offline adapter admissions must stay inspectable but must not open target surfaces.",
+  "Hypervisor Sessions should hydrate title, branch, session rails, detail tabs, inspectors, lifecycle steps, changed files, leases, services, tasks, terminal events, and restore refs through daemon/public runtime routes.",
 );
 assert(
   "hypervisor-project-state-live-projection",
