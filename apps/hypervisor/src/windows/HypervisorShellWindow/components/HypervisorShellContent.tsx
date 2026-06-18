@@ -391,6 +391,24 @@ function HypervisorAgentsSurface({
             <button type="button">Sort: Updated</button>
           </div>
 
+          <dl
+            className="hypervisor-agents__summary-strip"
+            aria-label="Agent access summary"
+          >
+            <div>
+              <dt>Active access</dt>
+              <dd>{activeLeases}</dd>
+            </div>
+            <div>
+              <dt>Needs review</dt>
+              <dd>{reviewLeases}</dd>
+            </div>
+            <div>
+              <dt>Selected</dt>
+              <dd>{selectedAgent ? selectedAgent.label : "None"}</dd>
+            </div>
+          </dl>
+
           <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
             <div className="hypervisor-agents__list-head" role="presentation">
               <span>Agent</span>
@@ -407,49 +425,21 @@ function HypervisorAgentsSurface({
               />
             ))}
           </div>
+
+          {selectedAgent ? (
+            <div
+              className="hypervisor-agents__inline-inspector"
+              aria-label="Selected agent"
+            >
+              <HypervisorAgentDetail
+                agent={selectedAgent}
+                onOpenSessions={onOpenSessions}
+                onOpenReceipts={onOpenReceipts}
+                onOpenAuthority={onOpenAuthority}
+              />
+            </div>
+          ) : null}
         </div>
-        {selectedAgent ? (
-          <aside className="hypervisor-agents__aside" aria-label="Selected agent">
-            <section className="hypervisor-agents__rail-card" aria-label="What's new">
-              <div className="hypervisor-agents__rail-heading">
-                <h3>What's new?</h3>
-                <button type="button">See all</button>
-              </div>
-              <div className="hypervisor-agents__news-item">
-                <span>Feature</span>
-                <strong>Agents now open from Sessions.</strong>
-                <p>
-                  Skills, memory, models, and access grants stay visible
-                  without exposing implementation details.
-                </p>
-              </div>
-            </section>
-            <HypervisorAgentDetail
-              agent={selectedAgent}
-              onOpenSessions={onOpenSessions}
-              onOpenReceipts={onOpenReceipts}
-              onOpenAuthority={onOpenAuthority}
-            />
-            <section className="hypervisor-agents__rail-card" aria-label="Access summary">
-              <div className="hypervisor-agents__rail-heading">
-                <h3>Access</h3>
-                <button type="button" onClick={onOpenAuthority}>
-                  Review
-                </button>
-              </div>
-              <dl className="hypervisor-agents__rail-summary">
-                <div>
-                  <dt>Active</dt>
-                  <dd>{activeLeases}</dd>
-                </div>
-                <div>
-                  <dt>Needs review</dt>
-                  <dd>{reviewLeases}</dd>
-                </div>
-              </dl>
-            </section>
-          </aside>
-        ) : null}
       </div>
 
       <div
@@ -726,89 +716,95 @@ function HypervisorAgentDetail({
       data-agent-state-root-ref={agent.state_root_ref}
       data-agent-latest-receipt-ref={agent.latest_receipt_refs[0] ?? ""}
     >
-      <div className="hypervisor-agents__detail-head">
-        <span className="hypervisor-agents__detail-label">Selected agent</span>
-        <span>{statusLabel(agent.status)}</span>
-        <h3>{agent.label}</h3>
-        <p>{agent.objective}</p>
+      <div className="hypervisor-agents__detail-column">
+        <div className="hypervisor-agents__detail-head">
+          <span className="hypervisor-agents__detail-label">Selected agent</span>
+          <span>{statusLabel(agent.status)}</span>
+          <h3>{agent.label}</h3>
+          <p>{agent.objective}</p>
+        </div>
       </div>
 
-      <dl className="hypervisor-agents__runtime">
-        <div>
-          <dt>Interface</dt>
-          <dd>
-            <span>{formatAgentHarnessLabel(agent.runtime.harness_label)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Model</dt>
-          <dd>
-            <span>{formatModelRouteRef(agent.runtime.model_route_ref)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Privacy</dt>
-          <dd>
-            <span>{formatPrivacyPostureRef(agent.runtime.privacy_posture_ref)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Workspace</dt>
-          <dd>
-            <span>{formatWorkspaceRef(agent.workspace_ref)}</span>
-          </dd>
-        </div>
-      </dl>
+      <div className="hypervisor-agents__detail-column">
+        <dl className="hypervisor-agents__runtime">
+          <div>
+            <dt>Interface</dt>
+            <dd>
+              <span>{formatAgentHarnessLabel(agent.runtime.harness_label)}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Model</dt>
+            <dd>
+              <span>{formatModelRouteRef(agent.runtime.model_route_ref)}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Privacy</dt>
+            <dd>
+              <span>{formatPrivacyPostureRef(agent.runtime.privacy_posture_ref)}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Workspace</dt>
+            <dd>
+              <span>{formatWorkspaceRef(agent.workspace_ref)}</span>
+            </dd>
+          </div>
+        </dl>
 
-      <section className="hypervisor-agents__detail-section">
-        <h4>Skills</h4>
-      <div className="hypervisor-agents__chips" aria-label="Agent skills">
-        {agent.skill_bindings.slice(0, 3).map((skill) => (
-          <span key={skill.skill_ref} data-agent-skill-ref={skill.skill_ref}>
-            {skill.label}
-          </span>
-        ))}
+        <section className="hypervisor-agents__detail-section">
+          <h4>Skills</h4>
+          <div className="hypervisor-agents__chips" aria-label="Agent skills">
+            {agent.skill_bindings.slice(0, 3).map((skill) => (
+              <span key={skill.skill_ref} data-agent-skill-ref={skill.skill_ref}>
+                {skill.label}
+              </span>
+            ))}
+          </div>
+        </section>
       </div>
-      </section>
 
-      <section className="hypervisor-agents__detail-section">
-        <h4>Access</h4>
-      <div className="hypervisor-agents__lease-list" aria-label="Agent access">
-        {agent.capability_leases.slice(0, 2).map((lease) => (
-          <span
-            key={lease.lease_ref}
-            data-agent-capability-lease={lease.lease_ref}
-            data-agent-capability-lease-status={lease.status}
-          >
-            <strong>{formatCapabilityRef(lease.capability_ref)}</strong>
-            <em>{lease.status.replace(/_/g, " ")}</em>
-            <small>{formatLeaseExpiry(lease.expires_at)}</small>
-          </span>
-        ))}
-      </div>
-      </section>
+      <div className="hypervisor-agents__detail-column">
+        <section className="hypervisor-agents__detail-section">
+          <h4>Access</h4>
+          <div className="hypervisor-agents__lease-list" aria-label="Agent access">
+            {agent.capability_leases.slice(0, 2).map((lease) => (
+              <span
+                key={lease.lease_ref}
+                data-agent-capability-lease={lease.lease_ref}
+                data-agent-capability-lease-status={lease.status}
+              >
+                <strong>{formatCapabilityRef(lease.capability_ref)}</strong>
+                <em>{lease.status.replace(/_/g, " ")}</em>
+                <small>{formatLeaseExpiry(lease.expires_at)}</small>
+              </span>
+            ))}
+          </div>
+        </section>
 
-      <dl className="hypervisor-agents__refs">
-        <div>
-          <dt>Evidence</dt>
-          <dd>{agent.latest_receipt_refs.length} receipts</dd>
+        <dl className="hypervisor-agents__refs">
+          <div>
+            <dt>Evidence</dt>
+            <dd>{agent.latest_receipt_refs.length} receipts</dd>
+          </div>
+          <div>
+            <dt>Checkpoint</dt>
+            <dd>Current</dd>
+          </div>
+        </dl>
+
+        <div className="hypervisor-agents__actions">
+          <button type="button" onClick={onOpenSessions}>
+            Open session
+          </button>
+          <button type="button" onClick={onOpenAuthority}>
+            Manage access
+          </button>
+          <button type="button" onClick={onOpenReceipts}>
+            Receipts
+          </button>
         </div>
-        <div>
-          <dt>Checkpoint</dt>
-          <dd>Current</dd>
-        </div>
-      </dl>
-
-      <div className="hypervisor-agents__actions">
-        <button type="button" onClick={onOpenSessions}>
-          Open session
-        </button>
-        <button type="button" onClick={onOpenAuthority}>
-          Manage access
-        </button>
-        <button type="button" onClick={onOpenReceipts}>
-          Receipts
-        </button>
       </div>
     </section>
   );

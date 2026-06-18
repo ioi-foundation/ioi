@@ -608,12 +608,11 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /className="hypervisor-agents__filters"/);
   assert.match(shellContent, /placeholder="Search agents\.\.\."/);
   assert.match(shellContent, />Sort: Updated</);
-  assert.match(shellContent, /className="hypervisor-agents__aside"/);
-  assert.match(shellContent, /className="hypervisor-agents__rail-card"/);
-  assert.match(shellContent, />What's new\?</);
+  assert.match(shellContent, /className="hypervisor-agents__summary-strip"/);
+  assert.match(shellContent, /className="hypervisor-agents__inline-inspector"/);
   assert.match(shellContent, /className="hypervisor-agents__detail-label"/);
   assert.match(shellContent, />Selected agent</);
-  assert.match(shellContent, /className="hypervisor-agents__rail-summary"/);
+  assert.match(shellContent, /className="hypervisor-agents__detail-column"/);
   assert.match(shellContent, /formatAgentHarnessLabel/);
   assert.match(shellContent, /formatCapabilityRef/);
   assert.match(shellContent, /formatModelRouteRef/);
@@ -664,6 +663,10 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(agentsSurface, /Configured workers, skills, memory/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__invariants"/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__status"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__aside"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-card"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-summary"/);
+  assert.doesNotMatch(shellContent, />What's new\?</);
   assert.match(shellContent, /activeView === "agents"/);
   assert.match(shellContent, /activeView !== "agents"/);
   assert.match(shellContent, /<CapabilitiesView/);
