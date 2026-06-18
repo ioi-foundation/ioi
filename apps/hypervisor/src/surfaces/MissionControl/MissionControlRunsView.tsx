@@ -1,5 +1,5 @@
-import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
+import { EnvironmentEstateView } from "../Environments/EnvironmentEstateView";
 
 interface MissionControlRunsViewProps {
   runtime: HypervisorClientRuntime;

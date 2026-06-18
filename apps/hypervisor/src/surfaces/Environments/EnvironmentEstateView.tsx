@@ -1,11 +1,12 @@
-// packages/hypervisor-workbench/src/features/Environments/EnvironmentEstateView.tsx
 import { useState, useEffect, useMemo } from "react";
-import { AgentWorkbenchRuntime, Zone, Container } from "../../runtime/agent-runtime";
 import {
   workflowRuntimeUnavailableCopy,
+  type AgentWorkbenchRuntime,
+  type Zone,
+  type Container,
   type WorkflowRuntimeUnavailableCopy,
-} from "../../runtime/workflow-composer-model";
-import { Icons } from "../../ui/icons";
+} from "@ioi/hypervisor-workbench";
+import { Codicon } from "@ioi/workspace-substrate";
 import "./EnvironmentEstateView.css";
 
 interface EnvironmentEstateViewProps {
@@ -133,7 +134,7 @@ export function EnvironmentEstateView({ runtime }: EnvironmentEstateViewProps) {
             onClick={() => setSelectedZone("all")}
           >
             <div className="zone-name-row">
-              <span className="zone-icon"><Icons.Trigger width="14" height="14" /></span>
+              <span className="zone-icon"><Codicon name="server-environment" /></span>
               <span>All Zones</span>
             </div>
           </div>
@@ -146,7 +147,7 @@ export function EnvironmentEstateView({ runtime }: EnvironmentEstateViewProps) {
             >
               <div className="zone-name-row">
                 <span className="zone-icon">
-                  {zone.type === "local" ? <Icons.Trigger width="14" height="14" /> : <Icons.Folder width="14" height="14" />}
+                  <Codicon name={zone.type === "local" ? "device-desktop" : "folder"} />
                 </span>
                 <span>{zone.name}</span>
               </div>
@@ -229,7 +230,7 @@ export function EnvironmentEstateView({ runtime }: EnvironmentEstateViewProps) {
         {/* BOTTOM: LIVE DETAIL */}
         <div className="environment-estate-terminal">
           <div className="terminal-header">
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icons.Action width="12" /> Live detail</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Codicon name="pulse" /> Live detail</span>
             <div className="divider-vertical" style={{ height: 16, width: 1, background: '#2E333D' }} />
             <div className={`terminal-tab ${activeContainer ? "active" : ""}`}>
               {activeContainer ? activeContainer.name : "Select a container..."}

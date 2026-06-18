@@ -443,7 +443,6 @@ export {
 } from "./runtime/workflow-runtime-usage-control-nodes";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
-export { EnvironmentEstateView } from "./features/Environments/EnvironmentEstateView";
 export { AgentsDashboard } from "./features/Dashboard/AgentsDashboard";
 export { BuilderView } from "./features/Builder/BuilderView";
 export { RuntimeCatalogView } from "./features/Marketplace/RuntimeCatalogView";

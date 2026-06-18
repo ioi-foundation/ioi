@@ -1102,6 +1102,9 @@ Current implementation cut:
   the dead package-level `ActivityBar` shell and aggregate `ConnectorsView`
   wrapper are deleted from `@ioi/hypervisor-workbench`; the package keeps
   reusable connector panels, workflow components, and runtime primitives only.
+  `EnvironmentEstateView` now lives under `apps/hypervisor/src/surfaces/Environments`
+  instead of `@ioi/hypervisor-workbench`, so provider/environment posture is a
+  Hypervisor shell surface rather than a code-editor/workflow package surface.
   workflow dogfood probes request `automations` as the initial shell surface
   `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
   `internal-docs/reverse-engineering/ioi` reference contract: source reference

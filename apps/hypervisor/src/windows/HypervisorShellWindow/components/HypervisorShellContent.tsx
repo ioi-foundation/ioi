@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
 import {
   useEffect,
   useLayoutEffect,
@@ -15,6 +14,7 @@ import { type HypervisorClientRuntime } from "../../../services/HypervisorClient
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
 import { CapabilitiesView } from "../../../surfaces/Capabilities";
+import { EnvironmentEstateView } from "../../../surfaces/Environments/EnvironmentEstateView";
 import { InboxView } from "../../../surfaces/Inbox";
 import { SettingsView } from "../../../surfaces/Settings";
 import {
