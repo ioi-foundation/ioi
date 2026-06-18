@@ -18,6 +18,10 @@ const activityBar = readFileSync(
   new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
   "utf8",
 );
+const activityBarIcons = readFileSync(
+  new URL("./components/ChatActivityBarIcons.tsx", import.meta.url),
+  "utf8",
+);
 const newSessionModal = readFileSync(
   new URL("./components/HypervisorNewSessionModal.tsx", import.meta.url),
   "utf8",
@@ -328,6 +332,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /activateRoute\(sessionsNavItem\.route\)/);
   assert.match(activityBar, /Organization settings/);
   assert.match(activityBar, /WORKSPACE_NAME/);
+  assert.match(activityBarIcons, /hypervisor-ioi-gem-vert/);
+  assert.match(activityBarIcons, /<polygon points=/);
+  assert.doesNotMatch(activityBarIcons, /strokeWidth="12"/);
   assert.match(activityBar, /chat-activity-profile-indicator/);
   assert.match(activityBar, /chat-activity-profile-label/);
   assert.match(activityBar, /chat-activity-profile-menu-indicator/);

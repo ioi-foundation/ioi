@@ -271,8 +271,8 @@
 }
 
 .chat-activity-brand svg {
-  width: 76px;
-  height: 26px;
+  width: 18px;
+  height: 18px;
 }
 
 .chat-activity-collapse-button {
@@ -5296,14 +5296,14 @@
 }
 
 .chat-activity-brand {
-  width: 48px;
+  width: 42px;
   height: 32px;
   color: var(--chat-activity-text-strong);
 }
 
 .chat-activity-brand svg {
-  width: 48px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 .chat-activity-collapse-button {

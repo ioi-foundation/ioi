@@ -1039,7 +1039,7 @@
   justify-content: center;
   gap: 8px;
   color: #171717;
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .chat-home-zero-brand-lockup::before,
@@ -1065,8 +1065,8 @@
 .chat-home-zero-prompt-stage h1 {
   margin: 0;
   color: #111111;
-  font-size: 25px;
-  font-weight: 420;
+  font-size: 24px;
+  font-weight: 400;
   letter-spacing: 0;
   line-height: 1.28;
   text-align: center;
@@ -1074,12 +1074,12 @@
 
 .chat-home-zero-composer {
   width: 100%;
-  min-height: 184px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 18px;
-  margin-top: 52px;
+  margin-top: 50px;
   border: 1px solid #e1e1e1;
   border-radius: 12px;
   background: #ffffff;

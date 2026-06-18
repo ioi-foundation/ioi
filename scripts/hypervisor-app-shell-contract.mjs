@@ -152,6 +152,15 @@ async function main() {
         bodyText.includes("Operator"),
       "Left rail does not expose the reference-style workspace/user footer.",
     );
+    const brandMark = page.locator(".chat-activity-brand svg").first();
+    const brandMarkBox = await brandMark.boundingBox();
+    assert(
+      (await page.locator(".chat-activity-brand svg polygon").count()) >= 10 &&
+        brandMarkBox &&
+        brandMarkBox.width <= 22 &&
+        brandMarkBox.height <= 22,
+      "Left rail brand mark must render as the small filled IOI reference mark.",
+    );
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
     await page.locator('[data-home-start-session="true"]').click();
@@ -536,6 +545,7 @@ async function main() {
         "home_reference_prompt_surface_rendered",
         "home_reference_prompt_surface_sparse",
         "left_rail_workspace_account_footer_rendered",
+        "left_rail_reference_brand_mark_rendered",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
         "new_session_launch_summary_rendered",

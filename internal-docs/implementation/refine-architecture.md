@@ -1636,6 +1636,11 @@ Current implementation cut:
   reference shell, Account, Secrets, Git authentications, Personal access
   tokens, Integrations, default code-editor target preference, embedded editor
   preference, and governed code editor adapter controls.
+  The left rail brand now uses the small filled faceted IOI reference mark
+  instead of the retired oversized outline icon, and the Home prompt typography
+  is tuned to the sparse reference posture. Source guards reject the old stroked
+  wireframe mark and the built-shell contract verifies the rendered mark size
+  and faceted polygon structure.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.

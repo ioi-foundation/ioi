@@ -257,6 +257,9 @@ const runtimeWorkerPackageInstallAdmissionTestSource = read(
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
+const hypervisorActivityBarIconsSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatActivityBarIcons.tsx",
+);
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
   "apps/hypervisor/src/surfaces/Home/index.ts",
@@ -700,6 +703,12 @@ assert(
     hypervisorActivityBarSource.includes("chat-activity-profile-indicator") &&
     hypervisorActivityBarSource.includes("chat-activity-profile-label") &&
     hypervisorActivityBarSource.includes("chat-activity-profile-menu-indicator") &&
+    hypervisorActivityBarIconsSource.includes("hypervisor-ioi-gem-vert") &&
+    hypervisorActivityBarIconsSource.includes("<polygon points=") &&
+    !hypervisorActivityBarIconsSource.includes('strokeWidth="12"') &&
+    /\.chat-activity-brand svg\s*\{[\s\S]*width: 18px;[\s\S]*height: 18px;/.test(
+      hypervisorShellBaseCssSource,
+    ) &&
     !hypervisorActivityBarSource.includes("chat-activity-button--account") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
       hypervisorShellNavigationSource,
@@ -707,6 +716,8 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatActivityBarIcons.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   ],
   "Hypervisor shell must bind Phase 0A to the IOI reference cockpit contract and derive rail shortcuts from that contract.",
 );
