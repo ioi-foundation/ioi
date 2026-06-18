@@ -284,7 +284,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Field | Detail |
 | --- | --- |
 | Severity | High |
-| Current UX evidence | Screenshot shows the product inside OpenVSCode with tabs such as "Autopilot Workflow Composer", "Autopilot Models", "Autopilot Runs", "Autopilot Policy", "Autopilot Connectors", and "Autopilot Code"; the active surface is a code repository gate. |
+| Current UX evidence | Legacy screenshot showed the product trapped inside editor tabs for composer, models, runs, policy, connectors, and code. That shape is retired: code editors are adapter targets only, while Home/Sessions/Projects live in the Hypervisor shell. |
 | Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default editor selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
 | Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry are application surfaces, provider/environment posture is a default Hypervisor view, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
 | Why it matters | If the UX stays IDE-first, the architecture will keep drifting back toward "Hypervisor IDE" instead of "Hypervisor of IDEs / governed autonomous-work cockpit." |
@@ -535,10 +535,10 @@ UX into the Hypervisor Core product architecture.
 Reference inputs:
 
 ```text
-Current screenshot:
+Retired screenshot:
   OpenVSCode parent chrome
-  Autopilot Workflow Composer / Models / Runs / Policy / Connectors / Code tabs
-  active Code repositories surface
+  editor-owned composer / models / runs / policy / connectors / code tabs
+  active Code repositories gate
 
 Primary IOI reference mirror:
   internal-docs/reverse-engineering/ioi
@@ -1055,10 +1055,9 @@ Current implementation cut:
   `ioi-hypervisor-workbench-quickinput`; `check:runtime-layout` rejects the
   retired `scripts/lib/autopilot-workbench-shell-patch.mjs` helper path,
   function, schema id, and quickinput source id.
-  the Workflow Composer webview build command is
-  `build:hypervisor-workbench-composer`; the `ioi-workbench` directory name is
-  an adapter-extension implementation detail, not the public script/product
-  name.
+  the adapter-local Workflow Composer webview build command is retired; the
+  `ioi-workbench` directory is a code editor adapter implementation detail,
+  not the public script/product name.
 
 0A.1E repo-facing map cleanup is implemented:
   README points new implementers to `apps/hypervisor`,
@@ -1553,8 +1552,9 @@ Code migration posture:
 Do not preserve the old IDE-era shell as the parent product.
 Do create a fresh Hypervisor Core client shell and progressively remount
 valuable existing surfaces under it.
-Do not delete model mounting, Workflow Composer, Policy, Settings, or
-WorkspaceShell; rehome them under the sharper IA.
+Do not delete model mounting, compositor/workflow, Policy, Settings, or
+WorkspaceShell from Hypervisor; do delete adapter-local product chrome and
+rehome valuable surfaces under the sharper IA.
 Do not clone the IOI mirror literally; translate it:
   New Session, persistent sessions rail, session detail tabs, changes,
   ports/services/tasks/terminal, automations, settings, default editor.

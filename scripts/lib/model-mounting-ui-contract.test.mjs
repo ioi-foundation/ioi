@@ -438,7 +438,7 @@ test("Hypervisor Mounts workbench is wired to daemon API without persisting capa
   assert.match(source, /selectedActionGuard/);
   assert.match(source, /providerDraftGuard/);
   assert.match(source, /vaultBindGuard/);
-  assert.match(source, /daemon offline/);
+  assert.match(source, /runtime offline/);
   assert.match(source, /token on demand/);
   assert.match(source, /denied scope/);
   assert.match(source, /token expired/);
@@ -464,7 +464,6 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   const workbenchExtension = [
     fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "extension.js"), "utf8"),
     fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "bridge", "client.js"), "utf8"),
-    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "commands", "models.js"), "utf8"),
   ].join("\n");
   const workbenchPackage = JSON.parse(
     fs.readFileSync(
@@ -484,10 +483,10 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
   assert.match(liveGate, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
   assert.match(workbenchExtension, /IOI_DAEMON_ENDPOINT/);
-  assert.match(workbenchExtension, /ioi\.models\.open/);
+  assert.match(workbenchExtension, /ioi\.commandCenter\.open/);
   assert.ok(
     workbenchPackage.contributes?.commands?.some(
-      (command) => command.command === "ioi.models.open",
+      (command) => command.command === "ioi.commandCenter.open",
     ),
   );
   assert.doesNotMatch(workbenchExtension, /@tauri-apps|tauri:\/\/|tauri\./i);

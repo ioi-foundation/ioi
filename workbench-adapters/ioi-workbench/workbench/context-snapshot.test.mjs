@@ -112,7 +112,7 @@ test("workbench context snapshot projects editor, scm, diagnostics, tasks, and r
   helpers.setLastTaskExitCode(0);
 
   const snapshot = helpers.buildWorkbenchContextSnapshot("unit");
-  assert.equal(snapshot.schemaVersion, "ioi.workbench-integration.v1");
+  assert.equal(snapshot.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.equal(snapshot.reason, "unit");
   assert.equal(snapshot.workspaceRoot, "/workspace");
   assert.equal(snapshot.activeEditor.filePath, "/workspace/src/app.js");
@@ -126,7 +126,8 @@ test("workbench context snapshot projects editor, scm, diagnostics, tasks, and r
   assert.deepEqual(snapshot.runtimeRefs, { daemon: "runtime://local" });
 
   const index = helpers.buildWorkbenchInspectionTargetIndex("unit");
-  assert.equal(index.schemaVersion, "ioi.workbench-integration.v1");
+  assert.equal(index.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.ok(index.targets.some((target) => target.targetId === "editor.active"));
-  assert.ok(index.targets.some((target) => target.targetId === "activity.studio"));
+  assert.ok(index.targets.some((target) => target.targetId === "command-center.hypervisor-header"));
+  assert.ok(index.targets.some((target) => target.targetId === "terminal.panel"));
 });

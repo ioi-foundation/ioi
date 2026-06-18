@@ -63,27 +63,3 @@ fn pre_read_recovery_uses_candidate_recovery_vocabulary() {
         );
     }
 }
-
-#[test]
-fn product_chat_guards_keep_trace_and_fixture_scaffolding_out_of_transcript() {
-    let extension_source = include_str!("../../../workbench-adapters/ioi-workbench/extension.js");
-    let panel_source =
-        include_str!("../../../workbench-adapters/ioi-workbench/studio/studio-panel-html.js");
-
-    assert!(extension_source.contains("studioAgentTurnResultText"));
-    assert!(extension_source.contains("studioResultTextLooksRetrievalGrounded"));
-    assert!(panel_source.contains("humanizeProjectedTurnText"));
-    assert!(panel_source.contains("renderMarkdownInto"));
-    for forbidden in [
-        "Story 1:",
-        "Briefing for '",
-        "Run date (UTC):",
-        "Run timestamp (UTC):",
-        "Overall confidence:",
-    ] {
-        assert!(
-            !extension_source.contains(forbidden) && !panel_source.contains(forbidden),
-            "product chat code should not hard-code deprecated transcript scaffold `{forbidden}`"
-        );
-    }
-}

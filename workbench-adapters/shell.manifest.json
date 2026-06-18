@@ -18,7 +18,7 @@
   "doctrine": [
     "Hypervisor App is the product client; Workbench is one application surface.",
     "Electron/VS Code is one Workbench adapter host, not product identity or runtime truth.",
-    "ioi-workbench is the current Workbench extension/API layer.",
+    "ioi-workbench is the current code editor adapter extension, not a product shell.",
     "IOI daemon is the runtime authority and durable execution boundary.",
     "Tauri/OpenVSCode embedding is legacy extraction inventory and must not be revived.",
     "The tracked adapter metadata and ignored local adapter artifacts live under workbench-adapters/; the root ide/ artifact path is retired."

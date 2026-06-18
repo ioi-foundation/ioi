@@ -2,7 +2,7 @@ const http = require("http");
 const https = require("https");
 
 function bridgeUrl() {
-  return process.env.IOI_WORKSPACE_IDE_BRIDGE_URL || null;
+  return process.env.IOI_CODE_EDITOR_ADAPTER_BRIDGE_URL || null;
 }
 
 function daemonEndpoint() {
@@ -61,7 +61,7 @@ function requestJson(baseUrl, routePath, { method = "GET", payload, token, timeo
           if (response.statusCode >= 400) {
             reject(
               new Error(
-                `[IOI Workbench] Daemon request failed (${response.statusCode}): ${raw}`,
+                `[IOI Code Adapter] Daemon request failed (${response.statusCode}): ${raw}`,
               ),
             );
             return;

@@ -76,8 +76,8 @@ npm run dev:hypervisor-app
 # Validate the direct Workspace shell and retain a GUI receipt bundle
 npm run probe:hypervisor-app:workspace
 
-# Build the Hypervisor Workbench workflow-composer webview bundle
-npm run build:hypervisor-workbench-composer
+# Build the Hypervisor Workbench package
+npm run build:workbench
 ```
 
 `npm run dev:hypervisor-app` currently launches the packaged Electron/VS Code
@@ -108,7 +108,7 @@ apps/hypervisor/
 
 workbench-adapters/
 ├── README.md                            # adapter-host ownership notes
-├── ioi-workbench/                       # built-in Workbench extension/API layer
+├── ioi-workbench/                       # built-in code editor adapter extension
 ├── shell.manifest.json                  # adapter-host manifest
 ├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
 └── vscode/                              # ignored optional VS Code source checkout

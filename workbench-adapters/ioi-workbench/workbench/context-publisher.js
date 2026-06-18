@@ -59,7 +59,7 @@ function startWorkbenchContextSnapshotPublisher({
       }
     } catch (error) {
       output.appendLine(
-        `Workbench context snapshot failed: ${error?.message || String(error)}`,
+        `Code editor context snapshot failed: ${error?.message || String(error)}`,
       );
     } finally {
       publishing = false;

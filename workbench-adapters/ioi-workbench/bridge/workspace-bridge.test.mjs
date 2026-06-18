@@ -11,18 +11,18 @@ const {
 
 test("workspace bridge receipts keep command route envelope stable", () => {
   const receipt = buildWorkbenchCommandRouteReceipt({
-    commandId: "ioi.studio.open",
+    commandId: "ioi.code.open",
     route: "ioi-runtime-action",
     context: { source: "test" },
   });
 
-  assert.equal(receipt.schemaVersion, "ioi.workbench-integration.v1");
+  assert.equal(receipt.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.equal(receipt.runtimeTruthSource, "daemon-runtime");
-  assert.equal(receipt.projectionOwner, "openvscode-workbench-adapter");
+  assert.equal(receipt.projectionOwner, "openvscode-code-editor-adapter");
   assert.equal(receipt.ownsRuntimeState, false);
-  assert.equal(receipt.commandId, "ioi.studio.open");
+  assert.equal(receipt.commandId, "ioi.code.open");
   assert.equal(receipt.route, "ioi-runtime-action");
-  assert.match(receipt.contextRef, /^workbench-context:[a-f0-9]{16}$/);
+  assert.match(receipt.contextRef, /^code-editor-context:[a-f0-9]{16}$/);
   assert.deepEqual(receipt.runtimeRefs, {
     receiptRefs: [],
     artifactRefs: [],
@@ -33,8 +33,10 @@ test("workspace bridge receipts keep command route envelope stable", () => {
 });
 
 test("workspace bridge identifies runtime action request families", () => {
-  assert.equal(isRuntimeActionRequestType("chat.submit"), true);
-  assert.equal(isRuntimeActionRequestType("workflow.open"), true);
+  assert.equal(isRuntimeActionRequestType("commandCenter.open"), true);
+  assert.equal(isRuntimeActionRequestType("code.open"), true);
+  assert.equal(isRuntimeActionRequestType("chat.submit"), false);
+  assert.equal(isRuntimeActionRequestType("workflow.open"), false);
   assert.equal(isRuntimeActionRequestType("workbench.contextSnapshot"), false);
 });
 

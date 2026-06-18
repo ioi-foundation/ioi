@@ -195,10 +195,10 @@ function createWorkbenchContextSnapshot({
       );
 
     return {
-      schemaVersion: "ioi.workbench-integration.v1",
+      schemaVersion: "ioi.code-editor-adapter.v1",
       snapshotId: crypto.randomUUID(),
       runtimeTruthSource: "daemon-runtime",
-      projectionOwner: "openvscode-workbench-adapter",
+      projectionOwner: "openvscode-code-editor-adapter",
       ownsRuntimeState: false,
       generatedAtMs: Date.now(),
       reason,
@@ -230,14 +230,14 @@ function createWorkbenchContextSnapshot({
       visibleView: {
         activeTextEditorVisible: Boolean(activeEditor),
         activeTabCount: openEditors.length,
-        ioiChatViewId: "ioi.chat",
-        activityId: "ioi-workflows",
-        sideBarViewId: "ioi.chat",
+        adapterKind: "code-editor",
+        activityId: null,
+        sideBarViewId: null,
         panelViewId: null,
         activeEditorGroup: activeEditor ? "active" : null,
-        activeIoiViewId: "ioi.chat",
+        activeIoiViewId: null,
       },
-      inspectionTargetIndexRef: "workbench-target-index:latest",
+      inspectionTargetIndexRef: "code-editor-target-index:latest",
       runtimeRefs: buildRuntimeRefs(),
     };
   }
@@ -314,10 +314,10 @@ function createWorkbenchContextSnapshot({
     }));
 
     return {
-      schemaVersion: "ioi.workbench-integration.v1",
-      indexId: "workbench-target-index:latest",
+      schemaVersion: "ioi.code-editor-adapter.v1",
+      indexId: "code-editor-target-index:latest",
       runtimeTruthSource: "daemon-runtime",
-      projectionOwner: "openvscode-workbench-adapter",
+      projectionOwner: "openvscode-code-editor-adapter",
       ownsRuntimeState: false,
       generatedAtMs: Date.now(),
       reason,
@@ -325,215 +325,24 @@ function createWorkbenchContextSnapshot({
       targets: [
         {
           targetId: "command-center.hypervisor-header",
-          label: "Autopilot header command center",
+          label: "Hypervisor Home handoff",
           surface: "command-center",
           locators: [
             {
-              kind: "data-attribute",
-              selector: "[data-operator-command-center]",
-            },
-            {
-              kind: "aria",
-              accessibleName: "Search Hypervisor, code, workflows, runs, and commands",
-            },
-          ],
-          fallbackAllowed: false,
-        },
-        {
-          targetId: "command-center.openvscode-disabled",
-          label: "OpenVSCode command center disabled",
-          surface: "command-center",
-          locators: [],
-          fallbackAllowed: false,
-        },
-        {
-          targetId: "ioi.overview",
-          label: "Hypervisor Overview",
-          surface: "overview",
-          locators: [
-            {
               kind: "vscode-command",
-              commandId: "ioi.overview.open",
-            },
-            {
-              kind: "data-attribute",
-              selector: "[data-testid='hypervisor-overview-home']",
+              commandId: "ioi.commandCenter.open",
             },
           ],
           fallbackAllowed: true,
         },
         {
-          targetId: "activity.overview",
-          label: "Hypervisor Overview activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-overview",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.overviewActivity",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.overview.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.studio",
-          label: "Hypervisor Studio activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-studio",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.studio",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.studio.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.workflows",
-          label: "Hypervisor Workflows activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-workflows",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.workflows",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.workflow.openComposer",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.models",
-          label: "Hypervisor Models activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-models",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.models",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.models.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.runs",
-          label: "Hypervisor Runs activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-runs",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.runsActivity",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.runs.refresh",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.policy",
-          label: "Hypervisor Policy activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-policy",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.policyActivity",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.policy.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.connectors",
-          label: "Hypervisor Connectors activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-connectors",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.connectorsActivity",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.connections.inspect",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.code",
-          label: "Code drill-down activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.extension.ioi-code",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.codeActivity",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "ioi.code.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.back-to-autopilot",
+          targetId: "activity.back-to-hypervisor",
           label: "Back to Hypervisor from Code",
           surface: "activity-rail",
           locators: [
             {
               kind: "vscode-command",
               commandId: "ioi.hypervisor.back",
-            },
-            {
-              kind: "data-attribute",
-              selector: "[data-testid='back-to-hypervisor-from-code']",
             },
           ],
           fallbackAllowed: true,
@@ -575,90 +384,6 @@ function createWorkbenchContextSnapshot({
           fallbackAllowed: true,
         },
         {
-          targetId: "ioi.chat",
-          label: "Autopilot Chat",
-          surface: "chat",
-          locators: [
-            {
-              kind: "data-attribute",
-              selector: "[data-operator-chat-pane='native-openvscode']",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.chat.composer",
-          label: "Autopilot Chat composer",
-          surface: "chat",
-          locators: [
-            {
-              kind: "data-attribute",
-              selector: "[data-inspection-target='native-ioi-chat-composer']",
-            },
-            {
-              kind: "aria",
-              accessibleName: "Chat composer",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.chat.action.build-workspace",
-          label: "Build Workspace action",
-          surface: "chat",
-          locators: [
-            {
-              kind: "data-attribute",
-              selector: "[data-bridge-request='workflow.codeGenerationRequest']",
-            },
-            {
-              kind: "aria",
-              accessibleName: "Build Workspace",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.chat.action.show-config",
-          label: "Show Config action",
-          surface: "chat",
-          locators: [
-            {
-              kind: "data-attribute",
-              selector: "[data-bridge-request='chat.showConfig']",
-            },
-            {
-              kind: "aria",
-              accessibleName: "Show Config",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.chat.action.new",
-          label: "New chat action",
-          surface: "chat",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.chat.new",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.chat.action.settings",
-          label: "Chat settings action",
-          surface: "chat",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.chat.openSettings",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
           targetId: "explorer",
           label: "Explorer",
           surface: "explorer",
@@ -666,70 +391,6 @@ function createWorkbenchContextSnapshot({
             {
               kind: "vscode-command",
               commandId: "workbench.view.explorer",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "workflow.composer",
-          label: "Hypervisor Workflow Composer",
-          surface: "workflow",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.workflow.openComposer",
-            },
-            {
-              kind: "data-attribute",
-              selector: "[data-testid='workflow-composer']",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "workflow.generate-code",
-          label: "Generate code proposal from workflow",
-          surface: "workflow",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.workflow.generateCode",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "ioi.models",
-          label: "Hypervisor Models",
-          surface: "models",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.models.open",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.models",
-            },
-            {
-              kind: "data-attribute",
-              selector: "[data-testid='hypervisor-models-mode']",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "run.evidence.rows",
-          label: "IOI run and evidence rows",
-          surface: "run-evidence",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.runs.refresh",
-            },
-            {
-              kind: "vscode-view",
-              viewId: "ioi.runs",
             },
           ],
           fallbackAllowed: true,

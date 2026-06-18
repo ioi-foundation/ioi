@@ -18,7 +18,7 @@ function hashRef(prefix, value) {
 }
 
 function isRuntimeActionRequestType(requestType) {
-  return /^(chat|workflow|runs|policy|evidence|connections|automation|settings)\./.test(
+  return /^(commandCenter|code)\./.test(
     requestType,
   );
 }
@@ -32,15 +32,15 @@ function buildWorkbenchCommandRouteReceipt({
   actionProposalRef = null,
 }) {
   return {
-    schemaVersion: "ioi.workbench-integration.v1",
-    receiptId: `workbench-command-route:${crypto.randomUUID()}`,
+    schemaVersion: "ioi.code-editor-adapter.v1",
+    receiptId: `code-editor-command-route:${crypto.randomUUID()}`,
     runtimeTruthSource: "daemon-runtime",
-    projectionOwner: "openvscode-workbench-adapter",
+    projectionOwner: "openvscode-code-editor-adapter",
     ownsRuntimeState: false,
     commandId,
     routedAtMs: Date.now(),
     route,
-    contextRef: context ? hashRef("workbench-context", context) : null,
+    contextRef: context ? hashRef("code-editor-context", context) : null,
     actionProposalRef,
     status,
     reason,
@@ -87,7 +87,7 @@ function createWorkspaceBridge({
   function requestBridge(method, bridgePath, payload, { timeoutMs } = {}) {
     const base = bridgeUrl();
     if (!base) {
-      return Promise.reject(new Error("IOI workspace bridge URL is not configured."));
+      return Promise.reject(new Error("IOI code editor adapter bridge URL is not configured."));
     }
 
     const target = new URL(bridgePath, `${base}/`);
@@ -114,7 +114,7 @@ function createWorkspaceBridge({
             if (response.statusCode >= 400) {
               reject(
                 new Error(
-                  `[IOI Workbench] Bridge request failed (${response.statusCode}): ${raw}`,
+                  `[IOI Code Adapter] Bridge request failed (${response.statusCode}): ${raw}`,
                 ),
               );
               return;
@@ -141,7 +141,7 @@ function createWorkspaceBridge({
   async function writeWorkbenchCommandRouteReceipt(receipt, context = null) {
     const request = {
       requestId: crypto.randomUUID(),
-      requestType: "workbench.commandRouteReceipt",
+      requestType: "codeEditor.commandRouteReceipt",
       context,
       payload: receipt,
       timestampMs: Date.now(),
@@ -165,7 +165,7 @@ function createWorkspaceBridge({
         modelMountingStatus: daemonModelMounting,
       };
     } catch (error) {
-      console.error("[IOI Workbench] Failed to read bridge state:", error);
+      console.error("[IOI Code Adapter] Failed to read bridge state:", error);
       return {
         ...defaultBridgeState(),
         modelMounting: daemonModelMounting.snapshot,
@@ -180,7 +180,7 @@ function createWorkspaceBridge({
       const commands = JSON.parse(raw || "[]");
       return Array.isArray(commands) ? commands : [];
     } catch (error) {
-      console.error("[IOI Workbench] Failed to read bridge commands:", error);
+      console.error("[IOI Code Adapter] Failed to read bridge commands:", error);
       return [];
     }
   }
@@ -214,7 +214,7 @@ function createWorkspaceBridge({
                 context: bridgeCommand,
               }),
               {
-                source: "ioi-workbench-command-poll",
+                source: "ioi-code-editor-command-poll",
                 commandId: bridgeCommand.commandId || bridgeCommand.command,
               },
             ).catch((error) => {
@@ -232,7 +232,7 @@ function createWorkspaceBridge({
                 reason: error?.message || String(error),
               }),
               {
-                source: "ioi-workbench-command-poll",
+                source: "ioi-code-editor-command-poll",
                 commandId: bridgeCommand.commandId || bridgeCommand.command,
               },
             ).catch(() => undefined);
@@ -240,7 +240,7 @@ function createWorkspaceBridge({
           }
         }
       } catch (error) {
-        console.error("[IOI Workbench] Failed to execute bridge command:", error);
+        console.error("[IOI Code Adapter] Failed to execute bridge command:", error);
         output.appendLine(`Bridge command failed: ${error?.message || String(error)}`);
       } finally {
         running = false;
@@ -278,12 +278,12 @@ function createWorkspaceBridge({
           },
         }),
         {
-          source: "ioi-workbench",
+          source: "ioi-code-editor-adapter",
           originalRequestId: request.requestId,
           requestType,
         },
       ).catch((error) => {
-        console.error("[IOI Workbench] Failed to write command route receipt:", error);
+        console.error("[IOI Code Adapter] Failed to write command route receipt:", error);
       });
     }
     return request;

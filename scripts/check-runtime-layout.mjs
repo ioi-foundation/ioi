@@ -354,10 +354,10 @@ assert(
     retiredHypervisorGoalScripts.length === 0 &&
     retiredHypervisorHarnessValidationScripts.length === 0 &&
     packageJson.scripts["test:hypervisor-app-harness"] &&
-    packageJson.scripts["build:hypervisor-workbench-composer"] &&
+    !packageJson.scripts["build:hypervisor-workbench-composer"] &&
     !packageJson.scripts["build:ioi-workbench-composer"],
   ["package.json"],
-  "root package scripts must expose focused Hypervisor checks, not campaign goals",
+  "root package scripts must expose focused Hypervisor checks and keep adapter-local composer builds retired",
 );
 assert(
   "compact-app-harness-contract",
