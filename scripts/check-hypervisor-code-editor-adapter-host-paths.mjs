@@ -38,6 +38,36 @@ function runNodeCheck(script) {
   }
 }
 
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, "utf8"));
+}
+
+function assertAdapterPackageManifest(filePath) {
+  if (!existsSync(filePath)) {
+    fail(`Packaged adapter package manifest is missing after sync: ${filePath}`);
+    return;
+  }
+
+  const manifest = readJson(filePath);
+  if (manifest.name !== "ioi-code-editor-adapter") {
+    fail(`Packaged adapter manifest has unexpected name: ${manifest.name}`);
+  }
+  if (
+    !Array.isArray(manifest.activationEvents) ||
+    manifest.activationEvents.length !== 1 ||
+    manifest.activationEvents[0] !== "onStartupFinished"
+  ) {
+    fail(
+      `Packaged adapter manifest must activate only onStartupFinished: ${JSON.stringify(manifest.activationEvents)}`,
+    );
+  }
+  if (Object.hasOwn(manifest, "contributes")) {
+    fail(
+      "Packaged adapter manifest must not contribute Hypervisor product views, commands, menus, or activity-bar containers.",
+    );
+  }
+}
+
 if (existsSync(absentForkRoot)) {
   fail(`Absent fork simulation path unexpectedly exists: ${absentForkRoot}`);
 }
@@ -78,11 +108,16 @@ const packagedExtension = join(
   HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedCodeEditorTarget,
   "extension.js",
 );
+const packagedManifest = join(
+  HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedCodeEditorTarget,
+  "package.json",
+);
 if (!existsSync(packagedExtension)) {
   fail(
     `Packaged ioi-code-editor-adapter extension missing after sync: ${packagedExtension}`,
   );
 }
+assertAdapterPackageManifest(packagedManifest);
 
 if (String(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.packagedRoot).includes("/ide/")) {
   fail(

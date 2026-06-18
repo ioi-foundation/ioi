@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   HYPERVISOR_CODE_EDITOR_ADAPTER_HOST,
   envFlag,
-  syncWorkbenchExtensionTargets,
+  syncCodeEditorExtensionTargets,
 } from "./lib/hypervisor-code-editor-adapter-host-paths.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +27,7 @@ if (!existsSync(binary)) {
 
 function syncCodeEditorAdapterExtension() {
   if (!extensionSyncEnabled) return;
-  const sync = syncWorkbenchExtensionTargets();
+  const sync = syncCodeEditorExtensionTargets();
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(
