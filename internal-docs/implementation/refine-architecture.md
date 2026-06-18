@@ -193,7 +193,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Issue | The canon now has the cleaner taxonomy, but implementation plans can drift back to old "IDE" or "CLI/TUI" shorthand. |
 | Why it matters | The product becomes brittle if clients, application surfaces, adapter targets, and external agent harnesses each invent their own runtime truth. |
 | Recommended change | Keep `HypervisorCore`, `HypervisorClient`, `HypervisorApplicationSurface`, `HypervisorAdapterTarget`, and `AgentHarnessAdapter` in source maps, vocabulary, implementation matrix, app APIs, and future conformance checks. |
-| Fix type | Docs already patched; API/schema/conformance still needed. |
+| Fix type | Docs, API/schema, and conformance implemented through `ioi.runtime.hypervisor_core_taxonomy.v1` and `GET /v1/hypervisor/core-taxonomy`; future work is product adoption wherever a client needs to hydrate the taxonomy. |
 
 ### 2. Physical-action safety has a canonical owner
 

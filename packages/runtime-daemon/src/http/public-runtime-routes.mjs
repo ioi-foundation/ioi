@@ -8,6 +8,7 @@ import { admitArtifactAvailabilityIncident } from "../runtime-artifact-availabil
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
+import { buildHypervisorCoreTaxonomy } from "../runtime-hypervisor-core-taxonomy.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
@@ -295,6 +296,10 @@ export function createPublicRuntimeRequestHandler(deps) {
           response,
           projected.projection ?? projected.record?.projection ?? projected,
         );
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/hypervisor/core-taxonomy") {
+        writeJsonResponse(response, buildHypervisorCoreTaxonomy());
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/provider-operations") {

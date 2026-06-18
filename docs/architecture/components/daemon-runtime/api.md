@@ -564,6 +564,62 @@ state-root refs, and receipt refs before any provider-side deployment, access,
 archive, zero-to-idle, or restore operation can proceed.
 
 ```http
+GET /v1/hypervisor/core-taxonomy
+```
+
+`GET /v1/hypervisor/core-taxonomy` returns the daemon-visible Hypervisor Core
+taxonomy used by product clients and conformance checks.
+
+The response is an `ioi.runtime.hypervisor_core_taxonomy.v1` object:
+
+```json
+{
+  "schema_version": "ioi.runtime.hypervisor_core_taxonomy.v1",
+  "taxonomy_ref": "hypervisor-core-taxonomy:canonical",
+  "core": {
+    "id": "hypervisor-core",
+    "execution_owner": "hypervisor-daemon",
+    "runtimeTruthSource": "daemon-runtime"
+  },
+  "first_class_clients": [
+    { "kind": "app" },
+    { "kind": "web" },
+    { "kind": "cli_headless" }
+  ],
+  "optional_presentations": [
+    { "kind": "tui_presentation", "parent_client": "hypervisor-cli-headless" }
+  ],
+  "application_surfaces": [
+    { "id": "workbench", "truth_owner": "hypervisor-daemon" },
+    { "id": "automations", "truth_owner": "hypervisor-daemon" },
+    { "id": "foundry", "truth_owner": "hypervisor-daemon" }
+  ],
+  "retired_surface_aliases": [
+    {
+      "alias": "fleet",
+      "replacement": "sessions/providers/environments"
+    }
+  ],
+  "adapter_target_families": [
+    { "id": "code_editor" },
+    { "id": "terminal" },
+    { "id": "provider" },
+    { "id": "hypervisoros_node" }
+  ],
+  "agent_harness_adapters": [
+    { "id": "codex_style", "authority": "proposal_source_only" },
+    { "id": "claude_style", "authority": "proposal_source_only" },
+    { "id": "deepseek_style", "authority": "proposal_source_only" }
+  ]
+}
+```
+
+The taxonomy endpoint is not a runtime dispatcher. It is a stable
+implementation-visible boundary that keeps clients, application surfaces,
+adapter targets, AgentHarnessAdapters, and truth owners from collapsing back
+into editor-host or Fleet-era product language.
+
+```http
 POST /v1/hypervisor/approved-operations
 ```
 

@@ -201,6 +201,12 @@ const runtimeHypervisorApprovedOperationAdmissionSource = read(
 const runtimeHypervisorApprovedOperationAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
 );
+const runtimeHypervisorCoreTaxonomySource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
+);
+const runtimeHypervisorCoreTaxonomyTestSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
+);
 const runtimeWorkerPackageInstallAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
 );
@@ -1900,6 +1906,44 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Approved Hypervisor operation admission must only admit daemon-authored session/provider proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
+);
+assert(
+  "hypervisor-core-taxonomy-projection",
+  runtimeHypervisorCoreTaxonomySource.includes(
+    "ioi.runtime.hypervisor_core_taxonomy.v1",
+  ) &&
+    runtimeHypervisorCoreTaxonomySource.includes(
+      "buildHypervisorCoreTaxonomy",
+    ) &&
+    runtimeHypervisorCoreTaxonomySource.includes("first_class_clients") &&
+    runtimeHypervisorCoreTaxonomySource.includes("application_surfaces") &&
+    runtimeHypervisorCoreTaxonomySource.includes("adapter_target_families") &&
+    runtimeHypervisorCoreTaxonomySource.includes("agent_harness_adapters") &&
+    runtimeHypervisorCoreTaxonomySource.includes("retired_surface_aliases") &&
+    runtimeHypervisorCoreTaxonomySource.includes("fleet") &&
+    runtimeHypervisorCoreTaxonomySource.includes("proposal_source_only") &&
+    runtimeHypervisorCoreTaxonomySource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/core-taxonomy") &&
+    publicRuntimeRoutesSource.includes("buildHypervisorCoreTaxonomy") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose Hypervisor Core taxonomy",
+    ) &&
+    runtimeHypervisorCoreTaxonomyTestSource.includes(
+      "classifies external harnesses as proposal-source adapters only",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.hypervisor_core_taxonomy.v1",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Core taxonomy must be a daemon-visible projection that keeps clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct.",
 );
 assert(
   "hypervisor-automation-compositor-live-projection",
