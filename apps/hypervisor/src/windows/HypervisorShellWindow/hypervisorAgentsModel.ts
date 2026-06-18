@@ -117,11 +117,11 @@ const defaultHarnessRef = getHarnessSelectionRef(DEFAULT_HARNESS_PROFILE_OPTION)
 export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
   {
     schema_version: "ioi.hypervisor.agents_projection.v1",
-    projection_id: "agents:hypervisor-core/default",
+    projection_id: "agents:hypervisor/default",
     source: "fixture",
-    selected_project_ref: "project:hypervisor-core",
+    selected_project_ref: "project:hypervisor",
     boundary_invariant:
-      "Agents are configured runtime actors over Hypervisor Core. Connector UIs, external harnesses, and model providers may propose work; Core owns sessions, gates, receipts, and replay.",
+      "Agents are configured workers for governed sessions. Connector UIs, external harnesses, and model providers may propose work; Hypervisor admits sessions, gates, receipts, and replay.",
     memory_invariant:
       "Skills and memory may persist with the workspace or agent, but Agent Wiki / ioi-memory owns semantic memory while Agentgres records admitted operational refs.",
     capability_invariant:
@@ -465,7 +465,7 @@ function normalizeMemoryBindings(
     ? [
         {
           memory_ref: `${agentRef}/memory/daemon`,
-          label: `${memoryCount} daemon memory records`,
+          label: `${memoryCount} memory records`,
           scope: "agent_bound",
           owner: "agent_wiki_ioi_memory",
           persistence: "persistent",

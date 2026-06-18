@@ -342,7 +342,6 @@ function HypervisorAgentsSurface({
       aria-label="Hypervisor agents"
       data-hypervisor-agents={projection.projection_id}
       data-hypervisor-agents-source={projection.source}
-      data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-agents__header">
         <div>
@@ -360,16 +359,6 @@ function HypervisorAgentsSurface({
 
       <div className="hypervisor-agents__workplane">
         <div className="hypervisor-agents__primary">
-          <div className="hypervisor-agents__metrics" aria-label="Agent summary">
-            <AgentMetric
-              active
-              label="Total agents"
-              value={projection.records.length}
-            />
-            <AgentMetric label="Running" value={activeAgents} />
-            <AgentMetric label="Needs review" value={blockedAgents} />
-          </div>
-
           <div className="hypervisor-agents__filters" aria-label="Agent controls">
             <label className="hypervisor-agents__search">
               <span aria-hidden="true">⌕</span>
@@ -413,15 +402,15 @@ function HypervisorAgentsSurface({
               />
             ))}
           </div>
+          {selectedAgent ? (
+            <HypervisorAgentDetail
+              agent={selectedAgent}
+              onOpenSessions={onOpenSessions}
+              onOpenReceipts={onOpenReceipts}
+              onOpenAuthority={onOpenAuthority}
+            />
+          ) : null}
         </div>
-        {selectedAgent ? (
-          <HypervisorAgentDetail
-            agent={selectedAgent}
-            onOpenSessions={onOpenSessions}
-            onOpenReceipts={onOpenReceipts}
-            onOpenAuthority={onOpenAuthority}
-          />
-        ) : null}
       </div>
 
       <div
@@ -437,32 +426,6 @@ function HypervisorAgentsSurface({
 
 function firstCapabilityLease(agent: HypervisorAgentRecord) {
   return agent.capability_leases[0] ?? null;
-}
-
-function AgentMetric({
-  active = false,
-  label,
-  value,
-}: {
-  active?: boolean;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div
-      className={clsx("hypervisor-agents__metric", {
-        "is-active": active,
-      })}
-    >
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {active ? (
-        <svg aria-hidden="true" viewBox="0 0 112 42" preserveAspectRatio="none">
-          <path d="M1 31 L19 7 L38 31 L56 8 L75 31 L94 8 L111 31" />
-        </svg>
-      ) : null}
-    </div>
-  );
 }
 
 function formatAgentHarnessLabel(label: string): string {
@@ -712,7 +675,7 @@ function HypervisorAgentDetail({
   onOpenAuthority: () => void;
 }) {
   return (
-    <aside
+    <section
       className="hypervisor-agents__detail"
       aria-label={`${agent.label} details`}
       data-hypervisor-agent-detail={agent.agent_ref}
@@ -725,7 +688,7 @@ function HypervisorAgentDetail({
       data-agent-latest-receipt-ref={agent.latest_receipt_refs[0] ?? ""}
     >
       <div className="hypervisor-agents__detail-head">
-        <span className="hypervisor-agents__detail-label">Agent details</span>
+        <span className="hypervisor-agents__detail-label">Selected agent</span>
         <span>{statusLabel(agent.status)}</span>
         <h3>{agent.label}</h3>
         <p>{agent.objective}</p>
@@ -808,7 +771,7 @@ function HypervisorAgentDetail({
           Receipts
         </button>
       </div>
-    </aside>
+    </section>
   );
 }
 

@@ -7,12 +7,14 @@ import {
   normalizeHypervisorAgentsProjection,
 } from "./hypervisorAgentsModel.ts";
 
-test("agents projection models configured runtime actors over Hypervisor Core", () => {
+test("agents projection models configured workers without product-surface doctrine", () => {
   const projection = HYPERVISOR_AGENTS_PROJECTION_FIXTURE;
 
   assert.equal(projection.schema_version, "ioi.hypervisor.agents_projection.v1");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
-  assert.match(projection.boundary_invariant, /Core owns sessions, gates, receipts, and replay/);
+  assert.equal(projection.projection_id, "agents:hypervisor/default");
+  assert.equal(projection.selected_project_ref, "project:hypervisor");
+  assert.match(projection.boundary_invariant, /Hypervisor admits sessions, gates, receipts, and replay/);
   assert.match(projection.memory_invariant, /Agent Wiki \/ ioi-memory owns semantic memory/);
   assert.match(projection.capability_invariant, /wallet.network capability leases/);
   assert.equal(projection.records.length, 3);
@@ -95,7 +97,7 @@ test("agents projection normalizes Rust lifecycle agent rows", () => {
   );
   assert.equal(
     projection.records[0]?.memory_bindings[0]?.label,
-    "4 daemon memory records",
+    "4 memory records",
   );
   assert.deepEqual(projection.records[0]?.latest_receipt_refs, [
     "receipt://agent/one/latest",
