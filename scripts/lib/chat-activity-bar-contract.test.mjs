@@ -49,6 +49,14 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   assert.match(activityBar, /Your favorite apps will appear here/);
   assert.match(activityBar, /data-window-surface=\{item\.dataWindowSurface\}/);
   assert.match(activityBar, /data-window-surface="account"/);
+  assert.match(
+    activityBar,
+    /data-window-surface="account"[\s\S]*onClick=\{\(\) => \{[\s\S]*onViewChange\("settings"\);/,
+  );
+  assert.doesNotMatch(
+    activityBar,
+    /data-window-surface="account"[\s\S]*activateRoute\(profileItem\.route\)/,
+  );
   assert.match(activityBar, /resolveProfileDisplayName\(profile\)/);
   assert.doesNotMatch(activityBar, /currentProject\.name/);
 });

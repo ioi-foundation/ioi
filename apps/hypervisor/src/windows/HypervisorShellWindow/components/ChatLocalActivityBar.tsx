@@ -284,9 +284,6 @@ export function ChatLocalActivityBar({
   const searchItem = railModel.items.find(
     (item) => item.dataWindowSurface === "search",
   );
-  const profileItem = railModel.items.find(
-    (item) => item.dataWindowSurface === "profile",
-  );
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
@@ -454,7 +451,7 @@ export function ChatLocalActivityBar({
           className="chat-activity-button chat-activity-button--account"
           data-window-surface="account"
           onClick={() => {
-            if (profileItem) activateRoute(profileItem.route);
+            onViewChange("settings");
           }}
           aria-label={`${profileDisplayName} account`}
           title={`${profileDisplayName} · ${profileRoleLabel}`}
