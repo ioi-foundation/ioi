@@ -1139,19 +1139,19 @@
   overflow: auto;
 }
 
-.chat-left-utility-body .mission-control-view,
-.chat-operator-pane-body .mission-control-view {
+.chat-left-utility-body .hypervisor-surface-view,
+.chat-operator-pane-body .hypervisor-surface-view {
   gap: 0;
   padding: 0;
 }
 
-.chat-left-utility-body .mission-control-stage,
-.chat-operator-pane-body .mission-control-stage {
+.chat-left-utility-body .hypervisor-surface-stage,
+.chat-operator-pane-body .hypervisor-surface-stage {
   min-height: 0;
 }
 
-.chat-left-utility-body .mission-control-stage-frame,
-.chat-operator-pane-body .mission-control-stage-frame {
+.chat-left-utility-body .hypervisor-surface-stage-frame,
+.chat-operator-pane-body .hypervisor-surface-stage-frame {
   border: none;
   border-radius: 0;
   background: transparent;

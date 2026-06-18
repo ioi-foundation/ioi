@@ -4,7 +4,7 @@ import type {
 } from "@ioi/hypervisor-workbench";
 import { Codicon } from "@ioi/workspace-substrate";
 import type { AssistantWorkbenchSession } from "../../../types";
-import { MissionControlChatView } from "../../../surfaces/MissionControl";
+import { ConversationSurfaceView } from "../../../surfaces/Conversation";
 
 type SessionCapableRuntime = AgentWorkbenchRuntime & AssistantSessionRuntime;
 
@@ -77,7 +77,7 @@ export function ChatLeftUtilityPane({
           {closeControl}
         </div>
       )}
-      <MissionControlChatView
+      <ConversationSurfaceView
         embedded
         chatPresentation={maximized ? "standalone" : "embedded-pane"}
         paneLeadingAction={usesIntegratedChatChrome ? layoutControl : undefined}

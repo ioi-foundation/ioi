@@ -681,7 +681,7 @@
 }
 
 .chat-shell-inspector-kicker,
-.mission-control-kicker {
+.hypervisor-surface-kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -692,7 +692,7 @@
 }
 
 .chat-shell-inspector-head h2,
-.mission-control-header-copy h2 {
+.hypervisor-surface-header-copy h2 {
   margin: 8px 0 0;
   font-size: 20px;
   line-height: 1.1;
@@ -700,7 +700,7 @@
 }
 
 .chat-shell-inspector-head p,
-.mission-control-header-copy p {
+.hypervisor-surface-header-copy p {
   margin: 10px 0 0;
   color: var(--chat-text-secondary);
 }
@@ -871,7 +871,7 @@
   overflow: hidden;
 }
 
-.chat-content-main--dedicated-workbench > .mission-control-view--workflow-canvas {
+.chat-content-main--dedicated-workbench > .hypervisor-surface-view--workflow-canvas {
   position: absolute;
   inset: 0;
   flex: 1 1 auto;
@@ -999,9 +999,9 @@
   outline-offset: -1px;
 }
 
-.operator-chat-pane-shell .mission-control-view,
-.operator-chat-pane-shell .mission-control-stage,
-.operator-chat-pane-shell .mission-control-stage-frame,
+.operator-chat-pane-shell .hypervisor-surface-view,
+.operator-chat-pane-shell .hypervisor-surface-stage,
+.operator-chat-pane-shell .hypervisor-surface-stage-frame,
 .operator-chat-pane-shell .spot-window,
 .operator-chat-pane-shell .spot-window--chat,
 .operator-chat-pane-shell .spot-container,
@@ -1014,7 +1014,7 @@
   background: var(--chat-bg) !important;
 }
 
-.operator-chat-pane-shell .mission-control-view {
+.operator-chat-pane-shell .hypervisor-surface-view {
   flex: 1;
   overflow: hidden;
 }
@@ -1087,7 +1087,7 @@
   background: var(--chat-bg);
 }
 
-.mission-control-tabs button:disabled {
+.hypervisor-surface-tabs button:disabled {
   opacity: 0.45;
   cursor: default;
 }
@@ -2110,7 +2110,7 @@
   color: #424242;
 }
 
-.mission-control-view {
+.hypervisor-surface-view {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -2120,66 +2120,66 @@
   padding: 18px 20px 20px;
 }
 
-.mission-control-view--chat {
+.hypervisor-surface-view--chat {
   gap: 0;
   padding: 0;
 }
 
-.mission-control-view--pane {
+.hypervisor-surface-view--pane {
   gap: 0;
   padding: 0;
 }
 
-.mission-control-header {
+.hypervisor-surface-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
-.mission-control-header-copy {
+.hypervisor-surface-header-copy {
   min-width: 0;
   max-width: 760px;
 }
 
-.mission-control-view--workflows {
+.hypervisor-surface-view--workflows {
   gap: 0;
   padding: 0;
   background: var(--chat-bg);
 }
 
-.mission-control-view--workflow-canvas {
+.hypervisor-surface-view--workflow-canvas {
   min-height: 0;
   overflow: hidden;
 }
 
-.mission-control-view--workflow-canvas > .workflow-composer {
+.hypervisor-surface-view--workflow-canvas > .workflow-composer {
   flex: 1;
   min-width: 0;
   min-height: 0;
 }
 
-.mission-control-view--control {
+.hypervisor-surface-view--control {
   gap: 0;
   padding: 0;
   background: var(--chat-bg);
 }
 
-.mission-control-header--workflow {
+.hypervisor-surface-header--workflow {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--chat-border);
   background: var(--surface-2);
 }
 
-.mission-control-header-copy--workflow {
+.hypervisor-surface-header-copy--workflow {
   max-width: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.mission-control-header--control {
+.hypervisor-surface-header--control {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--chat-border);

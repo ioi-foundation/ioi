@@ -41,8 +41,8 @@ const workbenchAdapterPreferences = fs.readFileSync(
   ),
   "utf8",
 );
-const missionControlControlView = fs.readFileSync(
-  new URL("../MissionControl/MissionControlControlView.tsx", import.meta.url),
+const authoritySettingsSurfaceView = fs.readFileSync(
+  new URL("../Authority/AuthoritySettingsSurfaceView.tsx", import.meta.url),
   "utf8",
 );
 const retiredToolCatalogRoutePattern = new RegExp(
@@ -215,8 +215,8 @@ test("settings expose Workbench adapter preference as a client default", () => {
 test("settings authority repair actions route to canonical surfaces", () => {
   assert.match(settingsView, /onOpenModelRoutes/);
   assert.match(settingsView, /onOpenWorkflowPreflight/);
-  assert.match(missionControlControlView, /onOpenModelRoutes/);
-  assert.match(missionControlControlView, /onOpenWorkflowPreflight/);
+  assert.match(authoritySettingsSurfaceView, /onOpenModelRoutes/);
+  assert.match(authoritySettingsSurfaceView, /onOpenWorkflowPreflight/);
 });
 
 console.log("settingsAuthorityCenterWiring.test.ts: ok");

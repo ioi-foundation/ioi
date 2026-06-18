@@ -194,7 +194,7 @@ assert.match(
 
 assert.doesNotMatch(
   source,
-  /activeView === "insights" \? \(\s*<MissionControlRunsView runtime=\{runtime\} \/>/,
+  /activeView === "insights" \? \(\s*<RuntimeInsightsView runtime=\{runtime\} \/>/,
   "Insights should not expose the raw runs client as the visible product route",
 );
 
@@ -218,8 +218,8 @@ assert.match(
 
 assert.match(
   source,
-  /activeView === "authority" \?[\s\S]*<MissionControlControlView[\s\S]*surface="policy"/,
-  "the authority route should keep the governance wrapper while settings is no longer wrapped as Mission Control",
+  /activeView === "authority" \?[\s\S]*<AuthoritySettingsSurfaceView[\s\S]*surface="policy"/,
+  "the authority route should keep the governance wrapper while settings is no longer wrapped as Hypervisor governance",
 );
 
 assert.match(

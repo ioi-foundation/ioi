@@ -821,11 +821,11 @@ test("Insights surface renders the IOI reference product surface before runtime 
   assert.match(shellContent, /data-insights-runtime-projection-boundary/);
   assert.match(
     shellContent,
-    /activeView === "insights"[\s\S]*<HypervisorInsightsReferenceSurface>[\s\S]*<MissionControlRunsView runtime=\{runtime\} \/>[\s\S]*<\/HypervisorInsightsReferenceSurface>/,
+    /activeView === "insights"[\s\S]*<HypervisorInsightsReferenceSurface>[\s\S]*<RuntimeInsightsView runtime=\{runtime\} \/>[\s\S]*<\/HypervisorInsightsReferenceSurface>/,
   );
   assert.doesNotMatch(
     shellContent,
-    /activeView === "insights" \? \(\s*<MissionControlRunsView runtime=\{runtime\} \/>/,
+    /activeView === "insights" \? \(\s*<RuntimeInsightsView runtime=\{runtime\} \/>/,
   );
 });
 

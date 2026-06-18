@@ -12,21 +12,21 @@ interface ProjectScope {
   rootPath: string;
 }
 
-interface MissionControlWorkflowsViewProps {
+interface AutomationsWorkflowComposerViewProps {
   runtime: AgentWorkbenchRuntime;
   currentProject: ProjectScope;
   workflowPreflightSeed?: WorkflowComposerPreflightSeed | null;
   onConsumeWorkflowPreflightSeed?: () => void;
 }
 
-export function MissionControlWorkflowsView({
+export function AutomationsWorkflowComposerView({
   runtime,
   currentProject,
   workflowPreflightSeed,
   onConsumeWorkflowPreflightSeed,
-}: MissionControlWorkflowsViewProps) {
+}: AutomationsWorkflowComposerViewProps) {
   return (
-    <div className="mission-control-view mission-control-view--workflows mission-control-view--workflow-canvas">
+    <div className="hypervisor-surface-view hypervisor-surface-view--workflows hypervisor-surface-view--workflow-canvas">
       <WorkflowComposer
         runtime={runtime}
         currentProject={currentProject}

@@ -10,11 +10,11 @@ const viewPath = path.join(
   "hypervisor",
   "src",
   "surfaces",
-  "MissionControl",
-  "MissionControlMountsView.tsx",
+  "Models",
+  "ModelMountsSurfaceView.tsx",
 );
 
-test("Hypervisor Mounts workbench is wired to daemon API without persisting capability tokens", () => {
+test("Hypervisor Models surface is wired to daemon API without persisting capability tokens", () => {
   const source = fs.readFileSync(viewPath, "utf8");
   for (const route of [
     "/v1/model-mount/snapshot",

@@ -9,7 +9,7 @@ import type {
 } from "../Policy/policyCenter";
 import type { SettingsSection } from "../Settings/settingsViewShared";
 
-interface MissionControlControlViewProps {
+interface AuthoritySettingsSurfaceViewProps {
   runtime: HypervisorClientRuntime;
   surface: "policy" | "system";
   policyState: ShieldPolicyState;
@@ -37,7 +37,7 @@ interface MissionControlControlViewProps {
   onOpenWorkflowPreflight?: (seed?: WorkflowComposerPreflightSeed) => void;
 }
 
-export function MissionControlControlView({
+export function AuthoritySettingsSurfaceView({
   runtime,
   surface,
   policyState,
@@ -60,28 +60,28 @@ export function MissionControlControlView({
   onOpenConnections,
   onOpenModelRoutes,
   onOpenWorkflowPreflight,
-}: MissionControlControlViewProps) {
+}: AuthoritySettingsSurfaceViewProps) {
   const title = surface === "policy" ? "Authority Center" : "System Settings";
   const kicker = surface === "policy" ? "Govern" : "Configure";
   const surfaceLabel =
     surface === "policy" ? "Policy and grants" : "Control plane";
 
   return (
-    <div className="mission-control-view mission-control-view--control">
-      <header className="mission-control-header mission-control-header--control">
-        <div className="mission-control-header-copy mission-control-header-copy--control">
-          <span className="mission-control-kicker">{kicker}</span>
-          <div className="mission-control-control-title-row">
+    <div className="hypervisor-surface-view hypervisor-surface-view--control">
+      <header className="hypervisor-surface-header hypervisor-surface-header--control">
+        <div className="hypervisor-surface-header-copy hypervisor-surface-header-copy--control">
+          <span className="hypervisor-surface-kicker">{kicker}</span>
+          <div className="hypervisor-governance-title-row">
             <h2>{title}</h2>
-            <span className="mission-control-control-surface">
+            <span className="hypervisor-governance-surface">
               {surfaceLabel}
             </span>
           </div>
         </div>
 
-        <div className="mission-control-header-actions">
+        <div className="hypervisor-surface-header-actions">
           <div
-            className="mission-control-tabs"
+            className="hypervisor-surface-tabs"
             role="tablist"
             aria-label="Governance surfaces"
           >
@@ -103,8 +103,8 @@ export function MissionControlControlView({
         </div>
       </header>
 
-      <div className="mission-control-stage mission-control-stage--control">
-        <div className="mission-control-stage-frame mission-control-stage-frame--control">
+      <div className="hypervisor-surface-stage hypervisor-surface-stage--control">
+        <div className="hypervisor-surface-stage-frame hypervisor-surface-stage-frame--control">
           {surface === "policy" ? (
             <PolicyView
               runtime={runtime}

@@ -1,23 +1,23 @@
-.mission-control-header-copy--control {
+.hypervisor-surface-header-copy--control {
   max-width: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.mission-control-workflow-title-row {
+.hypervisor-automation-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.mission-control-workflow-title-row h2 {
+.hypervisor-automation-title-row h2 {
   margin: 0;
   font-size: 18px;
   line-height: 1.15;
 }
 
-.mission-control-workflow-surface {
+.hypervisor-automation-surface {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
@@ -29,19 +29,19 @@
   line-height: 1;
 }
 
-.mission-control-control-title-row {
+.hypervisor-governance-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.mission-control-control-title-row h2 {
+.hypervisor-governance-title-row h2 {
   margin: 0;
   font-size: 18px;
   line-height: 1.15;
 }
 
-.mission-control-control-surface {
+.hypervisor-governance-surface {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
@@ -53,14 +53,14 @@
   line-height: 1;
 }
 
-.mission-control-header-actions {
+.hypervisor-surface-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
 }
 
-.mission-control-tabs {
+.hypervisor-surface-tabs {
   display: inline-flex;
   align-items: center;
   gap: 0;
@@ -70,7 +70,7 @@
   background: transparent;
 }
 
-.mission-control-tabs button {
+.hypervisor-surface-tabs button {
   font: inherit;
   border: none;
   border-radius: 0;
@@ -84,36 +84,36 @@
     color 0.15s ease;
 }
 
-.mission-control-tabs button:hover,
-.mission-control-tabs button.is-active {
+.hypervisor-surface-tabs button:hover,
+.hypervisor-surface-tabs button.is-active {
   background: transparent;
   color: var(--chat-text);
 }
 
-.mission-control-tabs button.is-active {
+.hypervisor-surface-tabs button.is-active {
   border-bottom-color: var(--chat-accent-soft);
 }
 
-.mission-control-tabs--workflow {
+.hypervisor-surface-tabs--workflow {
   padding: 0;
   border-radius: 0;
 }
 
-.mission-control-stage {
+.hypervisor-surface-stage {
   flex: 1;
   min-height: 0;
   display: flex;
 }
 
-.mission-control-stage--workflow {
+.hypervisor-surface-stage--workflow {
   background: var(--chat-bg);
 }
 
-.mission-control-stage--control {
+.hypervisor-surface-stage--control {
   background: var(--chat-bg);
 }
 
-.mission-control-stage-frame {
+.hypervisor-surface-stage-frame {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -124,25 +124,25 @@
   background: rgba(13, 12, 10, 0.92);
 }
 
-.mission-control-stage-frame--chat {
+.hypervisor-surface-stage-frame--chat {
   border: none;
   border-radius: 0;
   background: transparent;
 }
 
-.mission-control-stage-frame--workflow {
+.hypervisor-surface-stage-frame--workflow {
   border: none;
   border-radius: 0;
   background: transparent;
 }
 
-.mission-control-stage-frame--control {
+.hypervisor-surface-stage-frame--control {
   border: none;
   border-radius: 0;
   background: transparent;
 }
 
-.mission-control-workflow-plane {
+.hypervisor-automation-plane {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -151,14 +151,14 @@
   background: var(--chat-bg);
 }
 
-.mission-control-stage-frame > * {
+.hypervisor-surface-stage-frame > * {
   flex: 1;
   min-width: 0;
   min-height: 0;
 }
 
 @media (max-width: 960px) {
-  .mission-control-header {
+  .hypervisor-surface-header {
     flex-direction: column;
   }
 }

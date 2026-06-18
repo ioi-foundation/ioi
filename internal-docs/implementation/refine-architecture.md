@@ -571,7 +571,7 @@ Current code anchors:
   apps/hypervisor/src/windows/HypervisorShellWindow/*
   apps/hypervisor/src/surfaces/Home/*
   apps/hypervisor/src/surfaces/Workspace/*
-  apps/hypervisor/src/surfaces/MissionControl/*
+  apps/hypervisor/src/surfaces/{Home,Automations,Models,Authority,Insights,Conversation,Workspace}/*
   apps/hypervisor/src/surfaces/Policy/*
   apps/hypervisor/src/surfaces/Settings/*
   apps/hypervisor/src/surfaces/Capabilities/*
@@ -958,8 +958,8 @@ Implementation phases:
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, provider/environment job, Private Workspace. | New surface or Home components; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
 | 0A.5 Workbench as code-editor workspace surface | Open the current project directly in the governed code-editor workspace substrate; keep adapter preference in New Session/Settings. | `WorkspaceShell.tsx`, `workspaceWorkbenchHost.ts`, settings | Workbench no longer owns project creation or intermediate chooser landings. Code editors are adapter targets; terminal, VM, provider, and node posture belong to Sessions/Providers/Environments. |
-| 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
-| 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
+| 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | Automations surface and Workflow Composer view, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
+| 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `ModelMountsSurfaceView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
 | 0A.9 Provider/environment and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Provider/environment views, workspace host/session services, provider integrations, environment lifecycle APIs | User can create, stop, start, archive, unarchive, and restore persistent workspace/node routes without treating provider resources as trusted custody or restore truth. |
 | 0A.10 Visual and behavior conformance | Add built-shell contract checks and source scans for naming/IA. | Focused app harness contract, runtime layout guard | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work without retaining campaign runners. |
@@ -1106,7 +1106,7 @@ Current implementation cut:
   `EnvironmentEstateView` now lives under `apps/hypervisor/src/surfaces/Environments`
   instead of `@ioi/hypervisor-workbench`, so provider/environment posture is a
   Hypervisor shell surface rather than a code-editor/workflow package surface.
-  The old MissionControl bridge/home/agents/builder/catalog subviews and
+  The old bridge/home/agents/builder/catalog subviews and
   catalog-stage modal are deleted. Automations mounts the workflow compositor
   directly; Agents, Models, Authority, Sessions, and Projects are first-class
   Hypervisor shell surfaces rather than nested workflow routes.
@@ -1137,7 +1137,7 @@ Current implementation cut:
   Workbench local-first model route ids, and the
   `styles/hypervisor-shell/` directory are guarded by `check:runtime-layout`.
   active native-local model mount identities now use Hypervisor terms across
-  the daemon defaults, Mission Control mount surface, contract tests, desktop
+  the daemon defaults, Models surface, contract tests, desktop
   probe, auth audiences, catalog fixtures, and stream evidence refs:
   `provider.hypervisor.local`, `backend.hypervisor.native-local.fixture`,
   `endpoint.hypervisor.native-fixture`, `hypervisor:native-fixture`,
@@ -1286,7 +1286,7 @@ Current implementation cut:
   recipe refs, compositor graph refs, action proposal refs, Agentgres operation
   refs, state roots, receipt refs, context chamber refs, artifact refs, and
   selected project scope.
-  `HypervisorShellContent` now wraps `MissionControlWorkflowsView` with a
+  `HypervisorShellContent` now wraps `AutomationsWorkflowComposerView` with a
   projection surface that marks fixture-vs-daemon source explicitly through
   `data-automation-compositor-source`. The Workflow Compositor remains the
   graph/proposal editor behind the projection; it is not runtime truth.
@@ -1303,7 +1303,7 @@ Current implementation cut:
 0A.6B Insights reference surface is implemented:
   `HypervisorShellContent` now renders Insights as an IOI-reference Enterprise
   product surface with the reference dashboard visual, product actions, and
-  usage/productivity/cost use cases. `MissionControlRunsView` remains mounted
+  usage/productivity/cost use cases. `RuntimeInsightsView` remains mounted
   only inside the hidden
   `data-insights-runtime-projection-boundary="hidden-runs-client"` client so
   runtime analytics can stay wired without becoming the visible product route.
@@ -1315,7 +1315,7 @@ Current implementation cut:
   `HypervisorModelInfrastructureProjection` over daemon-owned model routes,
   provider endpoints, loaded instances, session bindings, model-weight custody
   policy refs, authority scopes, credential-scope refs, and receipts.
-  `HypervisorShellContent` now wraps `MissionControlMountsView` with a Models
+  `HypervisorShellContent` now wraps `ModelMountsSurfaceView` with a Models
   reference-style route workplane: a route list, selected-route detail panel,
   provider posture, session bindings, and policy/receipt chips. Fixture-vs-
   daemon source stays explicit through `data-model-infrastructure-source`, but

@@ -17,12 +17,10 @@ import { CapabilitiesView } from "../../../surfaces/Capabilities";
 import { EnvironmentEstateView } from "../../../surfaces/Environments/EnvironmentEstateView";
 import { InboxView } from "../../../surfaces/Inbox";
 import { SettingsView } from "../../../surfaces/Settings";
-import {
-  MissionControlControlView,
-  MissionControlMountsView,
-  MissionControlRunsView,
-  MissionControlWorkflowsView,
-} from "../../../surfaces/MissionControl";
+import { AuthoritySettingsSurfaceView } from "../../../surfaces/Authority";
+import { AutomationsWorkflowComposerView } from "../../../surfaces/Automations";
+import { RuntimeInsightsView } from "../../../surfaces/Insights";
+import { ModelMountsSurfaceView } from "../../../surfaces/Models";
 import { HypervisorClientHeader } from "./HypervisorClientHeader";
 import { HomeView } from "../../../surfaces/Home";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
@@ -3028,7 +3026,7 @@ export function HypervisorShellContent({
                     <HypervisorAutomationCompositorSurface
                       currentProjectId={currentProject.id}
                     >
-                      <MissionControlWorkflowsView
+                      <AutomationsWorkflowComposerView
                         runtime={runtime}
                         currentProject={currentProject}
                         workflowPreflightSeed={
@@ -3043,7 +3041,7 @@ export function HypervisorShellContent({
 
                   {activeView === "insights" ? (
                     <HypervisorInsightsReferenceSurface>
-                      <MissionControlRunsView runtime={runtime} />
+                      <RuntimeInsightsView runtime={runtime} />
                     </HypervisorInsightsReferenceSurface>
                   ) : null}
 
@@ -3051,7 +3049,7 @@ export function HypervisorShellContent({
                     <HypervisorModelInfrastructureSurface
                       currentProjectId={currentProject.id}
                     >
-                      <MissionControlMountsView />
+                      <ModelMountsSurfaceView />
                     </HypervisorModelInfrastructureSurface>
                   ) : null}
 
@@ -3160,7 +3158,7 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "authority" ? (
-                    <MissionControlControlView
+                    <AuthoritySettingsSurfaceView
                       runtime={runtime}
                       surface="policy"
                       policyState={controller.policy.shieldPolicy}

@@ -1,16 +1,16 @@
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import { EnvironmentEstateView } from "../Environments/EnvironmentEstateView";
 
-interface MissionControlRunsViewProps {
+interface RuntimeInsightsViewProps {
   runtime: HypervisorClientRuntime;
 }
 
-export function MissionControlRunsView({ runtime }: MissionControlRunsViewProps) {
+export function RuntimeInsightsView({ runtime }: RuntimeInsightsViewProps) {
   return (
-    <div className="mission-control-view">
-      <header className="mission-control-header">
-        <div className="mission-control-header-copy">
-          <span className="mission-control-kicker">Execute And Supervise</span>
+    <div className="hypervisor-surface-view">
+      <header className="hypervisor-surface-header">
+        <div className="hypervisor-surface-header-copy">
+          <span className="hypervisor-surface-kicker">Execute And Supervise</span>
           <h2>Observe work in motion</h2>
           <p>
             Runs stays focused on live execution health, blocked work, and runtime outcomes without
@@ -19,8 +19,8 @@ export function MissionControlRunsView({ runtime }: MissionControlRunsViewProps)
         </div>
       </header>
 
-      <div className="mission-control-stage">
-        <div className="mission-control-stage-frame">
+      <div className="hypervisor-surface-stage">
+        <div className="hypervisor-surface-stage-frame">
           <EnvironmentEstateView runtime={runtime} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { getCurrent as getCurrentDeepLinks, onOpenUrl } from "../../services/hypervisorHostBridge";
-import "./MissionControlMountsView.css";
+import "./ModelMountsSurfaceView.css";
 
 type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "benchmarks" | "logs";
 type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
@@ -6912,7 +6912,7 @@ function ObservabilityEventRow({
   );
 }
 
-export function MissionControlMountsView() {
+export function ModelMountsSurfaceView() {
   const [activeTab, setActiveTab] = useState<MountsTab>(readInitialTab);
   const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(true);
@@ -7302,20 +7302,20 @@ export function MissionControlMountsView() {
   ]);
 
   return (
-    <div className="mission-control-view mission-control-view--mounts">
-      <header className="mission-control-header mission-control-header--mounts">
-        <div className="mission-control-header-copy mission-control-header-copy--mounts">
-          <span className="mission-control-kicker">Models</span>
-          <div className="mission-control-mounts-title-row">
+    <div className="hypervisor-surface-view hypervisor-surface-view--mounts">
+      <header className="hypervisor-surface-header hypervisor-surface-header--mounts">
+        <div className="hypervisor-surface-header-copy hypervisor-surface-header-copy--mounts">
+          <span className="hypervisor-surface-kicker">Models</span>
+          <div className="hypervisor-models-title-row">
             <h2>Model mounts</h2>
             <StatusPill tone="ready">router backed</StatusPill>
             <StatusPill tone="ready">capability gated</StatusPill>
             <StatusPill tone={connectionTone(daemon.connectionState)}>{daemon.connectionState}</StatusPill>
           </div>
         </div>
-        <div className="mission-control-header-actions">
+        <div className="hypervisor-surface-header-actions">
           <div
-            className="mission-control-tabs mission-control-tabs--mounts"
+            className="hypervisor-surface-tabs hypervisor-surface-tabs--mounts"
             role="tablist"
             aria-label="Model mount surfaces"
           >

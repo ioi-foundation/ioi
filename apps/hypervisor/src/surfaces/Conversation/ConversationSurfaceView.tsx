@@ -6,7 +6,7 @@ import { AssistantWorkbenchView } from "./components/AssistantWorkbenchView";
 
 type SessionCapableRuntime = AgentWorkbenchRuntime & AssistantSessionRuntime;
 
-interface MissionControlChatViewProps {
+interface ConversationSurfaceViewProps {
   surface: "chat" | "reply-composer" | "meeting-prep";
   session: AssistantWorkbenchSession | null;
   runtime: SessionCapableRuntime;
@@ -21,7 +21,7 @@ interface MissionControlChatViewProps {
   onOpenHypervisor: (intent: string) => void;
 }
 
-function chatCopy(surface: MissionControlChatViewProps["surface"]): {
+function chatCopy(surface: ConversationSurfaceViewProps["surface"]): {
   title: string;
   description: string;
 } {
@@ -45,7 +45,7 @@ function chatCopy(surface: MissionControlChatViewProps["surface"]): {
   };
 }
 
-export function MissionControlChatView({
+export function ConversationSurfaceView({
   surface,
   session,
   runtime,
@@ -58,32 +58,32 @@ export function MissionControlChatView({
   onBackToInbox,
   onOpenInbox,
   onOpenHypervisor,
-}: MissionControlChatViewProps) {
+}: ConversationSurfaceViewProps) {
   const copy = chatCopy(surface);
   const isPrimaryConversation = surface === "chat";
   const showHeader = !isPrimaryConversation && !embedded;
 
   return (
     <div
-      className={`mission-control-view ${
-        isPrimaryConversation ? "mission-control-view--chat" : ""
-      } ${embedded ? "mission-control-view--pane" : ""}`}
+      className={`hypervisor-surface-view ${
+        isPrimaryConversation ? "hypervisor-surface-view--chat" : ""
+      } ${embedded ? "hypervisor-surface-view--pane" : ""}`}
     >
       {showHeader ? (
-        <header className="mission-control-header">
-          <div className="mission-control-header-copy">
-            <span className="mission-control-kicker">Talk</span>
+        <header className="hypervisor-surface-header">
+          <div className="hypervisor-surface-header-copy">
+            <span className="hypervisor-surface-kicker">Talk</span>
             <h2>{copy.title}</h2>
             <p>{copy.description}</p>
           </div>
         </header>
       ) : null}
 
-      <div className="mission-control-stage">
+      <div className="hypervisor-surface-stage">
         <div
-          className={`mission-control-stage-frame ${
+          className={`hypervisor-surface-stage-frame ${
             isPrimaryConversation || embedded
-              ? "mission-control-stage-frame--chat"
+              ? "hypervisor-surface-stage-frame--chat"
               : ""
           }`}
         >
