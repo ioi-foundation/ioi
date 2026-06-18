@@ -58,6 +58,24 @@ export interface HypervisorTerminalEventProjection {
   receipt_ref: string;
 }
 
+export interface HypervisorSessionActivitySignalProjection {
+  signal_ref: string;
+  kind: "scm" | "service" | "task" | "approval" | "receipt" | "restore";
+  label: string;
+  detail: string;
+  status: "normal" | "attention" | "blocked";
+  receipt_ref: string;
+}
+
+export interface HypervisorSessionLeaseProjection {
+  lease_ref: string;
+  label: string;
+  scope_ref: string;
+  status: "active" | "requires_renewal" | "blocked";
+  expires_label: string;
+  receipt_ref: string;
+}
+
 export interface HypervisorEnvironmentLifecycleStepProjection {
   step_ref: string;
   label: string;
@@ -109,6 +127,8 @@ export interface HypervisorSessionOperationsProjection {
   ports_services: HypervisorServicePortProjection[];
   tasks: HypervisorTaskProjection[];
   terminal_events: HypervisorTerminalEventProjection[];
+  activity_signals: HypervisorSessionActivitySignalProjection[];
+  access_log_leases: HypervisorSessionLeaseProjection[];
   environment_lifecycle_steps: HypervisorEnvironmentLifecycleStepProjection[];
   changed_file_groups: HypervisorChangedFileGroupProjection[];
   latest_receipt_refs: string[];
@@ -285,7 +305,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     ports_services: [
       {
         service_ref: "service:hypervisor-core",
-        label: "Hypervisor Core service",
+        label: "Workspace control service",
         port: 17380,
         protocol: "http",
         lease_ref: "lease:access/hypervisor-core/http",
@@ -326,6 +346,58 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
         command_summary: "npm --workspace apps/hypervisor run build",
         status: "proposed",
         receipt_ref: "receipt://terminal/build/proposed",
+      },
+    ],
+    activity_signals: [
+      {
+        signal_ref: "signal:scm/uncommitted",
+        kind: "scm",
+        label: "3 changed files",
+        detail: "SCM changes are linked to receipt-backed patch evidence.",
+        status: "attention",
+        receipt_ref: "receipt://activity/scm/uncommitted",
+      },
+      {
+        signal_ref: "signal:service/workspace-control",
+        kind: "service",
+        label: "2 services visible",
+        detail: "One service can open now; one requires an access lease.",
+        status: "normal",
+        receipt_ref: "receipt://activity/service/visibility",
+      },
+      {
+        signal_ref: "signal:approval/authority-review",
+        kind: "approval",
+        label: "1 approval pending",
+        detail: "Authority review waits for approval before execution.",
+        status: "attention",
+        receipt_ref: "receipt://activity/approval/pending",
+      },
+      {
+        signal_ref: "signal:restore/latest",
+        kind: "restore",
+        label: "Restore material ready",
+        detail: "Encrypted archive material is available for a recorded restore.",
+        status: "normal",
+        receipt_ref: "receipt://activity/restore/ready",
+      },
+    ],
+    access_log_leases: [
+      {
+        lease_ref: "lease:access/hypervisor-core/workbench",
+        label: "Workbench access",
+        scope_ref: "scope:session.access",
+        status: "active",
+        expires_label: "30m",
+        receipt_ref: "receipt://lease/access/workbench",
+      },
+      {
+        lease_ref: "lease:logs/hypervisor-core/session",
+        label: "Session logs",
+        scope_ref: "scope:logs.read",
+        status: "requires_renewal",
+        expires_label: "5m",
+        receipt_ref: "receipt://lease/logs/session",
       },
     ],
     environment_lifecycle_steps: [
@@ -616,6 +688,55 @@ function normalizeTerminalEventProjection(
   };
 }
 
+function normalizeActivitySignalProjection(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorSessionActivitySignalProjection {
+  const fallback =
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.activity_signals[index] ??
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.activity_signals[0]!;
+  return {
+    signal_ref: stringValue(item.signal_ref, fallback.signal_ref),
+    kind: enumValue(item.kind, fallback.kind, [
+      "scm",
+      "service",
+      "task",
+      "approval",
+      "receipt",
+      "restore",
+    ]),
+    label: stringValue(item.label, fallback.label),
+    detail: stringValue(item.detail, fallback.detail),
+    status: enumValue(item.status, fallback.status, [
+      "normal",
+      "attention",
+      "blocked",
+    ]),
+    receipt_ref: stringValue(item.receipt_ref, fallback.receipt_ref),
+  };
+}
+
+function normalizeSessionLeaseProjection(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorSessionLeaseProjection {
+  const fallback =
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.access_log_leases[index] ??
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.access_log_leases[0]!;
+  return {
+    lease_ref: stringValue(item.lease_ref, fallback.lease_ref),
+    label: stringValue(item.label, fallback.label),
+    scope_ref: stringValue(item.scope_ref, fallback.scope_ref),
+    status: enumValue(item.status, fallback.status, [
+      "active",
+      "requires_renewal",
+      "blocked",
+    ]),
+    expires_label: stringValue(item.expires_label, fallback.expires_label),
+    receipt_ref: stringValue(item.receipt_ref, fallback.receipt_ref),
+  };
+}
+
 function normalizeEnvironmentLifecycleStepProjection(
   item: Record<string, unknown>,
   index: number,
@@ -710,6 +831,12 @@ export function normalizeHypervisorSessionOperationsProjection(
   const terminalEvents = arrayOf(value.terminal_events).map(
     normalizeTerminalEventProjection,
   );
+  const activitySignals = arrayOf(value.activity_signals).map(
+    normalizeActivitySignalProjection,
+  );
+  const accessLogLeases = arrayOf(value.access_log_leases).map(
+    normalizeSessionLeaseProjection,
+  );
   const environmentLifecycleSteps = arrayOf(value.environment_lifecycle_steps).map(
     normalizeEnvironmentLifecycleStepProjection,
   );
@@ -777,6 +904,10 @@ export function normalizeHypervisorSessionOperationsProjection(
     tasks: tasks.length > 0 ? tasks : fallback.tasks,
     terminal_events:
       terminalEvents.length > 0 ? terminalEvents : fallback.terminal_events,
+    activity_signals:
+      activitySignals.length > 0 ? activitySignals : fallback.activity_signals,
+    access_log_leases:
+      accessLogLeases.length > 0 ? accessLogLeases : fallback.access_log_leases,
     environment_lifecycle_steps:
       environmentLifecycleSteps.length > 0
         ? environmentLifecycleSteps

@@ -411,6 +411,8 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /restore_ref/);
   assert.match(sessionOperationsModel, /ports_services/);
   assert.match(sessionOperationsModel, /terminal_events/);
+  assert.match(sessionOperationsModel, /activity_signals/);
+  assert.match(sessionOperationsModel, /access_log_leases/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
   assert.match(shellContent, /<HypervisorSessionOperationsCockpit \/>/);
   assert.doesNotMatch(shellContent, /launchedSessions: HypervisorLaunchedSessionProjection\[\]/);
@@ -441,6 +443,13 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/);
   assert.match(shellContent, /data-session-detail-tab/);
   assert.match(shellContent, /data-session-port-services-count/);
+  assert.match(shellContent, /data-session-activity-signal-list/);
+  assert.match(shellContent, /data-session-activity-signal/);
+  assert.match(shellContent, /data-session-lease=/);
+  assert.match(shellContent, /data-session-archive-ref/);
+  assert.match(shellContent, /data-session-restore-ref/);
+  assert.match(shellContent, /formatSessionSignalKind/);
+  assert.match(shellContent, /formatSessionLeaseStatus/);
   assert.match(shellContent, /data-session-task/);
   assert.match(shellContent, /data-session-terminal-event/);
   assert.doesNotMatch(shellContent, /HYPERVISOR_SESSION_OPERATION_KINDS/);

@@ -1568,14 +1568,22 @@ assert(
     hypervisorSessionOperationsModelSource.includes("branch_label") &&
     hypervisorSessionOperationsModelSource.includes("environment_lifecycle_steps") &&
     hypervisorSessionOperationsModelSource.includes("changed_file_groups") &&
+    hypervisorSessionOperationsModelSource.includes("activity_signals") &&
+    hypervisorSessionOperationsModelSource.includes("access_log_leases") &&
     hypervisorSessionOperationsModelSource.includes("resource_health_state") &&
-    hypervisorSessionOperationsModelSource.includes("Hypervisor Core service") &&
+    hypervisorSessionOperationsModelSource.includes("Workspace control service") &&
     hypervisorShellContentSource.includes("projection.display_title") &&
     hypervisorShellContentSource.includes("projection.branch_label") &&
     hypervisorShellContentSource.includes("projection.environment_lifecycle_steps.map") &&
     hypervisorShellContentSource.includes("projection.changed_file_groups.map") &&
+    hypervisorShellContentSource.includes("projection.activity_signals.map") &&
+    hypervisorShellContentSource.includes("projection.access_log_leases.map") &&
     hypervisorShellContentSource.includes("projection.ports_services.map") &&
     hypervisorShellContentSource.includes("data-session-port-service") &&
+    hypervisorShellContentSource.includes("data-session-activity-signal") &&
+    hypervisorShellContentSource.includes("data-session-lease") &&
+    hypervisorShellContentSource.includes("data-session-archive-ref") &&
+    hypervisorShellContentSource.includes("data-session-restore-ref") &&
     hypervisorShellContentSource.includes("data-session-lifecycle-step") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
     publicRuntimeRoutesSource.includes(

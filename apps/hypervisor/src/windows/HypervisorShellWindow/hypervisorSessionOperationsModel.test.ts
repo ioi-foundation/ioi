@@ -46,6 +46,20 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
     projection.bottom_inspector_panels.map((panel) => panel.panel_id),
     HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
   );
+  assert.ok(projection.activity_signals.length >= 4);
+  assert.ok(
+    projection.activity_signals.every((signal) =>
+      signal.receipt_ref.startsWith("receipt://"),
+    ),
+  );
+  assert.ok(projection.access_log_leases.length >= 2);
+  assert.ok(
+    projection.access_log_leases.every((lease) =>
+      lease.lease_ref.startsWith("lease:") &&
+      lease.scope_ref.startsWith("scope:") &&
+      lease.receipt_ref.startsWith("receipt://"),
+    ),
+  );
   assert.ok(projection.environment_lifecycle_steps.length >= 5);
   assert.ok(
     projection.environment_lifecycle_steps.every((step) =>
@@ -95,6 +109,26 @@ test("session operations normalization keeps daemon projections behind runtime t
           status: "lease_required",
         },
       ],
+      activity_signals: [
+        {
+          signal_ref: "signal:normalized/approval",
+          kind: "approval",
+          label: "Step-up pending",
+          detail: "Policy requires an approval before command execution.",
+          status: "attention",
+          receipt_ref: "receipt://normalized/activity/approval",
+        },
+      ],
+      access_log_leases: [
+        {
+          lease_ref: "lease:normalized/access",
+          label: "Access",
+          scope_ref: "scope:session.access",
+          status: "active",
+          expires_label: "10m",
+          receipt_ref: "receipt://normalized/lease/access",
+        },
+      ],
       environment_lifecycle_steps: [
         {
           step_ref: "session-step:normalized",
@@ -136,6 +170,8 @@ test("session operations normalization keeps daemon projections behind runtime t
   assert.equal(projection.detail_tabs[0]?.tab_id, "agent");
   assert.equal(projection.right_inspector_panels[0]?.panel_id, "authority");
   assert.equal(projection.ports_services[0]?.lease_ref, "lease:access/test");
+  assert.equal(projection.activity_signals[0]?.signal_ref, "signal:normalized/approval");
+  assert.equal(projection.access_log_leases[0]?.lease_ref, "lease:normalized/access");
   assert.equal(projection.environment_lifecycle_steps[0]?.step_ref, "session-step:normalized");
   assert.equal(projection.changed_file_groups[0]?.files[0]?.receipt_ref, "receipt://normalized/change");
   assert.deepEqual(projection.latest_receipt_refs, ["receipt://session/normalized"]);
@@ -186,9 +222,26 @@ test("session operations fixture exposes provider, lease, restore, and receipt e
   assert.match(projection.restore_ref, /^agentgres:\/\/restore/);
   assert.ok(projection.authority_scope_refs.includes("scope:workspace.patch"));
   assert.ok(projection.ports_services.length >= 2);
-  assert.equal(projection.ports_services[0]?.label, "Hypervisor Core service");
+  assert.equal(projection.ports_services[0]?.label, "Workspace control service");
   assert.ok(projection.tasks.length >= 2);
   assert.ok(projection.terminal_events.length >= 2);
+  assert.ok(projection.activity_signals.length >= 4);
+  assert.ok(
+    projection.activity_signals.every((signal) =>
+      signal.receipt_ref.startsWith("receipt://"),
+    ),
+  );
+  assert.ok(
+    projection.activity_signals.some((signal) => signal.kind === "approval"),
+  );
+  assert.ok(projection.access_log_leases.length >= 2);
+  assert.ok(
+    projection.access_log_leases.every((lease) =>
+      lease.lease_ref.startsWith("lease:") &&
+      lease.scope_ref.startsWith("scope:") &&
+      lease.receipt_ref.startsWith("receipt://"),
+    ),
+  );
   assert.ok(projection.environment_lifecycle_steps.length >= 5);
   assert.ok(projection.changed_file_groups.length >= 2);
   assert.ok(
