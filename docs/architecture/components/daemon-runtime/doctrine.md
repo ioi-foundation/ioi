@@ -44,13 +44,13 @@ Services, Models, cTEE/Privacy, Receipts/Audit, Connectors, and
 provider/environment views are projections over the same Core, not separate
 runtime truth paths.
 
-Hypervisor Workbench replaces "Hypervisor IDE" as the live code/systems
-surface term. VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals,
-VMs, local OS surfaces, and HypervisorOS nodes are adapter targets for
-Hypervisor Sessions, not Hypervisor's product identity. External CLI or hosted
-agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider,
-shell/tmux agents, CI agents, and hosted coding agents are Agent Harness
-Adapters, not Hypervisor clients or runtime truth.
+Hypervisor Workbench is the live code/systems surface. VS Code, Cursor,
+Windsurf, JetBrains, browser IDEs, terminals, VMs, local OS surfaces, and
+HypervisorOS nodes are adapter targets for Hypervisor Sessions, not
+Hypervisor's product identity. External CLI or hosted agent harnesses such as
+Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents,
+and hosted coding agents are Agent Harness Adapters, not Hypervisor clients or
+runtime truth.
 
 HypervisorOS is the bare-metal node profile for this same daemon substrate. It
 does not create a peer runtime. It makes the Hypervisor Daemon the node root for

@@ -2,7 +2,9 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for Private Workspace backed by cTEE, persistent private Hypervisor workspaces on rented GPU nodes, untrusted-node workspace privacy, private strategy execution, private workspace capsules, autonomy leases, and sensitive-compute routing under the Hypervisor Daemon.
-Supersedes: `shielded-compute-profile.md` as the primary name, plus hosted/DePIN privacy wording that implies a rented GPU node can safely receive plaintext secrets merely because it runs a daemon, container, VM, benchmarked image, or boot-measured image.
+Supersedes: hosted/DePIN privacy wording that implies a rented GPU node can
+safely receive plaintext secrets merely because it runs a daemon, container,
+VM, benchmarked image, or boot-measured image.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 

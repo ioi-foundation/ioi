@@ -57,10 +57,10 @@ Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, queue, and
   background-mission product surface over Workflow Compositor contracts
 
-ioi.ai Outcome Rooms
-  chat.ioi.ai's first-party Automations pattern over Hypervisor for
-  multi-agent/multi-session search toward one measurable outcome; many
-  harnesses may participate, but no harness owns the room truth
+ioi.ai collaborative outcome pattern
+  chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over
+  Hypervisor; many harnesses may participate, but no harness owns coordination,
+  execution, authority, or truth
 
 Harness Profiles
   daemon-executed or daemon-mediated step-resolution profiles and adapters,
@@ -210,9 +210,9 @@ Hypervisor Automations
     run-history and replay views
     Canvas editor state where useful
 
-ioi.ai Outcome Rooms
+ioi.ai collaborative outcomes
   coordinate parallel attempts as a first-party client/product pattern over
-  Hypervisor Automations:
+  Hypervisor and Automations when a goal calls for it:
     participant roster
     isolated sessions and branches
     multi-path search policy

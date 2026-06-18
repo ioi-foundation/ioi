@@ -2,18 +2,19 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Foundry as the model, worker, eval,
-training, registry, endpoint, experiment, pipeline, metadata, monitoring, and
-ontology-aware build surface over Hypervisor Core.
+training, registry, endpoint, experiment, pipeline, metadata, monitoring,
+simulation-training, and ontology-aware build surface over Hypervisor Core.
 Supersedes: product prose that treats Foundry as direct runtime mutation, a
-generic dashboard, only a training UI, or the same concept as Outcome Rooms.
+generic dashboard, only a training UI, or the same concept as ioi.ai goal
+coordination.
 Superseded by: none.
 Last alignment pass: 2026-06-17.
 
 ## Canonical Definition
 
 **Hypervisor Foundry is the build and improvement surface for models, workers,
-evals, datasets, endpoints, experiments, pipelines, and ontology-aware
-capability packages used by governed autonomous systems.**
+evals, datasets, endpoints, experiments, pipelines, simulations, and
+ontology-aware capability packages used by governed autonomous systems.**
 
 Foundry is closer to an agent/model platform than a chat room. It gives builders
 places to discover models, tune or train candidates, define evals, register
@@ -24,7 +25,7 @@ It is not:
 
 ```text
 a runtime beside the daemon
-an Outcome Room
+a chat.ioi.ai coordination surface
 a direct self-modification path
 a wallet or authority layer
 an Agentgres replacement
@@ -44,6 +45,8 @@ Foundry owns product-level projections and workflows for:
 - eval suites, benchmark gates, scorecards, and verifier candidates;
 - datasets, feature views, distilled ontology datasets, and holdout sets;
 - experiments, pipelines, metadata, and monitoring views;
+- simulation worlds, digital twins, robotics training environments, and
+  perception/action datasets;
 - worker/package creation, improvement, and promotion proposals;
 - endpoint and provisioned-throughput candidates where a model, worker, or
   service must be exposed as a governed capability;
@@ -59,7 +62,7 @@ Foundry does not own:
   restore validity;
 - storage backend payload meaning;
 - live user intent coordination in chat.ioi.ai;
-- Outcome Room coordination;
+- ioi.ai goal coordination;
 - Workbench code/systems operation;
 - direct publication to aiagent.xyz, sas.xyz, or L1 without policy and receipt
   gates.
@@ -145,12 +148,59 @@ Foundry does not make ontology truth by itself. Ontology state, projections,
 datasets, and receipts are admitted through Agentgres and related domain
 contracts.
 
-## Relationship To Outcome Rooms
+## Embodied Simulation And Robotics Training
 
-Outcome Rooms are ioi.ai/chat.ioi.ai's first-party coordination pattern for
-multi-agent/multi-session search toward one outcome.
+Foundry is the home for embodied model-building and simulation-training
+workflows. ioi.ai may request or summarize this work, and aiagent may package
+the resulting worker, but Foundry owns the build/eval lane.
 
-Foundry supports Outcome Rooms by providing:
+Foundry may manage:
+
+```text
+simulator worlds
+digital twins
+LiDAR maps and point-cloud datasets
+camera / depth / IMU / telemetry datasets
+Gaussian splats and neural scene representations
+robotics task curricula
+policy training runs
+perception model training
+navigation and manipulation eval worlds
+safety-case eval suites
+sim-to-real validation reports
+```
+
+These are build/eval artifacts, not live actuator authority. Live physical
+execution requires:
+
+```text
+Hypervisor Daemon admission
+PhysicalActionSafetyEnvelope
+HumanSupervisionPolicy
+EmergencyStopAuthority
+SensorEvidenceReceipt
+ActuatorCommandReceipt
+wallet.network authority
+Agentgres receipts
+```
+
+So:
+
+```text
+Train a carwash-prep humanoid in simulation
+  -> Foundry
+
+Run the humanoid against a real vehicle
+  -> Hypervisor Daemon + Physical Action Safety + wallet.network + Agentgres
+```
+
+## Relationship To ioi.ai Collaborative Outcomes
+
+ioi.ai is the user-facing intent-to-outcome surface. It may use multiple models
+or strategies to answer a question, coordinate software repair, inspect
+evidence, or draft a Foundry job.
+
+Foundry supports ioi.ai collaborative outcomes by providing:
 
 - eval suites;
 - benchmark gates;
@@ -160,8 +210,8 @@ Foundry supports Outcome Rooms by providing:
 - skill/package improvement proposals;
 - reusable datasets and worker candidates.
 
-Outcome Rooms coordinate the race. Foundry builds the engines, tracks the
-benchmarks, and turns proven lessons into reusable capability.
+ioi.ai coordinates the user-facing pursuit. Foundry builds the engines, tracks
+the benchmarks, and turns proven lessons into reusable capability.
 
 ## Relationship To Workbench And Automations
 
@@ -254,15 +304,16 @@ FoundryScorecard:
   and quality-gate evidence.
 - Endpoint, model-route, and package promotion must be reversible, replayable,
   and policy-bound.
-- Outcome Room lessons may become Foundry proposals; they do not become runtime
-  changes merely because a room leaderboard selected them.
+- ioi.ai collaborative outcome lessons may become Foundry proposals; they do
+  not become runtime changes merely because a projected score or comparison
+  selected them.
 
 ## Anti-Patterns
 
 Avoid:
 
 ```text
-Foundry = Outcome Room
+Foundry = ioi.ai chat
 Foundry = chat interface
 Foundry = direct self-modification
 Foundry score = deployment permission
@@ -280,7 +331,7 @@ daemon executes consequential work
 wallet.network authorizes power
 Agentgres admits truth and refs
 storage backends hold bytes
-Outcome Rooms coordinate searches
+ioi.ai coordinates user-facing goal pursuit
 Workbench operates systems
 Automations owns durable workflow/service/mission specs
 ```
@@ -288,7 +339,6 @@ Automations owns durable workflow/service/mission specs
 ## Related Canon
 
 - [`core-clients-surfaces.md`](./core-clients-surfaces.md)
-- [`outcome-rooms.md`](./outcome-rooms.md)
 - [`../../foundations/domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md)
 - [`../../foundations/worker-training-lifecycle.md`](../../foundations/worker-training-lifecycle.md)
 - [`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md)

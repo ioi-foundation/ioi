@@ -2,7 +2,8 @@
 
 Status: canonical storage-backend profile.
 Canonical owner: this file for Filecoin/CAS/IPFS payload availability behavior underneath Agentgres-governed artifact refs.
-Supersedes: `components/filecoin-cas/*` when those files present Filecoin/CAS as a peer architecture authority component.
+Supersedes: product prose that presents Filecoin/CAS as a peer architecture
+authority component.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
 

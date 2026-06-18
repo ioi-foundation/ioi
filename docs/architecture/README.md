@@ -60,10 +60,9 @@ Hypervisor Core = shared product/runtime substrate whose execution owner is the 
 Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core
 TUI = optional presentation of CLI/headless client
 Hypervisor Workbench/Automations/Foundry = application surfaces over Hypervisor Core
-Hypervisor Workbench/Foundry = application surfaces over Hypervisor Core
 Hypervisor Automations = durable workflow, trigger, schedule, API/service, and background-mission surface
 Hypervisor Canvas = visual builder/editor inside Automations/Workbench/Foundry, not runtime truth
-ioi.ai Outcome Room = chat.ioi.ai implementation of governed multi-agent/multi-session search/eval over Hypervisor
+ioi.ai = intent-to-outcome surface that may use multi-model/multi-path pursuit over Hypervisor
 Hypervisor Foundry = model, worker, eval, dataset, registry, endpoint, training, and ontology-aware package build surface
 Hypervisor sessions/providers/environments = default cross-session infrastructure views
 Hypervisor Node = local autonomous-system settlement and interop domain
@@ -114,8 +113,7 @@ Read the stack this way:
   microVMs, WASM workloads, images, volumes, networks, GPU pools, provider
   integrations, placement, health, cost, storage posture, cTEE posture,
   receipts, replay projections, archive refs, restore refs, and policy
-  visibility through default Hypervisor session/project/provider views, not a
-  separate Fleet product or surface;
+  visibility through default Hypervisor session/project/provider views;
 - Private Workspace backed by cTEE lets remote/persistent rented GPU nodes
   provide Hypervisor compute and persistence while private files, PII, strategy
   logic, credentials, and action authority stay out of provider-readable
@@ -174,11 +172,10 @@ Read the stack this way:
   triggers, schedules, APIs/services, approval flows, queues, and background
   missions; Canvas is the visual editor/projection for graph-shaped work, not
   the owner of execution, authority, receipts, or truth;
-- ioi.ai Outcome Rooms are chat.ioi.ai's first-party Automations pattern over
-  Hypervisor for Stockfish-style coding and generalized computer-use search:
-  many agents, models, harnesses, humans, sessions, branches, and verifier lanes
-  compete or collaborate toward one measurable outcome under eval gates,
-  receipts, authority, privacy, and promotion policy;
+- ioi.ai is the intent-to-outcome surface. For goals that need more than one
+  path, it can coordinate multiple models, harnesses, workers, connectors,
+  sessions, branches, and verifier lanes over Hypervisor, with evidence,
+  receipts, authority, privacy posture, and final ownership synthesis;
 - IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
   CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
   model, and put consequential execution behind IOI;
@@ -263,9 +260,8 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node enforcement profile, node integrity receipts, and HypervisorOS conformance.
 - [`hypervisor/core-clients-surfaces.md`](./components/hypervisor/core-clients-surfaces.md) — Hypervisor Core, first-class clients, application surfaces, projects, sessions, missions, adapter connection profiles, access/log/support policies, and harness environment-ops contracts; App/Web/CLI-headless are clients, TUI is an optional CLI presentation, Workbench/Automations/Foundry are application surfaces, Canvas is an editor/projection, provider/environment posture is a default Hypervisor view, and external CLI agents are harness adapters.
 - [`hypervisor/foundry.md`](./components/hypervisor/foundry.md) — Hypervisor Foundry as the model garden, registry, model route/mount, tuning, training, evaluation, dataset, experiment, pipeline, endpoint, metadata, monitoring, package, and ontology-aware build surface.
-- [`hypervisor/outcome-rooms.md`](./components/hypervisor/outcome-rooms.md) — ioi.ai/chat.ioi.ai Outcome Rooms and Collaborative Missions over Hypervisor for governed multi-agent/multi-session search, benchmark races, shared message/leaderboard/evidence rooms, and Stockfish-style coding/computer-use search.
-- [`hypervisor/providers-and-environments.md`](./components/hypervisor/providers-and-environments.md) — Hypervisor-managed sessions, environments, providers, cross-session infrastructure posture, direct provider integrations such as Akash compute/GPU and Filecoin storage/retrieval, zero-to-idle/restore posture, warmup/cache posture, services/tasks/ports/logs/SCM auth, access leases, archive/restore refs, and the deprecated Fleet boundary.
-- [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — deprecated terminology stub; use Hypervisor providers/environments instead.
+- [`ioi-ai/collaborative-outcome-pattern.md`](./domains/ioi-ai/collaborative-outcome-pattern.md) — ioi.ai intent-to-outcome coordination, multi-model/multi-path goal pursuit, attempt comparison, shared evidence projections, and final ownership synthesis over Hypervisor.
+- [`hypervisor/providers-and-environments.md`](./components/hypervisor/providers-and-environments.md) — Hypervisor-managed sessions, environments, providers, cross-session infrastructure posture, direct provider integrations such as Akash compute/GPU and Filecoin storage/retrieval, zero-to-idle/restore posture, warmup/cache posture, services/tasks/ports/logs/SCM auth, access leases, archive refs, and restore refs.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments, exchange/trade authority.
@@ -332,8 +328,8 @@ supporting file.
 | Hypervisor App / Web / CLI-headless | First-class clients over Hypervisor Core for native desktop, browser/team/remote, and terminal/headless operation; TUI is an optional CLI presentation. |
 | Hypervisor Workbench / Automations / Foundry | Application surfaces over Hypervisor Core for code/systems/workspace operation, durable workflows/services/missions, and model/worker/eval/dataset/training/ontology-aware package building. |
 | Hypervisor Canvas | Visual builder/editor inside Automations, Workbench, or Foundry; edits or displays graph-shaped work without owning runtime truth. |
-| ioi.ai Outcome Room | chat.ioi.ai implementation of a governed collaborative mission over Hypervisor: many agents, models, harnesses, humans, sessions, and verifier lanes searching toward one measurable outcome. |
-| Hypervisor Providers / Environments | Default Hypervisor views and daemon/Core objects for sessions, environments, providers, nodes, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage integrations, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility without creating a separate Fleet app, surface, runtime, authority, truth, or storage layer. |
+| ioi.ai Collaborative Outcome Pattern | ioi.ai intent-to-outcome coordination that may use multiple models, harnesses, workers, connectors, sessions, branches, and verifier lanes over Hypervisor when a goal calls for it. |
+| Hypervisor Providers / Environments | Default Hypervisor views and daemon/Core objects for sessions, environments, providers, nodes, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage integrations, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility without creating a separate peer app, runtime, authority, truth, or storage layer. |
 | Wallet Lanes / Provider Integrations | Wallet is the authority cockpit. decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/headless | Human terminal, scripting, CI, node-ops, and headless operator client over daemon/public runtime APIs; TUI is an optional interactive presentation of this client. |
@@ -391,7 +387,7 @@ Hypervisor Node / Local Settlement Domain
   local registries, receipts, replay, interop, and local settlement
 
 Client Surfaces
-  Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, Workbench/Automations/Foundry surfaces, Outcome Rooms, provider/environment views, Workflow Compositor, IOI Authority Gateway adapters, @ioi/agent-sdk, IOI ADK, browser apps, agent harness adapters, benchmarks
+  Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, Workbench/Automations/Foundry surfaces, ioi.ai collaborative outcome projections, provider/environment views, Workflow Compositor, IOI Authority Gateway adapters, @ioi/agent-sdk, IOI ADK, browser apps, agent harness adapters, benchmarks
 
 Storage Plane
   local disk, S3/object stores, Filecoin, CAS/IPFS, provider/customer blob stores for payload bytes
@@ -416,7 +412,7 @@ Authority Plane
 9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, artifact refs, archive refs, replay/import metadata, and restore validity.
 10. Compute nodes initialize Hypervisor Daemon runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. HypervisorOS is a bare-metal node profile, not a peer runtime. It gives serious nodes daemon-rooted control and measurement, but it does not make consumer GPUs confidential compute or replace cTEE no-plaintext-custody.
-12. Hypervisor manages sessions, environments, providers, and infrastructure posture directly. Fleet is deprecated as a live app/surface/posture layer. Hypervisor provider/environment views are not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
+12. Hypervisor manages sessions, environments, providers, and infrastructure posture directly. Hypervisor provider/environment views are not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
 13. decentralized.exchange/trade are route/venue intelligence engines that propose candidates for liquidity and exposure, and Hypervisor provider integrations propose routes for execution; they are not mandatory UIs, authority, custody, provider, venue, storage, or settlement owners. Parked future decentralized.cloud must not be treated as present canon or a mandatory gateway.
 14. CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the operator/scripting/CI client, TUI is an optional CLI presentation, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 15. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workflow

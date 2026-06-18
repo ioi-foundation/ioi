@@ -4,8 +4,8 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor-managed providers, environments,
 cross-session infrastructure posture, zero-to-idle, archive/restore posture,
 and provider integration doctrine.
-Supersedes: prior live canon that treated `Hypervisor Fleet` as a separate
-application surface or posture layer.
+Supersedes: prior live canon that split provider and environment posture into a
+separate application surface.
 Superseded by: none.
 Last alignment pass: 2026-06-17.
 
@@ -13,9 +13,9 @@ Last alignment pass: 2026-06-17.
 
 **Hypervisor manages sessions, environments, and provider resources directly.**
 
-There is no separate Fleet product, Fleet surface, or Fleet truth layer in the
-live architecture. The capabilities formerly grouped under "Fleet" are now
-part of the default Hypervisor UX and daemon/Core contracts.
+Provider and environment capabilities are part of the default Hypervisor UX and
+daemon/Core contracts. They are not a separate product, application surface, or
+truth layer.
 
 Core doctrine:
 
@@ -53,7 +53,7 @@ Hypervisor App / Hypervisor Web / CLI-headless
 Provider and infrastructure posture should appear inside the default
 Hypervisor shell, session detail views, project settings, provider settings,
 and org/admin web views. It should not require users to enter a separate
-"Fleet app" mental model.
+provider-management product.
 
 ## Owns
 
@@ -220,7 +220,7 @@ Health
 Restore
 ```
 
-Avoid making users learn a separate Fleet product.
+Avoid making users learn a separate provider-management product.
 
 ## Lifecycle
 
@@ -238,8 +238,8 @@ operator opens Hypervisor
 
 ## Conformance Checks
 
-- No live canon may treat Fleet as a separate app, surface, runtime, or truth
-  layer.
+- No live canon may split provider/environment posture into a separate app,
+  surface, runtime, or truth layer.
 - Provider and infrastructure posture belongs to Hypervisor sessions,
   environment views, provider views, and daemon APIs.
 - Provider state must be evidence, not Agentgres truth.
@@ -256,13 +256,12 @@ operator opens Hypervisor
 Avoid:
 
 ```text
-Fleet = separate app
-Fleet = application surface
-Fleet = posture layer
-Fleet = runtime truth
-Fleet = provider authority
-Fleet = Agentgres replacement
-Fleet = storage truth
+provider posture = separate app
+provider posture = application surface
+provider posture = runtime truth
+provider posture = provider authority
+provider posture = Agentgres replacement
+provider posture = storage truth
 cloud provider catalog = compute provider
 future decentralized.cloud = mandatory gateway
 provider lifecycle state = restore truth

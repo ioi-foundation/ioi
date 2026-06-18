@@ -139,14 +139,14 @@
 }
 {\Huge\bfseries IOI: Internet of Intelligence}\\[0.45cm]
 {\LARGE Technical Whitepaper}\\[1.0cm]
-{\large\itshape Web4 Infrastructure for Verifiable Bounded Agency}\\[1.6cm]
+{\large\itshape Web4 Infrastructure for Verifiable Machine Labor}\\[1.6cm]
 {\large
 Date: June 2026\\[5pt]
-Version: 1.5.43\\[5pt]
+Version: 1.6.0\\[5pt]
 Author: Heath Ledger\\[1.1cm]
 \textbf{IOI Foundation}}
 \vfill
-{\footnotesize IOI Foundation \textperiodcentered{} Internet of Intelligence \textperiodcentered{} Technical Whitepaper v1.5.43}\\[0.4cm]
+{\footnotesize IOI Foundation \textperiodcentered{} Internet of Intelligence \textperiodcentered{} Technical Whitepaper v1.6.0}\\[0.4cm]
 \end{titlepage}
 
 \hypertarget{about-this-document}{%
@@ -262,7 +262,11 @@ evaluated, policy-bound workers, reusable modules, or configured service
 outcomes with manifests, lineage refs, benchmark receipts, evaluation
 receipts, authority requirements, and contribution policy.
 \textbf{Hypervisor Foundry} is the application surface over Hypervisor
-Core for this lifecycle.
+Core for this lifecycle, including model garden and registry workflows,
+evaluation suites, datasets, endpoints, package promotion, and
+simulation-training environments such as robotics worlds, LiDAR and
+point-cloud corpora, Gaussian-splat scene representations, and
+sim-to-real validation lanes.
 
 IOI is operationalized through separate but interoperable
 \textbf{product domains}. \textbf{Hypervisor} is the shared
@@ -291,9 +295,12 @@ including worker-training contracts and packaged service delivery.
 ServicePackages are not strictly worker-composed and do not depend on
 aiagent.xyz assets: they may execute deterministic pipelines or private
 local tools without using any marketplace-registered workers.
-\emph{ioi.ai} is the lightweight control plane for accounts, devices,
-restore routing, publishing, sync metadata, and remote-runtime
-entitlement. \textbf{IOI L1} is the public settlement, registry, rights,
+\emph{ioi.ai} is the first-party intent-to-outcome surface and account
+control plane. It accepts user goals, can coordinate goal-appropriate
+multi-model or multi-path pursuit over Hypervisor, and presents account,
+device, restore, publishing, sync metadata, and remote-runtime
+entitlement flows without becoming the execution runtime or authority
+root. \textbf{IOI L1} is the public settlement, registry, rights,
 dispute, and governance root that anchors selected commitments from the
 local domains.
 
@@ -324,11 +331,14 @@ execution semantics, wallet.network authority, Agentgres truth, receipts,
 or restore validity. \textbf{Hypervisor Canvas} is a visual
 editor/projection inside Automations, Workbench, or Foundry where a graph
 view is useful; Canvas state is layout and presentation, not runtime
-truth. \textbf{ioi.ai Goal Chat} is the intent and coordination surface
-that may ask, inspect, summarize, invoke existing work, or draft a
-handoff, but durable automation/service deployment must move into
-Hypervisor Automations and execution must cross Hypervisor Daemon/Core
-contracts.
+truth. \textbf{ioi.ai} is the intent and coordination surface that may
+ask, inspect, summarize, invoke existing work, or draft a handoff. When a
+goal benefits from multiple models, harnesses, workers, connectors,
+sessions, branches, or verifier lanes, ioi.ai may coordinate that
+goal-appropriate pursuit over Hypervisor. Durable automation/service
+deployment still moves into Hypervisor Automations, Foundry handles
+build/eval/training jobs when applicable, and execution must cross
+Hypervisor Daemon/Core contracts.
 
 \textbf{IOI Authority Gateway} is the daemon sidecar and adapter
 profile for existing IDE, CLI, browser, hosted-agent, and MCP/tool
@@ -398,14 +408,15 @@ Hypervisor stabilizes, trains, and runs workers. \emph{aiagent.xyz}
 publishes, initializes, and routes worker capability. \emph{sas.xyz}
 sells verified service outcomes and productized delivery, whether the
 service is worker-composed, deterministic, private, or hybrid.
-\emph{ioi.ai} coordinates accounts, devices, restores, publishing, and
-remote-runtime entitlement. \textbf{IOI L1} settles and governs public
-commitments.
+\emph{ioi.ai} is the user-facing intent-to-outcome surface and account
+control plane; it coordinates goals, account/device state, restores,
+publishing, remote-runtime entitlement, and goal-appropriate Hypervisor
+handoffs. \textbf{IOI L1} settles and governs public commitments.
 
 The \textbf{Hypervisor Daemon} implements the runtime boundary. It
 isolates untrusted workload execution, translates tool requests into
 canonical ActionRequest objects, evaluates policy bundles and ActionRules
-compatibility profiles, obtains
+policy bundles, obtains
 \emph{wallet.network} authority grants when needed, and records outcomes
 in a hash-linked receipt chain. The same artifact semantics apply
 locally, in provider sessions, in customer-boundary deployments, and at
@@ -617,7 +628,7 @@ Domains
 
 9. Security and Evolution
 
-9.1 Daemon Effect Boundary (Legacy Agency Firewall Reference)
+9.1 Daemon Effect Boundary
 
 9.2 Threat Model: Market Risks
 
@@ -1234,12 +1245,11 @@ The Hypervisor Daemon enforces a strict air gap between Plane C (where
 the AI thinks and executes tools) and Plane D (where the daemon evaluates
 policy, requests wallet.network authority, and commits receipted state).
 The daemon mediates all I/O through the Hypervisor Daemon effect boundary.
-Older reference material calls this same bounded-effect discipline the
-Agency Firewall. The boundary ensures that a compromised Execution Worker
-cannot escape the virtualization boundary. When a worker requests an
-action (e.g., an API call), \emph{wallet.network} performs brokered
-secret execution or issues an operation-scoped short-lived token. The
-worker process never sees the raw secret.
+The boundary ensures that a compromised Execution Worker cannot escape
+the virtualization boundary. When a worker requests an action (e.g., an
+API call), \emph{wallet.network} performs brokered secret execution or
+issues an operation-scoped short-lived token. The worker process never
+sees the raw secret.
 
 \hypertarget{deterministic-io-and-pinned-externalities}{%
 \subsubsection{2.2.2 Deterministic IO and Pinned
@@ -2295,6 +2305,28 @@ provisioning the workload, under Agentgres ArtifactRef/PayloadRef meaning,
 wallet.network authority, and any declared \textbf{ModelWeightCustodyProfile}. \\
 \end{longtable}
 
+Zero-bloat is not zero-retention. For every challenge-eligible
+commitment, the corresponding Agentgres ArtifactRefs and PayloadRefs
+MUST declare a \emph{challenge\_epoch\_ref}, a \emph{retention\_until}
+height or time, and one or more retrievability lanes (local archive,
+provider archive, Filecoin/IPFS/S3-style object store, or
+Witness-Coded Recovery Capsule). The declared retrievability window MUST
+strictly dominate the challenge period plus publication and retrieval
+slack:
+
+\[
+T_{\mathrm{retain}} \geq
+T_{\mathrm{challenge}} + \Delta_{\mathrm{publish}} +
+\Delta_{\mathrm{retrieve}} + \Delta_{\mathrm{verify}}.
+\]
+
+If a challenged payload cannot be served, reconstructed, and hash-verified
+inside its declared challenge epoch, that absence is itself objective
+evidence. The dispute path fails closed: irreversible release is halted
+and the missing-evidence dispute resolves in favor of the challenger
+unless the respondent produces the required bytes or a valid recovery
+bundle before the epoch closes.
+
 \hypertarget{node-profiles-and-hypervisoros}{%
 \subsubsection{2.5.5 Node Profiles and
 HypervisorOS}\label{node-profiles-and-hypervisoros}}
@@ -2390,9 +2422,8 @@ unbounded agency.
 
 Operating as a user-space Hypervisor, the daemon strictly isolates the
 untrusted agent workload (the Guest) from the host environment. The
-\textbf{daemon effect boundary}---historically called the Agency
-Firewall---is the physical I/O boundary and deterministic transaction
-gate that enforces this isolation. It ensures that an agent
+\textbf{daemon effect boundary} is the physical I/O boundary and
+deterministic transaction gate that enforces this isolation. It ensures that an agent
 cannot interact with the network, filesystem, or GUI directly. Instead,
 the OS is treated as a protected syscall surface, and every attempted
 side-effect is trapped by the Hypervisor Daemon and evaluated by the
@@ -2597,8 +2628,8 @@ Profiles}\label{actionrules-the-policy-language}}
 Daemon effect policies are expressed as versioned policy bundles bound
 to wallet.network authority, Agentgres state, capability scopes,
 approval thresholds, budget limits, declassification rules, and receipt
-obligations. \emph{ActionRules} is the legacy-compatible JSON DSL for
-one such policy bundle. Policies are default-deny and support
+obligations. \emph{ActionRules} is the canonical JSON DSL for one such
+policy bundle. Policies are default-deny and support
 graph-aware permissioning. Rule semantics are deterministic: rules match
 on the \emph{target} plus conditions over canonicalized fields;
 \emph{BLOCK} rules override \emph{ALLOW}; decisions are \emph{\{ ALLOW
@@ -2624,8 +2655,8 @@ Node A allowing an action that Node B blocks.
 
 To neutralize this attack vector and ensure bit-for-bit reproducibility
 across all architectures, the Hypervisor Daemon enforces a strict
-normalization pipeline. For ActionRules compatibility profiles, the
-runtime MUST pass the raw policy through the
+normalization pipeline. For ActionRules policy bundles, the runtime MUST
+pass the raw policy through the
 \emph{ActionRules::canonicalize()} function at three specific lifecycle
 stages:
 
@@ -2718,7 +2749,7 @@ invariants:
 \bottomrule\noalign{}
 \endlastfoot
 \textbf{The Hash Invariant:}\emph{\textbf{}}The canonical identifier for
-any given ActionRules compatibility profile is mathematically locked to
+any given ActionRules policy bundle is mathematically locked to
 this pipeline:
 
 policy\_hash = H(JCS(canonicalized(ActionRules))) \\
@@ -2966,12 +2997,11 @@ Tokens may be \textbf{One-Shot} (burned upon execution) or
 \textbf{Multi-Use} (Lease). Multi-use tokens MUST strictly decrement a
 \emph{max\_usages} counter recorded in the state receipt log.
 
-The EffectDecisionReceipt / FirewallDecisionReceipt legacy alias
+The EffectDecisionReceipt
 
 The runtime MUST emit an \emph{EffectDecisionReceipt} for all governed
-actions. \emph{FirewallDecisionReceipt} remains a legacy-compatible name
-for the same receipt family. This receipt is the critical link proving
-\emph{why} an action occurred. For consequential actions, it is the
+actions. This receipt is the critical link proving \emph{why} an action
+occurred. For consequential actions, it is the
 transaction record of the act, binding the model's requested effect to
 the user's authority and the active policy state. It permanently binds
 the \emph{request\_hash}, the \emph{policy\_hash}, wallet.network
@@ -3028,9 +3058,8 @@ to ensure interoperability between local and global environments:
 \textbf{ActionRequest} (the input --- a normalized, schema-validated
 description of an externally effectful operation),
 \textbf{ApprovalToken} (user consent --- a scoped, time-bounded
-authorization), and \textbf{EffectDecisionReceipt}
-(\textbf{FirewallDecisionReceipt} as a legacy-compatible alias) (the
-transaction record of the act --- a daemon- or
+authorization), and \textbf{EffectDecisionReceipt} (the transaction
+record of the act --- a daemon- or
 wallet.network-authority-attested decision record).
 All hashes are computed over RFC 8785 canonicalized bytes;
 \emph{policy\_hash} MUST be stable for a given ordered ruleset. Full
@@ -3384,6 +3413,15 @@ binding must emit an \textbf{ArtifactRepairReceipt}. These records do
 not make Filecoin, IPFS, S3, local disk, or any object store the truth
 layer; they make storage failure and recovery accountable under the
 Agentgres artifact lifecycle.
+
+For artifacts that can become dispute evidence, availability incidents
+are not merely telemetry. During a live challenge epoch, failure to serve
+the bytes named by an admitted ArtifactRef or PayloadRef before the
+declared retrieval deadline creates a valid \emph{MissingEvidence}
+challenge. Agentgres remains the semantic truth layer, but the protocol
+requires enough data availability to reconstruct the challenged trace.
+Storage backends may hold the bytes; Agentgres records the commitments,
+retention bounds, repair receipts, and challenge consequences.
 
 \textbf{Storage and authority boundary.}
 
@@ -3941,6 +3979,19 @@ escalation from a Hypervisor Node runtime (Local) into a Provider runtime
 result plus verifiable accounting artifacts, and reintegrates the output
 into the local agent graph --- but that capsule carries no plaintext
 custody of protected state.
+
+When the selected privacy posture is software-only, cTEE means
+\textbf{zero-disclosure cryptographic partitioning}, not software-only
+memory isolation. Protected state remains encrypted, secret-shared,
+committed, guardian/client-held, or assembled locally through
+candidate-lattice private decoding. The hostile-root provider may receive
+public trunks, redacted projections, encrypted refs, candidate lattices,
+and capability handles, but it MUST NOT receive the deciphering key or
+materialize protected plaintext inside provider-visible CPU, GPU, disk,
+log, cache, or process memory. Local lattice assembly, guardian
+selection, cryptographic operators, or approved confidential-compute
+lanes are the privacy mechanism; encrypting a normal plaintext runtime
+is not.
 
 
 \begin{center}
@@ -5268,9 +5319,9 @@ integrations for local machines, customer clouds, hyperscalers,
 confidential-compute lanes, DePIN compute, decentralized storage, GPU
 markets, enterprise clusters, and user-specified provider routes while
 maintaining a unified authority, receipt, and verification layer.
-\emph{decentralized.cloud} is not present canon and not a mandatory
-gateway in this path; it remains parked future product space for a
-possible public provider catalog or P2P/PQ-aware cloud-routing layer.
+\emph{decentralized.cloud} is not a mandatory gateway in this path; it
+is reserved future product space for a possible public provider catalog
+or P2P/PQ-aware cloud-routing layer.
 
 The canonical provider-routing objects are:
 
@@ -6563,6 +6614,30 @@ synchrony, adversary, data-availability, committee-selection, and
 challenge-window assumptions before advertising a quantitative Byzantine
 threshold.
 
+\textbf{Synchrony and challenge-epoch baseline.} AFT assumes a
+weak-synchrony model: after Global Stabilization Time (GST), public messages are delivered
+within a bounded \(\Delta_{\mathrm{publish}}\), retrieval requests
+complete or fail within \(\Delta_{\mathrm{retrieve}}\), and verification
+finishes within \(\Delta_{\mathrm{verify}}\). A production deployment
+sets an epoch duration \(T_{\mathrm{epoch}}\) and challenge duration
+\(T_{\mathrm{challenge}}\) such that challenge publication, evidence
+retrieval, recovery-capsule reconstruction, and verifier execution can
+complete before the epoch closes. Any settlement commitment whose proof
+depends on off-chain bytes MUST bind a retrievability window satisfying:
+
+\[
+T_{\mathrm{retrievable}} \geq
+T_{\mathrm{challenge}} + \Delta_{\mathrm{publish}} +
+\Delta_{\mathrm{retrieve}} + \Delta_{\mathrm{verify}}.
+\]
+
+If the respondent, provider, storage lane, or witness set fails to serve
+the evidence required by the committed ArtifactRefs/PayloadRefs within
+that epoch, the challenge is valid by absence. The challenged settlement
+fails closed in favor of the challenger; no escrow release, slashing
+defense, reputation update, or irreversible right transfer may depend on
+bytes that were unavailable during the declared challenge epoch.
+
 \hypertarget{the-two-tier-finality-model}{%
 \subsubsection{5.3.1 The Two-Tier Finality
 Model}\label{the-two-tier-finality-model}}
@@ -6664,6 +6739,14 @@ This ensures that the protocol does not stall indefinitely waiting for
 withheld data; it either recovers the payload or objectively aborts,
 maintaining the challenge-dominant safety property declared in the
 production specification.
+
+The Witness-Coded Recovery Capsule is therefore part of the data
+availability contract, not a replacement for it. A recovery capsule is
+valid only when its reveal schedule, coding threshold, and retrieval
+deadline fit inside the active challenge epoch. If recovery shares or
+raw payload bytes are not served in time, the resulting
+\emph{MissingRecoveryShare} or \emph{MissingEvidence} object is enough
+to defeat the challenged settlement path.
 
 \hypertarget{challenge-dominant-settlement-for-the-agentic-economy}{%
 \subsubsection{5.3.4 Challenge-Dominant Settlement for the Agentic
@@ -7317,7 +7400,7 @@ The protocol implements a three-tier identity stack that progresses from
 frictionless onboarding to institutional-grade security, anchored by a
 native \textbf{Dual-Entropy Mnemonic}.
 
-Tier 1: Root Custody Profile (native root; historically "Master Custodian")
+Tier 1: Root Custody Profile
 
 \begin{itemize}
 \tightlist
@@ -7342,7 +7425,7 @@ Tier 1: Root Custody Profile (native root; historically "Master Custodian")
   recovery authority in the stack.
 \end{itemize}
 
-Tier 2: wallet.network Authority Core (historically "Manager")
+Tier 2: wallet.network Authority Core
 
 \begin{itemize}
 \tightlist
@@ -7378,7 +7461,7 @@ Tier 3: The Worker \& Agent Execution Account (Execution Layer)
 \item
   \textbf{Implementation:} CapabilityLease-bound short-lived signer
   grants used by the Agent Runtime, executing through an
-  \textbf{Agent Execution Account} (historically called an Ops Wallet).
+  \textbf{Agent Execution Account}.
 \item
   \textbf{The Smart Account Upgrade:} To ensure security survives a
   compromised runtime, the Agent Execution Account may be deployed as an
@@ -10052,14 +10135,12 @@ Establishes financial accountability and defines escrow terms in the
 event of hardware damage. \\
 \end{longtable}
 
-\hypertarget{daemon-effect-boundary-agency-firewall-reference}{%
-\subsection{9.1 Daemon Effect Boundary (Legacy Agency Firewall
-Reference)}\label{daemon-effect-boundary-agency-firewall-reference}}
+\hypertarget{daemon-effect-boundary}{%
+\subsection{9.1 Daemon Effect Boundary}\label{daemon-effect-boundary}}
 
 \textbf{Hypervisor Daemon effect boundary} is the protocol term for this
-bounded-effect discipline. Some reference material also uses
-\textbf{Daemon Effect Boundary} for the same mechanism:
-ActionRequest canonicalization, policy language, canonical ordering,
+bounded-effect discipline. It covers ActionRequest canonicalization,
+policy language, canonical ordering,
 runtime mediation, capability scopes, interception and approval flow,
 audit chain, hierarchical delegation, and the Monotonic Policy
 Invariant. The daemon owns the boundary; wallet.network authorizes
@@ -10464,8 +10545,7 @@ memory projection update, route update, verifier update, or package
 manifest update. The proposal is not effective until accepted by policy
 and committed through the daemon into Agentgres.
 
-The transaction must include an \textbf{UpgradeJustification} artifact
-(historically compatible with \emph{MutationJustification} receipts): a
+The transaction must include an \textbf{UpgradeJustification} artifact: a
 structured record built from Agent Wiki / \emph{ioi-memory} retrieval
 summaries plus Agentgres-admitted evidence refs documenting the execution
 traces, failure modes, and fitness signals that motivated the change.
@@ -10644,15 +10724,21 @@ state; TUI is an optional presentation. \\
 \textbf{Hypervisor Workbench} & Application surface & Code and systems
 surface over Core; uses editor, terminal, browser, VM, and agent-harness
 adapter targets. \\
-\textbf{Hypervisor Foundry} & Application surface & Worker, evaluation,
-training, and model-route creation surface over the same Core and
-Agentgres receipt model. \\
+\textbf{Hypervisor Foundry} & Application surface & Model, worker,
+evaluation, dataset, registry, endpoint, package, ontology-aware build,
+and simulation-training surface over the same Core and Agentgres receipt
+model. \\
+\textbf{ioi.ai} & Intent-to-outcome surface / account control plane &
+Accepts goals, coordinates goal-appropriate multi-model or multi-path
+pursuit over Hypervisor, and presents account, device, restore,
+publishing, sync, and remote-runtime entitlement flows without owning
+execution truth. \\
 \textbf{Provider/environment views} & Hypervisor session/project/provider
 projections & Manage direct provider integrations for cloud compute,
 storage, GPUs, confidential compute, DePIN, local machines, customer
 cloud, enterprise infrastructure, ports, services, logs, archive refs,
 restore refs, and infrastructure posture as default Hypervisor views,
-not as a separate Fleet product or truth layer. \\
+not as a separate product or truth layer. \\
 \textbf{HypervisorOS} & Bare-Metal Node Profile & Minimal, measured-boot
 OS image where the Daemon acts as node root; emits
 \emph{BootReceipts}. \\
@@ -10693,8 +10779,11 @@ Core and sessions rather than forming separate runtimes.
 leases, exchange/trade approvals, and payment grants. \textbf{IOI
 Mainnet (L1)} is the public root for settlement, public identity
 commitments, disputes, rewards, registries, rights, and sparse
-commitment anchors. \emph{ioi.ai} is the
-demand ingress and control plane for account/device/restore metadata.
+commitment anchors. \emph{ioi.ai} is the first-party
+intent-to-outcome surface and account control plane; it may coordinate
+multiple models, harnesses, workers, connectors, sessions, branches, or
+verifier lanes over Hypervisor when the goal benefits from that shape,
+while simple goals may remain single-path.
 \emph{Hypervisor CLI/headless} is the operator and automation client over
 Hypervisor Core and daemon APIs; IOI protocol subcommands may manage
 domains, manifests, receipts, authority scopes, Agentgres, and Mainnet
@@ -10777,10 +10866,13 @@ Desktop chat, workflow composition, worker supervision, model mounting,
 local files, remote VMs, browser use, and private execution are
 session/application-surface capabilities, not the product boundary.
 
-\emph{ioi.ai} is the lightweight control plane for accounts, device
-registrations, restore routing, sealed archive metadata, publishing
-metadata, sync metadata, subscription/billing entitlement, and
-remote-runtime entitlement.
+\emph{ioi.ai} is the first-party intent-to-outcome surface and account
+control plane. It accepts goals, may coordinate goal-appropriate
+multi-model or multi-path pursuit over Hypervisor, and presents account,
+device, restore, sealed archive metadata, publishing metadata, sync
+metadata, subscription/billing entitlement, and remote-runtime
+entitlement flows without becoming the runtime, authority layer, or
+canonical state substrate.
 
 \emph{aiagent.xyz} is the worker marketplace for manifests, publisher
 profiles, benchmark profiles, Sparse Worker Categories, trained worker
@@ -11042,14 +11134,22 @@ spend, receipts, and settlement triggers is visible to the user.
 \hypertarget{hypervisor-foundry}{%
 \subsubsection{10.1.4 Hypervisor Foundry}\label{hypervisor-foundry}}
 
-\textbf{Hypervisor Foundry} is the specialized worker creation,
-training, and benchmarking application surface exposed inside
-\textbf{Hypervisor App} and \textbf{Hypervisor Web} over the same
-Hypervisor Core substrate.
+\textbf{Hypervisor Foundry} is the specialized model, worker, eval,
+dataset, endpoint, registry, package, training, and simulation-build
+application surface exposed inside \textbf{Hypervisor App} and
+\textbf{Hypervisor Web} over the same Hypervisor Core substrate.
+Foundry is the home for embodied model-building and simulation-training
+work such as simulator worlds, digital twins, LiDAR and point-cloud
+datasets, camera/depth/IMU telemetry, Gaussian-splat scene
+representations, robotics task curricula, policy training runs,
+perception model training, navigation/manipulation eval worlds, and
+sim-to-real validation reports. Live actuator execution is separate: it
+must cross Hypervisor Daemon admission, wallet.network authority,
+physical-action safety envelopes, and Agentgres receipts.
 
-The guided compilation flow for training a specialist worker utilizes
-daemon-owned local or provider-compatible execution paths to generate
-verifiable outcomes:
+The guided compilation flow for training a specialist worker, model
+route, or embodied capability utilizes daemon-owned local or
+provider-compatible execution paths to generate verifiable outcomes:
 
 Define Task
 
@@ -11122,16 +11222,14 @@ This appendix collects code, JSON/YAML/Rust/TypeScript examples, and
 byte-level envelope material moved out of the main narrative. Conceptual
 definitions remain in the body; exact structures live here.
 
-\hypertarget{a.1-actionrules-policy-example-moved-from-original-section-2.6.2}{%
-\subsubsection{A.1 ActionRules policy example (moved from original
-Section
-2.6.2)}\label{a.1-actionrules-policy-example-moved-from-original-section-2.6.2}}
+\hypertarget{a.1-actionrules-policy-example}{%
+\subsubsection{A.1 ActionRules Policy Example}\label{a.1-actionrules-policy-example}}
 
 \hypertarget{actionrules-the-policy-language-1}{%
-\subsubsection{2.6.2 ActionRules compatibility profile: policy
+\subsubsection{ActionRules policy
 language}\label{actionrules-the-policy-language-1}}
 
-\emph{ActionRules} is a legacy-compatible JSON DSL for daemon policy
+\emph{ActionRules} is a canonical JSON DSL for daemon policy
 bundles. Policies are default-deny and support Graph-Aware
 Permissioning.\\
 
@@ -11221,9 +11319,8 @@ policy\_hash: Hash
 \end{center}
 
 
-\hypertarget{a.2-firewall-artifacts-moved-from-original-section-2.6.9}{%
-\subsubsection{A.2 Effect-boundary artifacts (moved from original Section
-2.6.9)}\label{a.2-firewall-artifacts-moved-from-original-section-2.6.9}}
+\hypertarget{a.2-effect-boundary-artifacts}{%
+\subsubsection{A.2 Effect Boundary Artifacts}\label{a.2-effect-boundary-artifacts}}
 
 \hypertarget{normative-schema-firewall-artifacts-1}{%
 \subsubsection{2.6.9 Normative Schema: Effect Boundary
@@ -11283,7 +11380,7 @@ context\_ref: ctx://...
 \end{center}
 
 
-EffectDecisionReceipt / FirewallDecisionReceipt legacy alias (transaction record of the act)
+EffectDecisionReceipt (transaction record of the act)
 
 A daemon- or wallet.network-authority-attested record of the effect
 boundary decision for a given request.
@@ -11322,9 +11419,8 @@ Canonicalization and hashing requirements (normative):
   MUST change for any rule addition/removal/reorder.
 \end{itemize}
 
-\hypertarget{a.3-session-artifacts-moved-from-original-section-3.2.6}{%
-\subsubsection{A.3 Session artifacts (moved from original Section
-3.2.6)}\label{a.3-session-artifacts-moved-from-original-section-3.2.6}}
+\hypertarget{a.3-session-artifacts}{%
+\subsubsection{A.3 Session Artifacts}\label{a.3-session-artifacts}}
 
 \hypertarget{normative-schema-session-artifacts-1}{%
 \subsubsection{3.2.6 Normative Schema: Session
@@ -11497,9 +11593,8 @@ sig: string
 \end{center}
 
 
-\hypertarget{a.4-canonical-dispute-schema-moved-from-original-section-11.1.5}{%
-\subsubsection{A.4 Canonical dispute schema (moved from original Section
-11.1.5)}\label{a.4-canonical-dispute-schema-moved-from-original-section-11.1.5}}
+\hypertarget{a.4-canonical-dispute-schema}{%
+\subsubsection{A.4 Canonical Dispute Schema}\label{a.4-canonical-dispute-schema}}
 
 \hypertarget{canonical-dispute-schema-1}{%
 \subsubsection{11.1.5 Canonical Dispute
@@ -13695,8 +13790,7 @@ Contract} (CIRC), the \textbf{Effect Execution Contract} (CEC), and the
 harnesses, model runtimes, worker profiles, and module executors.
 
 These rules dictate the ``Fail-Closed'' behavior of the Hypervisor
-Core and daemon effect boundary formerly summarized as the Determinism
-Boundary. They enforce a ``Zero Heuristics / Zero Hidden Fallbacks''
+Core and daemon effect boundary. They enforce a ``Zero Heuristics / Zero Hidden Fallbacks''
 doctrine: zero ad hoc routing patches and zero unreceipted effect
 retries hidden inside one admitted operation. They are the conformance
 rules that prevent Act from degrading into Web2 automation: if intent
@@ -13907,7 +14001,7 @@ receipt-backed, policy-explainable effect boundary. Insurability and
 legal recourse depend on the declared contract, jurisdiction, and
 receipt class rather than on raw model output.}
 
-Internet of Intelligence Protocol • Whitepaper v1.5.43 • © 2026 IOI
+Internet of Intelligence Protocol • Whitepaper v1.6.0 • © 2026 IOI
 Foundation
 
 \hypertarget{appendix-f-references-normative-standards}{%

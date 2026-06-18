@@ -2,7 +2,8 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for Agentgres-governed artifact refs, payload refs, evidence bundles, delivery bundles, sealed state archive refs, content-addressed commitments, artifact lifecycle, policy/authority/receipt linkage, replay/import metadata, restore validity, and relationship to storage backends.
-Supersedes: `components/filecoin-cas/*` when those files appear to own artifact meaning, authority, lifecycle, or restore validity.
+Supersedes: product prose that lets storage backends appear to own artifact
+meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 

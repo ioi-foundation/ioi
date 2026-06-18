@@ -112,7 +112,7 @@ Key doctrine added:
 
 Added ADR 0011 to record the durable decision:
 
-- Hypervisor Node is a local settlement domain, not merely the Hypervisor IDE UI.
+- Hypervisor Node is a local settlement domain, not merely the Hypervisor Workbench UI.
 - Governed autonomous-system chains are local stateful execution objects.
 - IOI L1 remains the shared public chain for registry, rights, disputes,
   reputation, economics, and selected roots.
@@ -180,7 +180,7 @@ Added the machine-economy canon to the architecture index:
 - Core layering now includes governed autonomous-system chains and Hypervisor
   node/local settlement domain, plus the AIIP work interop layer.
 - Added non-negotiables:
-  - Hypervisor IDE is not the Hypervisor Node.
+  - Hypervisor Workbench is not the Hypervisor Node.
   - Governed autonomous-system chains are local state machines, not necessarily
     standalone public blockchains or IOI L1s.
   - The marketplace is not the protocol.
@@ -209,7 +209,7 @@ Added conflict-rule defaults:
   vary by profile;
 - Hypervisor Nodes settle autonomous work locally.
 - IOI L1 settles machine labor globally.
-- Hypervisor IDE is not the Hypervisor Node.
+- Hypervisor Workbench is not the Hypervisor Node.
 - Governed autonomous-system chains are system-local execution chains with
   policy, modules, proposals, receipts, state roots, and governed upgrades.
 
@@ -237,7 +237,7 @@ Refined `Model`:
 - model weights or provider endpoints are mounted by deployment profile;
 - model weights are not part of the Hypervisor Node binary by default.
 
-Clarified `HypervisorIDE`:
+Clarified `HypervisorWorkbench`:
 
 - it is the IDE-grade operator console;
 - it is not the full Hypervisor Node.
@@ -308,7 +308,7 @@ Added `Hypervisor Node Boundary`:
 
 - Hypervisor Node is local autonomous-system settlement and interop domain.
 - Daemon is execution and authority-enforcement substrate inside the node.
-- Hypervisor IDE is operator console.
+- Hypervisor Workbench is operator console.
 - Agentgres is local operational truth.
 - wallet.network owns authority.
 - IOI L1 receives selected roots.
@@ -347,7 +347,7 @@ Added owned state categories:
 - upgrade decisions.
 
 Clarified that Hypervisor Node local settlement truth is recorded through
-Agentgres/domain operations, not Hypervisor IDE UI state.
+Agentgres/domain operations, not Hypervisor Workbench UI state.
 
 ### `docs/architecture/components/agentgres/api-object-model.md`
 
@@ -514,7 +514,7 @@ kernel/domain topology.
 
 Clarified:
 
-- Hypervisor Node is a local domain composition of Hypervisor IDE, Hypervisor
+- Hypervisor Node is a local domain composition of Hypervisor Workbench, Hypervisor
   Daemon, Agentgres, wallet.network authority paths, local registries, receipts,
   replay, and runtime profiles.
 - It may host many governed autonomous-system chains.

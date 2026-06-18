@@ -35,9 +35,9 @@ It may:
   posture that the user is authorized to view;
 - draft a proposed AutomationSpec, service recipe, Foundry job, or marketplace
   publish flow for explicit user review;
-- draft or open an ioi.ai Outcome Room over Hypervisor when the goal needs
-  multi-agent/multi-session search, benchmark races, eval gates, or competing
-  harness/model strategies;
+- materialize an ioi.ai collaborative outcome plan over Hypervisor when the
+  goal benefits from multiple models, harnesses, workers, connectors, sessions,
+  verifier paths, or attempt strategies;
 - route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
   sas.xyz, or console views when the job belongs there.
 
@@ -45,7 +45,7 @@ It must not:
 
 - become the durable workflow/service builder;
 - become the daemon runtime, message board truth, leaderboard truth, or attempt
-  truth source for an Outcome Room;
+  truth source for a collaborative outcome plan;
 - own Hypervisor Automations specs or run truth;
 - own Workflow Compositor graph truth;
 - own Hypervisor Daemon execution semantics;

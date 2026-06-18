@@ -34,9 +34,9 @@ Hypervisor Canvas
   visual builder/editor inside Automations, Workbench, or Foundry; not runtime
   truth
 
-ioi.ai Outcome Rooms
-  chat.ioi.ai's first-party governed multi-agent/multi-session search and eval
-  containers over Hypervisor for one measurable outcome
+ioi.ai collaborative outcome pattern
+  chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over Hypervisor,
+  with evidence, receipts, verifier state, and final ownership synthesis
 
 Hypervisor Foundry
   model, worker, eval, dataset, registry, endpoint, training, and
@@ -199,7 +199,7 @@ use this map before reading deep doctrine:
 | --- | --- | --- |
 | Build the Hypervisor cockpit from the IOI reference shell | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md), [`_meta/implementation-matrix.md`](./implementation-matrix.md) |
 | Route work through Codex/Claude/DeepSeek/Aider-style tools | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Build Stockfish-style coding, multi-agent search, or benchmarked outcome races | [`components/hypervisor/outcome-rooms.md`](../components/hypervisor/outcome-rooms.md) | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Build ioi.ai multi-model goal pursuit, Stockfish-style coding search, or goal-appropriate collaborative outcomes | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
 | Implement wallet authority, approvals, scopes, or agent credentials | [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) |
 | Build exchange, trade, perps, or prediction-market flows | [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`domains/decentralized/exchange.md`](../domains/decentralized/exchange.md), [`domains/decentralized/trade.md`](../domains/decentralized/trade.md) |
 | Run private work on rented/cloud/DePIN compute | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) |
@@ -208,7 +208,8 @@ use this map before reading deep doctrine:
 | Handle missing/corrupt/stale payload bytes | [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/storage-backends/filecoin-cas.md`](../components/storage-backends/filecoin-cas.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
 | Publish or rent a long-lived worker | [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`domains/aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md), [`domains/aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md) |
 | Sell or fulfill an autonomous service outcome | [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | [`domains/sas/service-endpoints.md`](../domains/sas/service-endpoints.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Integrate robots, vehicles, drones, or embodied work | [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) | [`foundations/aiip.md`](../foundations/aiip.md), [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) |
+| Train robotics or embodied models in simulation | [`components/hypervisor/foundry.md`](../components/hypervisor/foundry.md) | [`foundations/domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md), [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) |
+| Execute robots, vehicles, drones, or embodied work physically | [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) | [`foundations/aiip.md`](../foundations/aiip.md), [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) |
 | Integrate AWS/GCP/Akash/Filecoin/local/customer providers | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) |
 | Move work across autonomous systems | [`foundations/aiip.md`](../foundations/aiip.md) | [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) |
 
@@ -235,11 +236,12 @@ Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
 ownership, and terminal-state conformance.
 
-For Outcome Rooms, build for multi-path code search, test/eval playouts,
+For ioi.ai collaborative outcomes, build goal-appropriate multi-model or
+multi-path pursuit. Coding goals may use code search, test/eval playouts,
 static analysis, visual verification, runtime traces, rollback/snapshot
-branching, skill reuse, failure mining, scorecards, leaderboards, and
-benchmark-gated promotion under daemon, wallet.network, Agentgres, and Foundry
-boundaries.
+branching, skill reuse, failure mining, and benchmark-gated improvement. Other
+goals may use retrieval, connector calls, simulations, citations, screenshots,
+policy checks, or human review instead.
 
 For persistent cloud Hypervisor on rented GPUs, build for Open Private
 Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
@@ -394,10 +396,10 @@ TUI = separate first-class client lane
 external CLI agent harness = Hypervisor runtime truth
 Codex/Claude Code/Grok Build = Hypervisor client
 Hypervisor Workbench/Automations/Foundry/provider views = runtime truth
-Hypervisor IDE = live parent product term
+one editor shell = live parent product term
 Canvas = runtime truth or automation owner
 ioi.ai Goal Chat = durable automation owner
-Hypervisor Fleet = live product surface, posture layer, execution runtime, or authority plane
+provider posture = separate product surface, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
 decentralized.exchange/trade = mandatory UIs users must visit before Wallet
@@ -411,7 +413,7 @@ strategy source on rented node = protected strategy
 AIIP = separate bespoke protocol per app
 IOI L1 = execution database for every run
 aiagent.xyz -> sas.xyz = mandatory supply chain
-Outcome Room = group chat or unbounded swarm
+ioi.ai collaborative outcome = group chat or unbounded swarm
 Model output = authority
 scope:* = primitive capability
 prim:* = authority scope
@@ -426,11 +428,11 @@ Hypervisor App/Web/CLI-headless are first-class clients
 TUI is an optional CLI presentation
 Hypervisor Workbench/Automations/Foundry are application surfaces over Core
 Canvas is a visual editor/projection, not a runtime owner
-ioi.ai Goal Chat proposes and coordinates; Hypervisor Automations owns durable workflows/services
-ioi.ai Outcome Rooms are chat.ioi.ai implementations of governed collaborative
-missions with isolated attempts, eval gates, receipts, and promotion policy
+ioi.ai Goal Chat proposes, coordinates, compares, and synthesizes
+ioi.ai collaborative outcomes are goal-appropriate multi-model/multi-path
+pursuits over Hypervisor with evidence, receipts, and authority gates
 Foundry builds and evaluates models, workers, datasets, endpoints, registries,
-and ontology-aware packages
+simulation-training jobs, and ontology-aware packages
 Hypervisor provider/environment views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work

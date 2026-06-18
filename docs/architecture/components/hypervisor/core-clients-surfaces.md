@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Core product taxonomy, first-class
 client boundaries, application-surface boundaries, session boundaries, and
 adapter-target doctrine.
-Supersedes: live product prose that treats "Hypervisor IDE" as the parent
-Hypervisor product, treats the Electron/VS Code shell as the product identity,
-or treats editor integrations as runtime ownership.
+Supersedes: live product prose that treats one editor shell as the parent
+Hypervisor product, treats Electron/VS Code hosting as the product identity, or
+treats editor integrations as runtime ownership.
 Superseded by: none.
 Last alignment pass: 2026-06-16.
 
@@ -35,7 +35,7 @@ Product boundary doctrine:
 ioi.ai asks and coordinates goals.
 Hypervisor runs governed autonomous work.
 Automations make durable workflows and services.
-ioi.ai Outcome Rooms coordinate multi-session search toward measurable outcomes.
+ioi.ai coordinates multi-model and multi-path pursuit when a goal calls for it.
 Foundry builds models, workers, evals, datasets, ontology-bound packages,
 and deployment candidates.
 Workbench develops, debugs, and operates systems.
@@ -156,8 +156,8 @@ Hypervisor Workbench
 
 Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, and
-  background-mission surface, including ioi.ai Outcome Rooms / Collaborative
-  Missions
+  background-mission surface, including durable missions created from ioi.ai
+  collaborative outcome handoffs
 
 Hypervisor Foundry
   model garden, registry, model routes/mounts, tuning, training, evaluation,
@@ -177,15 +177,12 @@ are governed projections and control surfaces over Hypervisor Core, the
 Hypervisor Daemon, Agentgres, wallet.network, cTEE, AIIP, and provider
 integrations.
 
-Provider and infrastructure posture is not a separate `Fleet` surface in live
-canon. It is part of Hypervisor's default session, project, provider, and
-environment views.
+Provider and infrastructure posture is part of Hypervisor's default session,
+project, provider, and environment views.
 
 ## Hypervisor Workbench
 
-**Hypervisor Workbench** is the code/systems/workspace surface. It replaces
-"Hypervisor IDE" as the live product term for the code-oriented Hypervisor
-experience.
+**Hypervisor Workbench** is the code/systems/workspace surface.
 
 Workbench may appear in:
 
@@ -237,16 +234,16 @@ approval flow
 service/API endpoint
 queue worker
 marketplace service recipe
-outcome room / collaborative mission
+collaborative mission
 ```
 
 The durable object is the automation spec and its Agentgres-backed run history,
 not the editor that created it.
 
-Outcome Rooms are a special Automations pattern for many agents, harnesses,
-models, humans, sessions, and verifier lanes searching toward one measurable
-outcome. They are owned in detail by
-[`outcome-rooms.md`](./outcome-rooms.md).
+ioi.ai may hand off a collaborative outcome into Automations when a goal needs
+many models, harnesses, workers, sessions, branches, connectors, or verifier
+lanes. The ioi.ai coordination pattern is owned by
+[`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md).
 
 ## Hypervisor Canvas
 
@@ -307,9 +304,9 @@ receipts, and evaluation results, but it does not directly self-mutate the
 runtime. Durable improvements enter through governed proposals, eval gates,
 wallet/network approvals when needed, and Agentgres admission.
 
-Foundry is owned in detail by [`foundry.md`](./foundry.md). Outcome Rooms may
-consume Foundry evals and promote lessons into Foundry proposals, but Outcome
-Rooms are not Foundry and Foundry is not a chat room.
+Foundry is owned in detail by [`foundry.md`](./foundry.md). ioi.ai may consume
+Foundry evals and promote lessons into Foundry proposals, but ioi.ai
+coordination is not Foundry and Foundry is not a chat room.
 
 ## Workflow Compositor
 
@@ -1133,10 +1130,11 @@ HypervisorScmAuthRequirement:
 - Background missions must be modeled as `HypervisorMission` objects with
   trigger policy, review contract, authority requirements, output contract, and
   receipts; they must not be hidden interactive sessions.
-- Outcome Rooms and Collaborative Missions must use the Automations, session,
-  daemon, wallet.network, Agentgres, and Foundry/eval paths defined in
-  [`outcome-rooms.md`](./outcome-rooms.md); they must not collapse into
-  ungoverned multi-agent chat.
+- ioi.ai collaborative outcome handoffs and Collaborative Missions must use the
+  Automations, session, daemon, wallet.network, Agentgres, and Foundry/eval
+  paths defined in
+  [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md);
+  they must not collapse into ungoverned multi-agent chat.
 - Remote access, SSH, browser previews, logs, support bundles, and environment
   operations must use short-lived session access tokens bound to wallet.network
   authority and revocation epochs.
@@ -1152,7 +1150,7 @@ Avoid:
 
 ```text
 Hypervisor = VS Code fork
-Hypervisor IDE = parent product
+one editor shell = parent product
 Hypervisor App owns Core
 Hypervisor Web owns Core
 ioi.ai chat = durable automation owner
@@ -1170,12 +1168,12 @@ encrypted blob = restore truth
 provider lifecycle state = Agentgres truth
 background automation = hidden editor session
 automation spec = chat transcript
-Outcome Room = group chat
-Outcome Room = unbounded swarm
+ioi.ai collaborative outcome = group chat
+ioi.ai collaborative outcome = unbounded swarm
 Workbench = runtime truth
 Foundry = direct self-mutation path
-Fleet = live product surface or posture layer
-Fleet = infrastructure runtime or authority owner
+provider posture = separate product surface
+provider posture = infrastructure runtime or authority owner
 editor adapter = full execution boundary
 adapter target = secret vault
 Core = replacement for wallet.network
@@ -1194,7 +1192,8 @@ App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
 Workbench/Automations/Foundry = application surfaces
 Canvas = visual editor/projection
-Outcome Rooms = governed multi-session search/eval containers
+ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
+goal pursuit when useful
 Provider and infrastructure posture = Hypervisor session/project/provider/
 environment views
 Sessions = governed live workspaces/runs
@@ -1210,7 +1209,8 @@ Agentgres = admitted truth
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md)
 - [`../daemon-runtime/api.md`](../daemon-runtime/api.md)
 - [`providers-and-environments.md`](./providers-and-environments.md)
-- [`outcome-rooms.md`](./outcome-rooms.md)
+- [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
+- [`foundry.md`](./foundry.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md)
 - [`../../_meta/source-of-truth-map.md`](../../_meta/source-of-truth-map.md)

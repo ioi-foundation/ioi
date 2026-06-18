@@ -38,11 +38,6 @@ compliance acronyms for hidden audit material.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
-- `HypervisorFleet`: deprecated live terminology. Use
-  `HypervisorProvidersAndEnvironments`, `HypervisorEnvironmentClass`,
-  `HypervisorEnvironmentLifecycleState`, provider views, and session views.
-  Fleet must not be modeled as a separate app, application surface, posture
-  layer, runtime, authority, truth layer, or storage layer.
 - `HypervisorProvidersAndEnvironments`: the default Hypervisor capability set
   for cross-session provider integrations, environment lifecycle, managed
   runtime resources, services, tasks, ports, logs, SCM auth, archive/restore
@@ -53,24 +48,19 @@ compliance acronyms for hidden audit material.
   identity, daemon refs, provider metadata, Agentgres domain refs, authority
   refs, status, cTEE posture, storage posture, receipt refs, and projection
   watermarks.
-- `FleetNode`: deprecated alias for `HypervisorProviderNode`.
 - `HypervisorWorkloadPrimitive`: the Hypervisor projection/object for VM, container,
   microVM, WASM, image, volume, network, snapshot, backup, restore point,
   GPU-pool, node-pool, migration-plan, or provider-connector lifecycle state.
   It is governed infrastructure state and must still link to authority refs,
   Agentgres operation refs, and receipts when consequential.
-- `FleetWorkloadPrimitive`: deprecated alias for `HypervisorWorkloadPrimitive`.
 - `HypervisorRuntimeAssignmentView`: the Hypervisor projection over runtime
   assignments, placement reasons, workspace/run refs, authority refs,
   Agentgres operation refs, receipt refs, and status. It is observability and
   control-plane state, not execution ownership.
-- `FleetRuntimeAssignmentView`: deprecated alias for
-  `HypervisorRuntimeAssignmentView`.
 - `HypervisorStoragePosture`: the Hypervisor projection over storage-backend availability,
   retention, replication, privacy class, and Agentgres artifact refs. It does
   not make storage backends the authority over payload meaning or restore
   validity.
-- `FleetStoragePosture`: deprecated alias for `HypervisorStoragePosture`.
 - `WorkspacePersistenceProfile`: Hypervisor policy object for ephemeral,
   session, zero-to-idle, persistent, or archive-only workspaces. It declares
   idle behavior, compute shutdown, provider lease closure, archive/checkpoint
@@ -123,7 +113,6 @@ compliance acronyms for hidden audit material.
   on risk, that records why a workload, private workspace, model mount, worker,
   service, or runtime assignment should land on a node/provider. It cannot
   bypass wallet.network, daemon execution, cTEE custody, or Agentgres admission.
-- `FleetPlacementDecision`: deprecated alias for `HypervisorPlacementDecision`.
 - `HypervisorProviderIntegration`: a direct Hypervisor integration with a
   provider or inventory source that can run, store, network, attest, or host
   autonomous work. Examples include local machines, customer clouds,
@@ -467,11 +456,11 @@ compliance acronyms for hidden audit material.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
   such as Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
   Receipts/Audit, or Connectors. Provider/environment posture is a default
-  Hypervisor view, not a separate Fleet application surface. Application
+  Hypervisor view, not a separate provider-management application surface. Application
   surfaces are not separate apps with separate runtime truth.
 - `HypervisorWorkbench`: the code, systems, workspace, editor, terminal,
   browser, workflow, and debugging surface over Hypervisor Core. It replaces
-  "Hypervisor IDE" as the live product term for the code-oriented Hypervisor
+  one editor shell as the live product term for the code-oriented Hypervisor
   experience.
 - `HypervisorAutomations`: the durable workflow, trigger, schedule, webhook,
   approval-flow, queue-worker, service/API, and background-mission surface over
@@ -503,39 +492,27 @@ compliance acronyms for hidden audit material.
 - `HypervisorAutomationRun`: run/session projection for one execution of an
   AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
   operation refs, receipt refs, artifact refs, and terminal status.
-- `OutcomeRoom`: governed collaborative mission pattern where many agents,
-  models, harnesses, humans, sessions, and verifier lanes search toward one
-  measurable outcome under explicit objective metrics, quality guardrails,
-  budgets, authority, privacy posture, receipts, and promotion policy.
-- `IoiAiOutcomeRoom`: chat.ioi.ai's first-party implementation of
-  `OutcomeRoom` over Hypervisor Core, CLI/headless operation, Automations,
-  sessions, harness adapters, daemon gates, wallet.network authority,
-  Agentgres receipts, and Foundry/eval lanes.
-- `CollaborativeMission`: a mission class used by Outcome Rooms when multiple
-  participants or attempts work on the same outcome. It is not a group chat or
-  unbounded swarm; it is a durable Automations object backed by daemon
-  execution, Agentgres receipts, wallet.network authority, and Foundry/eval
-  scoring.
-- `OutcomeParticipant`: a human, worker, agent harness adapter, model route,
-  service module, verifier, or external AIIP domain participating in an Outcome
-  Room under explicit session, harness/model, authority, and contribution
-  receipt bindings.
-- `OutcomeSearchPolicy`: policy that controls multi-path search, benchmark
-  races, eval playouts, verifier tournaments, branch/snapshot/rollback use,
-  allowed harnesses, required checks, and promotion gates inside an Outcome
-  Room.
-- `OutcomeAttempt`: isolated attempt from one participant/session/branch or
-  snapshot in an Outcome Room. It binds proposed actions, execution refs,
-  artifacts, traces, receipts, scorecards, and terminal status so attempts are
-  comparable and replayable.
-- `OutcomeScorecard`: scored evaluation result for an OutcomeAttempt. It
-  records objective metrics, quality-guardrail results, cost/risk summaries,
-  reproducibility state, receipt completeness, and promotion verdict.
-- `StockfishStyleCodingSearch`: product shorthand for Outcome Room search over
-  code and computer-use states: candidate actions are explored across branches,
-  snapshots, and sessions; tests, static analysis, visual verification,
-  runtime traces, benchmarks, and policy checks score attempts before
-  promotion.
+- `IoiAiGoal`: user-facing goal object for chat.ioi.ai / ioi.ai. It carries
+  goal text, constraints, privacy posture, authority context, project refs, and
+  terminal state.
+- `IoiAiOutcomePlan`: ioi.ai coordination plan for a goal. It selects the
+  materialization shape, such as single path, multi-model answer, multi-harness
+  attempt, software search, computer-use task, automation handoff, Foundry job,
+  wallet action, or marketplace handoff.
+- `IoiAiAttemptSummary`: comparable evidence projection for one model, worker,
+  harness, connector, service, or session attempt. It binds observations,
+  artifacts, receipts, verifier refs, summary text, and terminal status.
+- `GoalAppropriateSearchPolicy`: policy used by ioi.ai to decide whether a goal
+  should stay lightweight or materialize multiple models, harnesses, workers,
+  connectors, sessions, branches, or verifier lanes.
+- `CollaborativeMission`: a durable Hypervisor Automations mission class that
+  may be created from an ioi.ai collaborative outcome handoff. It is not a group
+  chat or unbounded swarm; it is backed by daemon execution, Agentgres receipts,
+  wallet.network authority, and applicable Foundry/eval scoring.
+- `StockfishStyleCodingSearch`: product shorthand for code and computer-use
+  search over branches, snapshots, and sessions. Tests, static analysis, visual
+  verification, runtime traces, benchmarks, and policy checks score attempts
+  before promotion when the goal calls for that shape.
 - `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
   OS surface, hosted worker, HypervisorOS node, or external tool that a
   Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,
@@ -864,10 +841,11 @@ compliance acronyms for hidden audit material.
 - `HypervisorFoundry`: the Hypervisor application surface for model garden,
   model registry, model routes/mounts, tuning, training, evaluation, datasets,
   feature views, experiments, pipelines, endpoints, batch inference, metadata,
-  monitoring, worker/package creation, ontology-aware package building, and
-  promotion proposals. It can project recipes into the standard Workflow
-  Compositor, but it is not a separate canvas environment, Outcome Room, or
-  runtime.
+  monitoring, simulation training, robotics worlds, worker/package creation,
+  ontology-aware package building, and promotion proposals. It can project
+  recipes into the standard Workflow Compositor, but it is not a separate
+  canvas environment, ioi.ai coordination surface, physical actuator authority,
+  or runtime.
 - `HypervisorProviderEnvironmentView`: default Hypervisor App, Hypervisor Web,
   CLI/headless, optional TUI, or console view for hands-on management of
   attached nodes, providers, persistent workspaces, active
@@ -875,15 +853,11 @@ compliance acronyms for hidden audit material.
   trace summaries, replay availability, and start/stop/resume/archive/restore
   actions. It requests and displays; it does not own execution, authority,
   Agentgres truth, or storage bytes.
-- `HypervisorFleetSurface`: deprecated alias for
-  `HypervisorProviderEnvironmentView`. Do not use as live product canon.
 - `ConsoleIoiAiProviderEnvironmentView`: the console.ioi.ai web/org/admin lens
   for accounts, devices, entitlements, node registry, provider integrations,
   provider status, billing, remote access, restore routing, and org policy
   visibility. It is an ioi.ai control-plane view over Hypervisor provider and
   environment posture, not the daemon.
-- `ConsoleIoiAiFleetSurface`: deprecated alias for
-  `ConsoleIoiAiProviderEnvironmentView`.
 - `WorkflowCompositor`: the high-level directed-work surface over Hypervisor
   Core and the SharedBuilderSubstrate. It owns workflow/service graph shape,
   typed step contracts, dependencies, acceptance criteria, review points,
@@ -916,13 +890,6 @@ compliance acronyms for hidden audit material.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
-- `HypervisorIDE`: deprecated live parent-product wording. Use
-  `HypervisorWorkbench` for the code/systems/workspace surface, `HypervisorApp`
-  for the native desktop client, `HypervisorWeb` for the browser/team/remote
-  client, and `HypervisorCliHeadless` for terminal/headless operation.
-  Historical
-  docs may use Hypervisor IDE as shorthand for the old IDE-grade operator
-  console; new live architecture must qualify or replace it.
 - `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
   Codex, Claude Code, Grok Build, JetBrains, OpenHands, Aider, hosted agents,

@@ -44,8 +44,9 @@ Physical/embodied work
 Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
   -> components/hypervisor/providers-and-environments.md
 
-Stockfish-style coding, multi-agent search, or benchmarked outcome races
-  -> components/hypervisor/outcome-rooms.md
+ioi.ai multi-model goal pursuit, Stockfish-style coding search, or
+goal-appropriate collaborative outcomes
+  -> domains/ioi-ai/collaborative-outcome-pattern.md
 
 Model gardens, tuning, evals, datasets, endpoints, training, package promotion,
 or ontology-aware worker building
@@ -60,14 +61,15 @@ Current Hypervisor product-surface addition:
 > Workbench, Automations, and Foundry are application surfaces over the same
 > Core. Automations owns the durable workflow/service/mission surface, while
 > Canvas is a visual editor/projection inside Automations, Workbench, or
-> Foundry. chat.ioi.ai Outcome Rooms are ioi.ai's first-party governed
-> collaborative missions over Hypervisor for multi-agent/multi-session search
-> toward one measurable outcome. Foundry is the model, worker, eval, dataset,
-> training, endpoint, registry, and ontology-aware package-building surface.
+> Foundry. ioi.ai is the intent-to-outcome surface; when a goal calls for it,
+> ioi.ai can coordinate multiple models, harnesses, workers, connectors,
+> sessions, branches, and verifier lanes over Hypervisor. Foundry is the model,
+> worker, eval, dataset, simulation-training, endpoint, registry, and
+> ontology-aware package-building surface.
 > Sessions are
 > the primary unit. Providers, environments, services, tasks, ports, logs,
 > archive refs, restore refs, and infrastructure posture are default Hypervisor
-> session/project/provider views, not a separate Fleet surface. Editor
+> session/project/provider views. Editor
 > integrations and external agent harnesses such as VS Code, Cursor, Windsurf,
 > JetBrains, Codex, Claude Code, Grok Build, browser IDEs, terminals, VMs,
 > local OS surfaces, and HypervisorOS nodes are adapter targets, not
