@@ -235,7 +235,6 @@ const activeHypervisorFixtureSources = [
 const workspaceWorkbenchCopySources = [
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
   "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
-  "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
   "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
 ].map(read).join("\n");
@@ -267,7 +266,6 @@ const hypervisorVisibleSurfaceSources = [
 const hypervisorClientNamespaceSources = [
   "apps/hypervisor/index.html",
   "apps/hypervisor/src/services/workspaceShellState.ts",
-  "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
   "apps/hypervisor/src/services/chatLaunchState.ts",
   "apps/hypervisor/src/services/chatShellLaunchState.ts",
   "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
@@ -796,7 +794,6 @@ assert(
   [
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
     "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
-    "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
     "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
     "apps/hypervisor/src/services/hypervisorAppearance.ts",
     ...retiredDirectWorkspaceSurfacePaths,

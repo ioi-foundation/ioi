@@ -159,19 +159,6 @@ export function useWorkspaceWorkbenchSession(params: {
     });
   }, [currentProject, host, runtime, session]);
 
-  useEffect(() => {
-    if (!active || !session) {
-      return;
-    }
-    return host.startRequestPolling({
-      active: enabled,
-      runtime,
-      session,
-      pollMs: host.describeLifecyclePolicy().bridgeRequestPollMs,
-      recordMetric: markWorkspaceMetric,
-    });
-  }, [active, enabled, host, runtime, session]);
-
   const status: WorkspaceStatus = !enabled
     ? "idle"
     : error

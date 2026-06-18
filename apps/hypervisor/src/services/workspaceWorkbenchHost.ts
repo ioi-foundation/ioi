@@ -1,5 +1,4 @@
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
-import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
 import type {
   WorkspaceAdapter,
   WorkspaceLayoutMode,
@@ -51,7 +50,6 @@ export interface WorkspaceWorkbenchSessionDescriptor {
 export interface WorkspaceWorkbenchLifecyclePolicy {
   idlePrewarmDelayMs: number;
   bridgeStateRefreshMs: number;
-  bridgeRequestPollMs: number;
 }
 
 export interface WorkspaceWorkbenchHost {
@@ -64,22 +62,12 @@ export interface WorkspaceWorkbenchHost {
     session: WorkspaceWorkbenchHostSession,
     state: Record<string, unknown>,
   ): Promise<void>;
-  takeRequests(
-    session: WorkspaceWorkbenchHostSession,
-  ): Promise<WorkspaceBridgeRouteRequest[]>;
   describeLifecyclePolicy(): WorkspaceWorkbenchLifecyclePolicy;
   startStateSync(params: {
     runtime: HypervisorClientRuntime;
     currentProject: WorkspaceWorkbenchProjectDescriptor;
     session: WorkspaceWorkbenchHostSession;
     refreshMs: number;
-  }): () => void;
-  startRequestPolling(params: {
-    active: boolean;
-    runtime: HypervisorClientRuntime;
-    session: WorkspaceWorkbenchHostSession;
-    pollMs: number;
-    recordMetric?: (name: string, detail?: Record<string, unknown>) => void;
   }): () => void;
   buildSurface(
     session: WorkspaceWorkbenchHostSession,

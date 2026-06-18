@@ -183,10 +183,6 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
     "workbench-adapters/ioi-code-editor-adapter/package.json",
     "utf8",
   );
-  const workspaceRuntimeNavigation = readFileSync(
-    "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
-    "utf8",
-  );
   const workspaceBridgeLifecycle = readFileSync(
     "apps/hypervisor/src/services/workspaceBridgeLifecycle.ts",
     "utf8",
@@ -220,17 +216,10 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
     bundledExtension,
     /registerAdapterCommands|registerCommand|createStatusBarItem|createOutputChannel|code\.open|ioi\.code\.open/,
   );
-  assert.match(
-    workspaceRuntimeNavigation,
-    /case "codeEditor\.contextSnapshot":[\s\S]*routedTo: "code-editor\.context-snapshot"/,
-  );
-  assert.match(
-    workspaceRuntimeNavigation,
-    /case "codeEditor\.inspectionTargetIndex":[\s\S]*routedTo: "code-editor\.inspection-target-index"/,
-  );
-  assert.match(
+  assert.match(workspaceBridgeLifecycle, /buildWorkspaceBridgeState/);
+  assert.doesNotMatch(
     workspaceBridgeLifecycle,
-    /routeWorkspaceBridgeRequest\(\s*params\.runtime,\s*request,\s*params\.recordMetric,\s*\)/,
+    /routeWorkspaceBridgeRequest|takeRequests|startWorkspaceBridgeRequestPolling/,
   );
   assert.match(shellContent, /const workspaceOperatorChatPane/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);

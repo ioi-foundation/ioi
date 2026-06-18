@@ -24,20 +24,13 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
   async publishState() {
     return;
   },
-  async takeRequests() {
-    return [];
-  },
   describeLifecyclePolicy() {
     return {
       idlePrewarmDelayMs: 900,
       bridgeStateRefreshMs: 10_000,
-      bridgeRequestPollMs: 10_000,
     };
   },
   startStateSync() {
-    return () => {};
-  },
-  startRequestPolling() {
     return () => {};
   },
   buildSurface(session, { projectName, refreshNonce }) {
