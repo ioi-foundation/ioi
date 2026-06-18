@@ -318,10 +318,10 @@ async function main() {
       "Settings did not expose personal access token navigation.",
     );
     assert(settingsText.includes("Integrations"), "Settings did not expose Integrations navigation.");
-    assert(settingsText.includes("Default Editor"), "Settings did not expose default editor preference.");
+    assert(settingsText.includes("Default Workbench target"), "Settings did not expose default Workbench target preference.");
     assert(settingsText.includes("Embedded Workbench"), "Settings still uses the old embedded editor label.");
     assert(
-      !(settingsText.match(/Code tab|Show the embedded VS Code editor|adapter_preference_ref/i)),
+      !(settingsText.match(/Default Editor|default selected editor|Code tab|Show the embedded VS Code editor|adapter_preference_ref/i)),
       "Settings leaked old Code tab or raw adapter-preference copy.",
     );
     const settingsShell = page.locator('[data-settings-reference-shell="ioi-settings"]');

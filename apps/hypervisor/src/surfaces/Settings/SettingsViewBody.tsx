@@ -180,12 +180,12 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
         </div>
 
         <div className="chat-settings-reference-field">
-          <span>Default Editor</span>
+          <span>Default Workbench target</span>
           <SettingsEditorTargetList view={view} />
           <em>
-            This will be your default selected editor for environments.
+            This will be your default target for Workbench sessions.
             {" "}
-            <a href="#learn-default-editor">Learn more.</a>
+            <a href="#learn-default-workbench-target">Learn more.</a>
           </em>
         </div>
 

@@ -150,7 +150,7 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(settingsViewBody, /Integrations/);
   assert.match(settingsViewBody, /Account details/);
   assert.match(settingsViewBody, /Account ID/);
-  assert.match(settingsViewBody, /Default Editor/);
+  assert.match(settingsViewBody, /Default Workbench target/);
   assert.match(settingsViewBody, /SettingsEditorTargetList/);
   assert.match(settingsViewBody, /data-settings-editor-picker/);
   assert.match(settingsViewBody, /data-settings-editor-target/);
@@ -163,8 +163,10 @@ test("settings expose Workbench adapter preference as a client default", () => {
   );
   assert.match(
     settingsViewBody,
-    /This will be your default selected editor for environments/,
+    /This will be your default target for Workbench sessions/,
   );
+  assert.doesNotMatch(settingsViewBody, /Default Editor/);
+  assert.doesNotMatch(settingsViewBody, /default selected editor/);
   assert.doesNotMatch(settingsViewBody, /Code tab/);
   assert.doesNotMatch(settingsViewBody, /Show the embedded VS Code editor/);
   assert.match(

@@ -1492,6 +1492,9 @@ Current implementation cut:
   Workbench adapter variants instead of conditional OpenVSCode walkthroughs,
   and the runtime-layout guard includes that active script in the Home taxonomy
   scan.
+  Settings now describes the preference as a Default Workbench target rather
+  than a Default Editor, and the shell contract rejects the old singular-editor
+  label and helper copy.
   Current comparison evidence:
     `/tmp/reference-ioi-current.png`
     `/tmp/hypervisor-agents-current.png`
