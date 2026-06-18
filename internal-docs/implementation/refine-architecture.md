@@ -1141,6 +1141,8 @@ Current implementation cut:
   settings sections, editor adapter targets, and Agent Harness Adapters
   `ChatLocalActivityBar` derives keyboard navigation from that contract instead
   of a hand-maintained IDE-era list
+  left-rail session shortcuts are projection-backed launched sessions only; a
+  fresh workspace no longer renders static reference-looking session rows
   `check:runtime-layout` now guards this contract so Phase 0A remains tied to
   the IOI reference cockpit rather than ONA, Tauri, or singular-IDE framing
   active visible chat, workspace, connector, model, and harness-workflow

@@ -699,6 +699,14 @@ assert(
     ) &&
     hypervisorActivityBarSource.includes("referenceLeftNavSurfaceIds") &&
     hypervisorActivityBarSource.includes("primaryNavItems") &&
+    hypervisorActivityBarSource.includes(
+      'data-ioi-reference-session-list="from-launched-sessions"',
+    ) &&
+    hypervisorActivityBarSource.includes("data-launched-session-ref") &&
+    hypervisorActivityBarSource.includes("launchedSessionRailTitle") &&
+    hypervisorShellContentSource.includes(
+      "launchedSessions={controller.sessions.launchedSessionProjections}",
+    ) &&
     hypervisorActivityBarSource.includes("WORKSPACE_NAME") &&
     hypervisorActivityBarSource.includes("chat-activity-profile-indicator") &&
     hypervisorActivityBarSource.includes("chat-activity-profile-label") &&
@@ -706,6 +714,9 @@ assert(
     hypervisorActivityBarIconsSource.includes("hypervisor-ioi-gem-vert") &&
     hypervisorActivityBarIconsSource.includes("<polygon points=") &&
     !hypervisorActivityBarIconsSource.includes('strokeWidth="12"') &&
+    !/REFERENCE_SESSION_ROWS|Write Parent Harness Evidence Boundary Doc|Write Harness Tool Call Documentation|Design Postquantum Computers Website/.test(
+      hypervisorActivityBarSource,
+    ) &&
     /\.chat-activity-brand svg\s*\{[\s\S]*width: 18px;[\s\S]*height: 18px;/.test(
       hypervisorShellBaseCssSource,
     ) &&

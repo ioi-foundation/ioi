@@ -18,6 +18,7 @@ import { WORKSPACE_NAME } from "../hypervisorShellModel";
 import {
   HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS,
   HYPERVISOR_PRIMARY_ACTION,
+  type HypervisorLaunchedSessionProjection,
 } from "../hypervisorShellNavigationModel";
 import {
   buildOperatorActivityRailModel,
@@ -34,6 +35,7 @@ interface ChatLocalActivityBarProps {
   onOpenCommandPalette: () => void;
   notificationCount: number;
   profile: AssistantUserProfile;
+  launchedSessions: readonly HypervisorLaunchedSessionProjection[];
 }
 
 interface ActivityButtonProps {
@@ -78,27 +80,6 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   receipts: <NotificationsIcon />,
   settings: <SettingsIcon />,
 };
-
-const REFERENCE_SESSION_ROWS = [
-  {
-    title: "Write Parent Harness Evidence Boundary Doc",
-    meta: "main · 6h ago",
-    status: "active",
-    badge: "3",
-  },
-  {
-    title: "Write Harness Tool Call Documentation",
-    meta: "main · 6h ago",
-    status: "idle",
-    badge: "4",
-  },
-  {
-    title: "Design Postquantum Computers Website",
-    meta: "main · 6h ago",
-    status: "idle",
-    badge: "5",
-  },
-] as const;
 
 function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   return (
@@ -245,6 +226,47 @@ function resolveProfileInitials(profile: AssistantUserProfile): string {
   return initials || profile.avatarSeed?.trim().slice(0, 2).toUpperCase() || "OP";
 }
 
+function launchedSessionRailTitle(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  return (
+    session.launch_summary.seed_intent?.trim() ||
+    session.project_label.trim() ||
+    "Hypervisor session"
+  );
+}
+
+function launchedSessionRailMeta(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const recipeKind = session.recipe_kind.replace(/_/g, " ");
+  const state =
+    session.admission_state === "daemon_admitted"
+      ? "admitted"
+      : session.admission_state === "pending_daemon_admission"
+        ? "pending"
+        : session.admission_state === "daemon_unavailable"
+          ? "daemon unavailable"
+          : "blocked";
+
+  return `${recipeKind} · ${state}`;
+}
+
+function launchedSessionRailBadge(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  switch (session.admission_state) {
+    case "daemon_admitted":
+      return "✓";
+    case "daemon_blocked":
+      return "!";
+    case "daemon_unavailable":
+      return "?";
+    case "pending_daemon_admission":
+      return "...";
+  }
+}
+
 export function ChatLocalActivityBar({
   activeView,
   onViewChange,
@@ -252,6 +274,7 @@ export function ChatLocalActivityBar({
   onOpenCommandPalette,
   notificationCount,
   profile,
+  launchedSessions,
 }: ChatLocalActivityBarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -399,34 +422,42 @@ export function ChatLocalActivityBar({
         ) : null}
       </div>
 
-      <div className="chat-activity-projects" aria-label="Session shortcuts">
-        <div className="chat-activity-project-label">
-          <span aria-hidden="true">⌄</span>
-          <span>From scratch</span>
+      {launchedSessions.length > 0 ? (
+        <div className="chat-activity-projects" aria-label="Session shortcuts">
+          <div className="chat-activity-project-label">
+            <span aria-hidden="true">⌄</span>
+            <span>From scratch</span>
+          </div>
+          <div
+            className="chat-activity-session-list"
+            data-ioi-reference-session-list="from-launched-sessions"
+          >
+            {launchedSessions.slice(0, 3).map((session) => (
+              <button
+                type="button"
+                key={session.session_ref}
+                className="chat-activity-session-row"
+                data-session-status={
+                  session.admission_state === "daemon_admitted" ? "active" : "idle"
+                }
+                data-launched-session-ref={session.session_ref}
+                data-launched-session-admission={session.admission_state}
+                title={launchedSessionRailTitle(session)}
+                onClick={() => onViewChange("sessions")}
+              >
+                <span className="chat-activity-session-row__dot" aria-hidden="true" />
+                <span className="chat-activity-session-row__copy">
+                  <strong>{launchedSessionRailTitle(session)}</strong>
+                  <em>{launchedSessionRailMeta(session)}</em>
+                </span>
+                <span className="chat-activity-session-row__badge">
+                  {launchedSessionRailBadge(session)}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div
-          className="chat-activity-session-list"
-          data-ioi-reference-session-list="from-scratch"
-        >
-          {REFERENCE_SESSION_ROWS.map((session) => (
-            <button
-              type="button"
-              key={session.title}
-              className="chat-activity-session-row"
-              data-session-status={session.status}
-              title={session.title}
-              onClick={() => onViewChange("sessions")}
-            >
-              <span className="chat-activity-session-row__dot" aria-hidden="true" />
-              <span className="chat-activity-session-row__copy">
-                <strong>{session.title}</strong>
-                <em>{session.meta}</em>
-              </span>
-              <span className="chat-activity-session-row__badge">{session.badge}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       <div className="chat-activity-spacer" />
 

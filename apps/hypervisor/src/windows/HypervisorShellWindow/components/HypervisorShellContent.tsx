@@ -2916,6 +2916,7 @@ export function HypervisorShellContent({
           onOpenCommandPalette={controller.modals.openCommandPalette}
           notificationCount={notificationBadgeCount}
           profile={controller.profile.value}
+          launchedSessions={controller.sessions.launchedSessionProjections}
         />
 
         <div

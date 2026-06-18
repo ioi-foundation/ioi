@@ -147,6 +147,10 @@ async function main() {
       "Home duplicates session recents below the prompt instead of leaving them in the left rail.",
     );
     assert(
+      (await page.locator(".chat-activity-session-row").count()) === 0,
+      "Fresh Home must not render hardcoded session shortcuts in the left rail.",
+    );
+    assert(
       (await page.locator(".chat-activity-profile-indicator").count()) === 1 &&
         bodyText.includes("IOI Workspace") &&
         bodyText.includes("Operator"),

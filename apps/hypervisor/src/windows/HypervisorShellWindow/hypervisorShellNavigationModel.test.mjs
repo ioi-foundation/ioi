@@ -313,10 +313,17 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /chat-activity-project-label/);
   assert.match(activityBar, /From scratch/);
   assert.match(activityBar, /chat-activity-session-list/);
-  assert.match(activityBar, /data-ioi-reference-session-list="from-scratch"/);
-  assert.match(activityBar, /Write Parent Harness Evidence Boundary Doc/);
-  assert.match(activityBar, /Write Harness Tool Call Documentation/);
-  assert.match(activityBar, /Design Postquantum Computers Website/);
+  assert.match(activityBar, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
+  assert.match(activityBar, /data-ioi-reference-session-list="from-launched-sessions"/);
+  assert.match(activityBar, /data-launched-session-ref/);
+  assert.match(activityBar, /data-launched-session-admission/);
+  assert.match(activityBar, /launchedSessionRailTitle/);
+  assert.match(activityBar, /launchedSessionRailMeta/);
+  assert.match(activityBar, /launchedSessionRailBadge/);
+  assert.doesNotMatch(activityBar, /REFERENCE_SESSION_ROWS/);
+  assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
+  assert.doesNotMatch(activityBar, /Write Harness Tool Call Documentation/);
+  assert.doesNotMatch(activityBar, /Design Postquantum Computers Website/);
   assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
   assert.doesNotMatch(
     activityBar,
@@ -568,6 +575,10 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-launched-session-list/);
   assert.match(shellContent, /data-launched-session-ref/);
   assert.match(shellContent, /data-launched-session-admission/);
+  assert.match(
+    shellContent,
+    /launchedSessions=\{controller\.sessions\.launchedSessionProjections\}/,
+  );
   assert.match(shellContent, /launchedSessionAdmissionLabel/);
   assert.match(shellContent, /launchedSessionAdmissionDetail/);
   assert.match(
