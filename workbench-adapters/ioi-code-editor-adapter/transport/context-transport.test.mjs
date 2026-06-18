@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
 const {
   buildRuntimeRefs,
-  createCodeEditorAdapterBridge,
-} = require("./workspace-bridge.js");
+  createCodeEditorAdapterTransport,
+} = require("./context-transport.js");
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -19,7 +19,7 @@ function listen(server) {
   });
 }
 
-test("code editor adapter bridge writes only adapter request envelopes", async () => {
+test("code editor adapter transport writes only adapter context envelopes", async () => {
   const requests = [];
   const server = createServer((request, response) => {
     const chunks = [];
@@ -37,10 +37,10 @@ test("code editor adapter bridge writes only adapter request envelopes", async (
 
   const base = await listen(server);
   try {
-    const bridge = createCodeEditorAdapterBridge({
-      bridgeUrl: () => base,
+    const transport = createCodeEditorAdapterTransport({
+      transportUrl: () => base,
     });
-    const written = await bridge.writeBridgeRequest(
+    const written = await transport.writeContextEnvelope(
       "codeEditor.contextSnapshot",
       { workspaceRoot: "/workspace/repo" },
       { source: "unit" },

@@ -166,7 +166,7 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
 });
 
-test("workspace embedding keeps command center in Hypervisor shell, not editor adapter bridge", () => {
+test("workspace embedding keeps command center in Hypervisor shell, not editor adapter transport", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "utf8",
@@ -177,6 +177,10 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
   );
   const bundledExtension = readFileSync(
     "workbench-adapters/ioi-code-editor-adapter/extension.js",
+    "utf8",
+  );
+  const adapterPackage = readFileSync(
+    "workbench-adapters/ioi-code-editor-adapter/package.json",
     "utf8",
   );
   const workspaceRuntimeNavigation = readFileSync(
@@ -209,8 +213,13 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
   assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
   assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
   assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
-  assert.match(bundledExtension, /registerAdapterCommands/);
-  assert.match(bundledExtension, /Code editor adapter active\./);
+  assert.match(bundledExtension, /createCodeEditorAdapterTransport/);
+  assert.match(bundledExtension, /startCodeEditorContextPublisher/);
+  assert.doesNotMatch(adapterPackage, /"contributes"/);
+  assert.doesNotMatch(
+    bundledExtension,
+    /registerAdapterCommands|registerCommand|createStatusBarItem|createOutputChannel|code\.open|ioi\.code\.open/,
+  );
   assert.match(
     workspaceRuntimeNavigation,
     /case "codeEditor\.contextSnapshot":[\s\S]*routedTo: "code-editor\.context-snapshot"/,

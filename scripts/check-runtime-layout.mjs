@@ -86,11 +86,11 @@ const codeEditorAdapterPackage = read(
 const codeEditorAdapterExtension = read(
   "workbench-adapters/ioi-code-editor-adapter/extension.js",
 );
-const codeEditorAdapterBridge = read(
-  "workbench-adapters/ioi-code-editor-adapter/bridge/workspace-bridge.js",
+const codeEditorAdapterTransport = read(
+  "workbench-adapters/ioi-code-editor-adapter/transport/context-transport.js",
 );
-const codeEditorAdapterClient = read(
-  "workbench-adapters/ioi-code-editor-adapter/bridge/client.js",
+const codeEditorAdapterTransportClient = read(
+  "workbench-adapters/ioi-code-editor-adapter/transport/client.js",
 );
 const codeEditorAdapterPublisher = read(
   "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
@@ -110,9 +110,6 @@ const hypervisorShellNavigationSource = read(
 );
 const workbenchAdapterPreferencesSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
-);
-const workspaceEditorAdapterBridgeSource = read(
-  "apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts",
 );
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
@@ -427,21 +424,17 @@ assert(
   "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
 );
 assert(
-  "workbench-adapter-bridge-command-names",
-  workspaceEditorAdapterBridgeSource.includes('"ensure_workbench_adapter_session"') &&
-    workspaceEditorAdapterBridgeSource.includes('"stop_workbench_adapter_session"') &&
-    workspaceEditorAdapterBridgeSource.includes(
-      '"write_workbench_adapter_bridge_state"',
-    ) &&
-    workspaceEditorAdapterBridgeSource.includes(
-      '"enqueue_workbench_adapter_bridge_command"',
-    ) &&
-    workspaceEditorAdapterBridgeSource.includes(
-      '"take_workbench_adapter_bridge_requests"',
-    ) &&
-    !/workspace_ide|Workspace IDE/.test(workspaceEditorAdapterBridgeSource),
+  "workbench-adapter-command-queue-retired",
+  !exists("apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts") &&
+    !/ensure_workbench_adapter_session|stop_workbench_adapter_session|write_workbench_adapter_bridge_state|enqueue_workbench_adapter_bridge_command|take_workbench_adapter_bridge_requests/.test(
+      allFiles("apps/hypervisor/src", (relative) =>
+        /\.(ts|tsx|js|jsx)$/.test(relative),
+      )
+        .map(read)
+        .join("\n"),
+    ),
   ["apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts"],
-  "Workbench adapter bridge commands must use Workbench adapter protocol names, not retired workspace_ide command ids.",
+  "Unused editor-adapter command queues must stay deleted; code editors provide context transport only and product controls live in Hypervisor Home/Sessions/Projects.",
 );
 assert(
   "chat-shell-hypervisor-route-names",
@@ -663,14 +656,14 @@ assert(
     !/"contributes"|ioi\.code\.open|viewsContainers|viewsWelcome|ioi\.hypervisor\.(home|studio|workflow|models|runs|policy|connectors)/.test(
       codeEditorAdapterPackage,
     ) &&
-    codeEditorAdapterExtension.includes("createCodeEditorAdapterBridge") &&
+    codeEditorAdapterExtension.includes("createCodeEditorAdapterTransport") &&
     codeEditorAdapterExtension.includes("startCodeEditorContextPublisher") &&
-    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot|registerCommand|code\.open|ioi\.code\.open/.test(
+    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot|registerCommand|createStatusBarItem|createOutputChannel|code\.open|ioi\.code\.open/.test(
       codeEditorAdapterExtension,
     ) &&
-    codeEditorAdapterBridge.includes("ioi.code_editor_adapter_request.v1") &&
+    codeEditorAdapterTransport.includes("ioi.code_editor_adapter_request.v1") &&
     !/readBridgeState|readBridgeCommands|defaultBridgeState|commandRouteReceipt/.test(
-      codeEditorAdapterBridge,
+      codeEditorAdapterTransport,
     ) &&
     codeEditorAdapterPublisher.includes("codeEditor.contextSnapshot") &&
     codeEditorAdapterPublisher.includes("codeEditor.inspectionTargetIndex") &&
@@ -678,12 +671,12 @@ assert(
       codeEditorAdapterPublisher,
     ) &&
     !/daemonEndpoint|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/.test(
-      codeEditorAdapterClient,
+      codeEditorAdapterTransportClient,
     ),
   [
     "workbench-adapters/ioi-code-editor-adapter/package.json",
     "workbench-adapters/ioi-code-editor-adapter/extension.js",
-    "workbench-adapters/ioi-code-editor-adapter/bridge/workspace-bridge.js",
+    "workbench-adapters/ioi-code-editor-adapter/transport/context-transport.js",
     "workbench-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
   ],
   "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, and daemon model-mount state belong to the Hypervisor shell/daemon.",

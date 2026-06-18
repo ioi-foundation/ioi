@@ -2,14 +2,14 @@ const crypto = require("crypto");
 
 function startCodeEditorContextPublisher({
   context,
-  output,
   vscode,
   buildCodeEditorContextSnapshot,
   buildCodeEditorInspectionTargetIndex,
-  writeBridgeRequest,
+  writeContextEnvelope,
   rememberRecentTaskLabel,
   getLastTaskExitCode,
   setLastTaskExitCode,
+  reportError,
 }) {
   let lastHash = "";
   let lastTargetHash = "";
@@ -34,7 +34,7 @@ function startCodeEditorContextPublisher({
         .digest("hex");
       if (hash !== lastHash) {
         lastHash = hash;
-        await writeBridgeRequest("codeEditor.contextSnapshot", snapshot, {
+        await writeContextEnvelope("codeEditor.contextSnapshot", snapshot, {
           source: "ioi-code-editor-adapter",
           reason,
         });
@@ -52,15 +52,13 @@ function startCodeEditorContextPublisher({
         .digest("hex");
       if (targetHash !== lastTargetHash) {
         lastTargetHash = targetHash;
-        await writeBridgeRequest("codeEditor.inspectionTargetIndex", targetIndex, {
+        await writeContextEnvelope("codeEditor.inspectionTargetIndex", targetIndex, {
           source: "ioi-code-editor-adapter",
           reason,
         });
       }
     } catch (error) {
-      output.appendLine(
-        `Code editor context snapshot failed: ${error?.message || String(error)}`,
-      );
+      reportError?.(error);
     } finally {
       publishing = false;
     }

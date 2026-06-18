@@ -1,8 +1,8 @@
 "use strict";
 
 const vscode = require("vscode");
-const { bridgeUrl } = require("./bridge/client");
-const { createCodeEditorAdapterBridge } = require("./bridge/workspace-bridge");
+const { transportUrl } = require("./transport/client");
+const { createCodeEditorAdapterTransport } = require("./transport/context-transport");
 const {
   startCodeEditorContextPublisher,
 } = require("./editor-context/context-publisher");
@@ -29,14 +29,14 @@ function refSafe(value) {
   return String(value ?? "unknown").replace(/[^a-z0-9._:-]+/gi, "-");
 }
 
-const workspaceBridge = createCodeEditorAdapterBridge({
-  bridgeUrl,
+const contextTransport = createCodeEditorAdapterTransport({
+  transportUrl,
 });
 
 const {
   buildRuntimeRefs,
-  writeBridgeRequest,
-} = workspaceBridge;
+  writeContextEnvelope,
+} = contextTransport;
 
 const editorContext = createCodeEditorContextSnapshot({
   vscode,
@@ -46,31 +46,22 @@ const editorContext = createCodeEditorContextSnapshot({
 });
 
 function activate(context) {
-  const output = vscode.window.createOutputChannel("IOI Code Adapter");
-  output.appendLine("IOI Code Adapter extension activated.");
-  context.subscriptions.push(output);
-
   startCodeEditorContextPublisher({
     context,
-    output,
     vscode,
     buildCodeEditorContextSnapshot: editorContext.buildCodeEditorContextSnapshot,
     buildCodeEditorInspectionTargetIndex: editorContext.buildCodeEditorInspectionTargetIndex,
-    writeBridgeRequest,
+    writeContextEnvelope,
     rememberRecentTaskLabel: editorContext.rememberRecentTaskLabel,
     getLastTaskExitCode: editorContext.getLastTaskExitCode,
     setLastTaskExitCode: editorContext.setLastTaskExitCode,
+    reportError: (error) => {
+      console.warn(
+        "[IOI Code Editor Adapter] Context snapshot failed:",
+        error?.message || String(error),
+      );
+    },
   });
-
-  const statusItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Left,
-    80,
-  );
-  statusItem.name = "IOI Code Adapter";
-  statusItem.text = "$(symbol-keyword) IOI";
-  statusItem.tooltip = "IOI Code Adapter publishes editor context to Hypervisor.";
-  statusItem.show();
-  context.subscriptions.push(statusItem);
 }
 
 function deactivate() {}

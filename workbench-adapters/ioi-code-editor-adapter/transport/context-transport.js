@@ -12,14 +12,16 @@ function buildRuntimeRefs() {
   };
 }
 
-function createCodeEditorAdapterBridge({ bridgeUrl }) {
-  function requestBridge(method, bridgePath, payload, { timeoutMs } = {}) {
-    const base = bridgeUrl();
+function createCodeEditorAdapterTransport({ transportUrl }) {
+  function postEnvelope(transportPath, payload, { timeoutMs } = {}) {
+    const base = transportUrl();
     if (!base) {
-      return Promise.reject(new Error("IOI code editor adapter bridge URL is not configured."));
+      return Promise.reject(
+        new Error("IOI code editor adapter transport URL is not configured."),
+      );
     }
 
-    const target = new URL(bridgePath, `${base}/`);
+    const target = new URL(transportPath, `${base}/`);
     const client = target.protocol === "https:" ? https : http;
     const body = payload ? JSON.stringify(payload) : null;
 
@@ -27,7 +29,7 @@ function createCodeEditorAdapterBridge({ bridgeUrl }) {
       const request = client.request(
         target,
         {
-          method,
+          method: "POST",
           headers: body
             ? {
                 "content-type": "application/json",
@@ -43,7 +45,7 @@ function createCodeEditorAdapterBridge({ bridgeUrl }) {
             if (response.statusCode >= 400) {
               reject(
                 new Error(
-                  `[IOI Code Adapter] Bridge request failed (${response.statusCode}): ${raw}`,
+                  `[IOI Code Editor Adapter] Transport request failed (${response.statusCode}): ${raw}`,
                 ),
               );
               return;
@@ -56,7 +58,9 @@ function createCodeEditorAdapterBridge({ bridgeUrl }) {
       if (timeoutMs && Number.isFinite(Number(timeoutMs))) {
         const boundedTimeoutMs = Math.max(500, Math.floor(Number(timeoutMs)));
         request.setTimeout(boundedTimeoutMs, () => {
-          request.destroy(new Error(`Bridge request timed out after ${boundedTimeoutMs}ms.`));
+          request.destroy(
+            new Error(`Transport request timed out after ${boundedTimeoutMs}ms.`),
+          );
         });
       }
       request.on("error", reject);
@@ -67,8 +71,8 @@ function createCodeEditorAdapterBridge({ bridgeUrl }) {
     });
   }
 
-  async function writeBridgeRequest(requestType, payload = {}, context = null) {
-    const request = {
+  async function writeContextEnvelope(requestType, payload = {}, context = null) {
+    const envelope = {
       schemaVersion: "ioi.code_editor_adapter_request.v1",
       requestId: crypto.randomUUID(),
       requestType,
@@ -80,18 +84,18 @@ function createCodeEditorAdapterBridge({ bridgeUrl }) {
       runtimeRefs: buildRuntimeRefs(),
       timestampMs: Date.now(),
     };
-    await requestBridge("POST", "requests", request);
-    return request;
+    await postEnvelope("requests", envelope);
+    return envelope;
   }
 
   return {
     buildRuntimeRefs,
-    requestBridge,
-    writeBridgeRequest,
+    postEnvelope,
+    writeContextEnvelope,
   };
 }
 
 module.exports = {
   buildRuntimeRefs,
-  createCodeEditorAdapterBridge,
+  createCodeEditorAdapterTransport,
 };

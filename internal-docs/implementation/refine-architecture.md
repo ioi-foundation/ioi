@@ -980,11 +980,12 @@ Current implementation cut:
 
 0A.1B is partially implemented:
   ChatIdeHeader.tsx -> HypervisorClientHeader.tsx
-  workspaceIde.ts -> workspaceEditorAdapterBridge.ts
-  workspace adapter host bridge commands now use `workbench_adapter` protocol
-    names (`ensure_workbench_adapter_session`,
-    `write_workbench_adapter_bridge_state`, etc.), and
-    `check:runtime-layout` rejects the retired `workspace_ide` command ids
+  workspaceIde.ts and the later `workspaceEditorAdapterBridge.ts` command-queue
+    shim are deleted from active implementation paths. Code editor adapters
+    publish context envelopes only; Hypervisor Home/Sessions/Projects owns
+    product controls.
+  `check:runtime-layout` rejects both retired `workspace_ide` command ids and
+    the later unused `workbench_adapter_bridge` command queue.
   companion/work-graph shell entry points now route to the canonical `process`
     view instead of the retired `autopilot` Chat shell view id, with a
     `check:runtime-layout` guard
@@ -1062,10 +1063,11 @@ Current implementation cut:
   the tracked extension package is now `workbench-adapters/ioi-code-editor-adapter`.
   It contributes no command-palette/product routes; it activates on startup and
   publishes one-way `codeEditor.contextSnapshot` and
-  `codeEditor.inspectionTargetIndex` request envelopes. The adapter no longer
-  emits an open-surface request, polls bridge command queues, reads daemon model-mount
-  state, emits command-route receipt envelopes, or accepts product-shell routes
-  such as command center, workflow, models, runs, policy, or connectors.
+  `codeEditor.inspectionTargetIndex` request envelopes through the adapter
+  transport. The adapter no longer emits an open-surface request, exposes
+  status/output UI, polls bridge command queues, reads daemon model-mount state,
+  emits command-route receipt envelopes, or accepts product-shell routes such as
+  command center, workflow, models, runs, policy, or connectors.
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.

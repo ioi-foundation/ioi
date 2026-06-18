@@ -30,7 +30,7 @@ Canonical ownership stays split:
 - The adapter host is not patched into a Hypervisor shell. Hypervisor Home,
   Sessions, Projects, Workbench, Foundry, Providers, Receipts, and Settings live
   in the Hypervisor App/Web clients; the editor host only contributes code
-  editing context projection envelopes.
+  editing context projection envelopes through the code editor adapter transport.
 - The IOI daemon remains the runtime authority for model mounting, workflow
   execution, policy, receipts, replay, connectors, secrets, and workspace
   mutation.
