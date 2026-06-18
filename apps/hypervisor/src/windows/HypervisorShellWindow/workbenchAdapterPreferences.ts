@@ -40,6 +40,22 @@ export type HypervisorWorkbenchAdapterConnectionKind =
   | "provider_workspace"
   | "hypervisor_node_session";
 
+export type HypervisorWorkbenchAdapterExecutorLane =
+  | "embedded_workbench_host"
+  | "desktop_bridge"
+  | "browser_workspace"
+  | "terminal_session"
+  | "provider_environment"
+  | "hypervisor_node";
+
+export type HypervisorWorkbenchAdapterControlAction =
+  | "open_embedded_workbench"
+  | "request_desktop_bridge"
+  | "open_browser_workspace"
+  | "attach_terminal_session"
+  | "attach_provider_workspace"
+  | "attach_hypervisor_node";
+
 export interface WorkbenchAdapterPreference {
   adapter_id: HypervisorWorkbenchAdapterId;
   label: string;
@@ -61,6 +77,9 @@ export interface WorkbenchAdapterLaunchPlan {
   launch_mode: HypervisorWorkbenchAdapterLaunchMode;
   connection_kind: HypervisorWorkbenchAdapterConnectionKind;
   connection_contract_ref: string;
+  executor_lane: HypervisorWorkbenchAdapterExecutorLane;
+  control_action: HypervisorWorkbenchAdapterControlAction;
+  control_channel_ref: string;
   required_access_lease_refs: string[];
   required_authority_scope_refs: string[];
   required_receipt_refs: string[];
@@ -81,6 +100,9 @@ export interface WorkbenchAdapterLaunchAdmission {
   launch_mode: HypervisorWorkbenchAdapterLaunchMode;
   connection_kind: HypervisorWorkbenchAdapterConnectionKind;
   connection_contract_ref: string;
+  executor_lane: HypervisorWorkbenchAdapterExecutorLane;
+  control_action: HypervisorWorkbenchAdapterControlAction;
+  control_channel_ref: string;
   required_access_lease_refs: string[];
   required_authority_scope_refs: string[];
   required_receipt_refs: string[];
@@ -419,6 +441,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "desktop_bridge",
         connection_contract_ref:
           "connection-contract:workbench-adapter/desktop-bridge",
+        executor_lane: "desktop_bridge",
+        control_action: "request_desktop_bridge",
+        control_channel_ref: "control-channel:workbench-adapter/desktop-bridge",
         required_access_lease_refs: ["lease:workbench-adapter/desktop-bridge"],
         required_authority_scope_refs: [
           "scope:workspace.read",
@@ -439,6 +464,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "browser_workspace_url",
         connection_contract_ref:
           "connection-contract:workbench-adapter/browser-workspace",
+        executor_lane: "browser_workspace",
+        control_action: "open_browser_workspace",
+        control_channel_ref: "control-channel:workbench-adapter/browser-workspace",
         required_access_lease_refs: [
           "lease:workbench-adapter/browser-url",
           "lease:workspace/logs-read",
@@ -458,6 +486,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "terminal_session",
         connection_contract_ref:
           "connection-contract:workbench-adapter/terminal-session",
+        executor_lane: "terminal_session",
+        control_action: "attach_terminal_session",
+        control_channel_ref: "control-channel:workbench-adapter/terminal-session",
         required_access_lease_refs: [
           "lease:workbench-adapter/terminal",
           "lease:workspace/logs-read",
@@ -477,6 +508,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "provider_workspace",
         connection_contract_ref:
           "connection-contract:workbench-adapter/provider-workspace",
+        executor_lane: "provider_environment",
+        control_action: "attach_provider_workspace",
+        control_channel_ref: "control-channel:workbench-adapter/provider-workspace",
         required_access_lease_refs: [
           "lease:provider/workspace-access",
           "lease:provider/ports-read",
@@ -497,6 +531,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "hypervisor_node_session",
         connection_contract_ref:
           "connection-contract:workbench-adapter/hypervisor-node",
+        executor_lane: "hypervisor_node",
+        control_action: "attach_hypervisor_node",
+        control_channel_ref: "control-channel:workbench-adapter/hypervisor-node",
         required_access_lease_refs: [
           "lease:hypervisor-node/session-access",
           "lease:workspace/logs-read",
@@ -516,6 +553,9 @@ export function buildWorkbenchAdapterLaunchPlan(
         connection_kind: "embedded_host",
         connection_contract_ref:
           "connection-contract:workbench-adapter/embedded-host",
+        executor_lane: "embedded_workbench_host",
+        control_action: "open_embedded_workbench",
+        control_channel_ref: "control-channel:workbench-adapter/embedded-host",
         required_access_lease_refs: ["lease:workbench-adapter/embedded-host"],
         required_authority_scope_refs: [
           "scope:workspace.read",
@@ -599,6 +639,18 @@ function normalizeWorkbenchAdapterLaunchAdmission(
     connection_contract_ref:
       nullableString(record.connection_contract_ref) ??
       "connection-contract:workbench-adapter/unknown",
+    executor_lane:
+      (nullableString(
+        record.executor_lane,
+      ) as HypervisorWorkbenchAdapterExecutorLane) ?? "embedded_workbench_host",
+    control_action:
+      (nullableString(
+        record.control_action,
+      ) as HypervisorWorkbenchAdapterControlAction) ??
+      "open_embedded_workbench",
+    control_channel_ref:
+      nullableString(record.control_channel_ref) ??
+      "control-channel:workbench-adapter/unknown",
     required_access_lease_refs: stringArray(record.required_access_lease_refs),
     required_authority_scope_refs: stringArray(
       record.required_authority_scope_refs,

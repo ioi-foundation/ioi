@@ -23,9 +23,15 @@ test("Workbench landing is a product-facing adapter hub", () => {
   assert.match(gateSource, /browser workspace, a VM, or a persistent node/);
   assert.match(gateSource, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(gateSource, /getWorkbenchAdapterPreferenceRef/);
+  assert.match(gateSource, /buildWorkbenchAdapterLaunchPlan/);
   assert.match(gateSource, /data-workbench-adapter-preference/);
+  assert.match(gateSource, /data-workbench-adapter-executor-lane/);
+  assert.match(gateSource, /data-workbench-adapter-control-action/);
+  assert.match(gateSource, /data-workbench-adapter-control-channel-ref/);
+  assert.match(gateSource, /adapterControlActionLabel/);
   assert.match(gateSource, /workspace-repository-gate__adapter-list/);
   assert.match(gateSource, /workspace-repository-gate__adapter-row/);
+  assert.match(gateSource, /workspace-repository-gate__adapter-control/);
   assert.match(gateSource, /adapterAccessLabel/);
   assert.match(gateSource, /aria-pressed=\{selected\}/);
   assert.match(gateSource, /persistWorkbenchAdapterPreferenceRef/);

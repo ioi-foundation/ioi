@@ -20,6 +20,24 @@ const CONNECTION_KINDS = new Set([
   "hypervisor_node_session",
 ]);
 
+const EXECUTOR_LANES = new Set([
+  "embedded_workbench_host",
+  "desktop_bridge",
+  "browser_workspace",
+  "terminal_session",
+  "provider_environment",
+  "hypervisor_node",
+]);
+
+const CONTROL_ACTIONS = new Set([
+  "open_embedded_workbench",
+  "request_desktop_bridge",
+  "open_browser_workspace",
+  "attach_terminal_session",
+  "attach_provider_workspace",
+  "attach_hypervisor_node",
+]);
+
 const CUSTODY_POSTURES = new Set([
   "local_projection",
   "redacted_projection",
@@ -39,6 +57,9 @@ const RETIRED_ALIASES = [
   "launchMode",
   "connectionKind",
   "connectionContractRef",
+  "executorLane",
+  "controlAction",
+  "controlChannelRef",
   "requiredAccessLeaseRefs",
   "requiredAuthorityScopeRefs",
   "requiredReceiptRefs",
@@ -64,6 +85,20 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
   const connectionContractRef = requiredString(
     request.connection_contract_ref,
     "connection_contract_ref",
+  );
+  const executorLane = enumValue(
+    request.executor_lane,
+    "executor_lane",
+    EXECUTOR_LANES,
+  );
+  const controlAction = enumValue(
+    request.control_action,
+    "control_action",
+    CONTROL_ACTIONS,
+  );
+  const controlChannelRef = requiredString(
+    request.control_channel_ref,
+    "control_channel_ref",
   );
   const requiredAccessLeaseRefs = prefixedRefs(
     request.required_access_lease_refs,
@@ -118,6 +153,9 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
     launchMode,
     connectionKind,
     connectionContractRef,
+    executorLane,
+    controlAction,
+    controlChannelRef,
     requiredAccessLeaseRefs,
     requiredAuthorityScopeRefs,
     requiredReceiptRefs,
@@ -144,6 +182,9 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
     launch_mode: launchMode,
     connection_kind: connectionKind,
     connection_contract_ref: connectionContractRef,
+    executor_lane: executorLane,
+    control_action: controlAction,
+    control_channel_ref: controlChannelRef,
     required_access_lease_refs: requiredAccessLeaseRefs,
     required_authority_scope_refs: requiredAuthorityScopeRefs,
     required_receipt_refs: requiredReceiptRefs,
@@ -173,6 +214,9 @@ function assertWorkbenchAdapterLaunchPlan({
   launchMode,
   connectionKind,
   connectionContractRef,
+  executorLane,
+  controlAction,
+  controlChannelRef,
   requiredAccessLeaseRefs,
   requiredAuthorityScopeRefs,
   requiredReceiptRefs,
@@ -193,9 +237,20 @@ function assertWorkbenchAdapterLaunchPlan({
     "connection-contract:workbench-adapter/",
     "connection_contract_ref",
   );
+  requirePrefix(
+    controlChannelRef,
+    "control-channel:workbench-adapter/",
+    "control_channel_ref",
+  );
   requireNonEmpty(requiredAccessLeaseRefs, "required_access_lease_refs");
   requireNonEmpty(requiredAuthorityScopeRefs, "required_authority_scope_refs");
   requireNonEmpty(requiredReceiptRefs, "required_receipt_refs");
+
+  assertConnectionControlPair({
+    connectionKind,
+    executorLane,
+    controlAction,
+  });
 
   if (secretReleasePolicy !== "no_durable_secret_release") {
     throw admissionError({
@@ -266,6 +321,56 @@ function providerBackedConnection(connectionKind, custodyPosture) {
       connectionKind,
     )
   );
+}
+
+function assertConnectionControlPair({
+  connectionKind,
+  executorLane,
+  controlAction,
+}) {
+  const expectedByConnection = {
+    embedded_host: {
+      executorLane: "embedded_workbench_host",
+      controlAction: "open_embedded_workbench",
+    },
+    desktop_bridge: {
+      executorLane: "desktop_bridge",
+      controlAction: "request_desktop_bridge",
+    },
+    browser_workspace_url: {
+      executorLane: "browser_workspace",
+      controlAction: "open_browser_workspace",
+    },
+    terminal_session: {
+      executorLane: "terminal_session",
+      controlAction: "attach_terminal_session",
+    },
+    provider_workspace: {
+      executorLane: "provider_environment",
+      controlAction: "attach_provider_workspace",
+    },
+    hypervisor_node_session: {
+      executorLane: "hypervisor_node",
+      controlAction: "attach_hypervisor_node",
+    },
+  }[connectionKind];
+
+  if (
+    expectedByConnection &&
+    (executorLane !== expectedByConnection.executorLane ||
+      controlAction !== expectedByConnection.controlAction)
+  ) {
+    throw admissionError({
+      code: "workbench_adapter_control_contract_mismatch",
+      message:
+        "Workbench adapter control metadata must match its connection kind.",
+      details: {
+        connection_kind: connectionKind,
+        executor_lane: executorLane,
+        control_action: controlAction,
+      },
+    });
+  }
 }
 
 function prefixedRefs(value, field, prefix, { allowEmpty = false } = {}) {

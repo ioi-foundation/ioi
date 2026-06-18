@@ -824,7 +824,12 @@ assert(
     workspaceRepositoryGateSource.includes("What's new?") &&
     workspaceRepositoryGateSource.includes("HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES") &&
     workspaceRepositoryGateSource.includes("getWorkbenchAdapterPreferenceRef") &&
+    workspaceRepositoryGateSource.includes("buildWorkbenchAdapterLaunchPlan") &&
     workspaceRepositoryGateSource.includes("data-workbench-adapter-preference") &&
+    workspaceRepositoryGateSource.includes("data-workbench-adapter-executor-lane") &&
+    workspaceRepositoryGateSource.includes("data-workbench-adapter-control-action") &&
+    workspaceRepositoryGateSource.includes("data-workbench-adapter-control-channel-ref") &&
+    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-control") &&
     workspaceRepositoryGateSource.includes("persistWorkbenchAdapterPreferenceRef") &&
     !/Governance|Adapter policy|Review policy|governed adapter target|runtime truth|Hypervisor Core|Agentgres|wallet\.network/.test(
       workspaceRepositoryGateSource,
@@ -854,6 +859,12 @@ assert(
     workbenchAdapterPreferencesSource.includes(
       "connection-contract:workbench-adapter/desktop-bridge",
     ) &&
+    workbenchAdapterPreferencesSource.includes("executor_lane") &&
+    workbenchAdapterPreferencesSource.includes("control_action") &&
+    workbenchAdapterPreferencesSource.includes("control_channel_ref") &&
+    workbenchAdapterPreferencesSource.includes(
+      "control-channel:workbench-adapter/desktop-bridge",
+    ) &&
     workbenchAdapterPreferencesSource.includes(
       "lease:provider/workspace-access",
     ) &&
@@ -867,6 +878,11 @@ assert(
       "data-new-session-workbench-adapter-connection-contract-ref",
     ) &&
     hypervisorShellNavigationSource.includes("workbench_adapter_admission") &&
+    hypervisorShellNavigationSource.includes("workbench_adapter_executor_lane") &&
+    hypervisorShellNavigationSource.includes("workbench_adapter_control_action") &&
+    hypervisorShellNavigationSource.includes(
+      "workbench_adapter_control_channel_ref",
+    ) &&
     hypervisorShellNavigationSource.includes("daemon_admitted") &&
     hypervisorShellNavigationSource.includes("daemon_blocked") &&
     hypervisorShellNavigationSource.includes("daemon_unavailable") &&
@@ -887,6 +903,15 @@ assert(
     ) &&
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
       "workbench_adapter_provider_posture_ref_required",
+    ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "workbench_adapter_control_contract_mismatch",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-session-open-surface-enabled",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-session-open-surface-admission-state",
     ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/workbench-adapter-launch-plans",

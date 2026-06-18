@@ -1659,6 +1659,10 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
         connection_kind: "desktop_bridge",
         connection_contract_ref:
           "connection-contract:workbench-adapter/desktop-bridge",
+        executor_lane: "desktop_bridge",
+        control_action: "request_desktop_bridge",
+        control_channel_ref:
+          "control-channel:workbench-adapter/desktop-bridge",
         required_access_lease_refs: [
           "lease:workbench-adapter/desktop-bridge",
         ],
@@ -1691,6 +1695,12 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
     "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
   );
   assert.equal(payload.connection_kind, "desktop_bridge");
+  assert.equal(payload.executor_lane, "desktop_bridge");
+  assert.equal(payload.control_action, "request_desktop_bridge");
+  assert.equal(
+    payload.control_channel_ref,
+    "control-channel:workbench-adapter/desktop-bridge",
+  );
   assert.equal(payload.secret_release_policy, "no_durable_secret_release");
   assert.equal(payload.requiresDaemonGate, true);
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
@@ -1712,6 +1722,10 @@ test("public runtime workbench adapter launch route blocks missing provider post
         connection_kind: "provider_workspace",
         connection_contract_ref:
           "connection-contract:workbench-adapter/provider-workspace",
+        executor_lane: "provider_environment",
+        control_action: "attach_provider_workspace",
+        control_channel_ref:
+          "control-channel:workbench-adapter/provider-workspace",
         required_access_lease_refs: ["lease:provider/workspace-access"],
         required_authority_scope_refs: ["scope:provider.workspace.attach"],
         required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],

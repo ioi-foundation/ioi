@@ -170,6 +170,9 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(workbenchAdapterPreferences, /WorkbenchAdapterPreference/);
   assert.match(workbenchAdapterPreferences, /WorkbenchAdapterLaunchPlan/);
   assert.match(workbenchAdapterPreferences, /buildWorkbenchAdapterLaunchPlan/);
+  assert.match(workbenchAdapterPreferences, /executor_lane/);
+  assert.match(workbenchAdapterPreferences, /control_action/);
+  assert.match(workbenchAdapterPreferences, /control_channel_ref/);
   assert.match(
     workbenchAdapterPreferences,
     /ioi\.hypervisor\.workbench_adapter_launch_plan\.v1/,
@@ -357,6 +360,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /buildHypervisorLaunchedSessionProjection/);
   assert.match(source, /ioi\.hypervisor\.launched_session_projection\.v1/);
   assert.match(source, /workbench_adapter_admission/);
+  assert.match(source, /workbench_adapter_executor_lane/);
+  assert.match(source, /workbench_adapter_control_action/);
+  assert.match(source, /workbench_adapter_control_channel_ref/);
   assert.match(source, /daemon_admitted/);
   assert.match(source, /daemon_blocked/);
   assert.match(source, /daemon_unavailable/);

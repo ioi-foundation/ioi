@@ -14,6 +14,9 @@ function baseRequest(overrides = {}) {
     launch_mode: "external",
     connection_kind: "desktop_bridge",
     connection_contract_ref: "connection-contract:workbench-adapter/desktop-bridge",
+    executor_lane: "desktop_bridge",
+    control_action: "request_desktop_bridge",
+    control_channel_ref: "control-channel:workbench-adapter/desktop-bridge",
     required_access_lease_refs: ["lease:workbench-adapter/desktop-bridge"],
     required_authority_scope_refs: [
       "scope:workspace.read",
@@ -42,6 +45,12 @@ test("admits external editor adapter launch plans as daemon-gated leases", () =>
   );
   assert.equal(admission.decision, "admitted");
   assert.equal(admission.connection_kind, "desktop_bridge");
+  assert.equal(admission.executor_lane, "desktop_bridge");
+  assert.equal(admission.control_action, "request_desktop_bridge");
+  assert.equal(
+    admission.control_channel_ref,
+    "control-channel:workbench-adapter/desktop-bridge",
+  );
   assert.deepEqual(admission.required_access_lease_refs, [
     "lease:workbench-adapter/desktop-bridge",
   ]);
@@ -67,6 +76,10 @@ test("persistent remote adapter sessions require provider posture and restore re
           connection_kind: "provider_workspace",
           connection_contract_ref:
             "connection-contract:workbench-adapter/provider-workspace",
+          executor_lane: "provider_environment",
+          control_action: "attach_provider_workspace",
+          control_channel_ref:
+            "control-channel:workbench-adapter/provider-workspace",
           required_access_lease_refs: ["lease:provider/workspace-access"],
           required_authority_scope_refs: ["scope:provider.workspace.attach"],
           required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
@@ -91,6 +104,10 @@ test("persistent remote adapter sessions require provider posture and restore re
       connection_kind: "provider_workspace",
       connection_contract_ref:
         "connection-contract:workbench-adapter/provider-workspace",
+      executor_lane: "provider_environment",
+      control_action: "attach_provider_workspace",
+      control_channel_ref:
+        "control-channel:workbench-adapter/provider-workspace",
       required_access_lease_refs: [
         "lease:provider/workspace-access",
         "lease:provider/ports-read",
@@ -112,6 +129,8 @@ test("persistent remote adapter sessions require provider posture and restore re
   );
 
   assert.equal(admission.connection_kind, "provider_workspace");
+  assert.equal(admission.executor_lane, "provider_environment");
+  assert.equal(admission.control_action, "attach_provider_workspace");
   assert.equal(admission.provider_posture_required, true);
   assert.equal(admission.archive_ref, "artifact://workspace/archive/7");
   assert.equal(admission.restore_ref, "agentgres://restore/workspace/7");
@@ -128,6 +147,17 @@ test("blocks durable secrets, runtime-truth claims, and prim-scope masquerades",
         error.code,
         "workbench_adapter_launch_durable_secret_release_blocked",
       );
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      admitWorkbenchAdapterLaunchPlan(
+        baseRequest({ control_action: "attach_provider_workspace" }),
+      ),
+    (error) => {
+      assert.equal(error.code, "workbench_adapter_control_contract_mismatch");
       return true;
     },
   );

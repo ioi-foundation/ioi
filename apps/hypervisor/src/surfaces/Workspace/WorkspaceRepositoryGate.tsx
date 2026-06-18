@@ -20,8 +20,10 @@ import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  buildWorkbenchAdapterLaunchPlan,
   getWorkbenchAdapterPreferenceByRef,
   getWorkbenchAdapterPreferenceRef,
+  type HypervisorWorkbenchAdapterControlAction,
   type WorkbenchAdapterPreference,
 } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import {
@@ -332,6 +334,27 @@ function adapterAccessLabel(preference: WorkbenchAdapterPreference): string {
   return preference.custody_posture.split("_").join(" ");
 }
 
+function adapterControlActionLabel(
+  action: HypervisorWorkbenchAdapterControlAction,
+): string {
+  switch (action) {
+    case "open_embedded_workbench":
+      return "Open embedded";
+    case "request_desktop_bridge":
+      return "Request bridge";
+    case "open_browser_workspace":
+      return "Open browser";
+    case "attach_terminal_session":
+      return "Attach terminal";
+    case "attach_provider_workspace":
+      return "Attach workspace";
+    case "attach_hypervisor_node":
+      return "Attach node";
+    default:
+      return String(action).split("_").join(" ");
+  }
+}
+
 export function WorkspaceRepositoryGate({
   repositories,
   createError,
@@ -580,6 +603,7 @@ export function WorkspaceRepositoryGate({
                 >
                   {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((target) => {
                     const preferenceRef = getWorkbenchAdapterPreferenceRef(target);
+                    const launchPlan = buildWorkbenchAdapterLaunchPlan(target);
                     const selected =
                       getWorkbenchAdapterPreferenceRef(activeAdapterPreference) ===
                       preferenceRef;
@@ -591,6 +615,18 @@ export function WorkspaceRepositoryGate({
                         }`}
                         data-workbench-adapter-target={target.adapter_id}
                         data-workbench-adapter-preference={preferenceRef}
+                        data-workbench-adapter-executor-lane={
+                          launchPlan.executor_lane
+                        }
+                        data-workbench-adapter-control-action={
+                          launchPlan.control_action
+                        }
+                        data-workbench-adapter-control-channel-ref={
+                          launchPlan.control_channel_ref
+                        }
+                        data-workbench-adapter-connection-kind={
+                          launchPlan.connection_kind
+                        }
                         aria-pressed={selected}
                         onClick={() => selectWorkbenchAdapterPreference(target)}
                         key={target.adapter_id}
@@ -610,6 +646,9 @@ export function WorkspaceRepositoryGate({
                         </span>
                         <span className="workspace-repository-gate__adapter-access">
                           {adapterAccessLabel(target)}
+                        </span>
+                        <span className="workspace-repository-gate__adapter-control">
+                          {adapterControlActionLabel(launchPlan.control_action)}
                         </span>
                         {selected ? (
                           <span className="workspace-repository-gate__choice-selected">

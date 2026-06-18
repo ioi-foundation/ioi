@@ -400,6 +400,10 @@ test("new session launch summary binds harness, model route, adapter target, pri
       "workbench-adapter:external_editor/launch-plan",
     workbench_adapter_connection_contract_ref:
       "connection-contract:workbench-adapter/desktop-bridge",
+    workbench_adapter_executor_lane: "desktop_bridge",
+    workbench_adapter_control_action: "request_desktop_bridge",
+    workbench_adapter_control_channel_ref:
+      "control-channel:workbench-adapter/desktop-bridge",
     workbench_adapter_access_lease_refs: [
       "lease:workbench-adapter/desktop-bridge",
     ],
@@ -475,6 +479,14 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     plans.embedded_workbench?.connection_kind,
     "embedded_host",
   );
+  assert.equal(
+    plans.embedded_workbench?.executor_lane,
+    "embedded_workbench_host",
+  );
+  assert.equal(
+    plans.embedded_workbench?.control_action,
+    "open_embedded_workbench",
+  );
   assert.deepEqual(plans.embedded_workbench?.required_access_lease_refs, [
     "lease:workbench-adapter/embedded-host",
   ]);
@@ -483,20 +495,26 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     "connection-contract:workbench-adapter/desktop-bridge",
   );
   assert.equal(plans.cursor?.connection_kind, "desktop_bridge");
+  assert.equal(plans.cursor?.control_channel_ref, "control-channel:workbench-adapter/desktop-bridge");
   assert.equal(plans.windsurf?.connection_kind, "desktop_bridge");
   assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_bridge");
   assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_bridge");
   assert.equal(plans.jetbrains_rustrover?.connection_kind, "desktop_bridge");
   assert.equal(plans.jetbrains_rider?.connection_kind, "desktop_bridge");
   assert.equal(plans.vscode_browser?.connection_kind, "browser_workspace_url");
+  assert.equal(plans.vscode_browser?.executor_lane, "browser_workspace");
+  assert.equal(plans.vscode_browser?.control_action, "open_browser_workspace");
   assert.equal(plans.devin?.provider_posture_required, true);
   assert.equal(plans.terminal_workspace?.connection_kind, "terminal_session");
+  assert.equal(plans.terminal_workspace?.control_action, "attach_terminal_session");
   assert.equal(plans.browser_workspace?.provider_posture_required, true);
   assert.equal(plans.remote_vm?.restore_archive_policy, "required_for_remote_persistence");
+  assert.equal(plans.remote_vm?.executor_lane, "provider_environment");
   assert.equal(
     plans.hypervisor_node?.connection_kind,
     "hypervisor_node_session",
   );
+  assert.equal(plans.hypervisor_node?.control_action, "attach_hypervisor_node");
 
   for (const plan of Object.values(plans)) {
     assert.equal(plan?.schema_version, "ioi.hypervisor.workbench_adapter_launch_plan.v1");

@@ -29,6 +29,7 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.equal(projection.display_title, "Hypervisor architecture refinement");
   assert.equal(projection.branch_label, "main");
+  assert.equal(projection.selected_adapter_admission_state, "daemon_admitted");
   assert.equal(projection.resource_health_state, "healthy");
   assert.deepEqual(
     projection.session_rail.map((item) => item.state),
@@ -162,6 +163,7 @@ test("session operations normalization keeps daemon projections behind runtime t
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.equal(projection.projection_id, "hypervisor-session-operations:daemon/normalized");
   assert.equal(projection.selected_session_ref, "session:normalized");
+  assert.equal(projection.selected_adapter_admission_state, "daemon_admitted");
   assert.equal(projection.display_title, "Normalized session");
   assert.equal(projection.branch_label, "feature/session-cockpit");
   assert.equal(projection.lifecycle_state, "waiting_for_approval");

@@ -1778,7 +1778,7 @@
   width: 100%;
   min-height: 64px;
   display: grid;
-  grid-template-columns: 36px minmax(180px, 1fr) 90px 112px 126px;
+  grid-template-columns: 36px minmax(168px, 1fr) 82px 104px 124px 126px;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -1825,7 +1825,8 @@
 .workspace-repository-gate__adapter-name strong,
 .workspace-repository-gate__adapter-name small,
 .workspace-repository-gate__adapter-kind,
-.workspace-repository-gate__adapter-access {
+.workspace-repository-gate__adapter-access,
+.workspace-repository-gate__adapter-control {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1844,9 +1845,15 @@
 }
 
 .workspace-repository-gate__adapter-kind,
-.workspace-repository-gate__adapter-access {
+.workspace-repository-gate__adapter-access,
+.workspace-repository-gate__adapter-control {
   color: #526274;
   font-size: 12px;
+}
+
+.workspace-repository-gate__adapter-control {
+  color: #2f4050;
+  font-weight: 600;
 }
 
 .workspace-repository-gate__rail {
@@ -3118,6 +3125,16 @@
   justify-content: center;
   padding: 0 10px;
   border: 1px solid #e7e7e5;
+  background: #fbfbfa;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:disabled {
+  color: #8d969f;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:disabled:hover {
   background: #fbfbfa;
 }
 

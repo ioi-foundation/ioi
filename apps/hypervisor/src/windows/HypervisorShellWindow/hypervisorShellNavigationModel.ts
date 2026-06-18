@@ -10,7 +10,9 @@ import {
   WorkbenchAdapterLaunchAdmissionError,
   buildWorkbenchAdapterLaunchPlan,
   getWorkbenchAdapterPreferenceRef,
+  type HypervisorWorkbenchAdapterControlAction,
   type HypervisorWorkbenchAdapterCustodyPosture,
+  type HypervisorWorkbenchAdapterExecutorLane,
   type WorkbenchAdapterLaunchAdmission,
   type WorkbenchAdapterLaunchPlan,
   type WorkbenchAdapterPreference,
@@ -27,6 +29,8 @@ export {
   WorkbenchAdapterLaunchAdmissionError,
   type HypervisorWorkbenchAdapterConnectionKind,
   type HypervisorWorkbenchAdapterCustodyPosture,
+  type HypervisorWorkbenchAdapterControlAction,
+  type HypervisorWorkbenchAdapterExecutorLane,
   type HypervisorWorkbenchAdapterId,
   type HypervisorWorkbenchAdapterLaunchMode,
   type WorkbenchAdapterLaunchAdmission,
@@ -207,6 +211,9 @@ export interface HypervisorNewSessionLaunchSummary {
   workbench_adapter_custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
   workbench_adapter_launch_plan_ref: string;
   workbench_adapter_connection_contract_ref: string;
+  workbench_adapter_executor_lane: HypervisorWorkbenchAdapterExecutorLane;
+  workbench_adapter_control_action: HypervisorWorkbenchAdapterControlAction;
+  workbench_adapter_control_channel_ref: string;
   workbench_adapter_access_lease_refs: string[];
   workbench_adapter_authority_scope_refs: string[];
   workbench_adapter_receipt_refs: string[];
@@ -397,6 +404,9 @@ export function buildHypervisorNewSessionLaunchSummary({
     workbench_adapter_launch_plan_ref: adapterLaunchPlan.launch_plan_ref,
     workbench_adapter_connection_contract_ref:
       adapterLaunchPlan.connection_contract_ref,
+    workbench_adapter_executor_lane: adapterLaunchPlan.executor_lane,
+    workbench_adapter_control_action: adapterLaunchPlan.control_action,
+    workbench_adapter_control_channel_ref: adapterLaunchPlan.control_channel_ref,
     workbench_adapter_access_lease_refs:
       adapterLaunchPlan.required_access_lease_refs,
     workbench_adapter_authority_scope_refs:

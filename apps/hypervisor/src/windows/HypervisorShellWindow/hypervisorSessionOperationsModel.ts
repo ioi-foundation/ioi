@@ -115,6 +115,11 @@ export interface HypervisorSessionOperationsProjection {
   environment_ref: string;
   provider_candidate_ref: string;
   selected_adapter_ref: string;
+  selected_adapter_admission_state:
+    | "daemon_admitted"
+    | "daemon_blocked"
+    | "daemon_unavailable"
+    | "pending_daemon_admission";
   authority_scope_refs: string[];
   access_lease_ref: string;
   log_lease_ref: string;
@@ -250,6 +255,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     environment_ref: "environment:local-workspace/hypervisor-core",
     provider_candidate_ref: "provider:local-workstation",
     selected_adapter_ref: "workbench-adapter:embedded_workbench",
+    selected_adapter_admission_state: "daemon_admitted",
     authority_scope_refs: [
       "scope:workspace.read",
       "scope:workspace.patch",
@@ -884,6 +890,16 @@ export function normalizeHypervisorSessionOperationsProjection(
     selected_adapter_ref: stringValue(
       value.selected_adapter_ref,
       fallback.selected_adapter_ref,
+    ),
+    selected_adapter_admission_state: enumValue(
+      value.selected_adapter_admission_state,
+      fallback.selected_adapter_admission_state,
+      [
+        "daemon_admitted",
+        "daemon_blocked",
+        "daemon_unavailable",
+        "pending_daemon_admission",
+      ],
     ),
     authority_scope_refs: stringList(
       value.authority_scope_refs,

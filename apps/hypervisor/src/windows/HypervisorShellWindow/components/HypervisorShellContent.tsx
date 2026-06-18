@@ -1348,6 +1348,9 @@ function HypervisorSessionOperationsCockpit() {
     operationKind: HypervisorSessionOperationKind,
     targetRef?: string,
   ) {
+    if (operationKind === "request_access_lease" && !canOpenSessionSurface) {
+      return;
+    }
     proposeHypervisorSessionOperation({
       projection,
       operationKind,
@@ -1367,6 +1370,12 @@ function HypervisorSessionOperationsCockpit() {
         );
       });
   }
+
+  const canOpenSessionSurface =
+    projection.selected_adapter_admission_state === "daemon_admitted";
+  const sessionOpenSurfaceLabel = canOpenSessionSurface
+    ? "Open admitted adapter"
+    : "Adapter admission required";
 
   return (
     <section
@@ -1397,10 +1406,17 @@ function HypervisorSessionOperationsCockpit() {
           <div className="hypervisor-session-operations__top-actions">
             <button
               type="button"
-              aria-label={`Open ${projection.selected_adapter_ref.replace(/^workbench-adapter:/, "")}`}
+              aria-label={`${sessionOpenSurfaceLabel}: ${projection.selected_adapter_ref.replace(/^workbench-adapter:/, "")}`}
               data-session-adapter-ref={projection.selected_adapter_ref}
               data-session-operation-kind="request_access_lease"
               data-session-operation-session={projection.selected_session_ref}
+              data-session-open-surface-admission-state={
+                projection.selected_adapter_admission_state
+              }
+              data-session-open-surface-enabled={
+                canOpenSessionSurface ? "true" : "false"
+              }
+              disabled={!canOpenSessionSurface}
               onClick={() => handleSessionOperation("request_access_lease")}
             >
               <span className="hypervisor-session-operations__editor-logo" aria-hidden="true">
