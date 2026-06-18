@@ -18,21 +18,23 @@ test("Workbench landing is a product-facing adapter hub", () => {
   assert.match(gateSource, /data-workbench-adapter-hub="true"/);
   assert.match(gateSource, /<h1>Workbench<\/h1>/);
   assert.match(gateSource, /Adapter targets/);
-  assert.match(gateSource, /Choose a governed adapter target/);
-  assert.match(gateSource, /editors, terminals, browsers, VMs, and/);
-  assert.match(gateSource, /interchangeable adapter targets/);
-  assert.match(gateSource, /Pick the surface/);
+  assert.match(gateSource, /Choose where Workbench opens/);
+  assert.match(gateSource, /embedded editor, a desktop editor/);
+  assert.match(gateSource, /browser workspace, a VM, or a persistent node/);
   assert.match(gateSource, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(gateSource, /getWorkbenchAdapterPreferenceRef/);
   assert.match(gateSource, /data-workbench-adapter-preference/);
+  assert.match(gateSource, /workspace-repository-gate__adapter-list/);
+  assert.match(gateSource, /workspace-repository-gate__adapter-row/);
+  assert.match(gateSource, /adapterAccessLabel/);
   assert.match(gateSource, /aria-pressed=\{selected\}/);
   assert.match(gateSource, /persistWorkbenchAdapterPreferenceRef/);
-  assert.match(gateSource, /Adapter targets request scoped access/);
-  assert.match(gateSource, /receipts stay governed by Hypervisor/);
+  assert.match(gateSource, /What's new\?/);
+  assert.match(gateSource, /local editors, browser workspaces/);
   assert.doesNotMatch(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
   assert.doesNotMatch(
     gateSource,
-    /daemon gates|Agentgres|wallet\.network|Hypervisor Core|runtime truth/,
+    /daemon gates|Agentgres|wallet\.network|Hypervisor Core|runtime truth|governed adapter target|Governance|Adapter policy|Review policy/,
   );
 });
 
@@ -48,6 +50,7 @@ test("Workbench adapter hub has a stable layout hook", () => {
   assert.match(shellCss, /\.workspace-repository-gate__adapter-hub\s*\{/);
   assert.match(
     shellCss,
-    /\.workspace-repository-gate__adapter-hub \.workspace-repository-gate__category-grid/,
+    /\.workspace-repository-gate__adapter-list\s*\{/,
   );
+  assert.match(shellCss, /\.workspace-repository-gate__adapter-row\s*\{/);
 });

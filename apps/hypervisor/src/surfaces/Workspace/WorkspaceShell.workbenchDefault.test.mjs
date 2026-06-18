@@ -21,11 +21,11 @@ const traceCss = readFileSync(
   "utf8",
 );
 
-test("Workspace shell opens on the adapter hub before a governed workbench target", () => {
+test("Workspace shell opens on the adapter hub before a workspace target", () => {
   assert.match(
     shellSource,
     /useState<WorkspaceShellMode>\("repository-gate"\)/,
-    "The Workbench surface must first present governed adapter targets.",
+    "The Workbench surface must first present workspace and adapter targets.",
   );
   assert.match(
     shellSource,
@@ -40,7 +40,7 @@ test("Workspace shell opens on the adapter hub before a governed workbench targe
   assert.match(
     shellSource,
     /setShellMode\("workbench"\);/,
-    "Opening a repository or target must still enter the governed workbench.",
+    "Opening a repository or target must still enter the Workbench session.",
   );
 });
 

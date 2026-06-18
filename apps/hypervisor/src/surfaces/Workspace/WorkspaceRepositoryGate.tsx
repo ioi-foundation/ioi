@@ -304,9 +304,32 @@ function persistWorkbenchAdapterPreferenceRef(preferenceRef: string) {
 }
 
 function adapterStatusLabel(preference: WorkbenchAdapterPreference): string {
-  return `${preference.launch_mode.split("_").join(" ")} / ${preference.custody_posture
-    .split("_")
-    .join(" ")}`;
+  if (preference.launch_mode === "embedded") {
+    return "Embedded";
+  }
+  if (preference.launch_mode === "external") {
+    return "Desktop";
+  }
+  if (preference.launch_mode === "remote_url") {
+    return "Browser";
+  }
+  if (preference.launch_mode === "headless") {
+    return "Terminal";
+  }
+  return String(preference.launch_mode).split("_").join(" ");
+}
+
+function adapterAccessLabel(preference: WorkbenchAdapterPreference): string {
+  if (preference.custody_posture === "local_projection") {
+    return "Local workspace";
+  }
+  if (preference.custody_posture === "redacted_projection") {
+    return "Limited access";
+  }
+  if (preference.custody_posture === "provider_session") {
+    return "Hosted session";
+  }
+  return preference.custody_posture.split("_").join(" ");
 }
 
 export function WorkspaceRepositoryGate({
@@ -543,17 +566,16 @@ export function WorkspaceRepositoryGate({
                 </label>
               </div>
               <section
-                className="workspace-repository-gate__pr-empty workspace-repository-gate__adapter-hub"
+                className="workspace-repository-gate__adapter-hub"
                 data-testid="workbench-adapter-hub"
               >
-                <h2>Choose a governed adapter target</h2>
+                <h2>Choose where Workbench opens</h2>
                 <p>
-                  The Workbench opens editors, terminals, browsers, VMs, and
-                  nodes as interchangeable adapter targets. Pick the surface
-                  you want to use for this workspace.
+                  Open this workspace in an embedded editor, a desktop editor,
+                  a browser workspace, a VM, or a persistent node.
                 </p>
                 <div
-                  className="workspace-repository-gate__category-grid"
+                  className="workspace-repository-gate__adapter-list"
                   aria-label="Workbench adapter targets"
                 >
                   {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((target) => {
@@ -564,7 +586,7 @@ export function WorkspaceRepositoryGate({
                     return (
                       <button
                         type="button"
-                        className={`workspace-repository-gate__choice-card ${
+                        className={`workspace-repository-gate__adapter-row ${
                           selected ? "is-selected" : ""
                         }`}
                         data-workbench-adapter-target={target.adapter_id}
@@ -573,23 +595,30 @@ export function WorkspaceRepositoryGate({
                         onClick={() => selectWorkbenchAdapterPreference(target)}
                         key={target.adapter_id}
                       >
-                        <span>
+                        <span className="workspace-repository-gate__adapter-icon">
                           {renderIcon(FolderOpen, {
                             size: 18,
                             "aria-hidden": true,
                           })}
                         </span>
-                        <strong>{target.label}</strong>
-                        <small>{target.description}</small>
-                        <small>{adapterStatusLabel(target)}</small>
+                        <span className="workspace-repository-gate__adapter-name">
+                          <strong>{target.label}</strong>
+                          <small>{target.description}</small>
+                        </span>
+                        <span className="workspace-repository-gate__adapter-kind">
+                          {adapterStatusLabel(target)}
+                        </span>
+                        <span className="workspace-repository-gate__adapter-access">
+                          {adapterAccessLabel(target)}
+                        </span>
                         {selected ? (
-                          <small className="workspace-repository-gate__choice-selected">
+                          <span className="workspace-repository-gate__choice-selected">
                             {renderIcon(Check, {
                               size: 13,
                               "aria-hidden": true,
                             })}
                             Selected default
-                          </small>
+                          </span>
                         ) : null}
                       </button>
                     );
@@ -601,22 +630,22 @@ export function WorkspaceRepositoryGate({
             <aside className="workspace-repository-gate__rail">
               <section className="workspace-repository-gate__news">
                 <div className="workspace-repository-gate__rail-heading">
-                  <h2>Governance</h2>
+                  <h2>What's new?</h2>
                   <button type="button">
-                    <span>Receipts</span>
+                    <span>See all</span>
                     {renderIcon(ExternalLink, { size: 16, "aria-hidden": true })}
                   </button>
                 </div>
                 <article className="workspace-repository-gate__news-card">
                   <div>
-                    <span>Adapter policy</span>
+                    <span>Feature</span>
                     <time dateTime="2026-06-17">Jun 17, 2026</time>
                   </div>
                   <p>
-                    Adapter targets request scoped access. Authority, privacy
-                    posture, and receipts stay governed by Hypervisor.
+                    Workbench can now open local editors, browser workspaces,
+                    terminal sessions, VMs, and persistent nodes from one place.
                   </p>
-                  <button type="button">Review policy</button>
+                  <button type="button">More</button>
                 </article>
               </section>
 

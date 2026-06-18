@@ -1735,19 +1735,118 @@
 }
 
 .workspace-repository-gate__adapter-hub {
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 18px;
+  border: 1px solid #d0d7df;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1f2933;
   text-align: left;
 }
 
 .workspace-repository-gate__adapter-hub h2,
 .workspace-repository-gate__adapter-hub p {
-  align-self: center;
-  text-align: center;
+  margin: 0;
 }
 
-.workspace-repository-gate__adapter-hub .workspace-repository-gate__category-grid {
+.workspace-repository-gate__adapter-hub h2 {
+  color: #1f2933;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.workspace-repository-gate__adapter-hub p {
+  max-width: 640px;
+  color: #526274;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.workspace-repository-gate__adapter-list {
   width: 100%;
-  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dce2e8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.workspace-repository-gate__adapter-row {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 36px minmax(180px, 1fr) 90px 112px 126px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid #edf0f3;
+  background: #ffffff;
+  color: #1f2933;
+  cursor: pointer;
+  font: inherit;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.workspace-repository-gate__adapter-row:last-child {
+  border-bottom: 0;
+}
+
+.workspace-repository-gate__adapter-row:hover,
+.workspace-repository-gate__adapter-row.is-selected {
+  background: #f7f9fb;
+}
+
+.workspace-repository-gate__adapter-row.is-selected {
+  box-shadow: inset 3px 0 0 var(--workspace-repo-link, #1d4ed8);
+}
+
+.workspace-repository-gate__adapter-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: #edf4f8;
+  color: #4d6478;
+}
+
+.workspace-repository-gate__adapter-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.workspace-repository-gate__adapter-name strong,
+.workspace-repository-gate__adapter-name small,
+.workspace-repository-gate__adapter-kind,
+.workspace-repository-gate__adapter-access {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__adapter-name strong {
+  color: #1f2933;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__adapter-name small {
+  color: #526274;
+  font-size: 12px;
+}
+
+.workspace-repository-gate__adapter-kind,
+.workspace-repository-gate__adapter-access {
+  color: #526274;
+  font-size: 12px;
 }
 
 .workspace-repository-gate__rail {

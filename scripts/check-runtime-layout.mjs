@@ -817,18 +817,23 @@ assert(
   workspaceRepositoryGateSource.includes('data-workbench-adapter-hub="true"') &&
     workspaceRepositoryGateSource.includes("<h1>Workbench</h1>") &&
     workspaceRepositoryGateSource.includes("Adapter targets") &&
-    workspaceRepositoryGateSource.includes("Choose a governed adapter target") &&
-    workspaceRepositoryGateSource.includes("interchangeable adapter targets") &&
-    workspaceRepositoryGateSource.includes("Pick the surface") &&
+    workspaceRepositoryGateSource.includes("Choose where Workbench opens") &&
+    workspaceRepositoryGateSource.includes("local editors, browser workspaces") &&
+    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-list") &&
+    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-row") &&
+    workspaceRepositoryGateSource.includes("What's new?") &&
     workspaceRepositoryGateSource.includes("HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES") &&
     workspaceRepositoryGateSource.includes("getWorkbenchAdapterPreferenceRef") &&
     workspaceRepositoryGateSource.includes("data-workbench-adapter-preference") &&
     workspaceRepositoryGateSource.includes("persistWorkbenchAdapterPreferenceRef") &&
+    !/Governance|Adapter policy|Review policy|governed adapter target|runtime truth|Hypervisor Core|Agentgres|wallet\.network/.test(
+      workspaceRepositoryGateSource,
+    ) &&
     !/<h1>Code repositories<\/h1>|>Pull requests<|No pull requests created by you|Find pull requests/.test(
       workspaceRepositoryGateSource,
     ),
   ["apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx"],
-  "Workbench must open as a governed adapter hub with product-facing adapter language, not a code-repository, pull-request, or architecture-doctrine console.",
+  "Workbench must open as a product-facing adapter hub with reference-style activity copy, not a code-repository, pull-request, or architecture-doctrine console.",
 );
 assert(
   "workbench-adapter-launch-plan-contract",

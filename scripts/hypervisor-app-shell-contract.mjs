@@ -257,10 +257,10 @@ async function main() {
     });
     await page.waitForSelector('[data-workbench-adapter-hub="true"]');
     const workbenchText = await page.locator("body").innerText();
-    assert(workbenchText.includes("Choose a governed adapter target"), "Workbench adapter hub did not render.");
+    assert(workbenchText.includes("Choose where Workbench opens"), "Workbench adapter hub did not render.");
     assert(workbenchText.includes("Adapter targets"), "Workbench did not expose adapter targets.");
     assert(
-      !(workbenchText.match(/Code repositories|Pull requests|No pull requests created by you|daemon gates|Agentgres/i)),
+      !(workbenchText.match(/Code repositories|Pull requests|No pull requests created by you|daemon gates|Agentgres|Governance|Adapter policy|Review policy|runtime truth|Hypervisor Core/i)),
       "Workbench leaked repository-console or implementation-truth copy into the visible surface.",
     );
     const adapterTargetCount = await page

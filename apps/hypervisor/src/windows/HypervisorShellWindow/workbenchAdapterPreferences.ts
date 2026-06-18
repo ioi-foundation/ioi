@@ -151,7 +151,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "external_editor",
       label: "External Editor",
       description:
-        "Attach a compatible desktop editor as a governed adapter target without making it runtime truth.",
+        "Open this workspace in a compatible desktop editor.",
       launch_mode: "external",
       target_ref: "adapter-target:external-editor",
       custody_posture: "redacted_projection",
@@ -163,7 +163,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "vscode_insiders",
       label: "VS Code Insiders",
       description:
-        "Attach the Insiders desktop editor as a governed Workbench adapter target.",
+        "Open this workspace in the Insiders desktop editor.",
       launch_mode: "external",
       target_ref: "adapter-target:vscode-insiders",
       custody_posture: "redacted_projection",
@@ -174,7 +174,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "cursor",
       label: "Cursor",
       description:
-        "Attach Cursor as a governed editor target without letting it own runtime truth.",
+        "Open this workspace in Cursor with limited workspace access.",
       launch_mode: "external",
       target_ref: "adapter-target:cursor",
       custody_posture: "redacted_projection",
@@ -185,7 +185,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "windsurf",
       label: "Windsurf",
       description:
-        "Attach Windsurf as a governed editor target with scoped workspace access.",
+        "Open this workspace in Windsurf with limited workspace access.",
       launch_mode: "external",
       target_ref: "adapter-target:windsurf",
       custody_posture: "redacted_projection",
@@ -196,7 +196,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "devin",
       label: "Devin",
       description:
-        "Attach a hosted coding workspace through browser-workspace access leases and receipts.",
+        "Open a hosted coding workspace from the browser.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:devin-workspace",
       custody_posture: "provider_session",
@@ -207,7 +207,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "vscode_browser",
       label: "VS Code Browser",
       description:
-        "Open a browser-hosted VS Code-compatible workspace through provider policy.",
+        "Open a browser-hosted VS Code-compatible workspace.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:vscode-browser",
       custody_posture: "provider_session",
@@ -218,7 +218,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_idea",
       label: "IntelliJ IDEA Ultimate",
       description:
-        "Attach IntelliJ IDEA as a governed desktop editor adapter target.",
+        "Open this workspace in IntelliJ IDEA.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-idea",
       custody_posture: "redacted_projection",
@@ -228,7 +228,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
     {
       adapter_id: "jetbrains_goland",
       label: "GoLand",
-      description: "Attach GoLand as a governed desktop editor adapter target.",
+      description: "Open this workspace in GoLand.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-goland",
       custody_posture: "redacted_projection",
@@ -239,7 +239,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_pycharm",
       label: "PyCharm Professional",
       description:
-        "Attach PyCharm as a governed desktop editor adapter target.",
+        "Open this workspace in PyCharm.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-pycharm",
       custody_posture: "redacted_projection",
@@ -250,7 +250,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_phpstorm",
       label: "PhpStorm",
       description:
-        "Attach PhpStorm as a governed desktop editor adapter target.",
+        "Open this workspace in PhpStorm.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-phpstorm",
       custody_posture: "redacted_projection",
@@ -261,7 +261,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_rubymine",
       label: "RubyMine",
       description:
-        "Attach RubyMine as a governed desktop editor adapter target.",
+        "Open this workspace in RubyMine.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-rubymine",
       custody_posture: "redacted_projection",
@@ -272,7 +272,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_webstorm",
       label: "WebStorm",
       description:
-        "Attach WebStorm as a governed desktop editor adapter target.",
+        "Open this workspace in WebStorm.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-webstorm",
       custody_posture: "redacted_projection",
@@ -282,7 +282,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
     {
       adapter_id: "jetbrains_clion",
       label: "CLion",
-      description: "Attach CLion as a governed desktop editor adapter target.",
+      description: "Open this workspace in CLion.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-clion",
       custody_posture: "redacted_projection",
@@ -293,7 +293,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "jetbrains_rustrover",
       label: "RustRover",
       description:
-        "Attach RustRover as a governed desktop editor adapter target.",
+        "Open this workspace in RustRover.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-rustrover",
       custody_posture: "redacted_projection",
@@ -303,7 +303,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
     {
       adapter_id: "jetbrains_rider",
       label: "Rider",
-      description: "Attach Rider as a governed desktop editor adapter target.",
+      description: "Open this workspace in Rider.",
       launch_mode: "external",
       target_ref: "adapter-target:jetbrains-rider",
       custody_posture: "redacted_projection",
@@ -314,7 +314,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "browser_workspace",
       label: "Browser Workspace",
       description:
-        "Open a browser-hosted workspace through scoped workspace, auth, and receipt policy.",
+        "Open a browser-hosted workspace with workspace access prompts.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:browser-workspace",
       custody_posture: "provider_session",
@@ -326,7 +326,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "terminal_workspace",
       label: "Terminal Workspace",
       description:
-        "Route shell, tmux, and harness CLI activity through command mediation and session receipts.",
+        "Open shell, tmux, and harness CLI activity in a terminal session.",
       launch_mode: "headless",
       target_ref: "adapter-target:terminal-workspace",
       custody_posture: "headless_session",
@@ -338,7 +338,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "remote_vm",
       label: "Remote VM Workspace",
       description:
-        "Launch or attach a VM/container workspace with explicit provider, port, service, and restore posture.",
+        "Launch or attach a VM or container workspace.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:remote-vm-workspace",
       custody_posture: "provider_session",
@@ -350,7 +350,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "hypervisor_node",
       label: "HypervisorOS Node",
       description:
-        "Attach a persistent node session as a governed workbench target with lifecycle and receipt projection.",
+        "Attach a persistent node session with lifecycle controls.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:hypervisoros-node",
       custody_posture: "provider_session",
