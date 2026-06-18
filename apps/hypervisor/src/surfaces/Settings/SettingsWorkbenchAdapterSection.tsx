@@ -16,9 +16,7 @@ function launchModeLabel(mode: HypervisorWorkbenchAdapterLaunchMode): string {
     case "external":
       return "Desktop editor";
     case "remote_url":
-      return "Browser session";
-    case "headless":
-      return "Terminal session";
+      return "Browser editor";
     default:
       return String(mode).split("_").join(" ");
   }
@@ -32,10 +30,6 @@ function custodyPostureLabel(
       return "Local workspace";
     case "redacted_projection":
       return "Limited workspace";
-    case "provider_session":
-      return "Provider session";
-    case "headless_session":
-      return "Headless session";
     default:
       return String(posture).split("_").join(" ");
   }
@@ -47,14 +41,8 @@ function controlActionLabel(action: HypervisorWorkbenchAdapterControlAction) {
       return "Open embedded";
     case "open_desktop_editor":
       return "Open desktop";
-    case "open_browser_workspace":
-      return "Open browser";
-    case "attach_terminal_session":
-      return "Attach terminal";
-    case "attach_provider_workspace":
-      return "Attach workspace";
-    case "attach_hypervisor_node":
-      return "Attach node";
+    case "open_browser_editor":
+      return "Open browser editor";
     default:
       return String(action).split("_").join(" ");
   }
@@ -78,16 +66,16 @@ export function SettingsWorkbenchAdapterSection({
             <span className="chat-settings-card-eyebrow">
               Workbench adapter
             </span>
-            <h2>Default session target</h2>
+            <h2>Default editor target</h2>
           </div>
           <span className="chat-settings-pill">
             {controlActionLabel(selectedLaunchPlan.control_action)}
           </span>
         </div>
         <p className="chat-settings-body">
-          Choose the default editor, terminal, browser workspace, VM, or node
-          adapter that New Session should preselect. You can still change the
-          target when starting a session.
+          Choose the embedded, desktop, or browser-based code editor that
+          Workbench should preselect. Sessions and Environments own terminal,
+          VM, node, and provider routes.
         </p>
         <div className="chat-settings-summary-grid">
           {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
@@ -133,7 +121,7 @@ export function SettingsWorkbenchAdapterSection({
           <strong>Session preference</strong>
           <p>
             The selected target becomes the default place where Workbench opens
-            code, terminal, browser, VM, or node sessions.
+            code editor sessions.
           </p>
         </div>
       </article>

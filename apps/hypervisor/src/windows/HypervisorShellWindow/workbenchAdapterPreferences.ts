@@ -4,7 +4,6 @@ export type HypervisorWorkbenchAdapterId =
   | "vscode_insiders"
   | "cursor"
   | "windsurf"
-  | "devin"
   | "vscode_browser"
   | "jetbrains_idea"
   | "jetbrains_goland"
@@ -14,47 +13,31 @@ export type HypervisorWorkbenchAdapterId =
   | "jetbrains_webstorm"
   | "jetbrains_clion"
   | "jetbrains_rustrover"
-  | "jetbrains_rider"
-  | "browser_workspace"
-  | "terminal_workspace"
-  | "remote_vm"
-  | "hypervisor_node";
+  | "jetbrains_rider";
 
 export type HypervisorWorkbenchAdapterLaunchMode =
   | "embedded"
   | "external"
-  | "remote_url"
-  | "headless";
+  | "remote_url";
 
 export type HypervisorWorkbenchAdapterCustodyPosture =
   | "local_projection"
-  | "redacted_projection"
-  | "provider_session"
-  | "headless_session";
+  | "redacted_projection";
 
 export type HypervisorWorkbenchAdapterConnectionKind =
   | "embedded_host"
   | "desktop_editor"
-  | "browser_workspace_url"
-  | "terminal_session"
-  | "provider_workspace"
-  | "hypervisor_node_session";
+  | "browser_editor_url";
 
 export type HypervisorWorkbenchAdapterExecutorLane =
   | "embedded_workbench_host"
   | "desktop_editor"
-  | "browser_workspace"
-  | "terminal_session"
-  | "provider_environment"
-  | "hypervisor_node";
+  | "browser_code_editor";
 
 export type HypervisorWorkbenchAdapterControlAction =
   | "open_embedded_workbench"
   | "open_desktop_editor"
-  | "open_browser_workspace"
-  | "attach_terminal_session"
-  | "attach_provider_workspace"
-  | "attach_hypervisor_node";
+  | "open_browser_editor";
 
 export interface WorkbenchAdapterPreference {
   adapter_id: HypervisorWorkbenchAdapterId;
@@ -64,7 +47,7 @@ export interface WorkbenchAdapterPreference {
   target_ref: string;
   custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
   icon_label?: string;
-  settings_group?: "editor" | "browser" | "terminal" | "environment";
+  settings_group?: "editor";
   settings_visible?: boolean;
   default_for_project?: boolean;
 }
@@ -85,8 +68,6 @@ export interface WorkbenchAdapterLaunchPlan {
   required_receipt_refs: string[];
   custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
   secret_release_policy: "no_durable_secret_release";
-  restore_archive_policy: "not_required" | "required_for_remote_persistence";
-  provider_posture_required: boolean;
   requires_daemon_gate: true;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -108,12 +89,7 @@ export interface WorkbenchAdapterLaunchAdmission {
   required_receipt_refs: string[];
   custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
   secret_release_policy: "no_durable_secret_release";
-  restore_archive_policy: WorkbenchAdapterLaunchPlan["restore_archive_policy"];
-  provider_posture_required: boolean;
-  provider_posture_ref: string | null;
   wallet_approval_ref: string | null;
-  archive_ref: string | null;
-  restore_ref: string | null;
   agentgres_operation_refs: string[];
   receipt_refs: string[];
   state_root: string | null;
@@ -215,26 +191,15 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       settings_group: "editor",
     },
     {
-      adapter_id: "devin",
-      label: "Devin",
-      description:
-        "Open a hosted coding workspace from the browser.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:devin-workspace",
-      custody_posture: "provider_session",
-      icon_label: "DV",
-      settings_group: "browser",
-    },
-    {
       adapter_id: "vscode_browser",
       label: "VS Code Browser",
       description:
-        "Open a browser-hosted VS Code-compatible workspace.",
+        "Open a browser-hosted VS Code-compatible editor.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:vscode-browser",
-      custody_posture: "provider_session",
+      custody_posture: "redacted_projection",
       icon_label: "VB",
-      settings_group: "browser",
+      settings_group: "editor",
     },
     {
       adapter_id: "jetbrains_idea",
@@ -332,54 +297,6 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       icon_label: "RD",
       settings_group: "editor",
     },
-    {
-      adapter_id: "browser_workspace",
-      label: "Browser Workspace",
-      description:
-        "Open a browser-hosted workspace with workspace access prompts.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:browser-workspace",
-      custody_posture: "provider_session",
-      icon_label: "BR",
-      settings_group: "browser",
-      settings_visible: false,
-    },
-    {
-      adapter_id: "terminal_workspace",
-      label: "Terminal Workspace",
-      description:
-        "Open shell, tmux, and harness CLI activity in a terminal session.",
-      launch_mode: "headless",
-      target_ref: "adapter-target:terminal-workspace",
-      custody_posture: "headless_session",
-      icon_label: ">_",
-      settings_group: "terminal",
-      settings_visible: false,
-    },
-    {
-      adapter_id: "remote_vm",
-      label: "Remote VM Workspace",
-      description:
-        "Launch or attach a VM or container workspace.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:remote-vm-workspace",
-      custody_posture: "provider_session",
-      icon_label: "VM",
-      settings_group: "environment",
-      settings_visible: false,
-    },
-    {
-      adapter_id: "hypervisor_node",
-      label: "HypervisorOS Node",
-      description:
-        "Attach a persistent node session with lifecycle controls.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:hypervisoros-node",
-      custody_posture: "provider_session",
-      icon_label: "HN",
-      settings_group: "environment",
-      settings_visible: false,
-    },
   ];
 
 export function getWorkbenchAdapterPreferenceRef(
@@ -453,98 +370,23 @@ export function buildWorkbenchAdapterLaunchPlan(
         required_receipt_refs: [
           "receipt-policy:workbench-adapter/desktop-bridge",
         ],
-        restore_archive_policy: "not_required",
-        provider_posture_required: false,
       };
-    case "devin":
     case "vscode_browser":
-    case "browser_workspace":
       return {
         ...base,
-        connection_kind: "browser_workspace_url",
+        connection_kind: "browser_editor_url",
         connection_contract_ref:
-          "connection-contract:workbench-adapter/browser-workspace",
-        executor_lane: "browser_workspace",
-        control_action: "open_browser_workspace",
-        control_channel_ref: "control-channel:workbench-adapter/browser-workspace",
-        required_access_lease_refs: [
-          "lease:workbench-adapter/browser-url",
-          "lease:workspace/logs-read",
-        ],
+          "connection-contract:workbench-adapter/browser-editor",
+        executor_lane: "browser_code_editor",
+        control_action: "open_browser_editor",
+        control_channel_ref: "control-channel:workbench-adapter/browser-editor",
+        required_access_lease_refs: ["lease:workbench-adapter/browser-editor"],
         required_authority_scope_refs: [
           "scope:workspace.read",
-          "scope:provider.session.attach",
+          "scope:workspace.patch",
           "scope:receipt.write",
         ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/browser"],
-        restore_archive_policy: "required_for_remote_persistence",
-        provider_posture_required: true,
-      };
-    case "terminal_workspace":
-      return {
-        ...base,
-        connection_kind: "terminal_session",
-        connection_contract_ref:
-          "connection-contract:workbench-adapter/terminal-session",
-        executor_lane: "terminal_session",
-        control_action: "attach_terminal_session",
-        control_channel_ref: "control-channel:workbench-adapter/terminal-session",
-        required_access_lease_refs: [
-          "lease:workbench-adapter/terminal",
-          "lease:workspace/logs-read",
-        ],
-        required_authority_scope_refs: [
-          "scope:shell.exec",
-          "scope:workspace.read",
-          "scope:receipt.write",
-        ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/terminal"],
-        restore_archive_policy: "not_required",
-        provider_posture_required: false,
-      };
-    case "remote_vm":
-      return {
-        ...base,
-        connection_kind: "provider_workspace",
-        connection_contract_ref:
-          "connection-contract:workbench-adapter/provider-workspace",
-        executor_lane: "provider_environment",
-        control_action: "attach_provider_workspace",
-        control_channel_ref: "control-channel:workbench-adapter/provider-workspace",
-        required_access_lease_refs: [
-          "lease:provider/workspace-access",
-          "lease:provider/ports-read",
-          "lease:workspace/logs-read",
-        ],
-        required_authority_scope_refs: [
-          "scope:provider.workspace.attach",
-          "scope:ports.expose",
-          "scope:receipt.write",
-        ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
-        restore_archive_policy: "required_for_remote_persistence",
-        provider_posture_required: true,
-      };
-    case "hypervisor_node":
-      return {
-        ...base,
-        connection_kind: "hypervisor_node_session",
-        connection_contract_ref:
-          "connection-contract:workbench-adapter/hypervisor-node",
-        executor_lane: "hypervisor_node",
-        control_action: "attach_hypervisor_node",
-        control_channel_ref: "control-channel:workbench-adapter/hypervisor-node",
-        required_access_lease_refs: [
-          "lease:hypervisor-node/session-access",
-          "lease:workspace/logs-read",
-        ],
-        required_authority_scope_refs: [
-          "scope:hypervisor.node.attach",
-          "scope:receipt.write",
-        ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/node"],
-        restore_archive_policy: "required_for_remote_persistence",
-        provider_posture_required: true,
+        required_receipt_refs: ["receipt-policy:workbench-adapter/browser-editor"],
       };
     case "embedded_workbench":
     default:
@@ -563,8 +405,6 @@ export function buildWorkbenchAdapterLaunchPlan(
           "scope:receipt.write",
         ],
         required_receipt_refs: ["receipt-policy:workbench-adapter/embedded"],
-        restore_archive_policy: "not_required",
-        provider_posture_required: false,
       };
   }
 }
@@ -661,15 +501,7 @@ function normalizeWorkbenchAdapterLaunchAdmission(
         record.custody_posture,
       ) as HypervisorWorkbenchAdapterCustodyPosture) ?? "local_projection",
     secret_release_policy: "no_durable_secret_release",
-    restore_archive_policy:
-      record.restore_archive_policy === "required_for_remote_persistence"
-        ? "required_for_remote_persistence"
-        : "not_required",
-    provider_posture_required: record.provider_posture_required === true,
-    provider_posture_ref: nullableString(record.provider_posture_ref),
     wallet_approval_ref: nullableString(record.wallet_approval_ref),
-    archive_ref: nullableString(record.archive_ref),
-    restore_ref: nullableString(record.restore_ref),
     agentgres_operation_refs: stringArray(record.agentgres_operation_refs),
     receipt_refs: stringArray(record.receipt_refs),
     state_root: nullableString(record.state_root),

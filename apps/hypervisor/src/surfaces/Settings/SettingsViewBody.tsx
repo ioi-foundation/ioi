@@ -323,11 +323,11 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Integrations"
-          body="Connect editors, terminals, browsers, cloud accounts, model providers, and storage services."
+          body="Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services."
           rows={[
             {
               label: "Workbench adapters",
-              value: "Embedded, external editor, browser workspace, terminal, VM, node.",
+              value: "Embedded, desktop, and browser-based code editors.",
               action: "Open",
             },
             {

@@ -171,7 +171,7 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.doesNotMatch(settingsViewBody, /Show the embedded VS Code editor/);
   assert.match(
     settingsViewBody,
-    /Connect editors, terminals, browsers, cloud accounts, model providers, and storage services/,
+    /Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services/,
   );
   assert.doesNotMatch(settingsViewBody, /governed sessions/);
   assert.doesNotMatch(settingsViewBody, /plaintext custody domain/);
@@ -186,21 +186,14 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(workbenchAdapterPreferences, /CLion/);
   assert.match(workbenchAdapterPreferences, /RustRover/);
   assert.match(workbenchAdapterPreferences, /Rider/);
-  assert.match(
-    workbenchAdapterPreferences,
-    /adapter_id: "browser_workspace"[\s\S]*settings_visible: false/,
-  );
-  assert.match(
-    workbenchAdapterPreferences,
-    /adapter_id: "remote_vm"[\s\S]*settings_visible: false/,
-  );
+  assert.match(workbenchAdapterPreferences, /VS Code Browser/);
   assert.match(settingsView, /workbenchAdapterPreferenceRef/);
   assert.match(settingsView, /chat-settings-view--reference/);
   assert.match(
     settingsView,
     /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY/,
   );
-  assert.match(workbenchAdapterSection, /Default session target/);
+  assert.match(workbenchAdapterSection, /Default editor target/);
   assert.match(workbenchAdapterSection, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(workbenchAdapterSection, /buildWorkbenchAdapterLaunchPlan/);
   assert.match(workbenchAdapterSection, /data-workbench-adapter-preference/);
@@ -210,8 +203,10 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(workbenchAdapterSection, /controlActionLabel/);
   assert.match(workbenchAdapterSection, /Open embedded/);
   assert.match(workbenchAdapterSection, /Open desktop/);
+  assert.match(workbenchAdapterSection, /Open browser editor/);
   assert.match(workbenchAdapterSection, /Local workspace/);
   assert.match(workbenchAdapterSection, /Session preference/);
+  assert.match(workbenchAdapterSection, /Sessions and Environments own terminal/);
   assert.doesNotMatch(workbenchAdapterSection, /adapter_preference_ref/);
   assert.doesNotMatch(workbenchAdapterSection, /preference\.launch_mode\} \/ /);
   assert.doesNotMatch(workbenchAdapterSection, /custody_posture\.split/);

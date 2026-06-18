@@ -4,7 +4,6 @@ import clsx from "clsx";
 export type OperatorChatPaneMode =
   | "full"
   | "sidebar"
-  | "docked"
   | "embedded"
   | "floating";
 

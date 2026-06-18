@@ -328,9 +328,6 @@ function adapterAccessLabel(preference: WorkbenchAdapterPreference): string {
   if (preference.custody_posture === "redacted_projection") {
     return "Limited access";
   }
-  if (preference.custody_posture === "provider_session") {
-    return "Hosted session";
-  }
   return preference.custody_posture.split("_").join(" ");
 }
 
@@ -342,14 +339,8 @@ function adapterControlActionLabel(
       return "Open embedded";
     case "open_desktop_editor":
       return "Open desktop";
-    case "open_browser_workspace":
-      return "Open browser";
-    case "attach_terminal_session":
-      return "Attach terminal";
-    case "attach_provider_workspace":
-      return "Attach workspace";
-    case "attach_hypervisor_node":
-      return "Attach node";
+    case "open_browser_editor":
+      return "Open browser editor";
     default:
       return String(action).split("_").join(" ");
   }
@@ -595,7 +586,7 @@ export function WorkspaceRepositoryGate({
                 <h2>Choose where Workbench opens</h2>
                 <p>
                   Open this workspace in an embedded editor, a desktop editor,
-                  a browser workspace, a VM, or a persistent node.
+                  or a browser-based code editor.
                 </p>
                 <div
                   className="workspace-repository-gate__adapter-list"
@@ -681,8 +672,8 @@ export function WorkspaceRepositoryGate({
                     <time dateTime="2026-06-17">Jun 17, 2026</time>
                   </div>
                   <p>
-                    Workbench can now open local editors, browser workspaces,
-                    terminal sessions, VMs, and persistent nodes from one place.
+                    Workbench can now open embedded, desktop, and browser-based
+                    code editors from one place.
                   </p>
                   <button type="button">More</button>
                 </article>

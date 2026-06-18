@@ -2899,7 +2899,6 @@ export function HypervisorShellContent({
     notificationCount: notificationBadgeCount,
   });
   const contentMainRef = useRef<HTMLDivElement | null>(null);
-  const [workspaceChatDismissed, setWorkspaceChatDismissed] = useState(false);
 
   useLayoutEffect(() => {
     const node = contentMainRef.current;
@@ -2926,39 +2925,6 @@ export function HypervisorShellContent({
       }
     };
   }, [activeView]);
-
-  useEffect(() => {
-    if (!workspaceActive) {
-      setWorkspaceChatDismissed(false);
-    }
-  }, [workspaceActive]);
-
-  const workspaceOperatorChatPaneWidthPx = controller.chat.paneMaximized
-    ? 560
-    : 360;
-  const workspaceOperatorChatPane =
-    workspaceActive &&
-    !workspaceChatDismissed ? (
-      <ChatLeftUtilityPane
-        surface={controller.chat.surface}
-        session={controller.chat.assistantWorkbench}
-        runtime={runtime}
-        maximized={controller.chat.paneMaximized}
-        seedIntent={null}
-        onConsumeSeedIntent={undefined}
-        onClose={() => {
-          setWorkspaceChatDismissed(true);
-          controller.chat.hidePane();
-        }}
-        onToggleMaximize={controller.chat.toggleMaximize}
-        onBackToInbox={() => {
-          controller.chat.setSurface("chat");
-          controller.changePrimaryView("missions");
-        }}
-        onOpenInbox={() => controller.changePrimaryView("missions")}
-        onOpenHypervisor={controller.chat.openHypervisorSessionWithIntent}
-      />
-    ) : null;
 
   return (
     <div
@@ -3001,8 +2967,6 @@ export function HypervisorShellContent({
             projects={projects}
             runtime={runtime}
             host={workspaceHost}
-            operatorChatPane={workspaceOperatorChatPane}
-            operatorChatPaneWidthPx={workspaceOperatorChatPaneWidthPx}
           />
 
           {!workspaceActive ? (

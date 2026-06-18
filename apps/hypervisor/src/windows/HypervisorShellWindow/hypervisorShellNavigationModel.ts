@@ -238,7 +238,6 @@ export interface HypervisorNewSessionLaunchSummary {
   workbench_adapter_access_lease_refs: string[];
   workbench_adapter_authority_scope_refs: string[];
   workbench_adapter_receipt_refs: string[];
-  workbench_adapter_provider_posture_required: boolean;
   harness_selection_ref: string;
   harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
   harness_label: string;
@@ -497,8 +496,6 @@ export function buildHypervisorNewSessionLaunchSummary({
     workbench_adapter_authority_scope_refs:
       adapterLaunchPlan.required_authority_scope_refs,
     workbench_adapter_receipt_refs: adapterLaunchPlan.required_receipt_refs,
-    workbench_adapter_provider_posture_required:
-      adapterLaunchPlan.provider_posture_required,
     harness_selection_ref: getHarnessSelectionRef(harness),
     harness_selection_kind: harness.selection_kind,
     harness_label: harness.label,
@@ -547,7 +544,7 @@ export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel 
         id: "adapter_preference",
         label: "Adapter",
         description:
-          "Editor, terminal, browser, VM, or node target mediated by Workbench.",
+          "Embedded, desktop, or browser-based code editor target mediated by Workbench.",
         required: true,
       },
       {
@@ -605,7 +602,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       recipe_id: "workbench.default",
       label: "Workbench",
       description:
-        "Governed code/systems session that opens the selected editor, terminal, browser, or VM adapter.",
+        "Governed code/systems session that opens the selected code editor adapter.",
       kind: "workbench",
       surface_id: "workbench",
       required_inputs: [
@@ -726,7 +723,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
     id: "workbench",
     label: "Workbench",
     description:
-      "Code and systems surface; editors, terminals, browsers, and VMs are adapter targets.",
+      "Code and systems surface; embedded, desktop, and browser code editors are adapter targets.",
     kind: "application",
     railGroup: "applications",
     defaultSessionTab: "workbench",

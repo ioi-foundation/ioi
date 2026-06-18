@@ -26,8 +26,6 @@ function baseRequest(overrides = {}) {
     required_receipt_refs: ["receipt-policy:workbench-adapter/desktop-bridge"],
     custody_posture: "redacted_projection",
     secret_release_policy: "no_durable_secret_release",
-    restore_archive_policy: "not_required",
-    provider_posture_required: false,
     agentgres_operation_refs: ["agentgres://operation/workbench-adapter/admit"],
     receipt_refs: ["receipt://workbench-adapter/admit"],
     ...overrides,
@@ -64,76 +62,32 @@ test("admits external editor adapter launch plans as daemon-gated leases", () =>
   assert.equal(admission.runtimeTruthSource, "daemon-runtime");
 });
 
-test("persistent remote adapter sessions require provider posture and restore refs", () => {
-  assert.throws(
-    () =>
-      admitWorkbenchAdapterLaunchPlan(
-        baseRequest({
-          launch_plan_ref: "workbench-adapter:remote_vm/launch-plan",
-          adapter_ref: "workbench-adapter:remote_vm",
-          target_ref: "adapter-target:remote-vm-workspace",
-          launch_mode: "remote_url",
-          connection_kind: "provider_workspace",
-          connection_contract_ref:
-            "connection-contract:workbench-adapter/provider-workspace",
-          executor_lane: "provider_environment",
-          control_action: "attach_provider_workspace",
-          control_channel_ref:
-            "control-channel:workbench-adapter/provider-workspace",
-          required_access_lease_refs: ["lease:provider/workspace-access"],
-          required_authority_scope_refs: ["scope:provider.workspace.attach"],
-          required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
-          custody_posture: "provider_session",
-          restore_archive_policy: "required_for_remote_persistence",
-          provider_posture_required: true,
-        }),
-      ),
-    (error) => {
-      assert.equal(error.status, 403);
-      assert.equal(error.code, "workbench_adapter_provider_posture_ref_required");
-      return true;
-    },
-  );
-
+test("admits browser code editor adapters without provider-session fields", () => {
   const admission = admitWorkbenchAdapterLaunchPlan(
     baseRequest({
-      launch_plan_ref: "workbench-adapter:remote_vm/launch-plan",
-      adapter_ref: "workbench-adapter:remote_vm",
-      target_ref: "adapter-target:remote-vm-workspace",
+      launch_plan_ref: "workbench-adapter:vscode_browser/launch-plan",
+      adapter_ref: "workbench-adapter:vscode_browser",
+      target_ref: "adapter-target:vscode-browser",
       launch_mode: "remote_url",
-      connection_kind: "provider_workspace",
+      connection_kind: "browser_editor_url",
       connection_contract_ref:
-        "connection-contract:workbench-adapter/provider-workspace",
-      executor_lane: "provider_environment",
-      control_action: "attach_provider_workspace",
-      control_channel_ref:
-        "control-channel:workbench-adapter/provider-workspace",
-      required_access_lease_refs: [
-        "lease:provider/workspace-access",
-        "lease:provider/ports-read",
-        "lease:workspace/logs-read",
-      ],
+        "connection-contract:workbench-adapter/browser-editor",
+      executor_lane: "browser_code_editor",
+      control_action: "open_browser_editor",
+      control_channel_ref: "control-channel:workbench-adapter/browser-editor",
+      required_access_lease_refs: ["lease:workbench-adapter/browser-editor"],
       required_authority_scope_refs: [
-        "scope:provider.workspace.attach",
-        "scope:ports.expose",
+        "scope:workspace.read",
+        "scope:workspace.patch",
         "scope:receipt.write",
       ],
-      required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
-      custody_posture: "provider_session",
-      restore_archive_policy: "required_for_remote_persistence",
-      provider_posture_required: true,
-      provider_posture_ref: "provider-posture://akash/gpu-node-7",
-      archive_ref: "artifact://workspace/archive/7",
-      restore_ref: "agentgres://restore/workspace/7",
+      required_receipt_refs: ["receipt-policy:workbench-adapter/browser-editor"],
     }),
   );
 
-  assert.equal(admission.connection_kind, "provider_workspace");
-  assert.equal(admission.executor_lane, "provider_environment");
-  assert.equal(admission.control_action, "attach_provider_workspace");
-  assert.equal(admission.provider_posture_required, true);
-  assert.equal(admission.archive_ref, "artifact://workspace/archive/7");
-  assert.equal(admission.restore_ref, "agentgres://restore/workspace/7");
+  assert.equal(admission.connection_kind, "browser_editor_url");
+  assert.equal(admission.executor_lane, "browser_code_editor");
+  assert.equal(admission.control_action, "open_browser_editor");
 });
 
 test("blocks durable secrets, runtime-truth claims, and prim-scope masquerades", () => {
@@ -154,10 +108,21 @@ test("blocks durable secrets, runtime-truth claims, and prim-scope masquerades",
   assert.throws(
     () =>
       admitWorkbenchAdapterLaunchPlan(
-        baseRequest({ control_action: "attach_provider_workspace" }),
+        baseRequest({ control_action: "open_browser_editor" }),
       ),
     (error) => {
       assert.equal(error.code, "workbench_adapter_control_contract_mismatch");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      admitWorkbenchAdapterLaunchPlan(
+        baseRequest({ connection_kind: "provider_workspace" }),
+      ),
+    (error) => {
+      assert.equal(error.code, "workbench_adapter_launch_connection_kind_invalid");
       return true;
     },
   );

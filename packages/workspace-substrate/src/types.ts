@@ -1,19 +1,9 @@
 export type WorkspacePane =
   | "files"
   | "search"
-  | "source-control"
-  | "run-and-debug"
-  | "extensions"
-  | "ioi";
+  | "source-control";
 export type WorkspaceLayoutMode = "full" | "embedded" | "compact";
 export type WorkspaceBottomPanel = "terminal" | "problems" | "output" | "ports";
-export type WorkspaceOperatorSurface =
-  | "chat"
-  | "workflows"
-  | "runs"
-  | "artifacts"
-  | "policy"
-  | "connections";
 
 export type WorkspacePersistedDocument =
   | {
@@ -394,7 +384,6 @@ export interface WorkspaceAdapter {
 export interface WorkspaceRailProps {
   activePane: WorkspacePane;
   onSelectPane: (pane: WorkspacePane) => void;
-  onSelectOperatorSurface?: (surface: WorkspaceOperatorSurface) => void;
   onTogglePrimarySidebar?: () => void;
 }
 
@@ -418,49 +407,6 @@ export interface WorkspaceInspectionEntry {
     | "completed";
   detail?: string | null;
   onSelect?: () => void;
-}
-
-export interface WorkspaceRunDebugModel {
-  entries: WorkspaceInspectionEntry[];
-  onOpenRunsSurface?: () => void;
-  onOpenTerminal?: () => void;
-  onOpenOutput?: () => void;
-}
-
-export interface WorkspaceExtensionEntry {
-  id: string;
-  name: string;
-  description: string;
-  detail?: string | null;
-  status: "enabled" | "available" | "attention";
-  onSelect?: () => void;
-}
-
-export interface WorkspaceExtensionsModel {
-  entries: WorkspaceExtensionEntry[];
-  onOpenConnections?: () => void;
-  onOpenPolicies?: () => void;
-}
-
-export interface WorkspaceOperatorSummaryItem {
-  label: string;
-  value: string;
-  tone?: "default" | "attention" | "success";
-}
-
-export interface WorkspaceOperatorViewModel {
-  id: WorkspaceOperatorSurface;
-  title: string;
-  eyebrow?: string | null;
-  description: string;
-  summaryItems: WorkspaceOperatorSummaryItem[];
-  actions: WorkspacePaneAction[];
-}
-
-export interface WorkspaceOperatorModel {
-  activeSurface: WorkspaceOperatorSurface;
-  views: WorkspaceOperatorViewModel[];
-  onSelectSurface: (surface: WorkspaceOperatorSurface) => void;
 }
 
 export interface WorkspaceExplorerPaneProps {
@@ -506,18 +452,6 @@ export interface WorkspaceSourceControlPaneProps {
   onStage: (path: string) => void;
   onUnstage: (path: string) => void;
   onDiscard: (path: string) => void;
-}
-
-export interface WorkspaceRunDebugPaneProps {
-  model?: WorkspaceRunDebugModel | null;
-}
-
-export interface WorkspaceExtensionsPaneProps {
-  model?: WorkspaceExtensionsModel | null;
-}
-
-export interface WorkspaceOperatorPaneProps {
-  model?: WorkspaceOperatorModel | null;
 }
 
 export interface WorkspaceBottomPanelProps {

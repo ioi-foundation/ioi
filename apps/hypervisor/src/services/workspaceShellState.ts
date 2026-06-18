@@ -1,15 +1,6 @@
 import type { WorkspacePersistedState, WorkspaceSnapshot } from "@ioi/workspace-substrate";
 
-export type WorkspaceOperatorSurface =
-  | "chat"
-  | "workflows"
-  | "runs"
-  | "artifacts"
-  | "policy"
-  | "connections";
-
 export interface WorkspaceShellPersistedState {
-  dockSurface: WorkspaceOperatorSurface;
   shellState: WorkspacePersistedState | null;
   lastActivePath: string | null;
   snapshot: WorkspaceSnapshot | null;
@@ -40,7 +31,6 @@ export function loadWorkspaceShellState(
 
     const parsed = JSON.parse(raw) as Partial<WorkspaceShellPersistedState>;
     return {
-      dockSurface: parsed.dockSurface ?? "chat",
       shellState: parsed.shellState ?? null,
       lastActivePath:
         typeof parsed.lastActivePath === "string" ? parsed.lastActivePath : null,

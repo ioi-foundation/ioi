@@ -166,7 +166,7 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
 });
 
-test("workspace embedding keeps command center in Hypervisor shell, not editor adapter transport", () => {
+test("workspace embedding keeps product UX in Hypervisor shell, not editor adapter transport", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "utf8",
@@ -203,12 +203,15 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "utf8",
   );
-  assert.match(workspaceHost, /hideGlobalCommandCenter\?: boolean/);
-  assert.match(workspaceHost, /workspace-host--global-command-center-hidden/);
-  assert.match(workspaceShell, /hideGlobalCommandCenter/);
-  assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
-  assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
-  assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
+  assert.match(workspaceHost, /<WorkspaceRail/);
+  assert.match(workspaceHost, /<WorkspaceExplorerPane/);
+  assert.match(workspaceHost, /<WorkspaceSearchPane/);
+  assert.match(workspaceHost, /<WorkspaceSourceControlPane/);
+  assert.match(workspaceHost, /<WorkspaceEditorPane/);
+  assert.match(workspaceHost, /<WorkspaceBottomPanel/);
+  assert.match(workspaceShell, /<WorkspaceRepositoryGate/);
+  assert.match(workspaceShell, /<WorkspaceHost/);
+  assert.match(workspaceShell, /useWorkspaceWorkbenchSession/);
   assert.match(bundledExtension, /createCodeEditorAdapterTransport/);
   assert.match(bundledExtension, /startCodeEditorContextPublisher/);
   assert.doesNotMatch(adapterPackage, /"contributes"/);
@@ -221,8 +224,6 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
     workspaceAdapterStateLifecycle,
     /routeWorkspaceBridgeRequest|takeRequests|startWorkspaceBridgeRequestPolling/,
   );
-  assert.match(shellContent, /const workspaceOperatorChatPane/);
-  assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
   assert.match(
     shellContent,
     /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/,
@@ -236,11 +237,7 @@ test("workspace embedding keeps command center in Hypervisor shell, not editor a
   assert.match(chatHeader, /data-operator-command-center/);
 });
 
-test("workspace docked chat is real operator chrome, not screenshot hitboxes", () => {
-  const workspaceHost = readFileSync(
-    "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
-    "utf8",
-  );
+test("operator chat chrome remains in chat shell, outside code-editor workspace substrate", () => {
   const operatorChatPane = readFileSync(
     "packages/workspace-substrate/src/components/OperatorChatPane.tsx",
     "utf8",
@@ -265,10 +262,6 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "apps/hypervisor/src/components/ui/CommandMenus.css",
     "utf8",
   );
-  const workspacePanelStyles = readFileSync(
-    "packages/workspace-substrate/src/style/workspace-panels.css",
-    "utf8",
-  );
   const codicon = readFileSync(
     "packages/workspace-substrate/src/components/Codicon.tsx",
     "utf8",
@@ -278,9 +271,6 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "utf8",
   );
 
-  assert.match(workspaceHost, /<OperatorChatPane/);
-  assert.match(workspaceHost, /dataOperatorChatPane="docked"/);
-  assert.match(workspaceHost, /dataInspectionTarget="workspace-chat-pane"/);
   assert.match(operatorChatPane, /data-operator-chat-pane=/);
   assert.match(
     operatorChatPane,
@@ -316,20 +306,6 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(
     chatConversationSurface,
     /dataInspectionTarget="operator-chat-pane"/,
-  );
-  assert.match(workspaceHost, /id: "new-options"/);
-  assert.match(workspaceHost, /New Chat \(Ctrl\+N\)/);
-  assert.match(workspaceHost, /Configure Chat/);
-  assert.match(workspaceHost, /Views and More Actions\.\.\./);
-  assert.match(workspaceHost, /Hide Secondary Side Bar \(Ctrl\+Alt\+B\)/);
-  assert.match(workspaceHost, /Build Workspace/);
-  assert.match(workspaceHost, /Show Config/);
-  assert.match(workspaceHost, /Generate Agent Instructions/);
-  assert.match(workspaceHost, /operator-chat-pane__inline-link/);
-  assert.match(workspaceHost, /AI responses may be inaccurate\./);
-  assert.doesNotMatch(
-    workspaceHost,
-    /Repo, file, runtime, and evidence context stay attached/,
   );
   assert.match(
     chatInputSection,
@@ -381,32 +357,11 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(commandMenus, /background: #075486/);
   assert.match(chatInputControls, /name="send"/);
   assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
-  assert.match(
-    workspaceHost,
-    /className="workspace-agent-composer-tool-toggle"/,
-  );
-  assert.match(workspaceHost, /className="workspace-agent-tool-menu"/);
-  assert.match(workspaceHost, /aria-label="Select a tool"/);
-  assert.match(workspaceHost, /value=\{toolMenuQuery\}/);
-  assert.match(workspaceHost, /No matching tools/);
-  assert.match(workspaceHost, /surface: "connections"/);
-  assert.doesNotMatch(workspaceHost, /placeholder="Select a tool" readOnly/);
-  assert.doesNotMatch(
-    workspaceHost,
-    /aria-label="Workspace chat tools"[\s\S]*onClick=\{\(\) => onOpenSurface\?\.\("policy"\)\}/,
-  );
-  assert.match(workspacePanelStyles, /\.workspace-agent-tool-menu/);
-  assert.match(workspacePanelStyles, /\.workspace-agent-tool-menu__empty/);
   assert.match(codicon, /codicon-\$\{name\}/);
   assert.match(codicon, /"auxiliarybar-maximize": "screen-full"/);
   assert.match(chatLeftUtilityPane, /Maximize Secondary Side Bar Size/);
   assert.match(chatLeftUtilityPane, /Hide Secondary Side Bar \(Ctrl\+Alt\+B\)/);
   assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
-  assert.doesNotMatch(workspaceHost, /function WorkbenchAgentDock/);
-  assert.doesNotMatch(workspaceHost, /workspace-agent-dock-header-hitbox/);
-  assert.doesNotMatch(workspaceHost, /workspace-agent-dock-hitbox/);
-  assert.doesNotMatch(workspaceHost, /workbenchDockHeaderFullStrip/);
-  assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
 });
 
 test("workspace adapter commands defer global search to Hypervisor chrome", () => {

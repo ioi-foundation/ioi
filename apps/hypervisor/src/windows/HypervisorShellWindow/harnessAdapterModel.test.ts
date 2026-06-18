@@ -437,7 +437,6 @@ test("new session launch summary binds harness, model route, adapter target, pri
     workbench_adapter_receipt_refs: [
       "receipt-policy:workbench-adapter/desktop-bridge",
     ],
-    workbench_adapter_provider_posture_required: false,
     harness_selection_ref: "agent-harness-adapter:deepseek_tui",
     harness_selection_kind: "agent_harness_adapter",
     harness_label: "DeepSeek TUI",
@@ -595,20 +594,9 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
   assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_rustrover?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_rider?.connection_kind, "desktop_editor");
-  assert.equal(plans.vscode_browser?.connection_kind, "browser_workspace_url");
-  assert.equal(plans.vscode_browser?.executor_lane, "browser_workspace");
-  assert.equal(plans.vscode_browser?.control_action, "open_browser_workspace");
-  assert.equal(plans.devin?.provider_posture_required, true);
-  assert.equal(plans.terminal_workspace?.connection_kind, "terminal_session");
-  assert.equal(plans.terminal_workspace?.control_action, "attach_terminal_session");
-  assert.equal(plans.browser_workspace?.provider_posture_required, true);
-  assert.equal(plans.remote_vm?.restore_archive_policy, "required_for_remote_persistence");
-  assert.equal(plans.remote_vm?.executor_lane, "provider_environment");
-  assert.equal(
-    plans.hypervisor_node?.connection_kind,
-    "hypervisor_node_session",
-  );
-  assert.equal(plans.hypervisor_node?.control_action, "attach_hypervisor_node");
+  assert.equal(plans.vscode_browser?.connection_kind, "browser_editor_url");
+  assert.equal(plans.vscode_browser?.executor_lane, "browser_code_editor");
+  assert.equal(plans.vscode_browser?.control_action, "open_browser_editor");
 
   for (const plan of Object.values(plans)) {
     assert.equal(plan?.schema_version, "ioi.hypervisor.workbench_adapter_launch_plan.v1");
@@ -648,10 +636,7 @@ test("workbench adapter launch admission posts canonical plans to the daemon", a
             schema_version:
               "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
             admission_id: "workbench-adapter-launch:embedded-host",
-            provider_posture_ref: null,
             wallet_approval_ref: null,
-            archive_ref: null,
-            restore_ref: null,
             agentgres_operation_refs: [
               "agentgres://operation/workbench-adapter-launch",
             ],
@@ -721,7 +706,7 @@ test("workbench adapter launch admission posts canonical plans to the daemon", a
 
 test("workbench adapter launch admission failures are explicit session state", async () => {
   const preference = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
-    (candidate) => candidate.adapter_id === "remote_vm",
+    (candidate) => candidate.adapter_id === "vscode_browser",
   );
   assert.ok(preference);
   const plan = buildWorkbenchAdapterLaunchPlan(preference);
@@ -734,7 +719,7 @@ test("workbench adapter launch admission failures are explicit session state", a
         status: 400,
         text: async () =>
           JSON.stringify({
-            code: "workbench_adapter_provider_posture_ref_required",
+            code: "workbench_adapter_control_contract_mismatch",
           }),
       }),
     });

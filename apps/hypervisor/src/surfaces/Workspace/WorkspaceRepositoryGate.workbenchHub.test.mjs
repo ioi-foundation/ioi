@@ -20,7 +20,7 @@ test("Workbench landing is a product-facing adapter hub", () => {
   assert.match(gateSource, /Adapter targets/);
   assert.match(gateSource, /Choose where Workbench opens/);
   assert.match(gateSource, /embedded editor, a desktop editor/);
-  assert.match(gateSource, /browser workspace, a VM, or a persistent node/);
+  assert.match(gateSource, /browser-based code editor/);
   assert.match(gateSource, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(gateSource, /getWorkbenchAdapterPreferenceRef/);
   assert.match(gateSource, /buildWorkbenchAdapterLaunchPlan/);
@@ -36,7 +36,7 @@ test("Workbench landing is a product-facing adapter hub", () => {
   assert.match(gateSource, /aria-pressed=\{selected\}/);
   assert.match(gateSource, /persistWorkbenchAdapterPreferenceRef/);
   assert.match(gateSource, /What's new\?/);
-  assert.match(gateSource, /local editors, browser workspaces/);
+  assert.match(gateSource, /embedded, desktop, and browser-based/);
   assert.doesNotMatch(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
   assert.doesNotMatch(
     gateSource,

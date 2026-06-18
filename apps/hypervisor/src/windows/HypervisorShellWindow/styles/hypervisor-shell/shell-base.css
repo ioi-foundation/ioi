@@ -1407,7 +1407,6 @@
 }
 
 .chat-workspace-oss-shell__workbench-surface {
-  --workspace-operator-chat-width: clamp(360px, 24vw, 460px);
   position: relative;
   flex: 1;
   min-width: 0;
@@ -1424,38 +1423,6 @@
   min-height: 0;
   overflow: hidden;
   background: #f7f7f6;
-}
-
-.chat-workspace-oss-shell__workbench-surface--with-chat
-  .chat-workspace-oss-shell__surface-stage {
-  flex: 0 0 calc(100% - var(--workspace-operator-chat-width));
-  width: calc(100% - var(--workspace-operator-chat-width));
-  max-width: calc(100% - var(--workspace-operator-chat-width));
-}
-
-.chat-workspace-oss-shell__operator-chat-slot {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
-  width: var(--workspace-operator-chat-width);
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  background: var(--chat-bg, #000000);
-  border-left: 1px solid var(--chat-border, #2b2b2b);
-}
-
-.chat-workspace-oss-shell__operator-chat-slot > .operator-chat-pane-shell {
-  width: 100%;
-  min-width: 0;
-  border-radius: 0;
-}
-
-.chat-workspace-oss-shell__operator-chat-slot
-  .operator-chat-pane-shell.is-maximized {
-  width: clamp(520px, 36vw, 760px);
 }
 
 .workspace-repository-gate {

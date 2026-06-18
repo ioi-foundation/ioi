@@ -1676,8 +1676,6 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
         ],
         custody_posture: "redacted_projection",
         secret_release_policy: "no_durable_secret_release",
-        restore_archive_policy: "not_required",
-        provider_posture_required: false,
         agentgres_operation_refs: [
           "agentgres://operation/workbench-adapter/admit",
         ],
@@ -1706,7 +1704,7 @@ test("public runtime routes expose workbench adapter launch plan admissions", as
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
 
-test("public runtime workbench adapter launch route blocks missing provider posture", async () => {
+test("public runtime workbench adapter launch route rejects provider workspace targets", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
 
@@ -1731,19 +1729,15 @@ test("public runtime workbench adapter launch route blocks missing provider post
         required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
         custody_posture: "provider_session",
         secret_release_policy: "no_durable_secret_release",
-        restore_archive_policy: "required_for_remote_persistence",
-        provider_posture_required: true,
-        archive_ref: "artifact://workspace/archive/7",
-        restore_ref: "agentgres://restore/workspace/7",
       },
     }),
     response,
     store: { defaultCwd: "/workspace", stateDir: "/state" },
   });
 
-  assert.equal(response.statusCode, 403);
+  assert.equal(response.statusCode, 400);
   assert.deepEqual(JSON.parse(response.body), {
-    error: "workbench_adapter_provider_posture_ref_required",
+    error: "workbench_adapter_launch_connection_kind_invalid",
   });
 });
 

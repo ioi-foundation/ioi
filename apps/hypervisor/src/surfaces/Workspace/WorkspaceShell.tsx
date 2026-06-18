@@ -7,17 +7,11 @@ import {
   useEffect,
   useMemo,
   useState,
-  type CSSProperties,
   type ComponentType,
-  type ReactNode,
 } from "react";
 import {
   WorkspaceHost,
-  type WorkspaceExtensionsModel,
-  type WorkspaceOperatorModel,
-  type WorkspaceOperatorSurface,
   type WorkspacePersistedState,
-  type WorkspaceRunDebugModel,
   type WorkspaceSnapshot,
 } from "@ioi/workspace-substrate";
 
@@ -26,13 +20,6 @@ import {
   loadWorkspaceShellState,
   persistWorkspaceShellState,
 } from "../../services/workspaceShellState";
-import {
-  createExtensionsModel,
-  createOperatorModel,
-  createRunDebugModel,
-  loadDirectWorkspaceWorkbenchData,
-  type DirectWorkspaceAdapterState,
-} from "../../services/workspaceDirectWorkbenchModel";
 import type {
   WorkspaceWorkbenchHost,
   WorkspaceWorkbenchProjectDescriptor,
@@ -62,8 +49,6 @@ interface WorkspaceShellProps {
   runtime: HypervisorClientRuntime;
   host: WorkspaceWorkbenchHost;
   fullBleed?: boolean;
-  operatorChatPane?: ReactNode;
-  operatorChatPaneWidthPx?: number;
 }
 
 type WorkspaceShellMode = "repository-gate" | "workbench";
@@ -98,8 +83,6 @@ export function WorkspaceShell({
   runtime,
   host,
   fullBleed = false,
-  operatorChatPane = null,
-  operatorChatPaneWidthPx = 360,
 }: WorkspaceShellProps) {
   const seedProjects = useMemo(
     () => (projects && projects.length > 0 ? projects : [currentProject]),
@@ -240,13 +223,6 @@ export function WorkspaceShell({
     loadWorkspaceShellState(workbenchProject.rootPath),
   );
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
-  const [adapterState, setAdapterState] =
-    useState<DirectWorkspaceAdapterState | null>(null);
-  const [extensionManifests, setExtensionManifests] = useState<
-    Awaited<
-      ReturnType<typeof loadDirectWorkspaceWorkbenchData>
-    >["extensionManifests"]
-  >([]);
 
   useEffect(() => {
     setPersistedState(loadWorkspaceShellState(workbenchProject.rootPath));
@@ -261,12 +237,9 @@ export function WorkspaceShell({
     [persistedState],
   );
   const initialWorkspaceSnapshot = persistedState?.snapshot ?? null;
-  const activeOperatorSurface: WorkspaceOperatorSurface =
-    persistedState?.dockSurface ?? "chat";
 
   const surfaceKind = surface?.kind ?? null;
   const substratePreviewSurfaceVisible = surfaceKind === "substrate-preview";
-  const showOperatorChatPane = Boolean(operatorChatPane);
   const surfaceRuntimeError = useMemo(
     () =>
       surfaceError
@@ -310,7 +283,6 @@ export function WorkspaceShell({
   ) => {
     setPersistedState((current) => {
       const nextState = {
-        dockSurface: current?.dockSurface ?? "chat",
         shellState: nextShellState,
         lastActivePath:
           nextActivePath === undefined
@@ -323,23 +295,9 @@ export function WorkspaceShell({
     });
   };
 
-  const persistOperatorSurface = (dockSurface: WorkspaceOperatorSurface) => {
-    setPersistedState((current) => {
-      const nextState = {
-        dockSurface,
-        shellState: current?.shellState ?? initialWorkspaceState,
-        lastActivePath: current?.lastActivePath ?? null,
-        snapshot: current?.snapshot ?? initialWorkspaceSnapshot,
-      };
-      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
-      return nextState;
-    });
-  };
-
   const persistSnapshot = (nextSnapshot: WorkspaceSnapshot | null) => {
     setPersistedState((current) => {
       const nextState = {
-        dockSurface: current?.dockSurface ?? "chat",
         shellState: current?.shellState ?? initialWorkspaceState,
         lastActivePath: current?.lastActivePath ?? null,
         snapshot: nextSnapshot,
@@ -348,97 +306,6 @@ export function WorkspaceShell({
       return nextState;
     });
   };
-
-  useEffect(() => {
-    if (
-      !workbenchActive ||
-      !session ||
-      !surface ||
-      surface.kind !== "substrate-preview"
-    ) {
-      setAdapterState(null);
-      setExtensionManifests([]);
-      return;
-    }
-
-    let cancelled = false;
-    let intervalHandle: number | null = null;
-
-    const refresh = async () => {
-      try {
-        const next = await loadDirectWorkspaceWorkbenchData({
-          runtime,
-          host,
-          currentProject: workbenchProject,
-          session,
-        });
-        if (cancelled) {
-          return;
-        }
-        setAdapterState(next.adapterState);
-        setExtensionManifests(next.extensionManifests);
-      } catch (error) {
-        if (!cancelled) {
-          console.error(
-            "[Workspace] Failed to load direct workbench model:",
-            error,
-          );
-        }
-      }
-    };
-
-    void refresh();
-    intervalHandle = window.setInterval(refresh, 12_000);
-
-    return () => {
-      cancelled = true;
-      if (intervalHandle !== null) {
-        window.clearInterval(intervalHandle);
-      }
-    };
-  }, [host, runtime, session, surface, workbenchActive, workbenchProject]);
-
-  const activeFilePath = persistedState?.lastActivePath ?? null;
-
-  const runDebugModel = useMemo<WorkspaceRunDebugModel>(
-    () =>
-      createRunDebugModel({
-        adapterState,
-        runtime,
-        rootPath: workbenchProject.rootPath,
-        activeFilePath,
-      }),
-    [activeFilePath, adapterState, runtime, workbenchProject.rootPath],
-  );
-
-  const extensionsModel = useMemo<WorkspaceExtensionsModel>(
-    () =>
-      createExtensionsModel({
-        adapterState,
-        extensionManifests,
-        runtime,
-      }),
-    [adapterState, extensionManifests, runtime],
-  );
-
-  const operatorModel = useMemo<WorkspaceOperatorModel>(
-    () =>
-      createOperatorModel({
-        adapterState,
-        activeSurface: activeOperatorSurface,
-        onSelectSurface: persistOperatorSurface,
-        runtime,
-        rootPath: workbenchProject.rootPath,
-        activeFilePath,
-      }),
-    [
-      activeFilePath,
-      activeOperatorSurface,
-      adapterState,
-      runtime,
-      workbenchProject.rootPath,
-    ],
-  );
 
   const returnToRepositoryGate = () => {
     setShellMode("repository-gate");
@@ -486,20 +353,7 @@ export function WorkspaceShell({
             </header>
           ) : null}
 
-          <div
-            className={clsx(
-              "chat-workspace-oss-shell__workbench-surface",
-              showOperatorChatPane &&
-                "chat-workspace-oss-shell__workbench-surface--with-chat",
-            )}
-            style={
-              showOperatorChatPane
-                ? ({
-                    "--workspace-operator-chat-width": `${operatorChatPaneWidthPx}px`,
-                  } as CSSProperties)
-                : undefined
-            }
-          >
+          <div className="chat-workspace-oss-shell__workbench-surface">
             <div className="chat-workspace-oss-shell__surface-stage">
               {session && surface ? (
                 <WorkspaceHost
@@ -511,15 +365,11 @@ export function WorkspaceShell({
                   defaultPane={surface.defaultPane}
                   title={surface.title}
                   showHeader={surface.showHeader}
-                  hideGlobalCommandCenter
                   showBottomPanel={surface.showBottomPanel}
                   initialSnapshot={
                     surface.initialSnapshot ?? initialWorkspaceSnapshot
                   }
                   initialState={initialWorkspaceState}
-                  runDebugModel={runDebugModel}
-                  extensionsModel={extensionsModel}
-                  operatorModel={operatorModel}
                   onStateChange={(nextState) => {
                     persistShellState(nextState);
                   }}
@@ -725,14 +575,6 @@ export function WorkspaceShell({
               ) : null}
             </div>
 
-            {showOperatorChatPane ? (
-              <aside
-                className="chat-workspace-oss-shell__operator-chat-slot"
-                aria-label="Hypervisor workspace chat"
-              >
-                {operatorChatPane}
-              </aside>
-            ) : null}
           </div>
         </div>
       )}

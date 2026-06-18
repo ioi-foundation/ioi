@@ -195,6 +195,12 @@ const runtimePhysicalActionIntentAdmissionSource = read(
 const runtimePhysicalActionIntentAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
 );
+const runtimeHypervisorApprovedOperationAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.mjs",
+);
+const runtimeHypervisorApprovedOperationAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
+);
 const runtimeWorkerPackageInstallAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
 );
@@ -894,7 +900,8 @@ assert(
     workspaceRepositoryGateSource.includes("<h1>Workbench</h1>") &&
     workspaceRepositoryGateSource.includes("Adapter targets") &&
     workspaceRepositoryGateSource.includes("Choose where Workbench opens") &&
-    workspaceRepositoryGateSource.includes("local editors, browser workspaces") &&
+    workspaceRepositoryGateSource.includes("browser-based code editor") &&
+    workspaceRepositoryGateSource.includes("embedded, desktop, and browser-based") &&
     workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-list") &&
     workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-row") &&
     workspaceRepositoryGateSource.includes("What's new?") &&
@@ -942,7 +949,10 @@ assert(
       "control-channel:workbench-adapter/desktop-bridge",
     ) &&
     workbenchAdapterPreferencesSource.includes(
-      "lease:provider/workspace-access",
+      "connection-contract:workbench-adapter/browser-editor",
+    ) &&
+    !/adapter_id:\s*"remote_vm"|adapter_id:\s*"hypervisor_node"|adapter_id:\s*"terminal_workspace"|adapter_id:\s*"browser_workspace"|adapter_id:\s*"devin"|attach_provider_workspace|attach_hypervisor_node|attach_terminal_session|provider_environment|hypervisor_node_session|terminal_session/.test(
+      workbenchAdapterPreferencesSource,
     ) &&
     workbenchAdapterPreferencesSource.includes(
       "secret_release_policy: \"no_durable_secret_release\"",
@@ -978,8 +988,10 @@ assert(
       "workbench_adapter_runtime_truth_claim_blocked",
     ) &&
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
-      "workbench_adapter_provider_posture_ref_required",
+      "browser_editor_url",
     ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes("browser_code_editor") &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes("open_browser_editor") &&
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
       "workbench_adapter_control_contract_mismatch",
     ) &&
@@ -1832,6 +1844,62 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Projects should hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-approved-operation-admission",
+  runtimeHypervisorApprovedOperationAdmissionSource.includes(
+    "ioi.runtime.hypervisor_approved_operation_admission.v1",
+  ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "admitHypervisorApprovedOperation",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "daemon-session-operation-proposal",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "daemon-provider-operation-proposal",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "hypervisor_approved_operation_proposal_source_not_admissible",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "wallet_approval_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "wallet_lease_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "agentgres_operation_refs",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes("state_root_ref") &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/approved-operations") &&
+    publicRuntimeRoutesSource.includes("admitHypervisorApprovedOperation") &&
+    publicRuntimeRoutesTestSource.includes(
+      "admit approved Hypervisor operations after wallet and Agentgres refs",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "reject fixture Hypervisor operation execution admission",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
+      "rejects fixture or unverified proposals",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
+      "rejects approved operations without Agentgres operation, receipt, or state root",
+    ) &&
+    daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.hypervisor_approved_operation_admission.v1",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Approved Hypervisor operation admission must only admit daemon-authored session/provider proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
 );
 assert(
   "hypervisor-automation-compositor-live-projection",

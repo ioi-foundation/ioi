@@ -4,17 +4,10 @@ import { WorkspaceRail } from "./WorkspaceRail";
 import { WorkspaceExplorerPane } from "./WorkspaceExplorerPane";
 import { WorkspaceSearchPane } from "./WorkspaceSearchPane";
 import { WorkspaceSourceControlPane } from "./WorkspaceSourceControlPane";
-import { WorkspaceRunDebugPane } from "./WorkspaceRunDebugPane";
-import { WorkspaceExtensionsPane } from "./WorkspaceExtensionsPane";
-import { WorkspaceOperatorPane } from "./WorkspaceOperatorPane";
 import { WorkspaceEditorPane } from "./WorkspaceEditorPane";
 import { WorkspaceBottomPanel } from "./WorkspaceBottomPanel";
 import { Codicon } from "./Codicon";
-import { OperatorChatPane, type OperatorChatPaneAction } from "./OperatorChatPane";
-import workbenchDockBoundaryStrip from "../assets/workbench-dock-boundary-strip.png";
-import workbenchAgentPillIcon from "../assets/workbench-agent-pill-icon.png";
 import workbenchLayoutIcon1 from "../assets/workbench-layout-icon-1.png";
-import workbenchLayoutIcon2 from "../assets/workbench-layout-icon-2.png";
 import workbenchLayoutIcon3 from "../assets/workbench-layout-icon-3.png";
 import workbenchLayoutIcon4 from "../assets/workbench-layout-icon-4.png";
 import workbenchFooterStatusLeftStrip from "../assets/workbench-footer-status-left-strip.png";
@@ -39,15 +32,11 @@ import type {
   WorkspaceAdapter,
   WorkspaceActivityEntry,
   WorkspaceBottomPanel as WorkspaceBottomPanelType,
-  WorkspaceExtensionsModel,
   WorkspaceLanguageSymbol,
   WorkspaceLayoutMode,
   WorkspaceOpenRequest,
-  WorkspaceOperatorModel,
-  WorkspaceOperatorSurface,
   WorkspacePane,
   WorkspacePersistedState,
-  WorkspaceRunDebugModel,
   WorkspaceSnapshot,
   WorkspaceTerminalController,
 } from "../types";
@@ -71,7 +60,6 @@ export interface WorkspaceHostProps {
   title?: string;
   showHeader?: boolean;
   headerActions?: ReactNode;
-  hideGlobalCommandCenter?: boolean;
   showBottomPanel?: boolean;
   defaultBottomPanel?: WorkspaceBottomPanelType;
   visibleBottomPanels?: WorkspaceBottomPanelType[];
@@ -83,9 +71,6 @@ export interface WorkspaceHostProps {
   terminalController?: WorkspaceTerminalController;
   terminalAutoStart?: boolean;
   terminalLaunchRequest?: number;
-  runDebugModel?: WorkspaceRunDebugModel | null;
-  extensionsModel?: WorkspaceExtensionsModel | null;
-  operatorModel?: WorkspaceOperatorModel | null;
 }
 
 function basenameLabel(path: string): string {
@@ -96,14 +81,12 @@ function basenameLabel(path: string): string {
 interface WorkspaceViewState {
   pane: WorkspacePane;
   documentId: string | null;
-  operatorSurface: WorkspaceOperatorSurface | null;
 }
 
 function sameViewState(left: WorkspaceViewState, right: WorkspaceViewState): boolean {
   return (
     left.pane === right.pane &&
-    left.documentId === right.documentId &&
-    left.operatorSurface === right.operatorSurface
+    left.documentId === right.documentId
   );
 }
 
@@ -133,20 +116,8 @@ function WorkbenchSearchIcon() {
   return <Codicon name="search" />;
 }
 
-function WorkbenchToolbarAgentIcon() {
-  return <img src={workbenchAgentPillIcon} alt="" className="workspace-workbench-toolbar-agent-mark" />;
-}
-
-function WorkbenchCaretIcon() {
-  return <Codicon name="chevron-down" className="workspace-codicon--compact" />;
-}
-
 function WorkbenchPanelIcon() {
   return <img src={workbenchLayoutIcon1} alt="" className="workspace-workbench-toolbar-layout-mark workspace-workbench-toolbar-layout-mark--square" />;
-}
-
-function WorkbenchSidebarRightIcon() {
-  return <img src={workbenchLayoutIcon2} alt="" className="workspace-workbench-toolbar-layout-mark workspace-workbench-toolbar-layout-mark--narrow" />;
 }
 
 function WorkbenchSplitIcon() {
@@ -157,305 +128,12 @@ function WorkbenchLayoutIcon() {
   return <img src={workbenchLayoutIcon4} alt="" className="workspace-workbench-toolbar-layout-mark workspace-workbench-toolbar-layout-mark--square" />;
 }
 
-function WorkbenchChatSparkleIcon() {
-  return (
-    <svg
-      width="34"
-      height="34"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4.5 6.5h9a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H10l-4 3v-3H4.5a3 3 0 0 1-3-3v-3a3 3 0 0 1 3-3Z" />
-      <path d="M18 3.5l.6 1.4L20 5.5l-1.4.6L18 7.5l-.6-1.4L16 5.5l1.4-.6L18 3.5Z" />
-      <path d="M21 9.5l.35.85.85.35-.85.35L21 11.9l-.35-.85-.85-.35.85-.35L21 9.5Z" />
-    </svg>
-  );
-}
-
 function WorkbenchStatusShieldIcon() {
   return <Codicon name="shield" className="workspace-codicon--status" />;
 }
 
 function WorkbenchStatusBellIcon() {
   return <Codicon name="bell" className="workspace-codicon--status" />;
-}
-
-function WorkspaceOperatorChatPane({
-  onClose,
-  onOpenSurface,
-}: {
-  onClose?: () => void;
-  onOpenSurface?: (surface: WorkspaceOperatorSurface) => void;
-}) {
-  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
-  const [toolMenuQuery, setToolMenuQuery] = useState("");
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const event = new CustomEvent("spot-command-menu-toggled", {
-      detail: { open: toolsMenuOpen },
-    });
-    window.dispatchEvent(event);
-  }, [toolsMenuOpen]);
-
-  const workspaceToolMenuItems: Array<{
-    id: string;
-    label: string;
-    description: string;
-    meta: string;
-    surface: WorkspaceOperatorSurface;
-  }> = [
-    {
-      id: "workspace-context",
-      label: "Workspace context",
-      description: "Attach editor, selection, and file context.",
-      meta: "Built-In",
-      surface: "chat",
-    },
-    {
-      id: "workflow-tools",
-      label: "Workflow tools",
-      description: "Use workflow and project-generation actions.",
-      meta: "Runtime",
-      surface: "workflows",
-    },
-    {
-      id: "manage-tools",
-      label: "Manage tools",
-      description: "Review connector authority and callable capabilities.",
-      meta: "Capabilities",
-      surface: "connections",
-    },
-  ];
-  const normalizedToolMenuQuery = toolMenuQuery.trim().toLowerCase();
-  const visibleWorkspaceToolMenuItems = workspaceToolMenuItems.filter((item) =>
-    normalizedToolMenuQuery.length === 0
-      ? true
-      : [item.label, item.description, item.meta, item.id]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedToolMenuQuery),
-  );
-  const closeToolsMenu = () => {
-    setToolsMenuOpen(false);
-    setToolMenuQuery("");
-  };
-
-  useEffect(() => {
-    if (!toolsMenuOpen) {
-      return;
-    }
-    const handleGlobalMouseDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        !target?.closest(".workspace-agent-composer-card") &&
-        !target?.closest(".workspace-agent-tool-menu")
-      ) {
-        closeToolsMenu();
-      }
-    };
-    const handleBlur = () => {
-      requestAnimationFrame(() => {
-        if (document.activeElement && document.activeElement.tagName === "IFRAME") {
-          closeToolsMenu();
-        }
-      });
-    };
-    document.addEventListener("mousedown", handleGlobalMouseDown);
-    window.addEventListener("blur", handleBlur);
-    return () => {
-      document.removeEventListener("mousedown", handleGlobalMouseDown);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [toolsMenuOpen]);
-
-  const primaryActions: OperatorChatPaneAction[] = [
-    {
-      id: "new",
-      label: "New Chat (Ctrl+N)",
-      icon: <Codicon name="plus" />,
-      onClick: () => onOpenSurface?.("chat"),
-    },
-    {
-      id: "new-options",
-      label: "New Chat",
-      icon: <Codicon name="chevron-down" />,
-      onClick: () => onOpenSurface?.("chat"),
-    },
-    {
-      id: "settings",
-      label: "Configure Chat",
-      icon: <Codicon name="gear" />,
-      onClick: () => onOpenSurface?.("policy"),
-    },
-    {
-      id: "more",
-      label: "Views and More Actions...",
-      icon: <Codicon name="toolbar-more" />,
-      onClick: () => onOpenSurface?.("workflows"),
-    },
-  ];
-  const secondaryActions: OperatorChatPaneAction[] = [
-    {
-      id: "maximize",
-      label: "Maximize Secondary Side Bar Size",
-      icon: <Codicon name="auxiliarybar-maximize" />,
-      onClick: () => onOpenSurface?.("chat"),
-    },
-    {
-      id: "close",
-      label: "Hide Secondary Side Bar (Ctrl+Alt+B)",
-      icon: <Codicon name="auxiliarybar-close" />,
-      onClick: onClose,
-    },
-  ];
-
-  return (
-    <OperatorChatPane
-      mode="docked"
-      label="Workspace Chat"
-      className="workspace-operator-chat-pane"
-      dataOperatorChatPane="docked"
-      dataInspectionTarget="workspace-chat-pane"
-      primaryActions={primaryActions}
-      secondaryActions={secondaryActions}
-      onTabClick={() => onOpenSurface?.("chat")}
-      emptyState={{
-        icon: <WorkbenchChatSparkleIcon />,
-        title: "Build with Agent",
-        description: (
-          <>
-            AI responses may be inaccurate.
-            <br />
-            <button
-              type="button"
-              className="operator-chat-pane__inline-link"
-              onClick={() => onOpenSurface?.("chat")}
-            >
-              Generate Agent Instructions
-            </button>{" "}
-            to onboard AI onto your codebase.
-          </>
-        ),
-      }}
-      suggestedActions={
-        <>
-          <button type="button" onClick={() => onOpenSurface?.("workflows")}>
-            Build Workspace
-          </button>
-          <button type="button" onClick={() => onOpenSurface?.("policy")}>
-            Show Config
-          </button>
-        </>
-      }
-      composer={
-        <div className="workspace-agent-composer-card">
-          <button
-            type="button"
-            className="workspace-agent-composer-context"
-            onClick={() => onOpenSurface?.("artifacts")}
-          >
-            Add Context...
-          </button>
-          <p>Describe what to build next</p>
-          <div className="workspace-agent-composer-footer">
-            <button type="button" onClick={() => onOpenSurface?.("chat")}>
-              <Codicon name="device-desktop" />
-              <Codicon name="chevron-down" />
-            </button>
-            <button type="button" onClick={() => onOpenSurface?.("workflows")}>
-              <Codicon name="symbol-operator" />
-              <Codicon name="chevron-down" />
-            </button>
-            <button type="button" onClick={() => onOpenSurface?.("policy")}>
-              Local
-              <Codicon name="chevron-down" />
-            </button>
-            <button type="button" onClick={() => onOpenSurface?.("policy")}>
-              Auto
-              <Codicon name="chevron-down" />
-            </button>
-            <button
-              type="button"
-              className="workspace-agent-composer-tool-toggle"
-              aria-label="Select tools"
-              aria-expanded={toolsMenuOpen}
-              onClick={() => {
-                if (toolsMenuOpen) {
-                  closeToolsMenu();
-                  return;
-                }
-                setToolsMenuOpen(true);
-              }}
-            >
-              <Codicon name="tools" />
-            </button>
-            <button
-              type="button"
-              className="workspace-agent-composer-submit"
-              aria-label="Submit workspace chat prompt"
-              onClick={() => onOpenSurface?.("chat")}
-            >
-              <Codicon name="arrow-right" />
-            </button>
-          </div>
-          {toolsMenuOpen ? (
-            <div
-              className="workspace-agent-tool-menu"
-              role="menu"
-              aria-label="Select a tool"
-            >
-              <label
-                className="workspace-agent-tool-menu__search"
-                aria-label="Select a tool"
-              >
-                <input
-                  autoFocus
-                  placeholder="Select a tool"
-                  type="text"
-                  value={toolMenuQuery}
-                  onChange={(event) => setToolMenuQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.stopPropagation();
-                      closeToolsMenu();
-                    }
-                  }}
-                />
-              </label>
-              {visibleWorkspaceToolMenuItems.length > 0 ? (
-                visibleWorkspaceToolMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      closeToolsMenu();
-                      onOpenSurface?.(item.surface);
-                    }}
-                  >
-                    <span>{item.label}</span>
-                    <small>{item.description}</small>
-                    <em>{item.meta}</em>
-                  </button>
-                ))
-              ) : (
-                <div className="workspace-agent-tool-menu__empty" role="status">
-                  No matching tools
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-      }
-    />
-  );
 }
 
 interface WorkspaceSidebarOutlineItem {
@@ -552,7 +230,6 @@ export function WorkspaceHost({
   title = "Workspace",
   showHeader = true,
   headerActions,
-  hideGlobalCommandCenter = false,
   showBottomPanel = true,
   defaultBottomPanel = "output",
   visibleBottomPanels = DEFAULT_VISIBLE_BOTTOM_PANELS,
@@ -564,9 +241,6 @@ export function WorkspaceHost({
   terminalController: terminalControllerProp,
   terminalAutoStart = false,
   terminalLaunchRequest = 0,
-  runDebugModel = null,
-  extensionsModel = null,
-  operatorModel = null,
 }: WorkspaceHostProps) {
   const footerDebugEnabled =
     import.meta.env.VITE_AUTOPILOT_WORKSPACE_DEBUG_FOOTER === "1";
@@ -647,7 +321,6 @@ export function WorkspaceHost({
 
   const workspaceLabel = session.snapshot?.displayName ?? basenameLabel(root);
   const [primarySidebarOpen, setPrimarySidebarOpen] = useState(true);
-  const [secondarySidebarOpen, setSecondarySidebarOpen] = useState(true);
   const [editorSplitOpen, setEditorSplitOpen] = useState(false);
   const [outlineSectionOpen, setOutlineSectionOpen] = useState(false);
   const [timelineSectionOpen, setTimelineSectionOpen] = useState(false);
@@ -680,10 +353,8 @@ export function WorkspaceHost({
     () => ({
       pane: session.activePane,
       documentId: session.activeDocumentId,
-      operatorSurface:
-        session.activePane === "ioi" ? operatorModel?.activeSurface ?? null : null,
     }),
-    [operatorModel?.activeSurface, session.activeDocumentId, session.activePane],
+    [session.activeDocumentId, session.activePane],
   );
 
   const applyViewState = useCallback(
@@ -692,15 +363,8 @@ export function WorkspaceHost({
       setPrimarySidebarOpen(true);
       session.setActivePane(viewState.pane);
       session.setActiveDocumentId(viewState.documentId);
-      if (
-        viewState.pane === "ioi" &&
-        viewState.operatorSurface &&
-        operatorModel?.onSelectSurface
-      ) {
-        operatorModel.onSelectSurface(viewState.operatorSurface);
-      }
     },
-    [operatorModel, session.setActiveDocumentId, session.setActivePane],
+    [session.setActiveDocumentId, session.setActivePane],
   );
 
   useEffect(() => {
@@ -768,10 +432,6 @@ export function WorkspaceHost({
     setPrimarySidebarOpen((isOpen) => !isOpen);
   }, []);
 
-  const toggleSecondarySidebar = useCallback(() => {
-    setSecondarySidebarOpen((isOpen) => !isOpen);
-  }, []);
-
   const toggleBottomPanel = useCallback(() => {
     session.setBottomPanelOpen((isOpen) => !isOpen);
   }, [session.setBottomPanelOpen]);
@@ -782,20 +442,6 @@ export function WorkspaceHost({
     }
     setEditorSplitOpen((isOpen) => !isOpen);
   }, [canSplitEditor]);
-
-  const openOperatorSurface = useCallback(
-    (surface: WorkspaceOperatorSurface) => {
-      setPrimarySidebarOpen(true);
-      setSecondarySidebarOpen(true);
-      operatorModel?.onSelectSurface?.(surface);
-      session.setActivePane("ioi");
-    },
-    [operatorModel, session.setActivePane],
-  );
-
-  const openAgentSurface = useCallback(() => {
-    openOperatorSurface("chat");
-  }, [openOperatorSurface]);
 
   const outlineItems = useMemo<WorkspaceSidebarOutlineItem[]>(() => {
     const languageSnapshot = languageService.snapshot;
@@ -947,31 +593,6 @@ export function WorkspaceHost({
       );
     }
 
-    if (session.activePane === "run-and-debug") {
-      const effectiveRunDebugModel = {
-        ...(runDebugModel ?? { entries: [] }),
-        onOpenTerminal: () => {
-          session.setBottomPanelOpen(true);
-          session.setActiveBottomPanel("terminal");
-        },
-        onOpenOutput: () => {
-          session.setBottomPanelOpen(true);
-          session.setActiveBottomPanel("output");
-        },
-      };
-      return (
-        <WorkspaceRunDebugPane model={effectiveRunDebugModel} />
-      );
-    }
-
-    if (session.activePane === "extensions") {
-      return <WorkspaceExtensionsPane model={extensionsModel} />;
-    }
-
-    if (session.activePane === "ioi") {
-      return <WorkspaceOperatorPane model={operatorModel} />;
-    }
-
     return (
       <WorkspaceExplorerPane
         tree={session.treeNodes}
@@ -991,7 +612,7 @@ export function WorkspaceHost({
         onDeletePath={(path) => void session.deletePath(path)}
       />
     );
-  }, [adapter, extensionsModel, operatorModel, root, runDebugModel, session]);
+  }, [adapter, root, session]);
 
   useEffect(() => {
     onSnapshotChange?.(session.snapshot);
@@ -1003,8 +624,6 @@ export function WorkspaceHost({
         "workspace-host",
         `workspace-host--${layoutMode}`,
         !primarySidebarOpen && "workspace-host--sidebar-collapsed",
-        !secondarySidebarOpen && "workspace-host--secondary-collapsed",
-        hideGlobalCommandCenter && "workspace-host--global-command-center-hidden",
         className,
       )}
       aria-label={title}
@@ -1036,59 +655,42 @@ export function WorkspaceHost({
         />
         <div className="workspace-workbench-toolbar-live">
           <div className="workspace-workbench-toolbar-group workspace-workbench-toolbar-group--start">
-            {!hideGlobalCommandCenter ? (
-              <>
-                <span className="workspace-workbench-app-icon" aria-hidden="true">
-                  <WorkbenchAppIcon />
-                </span>
-                <button
-                  type="button"
-                  className="workspace-workbench-toolbar-button"
-                  aria-label="Go back"
-                  disabled={!canNavigateBack}
-                  onClick={navigateBack}
-                >
-                  <WorkbenchToolbarIcon>
-                    <WorkbenchBackIcon />
-                  </WorkbenchToolbarIcon>
-                </button>
-                <button
-                  type="button"
-                  className="workspace-workbench-toolbar-button"
-                  aria-label="Go forward"
-                  disabled={!canNavigateForward}
-                  onClick={navigateForward}
-                >
-                  <WorkbenchToolbarIcon>
-                    <WorkbenchForwardIcon />
-                  </WorkbenchToolbarIcon>
-                </button>
-                <button
-                  type="button"
-                  className="workspace-workbench-command-center"
-                  aria-label="Open workspace search"
-                  onClick={openSearchPane}
-                >
-                  <WorkbenchToolbarIcon>
-                    <WorkbenchSearchIcon />
-                  </WorkbenchToolbarIcon>
-                  <span>{workspaceLabel}</span>
-                </button>
-                <button
-                  type="button"
-                  className="workspace-workbench-toolbar-pill"
-                  aria-label="Open agent actions"
-                  onClick={openAgentSurface}
-                >
-                  <WorkbenchToolbarIcon>
-                    <WorkbenchToolbarAgentIcon />
-                  </WorkbenchToolbarIcon>
-                  <WorkbenchToolbarIcon>
-                    <WorkbenchCaretIcon />
-                  </WorkbenchToolbarIcon>
-                </button>
-              </>
-            ) : null}
+            <span className="workspace-workbench-app-icon" aria-hidden="true">
+              <WorkbenchAppIcon />
+            </span>
+            <button
+              type="button"
+              className="workspace-workbench-toolbar-button"
+              aria-label="Go back"
+              disabled={!canNavigateBack}
+              onClick={navigateBack}
+            >
+              <WorkbenchToolbarIcon>
+                <WorkbenchBackIcon />
+              </WorkbenchToolbarIcon>
+            </button>
+            <button
+              type="button"
+              className="workspace-workbench-toolbar-button"
+              aria-label="Go forward"
+              disabled={!canNavigateForward}
+              onClick={navigateForward}
+            >
+              <WorkbenchToolbarIcon>
+                <WorkbenchForwardIcon />
+              </WorkbenchToolbarIcon>
+            </button>
+            <button
+              type="button"
+              className="workspace-workbench-command-center"
+              aria-label="Open workspace search"
+              onClick={openSearchPane}
+            >
+              <WorkbenchToolbarIcon>
+                <WorkbenchSearchIcon />
+              </WorkbenchToolbarIcon>
+              <span>{workspaceLabel}</span>
+            </button>
           </div>
 
           <div className="workspace-workbench-toolbar-group workspace-workbench-toolbar-group--end">
@@ -1107,17 +709,6 @@ export function WorkspaceHost({
             >
               <WorkbenchToolbarIcon>
                 <WorkbenchPanelIcon />
-              </WorkbenchToolbarIcon>
-            </button>
-            <button
-              type="button"
-              className="workspace-workbench-toolbar-button"
-              aria-label="Toggle secondary side bar"
-              aria-pressed={secondarySidebarOpen}
-              onClick={toggleSecondarySidebar}
-            >
-              <WorkbenchToolbarIcon>
-                <WorkbenchSidebarRightIcon />
               </WorkbenchToolbarIcon>
             </button>
             <button
@@ -1166,7 +757,6 @@ export function WorkspaceHost({
         className={clsx(
           "workspace-host-body",
           !primarySidebarOpen && "workspace-host-body--sidebar-collapsed",
-          !secondarySidebarOpen && "workspace-host-body--secondary-collapsed",
         )}
       >
         {showExplorerChrome ? (
@@ -1199,14 +789,6 @@ export function WorkspaceHost({
             ) : null}
           </>
         ) : null}
-        {secondarySidebarOpen ? (
-          <img
-            src={workbenchDockBoundaryStrip}
-            alt=""
-            className="workspace-agent-dock-boundary-strip"
-            aria-hidden="true"
-          />
-        ) : null}
         {showExplorerChrome ? (
           <img
             src={workbenchSidebarEditorUpperGapStrip}
@@ -1218,7 +800,6 @@ export function WorkspaceHost({
         <WorkspaceRail
           activePane={session.activePane}
           onSelectPane={handleSelectPane}
-          onSelectOperatorSurface={operatorModel?.onSelectSurface}
           onTogglePrimarySidebar={togglePrimarySidebar}
         />
 
@@ -1382,12 +963,6 @@ export function WorkspaceHost({
           ) : null}
         </div>
 
-        {secondarySidebarOpen ? (
-          <WorkspaceOperatorChatPane
-            onClose={() => setSecondarySidebarOpen(false)}
-            onOpenSurface={openOperatorSurface}
-          />
-        ) : null}
       </div>
 
       {showExplorerChrome && !footerSectionsInteractive ? (

@@ -9,45 +9,29 @@ import {
 export const WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION =
   "ioi.runtime.workbench_adapter_launch_plan_admission.v1";
 
-const LAUNCH_MODES = new Set(["embedded", "external", "remote_url", "headless"]);
+const LAUNCH_MODES = new Set(["embedded", "external", "remote_url"]);
 
 const CONNECTION_KINDS = new Set([
   "embedded_host",
   "desktop_editor",
-  "browser_workspace_url",
-  "terminal_session",
-  "provider_workspace",
-  "hypervisor_node_session",
+  "browser_editor_url",
 ]);
 
 const EXECUTOR_LANES = new Set([
   "embedded_workbench_host",
   "desktop_editor",
-  "browser_workspace",
-  "terminal_session",
-  "provider_environment",
-  "hypervisor_node",
+  "browser_code_editor",
 ]);
 
 const CONTROL_ACTIONS = new Set([
   "open_embedded_workbench",
   "open_desktop_editor",
-  "open_browser_workspace",
-  "attach_terminal_session",
-  "attach_provider_workspace",
-  "attach_hypervisor_node",
+  "open_browser_editor",
 ]);
 
 const CUSTODY_POSTURES = new Set([
   "local_projection",
   "redacted_projection",
-  "provider_session",
-  "headless_session",
-]);
-
-const RESTORE_ARCHIVE_POLICIES = new Set([
-  "not_required",
-  "required_for_remote_persistence",
 ]);
 
 const RETIRED_ALIASES = [
@@ -122,17 +106,7 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
   );
   const secretReleasePolicy =
     optionalString(request.secret_release_policy) ?? "no_durable_secret_release";
-  const restoreArchivePolicy = enumValue(
-    request.restore_archive_policy,
-    "restore_archive_policy",
-    RESTORE_ARCHIVE_POLICIES,
-  );
-  const providerPostureRequired =
-    booleanValue(request.provider_posture_required) ?? false;
-  const providerPostureRef = optionalString(request.provider_posture_ref) ?? null;
   const walletApprovalRef = optionalString(request.wallet_approval_ref) ?? null;
-  const archiveRef = optionalString(request.archive_ref) ?? null;
-  const restoreRef = optionalString(request.restore_ref) ?? null;
   const agentgresOperationRefs = prefixedRefs(
     request.agentgres_operation_refs,
     "agentgres_operation_refs",
@@ -150,7 +124,6 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
     launchPlanRef,
     adapterRef,
     targetRef,
-    launchMode,
     connectionKind,
     connectionContractRef,
     executorLane,
@@ -161,11 +134,6 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
     requiredReceiptRefs,
     custodyPosture,
     secretReleasePolicy,
-    restoreArchivePolicy,
-    providerPostureRequired,
-    providerPostureRef,
-    archiveRef,
-    restoreRef,
     adapterRuntimeTruthClaimed,
   });
 
@@ -190,12 +158,7 @@ export function admitWorkbenchAdapterLaunchPlan(request = {}, deps = {}) {
     required_receipt_refs: requiredReceiptRefs,
     custody_posture: custodyPosture,
     secret_release_policy: secretReleasePolicy,
-    restore_archive_policy: restoreArchivePolicy,
-    provider_posture_required: providerPostureRequired,
-    provider_posture_ref: providerPostureRef,
     wallet_approval_ref: walletApprovalRef,
-    archive_ref: archiveRef,
-    restore_ref: restoreRef,
     agentgres_operation_refs: agentgresOperationRefs,
     receipt_refs: receiptRefs,
     state_root: stateRoot,
@@ -211,7 +174,6 @@ function assertWorkbenchAdapterLaunchPlan({
   launchPlanRef,
   adapterRef,
   targetRef,
-  launchMode,
   connectionKind,
   connectionContractRef,
   executorLane,
@@ -222,11 +184,6 @@ function assertWorkbenchAdapterLaunchPlan({
   requiredReceiptRefs,
   custodyPosture,
   secretReleasePolicy,
-  restoreArchivePolicy,
-  providerPostureRequired,
-  providerPostureRef,
-  archiveRef,
-  restoreRef,
   adapterRuntimeTruthClaimed,
 }) {
   requirePrefix(launchPlanRef, "workbench-adapter:", "launch_plan_ref");
@@ -270,57 +227,6 @@ function assertWorkbenchAdapterLaunchPlan({
     });
   }
 
-  if (
-    providerBackedConnection(connectionKind, custodyPosture) &&
-    !providerPostureRequired
-  ) {
-    throw admissionError({
-      code: "workbench_adapter_provider_posture_required",
-      message:
-        "Provider-backed adapter sessions require explicit provider posture.",
-      details: { connection_kind: connectionKind, custody_posture: custodyPosture },
-    });
-  }
-
-  if (providerPostureRequired && !providerPostureRef) {
-    throw admissionError({
-      code: "workbench_adapter_provider_posture_ref_required",
-      message:
-        "Provider-backed adapter launch plans require provider_posture_ref.",
-      details: { provider_posture_required: providerPostureRequired },
-    });
-  }
-
-  if (restoreArchivePolicy === "required_for_remote_persistence") {
-    if (!archiveRef || !restoreRef) {
-      throw admissionError({
-        code: "workbench_adapter_restore_refs_required",
-        message:
-          "Persistent remote adapter sessions require archive_ref and restore_ref.",
-        details: { archive_ref: archiveRef, restore_ref: restoreRef },
-      });
-    }
-    requirePrefix(archiveRef, "artifact://", "archive_ref");
-    requirePrefix(restoreRef, "agentgres://restore/", "restore_ref");
-  }
-
-  if (launchMode === "headless" && connectionKind !== "terminal_session") {
-    throw admissionError({
-      code: "workbench_adapter_headless_connection_invalid",
-      message:
-        "Headless workbench adapter launch mode must use terminal_session connection kind.",
-      details: { launch_mode: launchMode, connection_kind: connectionKind },
-    });
-  }
-}
-
-function providerBackedConnection(connectionKind, custodyPosture) {
-  return (
-    custodyPosture === "provider_session" ||
-    ["browser_workspace_url", "provider_workspace", "hypervisor_node_session"].includes(
-      connectionKind,
-    )
-  );
 }
 
 function assertConnectionControlPair({
@@ -337,21 +243,9 @@ function assertConnectionControlPair({
       executorLane: "desktop_editor",
       controlAction: "open_desktop_editor",
     },
-    browser_workspace_url: {
-      executorLane: "browser_workspace",
-      controlAction: "open_browser_workspace",
-    },
-    terminal_session: {
-      executorLane: "terminal_session",
-      controlAction: "attach_terminal_session",
-    },
-    provider_workspace: {
-      executorLane: "provider_environment",
-      controlAction: "attach_provider_workspace",
-    },
-    hypervisor_node_session: {
-      executorLane: "hypervisor_node",
-      controlAction: "attach_hypervisor_node",
+    browser_editor_url: {
+      executorLane: "browser_code_editor",
+      controlAction: "open_browser_editor",
     },
   }[connectionKind];
 

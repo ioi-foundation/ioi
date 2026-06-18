@@ -198,7 +198,7 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
   assert.match(source, /id: "workbench"[\s\S]*label: "Workbench"/);
   assert.match(
     source,
-    /editors, terminals, browsers, and VMs are adapter targets/,
+    /embedded, desktop, and browser code editors are adapter targets/,
   );
   assert.match(source, /id: "foundry"[\s\S]*label: "Foundry"/);
   assert.match(source, /id: "providers"[\s\S]*label: "Providers"/);
