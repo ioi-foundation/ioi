@@ -27,6 +27,10 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /className="chat-home-zero-quickstarts"/);
   assert.match(homeView, /HOME_AGENT_PROMPTS/);
   assert.match(homeView, /data-home-intent-composer="ioi-reference"/);
+  assert.match(homeView, /ProjectFocusIcon/);
+  assert.match(homeView, /ModelGlyphIcon/);
+  assert.match(homeView, /ArrowUpIcon/);
+  assert.match(homeView, /ChevronDownIcon/);
   assert.match(homeView, /data-home-agent-prompt/);
   assert.doesNotMatch(homeView, /HOME_RECENT_SESSIONS/);
   assert.doesNotMatch(homeView, /data-home-recent-sessions/);
@@ -75,6 +79,9 @@ test("home dashboard launches governed sessions from the reference prompt", () =
   assert.match(homeView, /Describe your task or type \/ for commands/);
   assert.match(homeView, /data-home-intent-project/);
   assert.match(homeView, /data-home-intent-model/);
+  assert.match(homeView, /Work in a project/);
+  assert.match(homeView, /5\.5 Medium/);
+  assert.doesNotMatch(homeView, />\s*\^\s*<\/button>/);
   assert.doesNotMatch(homeView, /data-home-intent-submit/);
   assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_SURFACES/);
@@ -144,6 +151,8 @@ test("home prompt shell has responsive reference styling", () => {
   assert.match(homeCss, /\.chat-home-zero-shell--prompt\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-brand-lockup\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-composer-controls\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-control-icon\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-control-icon--model\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-submit\s*\{/);
   assert.doesNotMatch(homeCss, /linear-gradient\(30deg/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-brand-mark__glyph/);
