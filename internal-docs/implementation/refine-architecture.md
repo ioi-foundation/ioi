@@ -1193,14 +1193,23 @@ Current implementation cut:
   `requestWorkbenchAdapterLaunchPlanAdmission` now calls that daemon route from
   New Session launch. `HypervisorLaunchedSessionProjection` records the adapter
   admission as `daemon_admitted`, `daemon_blocked`, or `daemon_unavailable`,
-  rather than treating adapter choice as local UI state. Remaining 0A.5 work is
-  adapter-specific executor/control wiring after admission for external desktop
-  editors, browser IDEs, terminal harnesses, VMs, and HypervisorOS nodes.
+  rather than treating adapter choice as local UI state.
+  `WorkbenchAdapterLaunchPlan` and daemon launch admissions now carry
+  adapter-specific `executor_lane`, `control_action`, and
+  `control_channel_ref` fields for embedded Workbench, desktop bridge, browser
+  workspace, terminal session, provider workspace, and HypervisorOS node paths.
+  The runtime daemon validates that the control action matches the connection
+  kind before admitting the launch plan, and the Workbench adapter hub renders
+  product-facing action labels while keeping the raw control metadata in stable
+  data attributes for tests and replay.
   Sessions now render each launched session's adapter admission record and
   disable `Open surface` unless the Workbench adapter launch plan is
   `daemon_admitted`. `daemon_blocked` and `daemon_unavailable` launches remain
   inspectable as governed session records, but they cannot silently enter the
-  target application surface.
+  target application surface. The session operations projection now also carries
+  `selected_adapter_admission_state`, so the active session topbar can disable
+  adapter entry from the projection itself instead of hard-coding open controls
+  in the client.
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
