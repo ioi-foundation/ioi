@@ -45,6 +45,14 @@ const retiredAutopilotWorkflowCanvasFixtures = [
   "scripts/lib/prompt-parser.ts",
   "scripts/custom-hypervisor-agenda.mjs",
 ];
+const retiredDirectOpenVsCodeDesktopProbes = [
+  "apps/hypervisor/scripts/desktop_home_menu_bar_bridge_probe.py",
+  "apps/hypervisor/scripts/desktop_openvscode_bridge_routing_probe.py",
+  "apps/hypervisor/scripts/desktop_openvscode_direct_probe.py",
+  "apps/hypervisor/scripts/desktop_openvscode_fullscreen_first_load_probe.py",
+  "apps/hypervisor/scripts/desktop_openvscode_hot_lifecycle_probe.py",
+  "apps/hypervisor/scripts/desktop_openvscode_onboarding_pass.py",
+];
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -1590,6 +1598,12 @@ assert(
   retiredAutopilotWorkflowCanvasFixtures.every((fixturePath) => !exists(fixturePath)),
   retiredAutopilotWorkflowCanvasFixtures,
   "Retired Autopilot workflow-canvas fixtures and agenda scripts must stay deleted; current workflow/compositor proof paths live under Hypervisor surfaces and daemon gates.",
+);
+assert(
+  "retired-direct-openvscode-desktop-probes-absent",
+  retiredDirectOpenVsCodeDesktopProbes.every((probePath) => !exists(probePath)),
+  retiredDirectOpenVsCodeDesktopProbes,
+  "Retired direct-OpenVSCode desktop probes must stay deleted; editor behavior is verified through Hypervisor Workbench adapter preferences and shell contracts.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",
