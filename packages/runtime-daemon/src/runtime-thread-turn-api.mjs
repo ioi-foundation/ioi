@@ -274,7 +274,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 409,
         code: "runtime_bridge_thread_control_agent_mismatch",
-        message: "Runtime bridge thread control requires a runtime_service agent.",
+        message: "Runtime service thread control requires a runtime_service agent.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -290,7 +290,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 501,
         code: "runtime_bridge_thread_control_projection_unavailable",
-        message: "Runtime bridge thread control requires Rust daemon-core thread projection.",
+        message: "Runtime service thread control requires Rust daemon-core thread projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -320,7 +320,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_thread_control_agent_missing",
-        message: "Rust daemon-core runtime bridge thread control did not return an agent projection.",
+        message: "Rust daemon-core runtime service thread control did not return an agent projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -335,7 +335,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_thread_control_operation_kind_mismatch",
-        message: "Rust daemon-core runtime bridge thread control returned the wrong operation kind.",
+        message: "Rust daemon-core runtime service thread control returned the wrong operation kind.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -360,7 +360,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_thread_control_projection_incomplete",
-        message: "Rust daemon-core runtime bridge thread control did not return canonical control state.",
+        message: "Rust daemon-core runtime service thread control did not return canonical control state.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -382,7 +382,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_thread_control_thread_projection_mismatch",
-        message: "Rust daemon-core runtime bridge thread control returned a mismatched thread projection.",
+        message: "Rust daemon-core runtime service thread control returned a mismatched thread projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_thread_control",
@@ -418,7 +418,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 409,
         code: "runtime_bridge_turn_submit_agent_mismatch",
-        message: "Runtime bridge turn submission requires a runtime_service agent.",
+        message: "Runtime service turn submission requires a runtime_service agent.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -433,7 +433,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 501,
         code: "runtime_bridge_turn_submit_projection_unavailable",
-        message: "Runtime bridge turn submission requires Rust daemon-core turn projection.",
+        message: "Runtime service turn submission requires Rust daemon-core turn projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -456,7 +456,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_turn_submit_run_missing",
-        message: "Rust daemon-core runtime bridge turn submit did not return a run projection.",
+        message: "Rust daemon-core runtime service turn submit did not return a run projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -470,7 +470,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_turn_submit_operation_kind_mismatch",
-        message: "Rust daemon-core runtime bridge turn submit returned the wrong operation kind.",
+        message: "Rust daemon-core runtime service turn submit returned the wrong operation kind.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -493,7 +493,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_turn_submit_projection_incomplete",
-        message: "Rust daemon-core runtime bridge turn submit did not return a complete planned run.",
+        message: "Rust daemon-core runtime service turn submit did not return a complete planned run.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -515,7 +515,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       throwRuntimeBridgeLifecycleError({
         status: 502,
         code: "runtime_bridge_turn_submit_committed_projection_mismatch",
-        message: "Rust daemon-core runtime bridge turn submit returned a mismatched turn projection.",
+        message: "Rust daemon-core runtime service turn submit returned a mismatched turn projection.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -537,7 +537,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
         status: 501,
         code: "runtime_bridge_turn_submit_builder_unavailable",
         message:
-          "Runtime bridge turn submission requires mounted run candidate construction before Rust state planning.",
+          "Runtime service turn submission requires mounted run candidate construction before Rust state planning.",
         details: {
           rust_core_boundary: "runtime.bridge_thread",
           operation: "runtime_bridge_turn_submit",
@@ -595,7 +595,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       status: 501,
       code: "runtime_bridge_thread_rust_core_required",
       message:
-        "Runtime bridge thread start and turn submission require direct Rust daemon-core admission and persistence.",
+        "Runtime service thread start and turn submission require direct Rust daemon-core admission and persistence.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation,

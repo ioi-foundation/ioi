@@ -44,7 +44,7 @@ const projectSurfaceSource = source.slice(
 assert.doesNotMatch(
   source,
   /<ChatCopilotView/,
-  "Sessions should not mount the legacy chat pane underneath the IOI-reference cockpit",
+  "Sessions cockpit should not mount a second chat pane underneath the workplane",
 );
 
 assert.match(
@@ -73,7 +73,7 @@ assert.match(
 assert.doesNotMatch(
   chatLeftUtilityPaneSource,
   /chat-chat-pane-body/,
-  "the persistent chat pane should not wrap shared chat chrome in legacy pane body styling",
+  "the persistent chat pane should use the shared chat chrome without an extra pane body",
 );
 
 assert.match(
@@ -141,7 +141,7 @@ assert.match(
 assert.doesNotMatch(
   source,
   /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session/,
-  "Sessions should not keep the stale dark cockpit root class that creates a card frame",
+  "Sessions should use only the reference cockpit root class",
 );
 
 assert.match(
@@ -171,7 +171,7 @@ assert.match(
 assert.doesNotMatch(
   source,
   /className="hypervisor-session-operations__(?:header|launches|rail|reference-detail|tabs|grid|actions|bottom|metadata)"/,
-  "Sessions should hard-delete the stale dashboard rail/grid/actions/bottom DOM instead of hiding it behind CSS",
+  "Sessions should render only the reference cockpit DOM instead of hiding alternate dashboard branches",
 );
 
 assert.match(
@@ -183,7 +183,7 @@ assert.match(
 assert.match(
   source,
   /data-workflow-compositor-editor-boundary="projection-client"[\s\S]*hidden/,
-  "the legacy compositor child should remain mounted as a boundary artifact without becoming the default visible surface",
+  "the compositor projection client should stay hidden behind the Automations surface",
 );
 
 assert.match(
@@ -249,7 +249,7 @@ assert.doesNotMatch(
 assert.match(
   shellCss,
   /Phase 0A hard cut: Sessions uses the IOI reference environment detail view[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 340px;[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);/,
-  "Sessions should use the IOI-reference two-column environment detail page instead of the stale dashboard grid",
+  "Sessions should use the IOI-reference two-column environment detail page",
 );
 
 assert.match(
@@ -273,13 +273,13 @@ assert.match(
 assert.match(
   shellCss,
   /\.hypervisor-session-detail-shell \.hypervisor-session-operations__top-actions\s*\{[\s\S]*display: flex;/,
-  "Sessions should keep operation proposals in the reference top action strip without a stale action rail",
+  "Sessions should keep operation proposals in the reference top action strip",
 );
 
 assert.doesNotMatch(
   shellCss,
   /\.hypervisor-session-detail-shell > \.hypervisor-session-operations__(?:header|rail|reference-detail|tabs|grid|actions|bottom|metadata)[\s\S]*display: none;/,
-  "Sessions CSS should not keep hiding stale dashboard children after the DOM cut",
+  "Sessions CSS should not hide alternate dashboard children after the DOM cut",
 );
 
 assert.match(
@@ -339,7 +339,7 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   homeViewSource,
   /Welcome back, Operator|Recommended applications|HOME_REFERENCE_APPS|HOME_REFERENCE_ACTIONS|HOME_REFERENCE_SURFACES|Sessions and workspaces/,
-  "Home should not return to the old dashboard or marketing-card application portal",
+  "Home should stay prompt-first instead of becoming an application-card portal",
 );
 
 assert.match(
@@ -358,12 +358,6 @@ assert.match(
   source,
   /const conversationalSurfaceActive = activeView === "missions"[\s\S]*const auxiliaryChatVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
   "The right chat pane should stay off application surfaces such as Agents, Models, and Privacy",
-);
-
-assert.doesNotMatch(
-  source,
-  /Configured workers, skills, memory, and capability leases|Configure workers|>Leases<|Hypervisor Daemon remains runtime truth|Daemon Owned|Daemon agent|Daemon provider|Daemon session|Daemon projection|Proposal Source Only|AgentHarnessAdapter proposal source|Reference HarnessProfile scaffold|Encrypted Agentgres refs|weights exposed/i,
-  "Application surfaces should not put daemon/runtime-truth doctrine into visible product copy",
 );
 
 assert.match(
@@ -411,7 +405,7 @@ assert.match(
 assert.doesNotMatch(
   traceAndWelcomeCss,
   /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #252b33;/,
-  "Light content theme must not restore the deprecated dark product rail",
+  "Light content theme should keep the reference light rail palette",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");

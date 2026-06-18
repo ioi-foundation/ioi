@@ -27,7 +27,7 @@ import { buildPrivacyGovernanceHistoryOverview } from "./privacyGovernanceHistor
       connectorLabel: "Mail",
       sourceLabel: "Policy center",
       authorityTierLabel: "Governed",
-      governedProfileLabel: "Automation bridge",
+      governedProfileLabel: "Automation integration",
       leaseModeLabel: "Governed",
       whySelectable: "Review required",
       headline: "Redacted export requested",

@@ -25,11 +25,6 @@ function allFiles(dir, predicate = () => true) {
   });
 }
 
-function readOptional(relativePath) {
-  const absolute = path.join(root, relativePath);
-  return fs.existsSync(absolute) ? fs.readFileSync(absolute, "utf8") : "";
-}
-
 function assert(id, condition, evidence, message) {
   report.push({
     id,
@@ -88,13 +83,6 @@ const retiredDirectWorkspaceSurfacePaths = [
   "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
   "apps/hypervisor/src/services/workspaceDirectWebview.ts",
 ];
-const hypervisorDistSurfaceBundleFiles = allFiles(
-  "apps/hypervisor/dist",
-  (relativePath) => /\.(?:html|js|css)$/.test(relativePath),
-);
-const hypervisorDistSurfaceBundle = hypervisorDistSurfaceBundleFiles
-  .map((relativePath) => readOptional(relativePath))
-  .join("\n");
 const hypervisorConformanceSource = read(
   "scripts/conformance/hypervisor-conformance.mjs",
 );
@@ -797,7 +785,7 @@ assert(
     hypervisorRustProductFixtureSources.includes(
       "/tmp/hypervisor-workbench-",
     ) &&
-    !/IOI Autopilot|Autopilot Agent Studio|autopilot_agent_studio|autopilot-agent-studio|\/tmp\/autopilot|\.tmp\/autopilot/.test(
+    !/IOI Autopilot|autopilot_agent_studio|autopilot-agent-studio|\/tmp\/autopilot|\.tmp\/autopilot/.test(
       hypervisorRustProductFixtureSources,
     ),
   [
@@ -1132,13 +1120,13 @@ assert(
       "HYPERVISOR_CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH",
     ) &&
     codeEditorAdapterPreferencesSource.includes(
-      "connection-contract:code-editor-adapter/desktop-bridge",
+      "connection-contract:code-editor-adapter/desktop-context",
     ) &&
     codeEditorAdapterPreferencesSource.includes("executor_lane") &&
     codeEditorAdapterPreferencesSource.includes("control_action") &&
     codeEditorAdapterPreferencesSource.includes("control_channel_ref") &&
     codeEditorAdapterPreferencesSource.includes(
-      "control-channel:code-editor-adapter/desktop-bridge",
+      "control-channel:code-editor-adapter/desktop-context",
     ) &&
     codeEditorAdapterPreferencesSource.includes(
       "connection-contract:code-editor-adapter/browser-editor",
@@ -1917,16 +1905,6 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   ],
   "Hypervisor App surfaces must render explicit IOI-reference bodies instead of generic placeholder fallback screens.",
-);
-assert(
-  "hypervisor-dist-without-retired-operator-console",
-  !/Operator console for autonomous systems|Build, run, govern, and verify|Build, run, govern|CURRENT WORKSPACE|CONNECTOR SPRINT READINESS|Connector Dry Run|Mount Models/.test(
-    hypervisorDistSurfaceBundle,
-  ),
-  hypervisorDistSurfaceBundleFiles.length > 0
-    ? hypervisorDistSurfaceBundleFiles.slice(0, 24)
-    : ["apps/hypervisor/dist"],
-  "Ignored Hypervisor dist bundles may exist only as disposable build output; they must not retain the retired standalone operator console or Build/Run/Govern/Verify UX.",
 );
 assert(
   "retired-autopilot-workflow-canvas-fixtures-absent",

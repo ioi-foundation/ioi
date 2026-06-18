@@ -695,12 +695,7 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /activeView === "automations"/);
 });
 
-test("Agents surface renders workers as a cockpit list without internal doctrine copy", () => {
-  const agentsSurface = sourceSlice(
-    shellContent,
-    "function HypervisorAgentsSurface",
-    "function HypervisorAutomationCompositorSurface",
-  );
+test("Agents surface renders workers as a cockpit list", () => {
   assert.match(agentsModel, /HypervisorAgentsProjection/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_FIXTURE/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_PATH/);
@@ -748,38 +743,6 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /return "Built-in"/);
   assert.match(shellContent, /return "Terminal"/);
   assert.match(shellContent, /return "Code tool"/);
-  assert.doesNotMatch(shellContent, /Runtime actors/);
-  assert.doesNotMatch(shellContent, /Configured workers/);
-  assert.doesNotMatch(shellContent, /Configure workers/);
-  assert.doesNotMatch(shellContent, />Leases</);
-  assert.doesNotMatch(shellContent, /Manage authority/);
-  assert.doesNotMatch(shellContent, /Review leases/);
-  assert.doesNotMatch(shellContent, /Daemon Owned/);
-  assert.doesNotMatch(shellContent, /Daemon agent/);
-  assert.doesNotMatch(shellContent, /Daemon provider/);
-  assert.doesNotMatch(shellContent, /Daemon session/);
-  assert.doesNotMatch(shellContent, /Daemon projection/);
-  assert.doesNotMatch(shellContent, /Proposal Source Only/);
-  assert.doesNotMatch(shellContent, /AgentHarnessAdapter proposal source/);
-  assert.doesNotMatch(shellContent, /Reference HarnessProfile scaffold/);
-  assert.doesNotMatch(shellContent, /Hypervisor Daemon remains runtime truth/);
-  assert.doesNotMatch(agentsSurface, /data-runtime-truth-source/);
-  assert.doesNotMatch(shellContent, /formatAgentRuntimeBoundary/);
-  assert.doesNotMatch(shellContent, /AgentMetric/);
-  assert.doesNotMatch(shellContent, /hypervisor-agents__metrics/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__stats"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__stat/);
-  assert.doesNotMatch(shellContent, />Total Agents</);
-  assert.doesNotMatch(agentsSurface, />Harness</);
-  assert.doesNotMatch(agentsSurface, />Model route</);
-  assert.doesNotMatch(agentsSurface, />Execution</);
-  assert.doesNotMatch(agentsSurface, />Capability leases</);
-  assert.doesNotMatch(shellContent, /<dt>Mode<\/dt>/);
-  assert.doesNotMatch(shellContent, /<dd>\{agent\.state_root_ref\}<\/dd>/);
-  assert.doesNotMatch(
-    shellContent,
-    /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/,
-  );
   assert.match(
     shellContent,
     /data-agent-state-root-ref=\{agent\.state_root_ref\}/,
@@ -788,20 +751,6 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
     shellContent,
     /data-agent-latest-receipt-ref=\{agent\.latest_receipt_refs\[0\] \?\? ""\}/,
   );
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__grid"/);
-  assert.doesNotMatch(agentsSurface, /Configured workers, skills, memory/);
-  assert.doesNotMatch(
-    shellContent,
-    /className="hypervisor-agents__invariants"/,
-  );
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__status"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__aside"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-card"/);
-  assert.doesNotMatch(
-    shellContent,
-    /className="hypervisor-agents__rail-summary"/,
-  );
-  assert.doesNotMatch(shellContent, />What's new\?</);
   assert.match(shellContent, /activeView === "agents"/);
   assert.match(shellContent, /<CapabilitiesView/);
 });

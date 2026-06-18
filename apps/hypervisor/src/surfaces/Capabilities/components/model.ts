@@ -270,9 +270,9 @@ export function governedProfileLabel(value: string): string {
     case "governed_marketplace":
       return "Governed marketplace package";
     case "automation_bridge":
-      return "Automation bridge";
+      return "Automation integration";
     case "runtime_bridge":
-      return "Runtime bridge";
+      return "Runtime endpoint";
     case "local_skill_bundle":
       return "Local skill bundle";
     case "local_manifest":
@@ -459,7 +459,7 @@ export function buildExtensionTrustProfile(
     case "automation_bridge":
       return {
         tierId: "automation",
-        tierLabel: "Automation bridge",
+        tierLabel: "Automation integration",
         governedProfileId: extension.governedProfile,
         governedProfileLabel: governedProfileLabel(extension.governedProfile),
         summary:
@@ -513,7 +513,7 @@ export function buildExtensionTrustProfile(
         summary:
           "This extension is a local manifest with limited packaged authority beyond its own files and metadata.",
         detail:
-          "It stays in the lowest extension-authority class until it adds governed marketplace posture or runtime bridge contributions.",
+          "It stays in the lowest extension-authority class until it adds governed marketplace posture or runtime endpoints.",
         signals: [
           `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
           extension.sourceLabel,

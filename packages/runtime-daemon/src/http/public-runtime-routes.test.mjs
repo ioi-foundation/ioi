@@ -1807,13 +1807,13 @@ test("public runtime routes expose code editor adapter launch plan admissions", 
         launch_mode: "external",
         connection_kind: "desktop_editor",
         connection_contract_ref:
-          "connection-contract:code-editor-adapter/desktop-bridge",
+          "connection-contract:code-editor-adapter/desktop-context",
         executor_lane: "desktop_editor",
         control_action: "open_desktop_editor",
         control_channel_ref:
-          "control-channel:code-editor-adapter/desktop-bridge",
+          "control-channel:code-editor-adapter/desktop-context",
         required_access_lease_refs: [
-          "lease:code-editor-adapter/desktop-bridge",
+          "lease:code-editor-adapter/desktop-context",
         ],
         required_authority_scope_refs: [
           "scope:workspace.read",
@@ -1821,7 +1821,7 @@ test("public runtime routes expose code editor adapter launch plan admissions", 
           "scope:receipt.write",
         ],
         required_receipt_refs: [
-          "receipt-policy:code-editor-adapter/desktop-bridge",
+          "receipt-policy:code-editor-adapter/desktop-context",
         ],
         custody_posture: "redacted_projection",
         secret_release_policy: "no_durable_secret_release",
@@ -1846,7 +1846,7 @@ test("public runtime routes expose code editor adapter launch plan admissions", 
   assert.equal(payload.control_action, "open_desktop_editor");
   assert.equal(
     payload.control_channel_ref,
-    "control-channel:code-editor-adapter/desktop-bridge",
+    "control-channel:code-editor-adapter/desktop-context",
   );
   assert.equal(payload.secret_release_policy, "no_durable_secret_release");
   assert.equal(payload.requiresDaemonGate, true);

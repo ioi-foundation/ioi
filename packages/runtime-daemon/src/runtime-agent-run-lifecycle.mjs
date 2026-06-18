@@ -214,7 +214,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       runtimeError: deps.runtimeError,
       status: 502,
       code: "runtime_bridge_thread_start_agent_missing",
-      message: "Rust daemon-core runtime bridge thread start did not return an agent projection.",
+      message: "Rust daemon-core runtime service thread start did not return an agent projection.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation: "runtime_bridge_thread_start",
@@ -228,7 +228,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       runtimeError: deps.runtimeError,
       status: 502,
       code: "runtime_bridge_thread_start_operation_kind_mismatch",
-      message: "Rust daemon-core runtime bridge thread start returned the wrong operation kind.",
+      message: "Rust daemon-core runtime service thread start returned the wrong operation kind.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation: "runtime_bridge_thread_start",
@@ -256,7 +256,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       runtimeError: deps.runtimeError,
       status: 502,
       code: "runtime_bridge_thread_start_projection_incomplete",
-      message: "Rust daemon-core runtime bridge thread start did not return canonical bridge identity.",
+      message: "Rust daemon-core runtime service thread start did not return canonical service identity.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation: "runtime_bridge_thread_start",
@@ -279,7 +279,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       runtimeError: deps.runtimeError,
       status: 501,
       code: "runtime_bridge_thread_start_projection_unavailable",
-      message: "Runtime bridge thread start requires Rust daemon-core thread projection.",
+      message: "Runtime service thread start requires Rust daemon-core thread projection.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation: "runtime_bridge_thread_start",
@@ -295,7 +295,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       runtimeError: deps.runtimeError,
       status: 502,
       code: "runtime_bridge_thread_start_projection_mismatch",
-      message: "Rust daemon-core runtime bridge thread start returned a mismatched thread projection.",
+      message: "Rust daemon-core runtime service thread start returned a mismatched thread projection.",
       details: {
         rust_core_boundary: "runtime.bridge_thread",
         operation: "runtime_bridge_thread_start",
@@ -706,7 +706,7 @@ function throwRuntimeBridgeThreadRustCoreRequired({ runtimeError, operation, ope
     status: 501,
     code: "runtime_bridge_thread_rust_core_required",
     message:
-      "Runtime bridge thread start and turn submission require direct Rust daemon-core admission and persistence.",
+      "Runtime service thread start and turn submission require direct Rust daemon-core admission and persistence.",
     details: {
       rust_core_boundary: "runtime.bridge_thread",
       operation,

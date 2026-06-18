@@ -357,18 +357,18 @@ export function buildCodeEditorAdapterLaunchPlan(
         ...base,
         connection_kind: "desktop_editor",
         connection_contract_ref:
-          "connection-contract:code-editor-adapter/desktop-bridge",
+          "connection-contract:code-editor-adapter/desktop-context",
         executor_lane: "desktop_editor",
         control_action: "open_desktop_editor",
-        control_channel_ref: "control-channel:code-editor-adapter/desktop-bridge",
-        required_access_lease_refs: ["lease:code-editor-adapter/desktop-bridge"],
+        control_channel_ref: "control-channel:code-editor-adapter/desktop-context",
+        required_access_lease_refs: ["lease:code-editor-adapter/desktop-context"],
         required_authority_scope_refs: [
           "scope:workspace.read",
           "scope:workspace.patch",
           "scope:receipt.write",
         ],
         required_receipt_refs: [
-          "receipt-policy:code-editor-adapter/desktop-bridge",
+          "receipt-policy:code-editor-adapter/desktop-context",
         ],
       };
     case "vscode_browser":

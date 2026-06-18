@@ -669,7 +669,7 @@ function renderEngineList(controller: CapabilitiesController) {
     },
     {
       id: "configuration",
-      label: "Settings bridge",
+      label: "Settings",
       note: "Review runtime config posture here, then edit authoritative values in System Settings",
       meta: controller.engine.configDirty ? "Draft differs" : "Synced",
       active: controller.engine.detailSection === "configuration",

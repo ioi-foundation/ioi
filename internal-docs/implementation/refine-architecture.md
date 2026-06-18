@@ -617,7 +617,7 @@ Target information architecture:
 | Workbench | Code/systems workspace with editor/terminal/browser adapters | Hypervisor Workbench + Adapter Targets |
 | Automations / Workflows | Repeatable workflow templates, scheduled runs, and compositor graphs | Workflow Compositor |
 | Insights | Runtime metrics, run analytics, quality trends, cost/latency, failure patterns | Agentgres projections + trace/receipt projections |
-| Agents | Configured workers, harness adapters, skills, leases | aiagent + wallet.network authority |
+| Agents | Workers, harness adapters, skills, access, and receipts | aiagent + wallet.network authority |
 | Models | Model inventory, providers, endpoints, mounts, downloads | Model mounting daemon APIs |
 | Privacy / cTEE | Workspace privacy posture, cTEE lanes, unsafe mount warnings | Private Workspace / cTEE |
 | Authority | Approvals, capability leases, connector scopes, spend gates | wallet.network |
@@ -1088,7 +1088,7 @@ Current implementation cut:
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.
-  tracked `.internal/plans` Autopilot/Agent Studio/Tauri campaign guides are
+  tracked `.internal/plans` retired product and Tauri campaign guides are
   deleted from the live repo; the refined implementation guide and conformance
   guards are the continuation surface, and git history is the recovery handle.
 
@@ -1511,12 +1511,10 @@ Current implementation cut:
   summaries, updated timestamps, and a selected detail inspector. Internal
   runtime ownership remains contract metadata only; it does not appear as a
   title, badge, column heading, action label, or explanatory paragraph. The
-  source guard rejects the old Agents grid, invariant banner, status-badge DOM,
-  "Daemon Owned" / "Proposal Source Only" labels, and architecture-facing header
-  copy from returning. The rendered probe now also rejects a visible Mode row,
-  visible runtime-truth copy, and a right-side Agent chat pane on the Agents
-  surface while preserving `daemon_owned` / `proposal_source_only` only in
-  machine-readable boundary attributes. Current verification screenshot:
+  source guard keeps the Agents surface on the cockpit-list shape and prevents
+  architecture doctrine from becoming visible product copy. Machine-readable
+  boundary attributes still preserve `daemon_owned` / `proposal_source_only`
+  for replay and conformance. Current verification screenshot:
   `/tmp/hypervisor-agents-visible-boundary-cut/hypervisor-agents.png`.
 
 0A.2 visible doctrine-copy sweep is implemented:
@@ -1638,7 +1636,7 @@ the old Tauri tree is removed from the active repo, and `src-tauri` must not be
 recreated as a live product path.
 Do not leave Autopilot proof-runner names in active root package scripts after
 their owning runner has a Hypervisor name. Do not keep tracked `.internal/plans`
-campaign guides that present Autopilot, Agent Studio, Tauri, root `ide/`, or
+campaign guides that present retired product shells, Tauri, root `ide/`, or
 packages/agent-ide as executable continuation surfaces. Dated `docs/evidence`
 may retain old labels as immutable run evidence, but active instructions belong
 in this refined guide and current conformance checks.

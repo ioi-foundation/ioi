@@ -421,13 +421,13 @@ test("new session launch summary binds harness, model route, adapter target, pri
     code_editor_adapter_launch_plan_ref:
       "code-editor-adapter:external_editor/launch-plan",
     code_editor_adapter_connection_contract_ref:
-      "connection-contract:code-editor-adapter/desktop-bridge",
+      "connection-contract:code-editor-adapter/desktop-context",
     code_editor_adapter_executor_lane: "desktop_editor",
     code_editor_adapter_control_action: "open_desktop_editor",
     code_editor_adapter_control_channel_ref:
-      "control-channel:code-editor-adapter/desktop-bridge",
+      "control-channel:code-editor-adapter/desktop-context",
     code_editor_adapter_access_lease_refs: [
-      "lease:code-editor-adapter/desktop-bridge",
+      "lease:code-editor-adapter/desktop-context",
     ],
     code_editor_adapter_authority_scope_refs: [
       "scope:workspace.read",
@@ -435,7 +435,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
       "scope:receipt.write",
     ],
     code_editor_adapter_receipt_refs: [
-      "receipt-policy:code-editor-adapter/desktop-bridge",
+      "receipt-policy:code-editor-adapter/desktop-context",
     ],
     harness_selection_ref: "agent-harness-adapter:deepseek_tui",
     harness_selection_kind: "agent_harness_adapter",
@@ -585,10 +585,10 @@ test("code editor adapter launch plans bind connection contracts and leases", ()
   ]);
   assert.equal(
     plans.external_editor?.connection_contract_ref,
-    "connection-contract:code-editor-adapter/desktop-bridge",
+    "connection-contract:code-editor-adapter/desktop-context",
   );
   assert.equal(plans.cursor?.connection_kind, "desktop_editor");
-  assert.equal(plans.cursor?.control_channel_ref, "control-channel:code-editor-adapter/desktop-bridge");
+  assert.equal(plans.cursor?.control_channel_ref, "control-channel:code-editor-adapter/desktop-context");
   assert.equal(plans.windsurf?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_editor");
   assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_editor");
@@ -799,7 +799,7 @@ test("harness testbed fixture compares adapters without granting runtime truth",
   );
 });
 
-test("source text rejects legacy external-harness-as-runtime shortcuts", () => {
+test("source text rejects external-harness-as-runtime shortcuts", () => {
   const source = readFileSync(
     "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
     "utf8",

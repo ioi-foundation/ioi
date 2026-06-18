@@ -93,16 +93,16 @@ export function buildMcpOverview(
 
   const bridgeCard: McpOverviewCard = {
     id: "bridge",
-    label: "Runtime bridge",
+    label: "Runtime endpoints",
     tone: bridgeManifests.length > 0 ? "ready" : "setup",
     value:
       bridgeManifests.length > 0
-        ? `${bridgeManifests.length} bridge package(s)`
-        : "No MCP bridge packages published",
+        ? `${bridgeManifests.length} endpoint package(s)`
+        : "No MCP endpoint packages published",
     detail:
       bridgeManifests.length > 0
-        ? "The shared capability registry already knows which extension manifests contribute MCP servers into the runtime bridge lane."
-        : "Install or enable an extension that contributes MCP servers to make this family visible in the governed runtime bridge lane.",
+        ? "The shared capability registry already knows which extension manifests contribute MCP servers into governed runtime endpoints."
+        : "Install or enable an extension that contributes MCP servers to make this family visible in governed runtime endpoints.",
     meta: [`${serverCount} server contribution(s)`, `${distinctSourceCount} source(s)`],
     actionView: "plugins",
   };
