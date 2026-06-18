@@ -30,8 +30,8 @@ export function SettingsWorkbenchAdapterSection({
         </div>
         <p className="chat-settings-body">
           Choose the default editor, terminal, browser workspace, VM, or node
-          adapter that New Session should preselect. Every launch still binds a
-          harness, model route, privacy posture, authority scopes, and receipts.
+          adapter that New Session should preselect. You can still change the
+          target when starting a session.
         </p>
         <div className="chat-settings-summary-grid">
           {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
@@ -63,12 +63,10 @@ export function SettingsWorkbenchAdapterSection({
           })}
         </div>
         <div className="chat-settings-callout">
-          <strong>Launch binding</strong>
+          <strong>Session preference</strong>
           <p>
-            New Session emits the selected adapter as
-            <code>adapter_preference_ref</code> so Workbench sessions can be
-            replayed, inspected, and receipted against the target the operator
-            actually chose.
+            The selected target becomes the default place where Workbench opens
+            code, terminal, browser, VM, or node sessions.
           </p>
         </div>
       </article>

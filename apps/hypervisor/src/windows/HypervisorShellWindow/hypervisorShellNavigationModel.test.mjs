@@ -732,6 +732,19 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(shellContent, /data-provider-placement-source/);
   assert.match(shellContent, /data-provider-placement-candidate/);
   assert.match(shellContent, /data-hypervisor-environment-estate/);
+  assert.match(shellContent, /Choose where sessions can run/);
+  assert.match(shellContent, /before attaching a workspace to infrastructure/);
+  assert.match(shellContent, /\{candidate\.wallet_authority_scope_refs\.length\} controls/);
+  assert.match(shellContent, /candidate\.agentgres_receipt_ref \? "Available" : "Pending"/);
+  const providerSurface = sourceSlice(
+    shellContent,
+    "function HypervisorProviderPlacementDashboard",
+    "function HypervisorEnvironmentEstateSurface",
+  );
+  assert.doesNotMatch(providerSurface, /governed sessions/);
+  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.agentgres_receipt_ref\}<\/dd>/);
+  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.storage_policy_ref\}<\/dd>/);
+  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.restore_policy_ref\}<\/dd>/);
   assert.doesNotMatch(shellContent, /projection\.anti_gateway_invariant/);
   assert.doesNotMatch(
     shellContent,

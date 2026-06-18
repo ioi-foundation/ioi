@@ -93,50 +93,40 @@ function SettingsEditorTargetList({ view }: { view: SettingsViewBodyView }) {
   const visibleTargets = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.filter(
     (preference) => preference.settings_visible !== false,
   );
+  const selectedPreference =
+    getWorkbenchAdapterPreferenceByRef(view.workbenchAdapterPreferenceRef) ??
+    visibleTargets[0];
 
   return (
-    <div
-      className="chat-settings-reference-editor-picker"
+    <label
+      className="chat-settings-reference-editor-select"
       aria-label="Default editor adapter targets"
       data-settings-editor-picker="workbench-adapter-targets"
     >
-      {visibleTargets.map((preference) => {
-        const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
-        const selected = preferenceRef === view.workbenchAdapterPreferenceRef;
-
-        return (
-          <button
-            type="button"
-            key={preference.adapter_id}
-            className={`chat-settings-reference-editor-option ${
-              selected ? "is-selected" : ""
-            }`}
-            aria-pressed={selected}
-            data-settings-editor-target={preference.adapter_id}
-            data-workbench-adapter-preference={preferenceRef}
-            onClick={() => view.setWorkbenchAdapterPreferenceRef(preferenceRef)}
-          >
-            <span
-              className="chat-settings-reference-editor-icon"
-              aria-hidden="true"
+      <span className="chat-settings-reference-editor-icon" aria-hidden="true">
+        {selectedPreference.icon_label ?? selectedPreference.label.slice(0, 2)}
+      </span>
+      <select
+        value={view.workbenchAdapterPreferenceRef}
+        onChange={(event) =>
+          view.setWorkbenchAdapterPreferenceRef(event.currentTarget.value)
+        }
+      >
+        {visibleTargets.map((preference) => {
+          const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
+          return (
+            <option
+              key={preference.adapter_id}
+              value={preferenceRef}
+              data-settings-editor-target={preference.adapter_id}
+              data-workbench-adapter-preference={preferenceRef}
             >
-              {preference.icon_label ?? preference.label.slice(0, 2)}
-            </span>
-            <span className="chat-settings-reference-editor-copy">
-              <strong>{preference.label}</strong>
-            </span>
-            {selected ? (
-              <span
-                className="chat-settings-reference-editor-check"
-                aria-hidden="true"
-              >
-                ✓
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
+              {preference.label}
+            </option>
+          );
+        })}
+      </select>
+    </label>
   );
 }
 
@@ -150,6 +140,31 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
       className="chat-settings-reference-panel"
       aria-label="Account settings"
     >
+      <div className="chat-settings-reference-section">
+        <h2>Account details</h2>
+        <div className="chat-settings-reference-account-row">
+          <span className="chat-settings-reference-avatar" aria-hidden="true">
+            IO
+          </span>
+          <div>
+            <strong>IOI Workspace</strong>
+            <em>operator@ioi.local</em>
+          </div>
+        </div>
+        <label className="chat-settings-reference-field">
+          <span>Account ID</span>
+          <span className="chat-settings-reference-copy-field">
+            <input
+              readOnly
+              value="019ed02a-f5e1-701e-af22-57676d837f9c"
+            />
+            <button type="button" aria-label="Copy account ID">
+              Copy
+            </button>
+          </span>
+        </label>
+      </div>
+
       <div className="chat-settings-reference-section">
         <h2>Preferences</h2>
 
@@ -168,15 +183,16 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
           <span>Default Editor</span>
           <SettingsEditorTargetList view={view} />
           <em>
-            This will be your default selected editor or workspace target for
-            governed sessions.
+            This will be your default selected editor for environments.
+            {" "}
+            <a href="#learn-default-editor">Learn more.</a>
           </em>
         </div>
 
         <SettingsSwitch
           checked={selectedPreference.adapter_id === "embedded_workbench"}
           label="Embedded VS Code"
-          description="Show the embedded VS Code-compatible editor in the Workbench tab."
+          description="Show the embedded VS Code editor in the Code tab. Disabling this reduces resource usage."
         />
         <SettingsSwitch
           label="Agent done notification"
@@ -190,7 +206,10 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
         <label className="chat-settings-reference-field">
           <span>Dotfiles repository</span>
           <input placeholder="https://github.com/your-username/dotfiles" />
-          <em>URL of a dotfiles Git repository.</em>
+          <em>
+            URL of a dotfiles Git repository.{" "}
+            <a href="#learn-dotfiles">Learn more.</a>
+          </em>
         </label>
       </div>
     </section>
@@ -242,16 +261,16 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Secrets"
-          body="Brokered credentials stay behind wallet and vault policy. Agents receive scoped use leases, not durable plaintext secrets."
+          body="Store credentials for controlled use without exposing raw secrets to agents, editors, or remote workspaces."
           rows={[
             {
               label: "Brokered secret store",
-              value: "wallet.network / local vault",
+              value: "Local vault and connected authority providers.",
               action: "Manage",
             },
             {
               label: "Declassification policy",
-              value: "Step-up required for sensitive release.",
+              value: "Step-up is required before sensitive release.",
               action: "Review",
             },
             {
@@ -266,16 +285,16 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Git authentications"
-          body="Git credentials are attached as scoped session capabilities and receipted whenever a session requests source access."
+          body="Connect source control accounts and choose how sessions may read, clone, and push changes."
           rows={[
             {
               label: "Primary source control",
-              value: "Read/write lease available for local workspace.",
+              value: "Read/write access available for the current workspace.",
               action: "Configure",
             },
             {
               label: "Session git identity",
-              value: "Bound to project policy and restore refs.",
+              value: "Used for commits created from approved sessions.",
               action: "Inspect",
             },
           ]}
@@ -285,16 +304,16 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Personal access tokens"
-          body="Tokens are treated as brokered secrets. Hypervisor can use them through capability exits without making the UI or node a plaintext custody domain."
+          body="Add tokens for integrations that cannot use OAuth or app-based login."
           rows={[
             {
               label: "Token vault",
-              value: "No raw tokens displayed in client memory.",
+              value: "Raw tokens are hidden after creation.",
               action: "Add token",
             },
             {
               label: "Recent use",
-              value: "Every token exercise emits a capability-use receipt.",
+              value: "Usage history is available in receipts.",
               action: "Receipts",
             },
           ]}
@@ -304,7 +323,7 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Integrations"
-          body="Editor, terminal, browser, cloud, model, and provider integrations attach as governed adapters for sessions."
+          body="Connect editors, terminals, browsers, cloud accounts, model providers, and storage services."
           rows={[
             {
               label: "Workbench adapters",
@@ -386,7 +405,7 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
       <header className="chat-settings-reference-header">
         <h1>User settings</h1>
         <button type="button" aria-label="Close settings">
-          x
+          ×
         </button>
       </header>
 
@@ -404,7 +423,7 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
             ))}
           </div>
 
-          <details className="chat-settings-reference-advanced">
+          <details className="chat-settings-reference-advanced" hidden>
             <summary>Advanced</summary>
             {ADVANCED_SETTINGS_NAV.map((item) => (
               <SettingsNavButton

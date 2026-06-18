@@ -148,11 +148,24 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(settingsViewBody, /Git authentications/);
   assert.match(settingsViewBody, /Personal access tokens/);
   assert.match(settingsViewBody, /Integrations/);
+  assert.match(settingsViewBody, /Account details/);
+  assert.match(settingsViewBody, /Account ID/);
   assert.match(settingsViewBody, /Default Editor/);
   assert.match(settingsViewBody, /SettingsEditorTargetList/);
   assert.match(settingsViewBody, /data-settings-editor-picker/);
   assert.match(settingsViewBody, /data-settings-editor-target/);
   assert.match(settingsViewBody, /Embedded VS Code/);
+  assert.match(
+    settingsViewBody,
+    /This will be your default selected editor for environments/,
+  );
+  assert.match(
+    settingsViewBody,
+    /Connect editors, terminals, browsers, cloud accounts, model providers, and storage services/,
+  );
+  assert.doesNotMatch(settingsViewBody, /governed sessions/);
+  assert.doesNotMatch(settingsViewBody, /plaintext custody domain/);
+  assert.doesNotMatch(settingsViewBody, /adapter_preference_ref/);
   assert.match(workbenchAdapterPreferences, /VS Code Insiders/);
   assert.match(workbenchAdapterPreferences, /Cursor/);
   assert.match(workbenchAdapterPreferences, /Windsurf/);
@@ -180,7 +193,8 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(workbenchAdapterSection, /Default session target/);
   assert.match(workbenchAdapterSection, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(workbenchAdapterSection, /data-workbench-adapter-preference/);
-  assert.match(workbenchAdapterSection, /adapter_preference_ref/);
+  assert.match(workbenchAdapterSection, /Session preference/);
+  assert.doesNotMatch(workbenchAdapterSection, /adapter_preference_ref/);
 });
 
 test("settings authority repair actions route to canonical surfaces", () => {

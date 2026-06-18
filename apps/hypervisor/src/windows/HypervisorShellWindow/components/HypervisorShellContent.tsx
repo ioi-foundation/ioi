@@ -104,16 +104,16 @@ const PLACEHOLDER_SURFACE_COPY: Partial<
 > = {
   providers: {
     eyebrow: "Provider posture",
-    title: "Providers manage direct compute, storage, model, and node integrations.",
+    title: "Providers connect local machines, clouds, GPUs, and storage.",
     body:
-      "This surface is for local machines, customer clouds, DePIN compute, storage backends, confidential compute lanes, provider spend leases, and provider receipts.",
+      "Choose where sessions can run, what they may spend, and which privacy posture each provider supports.",
     tags: ["Local", "Cloud", "DePIN"],
   },
   environments: {
     eyebrow: "Environment estate",
-    title: "Environments are governed resources behind sessions.",
+    title: "Environments keep workspaces, ports, tasks, and logs organized.",
     body:
-      "This surface tracks VMs, containers, HypervisorOS nodes, ports, services, access leases, log leases, archive refs, restore refs, and provider placement evidence without making infrastructure truth.",
+      "Inspect live workspaces and restore points without exposing users to provider internals.",
     tags: ["Sessions", "Ports", "Restore"],
   },
   foundry: {
@@ -125,9 +125,9 @@ const PLACEHOLDER_SURFACE_COPY: Partial<
   },
   receipts: {
     eyebrow: "Operational evidence",
-    title: "Receipts will become the audit and replay console.",
+    title: "Receipts show what happened and what can be replayed.",
     body:
-      "This surface will index action receipts, state records, artifact refs, trace refs, delivery evidence, and restore/import proof chains.",
+      "Review approvals, actions, artifacts, checkpoints, and restore history from one place.",
     tags: ["State records", "Replay", "Checkpoints"],
   },
 };
@@ -2054,10 +2054,10 @@ function HypervisorProviderPlacementDashboard() {
     >
       <div className="hypervisor-provider-placement__header">
         <span>Providers</span>
-        <h2>Direct provider integrations for governed sessions.</h2>
+        <h2>Choose where sessions can run.</h2>
         <p>
           Compare local, cloud, DePIN, storage, and confidential-compute options
-          before attaching infrastructure to a session.
+          before attaching a workspace to infrastructure.
         </p>
       </div>
 
@@ -2085,19 +2085,19 @@ function HypervisorProviderPlacementDashboard() {
               </div>
               <div>
                 <dt>Authority</dt>
-                <dd>{candidate.wallet_authority_scope_refs.join(", ")}</dd>
+                <dd>{candidate.wallet_authority_scope_refs.length} controls</dd>
               </div>
               <div>
                 <dt>Receipt</dt>
-                <dd>{candidate.agentgres_receipt_ref}</dd>
+                <dd>{candidate.agentgres_receipt_ref ? "Available" : "Pending"}</dd>
               </div>
               <div>
                 <dt>Storage</dt>
-                <dd>{candidate.storage_policy_ref}</dd>
+                <dd>{candidate.storage_policy_ref ? "Configured" : "Not set"}</dd>
               </div>
               <div>
                 <dt>Restore</dt>
-                <dd>{candidate.restore_policy_ref}</dd>
+                <dd>{candidate.restore_policy_ref ? "Configured" : "Not set"}</dd>
               </div>
             </dl>
             <div className="hypervisor-provider-placement__risks" aria-label="Provider risk labels">
