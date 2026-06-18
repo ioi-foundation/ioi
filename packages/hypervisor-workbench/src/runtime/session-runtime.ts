@@ -146,14 +146,6 @@ export function hideChatSessionShell(): Promise<void> {
   return getAssistantSessionRuntime().hideChatSessionShell();
 }
 
-export function showGateShell(): Promise<void> {
-  return getAssistantSessionRuntime().showGateShell();
-}
-
-export function hideGateShell(): Promise<void> {
-  return getAssistantSessionRuntime().hideGateShell();
-}
-
 export function showChatShell(): Promise<void> {
   return getAssistantSessionRuntime().showChatShell();
 }

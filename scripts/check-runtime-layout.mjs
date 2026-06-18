@@ -515,7 +515,8 @@ assert(
 );
 assert(
   "chat-shell-hypervisor-route-names",
-  companionShellNavigationSource.includes('openChatShellView("process")') &&
+  companionShellNavigationSource.includes('window.location.assign("/home")') &&
+    companionShellNavigationSource.includes('window.location.assign("/authority")') &&
     chatSessionHookSource.includes('await openChat("process")') &&
     !/openChatShellView\("autopilot"\)|openChat\("autopilot"\)/.test(
       `${companionShellNavigationSource}\n${chatSessionHookSource}`,
@@ -524,7 +525,7 @@ assert(
     "apps/hypervisor/src/services/companionShellNavigation.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
   ],
-  "Chat shell entry points must route Hypervisor/work-graph shortcuts to the process view, not the retired autopilot view id.",
+  "Companion shell entry points must route Hypervisor shortcuts to canonical Hypervisor surfaces and block the retired autopilot view id.",
 );
 assert(
   "hypervisor-generated-contract-path",

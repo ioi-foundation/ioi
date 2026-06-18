@@ -853,20 +853,6 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         await invoke("hide_chat_session");
     }
 
-    async showGateShell(): Promise<void> {
-        if (!isHypervisorClientRuntime()) {
-          return;
-        }
-        await invoke("show_gate");
-    }
-
-    async hideGateShell(): Promise<void> {
-        if (!isHypervisorClientRuntime()) {
-          return;
-        }
-        await invoke("hide_gate");
-    }
-
     async showChatShell(): Promise<void> {
         await recordChatLaunchReceipt("runtime_show_chat_requested", {});
         if (!isHypervisorClientRuntime()) {

@@ -75,22 +75,4 @@ assert.match(
   "chat-bound Hypervisor workflow notifications should stay in the Chat UX instead of opening separate pill/native notification surfaces",
 );
 
-assert.match(
-  mainSource,
-  /<Route path="\/chat-session" element=\{<LegacyChatSessionRedirect \/>\} \/>/,
-  "the legacy /chat-session route should close the secondary composer instead of rendering a second surface",
-);
-
-assert.match(
-  mainSource,
-  /<Route path="\/pill" element=\{<DisabledPillRoute \/>\} \/>/,
-  "the pill route should be disabled so the ready-card window cannot become an operator surface",
-);
-
-assert.doesNotMatch(
-  mainSource,
-  /import \{ PillWindow \}|<PillWindow/,
-  "the pill React component must not be routed as an active window",
-);
-
 console.log("useHypervisorShellController.seedIntent.test.ts: ok");

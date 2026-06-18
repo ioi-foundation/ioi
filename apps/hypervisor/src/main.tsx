@@ -13,10 +13,8 @@ import {
 } from "./services/hypervisorAppearance";
 import { markHypervisorMetric } from "./services/workspacePerf";
 
-import { GateWindow } from "./windows/GateWindow/index";
 import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
-import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/hypervisor-workbench";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -27,26 +25,6 @@ function AppMetricsBeacon() {
       markHypervisorMetric("app_first_paint");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  return null;
-}
-
-function LegacyChatSessionRedirect() {
-  useEffect(() => {
-    void showChatShell()
-      .catch(() => undefined)
-      .finally(() => {
-        void hideChatSessionShell().catch(() => undefined);
-      });
-  }, []);
-
-  return null;
-}
-
-function DisabledPillRoute() {
-  useEffect(() => {
-    void hidePillShell().catch(() => undefined);
   }, []);
 
   return null;
@@ -78,10 +56,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <AppMetricsBeacon />
       <Routes>
-        <Route path="/pill" element={<DisabledPillRoute />} />
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
-        <Route path="/chat-session" element={<LegacyChatSessionRedirect />} />
-        <Route path="/gate" element={<GateWindow />} />
         {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
           <Route key={path} path={path} element={<HypervisorShellWindow />} />
         ))}

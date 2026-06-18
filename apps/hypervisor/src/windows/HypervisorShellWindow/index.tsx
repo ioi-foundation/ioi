@@ -137,9 +137,9 @@ function HypervisorShellWindowCrashScreen({
           <button
             type="button"
             className="chat-window-crash-button secondary"
-            onClick={() => window.location.replace("/chat-session")}
+            onClick={() => window.location.replace("/sessions")}
           >
-            Open Chat Route
+            Open Sessions
           </button>
         </div>
       </section>

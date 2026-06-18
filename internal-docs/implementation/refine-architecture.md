@@ -1095,6 +1095,10 @@ Current implementation cut:
   placeholder surfaces instead of command-palette-only rail items
   `/sessions` is the canonical session shell route; `/chat` is no longer a
   named product route
+  standalone `/pill`, `/chat-session`, and `/gate` React routes are retired;
+  approvals, session recovery, and intervention review now route back through
+  Hypervisor Sessions and Authority surfaces instead of alternate product
+  windows.
   workflow dogfood probes request `automations` as the initial shell surface
   `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
   `internal-docs/reverse-engineering/ioi` reference contract: source reference

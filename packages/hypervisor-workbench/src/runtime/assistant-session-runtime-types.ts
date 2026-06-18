@@ -154,8 +154,6 @@ export interface AssistantSessionRuntime {
   hidePillShell(): Promise<void>;
   showChatSessionShell(): Promise<void>;
   hideChatSessionShell(): Promise<void>;
-  showGateShell(): Promise<void>;
-  hideGateShell(): Promise<void>;
   showChatShell(): Promise<void>;
   openChatView(view: ChatViewTarget): Promise<void>;
   openChatSessionTarget(sessionId: string): Promise<void>;

@@ -739,9 +739,9 @@ export function CommandPalette({
       },
       {
         id: "open-chat-shell",
-        title: "Open Chat",
-        description: "Bring the primary session shell to the front.",
-        meta: "Primary shell",
+        title: "Open Sessions",
+        description: "Bring the governed session surface to the front.",
+        meta: "Sessions",
         icon: icons.search,
         onSelect: () =>
           runAction(async () => {
@@ -750,9 +750,9 @@ export function CommandPalette({
       },
       {
         id: "new-chat-session",
-        title: "New Chat Session",
+        title: "New Session",
         description: "Reset the shared session controller and open a fresh thread.",
-        meta: "Chat",
+        meta: "Sessions",
         icon: icons.plus,
         onSelect: () =>
           runAction(async () => {
@@ -761,9 +761,9 @@ export function CommandPalette({
       },
       {
         id: "open-queue-shell",
-        title: "Open Queue",
-        description: "Open the compact Gate shell for approvals and interventions.",
-        meta: "Gate",
+        title: "Open Authority",
+        description: "Open approvals and interventions in the Hypervisor authority surface.",
+        meta: "Authority",
         icon: icons.alert,
         onSelect: () =>
           runAction(async () => {

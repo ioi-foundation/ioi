@@ -7,18 +7,15 @@ import {
   openChatCatalog,
   openChatNotifications,
   openChatPolicyTarget,
-  openChatShell,
   openChatSettings,
-  openChatShellView,
 } from "./chatShellNavigation";
-import { showGateShell } from "@ioi/hypervisor-workbench";
 
 export async function openCompanionChat() {
-  await openChatShell();
+  window.location.assign("/sessions");
 }
 
 export async function openCompanionGate() {
-  await showGateShell();
+  window.location.assign("/authority");
 }
 
 export async function openCompanionNotifications() {
@@ -26,7 +23,7 @@ export async function openCompanionNotifications() {
 }
 
 export async function openCompanionHypervisor() {
-  await openChatShellView("process");
+  window.location.assign("/home");
 }
 
 export async function openCompanionSettings() {
