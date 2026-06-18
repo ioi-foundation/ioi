@@ -39,6 +39,11 @@ import {
   type PrimaryView,
 } from "./hypervisorShellModel";
 import {
+  loadHypervisorLaunchedSessionProjections,
+  mergeHypervisorLaunchedSessionProjection,
+  persistHypervisorLaunchedSessionProjections,
+} from "./hypervisorLaunchedSessionPersistence";
+import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
@@ -204,6 +209,10 @@ function isHypervisorClientRuntime(): boolean {
   return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
+function hypervisorBrowserStorage(): Storage | null {
+  return typeof window !== "undefined" ? window.localStorage : null;
+}
+
 export function useHypervisorShellController() {
   const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
@@ -243,7 +252,11 @@ export function useHypervisorShellController() {
   );
   const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
     HypervisorLaunchedSessionProjection[]
-  >([]);
+  >(() =>
+    loadHypervisorLaunchedSessionProjections({
+      storage: hypervisorBrowserStorage(),
+    }),
+  );
   const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
     useState<CapabilitySurface | null>(null);
   const [capabilitiesTargetConnectorId, setCapabilitiesTargetConnectorId] =
@@ -388,12 +401,17 @@ export function useHypervisorShellController() {
     setNewSessionModalOpen(false);
     setNewSessionSeedIntent(null);
     setNewSessionRecipeId(null);
-    setLaunchedSessionProjections((current) => [
-      launchedSession,
-      ...current.filter(
-        (existing) => existing.session_ref !== launchedSession.session_ref,
-      ),
-    ].slice(0, 12));
+    setLaunchedSessionProjections((current) => {
+      const next = mergeHypervisorLaunchedSessionProjection(
+        current,
+        launchedSession,
+      );
+      persistHypervisorLaunchedSessionProjections({
+        storage: hypervisorBrowserStorage(),
+        projections: next,
+      });
+      return next;
+    });
 
     if (recipe.surface_id === "sessions") {
       const summary = request.launch_summary;

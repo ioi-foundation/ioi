@@ -1313,6 +1313,15 @@ Current implementation cut:
   still opening their target application surfaces. Recent launched sessions also
   expose a target-entry action back to the owning Hypervisor surface, making
   Sessions a cross-session switchboard rather than a passive receipt list.
+  New Session launched-session projections now hydrate from a schema-checked
+  local shell projection cache
+  (`ioi.hypervisor.launched_session_projections.v1`) so the App does not forget
+  recent governed session routes on refresh while daemon/Agentgres hydration is
+  still fixture-backed. The cache accepts only daemon-runtime
+  `ioi.hypervisor.launched_session_projection.v1` records, de-duplicates by
+  `session_ref`, caps local history, and is cleared by the existing frontend
+  reset path. This cache is not restore truth; daemon admission, receipts, and
+  Agentgres refs remain the authority boundary.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

@@ -184,6 +184,9 @@ const hypervisorNewSessionModalSource = read(
 const hypervisorShellControllerSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
 );
+const hypervisorLaunchedSessionPersistenceSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+);
 const runtimeHarnessContainerLaneSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
 );
@@ -1217,12 +1220,28 @@ assert(
     hypervisorShellContentSource.includes(
       "data-session-open-surface-admission-state",
     ) &&
+    hypervisorShellControllerSource.includes(
+      "loadHypervisorLaunchedSessionProjections",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "persistHypervisorLaunchedSessionProjections",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "ioi.hypervisor.launched_session_projections.v1",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHypervisorLaunchedSessionProjection",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      'record.runtimeTruthSource !== "daemon-runtime"',
+    ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/code-editor-adapter-launch-plans",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
     "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",

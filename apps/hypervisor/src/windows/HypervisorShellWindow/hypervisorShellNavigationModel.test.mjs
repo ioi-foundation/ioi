@@ -70,6 +70,10 @@ const receiptEvidenceModel = readFileSync(
   new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
   "utf8",
 );
+const launchedSessionPersistence = readFileSync(
+  new URL("./hypervisorLaunchedSessionPersistence.ts", import.meta.url),
+  "utf8",
+);
 
 function sourceSlice(contents, startMarker, endMarker) {
   const start = contents.indexOf(startMarker);
@@ -420,8 +424,28 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /daemon_unavailable/);
   assert.match(source, /CodeEditorAdapterLaunchAdmissionError/);
   assert.match(controller, /launchedSessionProjections/);
+  assert.match(controller, /loadHypervisorLaunchedSessionProjections/);
+  assert.match(controller, /mergeHypervisorLaunchedSessionProjection/);
+  assert.match(controller, /persistHypervisorLaunchedSessionProjections/);
+  assert.match(controller, /hypervisorBrowserStorage/);
   assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{/);
-  assert.match(controller, /setLaunchedSessionProjections\(\(current\) => \[/);
+  assert.match(controller, /setLaunchedSessionProjections\(\(current\) => \{/);
+  assert.match(
+    launchedSessionPersistence,
+    /HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY/,
+  );
+  assert.match(
+    launchedSessionPersistence,
+    /ioi\.hypervisor\.launched_session_projections\.v1/,
+  );
+  assert.match(
+    launchedSessionPersistence,
+    /normalizeHypervisorLaunchedSessionProjection/,
+  );
+  assert.match(
+    launchedSessionPersistence,
+    /runtimeTruthSource !== "daemon-runtime"/,
+  );
   assert.match(controller, /const summary = request\.launch_summary/);
   assert.match(controller, /summary\.seed_intent/);
   assert.match(controller, /summary\.harness_label/);
