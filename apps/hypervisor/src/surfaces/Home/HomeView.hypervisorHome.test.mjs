@@ -25,6 +25,9 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /className="chat-home-zero-prompt-stage"/);
   assert.match(homeView, /className="chat-home-zero-composer"/);
   assert.match(homeView, /className="chat-home-zero-quickstarts"/);
+  assert.match(homeView, /className="chat-home-zero-session-list"/);
+  assert.match(homeView, /data-home-reference-session-list="true"/);
+  assert.match(homeView, /recentSessions\.slice\(0, 3\)/);
   assert.match(homeView, /HOME_AGENT_PROMPTS/);
   assert.match(homeView, /data-home-intent-composer="ioi-reference"/);
   assert.match(homeView, /ProjectFocusIcon/);
@@ -34,7 +37,6 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /data-home-agent-prompt/);
   assert.doesNotMatch(homeView, /HOME_RECENT_SESSIONS/);
   assert.doesNotMatch(homeView, /data-home-recent-sessions/);
-  assert.doesNotMatch(homeView, /chat-home-zero-recent/);
   assert.doesNotMatch(homeView, /Welcome back, Operator/);
   assert.doesNotMatch(homeView, /Search for anything in Hypervisor/);
   assert.doesNotMatch(homeView, /Get started/);
@@ -48,7 +50,7 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
   assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
-  assert.doesNotMatch(homeView, /Daemon|runtime truth|configured workers/i);
+  assert.doesNotMatch(homeView, />[^<]*(Daemon|runtime truth|configured workers)[^<]*</i);
 });
 
 test("home no longer ships a legacy onboarding walkthrough surface", () => {
@@ -90,6 +92,8 @@ test("home dashboard launches governed sessions from the reference prompt", () =
   assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
   assert.doesNotMatch(homeView, /chat-home-zero-surface-list/);
   assert.match(homeView, /data-home-start-session/);
+  assert.match(homeView, /data-home-reference-session-ref/);
+  assert.match(homeView, /data-home-reference-session-state/);
   assert.match(homeView, /onOpenCommandPalette/);
   assert.doesNotMatch(homeView, /Scan recent commits for issues/);
   assert.doesNotMatch(homeView, /Draft weekly release notes/);
@@ -117,7 +121,8 @@ test("home dashboard launches governed sessions from the reference prompt", () =
   assert.match(homeCss, /\.chat-home-zero-prompt-stage \{/);
   assert.match(homeCss, /\.chat-home-zero-composer \{/);
   assert.match(homeCss, /\.chat-home-zero-quickstarts \{/);
-  assert.doesNotMatch(homeCss, /\.chat-home-zero-recent/);
+  assert.match(homeCss, /\.chat-home-zero-session-list \{/);
+  assert.match(homeCss, /\.chat-home-zero-session-list__rows button \{/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-actions \{/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-app-grid \{/);
 });

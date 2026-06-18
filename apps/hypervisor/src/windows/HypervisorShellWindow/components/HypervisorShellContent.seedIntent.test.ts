@@ -315,13 +315,18 @@ assert.doesNotMatch(
 
 assert.match(
   homeViewSource,
-  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*chat-home-zero-quickstarts/,
-  "Home should keep the prompt-first session launcher with the IOI-reference quick action chips",
+  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*chat-home-zero-quickstarts[\s\S]*chat-home-zero-session-list/,
+  "Home should keep the prompt-first session launcher with the IOI-reference quick action chips and recent sessions list",
+);
+assert.match(
+  homeViewSource,
+  /recentSessions\.slice\(0, 3\)[\s\S]*data-home-reference-session-ref/,
+  "Home should render recent sessions from launched-session projections instead of static Home shortcuts",
 );
 assert.doesNotMatch(
   homeViewSource,
-  /data-home-recent-sessions|HOME_RECENT_SESSIONS|chat-home-zero-recent/,
-  "Home should not duplicate session shortcuts below the prompt; the left rail owns session recents",
+  /data-home-recent-sessions|HOME_RECENT_SESSIONS/,
+  "Home should not revive the old static recent-session shortcut model",
 );
 
 assert.match(

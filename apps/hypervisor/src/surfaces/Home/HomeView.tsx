@@ -16,8 +16,21 @@ interface HomeNewSessionSeed {
   recipeId?: string | null;
 }
 
+interface HomeRecentSessionProjection {
+  session_ref: string;
+  project_label: string;
+  launch_summary: {
+    seed_intent: string | null;
+  };
+  branch_label?: string | null;
+  relative_time_label?: string | null;
+  activity_count?: number | null;
+  admission_state?: string | null;
+}
+
 interface HomeViewProps {
   currentProject: ProjectScope;
+  recentSessions?: readonly HomeRecentSessionProjection[];
   notificationCount: number;
   onOpenChat: () => void;
   onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
@@ -138,6 +151,7 @@ function ArrowUpIcon() {
 
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
+  recentSessions: readonly HomeRecentSessionProjection[];
   onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
   onOpenWorkspace: () => void;
   onOpenCommandPalette: () => void;
@@ -145,6 +159,7 @@ interface HomeDashboardViewProps {
 
 function HomeDashboardView({
   currentProject,
+  recentSessions,
   onOpenNewSession,
   onOpenWorkspace,
   onOpenCommandPalette,
@@ -239,6 +254,48 @@ function HomeDashboardView({
               </button>
             ))}
           </div>
+
+          {recentSessions.length > 0 ? (
+            <section
+              className="chat-home-zero-session-list"
+              aria-label="Recent Sessions"
+              data-home-reference-session-list="true"
+            >
+              <h2>Recent Sessions</h2>
+              <div className="chat-home-zero-session-list__rows">
+                {recentSessions.slice(0, 3).map((session, index) => {
+                  const sessionTitle =
+                    session.launch_summary.seed_intent ??
+                    `Open ${session.project_label}`;
+                  return (
+                    <button
+                      type="button"
+                      key={session.session_ref}
+                      data-home-reference-session-ref={session.session_ref}
+                      data-home-reference-session-state={
+                        session.admission_state ?? "pending_daemon_admission"
+                      }
+                      onClick={() => launchSession(sessionTitle)}
+                    >
+                      <span
+                        className="chat-home-zero-session-list__dot"
+                        data-session-dot-active={index === 0 ? "true" : "false"}
+                        aria-hidden="true"
+                      />
+                      <span className="chat-home-zero-session-list__copy">
+                        <strong>{sessionTitle}</strong>
+                        <small>
+                          {session.relative_time_label ??
+                            session.branch_label ??
+                            "recently"}
+                        </small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </main>
       </div>
     </section>
@@ -247,6 +304,7 @@ function HomeDashboardView({
 
 export function HomeView({
   currentProject,
+  recentSessions = [],
   onOpenNewSession,
   onOpenWorkspace,
   onOpenCommandPalette,
@@ -259,6 +317,7 @@ export function HomeView({
     >
       <HomeDashboardView
         currentProject={currentProject}
+        recentSessions={recentSessions}
         onOpenNewSession={onOpenNewSession}
         onOpenWorkspace={onOpenWorkspace}
         onOpenCommandPalette={onOpenCommandPalette}

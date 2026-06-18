@@ -141,10 +141,20 @@ async function main() {
       promptPlaceholder === "Describe your task or type / for commands",
       "Home does not expose the reference prompt composer.",
     );
+    const homeReferenceSessionList = page.locator(
+      "[data-home-reference-session-list]",
+    );
     assert(
-      (await page.locator("[data-home-recent-sessions]").count()) === 0 &&
-        (await page.locator(".chat-home-zero-recent").count()) === 0,
-      "Home duplicates session recents below the prompt instead of leaving them in the left rail.",
+      (await homeReferenceSessionList.count()) === 1,
+      "Home does not expose the IOI-reference Recent Sessions list.",
+    );
+    assert(
+      (await page.locator("[data-home-reference-session-ref]").count()) >= 3,
+      "Home Recent Sessions list is not backed by launched-session projections.",
+    );
+    assert(
+      (await page.locator("[data-home-recent-sessions]").count()) === 0,
+      "Home revived the old static recent-session shortcut model.",
     );
     const initialSessionRows = page.locator(".chat-activity-session-row");
     const initialSessionRowCount = await initialSessionRows.count();
@@ -620,6 +630,7 @@ async function main() {
       checks: [
         "home_reference_prompt_surface_rendered",
         "home_reference_prompt_surface_sparse",
+        "home_reference_recent_sessions_rendered",
         "left_rail_workspace_account_footer_rendered",
         "left_rail_reference_brand_mark_rendered",
         "home_seed_intent_reaches_new_session",

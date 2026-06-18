@@ -1179,10 +1179,11 @@ Current implementation cut:
 
 0A.2 remaining visual implementation:
   Home now carries the full IOI-reference prompt cockpit view: centered prompt
-  composer and quick action chips. Do not add doctrine dashboards,
-  architecture panels, cockpit metric cards, or a second Recent Sessions list
-  under the composer; session shortcuts belong in the left session rail and
-  heavier session operation detail belongs in the Sessions surface.
+  composer, quick action chips, and a main-canvas Recent Sessions list sourced
+  from launched-session projections. Do not add doctrine dashboards,
+  architecture panels, or cockpit metric cards under the composer; the left
+  rail remains the primary session navigator and heavier session operation
+  detail belongs in the Sessions surface.
   the secondary project rail now has a normalized
   `ioi.hypervisor.project_state_projection.v1` loader and
   `/v1/hypervisor/project-state` public runtime route dispatching through
@@ -1330,8 +1331,8 @@ Current implementation cut:
   Fresh shells now bootstrap the left session rail from normalized
   daemon-runtime reference projections when local launched-session cache is
   empty. This gives first-run Home the IOI-reference recent-session posture
-  without making local storage restore truth or duplicating recents in the Home
-  main canvas.
+  without making local storage restore truth; the Home main canvas consumes the
+  same launched-session projections for its reference Recent Sessions list.
   The launched-session projection now carries reference-style rail display
   metadata (`branch_label`, `relative_time_label`, `activity_count`) so the
   left rail scans like the IOI reference (`main · 6h ago` plus count pills)
@@ -1623,10 +1624,10 @@ Current implementation cut:
 0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
   `HomeView` now matches the IOI reference home posture: left rail session
   heading, centered prompt composer, project/add-context/model controls, prompt
-  chips, and no duplicate Recent Sessions block under the prompt. The default
-  prompt selector uses reference chrome (`5.5 Medium`) while model-mounting
-  details remain available in Models and New Session instead of sitting on top
-  of the home workplane.
+  chips, and a main-canvas Recent Sessions list backed by launched-session
+  projections. The default prompt selector uses reference chrome
+  (`5.5 Medium`) while model-mounting details remain available in Models and
+  New Session instead of sitting on top of the home workplane.
   `HypervisorAutomationCompositorSurface` now matches the IOI reference
   automations posture: Webhooks and New actions in the topbar, three summary
   metrics, filter controls, an empty-state workplane, a wider suggested-template

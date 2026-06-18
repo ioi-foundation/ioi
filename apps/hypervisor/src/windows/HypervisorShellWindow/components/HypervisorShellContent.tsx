@@ -2952,6 +2952,9 @@ export function HypervisorShellContent({
                   {activeView === "home" ? (
                     <HomeView
                       currentProject={currentProject}
+                      recentSessions={
+                        controller.sessions.launchedSessionProjections
+                      }
                       notificationCount={notificationBadgeCount}
                       onOpenChat={() => controller.changePrimaryView("sessions")}
                       onOpenNewSession={controller.modals.openNewSessionModal}
