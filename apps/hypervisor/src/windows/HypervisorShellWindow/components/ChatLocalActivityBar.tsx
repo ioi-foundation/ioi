@@ -14,6 +14,7 @@ import {
   WorkspaceIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../hypervisorShellModel";
+import { WORKSPACE_NAME } from "../hypervisorShellModel";
 import {
   HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS,
   HYPERVISOR_PRIMARY_ACTION,
@@ -303,6 +304,7 @@ export function ChatLocalActivityBar({
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
+  const workspaceLabel = WORKSPACE_NAME;
   const activeHypervisorSurfaceId = getHypervisorSurfaceIdForPrimaryView(activeView);
   const activateRoute = (route: OperatorSurfaceRoute) => {
     if (isPrimaryViewRoute(route)) {
@@ -438,18 +440,24 @@ export function ChatLocalActivityBar({
         />
         <button
           type="button"
-          className="chat-activity-button chat-activity-button--account"
+          className="chat-activity-profile-indicator"
           data-window-surface="account"
           onClick={() => {
             onViewChange("settings");
           }}
-          aria-label={`${profileDisplayName} account`}
-          title={`${profileDisplayName} · ${profileRoleLabel}`}
+          aria-label={`${workspaceLabel} account for ${profileDisplayName}`}
+          title={`${workspaceLabel} · ${profileDisplayName} · ${profileRoleLabel}`}
         >
-          <span className="chat-activity-button-icon" aria-hidden="true">
-            <span className="chat-activity-profile-avatar">{profileInitials}</span>
+          <span className="chat-activity-profile-avatar" aria-hidden="true">
+            {profileInitials}
           </span>
-          <span className="chat-activity-button-label">Account</span>
+          <span className="chat-activity-profile-label">
+            <strong>{workspaceLabel}</strong>
+            <em>{profileDisplayName}</em>
+          </span>
+          <span className="chat-activity-profile-menu-indicator" aria-hidden="true">
+            ⌄
+          </span>
         </button>
       </div>
     </aside>

@@ -146,6 +146,12 @@ async function main() {
         (await page.locator(".chat-home-zero-recent").count()) === 0,
       "Home duplicates session recents below the prompt instead of leaving them in the left rail.",
     );
+    assert(
+      (await page.locator(".chat-activity-profile-indicator").count()) === 1 &&
+        bodyText.includes("IOI Workspace") &&
+        bodyText.includes("Operator"),
+      "Left rail does not expose the reference-style workspace/user footer.",
+    );
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
     await page.locator('[data-home-start-session="true"]').click();
@@ -529,6 +535,7 @@ async function main() {
       checks: [
         "home_reference_prompt_surface_rendered",
         "home_reference_prompt_surface_sparse",
+        "left_rail_workspace_account_footer_rendered",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
         "new_session_launch_summary_rendered",

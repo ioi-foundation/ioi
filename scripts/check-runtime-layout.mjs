@@ -696,6 +696,11 @@ assert(
     ) &&
     hypervisorActivityBarSource.includes("referenceLeftNavSurfaceIds") &&
     hypervisorActivityBarSource.includes("primaryNavItems") &&
+    hypervisorActivityBarSource.includes("WORKSPACE_NAME") &&
+    hypervisorActivityBarSource.includes("chat-activity-profile-indicator") &&
+    hypervisorActivityBarSource.includes("chat-activity-profile-label") &&
+    hypervisorActivityBarSource.includes("chat-activity-profile-menu-indicator") &&
+    !hypervisorActivityBarSource.includes("chat-activity-button--account") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
       hypervisorShellNavigationSource,
     ),

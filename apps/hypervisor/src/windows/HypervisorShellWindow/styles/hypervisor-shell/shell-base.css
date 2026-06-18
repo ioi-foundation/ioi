@@ -558,7 +558,8 @@
 .chat-activity-bar.is-collapsed .chat-activity-button-shortcut,
 .chat-activity-bar.is-collapsed .chat-activity-apps,
 .chat-activity-bar.is-collapsed .chat-activity-section-label,
-.chat-activity-bar.is-collapsed .chat-activity-profile-label {
+.chat-activity-bar.is-collapsed .chat-activity-profile-label,
+.chat-activity-bar.is-collapsed .chat-activity-profile-menu-indicator {
   display: none;
 }
 
@@ -5273,8 +5274,8 @@
   --chat-activity-hover-bg: #f3f3f3;
   --chat-activity-active-bg: #eeeeee;
   --chat-activity-active-hover-bg: #e8e8e8;
-  --chat-activity-avatar-bg: #ffffff;
-  --chat-activity-avatar-text: #1f1f1f;
+  --chat-activity-avatar-bg: #155cff;
+  --chat-activity-avatar-text: #ffffff;
 
   width: 300px;
   background: var(--chat-activity-bg);
@@ -5543,7 +5544,7 @@
 
 .chat-activity-profile-indicator {
   min-height: 46px;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
   column-gap: 9px;
   padding: 0 8px;
   border-radius: 10px;
@@ -5613,6 +5614,14 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 15px;
+}
+
+.chat-activity-profile-menu-indicator {
+  align-self: center;
+  color: var(--chat-activity-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .chat-content {
