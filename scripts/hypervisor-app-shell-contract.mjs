@@ -498,6 +498,7 @@ async function main() {
         "agents_reference_product_surface_rendered",
         "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",
+        "settings_reference_authority_sections_rendered",
         "settings_adapter_controls_rendered",
       ],
       consoleMessages,

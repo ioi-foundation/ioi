@@ -1633,7 +1633,9 @@ Current implementation cut:
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
   product-surface copy that keeps daemon, Agentgres, and wallet implementation
   truth out of the visible default chrome. It also verifies the Settings
-  reference shell and governed code editor adapter controls.
+  reference shell, Account, Secrets, Git authentications, Personal access
+  tokens, Integrations, default code-editor target preference, embedded editor
+  preference, and governed code editor adapter controls.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.
