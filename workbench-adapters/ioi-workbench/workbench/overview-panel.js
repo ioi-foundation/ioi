@@ -7,14 +7,51 @@ function createWorkbenchOverviewPanelRenderer({
   escapeHtml,
   loadedProductStudioModelInstances,
   modelSnapshotFromState,
-  overviewPill,
   overviewTone,
   productStudioModelSelectionsFromSnapshot,
   renderHypervisorShellHeader,
-  renderOverviewAction,
-  renderOverviewRow,
   workspaceSummary,
 }) {
+  function commandPayloadAttr(payload) {
+    return payload ? ` data-payload="${escapeHtml(JSON.stringify(payload))}"` : "";
+  }
+
+  function commandButton({ label, description, command, payload, tone = "default", meta = "" }) {
+    return `
+      <button
+        class="ioi-home-command is-${escapeHtml(tone)}"
+        type="button"
+        data-command="${escapeHtml(command)}"${commandPayloadAttr(payload)}
+      >
+        <span>${escapeHtml(label)}</span>
+        ${meta ? `<em>${escapeHtml(meta)}</em>` : ""}
+        <small>${escapeHtml(description)}</small>
+      </button>
+    `;
+  }
+
+  function navButton({ label, icon, command, payload, active = false }) {
+    return `
+      <button class="${active ? "is-active" : ""}" type="button" data-command="${escapeHtml(command)}"${commandPayloadAttr(payload)}>
+        <span class="ioi-home-nav-icon">${escapeHtml(icon)}</span>
+        <span>${escapeHtml(label)}</span>
+      </button>
+    `;
+  }
+
+  function sessionButton({ title, context, dot, command, payload, index }) {
+    return `
+      <button class="ioi-home-session-button" type="button" data-command="${escapeHtml(command)}"${commandPayloadAttr(payload)}>
+        <span class="ioi-home-dot is-${escapeHtml(dot)}"></span>
+        <span class="ioi-home-session-text">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(context)}</span>
+        </span>
+        <span class="ioi-home-session-badge">${escapeHtml(index)}</span>
+      </button>
+    `;
+  }
+
   function overviewPanelHtml(state) {
     const pageNonce = currentOverviewPanelNonce();
     const workspace = state.workspace || workspaceSummary();
@@ -24,21 +61,21 @@ function createWorkbenchOverviewPanelRenderer({
     const artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
     const connections = Array.isArray(state.connections) ? state.connections : [];
     const summary = state.summary || {};
+    const receipts = Array.isArray(snapshot.receipts) ? snapshot.receipts : [];
     const daemonStatus =
       state.modelMountingStatus?.status || (daemonEndpoint() ? "connected" : "not_configured");
     const daemonDetail =
       daemonStatus === "connected"
-        ? state.modelMountingStatus?.endpoint || "daemon endpoint connected"
+        ? state.modelMountingStatus?.endpoint || "Core endpoint connected"
         : daemonStatus === "degraded"
-          ? state.modelMountingStatus?.error || "daemon endpoint degraded"
-          : "daemon endpoint not configured";
+          ? state.modelMountingStatus?.error || "Core endpoint degraded"
+          : "Core endpoint not configured";
     const productModelSelections = productStudioModelSelectionsFromSnapshot(snapshot);
     const loadedModels = loadedProductStudioModelInstances(snapshot, productModelSelections);
     const productModelCount = productModelSelections.length;
     const activeRuns = runs.filter((run) =>
       /active|running|queued|pending/i.test(String(run.status || "")),
     );
-    const receipts = snapshot.receipts;
     const policyIssueCount =
       summary.policyIssueCount ??
       (Array.isArray(state.policy?.issues) ? state.policy.issues.length : 0);
@@ -50,10 +87,58 @@ function createWorkbenchOverviewPanelRenderer({
     const recentRun = runs[0];
     const recentArtifact = artifacts[0];
     const latestReceipt = receipts[0];
-    const workspaceLabel =
+    const workspacePath =
       workspace.path && workspace.path !== "Open a workspace folder to ground IOI context."
         ? workspace.path
         : "Open a workspace folder to ground runtime context.";
+    const workflowCount = workflows.length || summary.workflowCount || 0;
+    const projectName = workspace.name || "Current workspace";
+
+    const sessionRows = [
+      {
+        title: recentRun?.name || recentRun?.id || "Start from scratch",
+        context: recentRun?.status || "No active session yet",
+        dot: activeRuns.length ? "active" : "idle",
+        command: "ioi.studio.open",
+        payload: { source: "overview-session-row" },
+      },
+      {
+        title: recentWorkflow?.name || recentWorkflow?.id || "Create an automation",
+        context: recentWorkflow?.status || "Workflow graph not projected",
+        dot: workflows.length ? "active" : "idle",
+        command: "ioi.workflow.openComposer",
+        payload: { source: "overview-workflow-row" },
+      },
+      {
+        title: latestReceipt?.receiptId || recentArtifact?.id || "Review receipts",
+        context: latestReceipt ? "Latest receipt ready" : "Evidence will appear after a run",
+        dot: latestReceipt ? "active" : "idle",
+        command: "ioi.runs.refresh",
+        payload: { source: "overview-receipt-row" },
+      },
+    ];
+
+    const postureRows = [
+      ["Core", daemonStatus, daemonDetail, overviewTone(daemonStatus)],
+      [
+        "Models",
+        `${loadedModels.length}/${productModelCount} loaded`,
+        loadedModels.length ? "Model route available" : "Choose or mount a model",
+        loadedModels.length ? "ready" : "idle",
+      ],
+      [
+        "Authority",
+        `${policyIssueCount} issue${policyIssueCount === 1 ? "" : "s"}`,
+        policyIssueCount ? "Review policy before execution" : "No policy blockers projected",
+        policyIssueCount ? "warn" : "ready",
+      ],
+      [
+        "Connections",
+        `${connectorReadyCount}/${connectorCount} ready`,
+        connectorCount ? "Provider posture projected" : "No provider connections yet",
+        connectorReadyCount ? "ready" : "idle",
+      ],
+    ];
 
     return `<!doctype html>
 <html lang="en">
@@ -64,389 +149,615 @@ function createWorkbenchOverviewPanelRenderer({
       content="default-src 'none'; img-src data:; style-src 'nonce-${pageNonce}'; script-src 'nonce-${pageNonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hypervisor Overview</title>
+    <title>Hypervisor Home</title>
     <style nonce="${pageNonce}">
       :root {
-        color-scheme: dark;
-        --overview-bg: var(--vscode-editor-background, #101216);
-        --overview-panel: color-mix(in srgb, var(--vscode-editor-background, #101216) 88%, var(--vscode-foreground, #fff) 6%);
-        --overview-panel-soft: color-mix(in srgb, var(--vscode-editor-background, #101216) 94%, var(--vscode-foreground, #fff) 4%);
-        --overview-border: var(--vscode-panel-border, rgba(255,255,255,.13));
-        --overview-text: var(--vscode-foreground, #f4f6f8);
-        --overview-muted: var(--vscode-descriptionForeground, #9ca3af);
-        --overview-accent: var(--vscode-textLink-foreground, #4ea1ff);
-        --overview-ready: #7ee787;
-        --overview-warn: #e3b341;
-        --overview-blocked: #ff7b72;
+        color-scheme: light;
+        --home-bg: #f4f5f7;
+        --home-panel: #ffffff;
+        --home-sidebar: #fbfbfc;
+        --home-border: #dddee3;
+        --home-border-soft: #eceef2;
+        --home-text: #17181c;
+        --home-muted: #6f7580;
+        --home-faint: #8b929d;
+        --home-accent: #3156c8;
+        --home-ready: #116329;
+        --home-warn: #9a6700;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
-        color: var(--overview-text);
-        background: var(--overview-bg);
+        background: var(--home-bg);
+        color: var(--home-text);
+        font-family: "ABC Diatype", var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
       }
-      .overview-shell {
+      .ioi-home-shell {
         min-height: 100vh;
         display: grid;
-        grid-template-rows: auto auto minmax(0, 1fr);
+        grid-template-columns: 244px minmax(0, 1fr);
+        background: var(--home-bg);
       }
-      .overview-header {
+      .ioi-home-sidebar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 20px;
-        align-items: start;
-        padding: 28px 32px 22px;
-        border-bottom: 1px solid var(--overview-border);
-        background: var(--overview-panel-soft);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        gap: 18px;
+        min-height: 100vh;
+        padding: 18px 14px 16px;
+        border-right: 1px solid var(--home-border);
+        background: var(--home-sidebar);
       }
-      .overview-kicker,
-      .overview-section__kicker,
-      .overview-table th {
-        color: var(--overview-muted);
-        font-size: 11px;
+      .ioi-home-brand {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 28px;
+        padding: 0 4px;
+        font-size: 13px;
         font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
+        letter-spacing: .06em;
       }
-      h1 {
-        margin: 7px 0 8px;
-        font-size: clamp(28px, 4vw, 42px);
-        font-weight: 520;
+      .ioi-home-brand-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: #101216;
+        color: #fff;
+        font-size: 11px;
         letter-spacing: 0;
       }
-      .overview-header p {
-        max-width: 880px;
+      .ioi-home-new-session {
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid #d7d9df;
+        border-radius: 8px;
+        padding: 0 10px;
+        background: var(--home-panel);
+        color: var(--home-text);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(16, 18, 22, .04);
+      }
+      .ioi-home-new-session span:first-child {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ioi-home-kbd {
+        border: 1px solid #d9dbe2;
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: var(--home-muted);
+        background: #f6f7f9;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .ioi-home-stack,
+      .ioi-home-nav,
+      .ioi-home-session-list,
+      .ioi-home-footer,
+      .ioi-home-side,
+      .ioi-home-side-block,
+      .ioi-home-section {
+        display: grid;
+      }
+      .ioi-home-stack { gap: 22px; }
+      .ioi-home-nav,
+      .ioi-home-session-list,
+      .ioi-home-footer,
+      .ioi-home-side-block {
+        gap: 6px;
+      }
+      .ioi-home-nav button,
+      .ioi-home-footer button {
+        min-height: 32px;
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr);
+        align-items: center;
+        gap: 9px;
+        border: 0;
+        border-radius: 7px;
+        padding: 0 8px;
+        background: transparent;
+        color: #3f444d;
+        font: inherit;
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .ioi-home-nav button:hover,
+      .ioi-home-footer button:hover,
+      .ioi-home-session-button:hover {
+        background: #f0f1f4;
+      }
+      .ioi-home-nav button.is-active {
+        background: #eceef2;
+        color: #111216;
+        font-weight: 650;
+      }
+      .ioi-home-nav-icon {
+        width: 18px;
+        color: #68707c;
+        text-align: center;
+      }
+      .ioi-home-sidebar-section {
+        display: grid;
+        gap: 7px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e6eb;
+      }
+      .ioi-home-sidebar-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 6px;
+        color: var(--home-faint);
+        font-size: 11px;
+      }
+      .ioi-home-session-button {
+        min-height: 42px;
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 7px;
+        background: transparent;
+        color: #282c34;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .ioi-home-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: #9ba2ad;
+      }
+      .ioi-home-dot.is-active { background: #16a34a; }
+      .ioi-home-session-text {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+      }
+      .ioi-home-session-text strong,
+      .ioi-home-session-text span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ioi-home-session-text strong {
+        color: #1c2027;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .ioi-home-session-text span {
+        color: #7b818c;
+        font-size: 11px;
+      }
+      .ioi-home-session-badge {
+        min-width: 20px;
+        border-radius: 999px;
+        padding: 2px 6px;
+        background: #e8edff;
+        color: var(--home-accent);
+        font-size: 11px;
+        text-align: center;
+      }
+      .ioi-home-footer {
+        padding-top: 10px;
+        border-top: 1px solid #e5e6eb;
+      }
+      .ioi-home-footer small {
+        display: block;
+        padding: 0 8px;
+        color: #838995;
+        font-size: 11px;
+      }
+      .ioi-home-main {
+        min-width: 0;
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+      .ioi-home-topbar {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--home-border);
+        background: rgba(250, 250, 251, .92);
+      }
+      .ioi-home-topbar strong { font-size: 14px; }
+      .ioi-home-search {
+        width: min(520px, 45vw);
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        border: 1px solid #d8dae1;
+        border-radius: 9px;
+        padding: 0 12px;
+        background: var(--home-panel);
+        color: #7d838e;
+        font-size: 13px;
+      }
+      .ioi-home-content {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 30px;
+        align-content: start;
+        padding: 30px 32px 44px;
+      }
+      .ioi-home-title h1 {
+        margin: 0 0 6px;
+        color: #15171c;
+        font-size: clamp(28px, 4vw, 46px);
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+      .ioi-home-title p {
+        max-width: 740px;
         margin: 0;
-        color: var(--overview-muted);
+        color: var(--home-muted);
         font-size: 14px;
         line-height: 1.5;
       }
-      .overview-status {
-        min-width: 280px;
-        display: grid;
-        gap: 8px;
+      .ioi-home-composer,
+      .ioi-home-table,
+      .ioi-home-posture,
+      .ioi-home-command {
+        border: 1px solid var(--home-border);
+        background: var(--home-panel);
       }
-      .overview-pill {
+      .ioi-home-composer {
+        border-radius: 14px;
+        box-shadow: 0 14px 35px rgba(29, 31, 38, .06);
+        overflow: hidden;
+      }
+      .ioi-home-composer textarea {
+        width: 100%;
+        min-height: 126px;
+        resize: vertical;
+        border: 0;
+        padding: 18px 20px;
+        background: transparent;
+        color: var(--home-text);
+        font: inherit;
+        font-size: 16px;
+        line-height: 1.45;
+        outline: none;
+      }
+      .ioi-home-composer textarea::placeholder { color: #9096a1; }
+      .ioi-home-composer-bar {
+        min-height: 46px;
         display: flex;
+        align-items: center;
         justify-content: space-between;
         gap: 12px;
+        border-top: 1px solid var(--home-border-soft);
+        padding: 8px 10px 8px 14px;
+      }
+      .ioi-home-composer-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .ioi-home-chip {
+        min-height: 26px;
+        display: inline-flex;
         align-items: center;
-        min-height: 28px;
-        border: 1px solid var(--overview-border);
+        border: 1px solid #dde0e6;
         border-radius: 999px;
-        padding: 4px 10px;
-        color: var(--overview-muted);
+        padding: 0 9px;
+        color: #59606b;
+        background: #fafbfc;
         font-size: 12px;
       }
-      .overview-pill strong { color: var(--overview-text); font-weight: 560; }
-      .overview-pill.is-ready { border-color: color-mix(in srgb, var(--overview-ready) 70%, var(--overview-border)); }
-      .overview-pill.is-warn { border-color: color-mix(in srgb, var(--overview-warn) 70%, var(--overview-border)); }
-      .overview-pill.is-blocked { border-color: color-mix(in srgb, var(--overview-blocked) 70%, var(--overview-border)); }
-      .overview-nav {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1px;
-        border-bottom: 1px solid var(--overview-border);
-        background: var(--overview-border);
-      }
-      .overview-action {
-        min-height: 76px;
-        display: grid;
-        align-content: center;
-        gap: 5px;
+      .ioi-home-submit {
+        min-height: 30px;
         border: 0;
-        border-radius: 0;
-        padding: 14px 18px;
-        background: var(--overview-panel);
-        color: var(--overview-text);
-        text-align: left;
+        border-radius: 8px;
+        padding: 0 12px;
+        background: var(--home-text);
+        color: #fff;
         font: inherit;
+        font-size: 12px;
+        font-weight: 650;
         cursor: pointer;
       }
-      .overview-action span { font-weight: 650; }
-      .overview-action small {
-        color: var(--overview-muted);
-        line-height: 1.35;
-      }
-      .overview-action:hover,
-      .overview-action:focus-visible {
-        outline: 1px solid var(--overview-accent);
-        outline-offset: -1px;
-        background: color-mix(in srgb, var(--overview-panel) 86%, var(--overview-accent) 14%);
-      }
-      .overview-action.is-primary {
-        background: color-mix(in srgb, var(--overview-panel) 80%, var(--overview-accent) 14%);
-      }
-      .overview-main {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
-        min-height: 0;
-      }
-      .overview-column {
+      .ioi-home-section {
         min-width: 0;
-        display: grid;
-        align-content: start;
-        gap: 18px;
-        padding: 22px 32px 34px;
-      }
-      .overview-column + .overview-column {
-        border-left: 1px solid var(--overview-border);
-        background: var(--overview-panel-soft);
-      }
-      .overview-section {
-        min-width: 0;
-        display: grid;
         gap: 10px;
       }
-      .overview-section h2 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 650;
-      }
-      .overview-section p {
-        margin: 0;
-        color: var(--overview-muted);
-        line-height: 1.45;
-      }
-      .overview-board {
-        border: 1px solid var(--overview-border);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      .overview-row {
-        display: grid;
-        grid-template-columns: 128px minmax(0, 1fr) minmax(150px, .8fr);
-        gap: 14px;
+      .ioi-home-section-head {
+        display: flex;
         align-items: center;
-        min-height: 48px;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--overview-border);
-        background: var(--overview-panel);
+        justify-content: space-between;
+        gap: 16px;
       }
-      .overview-row:last-child { border-bottom: 0; }
-      .overview-row__label,
-      .overview-row small {
-        color: var(--overview-muted);
+      .ioi-home-section h2 {
+        margin: 0;
+        color: #20242c;
+        font-size: 15px;
+        font-weight: 700;
       }
-      .overview-row strong,
-      .overview-row small {
-        min-width: 0;
-        overflow-wrap: anywhere;
+      .ioi-home-link {
+        border: 0;
+        background: transparent;
+        color: var(--home-accent);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
       }
-      .overview-row small.is-ready { color: var(--overview-ready); }
-      .overview-row small.is-warn { color: var(--overview-warn); }
-      .overview-row small.is-blocked { color: var(--overview-blocked); }
-      .overview-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-        border: 1px solid var(--overview-border);
-        border-radius: 8px;
+      .ioi-home-table {
+        border-radius: 12px;
         overflow: hidden;
       }
-      .overview-table th,
-      .overview-table td {
-        padding: 9px 10px;
-        border-bottom: 1px solid var(--overview-border);
-        text-align: left;
-        vertical-align: top;
-        background: var(--overview-panel);
+      .ioi-home-table-row {
+        display: grid;
+        grid-template-columns: minmax(160px, 1.15fr) minmax(0, 1.4fr) minmax(100px, .7fr);
+        gap: 18px;
+        align-items: center;
+        min-height: 58px;
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--home-border-soft);
       }
-      .overview-table tr:last-child td { border-bottom: 0; }
-      .overview-table td {
-        color: var(--overview-muted);
-        line-height: 1.38;
-      }
-      .overview-table td strong {
+      .ioi-home-table-row:last-child { border-bottom: 0; }
+      .ioi-home-table-row strong {
         display: block;
         margin-bottom: 3px;
-        color: var(--overview-text);
+        color: #20242c;
+        font-size: 13px;
       }
-      .overview-side-actions {
+      .ioi-home-table-row span,
+      .ioi-home-table-row small {
+        color: var(--home-muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .ioi-home-side {
+        min-width: 0;
+        align-content: start;
+        gap: 18px;
+      }
+      .ioi-home-command {
+        min-height: 64px;
+        align-content: center;
+        gap: 3px;
+        border-radius: 10px;
+        padding: 12px 14px;
+        color: #20242c;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .ioi-home-command:hover,
+      .ioi-home-command:focus-visible {
+        border-color: #b9bec8;
+        background: #fafbfc;
+        outline: none;
+      }
+      .ioi-home-command.is-primary {
+        border-color: #cfd8ff;
+        background: #f2f5ff;
+      }
+      .ioi-home-command span {
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .ioi-home-command em {
+        justify-self: start;
+        border-radius: 999px;
+        padding: 2px 7px;
+        background: #eff2f6;
+        color: #606874;
+        font-size: 11px;
+        font-style: normal;
+      }
+      .ioi-home-command small {
+        color: var(--home-muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .ioi-home-posture {
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .ioi-home-posture-row {
         display: grid;
-        gap: 8px;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 10px;
+        min-height: 52px;
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--home-border-soft);
       }
-      .overview-side-actions .overview-action {
-        min-height: 58px;
-        border: 1px solid var(--overview-border);
-        border-radius: 6px;
+      .ioi-home-posture-row:last-child { border-bottom: 0; }
+      .ioi-home-posture-row span {
+        color: #7d838e;
+        font-size: 12px;
       }
-      code {
-        color: var(--vscode-textPreformat-foreground, var(--overview-text));
-        background: var(--vscode-textCodeBlock-background, transparent);
-        border-radius: 4px;
-        padding: 2px 5px;
+      .ioi-home-posture-row strong {
+        display: block;
+        color: #20242c;
+        font-size: 13px;
       }
+      .ioi-home-posture-row small {
+        display: block;
+        margin-top: 2px;
+        color: #7d838e;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .ioi-home-posture-row.is-warn strong { color: var(--home-warn); }
+      .ioi-home-posture-row.is-ready strong { color: var(--home-ready); }
       ${hypervisorShellHeaderStyles()}
       @media (max-width: 1000px) {
-        .overview-header,
-        .overview-main {
+        .ioi-home-shell,
+        .ioi-home-content {
           grid-template-columns: minmax(0, 1fr);
         }
-        .overview-status { min-width: 0; }
-        .overview-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .overview-column + .overview-column { border-left: 0; border-top: 1px solid var(--overview-border); }
+        .ioi-home-sidebar { min-height: auto; }
       }
       @media (max-width: 680px) {
-        .overview-header,
-        .overview-column { padding-left: 18px; padding-right: 18px; }
-        .overview-nav,
-        .overview-row { grid-template-columns: minmax(0, 1fr); }
+        .ioi-home-content,
+        .ioi-home-topbar {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+        .ioi-home-topbar {
+          align-items: start;
+          flex-direction: column;
+          padding-top: 12px;
+          padding-bottom: 12px;
+        }
+        .ioi-home-search { width: 100%; }
+        .ioi-home-table-row,
+        .ioi-home-posture-row {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
     </style>
   </head>
   <body>
-    <main class="overview-shell" data-testid="hypervisor-overview-home" data-runtime-authority="daemon-owned">
+    <main class="ioi-home-shell" data-testid="hypervisor-overview-home" data-runtime-authority="daemon-owned">
       ${renderHypervisorShellHeader(state, "home")}
-      <header class="overview-header">
-        <div>
-          <div class="overview-kicker">Hypervisor Workbench</div>
-          <h1>Operator console for autonomous systems</h1>
-          <p>
-            Build, run, govern, and verify agentic work from one IDE-native surface.
-            The Electron workbench projects state and sends typed requests; IOI daemon owns execution authority.
-          </p>
+      <aside class="ioi-home-sidebar" aria-label="Hypervisor navigation">
+        <div class="ioi-home-brand">
+          <span class="ioi-home-brand-mark">IOI</span>
+          <span>IOI</span>
+          <span aria-hidden="true">⌘</span>
         </div>
-        <div class="overview-status" aria-label="Runtime status">
-          ${overviewPill("Daemon", daemonStatus, overviewTone(daemonStatus))}
-          ${overviewPill("Models", `${loadedModels.length}/${productModelCount} loaded`, loadedModels.length ? "ready" : "muted")}
-          ${overviewPill("Runs", `${activeRuns.length} active`, activeRuns.length ? "warn" : "ready")}
-          ${overviewPill("Policy", `${policyIssueCount} issues`, policyIssueCount ? "warn" : "ready")}
-        </div>
-      </header>
-
-      <nav class="overview-nav" aria-label="Hypervisor primary actions">
-        ${renderOverviewAction({
-          label: "Build",
-          description: "Agent Studio, workflows, workers, and model-backed app intent.",
-          command: "ioi.studio.open",
-          tone: "primary",
-        })}
-        ${renderOverviewAction({
-          label: "Run",
-          description: "Daemon runtime, local models, executions, and connector dry runs.",
-          command: "ioi.models.open",
-        })}
-        ${renderOverviewAction({
-          label: "Govern",
-          description: "Policy, approvals, secrets, authority, and connector posture.",
-          command: "ioi.policy.open",
-        })}
-        ${renderOverviewAction({
-          label: "Verify",
-          description: "Receipts, replay, evidence, tests, and run history.",
-          command: "ioi.runs.refresh",
-        })}
-      </nav>
-
-      <section class="overview-main">
-        <div class="overview-column">
-          <section class="overview-section" aria-label="Current workspace">
-            <div class="overview-section__kicker">Current Workspace</div>
-            <h2>${escapeHtml(workspace.name || "No workspace selected")}</h2>
-            <p><code>${escapeHtml(workspaceLabel)}</code></p>
-            <div class="overview-board">
-              ${renderOverviewRow("Daemon", daemonStatus, daemonDetail, overviewTone(daemonStatus))}
-              ${renderOverviewRow("Models", `${productModelCount} product model${productModelCount === 1 ? "" : "s"}`, `${loadedModels.length} loaded instance${loadedModels.length === 1 ? "" : "s"}`, loadedModels.length ? "ready" : "muted")}
-              ${renderOverviewRow("Workflows", `${workflows.length || summary.workflowCount || 0} indexed`, recentWorkflow?.name || recentWorkflow?.id || "Open composer to create one", workflows.length ? "ready" : "muted")}
-              ${renderOverviewRow("Connectors", `${connectorReadyCount}/${connectorCount} ready`, "dry-run only for sprint readiness", connectorReadyCount ? "ready" : "muted")}
-            </div>
-          </section>
-
-          <section class="overview-section" aria-label="Continue work">
-            <div class="overview-section__kicker">Continue</div>
-            <table class="overview-table">
-              <thead>
-                <tr><th>Surface</th><th>Current item</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Workflow</strong>Composable autonomous system</td>
-                  <td>${escapeHtml(recentWorkflow?.name || recentWorkflow?.id || "No saved workflow projected")}</td>
-                  <td>${escapeHtml(recentWorkflow?.status || "open composer")}</td>
-                </tr>
-                <tr>
-                  <td><strong>Run</strong>Execution timeline</td>
-                  <td>${escapeHtml(recentRun?.name || recentRun?.id || "No active run projected")}</td>
-                  <td>${escapeHtml(recentRun?.status || "idle")}</td>
-                </tr>
-                <tr>
-                  <td><strong>Evidence</strong>Receipt and replay trail</td>
-                  <td>${escapeHtml(latestReceipt?.receiptId || recentArtifact?.id || "No receipt projected")}</td>
-                  <td>${escapeHtml(latestReceipt ? "daemon receipt" : recentArtifact?.status || "pending evidence")}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          <section class="overview-section" aria-label="Readiness">
-            <div class="overview-section__kicker">Connector Sprint Readiness</div>
-            <div class="overview-board">
-              ${renderOverviewRow("Execution", daemonStatus === "connected" ? "Daemon path available" : "Daemon path blocked", "UI must not own durable runtime", daemonStatus === "connected" ? "ready" : "blocked")}
-              ${renderOverviewRow("Model route", loadedModels.length ? "Live model route ready" : "No loaded route", "Models mode is the route source", loadedModels.length ? "ready" : "warn")}
-              ${renderOverviewRow("External action", "disabled", "use fixture/dry-run connector flows only", "ready")}
-              ${renderOverviewRow("Audit", receipts.length ? `${receipts.length} receipts` : "Receipts pending", "receipt and replay remain daemon-owned", receipts.length ? "ready" : "warn")}
+        <button class="ioi-home-new-session" type="button" data-command="ioi.studio.open"${commandPayloadAttr({ source: "overview-new-session" })}>
+          <span><span aria-hidden="true">＋</span> New Session</span>
+          <span class="ioi-home-kbd">Ctrl I</span>
+        </button>
+        <div class="ioi-home-stack">
+          <nav class="ioi-home-nav" aria-label="Primary">
+            ${navButton({ label: "Home", icon: "⌂", command: "ioi.commandCenter.open", payload: { surface: "home" }, active: true })}
+            ${navButton({ label: "Projects", icon: "⌁", command: "ioi.commandCenter.open", payload: { surface: "projects" } })}
+            ${navButton({ label: "Automations", icon: "⌘", command: "ioi.workflow.openComposer", payload: { source: "overview-automations" } })}
+            ${navButton({ label: "Insights", icon: "⌗", command: "ioi.runs.refresh", payload: { source: "overview-insights" } })}
+          </nav>
+          <section class="ioi-home-sidebar-section" aria-label="Sessions">
+            <div class="ioi-home-sidebar-label"><span>Sessions</span><span>From scratch</span></div>
+            <div class="ioi-home-session-list">
+              ${sessionRows
+                .map((session, index) =>
+                  sessionButton({ ...session, index: String(index + 1) }),
+                )
+                .join("")}
             </div>
           </section>
         </div>
-
-        <aside class="overview-column" aria-label="Open surfaces">
-          <section class="overview-section">
-            <div class="overview-section__kicker">Create</div>
-            <div class="overview-side-actions">
-              ${renderOverviewAction({
-                label: "Agent Studio",
-                description: "Prompt-to-agent/workflow intent, routed through daemon-owned boundaries.",
+        <div class="ioi-home-footer">
+          ${navButton({ label: "Organization settings", icon: "⚙", command: "ioi.policy.open" })}
+          <small>IOI Workspace · Operator</small>
+        </div>
+      </aside>
+      <section class="ioi-home-main" aria-label="Hypervisor home">
+        <header class="ioi-home-topbar">
+          <strong>Home</strong>
+          <div class="ioi-home-search" role="search" aria-label="Search">
+            <span aria-hidden="true">⌕</span>
+            <span>Search projects, sessions, receipts, models</span>
+          </div>
+        </header>
+        <div class="ioi-home-content">
+          <div class="ioi-home-stack">
+            <section class="ioi-home-title" aria-label="Workspace prompt">
+              <h1>What should Hypervisor do?</h1>
+              <p>Start a governed session, open a project, compose an automation, or inspect the receipts behind recent work.</p>
+            </section>
+            <section class="ioi-home-composer" aria-label="New session composer">
+              <textarea placeholder="Ask Hypervisor to build, operate, inspect, or automate this workspace..." aria-label="New session prompt"></textarea>
+              <div class="ioi-home-composer-bar">
+                <div class="ioi-home-composer-tools">
+                  <span class="ioi-home-chip">Workspace: ${escapeHtml(projectName)}</span>
+                  <span class="ioi-home-chip">Model route: ${escapeHtml(loadedModels.length ? "ready" : "choose")}</span>
+                  <span class="ioi-home-chip">Receipts: ${escapeHtml(String(receipts.length || 0))}</span>
+                </div>
+                <button class="ioi-home-submit" type="button" data-command="ioi.studio.open"${commandPayloadAttr({ source: "overview-composer" })}>Start</button>
+              </div>
+            </section>
+            <section class="ioi-home-section" aria-label="Projects">
+              <div class="ioi-home-section-head">
+                <h2>Projects</h2>
+                <button class="ioi-home-link" type="button" data-command="ioi.commandCenter.open"${commandPayloadAttr({ surface: "projects" })}>See all</button>
+              </div>
+              <div class="ioi-home-table">
+                <div class="ioi-home-table-row">
+                  <div><strong>${escapeHtml(projectName)}</strong><span>${escapeHtml(workspacePath)}</span></div>
+                  <span>Local workspace session target with editor, terminal, model, and browser adapters.</span>
+                  <small>${escapeHtml(daemonStatus === "connected" ? "ready" : "setup needed")}</small>
+                </div>
+                <div class="ioi-home-table-row">
+                  <div><strong>Automations</strong><span>${escapeHtml(String(workflowCount))} workflow${workflowCount === 1 ? "" : "s"}</span></div>
+                  <span>Composable runs are created through the automation surface and admitted by Core.</span>
+                  <small>${escapeHtml(recentWorkflow?.status || "open")}</small>
+                </div>
+                <div class="ioi-home-table-row">
+                  <div><strong>Receipts</strong><span>${escapeHtml(latestReceipt?.receiptId || "No receipt yet")}</span></div>
+                  <span>Evidence, replay, state roots, and artifact refs appear after execution.</span>
+                  <small>${escapeHtml(latestReceipt ? "available" : "pending")}</small>
+                </div>
+              </div>
+            </section>
+          </div>
+          <aside class="ioi-home-side" aria-label="Session controls">
+            <section class="ioi-home-side-block">
+              <div class="ioi-home-section-head"><h2>Create</h2></div>
+              ${commandButton({
+                label: "Session",
+                meta: "recommended",
+                description: "Start a governed Hypervisor session from this workspace.",
                 command: "ioi.studio.open",
+                payload: { source: "overview-create-session" },
                 tone: "primary",
               })}
-              ${renderOverviewAction({
-                label: "Workflow Composer",
-                description: "Open the rich graph canvas directly.",
+              ${commandButton({
+                label: "Automation",
+                description: "Open the workflow surface for reusable work.",
                 command: "ioi.workflow.openComposer",
+                payload: { source: "overview-create-automation" },
               })}
-              ${renderOverviewAction({
-                label: "Mount Models",
-                description: "Inspect local artifacts, load routes, and bind workflows.",
+              ${commandButton({
+                label: "Models",
+                description: "Review mounted routes and local model availability.",
                 command: "ioi.models.open",
+                payload: { source: "overview-models" },
               })}
-              ${renderOverviewAction({
-                label: "Connector Dry Run",
-                description: "Exercise connector-neutral capability binding without external action.",
-                command: "ioi.workflow.openComposer",
-                payload: { scenarioId: "connector-fixture", phase: "connector-fixture" },
-              })}
-            </div>
-          </section>
-
-          <section class="overview-section">
-            <div class="overview-section__kicker">Operate</div>
-            <div class="overview-side-actions">
-              ${renderOverviewAction({
-                label: "Runs",
-                description: "Open runtime state, active jobs, and latest execution history.",
-                command: "ioi.runs.refresh",
-              })}
-              ${renderOverviewAction({
-                label: "Policy",
-                description: "Review approval posture and authority gates.",
-                command: "ioi.policy.open",
-              })}
-              ${renderOverviewAction({
-                label: "Connections",
-                description: "Inspect available services and connector posture.",
-                command: "ioi.connections.inspect",
-              })}
-              ${renderOverviewAction({
-                label: "Command Center",
-                description: "Search Hypervisor commands and runtime surfaces.",
-                command: "ioi.commandCenter.open",
-              })}
-            </div>
-          </section>
-        </aside>
+            </section>
+            <section class="ioi-home-side-block">
+              <div class="ioi-home-section-head"><h2>Posture</h2></div>
+              <div class="ioi-home-posture">
+                ${postureRows
+                  .map(
+                    ([label, value, detail, tone]) => `
+                    <div class="ioi-home-posture-row is-${escapeHtml(tone)}">
+                      <span>${escapeHtml(label)}</span>
+                      <div><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small></div>
+                    </div>
+                  `,
+                  )
+                  .join("")}
+              </div>
+            </section>
+          </aside>
+        </div>
       </section>
     </main>
     <script nonce="${pageNonce}">
@@ -456,7 +767,7 @@ function createWorkbenchOverviewPanelRenderer({
         try {
           return JSON.parse(raw);
         } catch (error) {
-          console.error("[IOI Overview] Failed to parse command payload", error);
+          console.error("[IOI Home] Failed to parse command payload", error);
           return undefined;
         }
       }

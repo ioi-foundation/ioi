@@ -53,12 +53,19 @@ test("overview panel preserves nonce wiring, daemon ownership, and command affor
   assert.match(html, /data-testid="hypervisor-overview-home"/);
   assert.match(html, /data-runtime-authority="daemon-owned"/);
   assert.match(html, /data-testid="hypervisor-shell-header"/);
+  assert.match(html, /What should Hypervisor do\?/);
+  assert.match(html, /New Session/);
+  assert.match(html, /Projects/);
+  assert.match(html, /Automations/);
+  assert.match(html, /Insights/);
+  assert.match(html, /Sessions/);
   assert.match(html, /data-command="ioi\.studio\.open"/);
   assert.match(html, /data-command="ioi\.workflow\.openComposer"/);
   assert.match(html, /data-command="ioi\.models\.open"/);
   assert.match(html, /data-command="ioi\.policy\.open"/);
-  assert.match(html, /data-command="ioi\.connections\.inspect"/);
-  assert.match(html, /&quot;scenarioId&quot;:&quot;connector-fixture&quot;/);
+  assert.match(html, /data-command="ioi\.commandCenter\.open"/);
+  assert.match(html, /&quot;source&quot;:&quot;overview-new-session&quot;/);
+  assert.match(html, /&quot;source&quot;:&quot;overview-create-session&quot;/);
 });
 
 test("overview panel escapes workspace and projected item text", () => {
@@ -89,10 +96,10 @@ test("overview panel projects disconnected daemon and empty evidence posture", (
     snapshot: { receipts: [] },
   });
 
-  assert.match(html, /daemon endpoint not configured/);
-  assert.match(html, /No workspace selected/);
+  assert.match(html, /Core endpoint not configured/);
+  assert.match(html, /Current workspace/);
   assert.match(html, /Open a workspace folder to ground runtime context\./);
   assert.match(html, /1\/2 ready/);
-  assert.match(html, /Receipts pending/);
+  assert.match(html, /No receipt yet/);
   assert.match(html, /2 issues/);
 });
