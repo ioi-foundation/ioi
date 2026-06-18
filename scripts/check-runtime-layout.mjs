@@ -854,7 +854,7 @@ assert(
     codeEditorAdapterContextSnapshot.includes("activeEditorRef") &&
     codeEditorAdapterContextSnapshot.includes("buildCodeEditorScmState") &&
     codeEditorAdapterContextSnapshot.includes("diagnostics") &&
-    !/taskState|terminalState|taskExecutions|terminals|activity\.(?:explorer|search|scm)|terminal\.panel|checks\.tasks|problems\.panel|surface:\s*"activity-rail"|surface:\s*"terminal"|surface:\s*"problems"|workbench\.action\.tasks|workbench\.action\.terminal|workbench\.actions\.view\.problems/.test(
+    !/taskState|terminalState|taskExecutions|terminals|visibleView|activeIoiViewId|sideBarViewId|panelViewId|activity\.(?:explorer|search|scm)|explorer\.active-file|revealInExplorer|terminal\.panel|checks\.tasks|problems\.panel|surface:\s*"activity-rail"|surface:\s*"explorer"|surface:\s*"terminal"|surface:\s*"problems"|workbench\.action\.tasks|workbench\.action\.terminal|workbench\.actions\.view\.problems/.test(
       codeEditorAdapterContextSnapshot,
     ) &&
     !/daemonEndpoint|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/.test(

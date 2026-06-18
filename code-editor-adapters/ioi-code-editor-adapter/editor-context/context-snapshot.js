@@ -191,16 +191,6 @@ function createCodeEditorContextSnapshot({
       })),
       diagnostics,
       scmState: buildCodeEditorScmState(openEditors),
-      visibleView: {
-        activeTextEditorVisible: Boolean(activeEditor),
-        activeTabCount: openEditors.length,
-        adapterKind: "code-editor",
-        activityId: null,
-        sideBarViewId: null,
-        panelViewId: null,
-        activeEditorGroup: activeEditor ? "active" : null,
-        activeIoiViewId: null,
-      },
       inspectionTargetIndexRef: "code-editor-target-index:latest",
       runtimeRefs: buildRuntimeRefs(),
     };
@@ -233,23 +223,6 @@ function createCodeEditorContextSnapshot({
             label: activeEditor.document.fileName,
             surface: "editor",
             locators: [
-              {
-                kind: "editor-range",
-                filePath: activeEditor.document.uri.fsPath,
-                range: toCodeEditorRange(activeEditor.selection),
-              },
-            ],
-            fallbackAllowed: true,
-          },
-          {
-            targetId: "explorer.active-file",
-            label: `Explorer row for ${activeEditor.document.fileName}`,
-            surface: "explorer",
-            locators: [
-              {
-                kind: "vscode-command",
-                commandId: "revealInExplorer",
-              },
               {
                 kind: "editor-range",
                 filePath: activeEditor.document.uri.fsPath,
