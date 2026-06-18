@@ -443,7 +443,7 @@ export function buildExtensionTrustProfile(
         governedProfileId: extension.governedProfile,
         governedProfileLabel: governedProfileLabel(extension.governedProfile),
         summary:
-          "This extension carries explicit installation or authentication policy from the runtime catalog/marketplace layer.",
+          "This extension carries explicit installation or authentication policy from the capability registry or marketplace layer.",
         detail:
           "Operators should review marketplace policy before widening authority because this package already declares governance expectations.",
         signals: [

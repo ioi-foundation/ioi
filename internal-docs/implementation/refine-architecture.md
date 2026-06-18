@@ -1106,9 +1106,10 @@ Current implementation cut:
   `EnvironmentEstateView` now lives under `apps/hypervisor/src/surfaces/Environments`
   instead of `@ioi/hypervisor-workbench`, so provider/environment posture is a
   Hypervisor shell surface rather than a code-editor/workflow package surface.
-  Workflow-side Agents, Builder, and Runtime Catalog views now live under
-  `apps/hypervisor/src/surfaces/MissionControl/components`; the Workbench
-  package no longer exports those product screens.
+  The old MissionControl bridge/home/agents/builder/catalog subviews and
+  catalog-stage modal are deleted. Automations mounts the workflow compositor
+  directly; Agents, Models, Authority, Sessions, and Projects are first-class
+  Hypervisor shell surfaces rather than nested workflow routes.
   Assistant handoff and session history sidebar components now live under the
   Hypervisor app shell; `@ioi/hypervisor-workbench` no longer exports product
   shell components. The browser-local session-history folder hook moved with

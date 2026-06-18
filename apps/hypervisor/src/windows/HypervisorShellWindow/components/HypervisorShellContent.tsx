@@ -836,11 +836,9 @@ function HypervisorAgentDetail({
 
 function HypervisorAutomationCompositorSurface({
   currentProjectId,
-  workflowSurface,
   children,
 }: {
   currentProjectId: string;
-  workflowSurface: string;
   children: ReactNode;
 }) {
   const [projection, setProjection] = useState(
@@ -921,7 +919,7 @@ function HypervisorAutomationCompositorSurface({
       data-hypervisor-automation-compositor={projection.projection_id}
       data-automation-compositor-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
-      data-workflow-compositor-surface={workflowSurface}
+      data-workflow-compositor-surface="workflow-composer"
     >
       <header className="hypervisor-automation-compositor__topbar">
         <h2>Automations</h2>
@@ -2893,7 +2891,6 @@ export function HypervisorShellContent({
     auxiliaryChatVisible && controller.chat.paneMaximized;
   const commandCenterModel = buildOperatorCommandCenterModel({
     activeView,
-    workflowSurface: controller.workflow.surface,
     currentProject,
     notificationCount: notificationBadgeCount,
   });
@@ -2934,7 +2931,6 @@ export function HypervisorShellContent({
     >
       <HypervisorClientHeader
         activeView={activeView}
-        workflowSurface={controller.workflow.surface}
         commandCenter={commandCenterModel}
         onOpenCommandPalette={controller.modals.openCommandPalette}
       />
@@ -3031,54 +3027,16 @@ export function HypervisorShellContent({
                   {activeView === "automations" ? (
                     <HypervisorAutomationCompositorSurface
                       currentProjectId={currentProject.id}
-                      workflowSurface={controller.workflow.surface}
                     >
                       <MissionControlWorkflowsView
                         runtime={runtime}
-                        surface={controller.workflow.surface}
                         currentProject={currentProject}
-                        projects={projects}
-                        notificationCount={notificationBadgeCount}
-                        editingAgent={controller.agents.editingAgent}
-                        onSurfaceChange={controller.workflow.setSurface}
-                        onSelectProject={controller.workflow.selectProject}
-                        onOpenChat={() =>
-                          controller.changePrimaryView("sessions")
-                        }
-                        onOpenInbox={() =>
-                          controller.changePrimaryView("missions")
-                        }
-                        onOpenCapabilities={() =>
-                          controller.changePrimaryView("agents")
-                        }
-                        onOpenPolicy={() =>
-                          controller.policy.openPolicyCenter(null)
-                        }
-                        onOpenSettings={() =>
-                          controller.changePrimaryView("settings")
-                        }
-                        onOpenAgent={controller.agents.openBuilder}
-                        onCloseAgent={controller.agents.closeBuilder}
-                        onStageCatalogEntry={
-                          controller.catalog.openStageModalForEntry
-                        }
-                        composeSeedProject={
-                          controller.workflow.composeSeedProject
-                        }
-                        onConsumeComposeSeedProject={
-                          controller.workflow.consumeComposeSeedProject
-                        }
                         workflowPreflightSeed={
                           controller.workflow.preflightSeed
                         }
                         onConsumeWorkflowPreflightSeed={
                           controller.workflow.consumePreflightSeed
                         }
-                        onAddBuilderConfigToCanvas={(config) => {
-                          controller.workflow.queueBuilderConfigToCanvas(
-                            config,
-                          );
-                        }}
                       />
                     </HypervisorAutomationCompositorSurface>
                   ) : null}

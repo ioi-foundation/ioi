@@ -12,36 +12,22 @@ import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface HypervisorClientHeaderProps {
   activeView: PrimaryView;
-  workflowSurface: "home" | "canvas" | "agents" | "catalog";
   commandCenter: OperatorCommandCenterModel;
   onOpenCommandPalette: () => void;
 }
 
-function windowSurfaceTitle(
-  view: PrimaryView,
-  workflowSurface: HypervisorClientHeaderProps["workflowSurface"],
-): string {
-  if (view === "automations") {
-    if (workflowSurface === "home") return "Automations";
-    if (workflowSurface === "agents") return "Agents";
-    if (workflowSurface === "catalog") return "Catalog";
-    return "Canvas";
-  }
+function windowSurfaceTitle(view: PrimaryView): string {
   return getHypervisorSurfaceById(view).label;
 }
 
 export function HypervisorClientHeader({
   activeView,
-  workflowSurface,
   commandCenter,
   onOpenCommandPalette,
 }: HypervisorClientHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const windowControlsVisible = isHypervisorClientRuntime();
-  const resolvedWindowTitle = `Hypervisor · ${windowSurfaceTitle(
-    activeView,
-    workflowSurface,
-  )}`;
+  const resolvedWindowTitle = `Hypervisor · ${windowSurfaceTitle(activeView)}`;
 
   useEffect(() => {
     document.title = resolvedWindowTitle;

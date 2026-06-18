@@ -36,10 +36,6 @@ export async function openChatCapabilities() {
   await openChatShellView("capabilities");
 }
 
-export async function openChatCatalog() {
-  await openChatShellView("catalog");
-}
-
 export async function openChatPolicyView() {
   await openChatShellView("policy");
 }

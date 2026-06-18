@@ -62,8 +62,6 @@ function isSessionWorkbenchRuntime(
     typeof candidate.saveProject === "function" &&
     typeof candidate.getAgents === "function" &&
     typeof candidate.getEnvironmentEstateState === "function" &&
-    typeof candidate.getRuntimeCatalogEntries === "function" &&
-    typeof candidate.stageRuntimeCatalogEntry === "function" &&
     typeof candidate.onEvent === "function"
   );
 }

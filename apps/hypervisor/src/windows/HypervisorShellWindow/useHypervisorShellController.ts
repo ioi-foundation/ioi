@@ -6,13 +6,7 @@ import {
   requestPermission,
   sendNotification,
 } from "../../services/hypervisorHostBridge";
-import type {
-  AgentConfiguration,
-  AgentSummary,
-  ProjectFile,
-  RuntimeCatalogEntry,
-  WorkflowComposerPreflightSeed,
-} from "@ioi/hypervisor-workbench";
+import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import { useAssistantWorkbenchState } from "@ioi/hypervisor-workbench";
 import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
 import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
@@ -70,7 +64,6 @@ type ToastCandidate = Pick<
   >;
 
 type ChatSurface = "chat" | "reply-composer" | "meeting-prep";
-type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
 type NewSessionModalSeed =
   | string
   | {
@@ -79,17 +72,6 @@ type NewSessionModalSeed =
     }
   | null
   | undefined;
-type RuntimeCatalogStageEntry = {
-  id: string;
-  name: string;
-  description: string;
-  ownerLabel: string;
-  entryKind: string;
-  runtimeNotes: string;
-  statusLabel?: string;
-  image: string;
-};
-
 const appliedChatLaunchIds = new Set<string>();
 
 const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
@@ -184,88 +166,6 @@ function waitForChatHypervisorSurfaceFrame(): Promise<void> {
   });
 }
 
-function normalizeRuntimeCatalogStageEntry(
-  agent: RuntimeCatalogEntry,
-): RuntimeCatalogStageEntry {
-  return {
-    id: agent.id,
-    name: agent.name,
-    description: agent.description,
-    ownerLabel: agent.ownerLabel,
-    entryKind: agent.entryKind,
-    runtimeNotes: agent.runtimeNotes,
-    statusLabel: agent.statusLabel,
-    image:
-      agent.icon ??
-      "linear-gradient(135deg, rgba(90, 140, 255, 0.95), rgba(35, 189, 152, 0.9))",
-  };
-}
-
-function projectFromBuilderConfig(config: AgentConfiguration): ProjectFile {
-  const generatedAt = Date.now();
-  const nodeId = `builder-node-${generatedAt}`;
-  const name = config.name.trim() || "Generated Agent";
-  const description = config.description.trim();
-
-  return {
-    version: "1.0.0",
-    nodes: [
-      {
-        id: nodeId,
-        type: "model_call",
-        name,
-        x: 280,
-        y: 180,
-        metricLabel: "Model",
-        metricValue: config.model,
-        ioTypes: { in: "prompt", out: "message" },
-        inputs: ["input", "context"],
-        outputs: ["output", "error", "retry"],
-        config: {
-          logic: {
-            modelRef: "reasoning",
-            model: config.model,
-            systemPrompt: config.instructions,
-            temperature: config.temperature,
-          },
-          law: {},
-        },
-      },
-    ],
-    edges: [],
-    global_config: {
-      env: "{}",
-      modelBindings: {
-        reasoning: { modelId: config.model, required: false },
-        vision: { modelId: "", required: false },
-        embedding: { modelId: "", required: false },
-        image: { modelId: "", required: false },
-      },
-      requiredCapabilities: {
-        reasoning: { required: false, bindingKey: "reasoning" },
-        vision: { required: false, bindingKey: "vision" },
-        embedding: { required: false, bindingKey: "embedding" },
-        image: { required: false, bindingKey: "image" },
-        speech: { required: false },
-        video: { required: false },
-      },
-      policy: {
-        maxBudget: 5,
-        maxSteps: 50,
-        timeoutMs: 30000,
-      },
-      contract: {
-        developerBond: 0,
-        adjudicationRubric: "",
-      },
-      meta: {
-        name,
-        description,
-      },
-    },
-  };
-}
-
 async function sendNativeHypervisorNotification(
   candidate: ToastCandidate,
 ): Promise<void> {
@@ -309,8 +209,6 @@ export function useHypervisorShellController() {
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
   const [chatPaneVisible, setChatPaneVisible] = useState(false);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
-  const [workflowSurface, setWorkflowSurface] =
-    useState<WorkflowSurface>("canvas");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<
     string | null
   >(null);
@@ -332,16 +230,10 @@ export function useHypervisorShellController() {
   const [currentProjectId, setCurrentProjectId] = useState(
     PROJECT_SCOPES[0]?.id ?? "hypervisor-core",
   );
-  const [editingAgent, setEditingAgent] = useState<AgentSummary | null>(null);
-  const [selectedCatalogEntry, setSelectedCatalogEntry] =
-    useState<RuntimeCatalogStageEntry | null>(
-    null,
-  );
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteMode, setCommandPaletteMode] =
     useState<"default" | "tools">("default");
   const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
-  const [catalogStageModalOpen, setCatalogStageModalOpen] = useState(false);
   const [newSessionModalOpen, setNewSessionModalOpen] = useState(false);
   const [newSessionSeedIntent, setNewSessionSeedIntent] = useState<string | null>(
     null,
@@ -360,9 +252,6 @@ export function useHypervisorShellController() {
     useState<ChatCapabilityDetailSection | null>(null);
   const [settingsSectionSeed, setSettingsSectionSeed] =
     useState<SettingsSection | null>(null);
-  const [composeSeedProject, setComposeSeedProject] = useState<ProjectFile | null>(
-    null,
-  );
   const [workflowPreflightSeed, setWorkflowPreflightSeed] =
     useState<WorkflowComposerPreflightSeed | null>(null);
 
@@ -409,9 +298,6 @@ export function useHypervisorShellController() {
   const openRequestedSurface = (view: string) => {
     if (isHypervisorSurfaceId(view)) {
       setActiveView(view);
-      if (view === "automations") {
-        setWorkflowSurface("canvas");
-      }
       return;
     }
 
@@ -425,8 +311,7 @@ export function useHypervisorShellController() {
         setChatPaneVisible(true);
         return;
       case "catalog":
-        setWorkflowSurface("catalog");
-        setActiveView("automations");
+        setActiveView("agents");
         return;
       default:
         setChatSurface("chat");
@@ -509,10 +394,6 @@ export function useHypervisorShellController() {
         (existing) => existing.session_ref !== launchedSession.session_ref,
       ),
     ].slice(0, 12));
-
-    if (recipe.surface_id === "automations") {
-      setWorkflowSurface("canvas");
-    }
 
     if (recipe.surface_id === "sessions") {
       const summary = request.launch_summary;
@@ -914,9 +795,6 @@ export function useHypervisorShellController() {
   }, [shieldPolicy, shieldPolicyHydrated]);
 
   const changePrimaryView = (view: PrimaryView) => {
-    if (view === "automations") {
-      setWorkflowSurface("canvas");
-    }
     setActiveView(view);
   };
 
@@ -932,16 +810,10 @@ export function useHypervisorShellController() {
     setActiveView("agents");
   };
 
-  const openWorkflowSurface = (surface: WorkflowSurface) => {
-    setWorkflowSurface(surface);
-    setActiveView("automations");
-  };
-
   const openWorkflowPreflight = (
     seed: WorkflowComposerPreflightSeed | null = { panel: "readiness" },
   ) => {
     setWorkflowPreflightSeed(seed ?? { panel: "readiness" });
-    setWorkflowSurface("canvas");
     setActiveView("automations");
   };
 
@@ -1020,26 +892,6 @@ export function useHypervisorShellController() {
     }
   };
 
-  const openAgentBuilder = (agent: AgentSummary | null) => {
-    setEditingAgent(
-      agent || {
-        id: "new",
-        name: "New Agent",
-        description: "",
-        model: "GPT-4o",
-      },
-    );
-  };
-
-  const openStageModalForEntry = (entry: RuntimeCatalogEntry) => {
-    setSelectedCatalogEntry(normalizeRuntimeCatalogStageEntry(entry));
-    setCatalogStageModalOpen(true);
-  };
-
-  const queueBuilderConfigToCanvas = (config: AgentConfiguration) => {
-    setComposeSeedProject(projectFromBuilderConfig(config));
-  };
-
   const chatFullscreen =
     activeView !== "sessions" && chatPaneVisible && chatPaneMaximized;
 
@@ -1068,14 +920,8 @@ export function useHypervisorShellController() {
       openMeetingPrep,
     },
     workflow: {
-      surface: workflowSurface,
-      setSurface: setWorkflowSurface,
-      openSurface: openWorkflowSurface,
       openPreflight: openWorkflowPreflight,
       selectProject: setCurrentProjectId,
-      composeSeedProject,
-      queueBuilderConfigToCanvas,
-      consumeComposeSeedProject: () => setComposeSeedProject(null),
       preflightSeed: workflowPreflightSeed,
       consumePreflightSeed: () => setWorkflowPreflightSeed(null),
     },
@@ -1153,17 +999,6 @@ export function useHypervisorShellController() {
         setNewSessionRecipeId(null);
       },
       launchNewSession,
-      catalogStageModalOpen,
-      closeCatalogStageModal: () => setCatalogStageModalOpen(false),
-    },
-    agents: {
-      editingAgent,
-      openBuilder: openAgentBuilder,
-      closeBuilder: () => setEditingAgent(null),
-    },
-    catalog: {
-      selectedCatalogEntry,
-      openStageModalForEntry,
     },
   };
 }

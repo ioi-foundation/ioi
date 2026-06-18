@@ -65,8 +65,14 @@ assert.match(
 
 assert.match(
   source,
-  /if \(isHypervisorSurfaceId\(view\)\) \{[\s\S]*setActiveView\(view\);[\s\S]*if \(view === "automations"\) \{[\s\S]*setWorkflowSurface\("canvas"\);/,
+  /if \(isHypervisorSurfaceId\(view\)\) \{[\s\S]*setActiveView\(view\);[\s\S]*return;/,
   "workspace bridge view launch targets should accept canonical Hypervisor surfaces directly",
+);
+
+assert.doesNotMatch(
+  source,
+  /setWorkflowSurface|WorkflowSurface/,
+  "Automations should no longer retain hidden workflow home/agents/catalog subroutes",
 );
 
 assert.match(

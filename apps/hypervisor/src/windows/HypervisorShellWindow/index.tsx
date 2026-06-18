@@ -4,7 +4,6 @@ import React, {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { RuntimeCatalogStageModal } from "../../components/RuntimeCatalogStageModal";
 import { CommandPalette } from "../../components/CommandPalette";
 import {
   applyHypervisorAppearance,
@@ -276,23 +275,6 @@ function HypervisorShellWindowLoaded() {
     return subscribeHypervisorAppearance(applyHypervisorAppearance);
   }, []);
 
-  const handleStageCatalogEntry = async (entry: {
-    id: string;
-    name: string;
-    description: string;
-    ownerLabel: string;
-    entryKind: string;
-    runtimeNotes: string;
-    statusLabel?: string;
-    image: string;
-  }, notes: string) => {
-    const baseNote = `Stage ${entry.entryKind.toLowerCase()} ${entry.name} from the Chat runtime catalog into the Local Engine queue.`;
-    await runtime.stageRuntimeCatalogEntry(
-      entry.id,
-      notes.trim() || `${baseNote} ${entry.runtimeNotes}`.trim(),
-    );
-  };
-
   return (
     <div className="chat-window">
       <HypervisorShellContent controller={controller} runtime={runtime} />
@@ -302,12 +284,10 @@ function HypervisorShellWindowLoaded() {
           mode={controller.modals.commandPaletteMode}
           initialQuery={controller.modals.commandPaletteInitialQuery}
           activeView={controller.activeView}
-          workflowSurface={controller.workflow.surface}
           currentProjectId={controller.currentProject.id}
           notificationCount={controller.notificationBadgeCount}
           onClose={controller.modals.closeCommandPalette}
           onOpenPrimaryView={controller.changePrimaryView}
-          onOpenWorkflowSurface={controller.workflow.openSurface}
           onSelectProject={controller.workflow.selectProject}
           projects={controller.projects}
         />
@@ -323,20 +303,6 @@ function HypervisorShellWindowLoaded() {
           initialRecipeId={controller.modals.newSessionRecipeId}
           onClose={controller.modals.closeNewSessionModal}
           onLaunch={controller.modals.launchNewSession}
-        />
-      ) : null}
-
-      {controller.modals.catalogStageModalOpen &&
-      controller.catalog.selectedCatalogEntry ? (
-        <RuntimeCatalogStageModal
-          isOpen={controller.modals.catalogStageModalOpen}
-          onClose={controller.modals.closeCatalogStageModal}
-          onStageEntry={handleStageCatalogEntry}
-          onOpenCapabilities={() => {
-            controller.modals.closeCatalogStageModal();
-            controller.capabilities.openSurface("engine");
-          }}
-          entry={controller.catalog.selectedCatalogEntry}
         />
       ) : null}
     </div>

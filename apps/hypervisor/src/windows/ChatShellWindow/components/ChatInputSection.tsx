@@ -1,7 +1,6 @@
 import {
   type ConnectorActionDefinition,
   type ConnectorSummary,
-  type RuntimeCatalogEntry,
 } from "@ioi/hypervisor-workbench";
 import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import {
@@ -22,7 +21,6 @@ import type {
 } from "react";
 import {
   openCompanionCapabilityActions,
-  openCompanionCatalog,
 } from "../../../services/companionShellNavigation";
 import {
   openReviewCapabilities,
@@ -207,8 +205,6 @@ export function ChatInputSection({
   const searchablePaletteMode = commandPaletteMode || toolPaletteMode;
   const [slashContext, setSlashContext] = useState<SlashTokenContext | null>(null);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
-  const [runtimeCatalogEntries, setRuntimeCatalogEntries] = useState<RuntimeCatalogEntry[]>([]);
-  const [runtimeCatalogStatus, setRuntimeCatalogStatus] = useState<LoadStatus>("idle");
   const [workspaceWorkflows, setWorkspaceWorkflows] = useState<WorkspaceWorkflowSummary[]>([]);
   const [workspaceWorkflowsStatus, setWorkspaceWorkflowsStatus] =
     useState<LoadStatus>("idle");
@@ -443,36 +439,6 @@ export function ChatInputSection({
       safelyDisposeHostListener(unlistenPromise);
     };
   }, [focusComposer]);
-
-  useEffect(() => {
-    if (!commandsMenuOpen || runtimeCatalogStatus !== "idle") {
-      return;
-    }
-
-    let cancelled = false;
-    const runtime = getSessionWorkbenchRuntime();
-    setRuntimeCatalogStatus("loading");
-
-    runtime
-      .getRuntimeCatalogEntries()
-      .then((entries) => {
-        if (cancelled) {
-          return;
-        }
-        setRuntimeCatalogEntries(entries);
-        setRuntimeCatalogStatus("ready");
-      })
-      .catch((error) => {
-        console.error("Failed to load runtime catalog entries for slash menu:", error);
-        if (!cancelled) {
-          setRuntimeCatalogStatus("error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [commandsMenuOpen, runtimeCatalogStatus]);
 
   useEffect(() => {
     if (!commandsMenuOpen || liveToolsStatus !== "idle") {
@@ -1313,28 +1279,6 @@ export function ChatInputSection({
       !slashQuickMode &&
       matchesSlashQuery(
         commandQuery,
-        "Open Catalog",
-        "Inspect runtime catalog entries in Chat",
-        "catalog chat runtime gallery",
-      )
-    ) {
-      commandItems.push({
-        id: "open-catalog",
-        title: "Open Catalog",
-        description: "Inspect the live runtime catalog in Chat.",
-        icon: icons.globe,
-        meta: "Chat",
-        onSelect: () => {
-          dismissCommandSurface(false);
-          void openCompanionCatalog();
-        },
-      });
-    }
-
-    if (
-      !slashQuickMode &&
-      matchesSlashQuery(
-        commandQuery,
         "Open Capabilities",
         "Inspect live connectors, skills, extensions, and runtime trust posture",
         "capabilities connectors skills extensions trust chat",
@@ -1386,62 +1330,6 @@ export function ChatInputSection({
           onLoadSession,
         })
       : [];
-
-    const runtimeCatalogItems: CommandMenuItem[] =
-      !shouldShowSearchBackedItems
-        ? []
-        : runtimeCatalogStatus === "loading"
-        ? [
-            {
-              id: "catalog-loading",
-              title: "Loading Runtime Catalog",
-              description: "Fetching live runtime catalog entries...",
-              icon: icons.globe,
-              disabled: true,
-            },
-          ]
-        : runtimeCatalogStatus === "error"
-          ? [
-              {
-                id: "catalog-error",
-                title: "Catalog Unavailable",
-                description: "Open Chat to inspect runtime catalog status.",
-                icon: icons.globe,
-                meta: "Chat",
-                onSelect: () => {
-                  dismissCommandSurface(false);
-                  void openCompanionCatalog();
-                },
-              },
-            ]
-          : runtimeCatalogEntries
-              .filter((entry) =>
-                matchesSlashQuery(
-                  commandQuery,
-                  entry.name,
-                  entry.description,
-                  entry.ownerLabel,
-                  entry.entryKind,
-                  entry.runtimeNotes,
-                  entry.statusLabel,
-                  "runtime catalog",
-                ),
-              )
-              .slice(0, 6)
-              .map<CommandMenuItem>((entry) => ({
-                id: `catalog-${entry.id}`,
-                title: entry.name,
-                description: entry.description || entry.runtimeNotes,
-                meta:
-                  entry.statusLabel ||
-                  humanizeLabel(entry.entryKind) ||
-                  "Catalog entry",
-                icon: icons.cube,
-                onSelect: () => {
-                  dismissCommandSurface(false);
-                  void openCompanionCatalog();
-                },
-              }));
 
     const liveToolItems: CommandMenuItem[] =
       !shouldShowSearchBackedItems
@@ -1669,7 +1557,6 @@ export function ChatInputSection({
       return [
         { id: "built-in-tools", title: "Built-In", items: builtInToolItems },
         { id: "live-tools", title: "Live Tools", items: liveToolItems },
-        { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
         { id: "skills", title: "Skills", items: skillItems },
       ];
     }
@@ -1682,7 +1569,6 @@ export function ChatInputSection({
       },
       { id: "sessions", title: "Recent Sessions", items: recentSessionItems },
       { id: "live-tools", title: "Live Tools", items: liveToolItems },
-      { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
       { id: "workspace-workflows", title: "Workflows", items: workflowItems },
       { id: "models", title: "Model", items: modelItems },
       { id: "workspaces", title: "Workspace", items: workspaceItems },
@@ -1732,8 +1618,6 @@ export function ChatInputSection({
     currentPermissionProfileId,
     applyingPermissionProfileId,
     applyPermissionProfile,
-    runtimeCatalogEntries,
-    runtimeCatalogStatus,
     selectedModel,
     shouldShowSearchBackedItems,
     sessions,

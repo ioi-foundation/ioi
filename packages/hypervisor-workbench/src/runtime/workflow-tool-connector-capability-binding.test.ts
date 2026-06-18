@@ -121,7 +121,7 @@ test("connector catalog fallback hydrates canonical authority and receipt metada
   assert.equal(ticketing.idempotencyBehavior?.required, true);
 });
 
-test("runtime catalog rows normalize and dedupe by capability ref", () => {
+test("tool catalog rows normalize and dedupe by capability ref", () => {
   const catalog = normalizeWorkflowToolCatalog([
     {
       toolRef: "file.apply_patch",

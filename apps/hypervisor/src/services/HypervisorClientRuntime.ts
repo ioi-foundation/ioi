@@ -25,7 +25,6 @@ import {
   GraphModelBindingCatalog,
   GraphPayload,
   InstalledWorkflowSummary,
-  RuntimeCatalogEntry,
   ProjectFile,
   CreateWorkflowProjectRequest,
   CreateWorkflowFromTemplateRequest,
@@ -134,7 +133,6 @@ type LocalEngineBackend = LocalEngineSnapshot["managedBackends"][number];
 type LocalEngineWorkerTemplate = LocalEngineSnapshot["workerTemplates"][number];
 type LocalEnginePlaybook = LocalEngineSnapshot["agentPlaybooks"][number];
 type LocalEngineParentPlaybookRun = LocalEngineSnapshot["parentPlaybookRuns"][number];
-type LocalEngineGalleryCatalog = LocalEngineSnapshot["galleryCatalogs"][number];
 
 export type WorkspaceWorkflowSummary = {
   workflowId: string;
@@ -253,68 +251,6 @@ function workerTemplateAgentSummary(
   };
 }
 
-function runtimeCatalogEntryFromPlaybook(
-  playbook: LocalEnginePlaybook,
-  defaultModel: string,
-): RuntimeCatalogEntry {
-  return {
-    id: `playbook:${playbook.playbookId}`,
-    name: playbook.label,
-    ownerLabel: "IOI Kernel",
-    entryKind: "Playbook",
-    description:
-      playbook.summary.trim() ||
-      playbook.goalTemplate.trim() ||
-      "Governed playbook packaged with the local engine runtime.",
-    runtimeNotes:
-      playbook.recommendedFor.slice(0, 2).join(" · ") ||
-      `Uses ${defaultModel}`,
-    statusLabel: "Promotable",
-  };
-}
-
-function runtimeCatalogEntryFromWorkerTemplate(
-  template: LocalEngineWorkerTemplate,
-  defaultModel: string,
-): RuntimeCatalogEntry {
-  return {
-    id: `worker:${template.templateId}`,
-    name: template.label,
-    ownerLabel: "IOI Kernel",
-    entryKind: "Worker template",
-    description:
-      template.summary.trim() ||
-      template.role.trim() ||
-      "Typed worker template available inside the local engine.",
-    runtimeNotes: `Uses ${defaultModel}`,
-    statusLabel: "Promotable",
-  };
-}
-
-function runtimeCatalogEntryFromGalleryCatalog(
-  catalog: LocalEngineGalleryCatalog,
-): RuntimeCatalogEntry {
-  const preview =
-    catalog.sampleEntries
-      .slice(0, 2)
-      .map((entry) => entry.label.trim())
-      .filter(Boolean)
-      .join(" · ") || catalog.sourceUri.trim();
-
-  return {
-    id: `gallery:${catalog.galleryId}`,
-    name: catalog.label,
-    ownerLabel: "IOI Gallery",
-    entryKind: "Gallery catalog",
-    description:
-      catalog.lastError?.trim() ||
-      preview ||
-      "Live kernel gallery catalog available for governed sync.",
-    runtimeNotes: `${catalog.entryCount} entries · ${catalog.syncStatus}`,
-    statusLabel: catalog.syncStatus.replace(/[_-]+/g, " "),
-  };
-}
-
 function liveAgentSummariesFromSnapshot(snapshot: LocalEngineSnapshot): AgentSummary[] {
   const defaultModel =
     snapshot.controlPlane.runtime.defaultModel?.trim() || "Kernel-managed";
@@ -327,61 +263,6 @@ function liveAgentSummariesFromSnapshot(snapshot: LocalEngineSnapshot): AgentSum
       workerTemplateAgentSummary(template, defaultModel),
     ),
   ]);
-}
-
-function liveRuntimeCatalogEntriesFromSnapshot(
-  snapshot: LocalEngineSnapshot,
-): RuntimeCatalogEntry[] {
-  const defaultModel =
-    snapshot.controlPlane.runtime.defaultModel?.trim() || "Kernel-managed";
-
-  return [
-    ...snapshot.galleryCatalogs.map((catalog) =>
-      runtimeCatalogEntryFromGalleryCatalog(catalog),
-    ),
-    ...snapshot.agentPlaybooks.map((playbook) =>
-      runtimeCatalogEntryFromPlaybook(playbook, defaultModel),
-    ),
-    ...snapshot.workerTemplates.map((template) =>
-      runtimeCatalogEntryFromWorkerTemplate(template, defaultModel),
-    ),
-  ];
-}
-
-function runtimeCatalogEntryStagePlan(entryId: string): {
-  subjectKind: string;
-  operation: string;
-  subjectId: string;
-  notes: string;
-} {
-  const [rawKind, rawSubjectId] = entryId.split(":");
-  const subjectId = rawSubjectId?.trim() || entryId;
-  const subjectKind =
-    rawKind === "worker"
-      ? "worker_template"
-      : rawKind === "gallery"
-        ? "gallery"
-      : rawKind === "playbook"
-        ? "playbook"
-        : "catalog_entry";
-  const operation =
-    rawKind === "gallery"
-      ? "sync"
-      : rawKind === "playbook" || rawKind === "worker"
-        ? "promote"
-        : "stage";
-
-  return {
-    subjectKind,
-    operation,
-    subjectId,
-    notes:
-      operation === "sync"
-        ? `Synchronize live gallery catalog '${entryId}' through the Local Engine queue.`
-        : operation === "promote"
-        ? `Promote catalog entry '${entryId}' into the Local Engine queue.`
-        : `Stage catalog entry '${entryId}' in the Local Engine queue for later review or promotion.`,
-  };
 }
 
 function backendContainer(record: LocalEngineBackend): Container {
@@ -1914,23 +1795,8 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         return liveEnvironmentEstateStateFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
-    async getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]> {
-        return liveRuntimeCatalogEntriesFromSnapshot(await this.getLocalEngineSnapshot());
-    }
-
     async listWorkspaceWorkflows(): Promise<WorkspaceWorkflowSummary[]> {
         return invoke("list_workspace_workflows");
-    }
-
-    async stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void> {
-        const plan = runtimeCatalogEntryStagePlan(entryId);
-        await this.stageLocalEngineOperation({
-            subjectKind: plan.subjectKind,
-            operation: plan.operation,
-            sourceUri: `catalog:${entryId}`,
-            subjectId: plan.subjectId,
-            notes: notes?.trim() || plan.notes,
-        });
     }
 
     async getConnectors(): Promise<ConnectorSummary[]> {

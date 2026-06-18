@@ -16,7 +16,7 @@ const shellCommandCss = readFileSync(
 );
 
 test("slash menu defaults to curated user-facing actions", () => {
-  assert.match(chatInput, /const slashQuickMode = !commandPaletteMode && commandQuery\.length === 0;/);
+  assert.match(chatInput, /const slashQuickMode = !searchablePaletteMode && commandQuery\.length === 0;/);
   assert.match(chatInput, /id: "add-context"/);
   assert.match(chatInput, /title: "New chat"/);
   assert.match(chatInput, /title: "Model"/);
@@ -27,12 +27,12 @@ test("slash menu defaults to curated user-facing actions", () => {
 });
 
 test("search-backed slash sections stay out of the empty quick menu", () => {
-  assert.match(chatInput, /const shouldShowSearchBackedItems = commandPaletteMode \|\| commandQuery\.length > 0;/);
+  assert.match(chatInput, /const shouldShowSearchBackedItems = searchablePaletteMode \|\| commandQuery\.length > 0;/);
   assert.match(chatInput, /const recentSessionItems = shouldShowSearchBackedItems\s*\?/);
-  assert.match(chatInput, /const runtimeCatalogItems: CommandMenuItem\[\] =\s*!shouldShowSearchBackedItems\s*\?\s*\[\]/);
   assert.match(chatInput, /const liveToolItems: CommandMenuItem\[\] =\s*!shouldShowSearchBackedItems\s*\?\s*\[\]/);
   assert.match(chatInput, /const modelItems = shouldShowSearchBackedItems\s*\?/);
   assert.match(chatInput, /const workspaceItems = shouldShowSearchBackedItems\s*\?/);
+  assert.doesNotMatch(chatInput, /runtimeCatalog|Runtime Catalog|open-catalog/);
 });
 
 test("slash menu is compact while palette mode remains roomy", () => {

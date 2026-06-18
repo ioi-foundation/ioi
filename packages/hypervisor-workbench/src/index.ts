@@ -616,7 +616,6 @@ export type {
   EnvironmentEstateState,
   Zone,
   Container,
-  RuntimeCatalogEntry,
   ConnectorSummary,
   ConnectorStatus,
   ConnectorPluginId,

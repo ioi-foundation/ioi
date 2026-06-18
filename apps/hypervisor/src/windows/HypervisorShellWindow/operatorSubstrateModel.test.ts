@@ -33,7 +33,6 @@ test("retired native app path and archive stay absent", () => {
 test("operator command center is a daemon-runtime projection", () => {
   const model: OperatorCommandCenterModel = buildOperatorCommandCenterModel({
     activeView: "workbench",
-    workflowSurface: "canvas",
     currentProject: PROJECT,
     notificationCount: 3,
     evidenceRefs: {

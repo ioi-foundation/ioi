@@ -3,7 +3,6 @@ import {
   formatSessionTimeAgo,
   type ConnectorActionDefinition,
   type ConnectorSummary,
-  type RuntimeCatalogEntry,
 } from "@ioi/hypervisor-workbench";
 import {
   openCompanionHypervisorIntent,
@@ -35,7 +34,6 @@ import type {
 } from "../windows/HypervisorShellWindow/hypervisorShellModel";
 import "./CommandPalette.css";
 
-type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 type PaletteMode = "all" | "commands" | "workspace" | "symbols" | "help" | "tools";
 type CommandPaletteDisplayMode = "default" | "tools";
@@ -60,12 +58,10 @@ type CommandPaletteProps = {
   mode?: CommandPaletteDisplayMode;
   initialQuery?: string;
   activeView: PrimaryView;
-  workflowSurface: WorkflowSurface;
   currentProjectId: string;
   notificationCount: number;
   onClose: () => void;
   onOpenPrimaryView: (view: PrimaryView) => void;
-  onOpenWorkflowSurface: (surface: WorkflowSurface) => void;
   onSelectProject: (projectId: string) => void;
   projects: ProjectScope[];
 };
@@ -222,12 +218,10 @@ export function CommandPalette({
   mode = "default",
   initialQuery = "",
   activeView,
-  workflowSurface,
   currentProjectId,
   notificationCount,
   onClose,
   onOpenPrimaryView,
-  onOpenWorkflowSurface,
   onSelectProject,
   projects,
 }: CommandPaletteProps) {
@@ -240,11 +234,6 @@ export function CommandPalette({
   const [sessionsStatus, setSessionsStatus] = useState<LoadStatus>("idle");
   const [skillCatalog, setSkillCatalog] = useState<SkillCatalogEntry[]>([]);
   const [skillsStatus, setSkillsStatus] = useState<LoadStatus>("idle");
-  const [runtimeCatalogEntries, setRuntimeCatalogEntries] = useState<
-    RuntimeCatalogEntry[]
-  >([]);
-  const [runtimeCatalogStatus, setRuntimeCatalogStatus] =
-    useState<LoadStatus>("idle");
   const [liveTools, setLiveTools] = useState<LiveToolRecord[]>([]);
   const [liveToolsStatus, setLiveToolsStatus] = useState<LoadStatus>("idle");
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
@@ -399,35 +388,6 @@ export function CommandPalette({
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const runtime = getSessionWorkbenchRuntime();
-    setRuntimeCatalogStatus("loading");
-
-    runtime
-      .getRuntimeCatalogEntries()
-      .then((entries) => {
-        if (cancelled) {
-          return;
-        }
-        setRuntimeCatalogEntries(entries);
-        setRuntimeCatalogStatus("ready");
-      })
-      .catch((error) => {
-        console.error(
-          "Failed to load runtime catalog entries for Chat command palette:",
-          error,
-        );
-        if (!cancelled) {
-          setRuntimeCatalogStatus("error");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     const runtime = getSessionWorkbenchRuntime();
     if (!runtime.getConnectors || !runtime.getConnectorActions) {
       setLiveToolsStatus("ready");
@@ -563,12 +523,14 @@ export function CommandPalette({
           }),
       },
       {
-        id: "quick-go-workflow",
-        title: "Go to Workflow",
-        description: "Jump to workflow surfaces and graph topology.",
-        suffix: "@",
+        id: "quick-go-automations",
+        title: "Go to Automations",
+        description: "Open the workflow compositor and automation recipes.",
         icon: icons.sidebar,
-        onSelect: () => setQuery("@"),
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("automations");
+          }),
       },
       {
         id: "quick-run-task",
@@ -618,51 +580,15 @@ export function CommandPalette({
           }),
       },
       {
-        id: "open-canvas",
-        title: "Open Canvas",
-        description: "Jump straight into the workflow graph editor.",
+        id: "open-automations",
+        title: "Open Automations",
+        description: "Open workflow compositor graphs and automation recipes.",
         meta: "Workflows",
         icon: icons.expand,
-        active: activeView === "automations" && workflowSurface === "canvas",
+        active: activeView === "automations",
         onSelect: () =>
           runAction(() => {
-            onOpenWorkflowSurface("canvas");
-          }),
-      },
-      {
-        id: "open-workflow-home",
-        title: "Open Workflow Home",
-        description: "Review workflow entrypoints, graph posture, and builder lanes.",
-        meta: "Workflows",
-        icon: icons.sidebar,
-        active: activeView === "automations" && workflowSurface === "home",
-        onSelect: () =>
-          runAction(() => {
-            onOpenWorkflowSurface("home");
-          }),
-      },
-      {
-        id: "open-agents",
-        title: "Open Agents",
-        description: "Review the live worker roster and agent definitions.",
-        meta: "Roster",
-        icon: icons.code,
-        active: activeView === "automations" && workflowSurface === "agents",
-        onSelect: () =>
-          runAction(() => {
-            onOpenWorkflowSurface("agents");
-          }),
-      },
-      {
-        id: "open-catalog",
-        title: "Open Catalog",
-        description: "Inspect the live runtime catalog from Chat.",
-        meta: "Catalog",
-        icon: icons.globe,
-        active: activeView === "automations" && workflowSurface === "catalog",
-        onSelect: () =>
-          runAction(() => {
-            onOpenWorkflowSurface("catalog");
+            onOpenPrimaryView("automations");
           }),
       },
       {
@@ -779,13 +705,8 @@ export function CommandPalette({
         "chat queue workers approvals catalog inbox capabilities settings primary shell session",
       ),
     );
-    const workflowJumpItems = commandItems.filter((item) =>
-      [
-        "open-canvas",
-        "open-workflow-home",
-        "open-agents",
-        "open-catalog",
-      ].includes(item.id),
+    const automationJumpItems = commandItems.filter((item) =>
+      item.id === "open-automations",
     );
 
     const sessionItems: CommandPaletteItem[] =
@@ -874,59 +795,6 @@ export function CommandPalette({
             onSelectProject(project.id);
           }),
       }));
-
-    const runtimeCatalogItems: CommandPaletteItem[] =
-      runtimeCatalogStatus === "loading"
-        ? [
-            {
-              id: "catalog-loading",
-              title: "Loading Runtime Catalog",
-              description: "Fetching live runtime catalog entries...",
-              icon: icons.globe,
-              disabled: true,
-            },
-          ]
-        : runtimeCatalogStatus === "error"
-          ? [
-              {
-                id: "catalog-error",
-                title: "Catalog Unavailable",
-                description: "Open the catalog surface to inspect runtime posture.",
-                icon: icons.alert,
-                onSelect: () =>
-                  runAction(() => {
-                    onOpenWorkflowSurface("catalog");
-                  }),
-              },
-            ]
-          : runtimeCatalogEntries
-              .filter((entry) =>
-                matchesQuery(
-                  normalizedQuery,
-                  entry.name,
-                  entry.description,
-                  entry.ownerLabel,
-                  entry.entryKind,
-                  entry.runtimeNotes,
-                  entry.statusLabel,
-                  "runtime catalog",
-                ),
-              )
-              .slice(0, 8)
-              .map<CommandPaletteItem>((entry) => ({
-                id: `catalog-${entry.id}`,
-                title: entry.name,
-                description: entry.description || entry.runtimeNotes,
-                meta:
-                  entry.statusLabel ||
-                  humanizeLabel(entry.entryKind) ||
-                  "Catalog entry",
-                icon: icons.globe,
-                onSelect: () =>
-                  runAction(() => {
-                    onOpenWorkflowSurface("catalog");
-                  }),
-              }));
 
     const liveToolItems: CommandPaletteItem[] =
       liveToolsStatus === "loading"
@@ -1162,9 +1030,9 @@ export function CommandPalette({
         onSelect: () => setQuery("%"),
       },
       {
-        id: "help-prefix-workflows",
-        title: "Type @ to jump to workflows",
-        description: "Focus workflow and autonomous-system authoring surfaces.",
+        id: "help-prefix-automations",
+        title: "Type @ to jump to automations",
+        description: "Focus the workflow compositor and automation routes.",
         meta: "prefix",
         icon: icons.sidebar,
         onSelect: () => setQuery("@"),
@@ -1190,7 +1058,6 @@ export function CommandPalette({
       return [
         { id: "built-in-tools", title: "Built-In", items: builtInToolItems },
         { id: "live-tools", title: "Live Tools", items: liveToolItems },
-        { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
         { id: "skills", title: "Skills", items: skillItems },
       ];
     }
@@ -1220,7 +1087,7 @@ export function CommandPalette({
 
     if (computedMode === "symbols") {
       return [
-        { id: "workflows", items: workflowJumpItems },
+        { id: "automations", items: automationJumpItems },
         { id: "projects", title: "Projects", items: projectItems },
       ];
     }
@@ -1238,7 +1105,6 @@ export function CommandPalette({
       { id: "sessions", title: "Recent Sessions", items: sessionItems },
       { id: "projects", title: "Projects", items: projectItems },
       { id: "live-tools", title: "Live Tools", items: liveToolItems },
-      { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
       { id: "skills", title: "Skills", items: skillItems },
     ];
   }, [
@@ -1252,12 +1118,9 @@ export function CommandPalette({
     normalizedQuery,
     notificationCount,
     onOpenPrimaryView,
-    onOpenWorkflowSurface,
     onSelectProject,
     projects,
     runAction,
-    runtimeCatalogEntries,
-    runtimeCatalogStatus,
     computedMode,
     query,
     recentFiles,
@@ -1265,7 +1128,6 @@ export function CommandPalette({
     sessionsStatus,
     skillCatalog,
     skillsStatus,
-    workflowSurface,
   ]);
 
   const actionItems = useMemo(

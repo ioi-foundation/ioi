@@ -4,7 +4,6 @@ import {
   openChatCapabilityActions,
   openChatCapabilitySetup,
   openChatCapabilityTarget,
-  openChatCatalog,
   openChatNotifications,
   openChatPolicyTarget,
   openChatSettings,
@@ -32,10 +31,6 @@ export async function openCompanionSettings() {
 
 export async function openCompanionCapabilities() {
   await openChatCapabilities();
-}
-
-export async function openCompanionCatalog() {
-  await openChatCatalog();
 }
 
 export async function openCompanionCapabilitySetup(

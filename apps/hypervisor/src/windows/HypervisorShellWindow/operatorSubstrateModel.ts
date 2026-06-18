@@ -14,7 +14,6 @@ export type OperatorChromeMode =
 
 export type OperatorSurfaceRoute =
   | { kind: "primary-view"; view: PrimaryView }
-  | { kind: "workflow-surface"; surface: "home" | "canvas" | "agents" | "catalog" }
   | { kind: "command-palette"; query?: string }
   | { kind: "workspace-file"; path: string; line?: number; column?: number }
   | { kind: "runtime-evidence"; evidenceRef: string }
@@ -205,7 +204,6 @@ export interface BuildWorkspaceSubstrateTargetIndexOptions
 
 export interface BuildOperatorCommandCenterModelOptions {
   activeView: PrimaryView;
-  workflowSurface: "home" | "canvas" | "agents" | "catalog";
   currentProject: ProjectScope;
   notificationCount: number;
   evidenceRefs?: Partial<OperatorRuntimeEvidenceRefs>;
@@ -525,16 +523,12 @@ export function buildWorkspaceSubstrateTargetIndex({
 
 export function buildOperatorCommandCenterModel({
   activeView,
-  workflowSurface,
   currentProject,
   notificationCount,
   evidenceRefs,
 }: BuildOperatorCommandCenterModelOptions): OperatorCommandCenterModel {
   const mergedEvidenceRefs = mergeEvidenceRefs(evidenceRefs);
-  const surfaceLabel =
-    activeView === "automations" && workflowSurface !== "home"
-      ? `${PRIMARY_VIEW_LABELS.automations}: ${workflowSurface}`
-      : PRIMARY_VIEW_LABELS[activeView];
+  const surfaceLabel = PRIMARY_VIEW_LABELS[activeView];
   const commands: OperatorCommandCenterCommand[] = [
     ...HYPERVISOR_PRIMARY_SURFACES.map((surface) =>
       primaryViewCommand(surface.id),
@@ -551,7 +545,7 @@ export function buildOperatorCommandCenterModel({
       id: "workflow.new",
       label: "New workflow",
       description: "Create an agent workflow from the shared composer.",
-      route: { kind: "workflow-surface", surface: "canvas" },
+      route: { kind: "primary-view", view: "automations" },
       keywords: ["workflow", "agent", "compose", "graph"],
       source: "shell-projection",
     },
@@ -577,7 +571,7 @@ export function buildOperatorCommandCenterModel({
   }
 
   return {
-    projectionId: `operator-command-center:${activeView}:${workflowSurface}:${currentProject.id}`,
+    projectionId: `operator-command-center:${activeView}:${currentProject.id}`,
     activeRoute: { kind: "primary-view", view: activeView },
     scopeLabel: `${currentProject.name} / ${surfaceLabel}`,
     placeholder:

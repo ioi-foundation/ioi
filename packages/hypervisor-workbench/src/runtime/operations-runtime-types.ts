@@ -7,17 +7,6 @@ export interface AgentSummary {
   model?: string;
 }
 
-export interface RuntimeCatalogEntry {
-  id: string;
-  name: string;
-  description: string;
-  ownerLabel: string;
-  entryKind: string;
-  runtimeNotes: string;
-  statusLabel?: string;
-  icon?: string;
-}
-
 export interface Zone {
   id: string;
   name: string;
@@ -48,6 +37,4 @@ export interface EnvironmentEstateState {
 export interface WorkbenchOperationsRuntime {
   getAgents(): Promise<AgentSummary[]>;
   getEnvironmentEstateState(): Promise<EnvironmentEstateState>;
-  getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]>;
-  stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void>;
 }
