@@ -186,8 +186,8 @@ async function main() {
       "Home does not expose the reference prompt composer.",
     );
     assert(
-      bodyText.includes("Recent Sessions"),
-      "Home does not expose recent sessions.",
+      !bodyText.includes("Recent Sessions"),
+      "Home should keep session history out of the primary prompt cockpit.",
     );
     assert(
       !bodyText.includes("Sessions and workspaces"),
@@ -202,12 +202,34 @@ async function main() {
     await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
+    await page.waitForSelector('[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]');
     const summarySeedIntent = await page
       .locator("[data-new-session-seed-intent]")
       .getAttribute("data-new-session-seed-intent");
     assert(
       summarySeedIntent === seededIntent,
       "New Session launch summary did not bind the seed intent.",
+    );
+    const targetBindingRef = await page
+      .locator("[data-new-session-target-binding-ref]")
+      .getAttribute("data-new-session-target-binding-ref");
+    const targetKind = await page
+      .locator("[data-new-session-target-kind]")
+      .getAttribute("data-new-session-target-kind");
+    const targetSessionRoute = await page
+      .locator("[data-new-session-target-session-route]")
+      .getAttribute("data-new-session-target-session-route");
+    assert(
+      targetBindingRef?.startsWith("target-binding:new-session/"),
+      "New Session launch summary did not bind a durable target binding ref.",
+    );
+    assert(
+      targetKind === "mission",
+      "New Session launch summary did not expose the selected target kind.",
+    );
+    assert(
+      targetSessionRoute?.startsWith("session-route:sessions/"),
+      "New Session launch summary did not expose the selected session route.",
     );
     const defaultPrivacy = await page
       .locator('label:has-text("Privacy") select')
@@ -299,7 +321,10 @@ async function main() {
     assert(agentsText.includes("Selected agent"), "Agents surface did not expose a selected agent detail pane.");
     assert(agentsText.includes("Interface"), "Agents surface did not expose the product-facing interface column.");
     assert(agentsText.includes("Access"), "Agents surface did not expose the product-facing access controls.");
-    assert(agentsText.includes("What's new?"), "Agents surface did not expose the reference-style right rail.");
+    assert(
+      !agentsText.includes("Build with Agent"),
+      "Agents surface should not expose a right-side agent chat pane.",
+    );
     assert(
       !(
         agentsText.match(

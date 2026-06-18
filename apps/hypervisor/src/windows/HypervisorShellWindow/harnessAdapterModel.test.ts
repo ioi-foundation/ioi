@@ -392,6 +392,28 @@ test("new session launch summary binds harness, model route, adapter target, pri
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: "mission.default",
     seed_intent: "Fix flaky receipts",
+    target_binding_ref:
+      "target-binding:new-session/mission-default/project-ioi",
+    target_binding: {
+      schema_version: "ioi.hypervisor.new_session_target_binding.v1",
+      target_binding_ref:
+        "target-binding:new-session/mission-default/project-ioi",
+      recipe_ref: "mission.default",
+      target_kind: "mission",
+      surface_id: "sessions",
+      project_ref: "project:ioi",
+      operator_intent_ref:
+        "target-binding:new-session/mission-default/project-ioi/operator-intent",
+      session_route_ref: "session-route:sessions/mission-default/project-ioi",
+      workbench_adapter_target_ref: null,
+      automation_recipe_ref: null,
+      agent_template_ref: null,
+      foundry_job_ref: null,
+      provider_candidate_ref: null,
+      environment_ref: null,
+      private_workspace_ref: null,
+      runtimeTruthSource: "daemon-runtime",
+    },
     project_ref: "project:ioi",
     workbench_adapter_ref: "workbench-adapter:external_editor",
     workbench_adapter_target_ref: "adapter-target:external-editor",
@@ -465,6 +487,78 @@ test("new session launch summary binds harness, model route, adapter target, pri
   assert.equal(launchedSession.workbench_adapter_admission_ref, null);
   assert.equal(launchedSession.launch_summary, summary);
   assert.equal(launchedSession.runtimeTruthSource, "daemon-runtime");
+});
+
+test("new session target bindings preserve recipe-specific destinations", () => {
+  const workbenchAdapter = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+    (candidate) => candidate.adapter_id === "embedded_workbench",
+  );
+  assert.ok(workbenchAdapter);
+
+  const summaries = Object.fromEntries(
+    HYPERVISOR_SESSION_LAUNCH_RECIPES.map((recipe) => {
+      const summary = buildHypervisorNewSessionLaunchSummary({
+        recipe,
+        projectId: "project:ioi",
+        workbenchAdapter,
+        harness: DEFAULT_HARNESS_PROFILE_OPTION,
+        harnessVerdict: buildHarnessCompatibilityVerdict(
+          DEFAULT_HARNESS_PROFILE_OPTION,
+          true,
+        ),
+        modelRouteAvailability: modelRouteSupportsHypervisorMountFromInventory(
+          HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+          HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+        ),
+        modelRouteRef: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+        privacyPostureRef: recipe.privacy_posture_templates[0] ?? "privacy:public-trunk",
+        authorityScopeRefs: recipe.authority_scope_templates,
+        receiptPreviewRef: `receipt-preview:new-session/${recipe.recipe_id}`,
+      });
+      assert.equal(
+        summary.target_binding.schema_version,
+        "ioi.hypervisor.new_session_target_binding.v1",
+      );
+      assert.equal(summary.target_binding.recipe_ref, recipe.recipe_id);
+      assert.equal(summary.target_binding.surface_id, recipe.surface_id);
+      assert.equal(summary.target_binding.project_ref, "project:ioi");
+      assert.equal(summary.target_binding.runtimeTruthSource, "daemon-runtime");
+      assert.equal(
+        summary.target_binding_ref,
+        summary.target_binding.target_binding_ref,
+      );
+      return [recipe.recipe_id, summary.target_binding];
+    }),
+  );
+
+  assert.equal(
+    summaries["workbench.default"]?.workbench_adapter_target_ref,
+    "adapter-target:vscode-embedded",
+  );
+  assert.equal(
+    summaries["automation.default"]?.automation_recipe_ref,
+    "automation-recipe:automation-default/project-ioi",
+  );
+  assert.equal(
+    summaries["agent.default"]?.agent_template_ref,
+    "agent-template:agent-default/project-ioi",
+  );
+  assert.equal(
+    summaries["foundry.eval"]?.foundry_job_ref,
+    "foundry-job:foundry-eval/project-ioi",
+  );
+  assert.equal(
+    summaries["environment.provider"]?.provider_candidate_ref,
+    "provider-candidate:environment-provider/project-ioi",
+  );
+  assert.equal(
+    summaries["environment.provider"]?.environment_ref,
+    "environment:environment-provider/project-ioi",
+  );
+  assert.equal(
+    summaries["privacy.workspace"]?.private_workspace_ref,
+    "private-workspace:privacy-workspace/project-ioi",
+  );
 });
 
 test("workbench adapter launch plans bind connection contracts and leases", () => {

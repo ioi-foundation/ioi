@@ -1408,6 +1408,26 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-launch-summary",
     ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorNewSessionTargetBinding",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "ioi.hypervisor.new_session_target_binding.v1",
+    ) &&
+    hypervisorShellNavigationSource.includes("target_binding_ref") &&
+    hypervisorShellNavigationSource.includes("session_route_ref") &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-target-binding",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-target-binding-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-target-kind",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-target-session-route",
+    ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-workbench-adapter-ref",
     ) &&
@@ -1425,6 +1445,9 @@ assert(
       "const summary = request.launch_summary",
     ) &&
     hypervisorShellControllerSource.includes("summary.harness_label") &&
+    hypervisorShellControllerSource.includes(
+      "summary.target_binding.session_route_ref",
+    ) &&
     hypervisorShellControllerSource.includes(
       "summary.model_route_availability_state",
     ) &&
@@ -1457,16 +1480,19 @@ assert(
       "Sessions and workspaces",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Recent sessions",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      "Surfaces",
-    ) &&
-    hypervisorAppShellContractSource.includes(
       '[data-home-start-session="true"]',
     ) &&
     hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-new-session-target-binding-ref]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-new-session-target-session-route]",
     ) &&
     hypervisorAppShellContractSource.includes(
       'label:has-text("Harness") select',

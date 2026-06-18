@@ -201,10 +201,31 @@ export interface HypervisorSessionLaunchRecipe {
   privacy_posture_templates: string[];
 }
 
+export interface HypervisorNewSessionTargetBinding {
+  schema_version: "ioi.hypervisor.new_session_target_binding.v1";
+  target_binding_ref: string;
+  recipe_ref: string;
+  target_kind: HypervisorSessionLaunchRecipe["kind"];
+  surface_id: HypervisorSurfaceId;
+  project_ref: string;
+  operator_intent_ref: string | null;
+  session_route_ref: string;
+  workbench_adapter_target_ref: string | null;
+  automation_recipe_ref: string | null;
+  agent_template_ref: string | null;
+  foundry_job_ref: string | null;
+  provider_candidate_ref: string | null;
+  environment_ref: string | null;
+  private_workspace_ref: string | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface HypervisorNewSessionLaunchSummary {
   schema_version: "ioi.hypervisor.new_session_launch_summary.v1";
   recipe_ref: string;
   seed_intent: string | null;
+  target_binding_ref: string;
+  target_binding: HypervisorNewSessionTargetBinding;
   project_ref: string;
   workbench_adapter_ref: string;
   workbench_adapter_target_ref: string;
@@ -293,6 +314,62 @@ function safeLaunchId(value: string | number): string {
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 96) || "launch";
+}
+
+function buildHypervisorNewSessionTargetBinding({
+  recipe,
+  seedIntent,
+  projectId,
+  workbenchAdapter,
+}: {
+  recipe: HypervisorSessionLaunchRecipe;
+  seedIntent: string | null;
+  projectId: string;
+  workbenchAdapter: WorkbenchAdapterPreference;
+}): HypervisorNewSessionTargetBinding {
+  const recipeSlug = safeLaunchId(recipe.recipe_id);
+  const projectSlug = safeLaunchId(projectId);
+  const targetBindingRef = `target-binding:new-session/${recipeSlug}/${projectSlug}`;
+  const operatorIntentRef = seedIntent
+    ? `${targetBindingRef}/operator-intent`
+    : null;
+  const sessionRouteRef = `session-route:${recipe.surface_id}/${recipeSlug}/${projectSlug}`;
+
+  return {
+    schema_version: "ioi.hypervisor.new_session_target_binding.v1",
+    target_binding_ref: targetBindingRef,
+    recipe_ref: recipe.recipe_id,
+    target_kind: recipe.kind,
+    surface_id: recipe.surface_id,
+    project_ref: projectId,
+    operator_intent_ref: operatorIntentRef,
+    session_route_ref: sessionRouteRef,
+    workbench_adapter_target_ref:
+      recipe.kind === "workbench" ? workbenchAdapter.target_ref : null,
+    automation_recipe_ref:
+      recipe.kind === "automation"
+        ? `automation-recipe:${recipeSlug}/${projectSlug}`
+        : null,
+    agent_template_ref:
+      recipe.kind === "agent" ? `agent-template:${recipeSlug}/${projectSlug}` : null,
+    foundry_job_ref:
+      recipe.kind === "foundry_job"
+        ? `foundry-job:${recipeSlug}/${projectSlug}`
+        : null,
+    provider_candidate_ref:
+      recipe.kind === "provider_environment_job"
+        ? `provider-candidate:${recipeSlug}/${projectSlug}`
+        : null,
+    environment_ref:
+      recipe.kind === "provider_environment_job"
+        ? `environment:${recipeSlug}/${projectSlug}`
+        : null,
+    private_workspace_ref:
+      recipe.kind === "privacy_workspace"
+        ? `private-workspace:${recipeSlug}/${projectSlug}`
+        : null,
+    runtimeTruthSource: "daemon-runtime",
+  };
 }
 
 export function buildHypervisorLaunchedSessionProjection({
@@ -393,10 +470,18 @@ export function buildHypervisorNewSessionLaunchSummary({
 }): HypervisorNewSessionLaunchSummary {
   const adapterLaunchPlan = buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
   const normalizedSeedIntent = seedIntent?.trim() || null;
+  const targetBinding = buildHypervisorNewSessionTargetBinding({
+    recipe,
+    seedIntent: normalizedSeedIntent,
+    projectId,
+    workbenchAdapter,
+  });
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: recipe.recipe_id,
     seed_intent: normalizedSeedIntent,
+    target_binding_ref: targetBinding.target_binding_ref,
+    target_binding: targetBinding,
     project_ref: projectId,
     workbench_adapter_ref: getWorkbenchAdapterPreferenceRef(workbenchAdapter),
     workbench_adapter_target_ref: workbenchAdapter.target_ref,

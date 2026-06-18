@@ -520,7 +520,7 @@ export function useHypervisorShellController() {
         ? `Intent: ${summary.seed_intent}. `
         : "";
       setHypervisorSeedIntent(
-        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
+        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Target: ${summary.target_binding.target_kind} via ${summary.target_binding.session_route_ref}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
       );
       setChatSurface("chat");
       setChatPaneVisible(true);

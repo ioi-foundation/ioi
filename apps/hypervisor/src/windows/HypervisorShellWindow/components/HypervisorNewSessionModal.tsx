@@ -333,6 +333,21 @@ export function HypervisorNewSessionModal({
               modelRouteAvailability.state
             }
             data-new-session-launch-summary={launchSummary.schema_version}
+            data-new-session-target-binding={
+              launchSummary.target_binding.schema_version
+            }
+            data-new-session-target-binding-ref={
+              launchSummary.target_binding_ref
+            }
+            data-new-session-target-kind={
+              launchSummary.target_binding.target_kind
+            }
+            data-new-session-target-surface={
+              launchSummary.target_binding.surface_id
+            }
+            data-new-session-target-session-route={
+              launchSummary.target_binding.session_route_ref
+            }
             data-new-session-workbench-adapter-ref={
               launchSummary.workbench_adapter_ref
             }

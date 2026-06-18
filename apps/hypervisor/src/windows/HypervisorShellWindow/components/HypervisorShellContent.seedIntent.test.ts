@@ -292,8 +292,8 @@ assert.match(
 
 assert.match(
   newSessionModalSource,
-  /data-new-session-harness-selection-ref=\{[\s\S]*launchSummary\.harness_selection_ref[\s\S]*data-new-session-harness-truth-boundary=\{[\s\S]*launchSummary\.harness_truth_boundary[\s\S]*data-new-session-requires-daemon-gate=\{String\([\s\S]*launchSummary\.requires_daemon_gate/,
-  "New Session should bind selected harness truth boundary and daemon gate into launch-summary DOM evidence",
+  /data-new-session-target-binding=\{[\s\S]*launchSummary\.target_binding\.schema_version[\s\S]*data-new-session-target-binding-ref=\{[\s\S]*launchSummary\.target_binding_ref[\s\S]*data-new-session-target-kind=\{[\s\S]*launchSummary\.target_binding\.target_kind[\s\S]*data-new-session-harness-selection-ref=\{[\s\S]*launchSummary\.harness_selection_ref[\s\S]*data-new-session-harness-truth-boundary=\{[\s\S]*launchSummary\.harness_truth_boundary[\s\S]*data-new-session-requires-daemon-gate=\{String\([\s\S]*launchSummary\.requires_daemon_gate/,
+  "New Session should bind selected target, harness truth boundary, and daemon gate into launch-summary DOM evidence",
 );
 
 assert.match(

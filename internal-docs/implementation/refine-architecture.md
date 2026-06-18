@@ -1225,6 +1225,14 @@ Current implementation cut:
   the activity rail and Home dashboard open the shell-level New Session modal
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission
+  `HypervisorNewSessionLaunchSummary` now carries an
+  `ioi.hypervisor.new_session_target_binding.v1` target binding for every
+  launch. The binding preserves the selected recipe kind, surface, project,
+  session route, operator-intent ref, and recipe-specific target refs for
+  Workbench adapter targets, agent templates, automation recipes, Foundry jobs,
+  provider/environment candidates, and private workspaces. The New Session DOM,
+  shell controller seed narrative, focused tests, runtime-layout guard, and
+  built-shell contract all verify the binding.
   `HypervisorLaunchedSessionProjection` now records every New Session launch,
   regardless of target surface, as a daemon-admitted, daemon-blocked,
   daemon-unavailable, or daemon-admission-pending session route with recipe,
@@ -1427,8 +1435,10 @@ Current implementation cut:
   contract. Home quickstart templates also seed the initial New Session recipe
   destination for automation, workbench, and Foundry jobs; the modal validates
   the recipe against `HYPERVISOR_SESSION_LAUNCH_RECIPES` before selecting it.
-  Remaining work is live projection hydration and durable selected-target
-  parameters once daemon projections provide real project/session destinations.
+  Durable selected-target parameters are implemented in the client launch
+  contract through `HypervisorNewSessionTargetBinding`; remaining work is live
+  projection hydration once daemon projections provide real project/session
+  destinations.
 
 0A.2 Agents reference-list cut is implemented:
   `HypervisorShellContent` now renders Agents as an IOI-reference list/detail
