@@ -107,10 +107,6 @@ async function main() {
     });
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
-    const onboardingSkip = page.locator(".chat-home-walkthrough-skip");
-    if (await onboardingSkip.count()) {
-      await onboardingSkip.first().click({ force: true });
-    }
     try {
       await page.waitForSelector(
         '[data-home-dashboard-variant="ioi-reference-home"]',
@@ -122,7 +118,7 @@ async function main() {
         .catch(() => "");
       throw new Error(
         [
-          "Hypervisor Home reference session workplane did not become visible.",
+          "Hypervisor Home reference prompt shell did not become visible.",
           `root_text=${JSON.stringify(rootText.slice(0, 600))}`,
           `console=${JSON.stringify(consoleMessages.slice(-10))}`,
           error instanceof Error ? error.message : String(error),
@@ -131,7 +127,7 @@ async function main() {
     }
     const bodyText = await page.locator("body").innerText();
     const promptPlaceholder = await page
-      .locator(".chat-home-zero-composer textarea")
+      .locator(".hypervisor-home-prompt__composer textarea")
       .getAttribute("placeholder");
     assert(
       bodyText.includes("What do you want to get done today?"),

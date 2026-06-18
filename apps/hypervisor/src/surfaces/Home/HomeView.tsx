@@ -69,7 +69,7 @@ const HOME_AGENT_PROMPTS = [
 function ProjectFocusIcon() {
   return (
     <svg
-      className="chat-home-zero-control-icon"
+      className="hypervisor-home-prompt__icon"
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -88,7 +88,7 @@ function ProjectFocusIcon() {
 function PlusIcon() {
   return (
     <svg
-      className="chat-home-zero-control-icon"
+      className="hypervisor-home-prompt__icon"
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -103,7 +103,7 @@ function PlusIcon() {
 function ChevronDownIcon() {
   return (
     <svg
-      className="chat-home-zero-control-icon"
+      className="hypervisor-home-prompt__icon"
       width="16"
       height="16"
       viewBox="0 0 16 16"
@@ -118,7 +118,7 @@ function ChevronDownIcon() {
 function ModelGlyphIcon() {
   return (
     <svg
-      className="chat-home-zero-control-icon chat-home-zero-control-icon--model"
+      className="hypervisor-home-prompt__icon hypervisor-home-prompt__icon--model"
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -136,7 +136,7 @@ function ModelGlyphIcon() {
 function ArrowUpIcon() {
   return (
     <svg
-      className="chat-home-zero-control-icon"
+      className="hypervisor-home-prompt__icon"
       width="18"
       height="18"
       viewBox="0 0 24 24"
@@ -175,19 +175,19 @@ function HomeDashboardView({
 
   return (
     <section
-      className="chat-home-zero chat-home-zero--ioi-enterprise"
+      className="hypervisor-home-prompt hypervisor-home-prompt--ioi-reference"
       aria-label="Hypervisor home"
       data-home-dashboard-variant="ioi-reference-home"
     >
-      <div className="chat-home-zero-shell chat-home-zero-shell--prompt">
-        <main className="chat-home-zero-prompt-stage" aria-label="Start a session">
-          <div className="chat-home-zero-brand-lockup" aria-hidden="true">
-            <span className="chat-home-zero-brand-mark" />
+      <div className="hypervisor-home-prompt__shell">
+        <main className="hypervisor-home-prompt__stage" aria-label="Start a session">
+          <div className="hypervisor-home-prompt__brand" aria-hidden="true">
+            <span className="hypervisor-home-prompt__mark" />
           </div>
           <h1>What do you want to get done today?</h1>
 
           <form
-            className="chat-home-zero-composer"
+            className="hypervisor-home-prompt__composer"
             data-home-intent-composer="ioi-reference"
             onSubmit={(event) => {
               event.preventDefault();
@@ -200,10 +200,10 @@ function HomeDashboardView({
               placeholder="Describe your task or type / for commands"
               aria-label="Describe your task"
             />
-            <div className="chat-home-zero-composer-controls">
+            <div className="hypervisor-home-prompt__controls">
               <button
                 type="button"
-                className="chat-home-zero-project-picker"
+                className="hypervisor-home-prompt__project"
                 data-home-intent-project={currentProject.id}
                 onClick={onOpenWorkspace}
               >
@@ -214,7 +214,7 @@ function HomeDashboardView({
               </button>
               <button
                 type="button"
-                className="chat-home-zero-icon-button"
+                className="hypervisor-home-prompt__icon-button"
                 aria-label="Open command palette"
                 onClick={onOpenCommandPalette}
               >
@@ -222,7 +222,7 @@ function HomeDashboardView({
               </button>
               <button
                 type="button"
-                className="chat-home-zero-model-picker"
+                className="hypervisor-home-prompt__model"
                 data-home-intent-model="default-local"
               >
                 <ModelGlyphIcon />
@@ -231,7 +231,7 @@ function HomeDashboardView({
               </button>
               <button
                 type="submit"
-                className="chat-home-zero-submit"
+                className="hypervisor-home-prompt__submit"
                 data-home-start-session="true"
                 aria-label="Start session"
               >
@@ -240,7 +240,7 @@ function HomeDashboardView({
             </div>
           </form>
 
-          <div className="chat-home-zero-quickstarts" aria-label="Suggested actions">
+          <div className="hypervisor-home-prompt__quickstarts" aria-label="Suggested actions">
             {HOME_AGENT_PROMPTS.map((prompt) => (
               <button
                 type="button"
@@ -257,12 +257,12 @@ function HomeDashboardView({
 
           {recentSessions.length > 0 ? (
             <section
-              className="chat-home-zero-session-list"
+              className="hypervisor-home-prompt__sessions"
               aria-label="Recent Sessions"
               data-home-reference-session-list="true"
             >
               <h2>Recent Sessions</h2>
-              <div className="chat-home-zero-session-list__rows">
+              <div className="hypervisor-home-prompt__session-rows">
                 {recentSessions.slice(0, 3).map((session, index) => {
                   const sessionTitle =
                     session.launch_summary.seed_intent ??
@@ -278,11 +278,11 @@ function HomeDashboardView({
                       onClick={() => launchSession(sessionTitle)}
                     >
                       <span
-                        className="chat-home-zero-session-list__dot"
+                        className="hypervisor-home-prompt__session-dot"
                         data-session-dot-active={index === 0 ? "true" : "false"}
                         aria-hidden="true"
                       />
-                      <span className="chat-home-zero-session-list__copy">
+                      <span className="hypervisor-home-prompt__session-copy">
                         <strong>{sessionTitle}</strong>
                         <small>
                           {session.relative_time_label ??
@@ -311,9 +311,9 @@ export function HomeView({
 }: HomeViewProps) {
   return (
     <section
-      className="chat-home"
+      className="hypervisor-home"
       aria-label="Hypervisor home dashboard"
-      data-home-onboarding-state="complete"
+      data-home-shell-state="reference-prompt"
     >
       <HomeDashboardView
         currentProject={currentProject}

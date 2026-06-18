@@ -324,13 +324,13 @@ assert.match(
 
 assert.match(
   homeCss,
-  /\.chat-home-zero-shell--prompt\s*\{[\s\S]*\.chat-home-zero-prompt-stage\s*\{[\s\S]*\.chat-home-zero-composer\s*\{/,
+  /\.hypervisor-home-prompt__shell\s*\{[\s\S]*\.hypervisor-home-prompt__stage\s*\{[\s\S]*\.hypervisor-home-prompt__composer\s*\{/,
   "Home should expose the IOI reference prompt surface as the default surface",
 );
 
 assert.match(
   homeViewSource,
-  /What do you want to get done today\?[\s\S]*Describe your task or type \/ for commands[\s\S]*chat-home-zero-quickstarts/,
+  /What do you want to get done today\?[\s\S]*Describe your task or type \/ for commands[\s\S]*hypervisor-home-prompt__quickstarts/,
   "Home should match the IOI reference prompt-home copy",
 );
 
@@ -342,7 +342,7 @@ assert.doesNotMatch(
 
 assert.match(
   homeViewSource,
-  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*chat-home-zero-quickstarts[\s\S]*chat-home-zero-session-list/,
+  /hypervisor-home-prompt__stage[\s\S]*What do you want to get done today\?[\s\S]*hypervisor-home-prompt__composer[\s\S]*hypervisor-home-prompt__quickstarts[\s\S]*hypervisor-home-prompt__sessions/,
   "Home should keep the prompt-first session launcher with the IOI-reference quick action chips and recent sessions list",
 );
 assert.match(

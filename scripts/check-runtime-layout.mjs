@@ -952,7 +952,7 @@ assert(
     hypervisorHomeSource.includes('data-home-start-session="true"') &&
     !hypervisorHomeSource.includes("HOME_RECENT_SESSIONS") &&
     !hypervisorHomeSource.includes("data-home-recent-sessions") &&
-    !hypervisorHomeSource.includes("chat-home-zero-recent") &&
+    !hypervisorHomeSource.includes("chat-home") &&
     retiredHomeOnboardingSurfacePaths.every(
       (surfacePath) => !exists(surfacePath),
     ) &&

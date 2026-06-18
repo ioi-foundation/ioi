@@ -19,13 +19,13 @@ const shellContent = readFileSync(
 test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /aria-label="Hypervisor home"/);
   assert.match(homeView, /data-home-dashboard-variant="ioi-reference-home"/);
-  assert.match(homeView, /chat-home-zero--ioi-enterprise/);
+  assert.match(homeView, /hypervisor-home-prompt--ioi-reference/);
   assert.match(homeView, /What do you want to get done today\?/);
   assert.match(homeView, /Describe your task or type \/ for commands/);
-  assert.match(homeView, /className="chat-home-zero-prompt-stage"/);
-  assert.match(homeView, /className="chat-home-zero-composer"/);
-  assert.match(homeView, /className="chat-home-zero-quickstarts"/);
-  assert.match(homeView, /className="chat-home-zero-session-list"/);
+  assert.match(homeView, /className="hypervisor-home-prompt__stage"/);
+  assert.match(homeView, /className="hypervisor-home-prompt__composer"/);
+  assert.match(homeView, /className="hypervisor-home-prompt__quickstarts"/);
+  assert.match(homeView, /className="hypervisor-home-prompt__sessions"/);
   assert.match(homeView, /data-home-reference-session-list="true"/);
   assert.match(homeView, /recentSessions\.slice\(0, 3\)/);
   assert.match(homeView, /HOME_AGENT_PROMPTS/);
@@ -46,8 +46,10 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.doesNotMatch(homeView, /Sessions and workspaces/);
   assert.doesNotMatch(homeView, /What's new\?/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_SURFACES/);
-  assert.doesNotMatch(homeView, /chat-home-zero-workplane/);
-  assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
+  assert.doesNotMatch(homeView, /chat-home-zero/);
+  assert.doesNotMatch(homeView, /chat-home/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__workplane/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__sidebar/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
   assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
   assert.doesNotMatch(homeView, />[^<]*(Daemon|runtime truth|configured workers)[^<]*</i);
@@ -87,10 +89,12 @@ test("home dashboard launches governed sessions from the reference prompt", () =
   assert.doesNotMatch(homeView, /data-home-intent-submit/);
   assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_SURFACES/);
-  assert.doesNotMatch(homeView, /chat-home-zero-reference-header/);
-  assert.doesNotMatch(homeView, /chat-home-zero-workplane/);
-  assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
-  assert.doesNotMatch(homeView, /chat-home-zero-surface-list/);
+  assert.doesNotMatch(homeView, /chat-home-zero/);
+  assert.doesNotMatch(homeView, /chat-home/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__reference-header/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__workplane/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__sidebar/);
+  assert.doesNotMatch(homeView, /hypervisor-home-prompt__surface-list/);
   assert.match(homeView, /data-home-start-session/);
   assert.match(homeView, /data-home-reference-session-ref/);
   assert.match(homeView, /data-home-reference-session-state/);
@@ -117,14 +121,16 @@ test("home dashboard launches governed sessions from the reference prompt", () =
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
-  assert.match(homeCss, /\.chat-home-zero-shell--prompt \{/);
-  assert.match(homeCss, /\.chat-home-zero-prompt-stage \{/);
-  assert.match(homeCss, /\.chat-home-zero-composer \{/);
-  assert.match(homeCss, /\.chat-home-zero-quickstarts \{/);
-  assert.match(homeCss, /\.chat-home-zero-session-list \{/);
-  assert.match(homeCss, /\.chat-home-zero-session-list__rows button \{/);
-  assert.doesNotMatch(homeCss, /\.chat-home-zero-actions \{/);
-  assert.doesNotMatch(homeCss, /\.chat-home-zero-app-grid \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__shell \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__stage \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__composer \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__quickstarts \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__sessions \{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__session-rows button \{/);
+  assert.doesNotMatch(homeCss, /\.chat-home/);
+  assert.doesNotMatch(homeCss, /walkthrough/);
+  assert.doesNotMatch(homeCss, /onboarding/);
+  assert.doesNotMatch(homeCss, /dashboard-card/);
 });
 
 test("home default dashboard does not mount hidden legacy workplanes", () => {
@@ -151,16 +157,16 @@ test("home dashboard routes model setup to the Models surface", () => {
 });
 
 test("home prompt shell has responsive reference styling", () => {
-  assert.match(homeCss, /\.chat-home-zero-shell\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero::before\s*\{[\s\S]*content: none;[\s\S]*display: none;/);
-  assert.match(homeCss, /\.chat-home-zero-shell--prompt\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-brand-lockup\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-composer-controls\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-control-icon\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-control-icon--model\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-submit\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__shell\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt::before\s*\{[\s\S]*content: none;[\s\S]*display: none;/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__brand\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__controls\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__icon\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__icon--model\s*\{/);
+  assert.match(homeCss, /\.hypervisor-home-prompt__submit\s*\{/);
   assert.doesNotMatch(homeCss, /linear-gradient\(30deg/);
-  assert.doesNotMatch(homeCss, /\.chat-home-zero-brand-mark__glyph/);
+  assert.doesNotMatch(homeCss, /\.chat-home/);
+  assert.doesNotMatch(homeCss, /\.hypervisor-home-prompt__mark-glyph/);
 });
 
 console.log("HomeView.hypervisorHome.test.mjs: ok");
