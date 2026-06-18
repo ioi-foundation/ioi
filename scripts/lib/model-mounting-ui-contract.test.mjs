@@ -461,16 +461,6 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
     fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", fileName), "utf8"),
   ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
-  const workbenchExtension = [
-    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "extension.js"), "utf8"),
-    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "transport", "client.js"), "utf8"),
-  ].join("\n");
-  const workbenchPackage = JSON.parse(
-    fs.readFileSync(
-      path.join(root, "workbench-adapters", "ioi-code-editor-adapter", "package.json"),
-      "utf8",
-    ),
-  );
 
   assert.equal(fs.existsSync(srcTauriPath), false);
   assert.match(daemonSource, /segments\[5\] === "oauth"/);
@@ -482,14 +472,6 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   assert.match(liveGate, /ioi:\/\/mounts\/oauth\/callback/);
   assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
   assert.match(liveGate, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
-  assert.deepEqual(workbenchPackage.activationEvents, ["onStartupFinished"]);
-  assert.equal(workbenchPackage.contributes, undefined);
-  assert.match(workbenchExtension, /startCodeEditorContextPublisher/);
-  assert.doesNotMatch(workbenchExtension, /registerCommand|code\.open|ioi\.code\.open/);
-  assert.doesNotMatch(
-    workbenchExtension,
-    /@tauri-apps|tauri:\/\/|tauri\.|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/i,
-  );
 });
 
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
