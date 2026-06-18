@@ -1452,18 +1452,14 @@ assert(
     hypervisorAppShellContractSource.includes(
       "Projects page leaked repository-console or runtime-truth copy",
     ) &&
-    hypervisorAppShellContractSource.includes(
-      '[data-window-surface="workbench"]',
-    ) &&
+    hypervisorAppShellContractSource.includes("?view=workbench") &&
     hypervisorAppShellContractSource.includes(
       '[data-workbench-adapter-hub="true"]',
     ) &&
     hypervisorAppShellContractSource.includes(
       '[data-workbench-adapter-target="cursor"]',
     ) &&
-    hypervisorAppShellContractSource.includes(
-      '[data-window-surface="agents"]',
-    ) &&
+    hypervisorAppShellContractSource.includes("?view=agents") &&
     hypervisorAppShellContractSource.includes(
       "Agents surface leaked implementation-truth copy into the visible product surface.",
     ) &&

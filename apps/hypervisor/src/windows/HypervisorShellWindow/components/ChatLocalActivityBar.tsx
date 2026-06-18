@@ -7,6 +7,8 @@ import {
   IntegrationsIcon,
   MountsIcon,
   NotificationsIcon,
+  ProjectsIcon,
+  SessionsFilterIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -47,31 +49,10 @@ const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
 const KEYBOARD_NAV_VIEWS: PrimaryView[] =
   [...HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds];
 
-const REFERENCE_RECENT_SESSIONS = [
-  {
-    title: "Write Parent Harness Evidence Boundary Doc",
-    meta: "main · 6h ago",
-    status: "active",
-    count: 3,
-  },
-  {
-    title: "Write Harness Tool Call Documentation",
-    meta: "main · 6h ago",
-    status: "idle",
-    count: 4,
-  },
-  {
-    title: "Design Postquantum Computers Website",
-    meta: "main · 6h ago",
-    status: "idle",
-    count: 5,
-  },
-] as const;
-
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,
   sessions: <SparklesIcon />,
-  projects: <WorkspaceIcon />,
+  projects: <ProjectsIcon />,
   missions: <NotificationsIcon />,
   workbench: <WorkspaceIcon />,
   automations: <ComposeIcon />,
@@ -93,28 +74,18 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
       width="16"
       height="16"
       viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
       aria-hidden="true"
     >
-      {collapsed ? (
-        <>
-          <path d="M7 4h6" />
-          <path d="M7 8h6" />
-          <path d="M7 12h6" />
-          <path d="m2.5 5.5 2.5 2.5-2.5 2.5" />
-        </>
-      ) : (
-        <>
-          <path d="M6 4h7" />
-          <path d="M6 8h7" />
-          <path d="M6 12h7" />
-          <path d="m3.5 5.5-2.5 2.5 2.5 2.5" />
-        </>
-      )}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d={
+          collapsed
+            ? "M14.6667 2.66663H1.33334V13.3333H14.6667V2.66663ZM5.66667 3.66663V12.3333H2.33334V3.66663H5.66667Z"
+            : "M14.6667 2.66663H1.33334V13.3333H14.6667V2.66663ZM13.6667 3.66663V12.3333H7.66667V3.66663H13.6667Z"
+        }
+      />
     </svg>
   );
 }
@@ -362,40 +333,15 @@ export function ChatLocalActivityBar({
             className="chat-activity-session-filter"
             aria-label="Filter sessions by project"
           >
-            Project
+            <span>Project</span>
+            <SessionsFilterIcon />
           </button>
         </div>
-        <div className="chat-activity-project-label">
-          <span>From scratch</span>
-        </div>
         <div
-          className="chat-activity-session-list"
-          aria-label="Recent session preview"
-          data-ioi-reference-session-list="true"
-        >
-          {REFERENCE_RECENT_SESSIONS.map((session) => (
-            <button
-              type="button"
-              key={session.title}
-              className="chat-activity-session-row"
-              data-session-status={session.status}
-              title={session.title}
-              onClick={() => onViewChange("sessions")}
-            >
-              <span className="chat-activity-session-row__dot" aria-hidden="true" />
-              <span className="chat-activity-session-row__copy">
-                <strong>{session.title}</strong>
-                <em>{session.meta}</em>
-              </span>
-              <span
-                className="chat-activity-session-row__badge"
-                aria-label={`${session.count} pending items`}
-              >
-                {session.count}
-              </span>
-            </button>
-          ))}
-        </div>
+          className="chat-activity-session-list chat-activity-session-list--empty"
+          aria-label="Session preview"
+          data-ioi-reference-session-list="empty"
+        />
       </div>
 
       <div className="chat-activity-spacer" />

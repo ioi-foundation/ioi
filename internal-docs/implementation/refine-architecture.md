@@ -1449,25 +1449,30 @@ Current implementation cut:
   Home now carries the IOI-reference prompt surface without adding a second
   main-canvas Recent Sessions strip. Application surfaces stay behind the same
   shell, but visible copy avoids daemon/source-of-truth doctrine:
-  Agents, Models, and Privacy render product labels such as Local model,
-  Private workspace, Wallet authority, and Receipt recorded while preserving
-  raw refs only as `data-*` attributes for conformance. The auxiliary chat pane
-  remains restricted to the conversational Missions surface, so Agents/Models/
-  Privacy do not show a right-side chat/daemon overlay. The focused seed-intent
-  guard now rejects the old Agents doctrine labels, verifies the prompt-only
-  Home canvas, and verifies that Models/Privacy format raw refs before display.
+  Agents, Models, and Privacy render product labels such as Private workspace,
+  Wallet authority, and Receipt recorded while preserving raw refs only as
+  `data-*` attributes for conformance. The auxiliary chat pane remains
+  restricted to the conversational Missions surface, so Home, Agents, Models,
+  Privacy, and Automations do not show a right-side chat/daemon overlay. The
+  focused seed-intent guard now rejects the old Agents doctrine labels, verifies
+  the prompt-only Home canvas, and verifies that Models/Privacy format raw refs
+  before display.
   The Privacy surface was also moved off the old dark architecture-card island
   and onto the same light reference content plane as Agents and Models; visible
   copy now says Encrypted state refs instead of exposing Agentgres naming.
 
 0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
   `HomeView` now matches the IOI reference home posture: left rail session
-  history, centered prompt composer, model/project controls, and prompt chips,
-  with no extra main-canvas session table.
+  heading, centered prompt composer, project/add-context/model controls, prompt
+  chips, and no extra main-canvas session table. The default prompt selector
+  uses reference chrome (`5.5 Medium`) while model-mounting details remain
+  available in Models and New Session instead of sitting on top of the home
+  workplane.
   `HypervisorAutomationCompositorSurface` now matches the IOI reference
   automations posture: Webhooks and New actions in the topbar, three summary
-  metrics, filter controls, an empty-state workplane, and a suggested-template
-  rail. Workflow/compositor projection data remains present as hidden
+  metrics, filter controls, an empty-state workplane, a wider suggested-template
+  rail, and product copy for common engineering workflows. Workflow/compositor
+  projection data remains present as hidden
   contract/data attributes and behind the editor boundary, but visible
   automation rows are not rendered until the user has created automations.
   Focused source guards reject the old Home recent strip and visible workflow
@@ -1480,8 +1485,10 @@ Current implementation cut:
   contract in Chromium. The contract covers the Home prompt shell, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
   harness allowance, Projects reference empty state, Workbench adapter-hub
-  landing and selection, and Agents product-surface copy that keeps daemon,
-  Agentgres, and wallet implementation truth out of the visible default chrome.
+  landing and selection, the reference left rail set
+  (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
+  product-surface copy that keeps daemon, Agentgres, and wallet implementation
+  truth out of the visible default chrome.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.

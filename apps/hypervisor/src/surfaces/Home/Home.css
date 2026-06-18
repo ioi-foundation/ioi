@@ -2701,6 +2701,31 @@
   padding: 0 12px !important;
 }
 
+.chat-home-zero--ioi-reference .chat-home-zero-composer-add-context {
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #6f737b !important;
+  cursor: pointer !important;
+  font: inherit !important;
+  font-size: 22px !important;
+  font-weight: 300 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-composer-add-context:hover,
+.chat-home-zero--ioi-reference .chat-home-zero-composer-add-context:focus-visible {
+  background: #f3f3f2 !important;
+  color: #1f1f1f !important;
+  outline: 0 !important;
+}
+
 .chat-home-zero--ioi-reference .chat-home-zero-composer-model {
   font-size: 13px !important;
 }

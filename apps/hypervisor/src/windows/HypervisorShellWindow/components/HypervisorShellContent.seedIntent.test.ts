@@ -280,7 +280,7 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*min-height: 170px;[\s\S]*border-radius: 12px;[\s\S]*\.hypervisor-automation-compositor__empty\s*\{/,
+  /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 430px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*min-height: 170px;[\s\S]*border-radius: 12px;[\s\S]*\.hypervisor-automation-compositor__empty\s*\{/,
   "Automations should keep the reference main-column, empty-state table, and suggested-template rail layout",
 );
 

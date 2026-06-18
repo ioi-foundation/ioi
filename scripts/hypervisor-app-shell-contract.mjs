@@ -250,7 +250,10 @@ async function main() {
       "Projects page did not expose the reference search control.",
     );
 
-    await page.locator('[data-window-surface="workbench"]').click();
+    await page.goto(new URL("?view=workbench", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
     await page.waitForSelector('[data-workbench-adapter-hub="true"]');
     const workbenchText = await page.locator("body").innerText();
     assert(workbenchText.includes("Choose a governed adapter target"), "Workbench adapter hub did not render.");
@@ -269,7 +272,10 @@ async function main() {
       .getAttribute("aria-pressed");
     assert(cursorPressed === "true", "Workbench adapter target selection is not live.");
 
-    await page.locator('[data-window-surface="agents"]').click();
+    await page.goto(new URL("?view=agents", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
     await page.waitForSelector("[data-hypervisor-agents]");
     const agentsText = await page.locator("body").innerText();
     assert(agentsText.includes("Agents"), "Agents surface did not render.");

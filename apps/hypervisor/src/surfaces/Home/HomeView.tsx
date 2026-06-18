@@ -331,10 +331,18 @@ function HomeDashboardView({
               <div className="chat-home-zero-composer-controls">
                 <button
                   type="button"
+                  className="chat-home-zero-composer-add-context"
+                  aria-label="Add context"
+                  onClick={onOpenWorkspace}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
                   className="chat-home-zero-composer-model"
                   onClick={onOpenModels}
                 >
-                  <span>Local model</span>
+                  <span>5.5 Medium</span>
                   <span aria-hidden="true">⌄</span>
                 </button>
                 <button

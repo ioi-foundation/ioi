@@ -127,8 +127,8 @@ const PLACEHOLDER_SURFACE_COPY: Partial<
     eyebrow: "Operational evidence",
     title: "Receipts will become the audit and replay console.",
     body:
-      "This surface will index action receipts, Agentgres operation refs, artifact refs, trace refs, state roots, delivery evidence, and restore/import proof chains.",
-    tags: ["Agentgres", "Replay", "State roots"],
+      "This surface will index action receipts, state records, artifact refs, trace refs, delivery evidence, and restore/import proof chains.",
+    tags: ["State records", "Replay", "Checkpoints"],
   },
 };
 
@@ -934,7 +934,7 @@ function HypervisorAutomationCompositorSurface({
         >
           <div className="hypervisor-automation-compositor__suggested-heading">
             <h3>Suggested templates</h3>
-            <p>Try these automations for common autonomous-work workflows.</p>
+            <p>Try these automations for common engineering workflows.</p>
           </div>
           {referenceTemplates.map((template) => (
             <button
@@ -1067,7 +1067,10 @@ function AutomationMetric({
       })}
     >
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        {value}
+        {active ? <em aria-label="Updated">U</em> : null}
+      </strong>
       {active ? (
         <svg aria-hidden="true" viewBox="0 0 112 42" preserveAspectRatio="none">
           <path d="M1 31 L19 7 L38 31 L56 8 L75 31 L94 8 L111 31" />
@@ -1846,7 +1849,7 @@ function HypervisorSessionOperationsCockpit() {
               <dd>{operationProposal.required_scope_refs.join(", ")}</dd>
             </div>
             <div>
-              <dt>Agentgres op</dt>
+              <dt>State record</dt>
               <dd>{operationProposal.agentgres_operation_ref}</dd>
             </div>
             <div>
@@ -2114,7 +2117,7 @@ function HypervisorProviderPlacementDashboard() {
               <dd>{operationProposal.wallet_lease_ref}</dd>
             </div>
             <div>
-              <dt>Agentgres op</dt>
+              <dt>State record</dt>
               <dd>{operationProposal.agentgres_operation_ref}</dd>
             </div>
             <div>
@@ -2229,7 +2232,7 @@ function HypervisorReceiptEvidenceSurface({
                 <dd>{record.source_projection_ref}</dd>
               </div>
               <div>
-                <dt>Agentgres</dt>
+                <dt>State records</dt>
                 <dd>{record.agentgres_operation_refs.join(", ")}</dd>
               </div>
               <div>

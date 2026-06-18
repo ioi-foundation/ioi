@@ -32,7 +32,8 @@ test("home dashboard uses the IOI reference prompt shell", () => {
   assert.match(homeView, /className="chat-home-zero-composer"/);
   assert.match(homeView, /Describe your task or type \/ for commands/);
   assert.match(homeView, /Work in a project/);
-  assert.match(homeView, /Local model/);
+  assert.match(homeView, /aria-label="Add context"/);
+  assert.match(homeView, /5\.5 Medium/);
   assert.match(homeView, /Automate env setup/);
   assert.match(homeView, /Fix a bug/);
   assert.match(homeView, /Boost your test coverage/);

@@ -152,7 +152,15 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(source, /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/);
   assert.match(
     source,
-    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"workbench"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"agents"[\s\S]*"models"[\s\S]*"privacy"[\s\S]*"authority"[\s\S]*"sessions"[\s\S]*\]/,
+    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"sessions"[\s\S]*\]/,
+  );
+  assert.doesNotMatch(
+    sourceSlice(
+      source,
+      "export const HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS",
+      "export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS",
+    ),
+    /"workbench"|"agents"|"models"|"privacy"|"authority"/,
   );
   assert.match(
     source,
@@ -274,11 +282,12 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /topReferenceNavItems/);
   assert.match(activityBar, /sessionsNavItem/);
   assert.match(activityBar, /chat-activity-button--new-session/);
-  assert.match(activityBar, /REFERENCE_RECENT_SESSIONS/);
   assert.match(activityBar, /chat-activity-session-list/);
-  assert.match(activityBar, /data-ioi-reference-session-list="true"/);
-  assert.match(activityBar, /Write Parent Harness Evidence Boundary Doc/);
-  assert.match(activityBar, /onViewChange\("sessions"\)/);
+  assert.match(activityBar, /data-ioi-reference-session-list="empty"/);
+  assert.doesNotMatch(activityBar, /REFERENCE_RECENT_SESSIONS/);
+  assert.doesNotMatch(activityBar, /data-ioi-reference-session-list="true"/);
+  assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
+  assert.match(activityBar, /activateRoute\(sessionsNavItem\.route\)/);
   assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
   assert.match(activityBar, /Organization settings/);
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);

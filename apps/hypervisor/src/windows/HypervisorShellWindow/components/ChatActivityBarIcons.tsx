@@ -32,34 +32,34 @@ export const HypervisorIcon = () => (
 
 export const SparklesIcon = () => (
   <svg
-    width="22"
-    height="22"
+    width="20"
+    height="20"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    strokeWidth="1.5"
+    aria-hidden="true"
   >
-    <path d="m12 3 1.15 3.7L17 7.85l-3.85 1.15L12 12.7l-1.15-3.7L7 7.85l3.85-1.15L12 3Z" />
-    <path d="m18.2 13.6.7 2.25 2.2.7-2.2.7-.7 2.25-.7-2.25-2.25-.7 2.25-.7.7-2.25Z" />
-    <path d="m5.8 14.8.85 2.75 2.75.85-2.75.85-.85 2.75-.85-2.75-2.75-.85 2.75-.85.85-2.75Z" />
+    <path d="M3.75 3.75H20.25V18.25H15.0155L11.9979 20.75L9.0155 18.25H3.75V3.75Z" />
+    <path
+      d="M8.00195 11.5714C9.32109 11.5714 10.1405 11.8633 10.6396 12.3624C11.1386 12.8615 11.4305 13.6809 11.4305 15H12.5734C12.5734 13.6809 12.8653 12.8615 13.3643 12.3624C13.8634 11.8633 14.6828 11.5714 16.002 11.5714V10.4286C14.6828 10.4286 13.8634 10.1367 13.3643 9.63761C12.8653 9.13853 12.5734 8.31913 12.5734 7H11.4305C11.4305 8.31913 11.1386 9.13853 10.6396 9.63761C10.1405 10.1367 9.32109 10.4286 8.00195 10.4286V11.5714Z"
+      fill="currentColor"
+      stroke="none"
+    />
   </svg>
 );
 
 export const HomeIcon = () => (
   <svg
-    data-icon="home"
-    height="16"
-    role="img"
-    viewBox="0 0 16 16"
-    width="16"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
     aria-hidden="true"
   >
     <path
-      d="M2 10v5c0 .55.45 1 1 1h3v-5h4v5h3c.55 0 1-.45 1-1v-5L8 4zm13.71-2.71L14 5.59V2c0-.55-.45-1-1-1s-1 .45-1 1v1.59L8.71.29C8.53.11 8.28 0 8 0s-.53.11-.71.29l-7 7a1.003 1.003 0 001.42 1.42L8 2.41l6.29 6.29c.18.19.43.3.71.3a1.003 1.003 0 00.71-1.71"
+      d="M3.75 9L3.27507 8.41953L3 8.64459V9H3.75ZM20.25 9H21V8.64459L20.7249 8.41953L20.25 9ZM20.25 20.25V21H21V20.25H20.25ZM3.75 20.25H3V21H3.75V20.25ZM12 2.25L12.4749 1.66953L12 1.28095L11.5251 1.66953L12 2.25ZM9.75 14.75V14H9V14.75H9.75ZM14.25 14.75H15V14H14.25V14.75ZM14.25 20.25H13.5V21H14.25V20.25ZM9.75 20.25V21H10.5V20.25H9.75ZM19.5 9V20.25H21V9H19.5ZM4.5 20.25V9H3V20.25H4.5ZM4.22493 9.58047L12.4749 2.83047L11.5251 1.66953L3.27507 8.41953L4.22493 9.58047ZM11.5251 2.83047L19.7751 9.58047L20.7249 8.41953L12.4749 1.66953ZM9.75 15.5H14.25V14H9.75V15.5ZM13.5 14.75V20.25H15V14.75H13.5ZM10.5 20.25V14.75H9V20.25H10.5ZM9.75 19.5H3.75V21H9.75V19.5ZM14.25 21H20.25V19.5H14.25V21Z"
       fill="currentColor"
-      fillRule="evenodd"
     />
   </svg>
 );
@@ -104,21 +104,18 @@ export const AtlasIcon = () => (
 
 export const ComposeIcon = () => (
   <svg
-    width="22"
-    height="22"
-    viewBox="0 0 24 24"
+    width="20"
+    height="20"
+    viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.8"
+    strokeWidth="1"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
-    <circle cx="12" cy="12" r="2.5" />
-    <circle cx="6" cy="6" r="1.8" />
-    <circle cx="18" cy="6" r="1.8" />
-    <circle cx="6" cy="18" r="1.8" />
-    <circle cx="18" cy="18" r="1.8" />
-    <path d="M12 9.5V7.8M12 14.5V16.2M9.5 12H7.8M14.5 12H16.2M10 10L7.8 7.8M14 10L16.2 7.8M10 14L7.8 16.2M14 14L16.2 16.2" />
+    <path d="M5.02832 5.99854L5.77832 6.49854L7.02608 4.83487M9.03831 5.66671H11.0383M5.02832 10.4993L5.77832 10.9993L7.02608 9.33562M13.6663 7.33337V2.33337H2.33301V13.6667H8.1649" />
+    <path d="M11.333 7.81653L10.333 9.81653L8.33301 10.8165L10.333 11.8165L11.333 13.8165L12.333 11.8165L14.333 10.8165L12.333 9.81653L11.333 7.81653Z" />
   </svg>
 );
 
@@ -195,19 +192,52 @@ export const AgentsIcon = () => (
 
 export const EnvironmentIcon = () => (
   <svg
-    width="22"
-    height="22"
+    width="20"
+    height="20"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    strokeWidth="1.5"
+    aria-hidden="true"
   >
-    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    <path d="M12 12.75H19.2463C19.2488 12.833 19.25 12.9164 19.25 13C19.25 17.5563 15.5563 21.25 11 21.25C6.44365 21.25 2.75 17.5563 2.75 13C2.75 8.44365 6.44365 4.75 11 4.75C11.0836 4.75 11.167 4.75124 11.25 4.75371V12V12.75H12ZM14.75 2.7889C15.4447 2.86115 16.1267 3.03357 16.7745 3.30187C17.6541 3.66622 18.4533 4.20025 19.1265 4.87348C19.7997 5.5467 20.3338 6.34594 20.6981 7.22555C20.9664 7.87328 21.1388 8.55527 21.2111 9.25L14.75 9.25V2.7889Z" />
+  </svg>
+);
+
+export const ProjectsIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
+    <path d="M3.75 3.75H10.25V10.25H3.75V3.75Z" />
+    <path d="M13.75 3.75H20.25V10.25H13.75V3.75Z" />
+    <path d="M3.75 13.75H10.25V20.25H3.75V13.75Z" />
+    <path d="M13.75 13.75H20.25V20.25H13.75V13.75Z" />
+  </svg>
+);
+
+export const SessionsFilterIcon = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="square"
+    aria-hidden="true"
+  >
+    <rect x="3.75" y="3.75" width="6.5" height="6.5" />
+    <rect x="3.75" y="13.75" width="6.5" height="6.5" />
+    <path d="M14.75 7.5L18 4L21.25 7.5" />
+    <path d="M21.25 16.5L18 20L14.75 16.5" />
+    <path d="M18 4.5V19.5" />
   </svg>
 );
 
