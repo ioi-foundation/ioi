@@ -171,25 +171,25 @@ function HypervisorHarnessComparisonDashboard() {
     "fixture" | "requesting_daemon" | "daemon_admitted" | "daemon_unavailable"
   >("fixture");
   const [runMessage, setRunMessage] = useState(
-    "Fixture projection is loaded until a daemon run is requested.",
+    "Fixture projection is loaded until a governed run is requested.",
   );
 
   async function handleDaemonFixtureRun() {
     setRunState("requesting_daemon");
-    setRunMessage("Requesting daemon-mediated public fixture run...");
+    setRunMessage("Requesting governed public fixture run...");
     try {
       const nextComparison = await requestHarnessPublicFixtureRun();
       setComparison(nextComparison);
       setRunState("daemon_admitted");
       setRunMessage(
-        `Daemon returned ${nextComparison.receipt_refs.length} receipt refs for ${nextComparison.candidate_reports.length} harness candidates.`,
+        `Core returned ${nextComparison.receipt_refs.length} receipt refs for ${nextComparison.candidate_reports.length} harness candidates.`,
       );
     } catch (error) {
       setRunState("daemon_unavailable");
       setRunMessage(
         error instanceof Error
           ? error.message
-          : "Harness public fixture run could not reach the daemon route.",
+          : "Harness public fixture run could not reach the Core route.",
       );
     }
   }
@@ -206,7 +206,7 @@ function HypervisorHarnessComparisonDashboard() {
           <span>Foundry comparison</span>
           <h2>Compare harness adapters against one public fixture.</h2>
           <p>
-            Foundry reads the same daemon-runtime comparison contract as New
+            Foundry reads the same Core comparison contract as New
             Session, then makes output, cost, verification, receipts, and evidence
             visible before any adapter is treated as reliable.
           </p>
@@ -217,7 +217,7 @@ function HypervisorHarnessComparisonDashboard() {
           disabled={runState === "requesting_daemon"}
           onClick={handleDaemonFixtureRun}
         >
-          {runState === "requesting_daemon" ? "Requesting..." : "Run daemon fixture"}
+          {runState === "requesting_daemon" ? "Requesting..." : "Run fixture"}
         </button>
       </div>
       <p
@@ -331,12 +331,15 @@ function HypervisorAgentsSurface({
     >
       <div className="hypervisor-agents__header">
         <div>
-          <span>Agents</span>
-          <h2>Configured workers, skills, memory, and capability leases.</h2>
-          <p>{projection.boundary_invariant}</p>
+          <span>Workspace</span>
+          <h2>Agents</h2>
+          <p>
+            Configure workers, harness adapters, memory, model routes, and
+            scoped capability leases for this workspace.
+          </p>
         </div>
         <button type="button" onClick={onOpenAuthority}>
-          Review leases
+          Manage authority
         </button>
       </div>
 
@@ -369,9 +372,9 @@ function HypervisorAgentsSurface({
           {projection.capability_invariant}
         </p>
         <p>
-          <span>Runtime</span>
-          Agent harness adapters may propose work, but Core sessions,
-          authority gates, receipts, and Agentgres refs remain daemon-owned.
+          <span>Execution</span>
+          Agent harness adapters may propose work, while Core keeps sessions,
+          authority gates, receipts, and Agentgres refs accountable.
         </p>
       </div>
 
@@ -393,6 +396,16 @@ function AgentMetric({ label, value }: { label: string; value: number }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function formatAgentRuntimeBoundary(boundary: string): string {
+  if (boundary === "daemon_owned") {
+    return "Core managed";
+  }
+  if (boundary === "proposal_source_only") {
+    return "Proposal source";
+  }
+  return boundary.replace(/_/g, " ");
 }
 
 function HypervisorAgentCard({
@@ -421,7 +434,7 @@ function HypervisorAgentCard({
           <h3>{agent.label}</h3>
         </div>
         <strong className="hypervisor-agents__status">
-          {agent.runtime.truth_boundary.replace(/_/g, " ")}
+          {formatAgentRuntimeBoundary(agent.runtime.truth_boundary)}
         </strong>
       </div>
       <p>{agent.objective}</p>
@@ -2145,19 +2158,14 @@ export function HypervisorShellContent({
   const workflowActive = activeView === "automations";
   const mountsActive = activeView === "models";
   const dedicatedWorkbenchActive = workflowActive || mountsActive;
+  const conversationalSurfaceActive = activeView === "missions";
 
   const auxiliaryChatVisible =
-    !settingsActive &&
-    !workspaceActive &&
-    !dedicatedWorkbenchActive &&
-    activeView !== "sessions" &&
-    activeView !== "home" &&
+    conversationalSurfaceActive &&
     controller.chat.paneVisible;
   const utilityDrawerVisible =
-    !settingsActive &&
-    activeView !== "sessions" &&
-    activeView !== "home" &&
-    !dedicatedWorkbenchActive;
+    conversationalSurfaceActive &&
+    controller.chat.paneVisible;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
   const commandCenterModel = buildOperatorCommandCenterModel({

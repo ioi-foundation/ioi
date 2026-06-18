@@ -121,7 +121,7 @@ export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
     source: "fixture",
     selected_project_ref: "project:hypervisor-core",
     boundary_invariant:
-      "Agents are configured runtime actors over Hypervisor Core; connector UIs, external harnesses, and model providers may propose work, but the Hypervisor Daemon remains runtime truth.",
+      "Agents are configured runtime actors over Hypervisor Core. Connector UIs, external harnesses, and model providers may propose work; Core owns sessions, gates, receipts, and replay.",
     memory_invariant:
       "Skills and memory may persist with the workspace or agent, but Agent Wiki / ioi-memory owns semantic memory while Agentgres records admitted operational refs.",
     capability_invariant:
@@ -256,7 +256,7 @@ export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
         agent_ref: "agent:workbench-repair",
         label: "Workbench repair agent",
         objective:
-          "Investigate failing app checks, propose patches, and route accepted edits through daemon-mediated workspace receipts.",
+          "Investigate failing app checks, propose patches, and route accepted edits through governed workspace receipts.",
         status: "blocked",
         workspace_ref: "workspace://ioi/hypervisor",
         session_ref: "session:agent/workbench-repair",

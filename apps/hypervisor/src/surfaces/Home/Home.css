@@ -2599,13 +2599,20 @@
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-mark {
-  min-height: 48px !important;
+  min-height: 22px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 10px !important;
+  gap: 8px !important;
   color: #1f1f1f !important;
-  line-height: 48px !important;
+  line-height: 22px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-prompt-tick {
+  width: 1px !important;
+  height: 17px !important;
+  display: inline-block !important;
+  background: #171719 !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-logo {
@@ -2619,10 +2626,7 @@
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-glyph {
-  color: #18181b !important;
-  font-size: 42px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.08em !important;
+  display: none !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-stage h1 {

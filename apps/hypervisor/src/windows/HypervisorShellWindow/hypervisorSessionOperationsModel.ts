@@ -212,7 +212,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       summary:
         tab_id === "environment"
           ? "Provider, ports, services, leases, archive refs, and restore posture."
-          : `${formatPanelLabel(tab_id)} state is projected from daemon and Agentgres receipts.`,
+          : `${formatPanelLabel(tab_id)} state is projected from Core and Agentgres receipts.`,
       evidence_refs: [
         `agentgres://projection/session-detail/${tab_id}`,
         `receipt://session-detail/${tab_id}`,
@@ -224,7 +224,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
       summary:
         panel_id === "authority"
           ? "wallet.network scopes, leases, and approvals remain the action gate."
-          : `${formatPanelLabel(panel_id)} evidence is read-only until a daemon operation admits an update.`,
+          : `${formatPanelLabel(panel_id)} evidence is read-only until a Core operation admits an update.`,
       status: panel_id === "authority" ? "attention" : "clear",
       evidence_refs: [
         `agentgres://projection/right-inspector/${panel_id}`,

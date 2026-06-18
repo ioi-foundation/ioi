@@ -307,7 +307,7 @@ function isHypervisorClientRuntime(): boolean {
 export function useHypervisorShellController() {
   const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
-  const [chatPaneVisible, setChatPaneVisible] = useState(true);
+  const [chatPaneVisible, setChatPaneVisible] = useState(false);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
   const [workflowSurface, setWorkflowSurface] =
     useState<WorkflowSurface>("canvas");

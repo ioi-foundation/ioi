@@ -116,7 +116,7 @@ export const HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE: HypervisorAuto
     selected_project_id: selectedProject.id,
     runtimeTruthSource: "daemon-runtime",
     compositor_boundary_invariant:
-      "Automations renders workflow templates, compositor graphs, run recipes, action proposals, Agentgres operation refs, state roots, and receipts. The Workflow Compositor edits and proposes; the Hypervisor Daemon admits execution; Agentgres records operational truth.",
+      "Automations renders workflow templates, compositor graphs, run recipes, action proposals, Agentgres operation refs, state roots, and receipts. The Workflow Compositor edits and proposes; Hypervisor Core admits execution; Agentgres records operational truth.",
     workflow_template_refs: [
       "workflow-template:mission-to-workbench",
       "workflow-template:private-workspace-backtest",

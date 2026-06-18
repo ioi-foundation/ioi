@@ -291,9 +291,16 @@ export function ChatLocalActivityBar({
       data-left-nav-surfaces={referenceLeftNavSurfaceIds.join(" ")}
     >
       <div className="chat-activity-brand-row">
-        <span className="chat-activity-brand" aria-hidden="true">
+        <button
+          type="button"
+          className="chat-activity-brand"
+          aria-label="Open Hypervisor home"
+          onClick={() => onViewChange("home")}
+        >
+          <span className="chat-activity-brand-tick" aria-hidden="true" />
           <ChatLogoIcon />
-        </span>
+          <span className="chat-activity-brand-tick" aria-hidden="true" />
+        </button>
         <button
           type="button"
           className="chat-activity-collapse-button"
@@ -341,17 +348,25 @@ export function ChatLocalActivityBar({
       </div>
 
       <div className="chat-activity-group chat-activity-group--sessions" aria-label="Sessions">
-        {sessionsNavItem ? (
-          <ActivityButton
-            key={sessionsNavItem.id}
-            item={sessionsNavItem}
-            isActive={isActiveRailItem(sessionsNavItem)}
-            onClick={() => activateRoute(sessionsNavItem.route)}
-          />
-        ) : null}
+        <div className="chat-activity-session-heading">
+          {sessionsNavItem ? (
+            <ActivityButton
+              key={sessionsNavItem.id}
+              item={sessionsNavItem}
+              isActive={isActiveRailItem(sessionsNavItem)}
+              onClick={() => activateRoute(sessionsNavItem.route)}
+            />
+          ) : null}
+          <button
+            type="button"
+            className="chat-activity-session-filter"
+            aria-label="Filter sessions by project"
+          >
+            Project
+          </button>
+        </div>
         <div className="chat-activity-project-label">
           <span>From scratch</span>
-          <span>Project</span>
         </div>
         <div
           className="chat-activity-session-list"

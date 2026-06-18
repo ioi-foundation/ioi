@@ -18,7 +18,7 @@ test("automation compositor projection binds templates, graphs, runs, and receip
   assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.match(projection.compositor_boundary_invariant, /edits and proposes/);
-  assert.match(projection.compositor_boundary_invariant, /Daemon admits execution/);
+  assert.match(projection.compositor_boundary_invariant, /Hypervisor Core admits execution/);
   assert.match(projection.compositor_boundary_invariant, /Agentgres records/);
   assert.ok(projection.workflow_template_refs.length >= 3);
   assert.ok(projection.run_recipe_refs.length >= 3);

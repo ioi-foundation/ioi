@@ -459,7 +459,7 @@ export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel 
         id: "harness",
         label: "Harness",
         description:
-          "Default Harness Profile or daemon-mediated AgentHarnessAdapter.",
+          "Default Harness Profile or Core-governed AgentHarnessAdapter.",
         required: true,
       },
       {

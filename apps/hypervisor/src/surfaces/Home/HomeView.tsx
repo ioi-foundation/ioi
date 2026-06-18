@@ -241,30 +241,6 @@ const HOME_REFERENCE_PROMPTS: Array<{
   },
 ] as const;
 
-const HOME_REFERENCE_RECENT_SESSIONS = [
-  {
-    title: "Write Parent Harness Evidence Boundary Doc",
-    meta: "6h ago",
-    status: "active",
-    seedIntent:
-      "Resume the governed session for Write Parent Harness Evidence Boundary Doc.",
-  },
-  {
-    title: "Write Harness Tool Call Documentation",
-    meta: "6h ago",
-    status: "idle",
-    seedIntent:
-      "Resume the governed session for Write Harness Tool Call Documentation.",
-  },
-  {
-    title: "Design Postquantum Computers Website",
-    meta: "6h ago",
-    status: "idle",
-    seedIntent:
-      "Resume the governed session for Design Postquantum Computers Website.",
-  },
-] as const;
-
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
@@ -331,8 +307,9 @@ function HomeDashboardView({
       <div className="chat-home-zero-shell">
         <main className="chat-home-zero-prompt-stage">
           <div className="chat-home-zero-prompt-mark" aria-hidden="true">
+            <span className="chat-home-zero-prompt-tick" />
             <span className="chat-home-zero-prompt-logo" />
-            <span className="chat-home-zero-prompt-glyph">IOI</span>
+            <span className="chat-home-zero-prompt-tick" />
           </div>
           <h1>What do you want to get done today?</h1>
 
@@ -390,36 +367,6 @@ function HomeDashboardView({
             ))}
           </div>
 
-          <section
-            className="chat-home-zero-recent-sessions"
-            aria-label="Recent Sessions"
-          >
-            <h2>Recent Sessions</h2>
-            <div>
-              {HOME_REFERENCE_RECENT_SESSIONS.map((session) => (
-                <button
-                  type="button"
-                  key={session.title}
-                  data-home-recent-session-status={session.status}
-                  onClick={() =>
-                    onOpenNewSession({
-                      seedIntent: session.seedIntent,
-                      recipeId: "ioi-reference-home",
-                    })
-                  }
-                >
-                  <span
-                    className="chat-home-zero-recent-sessions__dot"
-                    aria-hidden="true"
-                  />
-                  <span className="chat-home-zero-recent-sessions__copy">
-                    <strong>{session.title}</strong>
-                    <em>{session.meta}</em>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
         </main>
       </div>
     </section>

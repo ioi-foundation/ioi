@@ -167,14 +167,14 @@ assert.match(
 
 assert.match(
   source,
-  /const utilityDrawerVisible =[\s\S]*!settingsActive[\s\S]*activeView !== "sessions"/,
-  "settings should not render the utility drawer over the reference settings shell",
+  /const conversationalSurfaceActive = activeView === "missions"[\s\S]*const utilityDrawerVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  "top-level product surfaces should not render the utility drawer over the IOI reference shell",
 );
 
 assert.match(
   source,
-  /const auxiliaryChatVisible =[\s\S]*!settingsActive[\s\S]*!workspaceActive/,
-  "settings should not render the auxiliary chat pane over the reference settings shell",
+  /const auxiliaryChatVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  "top-level product surfaces should not render the auxiliary chat pane over the IOI reference shell",
 );
 
 assert.match(

@@ -19,7 +19,7 @@ test("model infrastructure projection binds routes, providers, custody, and rece
   assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.match(projection.infrastructure_boundary_invariant, /Models is an infrastructure projection/);
-  assert.match(projection.infrastructure_boundary_invariant, /Hypervisor Daemon admits execution/);
+  assert.match(projection.infrastructure_boundary_invariant, /Hypervisor Core admits execution/);
   assert.match(projection.infrastructure_boundary_invariant, /Agentgres records model-route truth/);
   assert.equal(projection.inventory_source, "fixture");
   assert.ok(projection.model_route_refs.length >= 1);

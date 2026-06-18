@@ -12,7 +12,7 @@ test("agents projection models configured runtime actors over Hypervisor Core", 
 
   assert.equal(projection.schema_version, "ioi.hypervisor.agents_projection.v1");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
-  assert.match(projection.boundary_invariant, /Hypervisor Daemon remains runtime truth/);
+  assert.match(projection.boundary_invariant, /Core owns sessions, gates, receipts, and replay/);
   assert.match(projection.memory_invariant, /Agent Wiki \/ ioi-memory owns semantic memory/);
   assert.match(projection.capability_invariant, /wallet.network capability leases/);
   assert.equal(projection.records.length, 3);

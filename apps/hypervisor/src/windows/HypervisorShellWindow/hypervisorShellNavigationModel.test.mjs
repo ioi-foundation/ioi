@@ -214,7 +214,7 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   }
   assert.match(
     source,
-    /Default Harness Profile or daemon-mediated AgentHarnessAdapter/,
+    /Default Harness Profile or Core-governed AgentHarnessAdapter/,
   );
   assert.match(source, /harnessOptions: HYPERVISOR_HARNESS_SELECTION_OPTIONS/);
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
@@ -500,7 +500,7 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(automationCompositorModel, /agentgres_operation_refs/);
   assert.match(automationCompositorModel, /state_root_ref/);
   assert.match(automationCompositorModel, /Workflow Compositor edits and proposes/);
-  assert.match(automationCompositorModel, /Hypervisor Daemon admits execution/);
+  assert.match(automationCompositorModel, /Hypervisor Core admits execution/);
   assert.match(automationCompositorModel, /Agentgres records operational truth/);
   assert.match(shellContent, /HypervisorAutomationCompositorSurface/);
   assert.match(shellContent, /loadHypervisorAutomationCompositorProjection/);
@@ -556,7 +556,7 @@ test("Models surface renders model infrastructure projection before mount UI", (
   assert.match(modelInfrastructureModel, /model_weight_custody_policy_refs/);
   assert.match(modelInfrastructureModel, /authority_scope_refs/);
   assert.match(modelInfrastructureModel, /Models is an infrastructure projection/);
-  assert.match(modelInfrastructureModel, /Hypervisor Daemon admits execution/);
+  assert.match(modelInfrastructureModel, /Hypervisor Core admits execution/);
   assert.match(modelInfrastructureModel, /Agentgres records model-route truth/);
   assert.match(shellContent, /HypervisorModelInfrastructureSurface/);
   assert.match(shellContent, /loadHypervisorModelInfrastructureProjection/);

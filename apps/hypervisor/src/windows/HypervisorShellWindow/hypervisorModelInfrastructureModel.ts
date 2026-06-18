@@ -153,7 +153,7 @@ export function buildHypervisorModelInfrastructureProjectionFromInventory(
     selected_session_ref: selectedSessionRef,
     runtimeTruthSource: "daemon-runtime",
     infrastructure_boundary_invariant:
-      "Models is an infrastructure projection over daemon-owned model routes, provider endpoints, loaded instances, custody policy, authority scopes, and receipts. Model mounting UI may configure proposals; the Hypervisor Daemon admits execution and Agentgres records model-route truth.",
+      "Models is an infrastructure projection over Core-owned model routes, provider endpoints, loaded instances, custody policy, authority scopes, and receipts. Model mounting UI may configure proposals; Hypervisor Core admits execution and Agentgres records model-route truth.",
     inventory_source: inventory.source,
     checked_at: inventory.checked_at ?? "unknown",
     model_route_refs: uniqueStrings(inventory.routes.map((route) => route.id)),
