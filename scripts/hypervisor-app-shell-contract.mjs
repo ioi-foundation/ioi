@@ -478,6 +478,42 @@ async function main() {
       (await page.locator(".hypervisor-project-state__filters").count()) === 0,
       "Projects clean boot should not render loaded-project filters until projects exist.",
     );
+    const projectsEmptyLayout = await page.evaluate(() => {
+      const emptyIcon = document.querySelector(
+        ".hypervisor-project-state__empty-icon",
+      );
+      const newProjectButton = document.querySelector(
+        ".hypervisor-project-state__empty .hypervisor-project-state__new",
+      );
+      const emptyHeadline = document.querySelector(
+        ".hypervisor-project-state__empty h3",
+      );
+      const iconRect = emptyIcon?.getBoundingClientRect();
+      const buttonRect = newProjectButton?.getBoundingClientRect();
+      const headlineStyle = emptyHeadline
+        ? getComputedStyle(emptyHeadline)
+        : null;
+      const buttonStyle = newProjectButton
+        ? getComputedStyle(newProjectButton)
+        : null;
+      return {
+        iconTop: iconRect?.top ?? null,
+        buttonTop: buttonRect?.top ?? null,
+        headlineFontSize: headlineStyle?.fontSize ?? null,
+        buttonFontWeight: buttonStyle?.fontWeight ?? null,
+      };
+    });
+    assert(
+      typeof projectsEmptyLayout.iconTop === "number" &&
+        projectsEmptyLayout.iconTop >= 210 &&
+        projectsEmptyLayout.iconTop <= 265 &&
+        typeof projectsEmptyLayout.buttonTop === "number" &&
+        projectsEmptyLayout.buttonTop >= 425 &&
+        projectsEmptyLayout.buttonTop <= 490 &&
+        projectsEmptyLayout.headlineFontSize === "20px" &&
+        Number(projectsEmptyLayout.buttonFontWeight) <= 600,
+      `Projects clean empty state should match the IOI-reference upper-mid viewport rhythm. layout=${JSON.stringify(projectsEmptyLayout)}`,
+    );
 
     await page.goto(new URL("?view=workbench", url).toString(), {
       waitUntil: "domcontentloaded",

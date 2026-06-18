@@ -5187,9 +5187,9 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
-  padding: 78px 24px 128px;
+  padding: 103px 24px 96px;
   border: 0;
   background: #ffffff;
   text-align: center;
@@ -5213,7 +5213,7 @@
 .hypervisor-project-state__empty h3 {
   margin: 0;
   color: #111827;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.15;
 }
@@ -5250,7 +5250,7 @@
   color: #ffffff;
   font: inherit;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
