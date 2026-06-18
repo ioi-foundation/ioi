@@ -188,29 +188,59 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
   );
 }
 
-function SettingsSimplePanel({
+function SettingsCapabilityPanel({
+  section,
   title,
   body,
+  authorityOwner,
+  custodyMode,
   rows,
 }: {
+  section: Exclude<SettingsSection, "identity">;
   title: string;
   body: string;
-  rows: Array<{ label: string; value: string; action: string }>;
+  authorityOwner: "wallet.network" | "Hypervisor Core";
+  custodyMode: string;
+  rows: Array<{
+    label: string;
+    value: string;
+    action: string;
+    capability: string;
+    receipt: string;
+  }>;
 }) {
   return (
     <section
       className="hypervisor-settings-reference-panel"
       aria-label={`${title} settings`}
+      data-settings-credential-panel={section}
+      data-settings-authority-owner={authorityOwner}
+      data-settings-credential-custody={custodyMode}
     >
       <div className="hypervisor-settings-reference-section">
         <h2>{title}</h2>
         <p>{body}</p>
+        <dl className="hypervisor-settings-reference-boundary">
+          <div>
+            <dt>Authority owner</dt>
+            <dd>{authorityOwner}</dd>
+          </div>
+          <div>
+            <dt>Credential custody</dt>
+            <dd>{custodyMode}</dd>
+          </div>
+        </dl>
         <div className="hypervisor-settings-reference-list">
           {rows.map((row) => (
-            <article key={row.label}>
+            <article
+              key={row.label}
+              data-settings-capability-row={row.capability}
+              data-settings-receipt-ref={row.receipt}
+            >
               <div>
                 <strong>{row.label}</strong>
                 <span>{row.value}</span>
+                <em>{row.capability}</em>
               </div>
               <button type="button">{row.action}</button>
             </article>
@@ -231,86 +261,132 @@ function SettingsReferencePrimaryPanel({
       return <SettingsAccountPanel view={view} />;
     case "secrets":
       return (
-        <SettingsSimplePanel
+        <SettingsCapabilityPanel
+          section="secrets"
           title="Secrets"
-          body="Store credentials for controlled use without exposing raw secrets to agents, editors, or remote workspaces."
+          body="Configure brokered secrets for controlled use. wallet.network authorizes use and viewing separately; sessions receive short-lived capability leases, never durable plaintext."
+          authorityOwner="wallet.network"
+          custodyMode="brokered use-only leases; no plaintext session custody"
           rows={[
             {
               label: "Brokered secret store",
-              value: "Local vault and connected authority providers.",
+              value: "Local vault and connected authority providers hold encrypted credential material.",
               action: "Manage",
+              capability: "scope:secret.use",
+              receipt: "receipt://wallet.secret-broker/config",
             },
             {
               label: "Declassification policy",
-              value: "Step-up is required before sensitive release.",
+              value: "Step-up is required before viewing or releasing sensitive values.",
               action: "Review",
+              capability: "scope:secret.declassify",
+              receipt: "receipt://wallet.declassification-policy/current",
             },
             {
               label: "Capability leases",
-              value: "2 active, 1 expiring soon.",
+              value: "Session and agent leases auto-expire and can be revoked from Authority.",
               action: "Open",
+              capability: "scope:capability.lease",
+              receipt: "receipt://wallet.capability-lease/index",
             },
           ]}
         />
       );
     case "git_auth":
       return (
-        <SettingsSimplePanel
+        <SettingsCapabilityPanel
+          section="git_auth"
           title="Git authentications"
-          body="Connect source control accounts and choose how sessions may read, clone, and push changes."
+          body="Connect source control accounts and choose how sessions may read, clone, commit, push, and open review artifacts through scoped SCM leases."
+          authorityOwner="wallet.network"
+          custodyMode="SCM auth leases; editors and harnesses receive scoped actions"
           rows={[
             {
               label: "Primary source control",
-              value: "Read/write access available for the current workspace.",
+              value: "Repository read/write is available only through project-bound scopes.",
               action: "Configure",
+              capability: "scope:scm.repo.read_write",
+              receipt: "receipt://wallet.git-auth/primary",
             },
             {
               label: "Session git identity",
               value: "Used for commits created from approved sessions.",
               action: "Inspect",
+              capability: "scope:scm.commit.sign",
+              receipt: "receipt://wallet.git-identity/current",
+            },
+            {
+              label: "Pull request authority",
+              value: "Opening or updating pull requests requires a lease and receipt.",
+              action: "Review",
+              capability: "scope:scm.pull_request.write",
+              receipt: "receipt://wallet.git-pr-policy/current",
             },
           ]}
         />
       );
     case "personal_access_tokens":
       return (
-        <SettingsSimplePanel
+        <SettingsCapabilityPanel
+          section="personal_access_tokens"
           title="Personal access tokens"
-          body="Add tokens for integrations that cannot use OAuth or app-based login."
+          body="Add tokens for integrations that cannot use OAuth or app-based login. Tokens are stored as brokered credentials and are not exposed to agents as reusable strings."
+          authorityOwner="wallet.network"
+          custodyMode="vaulted token refs; use-only invocation by lease"
           rows={[
             {
               label: "Token vault",
-              value: "Raw tokens are hidden after creation.",
+              value: "Raw tokens are hidden after creation and bound to explicit scopes.",
               action: "Add token",
+              capability: "scope:token.create",
+              receipt: "receipt://wallet.token-vault/config",
             },
             {
               label: "Recent use",
               value: "Usage history is available in receipts.",
               action: "Receipts",
+              capability: "scope:token.audit",
+              receipt: "receipt://wallet.token-use/index",
+            },
+            {
+              label: "Rotation policy",
+              value: "Expiring tokens trigger renewal or revocation reviews.",
+              action: "Policy",
+              capability: "scope:token.rotate",
+              receipt: "receipt://wallet.token-rotation/current",
             },
           ]}
         />
       );
     case "integrations":
       return (
-        <SettingsSimplePanel
+        <SettingsCapabilityPanel
+          section="integrations"
           title="Integrations"
-          body="Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services."
+          body="Connect adapter targets and provider accounts. Integrations propose actions; Hypervisor Core gates execution and wallet.network authorizes credentials."
+          authorityOwner="Hypervisor Core"
+          custodyMode="adapter capability refs; provider secrets stay wallet-brokered"
           rows={[
             {
               label: "code editor adapters",
               value: "Embedded, desktop, and browser-based code editors.",
               action: "Open",
+              capability: "scope:adapter.code_editor.use",
+              receipt: "receipt://hypervisor.adapter/code-editor",
             },
             {
               label: "Provider integrations",
               value: "Local, cloud, DePIN, confidential compute, storage.",
               action: "Configure",
+              capability: "scope:provider.route.configure",
+              receipt: "receipt://hypervisor.provider-integrations/index",
             },
             {
               label: "Model routes",
               value: "Local, API, mounted, or provider-backed model calls.",
               action: "Routes",
+              capability: "scope:model.route.configure",
+              receipt: "receipt://hypervisor.model-routes/index",
             },
           ]}
         />

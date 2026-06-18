@@ -1024,13 +1024,19 @@ assert(
     hypervisorSettingsSurfaceSources.includes(
       'data-settings-reference-shell="ioi-settings"',
     ) &&
+    hypervisorSettingsSurfaceSources.includes("data-settings-credential-panel") &&
+    hypervisorSettingsSurfaceSources.includes("data-settings-capability-row") &&
+    hypervisorSettingsSurfaceSources.includes("data-settings-receipt-ref") &&
+    hypervisorSettingsSurfaceSources.includes("scope:secret.use") &&
+    hypervisorSettingsSurfaceSources.includes("scope:scm.pull_request.write") &&
+    hypervisorSettingsSurfaceSources.includes("scope:adapter.code_editor.use") &&
     !/chat-settings/.test(hypervisorSettingsSurfaceSources),
   [
     "apps/hypervisor/src/surfaces/Settings/SettingsView.tsx",
     "apps/hypervisor/src/surfaces/Settings/SettingsViewBody.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/settings-and-panels.css",
   ],
-  "Active IOI-reference Settings surface must use Hypervisor class namespaces, not retired chat settings classes.",
+  "Active IOI-reference Settings surface must use Hypervisor class namespaces and expose wallet-bound capability credential panels.",
 );
 assert(
   "active-visible-surfaces-hypervisor-named",

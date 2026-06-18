@@ -687,6 +687,68 @@ async function main() {
         settingsAdapterText.includes("Dotfiles repository"),
       "Settings did not render reference account preferences.",
     );
+    const credentialPanels = [
+      {
+        label: "Secrets",
+        panel: "secrets",
+        owner: "wallet.network",
+        scope: "scope:secret.use",
+        copy: "sessions receive short-lived capability leases",
+      },
+      {
+        label: "Git authentications",
+        panel: "git_auth",
+        owner: "wallet.network",
+        scope: "scope:scm.pull_request.write",
+        copy: "scoped SCM leases",
+      },
+      {
+        label: "Personal access tokens",
+        panel: "personal_access_tokens",
+        owner: "wallet.network",
+        scope: "scope:token.create",
+        copy: "not exposed to agents as reusable strings",
+      },
+      {
+        label: "Integrations",
+        panel: "integrations",
+        owner: "Hypervisor Core",
+        scope: "scope:adapter.code_editor.use",
+        copy: "provider secrets stay wallet-brokered",
+      },
+    ];
+    for (const section of credentialPanels) {
+      await page.getByRole("button", { name: section.label }).click();
+      const panel = page.locator(
+        `[data-settings-credential-panel="${section.panel}"]`,
+      );
+      await panel.waitFor({ timeout: 5_000 });
+      assert(
+        (await panel.getAttribute("data-settings-authority-owner")) ===
+          section.owner,
+        `${section.label} did not bind the expected authority owner.`,
+      );
+      assert(
+        ((await panel.getAttribute("data-settings-credential-custody")) ?? "")
+          .length > 0,
+        `${section.label} did not expose credential custody mode.`,
+      );
+      assert(
+        (await panel
+          .locator(`[data-settings-capability-row="${section.scope}"]`)
+          .count()) === 1,
+        `${section.label} did not expose ${section.scope}.`,
+      );
+      const panelText = await panel.innerText();
+      assert(
+        panelText.includes(section.copy),
+        `${section.label} did not render the expected custody copy.`,
+      );
+      assert(
+        (await panel.locator("[data-settings-receipt-ref]").count()) >= 2,
+        `${section.label} did not expose receipt-bound settings rows.`,
+      );
+    }
     assert(
       consoleMessages.length === 0,
       `Offline reference shell emitted console warnings/errors: ${JSON.stringify(consoleMessages)}`,
@@ -722,6 +784,7 @@ async function main() {
         "settings_reference_surface_rendered",
         "settings_reference_primary_nav_rendered",
         "settings_code_editor_preference_rendered",
+        "settings_credential_capability_panels_rendered",
         "offline_reference_shell_console_clean",
       ],
       consoleMessages,

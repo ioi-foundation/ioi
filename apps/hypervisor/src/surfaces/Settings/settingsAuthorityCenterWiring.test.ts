@@ -119,6 +119,20 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.match(settingsViewBody, /Git authentications/);
   assert.match(settingsViewBody, /Personal access tokens/);
   assert.match(settingsViewBody, /Integrations/);
+  assert.match(settingsViewBody, /data-settings-credential-panel/);
+  assert.match(settingsViewBody, /data-settings-authority-owner/);
+  assert.match(settingsViewBody, /data-settings-credential-custody/);
+  assert.match(settingsViewBody, /data-settings-capability-row/);
+  assert.match(settingsViewBody, /data-settings-receipt-ref/);
+  assert.match(settingsViewBody, /scope:secret\.use/);
+  assert.match(settingsViewBody, /scope:secret\.declassify/);
+  assert.match(settingsViewBody, /scope:scm\.repo\.read_write/);
+  assert.match(settingsViewBody, /scope:scm\.pull_request\.write/);
+  assert.match(settingsViewBody, /scope:token\.create/);
+  assert.match(settingsViewBody, /scope:adapter\.code_editor\.use/);
+  assert.match(settingsViewBody, /wallet\.network authorizes use and viewing separately/);
+  assert.match(settingsViewBody, /sessions receive short-lived capability leases, never durable plaintext/);
+  assert.match(settingsViewBody, /provider secrets stay wallet-brokered/);
   assert.match(settingsViewBody, /Account details/);
   assert.match(settingsViewBody, /Account ID/);
   assert.match(settingsViewBody, /Default code editor target/);
@@ -142,7 +156,7 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.doesNotMatch(settingsViewBody, /Show the embedded VS Code editor/);
   assert.match(
     settingsViewBody,
-    /Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services/,
+    /Connect adapter targets and provider accounts\. Integrations propose actions; Hypervisor Core gates execution and wallet\.network authorizes credentials/,
   );
   assert.match(settingsViewBody, /data-settings-reference-organization-link/);
   assert.doesNotMatch(settingsViewBody, /governed sessions/);

@@ -1620,6 +1620,12 @@ Current implementation cut:
   editor target and Embedded code editor switches, while guards reject the old
   Code tab, singular-editor, raw adapter ref, and visible Advanced settings
   drawer returning.
+  Settings credential sections now expose implementation-visible capability
+  panels instead of generic rows: Secrets, Git authentications, Personal access
+  tokens, and Integrations bind authority owner, credential custody mode,
+  `scope:*` capability rows, and receipt refs in the DOM. This keeps Settings
+  as configuration while wallet.network remains the authority owner for secret,
+  SCM, and token use; Hypervisor Core owns adapter/provider integration posture.
   The old Home onboarding walkthrough, condition matrix, and direct editor
   walkthrough assets are deleted from the active tree. Runtime-layout guards
   assert those paths stay absent and that Home remains the IOI-reference prompt

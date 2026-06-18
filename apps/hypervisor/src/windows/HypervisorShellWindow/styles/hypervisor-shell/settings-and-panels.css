@@ -543,7 +543,9 @@
 .hypervisor-settings-reference-field em,
 .hypervisor-settings-reference-switch em,
 .hypervisor-settings-reference-account-row em,
-.hypervisor-settings-reference-list span {
+.hypervisor-settings-reference-list span,
+.hypervisor-settings-reference-list em,
+.hypervisor-settings-reference-boundary dd {
   margin: 0;
   color: #6b6b6b;
   font-size: 12px;
@@ -918,8 +920,41 @@
   gap: 4px;
 }
 
+.hypervisor-settings-reference-list em {
+  color: #475467;
+  font-family: "ABC Diatype Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+}
+
 .hypervisor-settings-reference-list button {
   min-height: 32px;
+}
+
+.hypervisor-settings-reference-boundary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.hypervisor-settings-reference-boundary div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.hypervisor-settings-reference-boundary dt {
+  margin: 0;
+  color: #303030;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .hypervisor-settings-sidebar {
