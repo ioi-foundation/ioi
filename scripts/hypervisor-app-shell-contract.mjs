@@ -154,11 +154,13 @@ async function main() {
     );
     const brandMark = page.locator(".chat-activity-brand svg").first();
     const brandMarkBox = await brandMark.boundingBox();
+    const brandTickCount = await page.locator(".chat-activity-brand-tick").count();
     assert(
       (await page.locator(".chat-activity-brand svg polygon").count()) >= 10 &&
         brandMarkBox &&
         brandMarkBox.width <= 22 &&
-        brandMarkBox.height <= 22,
+        brandMarkBox.height <= 22 &&
+        brandTickCount === 2,
       "Left rail brand mark must render as the small filled IOI reference mark.",
     );
     const seededIntent =

@@ -258,11 +258,13 @@
 
 .chat-activity-brand {
   width: auto;
+  min-width: 50px;
   height: 32px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -273,6 +275,15 @@
 .chat-activity-brand svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
+}
+
+.chat-activity-brand-tick {
+  width: 1px;
+  height: 13px;
+  display: block;
+  flex-shrink: 0;
+  background: #151515;
 }
 
 .chat-activity-collapse-button {
@@ -5296,7 +5307,7 @@
 }
 
 .chat-activity-brand {
-  width: 42px;
+  width: 50px;
   height: 32px;
   color: var(--chat-activity-text-strong);
 }
@@ -5304,6 +5315,15 @@
 .chat-activity-brand svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
+}
+
+.chat-activity-brand-tick {
+  width: 1px;
+  height: 13px;
+  display: block;
+  flex-shrink: 0;
+  background: #151515;
 }
 
 .chat-activity-collapse-button {

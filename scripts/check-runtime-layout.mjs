@@ -709,6 +709,9 @@ assert(
     /\.chat-activity-brand svg\s*\{[\s\S]*width: 18px;[\s\S]*height: 18px;/.test(
       hypervisorShellBaseCssSource,
     ) &&
+    /\.chat-activity-brand-tick\s*\{[\s\S]*width: 1px;[\s\S]*height: 13px;/.test(
+      hypervisorShellBaseCssSource,
+    ) &&
     !hypervisorActivityBarSource.includes("chat-activity-button--account") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
       hypervisorShellNavigationSource,
