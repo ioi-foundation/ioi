@@ -1917,7 +1917,7 @@ type HarnessReplayGateClickResult = {
 
 function readHarnessReplayGateClickResult(): HarnessReplayGateClickResult | null {
   if (typeof window === "undefined") return null;
-  const result = (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT;
+  const result = (window as any).__HYPERVISOR_HARNESS_REPLAY_GATE_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessReplayGateClickResult)
     : null;
@@ -1949,7 +1949,7 @@ type HarnessActivationDryRunClickResult = {
 function readHarnessActivationDryRunClickResult(): HarnessActivationDryRunClickResult | null {
   if (typeof window === "undefined") return null;
   const result = (window as any)
-    .__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT;
+    .__HYPERVISOR_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActivationDryRunClickResult)
     : null;
@@ -1999,7 +1999,7 @@ type HarnessActivationMintClickResult = {
 function readHarnessActivationMintClickResult(): HarnessActivationMintClickResult | null {
   if (typeof window === "undefined") return null;
   const result = (window as any)
-    .__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT;
+    .__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActivationMintClickResult)
     : null;
@@ -2046,7 +2046,7 @@ type HarnessActiveRuntimeRollbackApplyClickResult = {
 function readHarnessActiveRuntimeRollbackDryRunClickResult(): HarnessActiveRuntimeRollbackDryRunClickResult | null {
   if (typeof window === "undefined") return null;
   const result = (window as any)
-    .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT;
+    .__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActiveRuntimeRollbackDryRunClickResult)
     : null;
@@ -2055,7 +2055,7 @@ function readHarnessActiveRuntimeRollbackDryRunClickResult(): HarnessActiveRunti
 function readHarnessActiveRuntimeRollbackApplyClickResult(): HarnessActiveRuntimeRollbackApplyClickResult | null {
   if (typeof window === "undefined") return null;
   const result = (window as any)
-    .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT;
+    .__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActiveRuntimeRollbackApplyClickResult)
     : null;
@@ -4605,10 +4605,10 @@ export function useWorkflowComposerController({
       try {
         if (typeof window !== "undefined") {
           (window as any)
-            .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT =
+            .__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT =
             null;
           (window as any)
-            .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT = null;
+            .__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT = null;
         }
         if (!parsed) {
           blockers.push("active_runtime_rollback_execution_hash_parse_failed");
@@ -6821,7 +6821,7 @@ export function useWorkflowComposerController({
           ...readHarnessPackageImportHandoffState(),
         };
         if (typeof window !== "undefined") {
-          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+          (window as any).__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
             null;
         }
         const button = document.querySelector<HTMLButtonElement>(
@@ -8239,7 +8239,7 @@ export function useWorkflowComposerController({
       let afterInspectorState: Record<string, string> = {};
       try {
         if (typeof window !== "undefined") {
-          (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT = null;
+          (window as any).__HYPERVISOR_HARNESS_REPLAY_GATE_CLICK_RESULT = null;
         }
         if (!parsed) {
           blockers.push("activation_gate_collect_evidence_hash_parse_failed");
@@ -8403,7 +8403,7 @@ export function useWorkflowComposerController({
       let rollbackRestoreDeepLinkState: Record<string, string> = {};
       try {
         if (typeof window !== "undefined") {
-          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
+          (window as any).__HYPERVISOR_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
             null;
         }
         if (!parsed) {
@@ -8729,9 +8729,9 @@ export function useWorkflowComposerController({
 
       try {
         if (typeof window !== "undefined") {
-          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
+          (window as any).__HYPERVISOR_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
             null;
-          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+          (window as any).__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
             null;
         }
         await stageWorkflow(
@@ -8788,7 +8788,7 @@ export function useWorkflowComposerController({
           blockers.push("activation_id_gate_candidate_not_mintable");
         }
         if (typeof window !== "undefined") {
-          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+          (window as any).__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
             null;
         }
         await stageWorkflow(
@@ -11928,7 +11928,7 @@ export function useWorkflowComposerController({
           result.gate.blockingReplayFixtureRefs.length === 1 ? "" : "s"
         }`;
     if (HARNESS_PROMOTION_LIVE_GUI_SCRIPT && typeof window !== "undefined") {
-      (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT = {
+      (window as any).__HYPERVISOR_HARNESS_REPLAY_GATE_CLICK_RESULT = {
         gateId: result.gate.gateId,
         gateStatus: result.gate.gateStatus,
         activationGateImpact: result.gate.activationGateImpact,
@@ -12768,7 +12768,7 @@ export function useWorkflowComposerController({
         candidate.gateResults.find(
           (gate) => gate.gateId === "rollback-restore",
         ) ?? null;
-      (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT = {
+      (window as any).__HYPERVISOR_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT = {
         candidateId: candidate.candidateId,
         decision: candidate.decision,
         activationBlockerCount: candidate.activationBlockers.length,
@@ -12851,7 +12851,7 @@ export function useWorkflowComposerController({
           activationAudit.length > 0
             ? activationAudit[activationAudit.length - 1]
             : null;
-        (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
+        (window as any).__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
           applied: false,
           activationId: result.activationId ?? null,
           blockers: result.blockers,
@@ -12948,7 +12948,7 @@ export function useWorkflowComposerController({
         activationAudit.length > 0
           ? activationAudit[activationAudit.length - 1]
           : null;
-      (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
+      (window as any).__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
         applied: true,
         activationId: result.activationId ?? null,
         blockers: result.blockers,
@@ -13127,7 +13127,7 @@ export function useWorkflowComposerController({
         }`;
     if (typeof window !== "undefined") {
       (window as any)
-        .__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT = {
+        .__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT = {
         passed: result.passed,
         blockers: result.blockers,
         rollbackTarget: result.proof.rollbackTarget,
@@ -13171,7 +13171,7 @@ export function useWorkflowComposerController({
           result.blockers.length === 1 ? "" : "s"
         }`;
     if (typeof window !== "undefined") {
-      (window as any).__AUTOPILOT_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT =
+      (window as any).__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT =
         {
           passed: result.proof.passed,
           applied: result.applied,
@@ -14920,8 +14920,8 @@ export function useWorkflowComposerController({
       if (typeof payload.phase === "string") {
         lastProbePhase = payload.phase;
       }
-      (window as any).__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT = {
-        ...(window as any).__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT,
+      (window as any).__HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI_RESULT = {
+        ...(window as any).__HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI_RESULT,
         ...payload,
         proofWorkflowPath,
         updatedAtMs: Date.now(),
@@ -15532,8 +15532,8 @@ export function useWorkflowComposerController({
     dogfoodAutomationStarted.current = true;
 
     const publishDogfoodState = (payload: Record<string, unknown>) => {
-      (window as any).__AUTOPILOT_WORKFLOW_DOGFOOD_RESULT = {
-        ...(window as any).__AUTOPILOT_WORKFLOW_DOGFOOD_RESULT,
+      (window as any).__HYPERVISOR_WORKFLOW_DOGFOOD_RESULT = {
+        ...(window as any).__HYPERVISOR_WORKFLOW_DOGFOOD_RESULT,
         ...payload,
         updatedAtMs: Date.now(),
       };

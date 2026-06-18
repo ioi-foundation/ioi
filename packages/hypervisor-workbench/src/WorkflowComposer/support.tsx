@@ -320,12 +320,12 @@ export const SCRATCH_HEAVY_BLUEPRINTS: ScratchWorkflowBlueprintId[] = [
 export const SCRATCH_DOGFOOD_SCRIPT =
   typeof import.meta !== "undefined"
     ? ((import.meta as unknown as { env?: Record<string, string | undefined> })
-        .env?.VITE_AUTOPILOT_WORKFLOW_DOGFOOD_SCRIPT as string | undefined)
+        .env?.VITE_HYPERVISOR_WORKFLOW_DOGFOOD_SCRIPT as string | undefined)
     : undefined;
 export const HARNESS_PROMOTION_LIVE_GUI_SCRIPT =
   typeof import.meta !== "undefined"
     ? ((import.meta as unknown as { env?: Record<string, string | undefined> })
-        .env?.VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI === "1")
+        .env?.VITE_HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI === "1")
     : false;
 
 export function WorkflowHeaderAction({

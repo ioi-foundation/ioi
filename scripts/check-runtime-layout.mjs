@@ -155,6 +155,13 @@ const hypervisorModelMountInventoryModelSource = read(
 const hypervisorAutomationCompositorModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
 );
+const workflowComposerControllerSource = read(
+  "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+);
+const workflowComposerSupportSource = read(
+  "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+);
+const workflowComposerHarnessSource = `${workflowComposerControllerSource}\n${workflowComposerSupportSource}`;
 const hypervisorAgentsModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
 );
@@ -447,6 +454,7 @@ const activeHypervisorEnvFiles = [
   "apps/hypervisor/scripts/dev_reuse_session_probe.py",
   "apps/hypervisor/scripts/desktop_prompt_probe.py",
   "apps/hypervisor/scripts/dry-run-desktop.sh",
+  "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
   "crates/api/src/chat.rs",
   "crates/node/src/bin/ioi-local.rs",
@@ -545,6 +553,26 @@ assert(
     ),
   activeHypervisorEnvFiles,
   "Active Hypervisor harness/dev environment names must use Hypervisor prefixes; retired AUTOPILOT_* env shims must not return.",
+);
+assert(
+  "workflow-composer-harness-globals-hypervisor-named",
+  [
+    "__HYPERVISOR_HARNESS_REPLAY_GATE_CLICK_RESULT",
+    "__HYPERVISOR_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT",
+    "__HYPERVISOR_HARNESS_ACTIVATION_MINT_CLICK_RESULT",
+    "__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_DRY_RUN_RESULT",
+    "__HYPERVISOR_HARNESS_ACTIVE_RUNTIME_ROLLBACK_APPLY_RESULT",
+    "__HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI_RESULT",
+    "__HYPERVISOR_WORKFLOW_DOGFOOD_RESULT",
+    "VITE_HYPERVISOR_WORKFLOW_DOGFOOD_SCRIPT",
+    "VITE_HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI",
+  ].every((token) => workflowComposerHarnessSource.includes(token)) &&
+    !/__AUTOPILOT_|VITE_AUTOPILOT_/.test(workflowComposerHarnessSource),
+  [
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+  ],
+  "Workflow Composer harness globals and env flags must use Hypervisor names, not retired Autopilot names.",
 );
 assert(
   "hypervisor-client-runtime-command-names",

@@ -1069,6 +1069,13 @@ Current implementation cut:
   `HYPERVISOR_HARNESS_DEFAULT_PROMOTION`, and
   `HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT`. The old
   `AUTOPILOT_*` harness/dev env family is rejected by `check:runtime-layout`.
+  active Workflow Composer proof globals and browser harness env flags now use
+  the Hypervisor namespace:
+  `__HYPERVISOR_HARNESS_*`, `__HYPERVISOR_WORKFLOW_DOGFOOD_RESULT`,
+  `VITE_HYPERVISOR_WORKFLOW_DOGFOOD_SCRIPT`, and
+  `VITE_HYPERVISOR_HARNESS_PROMOTION_LIVE_GUI`. `check:runtime-layout`
+  rejects retired `__AUTOPILOT_*` and `VITE_AUTOPILOT_*` tokens in the active
+  Workflow Composer harness sources.
   the code editor adapter host is now only a code-editor target. It syncs the
   `ioi-code-editor-adapter` extension into the packaged editor host and does
   not patch, project, or host Hypervisor Home, Sessions, Projects, Workbench,
