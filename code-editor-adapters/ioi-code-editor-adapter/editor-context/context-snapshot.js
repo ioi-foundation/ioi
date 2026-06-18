@@ -6,24 +6,7 @@ function createCodeEditorContextSnapshot({
   vscode,
   workspaceSummary,
   buildRuntimeRefs,
-  refSafe,
 }) {
-  const recentTaskLabels = [];
-  let lastTaskExitCode = null;
-
-  function rememberRecentTaskLabel(label) {
-    const normalized = typeof label === "string" ? label.trim() : "";
-    if (!normalized) {
-      return;
-    }
-    const existingIndex = recentTaskLabels.indexOf(normalized);
-    if (existingIndex >= 0) {
-      recentTaskLabels.splice(existingIndex, 1);
-    }
-    recentTaskLabels.unshift(normalized);
-    recentTaskLabels.splice(8);
-  }
-
   function toCodeEditorRange(range) {
     if (!range) {
       return null;
@@ -131,19 +114,6 @@ function createCodeEditorContextSnapshot({
     }
   }
 
-  function buildCodeEditorTaskState() {
-    const activeTaskLabels = (vscode.tasks.taskExecutions || [])
-      .map((execution) => execution.task?.name)
-      .filter((label) => typeof label === "string" && label.trim());
-    const recentLabels = Array.from(new Set([...activeTaskLabels, ...recentTaskLabels]));
-    return {
-      activeTaskLabels,
-      recentTaskLabels: recentLabels.slice(0, 8),
-      lastExitCode: lastTaskExitCode,
-      checkRefs: recentLabels.slice(0, 8).map((label) => `task:${refSafe(label)}`),
-    };
-  }
-
   function activeEditorRef(editor) {
     if (!editor) {
       return null;
@@ -221,12 +191,6 @@ function createCodeEditorContextSnapshot({
       })),
       diagnostics,
       scmState: buildCodeEditorScmState(openEditors),
-      taskState: buildCodeEditorTaskState(),
-      terminalState: {
-        terminalCount: vscode.window.terminals.length,
-        activeTerminalName: vscode.window.activeTerminal?.name || null,
-        taskBacked: false,
-      },
       visibleView: {
         activeTextEditorVisible: Boolean(activeEditor),
         activeTabCount: openEditors.length,
@@ -296,23 +260,6 @@ function createCodeEditorContextSnapshot({
           },
         ]
       : [];
-    const activeTaskTargets = (vscode.tasks.taskExecutions || []).map((execution, index) => ({
-      targetId: `task.active.${index}`,
-      label: execution.task?.name || "Active task",
-      surface: "problems",
-      locators: [
-        {
-          kind: "vscode-command",
-          commandId: "workbench.action.tasks.showLog",
-        },
-        {
-          kind: "vscode-command",
-          commandId: "workbench.action.terminal.toggleTerminal",
-        },
-      ],
-      fallbackAllowed: true,
-    }));
-
     return {
       schemaVersion: "ioi.code-editor-adapter.v1",
       indexId: "code-editor-target-index:latest",
@@ -323,103 +270,10 @@ function createCodeEditorContextSnapshot({
       reason,
       runtimeRefs: buildRuntimeRefs(),
       targets: [
-        {
-          targetId: "activity.explorer",
-          label: "Explorer activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.explorer",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.search",
-          label: "Search activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.search",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.scm",
-          label: "Source control activity",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.scm",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "explorer",
-          label: "Explorer",
-          surface: "explorer",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.view.explorer",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "terminal.panel",
-          label: "Terminal panel",
-          surface: "terminal",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.action.terminal.toggleTerminal",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "checks.tasks",
-          label: "Tasks and checks",
-          surface: "problems",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.action.tasks.runTask",
-            },
-            {
-              kind: "vscode-command",
-              commandId: "workbench.action.tasks.showLog",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "problems.panel",
-          label: "Problems panel",
-          surface: "problems",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "workbench.actions.view.problems",
-            },
-          ],
-          fallbackAllowed: true,
-        },
         ...openEditorTargets,
         ...activeEditorTarget,
-        ...activeTaskTargets,
       ],
     };
-  }
-
-  function setLastTaskExitCode(value) {
-    lastTaskExitCode = value;
   }
 
   return {
@@ -427,12 +281,8 @@ function createCodeEditorContextSnapshot({
     buildCodeEditorContextSnapshot,
     buildCodeEditorInspectionTargetIndex,
     buildCodeEditorScmState,
-    buildCodeEditorTaskState,
     diagnosticSeverityLabel,
-    getLastTaskExitCode: () => lastTaskExitCode,
-    rememberRecentTaskLabel,
     selectedTextHash,
-    setLastTaskExitCode,
     toCodeEditorRange,
     uriToRef,
   };

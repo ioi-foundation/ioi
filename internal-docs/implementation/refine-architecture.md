@@ -614,7 +614,7 @@ Target information architecture:
 | Sessions | Every live, idle, archived, blocked, or restorable run | Hypervisor Session + Agentgres receipts |
 | Projects | Workspace/project roots, private state, repos, environments | Hypervisor Project + Agentgres refs |
 | Missions | Goal-driven autonomous runs with acceptance criteria | Workflow Compositor + selected HarnessProfile |
-| Workbench | Code/systems workspace with editor/terminal/browser adapters | Hypervisor Workbench + Adapter Targets |
+| Workbench | Code/systems workspace with governed code-editor targets | Hypervisor Workbench + CodeEditorAdapter targets |
 | Automations / Workflows | Repeatable workflow templates, scheduled runs, and compositor graphs | Workflow Compositor |
 | Insights | Runtime metrics, run analytics, quality trends, cost/latency, failure patterns | Agentgres projections + trace/receipt projections |
 | Agents | Workers, harness adapters, skills, access, and receipts | aiagent + wallet.network authority |
@@ -636,15 +636,18 @@ Core UX decisions:
    - global Models surface for inventory, providers, endpoints, downloads;
    - contextual step inside New Session / Create Agent / Mission setup.
 5. Workbench owns code-editor and workspace target choice:
-   embedded editor host, desktop editor bridge, browser IDE, terminal/tmux,
-   provider workspace, HypervisorOS node, or substrate preview.
-6. Embedded editor hosts are optional adapter targets, not product identity.
-7. IOI-reference "Automations" maps to Hypervisor Workflow Compositor:
+   embedded editor host, desktop editor target, browser IDE, or substrate
+   preview.
+6. Terminal/tmux, browser automation, provider workspace, VM, HypervisorOS
+   node, and persistent provider posture belong to Sessions, Environments,
+   Providers, and runtime operations; they are not code-editor adapter duties.
+7. Embedded editor hosts are optional adapter targets, not product identity.
+8. IOI-reference "Automations" maps to Hypervisor Workflow Compositor:
    templates, repeatable graphs, scheduled runs, and reusable run recipes,
    not a separate runtime.
-8. Every session row shows model, harness, authority, privacy posture, receipts,
+9. Every session row shows model, harness, authority, privacy posture, receipts,
    project, environment, cost/budget, and restore state.
-9. Right-side inspectors should be contextual:
+10. Right-side inspectors should be contextual:
    selected session -> changes/receipts/privacy/authority/replay
    selected model -> provider/custody/runtime health
    selected workflow -> gates/receipts/versions
@@ -1085,6 +1088,12 @@ Current implementation cut:
   status/output UI, polls bridge command queues, reads daemon model-mount state,
   emits command-route receipt envelopes, or accepts product-shell routes such as
   command center, workflow, models, runs, policy, or connectors.
+  The adapter context publisher is editor-only: it listens to active editor,
+  selection, diagnostics, and tab changes, and it no longer listens to terminal
+  or task lifecycle events. The inspection target index no longer advertises
+  activity-rail, terminal, task, or problems-panel targets; those controls live
+  in Hypervisor Sessions, Environments, provider views, and runtime operation
+  proposals.
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.
@@ -1234,8 +1243,8 @@ Current implementation cut:
   The old adapter-state bridge path is deleted: `workspaceAdapterState`,
   `workspaceAdapterStateLifecycle`, and `workspaceInspection` no longer project
   chat, workflows, runs, policy, connectors, artifacts, or product navigation
-  into an editor/session adapter. Workspace sessions mount the governed
-  files/editor/terminal substrate only; product state stays in Hypervisor
+  into an editor/session adapter. Workbench sessions mount the governed
+  code-editor workspace substrate only; product state stays in Hypervisor
   Home/Sessions/Projects/Automations/Agents/Models/Authority/Receipts surfaces.
   The former Workbench chooser component and its tests are deleted instead of
   preserved as absence-test ballast.
@@ -1472,7 +1481,8 @@ Current implementation cut:
   visible product chrome no longer exposes object heads, state roots, restore
   refs, raw Agentgres language, or a code-repository / pull-request console.
   This fixes the boundary: Projects is the project/template surface; Workbench
-  owns code repositories, editor choice, terminal/browser adapters, and
+  owns code-editor sessions and repository editing posture, while terminal,
+  browser, VM, and provider operations stay with Sessions/Environments and
   repository recents. Remaining work is live project projection hydration,
   archive/restore operation proposals in the appropriate inspector, and
   paginated project receipt history.

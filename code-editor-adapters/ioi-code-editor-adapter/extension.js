@@ -25,10 +25,6 @@ function workspaceSummary() {
   };
 }
 
-function refSafe(value) {
-  return String(value ?? "unknown").replace(/[^a-z0-9._:-]+/gi, "-");
-}
-
 const contextTransport = createCodeEditorAdapterTransport({
   transportUrl,
 });
@@ -42,7 +38,6 @@ const editorContext = createCodeEditorContextSnapshot({
   vscode,
   workspaceSummary,
   buildRuntimeRefs,
-  refSafe,
 });
 
 function activate(context) {
@@ -52,9 +47,6 @@ function activate(context) {
     buildCodeEditorContextSnapshot: editorContext.buildCodeEditorContextSnapshot,
     buildCodeEditorInspectionTargetIndex: editorContext.buildCodeEditorInspectionTargetIndex,
     writeContextEnvelope,
-    rememberRecentTaskLabel: editorContext.rememberRecentTaskLabel,
-    getLastTaskExitCode: editorContext.getLastTaskExitCode,
-    setLastTaskExitCode: editorContext.setLastTaskExitCode,
     reportError: (error) => {
       console.warn(
         "[IOI Code Editor Adapter] Context snapshot failed:",

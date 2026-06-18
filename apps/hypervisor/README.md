@@ -115,12 +115,14 @@ packages/
 
 ### Hypervisor Surfaces
 - Sessions for live governed runs, approvals, blockers, receipts, and replay.
-- Workbench for code/systems work through editor, terminal, browser, and VM adapters.
+- Workbench for code/systems work through governed code-editor targets.
 - Automations for workflow composition, templates, schedules, and reusable runs.
 - Models for daemon-owned local model discovery, load, unload, route, server,
   log, receipt, and replay state.
-- Authority, Privacy, provider/environment views, Foundry, and Receipts over
-  the same daemon/Core contracts.
+- Terminal, browser, VM, HypervisorOS node, and cloud/provider operations live
+  in Sessions and provider/environment views over the same daemon/Core
+  contracts.
+- Authority, Privacy, Foundry, and Receipts use the same daemon/Core contracts.
 
 ### Daemon-Owned Authority
 - Hypervisor App and Workbench must not directly execute durable runtime work.

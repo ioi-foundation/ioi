@@ -6,9 +6,6 @@ function startCodeEditorContextPublisher({
   buildCodeEditorContextSnapshot,
   buildCodeEditorInspectionTargetIndex,
   writeContextEnvelope,
-  rememberRecentTaskLabel,
-  getLastTaskExitCode,
-  setLastTaskExitCode,
   reportError,
 }) {
   let lastHash = "";
@@ -69,19 +66,6 @@ function startCodeEditorContextPublisher({
     vscode.window.onDidChangeTextEditorSelection(() => void publish("selection")),
     vscode.languages.onDidChangeDiagnostics(() => void publish("diagnostics")),
     vscode.window.tabGroups.onDidChangeTabs(() => void publish("tabs")),
-    vscode.window.onDidOpenTerminal(() => void publish("terminal")),
-    vscode.window.onDidCloseTerminal(() => void publish("terminal")),
-    vscode.tasks.onDidStartTask((event) => {
-      rememberRecentTaskLabel(event.execution?.task?.name);
-      void publish("task");
-    }),
-    vscode.tasks.onDidEndTaskProcess((event) => {
-      rememberRecentTaskLabel(event.execution?.task?.name);
-      setLastTaskExitCode(
-        typeof event.exitCode === "number" ? event.exitCode : getLastTaskExitCode(),
-      );
-      void publish("task");
-    }),
   ];
   subscriptions.forEach((subscription) => context.subscriptions.push(subscription));
 

@@ -65,12 +65,8 @@ function createMockVscode() {
         ],
       ]],
     },
-    tasks: {
-      taskExecutions: [{ task: { name: "npm test" } }],
-    },
     window: {
       activeEditor: null,
-      activeTerminal: { name: "bash" },
       activeTextEditor: {
         document: {
           fileName: "/workspace/src/app.js",
@@ -95,21 +91,16 @@ function createMockVscode() {
           },
         ],
       },
-      terminals: [{ name: "bash" }],
     },
   };
 }
 
-test("code editor context snapshot projects editor, scm, diagnostics, tasks, and runtime refs", () => {
+test("code editor context snapshot projects editor, scm, diagnostics, and runtime refs", () => {
   const helpers = createCodeEditorContextSnapshot({
     vscode: createMockVscode(),
     workspaceSummary: () => ({ name: "workspace", path: "/workspace" }),
     buildRuntimeRefs: () => ({ daemon: "runtime://local" }),
-    refSafe: (value) => String(value || "unknown").replace(/[^a-z0-9]+/gi, "-"),
   });
-
-  helpers.rememberRecentTaskLabel("cargo test");
-  helpers.setLastTaskExitCode(0);
 
   const snapshot = helpers.buildCodeEditorContextSnapshot("unit");
   assert.equal(snapshot.schemaVersion, "ioi.code-editor-adapter.v1");
@@ -121,12 +112,17 @@ test("code editor context snapshot projects editor, scm, diagnostics, tasks, and
   assert.equal(snapshot.diagnostics[0].severity, "warning");
   assert.equal(snapshot.scmState.provider, "git");
   assert.equal(snapshot.scmState.branch, "main");
-  assert.equal(snapshot.taskState.lastExitCode, 0);
-  assert.deepEqual(snapshot.taskState.recentTaskLabels, ["npm test", "cargo test"]);
+  assert.equal(Object.hasOwn(snapshot, "taskState"), false);
+  assert.equal(Object.hasOwn(snapshot, "terminalState"), false);
   assert.deepEqual(snapshot.runtimeRefs, { daemon: "runtime://local" });
 
   const index = helpers.buildCodeEditorInspectionTargetIndex("unit");
   assert.equal(index.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.ok(index.targets.some((target) => target.targetId === "editor.active"));
-  assert.ok(index.targets.some((target) => target.targetId === "terminal.panel"));
+  assert.ok(index.targets.some((target) => target.targetId === "editor.tab.0.0"));
+  assert.ok(index.targets.some((target) => target.targetId === "explorer.active-file"));
+  assert.equal(index.targets.some((target) => target.targetId === "terminal.panel"), false);
+  assert.equal(index.targets.some((target) => target.targetId === "checks.tasks"), false);
+  assert.equal(index.targets.some((target) => target.targetId === "problems.panel"), false);
+  assert.equal(index.targets.some((target) => target.surface === "activity-rail"), false);
 });

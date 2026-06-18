@@ -124,6 +124,9 @@ const codeEditorAdapterTransportClient = read(
 const codeEditorAdapterPublisher = read(
   "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
 );
+const codeEditorAdapterContextSnapshot = read(
+  "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-snapshot.js",
+);
 const hypervisorDevStartIntentProbe = read(
   "apps/hypervisor/scripts/dev_start_intent_probe.py",
 );
@@ -845,6 +848,15 @@ assert(
     !/workbench\.contextSnapshot|workbench\.inspectionTargetIndex/.test(
       codeEditorAdapterPublisher,
     ) &&
+    !/onDidOpenTerminal|onDidCloseTerminal|onDidStartTask|onDidEndTaskProcess/.test(
+      codeEditorAdapterPublisher,
+    ) &&
+    codeEditorAdapterContextSnapshot.includes("activeEditorRef") &&
+    codeEditorAdapterContextSnapshot.includes("buildCodeEditorScmState") &&
+    codeEditorAdapterContextSnapshot.includes("diagnostics") &&
+    !/taskState|terminalState|taskExecutions|terminals|activity\.(?:explorer|search|scm)|terminal\.panel|checks\.tasks|problems\.panel|surface:\s*"activity-rail"|surface:\s*"terminal"|surface:\s*"problems"|workbench\.action\.tasks|workbench\.action\.terminal|workbench\.actions\.view\.problems/.test(
+      codeEditorAdapterContextSnapshot,
+    ) &&
     !/daemonEndpoint|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/.test(
       codeEditorAdapterTransportClient,
     ),
@@ -853,8 +865,9 @@ assert(
     "code-editor-adapters/ioi-code-editor-adapter/extension.js",
     "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
     "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+    "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-snapshot.js",
   ],
-  "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, and daemon model-mount state belong to the Hypervisor shell/daemon.",
+  "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, terminal/tasks/provider controls, and daemon model-mount state belong to the Hypervisor shell/daemon.",
 );
 assert(
   "code-editor-adapter-fork-sync-target-only",
