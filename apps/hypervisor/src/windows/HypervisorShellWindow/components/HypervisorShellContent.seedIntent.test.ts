@@ -317,7 +317,7 @@ assert.match(
 
 assert.doesNotMatch(
   source,
-  /Configured workers, skills, memory, and capability leases|Hypervisor Daemon remains runtime truth|Daemon Owned|Proposal Source Only|Encrypted Agentgres refs|weights exposed/i,
+  /Configured workers, skills, memory, and capability leases|Configure workers|>Leases<|Hypervisor Daemon remains runtime truth|Daemon Owned|Proposal Source Only|Encrypted Agentgres refs|weights exposed/i,
   "Application surfaces should not put daemon/runtime-truth doctrine into visible product copy",
 );
 

@@ -28,8 +28,8 @@ export const WORKSPACE_NAME = "IOI Workspace";
 export const PROJECT_SCOPES: ProjectScope[] = [
   {
     id: "hypervisor-core",
-    name: "Hypervisor Workspace",
-    description: "Shared substrate for governed sessions, adapters, and operator surfaces.",
+    name: "IOI Workspace",
+    description: "Governed sessions, adapters, agents, and operator surfaces.",
     environment: "Production",
     rootPath: ".",
   },

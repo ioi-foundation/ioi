@@ -351,11 +351,10 @@ function HypervisorAgentsSurface({
     >
       <div className="hypervisor-agents__header">
         <div>
-          <span>Workspace</span>
           <h2>Agents</h2>
           <p>
-            Configure workers, skills, memory, model access, and scoped
-            permissions for this workspace.
+            Configure agents, skills, memory, model access, and scoped
+            permissions.
           </p>
         </div>
         <button type="button" onClick={onOpenAuthority}>
@@ -371,7 +370,7 @@ function HypervisorAgentsSurface({
           Running <span>{activeAgents}</span>
         </button>
         <button type="button">
-          Leases <span>{leaseCount}</span>
+          Access <span>{leaseCount}</span>
         </button>
         <button type="button">
           Memory <span>{memoryCount}</span>

@@ -806,6 +806,10 @@ export const HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = [
   "projects",
   "automations",
   "insights",
+  "agents",
+  "models",
+  "privacy",
+  "authority",
   "sessions",
 ] as const satisfies readonly HypervisorSurfaceId[];
 

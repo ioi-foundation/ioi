@@ -152,7 +152,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(source, /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/);
   assert.match(
     source,
-    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"sessions"[\s\S]*\]/,
+    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"agents"[\s\S]*"models"[\s\S]*"privacy"[\s\S]*"authority"[\s\S]*"sessions"[\s\S]*\]/,
   );
   assert.match(
     source,
@@ -555,7 +555,7 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /data-agent-capability-lease/);
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
-  assert.match(shellContent, /Configure workers, skills, memory, model access, and scoped/);
+  assert.match(shellContent, /Configure agents, skills, memory, model access, and scoped/);
   assert.match(shellContent, /formatAgentHarnessLabel/);
   assert.match(shellContent, /formatCapabilityRef/);
   assert.match(shellContent, /formatModelRouteRef/);
@@ -573,6 +573,8 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /return "Code tool"/);
   assert.doesNotMatch(shellContent, /Runtime actors/);
   assert.doesNotMatch(shellContent, /Configured workers/);
+  assert.doesNotMatch(shellContent, /Configure workers/);
+  assert.doesNotMatch(shellContent, />Leases</);
   assert.doesNotMatch(shellContent, /Manage authority/);
   assert.doesNotMatch(shellContent, /Review leases/);
   assert.doesNotMatch(shellContent, /Daemon Owned/);
