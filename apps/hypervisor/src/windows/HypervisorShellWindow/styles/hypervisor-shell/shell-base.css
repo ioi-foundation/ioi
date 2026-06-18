@@ -4650,6 +4650,383 @@
   }
 }
 
+.hypervisor-model-infrastructure {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 34px 40px;
+  background: #ffffff;
+  color: #171719;
+  overflow: auto;
+}
+
+.hypervisor-model-infrastructure__header {
+  flex: 0 0 auto;
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+}
+
+.hypervisor-model-infrastructure__header span,
+.hypervisor-model-infrastructure__list-head,
+.hypervisor-model-infrastructure__detail-list dt {
+  color: #6f737b;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.hypervisor-model-infrastructure__header h2 {
+  margin: 0;
+  color: #171719;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.hypervisor-model-infrastructure__header p {
+  max-width: 620px;
+  margin: 0;
+  color: #4b4f58;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hypervisor-model-infrastructure__tabs {
+  flex: 0 0 auto;
+  width: min(1120px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e7e7e5;
+  padding-bottom: 8px;
+}
+
+.hypervisor-model-infrastructure__tabs button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5f646d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 10px;
+}
+
+.hypervisor-model-infrastructure__tabs button:hover,
+.hypervisor-model-infrastructure__tabs button.is-active {
+  background: #f3f4f4;
+  color: #171719;
+}
+
+.hypervisor-model-infrastructure__tabs span {
+  color: #8a8f98;
+  font-size: 12px;
+}
+
+.hypervisor-model-infrastructure__workplane {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 356px;
+  gap: 20px;
+}
+
+.hypervisor-model-infrastructure__list {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dededc;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.hypervisor-model-infrastructure__list-head,
+.hypervisor-model-infrastructure__row {
+  display: grid;
+  grid-template-columns: minmax(250px, 1.15fr) minmax(140px, 0.75fr) minmax(180px, 0.9fr) minmax(150px, 0.8fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.hypervisor-model-infrastructure__list-head {
+  min-height: 39px;
+  border-bottom: 1px solid #ededeb;
+  background: #fbfbfa;
+  padding: 0 14px;
+}
+
+.hypervisor-model-infrastructure__row {
+  width: 100%;
+  min-height: 64px;
+  border: 0;
+  border-bottom: 1px solid #ededeb;
+  background: transparent;
+  color: #171719;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0 14px;
+}
+
+.hypervisor-model-infrastructure__row:last-child {
+  border-bottom: 0;
+}
+
+.hypervisor-model-infrastructure__row:hover,
+.hypervisor-model-infrastructure__row[aria-current="true"] {
+  background: #f7f7f6;
+}
+
+.hypervisor-model-infrastructure__row-route {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.hypervisor-model-infrastructure__row-route i {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  border-radius: 999px;
+  background: #a9adb5;
+}
+
+.hypervisor-model-infrastructure__row[data-model-route-status="active"]
+  .hypervisor-model-infrastructure__row-route i {
+  background: #1fa971;
+}
+
+.hypervisor-model-infrastructure__row-route span,
+.hypervisor-model-infrastructure__row-route strong,
+.hypervisor-model-infrastructure__row-route em,
+.hypervisor-model-infrastructure__row-provider,
+.hypervisor-model-infrastructure__row-custody,
+.hypervisor-model-infrastructure__row-scopes {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-model-infrastructure__row-route span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hypervisor-model-infrastructure__row-route strong {
+  color: #171719;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hypervisor-model-infrastructure__row-route em,
+.hypervisor-model-infrastructure__row-provider,
+.hypervisor-model-infrastructure__row-custody,
+.hypervisor-model-infrastructure__row-scopes {
+  color: #4b4f58;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.hypervisor-model-infrastructure__detail {
+  min-width: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid #dededc;
+  border-radius: 10px;
+  background: #fbfbfa;
+  padding: 16px;
+}
+
+.hypervisor-model-infrastructure__detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hypervisor-model-infrastructure__detail-head > span {
+  width: fit-content;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eeeeec;
+  color: #4b4f58;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 0 8px;
+  text-transform: capitalize;
+}
+
+.hypervisor-model-infrastructure__detail h3 {
+  margin: 0;
+  color: #171719;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-model-infrastructure__detail p {
+  margin: 0;
+  color: #4b4f58;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.hypervisor-model-infrastructure__detail-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  border-top: 1px solid #ededeb;
+  padding: 14px 0 0;
+}
+
+.hypervisor-model-infrastructure__detail-list div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.hypervisor-model-infrastructure__detail-list dt,
+.hypervisor-model-infrastructure__detail-list dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.hypervisor-model-infrastructure__detail-list dd,
+.hypervisor-model-infrastructure__detail-section code {
+  overflow: hidden;
+  color: #171719;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-model-infrastructure__detail-section {
+  display: grid;
+  gap: 8px;
+}
+
+.hypervisor-model-infrastructure__detail-section h4 {
+  margin: 0;
+  color: #171719;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hypervisor-model-infrastructure__detail-section > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  border: 1px solid #ededeb;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.hypervisor-model-infrastructure__detail-section strong {
+  color: #171719;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.hypervisor-model-infrastructure__detail-section em {
+  color: #6f737b;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.hypervisor-model-infrastructure__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px solid #ededeb;
+  padding-top: 14px;
+}
+
+.hypervisor-model-infrastructure__chips span {
+  max-width: 100%;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #dededc;
+  border-radius: 999px;
+  background: #f7f7f6;
+  color: #2f3034;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-model-infrastructure__mounts[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 1240px) {
+  .hypervisor-model-infrastructure__workplane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hypervisor-model-infrastructure__detail {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 860px) {
+  .hypervisor-model-infrastructure {
+    padding: 26px 18px;
+  }
+
+  .hypervisor-model-infrastructure__tabs {
+    overflow-x: auto;
+  }
+
+  .hypervisor-model-infrastructure__list-head {
+    display: none;
+  }
+
+  .hypervisor-model-infrastructure__row {
+    min-height: 92px;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 4px;
+    padding: 12px 14px;
+  }
+
+  .hypervisor-model-infrastructure__row-provider,
+  .hypervisor-model-infrastructure__row-custody,
+  .hypervisor-model-infrastructure__row-scopes {
+    padding-left: 28px;
+  }
+}
+
 .hypervisor-provider-placement,
 .hypervisor-environment-estate-surface {
   width: min(1180px, calc(100vw - 112px));

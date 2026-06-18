@@ -1243,19 +1243,22 @@ Current implementation cut:
   provider endpoints, loaded instances, session bindings, model-weight custody
   policy refs, authority scopes, credential-scope refs, and receipts.
   `HypervisorShellContent` now wraps `MissionControlMountsView` with a Models
-  projection surface that marks fixture-vs-daemon source explicitly through
-  `data-model-infrastructure-source`. The model-mounting UI remains a
-  configuration client behind the projection; it does not become model-route or
-  credential truth.
+  reference-style route workplane: a route list, selected-route detail panel,
+  provider posture, session bindings, and policy/receipt chips. Fixture-vs-
+  daemon source stays explicit through `data-model-infrastructure-source`, but
+  boundary doctrine is not rendered as top-level product copy. The
+  model-mounting UI remains a hidden configuration client behind the route
+  projection; it does not become model-route or credential truth.
   `/v1/hypervisor/model-infrastructure` is implemented as a public runtime
   route that dispatches through `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_model_infrastructure`, binding
   `project_id` and `session_ref` to the projection request.
   `check:runtime-layout`, focused model tests, shell source tests, and public
   runtime route tests guard the schema, loader, source marker, daemon route,
-  API docs, session binding, custody lane, authority scopes, and receipt
-  boundary. Remaining work is live route mutation, provider credential lease
-  flows, and deeper model-router admission hydration.
+  API docs, session binding, custody lane, authority scopes, receipt boundary,
+  and the absence of the old summary/grid/card dashboard shape. Remaining work
+  is live route mutation, provider credential lease flows, and deeper
+  model-router admission hydration.
 
 0A.8 first session operations cockpit is implemented:
   `hypervisorSessionOperationsModel.ts` defines

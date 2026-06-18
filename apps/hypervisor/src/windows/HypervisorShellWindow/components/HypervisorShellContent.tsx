@@ -56,6 +56,9 @@ import {
 import {
   HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
   loadHypervisorModelInfrastructureProjection,
+  type HypervisorModelInfrastructureProvider,
+  type HypervisorModelInfrastructureRoute,
+  type HypervisorModelInfrastructureSessionBinding,
 } from "../hypervisorModelInfrastructureModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import {
@@ -1984,11 +1987,27 @@ function HypervisorModelInfrastructureSurface({
       cancelled = true;
     };
   }, [currentProjectId, projection.selected_session_ref]);
+  const [selectedRouteRef, setSelectedRouteRef] = useState<string | null>(
+    projection.routes[0]?.route_ref ?? null,
+  );
+  const selectedRoute =
+    projection.routes.find((route) => route.route_ref === selectedRouteRef) ??
+    projection.routes[0] ??
+    null;
+
+  useEffect(() => {
+    if (
+      !selectedRouteRef ||
+      !projection.routes.some((route) => route.route_ref === selectedRouteRef)
+    ) {
+      setSelectedRouteRef(projection.routes[0]?.route_ref ?? null);
+    }
+  }, [projection.routes, selectedRouteRef]);
 
   return (
     <section
       className="hypervisor-model-infrastructure"
-      aria-label="Model infrastructure projection"
+      aria-label="Models"
       data-hypervisor-model-infrastructure={projection.projection_id}
       data-model-infrastructure-source={projection.source}
       data-model-infrastructure-inventory-source={projection.inventory_source}
@@ -1996,106 +2015,221 @@ function HypervisorModelInfrastructureSurface({
     >
       <div className="hypervisor-model-infrastructure__header">
         <span>Models</span>
-        <h2>Model routes, providers, custody lanes, and session bindings.</h2>
-        <p>{projection.infrastructure_boundary_invariant}</p>
+        <h2>Routes, providers, custody lanes, and session bindings.</h2>
+        <p>
+          Select a model route, inspect custody posture, and review the session
+          binding before a harness or workspace uses it.
+        </p>
       </div>
 
       <div
-        className="hypervisor-model-infrastructure__summary"
-        aria-label="Model infrastructure summary"
+        className="hypervisor-model-infrastructure__tabs"
+        aria-label="Model filters"
       >
-        <div>
-          <span>Routes</span>
-          <strong>{projection.model_route_refs.length}</strong>
-        </div>
-        <div>
-          <span>Endpoints</span>
-          <strong>{projection.endpoint_refs.length}</strong>
-        </div>
-        <div>
-          <span>Instances</span>
-          <strong>{projection.loaded_instance_refs.length}</strong>
-        </div>
-        <div>
-          <span>Receipts</span>
-          <strong>{projection.latest_receipt_refs.length}</strong>
-        </div>
+        <button type="button" className="is-active">
+          Routes <span>{projection.model_route_refs.length}</span>
+        </button>
+        <button type="button">
+          Endpoints <span>{projection.endpoint_refs.length}</span>
+        </button>
+        <button type="button">
+          Instances <span>{projection.loaded_instance_refs.length}</span>
+        </button>
+        <button type="button">
+          Receipts <span>{projection.latest_receipt_refs.length}</span>
+        </button>
       </div>
 
-      <div className="hypervisor-model-infrastructure__grid">
-        <section aria-label="Model route bindings">
-          <h3>Routes</h3>
+      <div className="hypervisor-model-infrastructure__workplane">
+        <div
+          className="hypervisor-model-infrastructure__list"
+          role="list"
+          aria-label="Model routes"
+        >
+          <div
+            className="hypervisor-model-infrastructure__list-head"
+            role="presentation"
+          >
+            <span>Route</span>
+            <span>Provider</span>
+            <span>Custody</span>
+            <span>Scopes</span>
+          </div>
           {projection.routes.map((route) => (
-            <article
+            <HypervisorModelRouteRow
               key={route.route_ref}
-              className="hypervisor-model-infrastructure__card"
-              data-model-route-ref={route.route_ref}
-              data-model-route-status={route.status}
-              data-model-weight-custody-lane={route.model_weight_custody_lane}
-            >
-              <div>
-                <span>{route.role}</span>
-                <h4>{route.route_ref}</h4>
-                <p>{route.privacy_posture}</p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Provider</dt>
-                  <dd>{route.provider_ref}</dd>
-                </div>
-                <div>
-                  <dt>Endpoints</dt>
-                  <dd>{route.endpoint_refs.join(", ")}</dd>
-                </div>
-                <div>
-                  <dt>Scopes</dt>
-                  <dd>{route.authority_scope_refs.join(", ")}</dd>
-                </div>
-              </dl>
-            </article>
+              route={route}
+              selected={selectedRoute?.route_ref === route.route_ref}
+              onSelect={() => setSelectedRouteRef(route.route_ref)}
+            />
           ))}
-        </section>
+        </div>
 
-        <section aria-label="Session model bindings">
-          <h3>Session Bindings</h3>
-          {projection.session_bindings.map((binding) => (
-            <article
-              key={binding.session_ref}
-              className="hypervisor-model-infrastructure__card"
-              data-model-session-binding={binding.session_ref}
-              data-model-session-route={binding.selected_model_route_ref}
-            >
-              <div>
-                <span>{binding.policy_ref}</span>
-                <h4>{binding.session_ref}</h4>
-                <p>{binding.custody_profile_ref}</p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Endpoint</dt>
-                  <dd>{binding.selected_endpoint_ref}</dd>
-                </div>
-                <div>
-                  <dt>Instance</dt>
-                  <dd>{binding.selected_instance_ref}</dd>
-                </div>
-                <div>
-                  <dt>Receipt</dt>
-                  <dd>{binding.receipt_ref}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </section>
+        {selectedRoute ? (
+          <HypervisorModelRouteDetail
+            route={selectedRoute}
+            providers={projection.providers}
+            sessionBindings={projection.session_bindings}
+            policyRefs={projection.model_weight_custody_policy_refs}
+            receiptRefs={projection.latest_receipt_refs}
+          />
+        ) : null}
       </div>
 
       <div
         className="hypervisor-model-infrastructure__mounts"
         data-model-mounting-ui-boundary="configuration-client"
+        hidden
       >
         {children}
       </div>
     </section>
+  );
+}
+
+function HypervisorModelRouteRow({
+  route,
+  selected,
+  onSelect,
+}: {
+  route: HypervisorModelInfrastructureRoute;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="hypervisor-model-infrastructure__row"
+      role="listitem"
+      aria-current={selected ? "true" : undefined}
+      data-model-route-ref={route.route_ref}
+      data-model-route-status={route.status}
+      data-model-weight-custody-lane={route.model_weight_custody_lane}
+      onClick={onSelect}
+    >
+      <span className="hypervisor-model-infrastructure__row-route">
+        <i aria-hidden="true" />
+        <span>
+          <strong>{route.route_ref}</strong>
+          <em>{route.role}</em>
+        </span>
+      </span>
+      <span className="hypervisor-model-infrastructure__row-provider">
+        {route.provider_ref}
+      </span>
+      <span className="hypervisor-model-infrastructure__row-custody">
+        {route.model_weight_custody_lane.split("_").join(" ")}
+      </span>
+      <span className="hypervisor-model-infrastructure__row-scopes">
+        {route.authority_scope_refs.join(", ")}
+      </span>
+    </button>
+  );
+}
+
+function HypervisorModelRouteDetail({
+  route,
+  providers,
+  sessionBindings,
+  policyRefs,
+  receiptRefs,
+}: {
+  route: HypervisorModelInfrastructureRoute;
+  providers: HypervisorModelInfrastructureProvider[];
+  sessionBindings: HypervisorModelInfrastructureSessionBinding[];
+  policyRefs: string[];
+  receiptRefs: string[];
+}) {
+  const routeProviders = providers.filter(
+    (provider) => provider.provider_ref === route.provider_ref,
+  );
+  const bindings = sessionBindings.filter(
+    (binding) => binding.selected_model_route_ref === route.route_ref,
+  );
+
+  return (
+    <aside
+      className="hypervisor-model-infrastructure__detail"
+      aria-label={`${route.route_ref} details`}
+      data-model-route-detail={route.route_ref}
+      data-model-route-status={route.status}
+      data-model-weight-custody-lane={route.model_weight_custody_lane}
+    >
+      <div className="hypervisor-model-infrastructure__detail-head">
+        <span>{route.status}</span>
+        <h3>{route.route_ref}</h3>
+        <p>{route.privacy_posture}</p>
+      </div>
+
+      <dl className="hypervisor-model-infrastructure__detail-list">
+        <div>
+          <dt>Provider</dt>
+          <dd>{route.provider_ref}</dd>
+        </div>
+        <div>
+          <dt>Endpoints</dt>
+          <dd>{route.endpoint_refs.join(", ") || "none"}</dd>
+        </div>
+        <div>
+          <dt>Instances</dt>
+          <dd>{route.loaded_instance_refs.join(", ") || "none"}</dd>
+        </div>
+        <div>
+          <dt>Scopes</dt>
+          <dd>{route.authority_scope_refs.join(", ")}</dd>
+        </div>
+      </dl>
+
+      <section className="hypervisor-model-infrastructure__detail-section">
+        <h4>Provider posture</h4>
+        {routeProviders.length > 0 ? (
+          routeProviders.map((provider) => (
+            <span
+              key={provider.provider_ref}
+              data-model-provider-ref={provider.provider_ref}
+              data-model-provider-kind={provider.provider_kind}
+            >
+              <strong>{provider.label}</strong>
+              <em>{provider.privacy_posture}</em>
+              <code>{provider.receipt_ref}</code>
+            </span>
+          ))
+        ) : (
+          <span data-model-provider-ref="unmatched">
+            <strong>No matched provider</strong>
+            <em>{route.provider_ref}</em>
+          </span>
+        )}
+      </section>
+
+      <section className="hypervisor-model-infrastructure__detail-section">
+        <h4>Session bindings</h4>
+        {bindings.length > 0 ? (
+          bindings.map((binding) => (
+            <span
+              key={binding.session_ref}
+              data-model-session-binding={binding.session_ref}
+              data-model-session-route={binding.selected_model_route_ref}
+            >
+              <strong>{binding.session_ref}</strong>
+              <em>{binding.custody_profile_ref}</em>
+              <code>{binding.receipt_ref}</code>
+            </span>
+          ))
+        ) : (
+          <span data-model-session-binding="none">
+            <strong>No session binding</strong>
+            <em>Available for New Session setup</em>
+          </span>
+        )}
+      </section>
+
+      <section className="hypervisor-model-infrastructure__chips">
+        {[...policyRefs, ...receiptRefs].slice(0, 6).map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </section>
+    </aside>
   );
 }
 

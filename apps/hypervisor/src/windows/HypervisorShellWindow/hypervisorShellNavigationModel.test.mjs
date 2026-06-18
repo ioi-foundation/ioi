@@ -570,8 +570,17 @@ test("Models surface renders model infrastructure projection before mount UI", (
   assert.match(shellContent, /data-hypervisor-model-infrastructure/);
   assert.match(shellContent, /data-model-infrastructure-source/);
   assert.match(shellContent, /data-model-route-ref/);
+  assert.match(shellContent, /data-model-route-detail/);
+  assert.match(shellContent, /data-model-provider-ref/);
   assert.match(shellContent, /data-model-session-binding/);
   assert.match(shellContent, /data-model-mounting-ui-boundary/);
+  assert.match(shellContent, /className="hypervisor-model-infrastructure__workplane"/);
+  assert.match(shellContent, /className="hypervisor-model-infrastructure__list"/);
+  assert.match(shellContent, /className="hypervisor-model-infrastructure__detail"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__summary"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__grid"/);
+  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__card"/);
+  assert.doesNotMatch(shellContent, /\{projection\.infrastructure_boundary_invariant\}/);
   assert.match(shellContent, /activeView === "models"/);
 });
 
