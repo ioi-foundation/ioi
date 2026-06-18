@@ -13,6 +13,21 @@ const traceAndWelcomeCss = fs.readFileSync(
   new URL("../styles/hypervisor-shell/trace-and-welcome.css", import.meta.url),
   "utf8",
 );
+const leftSidebarShellSource = fs.readFileSync(
+  new URL("./HypervisorLeftSidebarShell.tsx", import.meta.url),
+  "utf8",
+);
+const capabilitiesNavigationPaneSource = fs.readFileSync(
+  new URL(
+    "../../../surfaces/Capabilities/components/CapabilitiesNavigationPane.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const capabilitiesCss = fs.readFileSync(
+  new URL("../../../surfaces/Capabilities/Capabilities.css", import.meta.url),
+  "utf8",
+);
 const homeViewSource = fs.readFileSync(
   new URL("../../../surfaces/Home/HomeView.tsx", import.meta.url),
   "utf8",
@@ -63,6 +78,18 @@ assert.doesNotMatch(
   source,
   /chat-left-utility-pane|chat-utility-drawer|is-chat-fullscreen/,
   "Hypervisor reference shell should not keep legacy auxiliary pane class hooks",
+);
+
+assert.match(
+  `${leftSidebarShellSource}\n${capabilitiesNavigationPaneSource}\n${capabilitiesCss}\n${shellCss}\n${traceAndWelcomeCss}`,
+  /HypervisorLeftSidebarShell[\s\S]*hypervisor-left-sidebar[\s\S]*hypervisor-pane-control|hypervisor-pane-control[\s\S]*HypervisorLeftSidebarShell[\s\S]*hypervisor-left-sidebar/,
+  "Capabilities should use the Hypervisor sidebar shell and pane control selectors",
+);
+
+assert.doesNotMatch(
+  `${leftSidebarShellSource}\n${capabilitiesNavigationPaneSource}\n${capabilitiesCss}\n${shellCss}\n${traceAndWelcomeCss}`,
+  /ChatLeftSidebarShell|chat-left-sidebar|chat-chat-pane-control|--chat-left-sidebar/,
+  "Capabilities should not keep the Chat-named left sidebar seam",
 );
 
 const chatConversationSurfaceSource = fs.readFileSync(

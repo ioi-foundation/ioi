@@ -10,8 +10,8 @@
   --chat-bg-elevated: var(--surface-1);
   --chat-bg-surface: var(--surface-2);
   --chat-bg-hover: var(--bg-hover);
-  --chat-left-sidebar-width: clamp(300px, 24vw, 360px);
-  --chat-left-sidebar-header-height: clamp(42px, 4vh, 46px);
+  --hypervisor-left-sidebar-width: clamp(300px, 24vw, 360px);
+  --hypervisor-left-sidebar-header-height: clamp(42px, 4vh, 46px);
 
   --chat-border: var(--border-subtle);
   --chat-border-strong: var(--border-default);

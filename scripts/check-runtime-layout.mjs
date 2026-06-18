@@ -186,6 +186,15 @@ const hypervisorShellBaseCssSource = read(
 const hypervisorTraceAndWelcomeCssSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
 );
+const hypervisorLeftSidebarShellSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorLeftSidebarShell.tsx",
+);
+const capabilitiesNavigationPaneSource = read(
+  "apps/hypervisor/src/surfaces/Capabilities/components/CapabilitiesNavigationPane.tsx",
+);
+const capabilitiesCssSource = read(
+  "apps/hypervisor/src/surfaces/Capabilities/Capabilities.css",
+);
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
@@ -796,6 +805,34 @@ assert(
     "apps/hypervisor/src/windows/shared/shellShortcuts.ts",
   ],
   "Hypervisor reference shell must not keep the retired auxiliary chat overlay path.",
+);
+assert(
+  "hypervisor-reference-sidebar-shell-named",
+  exists(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorLeftSidebarShell.tsx",
+  ) &&
+    !exists(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLeftSidebarShell.tsx",
+    ) &&
+    hypervisorLeftSidebarShellSource.includes("HypervisorLeftSidebarShell") &&
+    capabilitiesNavigationPaneSource.includes("HypervisorLeftSidebarShell") &&
+    `${hypervisorLeftSidebarShellSource}\n${capabilitiesNavigationPaneSource}\n${capabilitiesCssSource}\n${hypervisorShellBaseCssSource}\n${hypervisorTraceAndWelcomeCssSource}`.includes(
+      "hypervisor-left-sidebar",
+    ) &&
+    `${capabilitiesNavigationPaneSource}\n${hypervisorTraceAndWelcomeCssSource}`.includes(
+      "hypervisor-pane-control",
+    ) &&
+    !/ChatLeftSidebarShell|chat-left-sidebar|chat-chat-pane-control|--chat-left-sidebar/.test(
+      `${hypervisorLeftSidebarShellSource}\n${capabilitiesNavigationPaneSource}\n${capabilitiesCssSource}\n${hypervisorShellBaseCssSource}\n${hypervisorTraceAndWelcomeCssSource}`,
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorLeftSidebarShell.tsx",
+    "apps/hypervisor/src/surfaces/Capabilities/components/CapabilitiesNavigationPane.tsx",
+    "apps/hypervisor/src/surfaces/Capabilities/Capabilities.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
+  ],
+  "Hypervisor Capabilities navigation must use the Hypervisor sidebar shell instead of the retired Chat-named seam.",
 );
 assert(
   "hypervisor-shell-light-reference-boot",

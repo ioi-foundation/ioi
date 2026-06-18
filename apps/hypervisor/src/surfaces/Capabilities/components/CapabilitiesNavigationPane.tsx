@@ -24,7 +24,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "./ui";
-import { ChatLeftSidebarShell } from "../../../windows/HypervisorShellWindow/components/ChatLeftSidebarShell";
+import { HypervisorLeftSidebarShell } from "../../../windows/HypervisorShellWindow/components/HypervisorLeftSidebarShell";
 
 function renderTreeEntries(entries: CapabilityTreeEntry[]) {
   return (
@@ -948,7 +948,7 @@ export function CapabilitiesNavigationPane({
 }: CapabilitiesNavigationPaneProps) {
   return (
     <>
-    <ChatLeftSidebarShell
+      <HypervisorLeftSidebarShell
         ariaLabel="Capabilities navigation"
         title="Capabilities"
         className="capabilities-sidebar"
@@ -957,7 +957,7 @@ export function CapabilitiesNavigationPane({
           controller.surface !== null ? (
             <button
               type="button"
-              className="chat-chat-pane-control capabilities-sidebar-backdrop"
+              className="hypervisor-pane-control capabilities-sidebar-backdrop"
               onClick={controller.returnToHome}
               aria-label="Back to capabilities home"
               title="Back to capabilities home"
@@ -995,7 +995,7 @@ export function CapabilitiesNavigationPane({
             />
           </nav>
         </div>
-    </ChatLeftSidebarShell>
+      </HypervisorLeftSidebarShell>
 
       {controller.surface === null ? (
         <CapabilitiesHomePane
