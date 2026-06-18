@@ -443,7 +443,13 @@ async function main() {
         projectsText.includes("No projects") &&
         projectsText.includes("Projects bundle your repo, secrets, and other configuration") &&
         projectsText.includes("Learn more about projects in IOI."),
-      "Projects page did not render the IOI-reference clean empty state.",
+      "Projects page did not render the IOI-reference searchable clean empty state.",
+    );
+    assert(
+      (await page
+        .locator('.hypervisor-project-state__search input[placeholder="Search projects"]')
+        .count()) === 1,
+      "Projects page did not expose the IOI-reference search input.",
     );
     assert(
       projectsText.includes("New project"),
@@ -465,8 +471,12 @@ async function main() {
       "Projects clean boot should bind a zero-record projection.",
     );
     assert(
-      (await page.locator(".hypervisor-project-state__search input").count()) === 0,
-      "Projects clean boot should not render search/filter controls until projects exist.",
+      (await page.locator(".hypervisor-project-state__search input").count()) === 1,
+      "Projects clean boot should render the reference search control.",
+    );
+    assert(
+      (await page.locator(".hypervisor-project-state__filters").count()) === 0,
+      "Projects clean boot should not render loaded-project filters until projects exist.",
     );
 
     await page.goto(new URL("?view=workbench", url).toString(), {

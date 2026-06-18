@@ -2029,19 +2029,26 @@ function HypervisorProjectStateSurface({
               </p>
             ) : null}
           </div>
-          <button type="button" className="hypervisor-project-state__new">
-            New project
-          </button>
+          {visibleProjects.length > 0 ? (
+            <button type="button" className="hypervisor-project-state__new">
+              New project
+            </button>
+          ) : null}
         </header>
 
-        {visibleProjects.length > 0 ? (
-          <div className="hypervisor-project-state__toolbar">
-            <label className="hypervisor-project-state__search">
-              <span aria-hidden="true">
-                <SearchIcon />
-              </span>
-              <input type="search" placeholder="Search projects" readOnly />
-            </label>
+        <div
+          className={clsx("hypervisor-project-state__toolbar", {
+            "hypervisor-project-state__toolbar--empty":
+              visibleProjects.length === 0,
+          })}
+        >
+          <label className="hypervisor-project-state__search">
+            <span aria-hidden="true">
+              <SearchIcon />
+            </span>
+            <input type="search" placeholder="Search projects" readOnly />
+          </label>
+          {visibleProjects.length > 0 ? (
             <div
               className="hypervisor-project-state__filters"
               aria-label="Project filters"
@@ -2050,8 +2057,8 @@ function HypervisorProjectStateSurface({
               <button type="button">Active ({activeProjectCount})</button>
               <button type="button">Restore ready ({restoreReadyCount})</button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {visibleProjects.length > 0 ? (
           <div className="hypervisor-project-state__layout">
@@ -2159,6 +2166,9 @@ function HypervisorProjectStateSurface({
             <a href="/projects" aria-label="Learn more about projects in IOI">
               Learn more about projects in IOI.
             </a>
+            <button type="button" className="hypervisor-project-state__new">
+              New project
+            </button>
           </section>
         )}
       </div>

@@ -4998,6 +4998,10 @@
   margin-bottom: 12px;
 }
 
+.hypervisor-project-state__toolbar--empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .hypervisor-project-state__search {
   display: grid;
   min-height: 36px;
@@ -5231,6 +5235,10 @@
 .hypervisor-project-state__empty a:hover,
 .hypervisor-project-state__empty a:focus-visible {
   text-decoration: underline;
+}
+
+.hypervisor-project-state__empty .hypervisor-project-state__new {
+  margin-top: 12px;
 }
 
 .hypervisor-project-state__new {
