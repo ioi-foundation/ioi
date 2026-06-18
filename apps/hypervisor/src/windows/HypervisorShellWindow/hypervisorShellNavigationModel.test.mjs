@@ -561,6 +561,8 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(shellContent, /Review leases/);
   assert.doesNotMatch(shellContent, /Daemon Owned/);
   assert.doesNotMatch(shellContent, /Proposal Source Only/);
+  assert.doesNotMatch(shellContent, /formatAgentRuntimeBoundary/);
+  assert.doesNotMatch(shellContent, /<dt>Mode<\/dt>/);
   assert.doesNotMatch(shellContent, /<dd>\{agent\.state_root_ref\}<\/dd>/);
   assert.doesNotMatch(shellContent, /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/);
   assert.match(shellContent, /data-agent-state-root-ref=\{agent\.state_root_ref\}/);

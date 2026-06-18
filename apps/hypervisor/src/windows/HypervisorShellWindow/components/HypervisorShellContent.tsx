@@ -412,16 +412,6 @@ function HypervisorAgentsSurface({
   );
 }
 
-function formatAgentRuntimeBoundary(boundary: string): string {
-  if (boundary === "daemon_owned") {
-    return "Managed";
-  }
-  if (boundary === "proposal_source_only") {
-    return "Adapter";
-  }
-  return boundary.replace(/_/g, " ");
-}
-
 function firstCapabilityLease(agent: HypervisorAgentRecord) {
   return agent.capability_leases[0] ?? null;
 }
@@ -711,12 +701,6 @@ function HypervisorAgentDetail({
           <dt>Workspace</dt>
           <dd>
             <span>{formatWorkspaceRef(agent.workspace_ref)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Mode</dt>
-          <dd>
-            <span>{formatAgentRuntimeBoundary(agent.runtime.truth_boundary)}</span>
           </dd>
         </div>
       </dl>

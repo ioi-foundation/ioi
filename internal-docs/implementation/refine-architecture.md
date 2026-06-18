@@ -1411,8 +1411,11 @@ Current implementation cut:
   title, badge, column heading, action label, or explanatory paragraph. The
   source guard rejects the old Agents grid, invariant banner, status-badge DOM,
   "Daemon Owned" / "Proposal Source Only" labels, and architecture-facing header
-  copy from returning. Current verification screenshot:
-  `/tmp/hypervisor-agents-cockpit-list.png`.
+  copy from returning. The rendered probe now also rejects a visible Mode row,
+  visible runtime-truth copy, and a right-side Agent chat pane on the Agents
+  surface while preserving `daemon_owned` / `proposal_source_only` only in
+  machine-readable boundary attributes. Current verification screenshot:
+  `/tmp/hypervisor-agents-visible-boundary-cut/hypervisor-agents.png`.
 
 0A.2 visible doctrine-copy sweep is implemented:
   Product surfaces keep runtime/authority/truth metadata in data attributes and
