@@ -754,6 +754,9 @@ assert(
     hypervisorActivityBarSource.includes("hypervisor-activity-profile-indicator") &&
     hypervisorActivityBarSource.includes("hypervisor-activity-profile-label") &&
     hypervisorActivityBarSource.includes("hypervisor-activity-profile-menu-indicator") &&
+    hypervisorShellBaseCssSource.includes("--hypervisor-activity-avatar-bg: #155cff") &&
+    hypervisorTraceAndWelcomeCssSource.includes("--hypervisor-activity-avatar-bg: #155cff") &&
+    !hypervisorTraceAndWelcomeCssSource.includes("--hypervisor-activity-avatar-bg: #ffffff") &&
     hypervisorActivityBarIconsSource.includes("hypervisor-ioi-gem-vert") &&
     hypervisorActivityBarIconsSource.includes("<polygon points=") &&
     !hypervisorActivityBarIconsSource.includes('strokeWidth="12"') &&

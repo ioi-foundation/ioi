@@ -158,6 +158,20 @@ async function main() {
         bodyText.includes("Operator"),
       "Left rail does not expose the reference-style workspace/user footer.",
     );
+    const profileAvatarStyle = await page
+      .locator(".hypervisor-activity-profile-avatar")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+        };
+      });
+    assert(
+      profileAvatarStyle.backgroundColor === "rgb(21, 92, 255)" &&
+        profileAvatarStyle.color === "rgb(255, 255, 255)",
+      `Left rail avatar should use the filled reference blue style. style=${JSON.stringify(profileAvatarStyle)}`,
+    );
     const brandMark = page.locator(".hypervisor-activity-brand svg").first();
     const brandMarkBox = await brandMark.boundingBox();
     const brandTickCount = await page.locator(".hypervisor-activity-brand-tick").count();

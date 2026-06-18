@@ -1437,8 +1437,8 @@
   --hypervisor-activity-hover-bg: #f3f3f3;
   --hypervisor-activity-active-bg: #eeeeee;
   --hypervisor-activity-active-hover-bg: #e8e8e8;
-  --hypervisor-activity-avatar-bg: #ffffff;
-  --hypervisor-activity-avatar-text: #1f1f1f;
+  --hypervisor-activity-avatar-bg: #155cff;
+  --hypervisor-activity-avatar-text: #ffffff;
 }
 
 :root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {

@@ -5642,7 +5642,7 @@
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  border: 1px solid #cfd6df;
+  border: 1px solid transparent;
   background: var(--hypervisor-activity-avatar-bg);
   color: var(--hypervisor-activity-avatar-text);
   font-size: 11px;
