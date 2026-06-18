@@ -1602,19 +1602,21 @@ function HypervisorSessionOperationsCockpit() {
               <p>Here are some suggestions to get you started</p>
               <div className="hypervisor-session-operations__workspace-suggestions">
                 {[
-                  "Automate env setup",
-                  "Fix a bug",
-                  "Boost your test coverage",
+                  { label: "Automate env setup", tone: "blue" },
+                  { label: "Fix a bug", tone: "red" },
+                  { label: "Boost your test coverage", tone: "purple" },
                 ].map((suggestion) => (
                   <button
                     type="button"
-                    key={suggestion}
-                    data-session-suggestion={suggestion
+                    key={suggestion.label}
+                    data-session-suggestion={suggestion.label
                       .toLowerCase()
                       .replace(/[^a-z0-9]+/g, "-")
                       .replace(/^-+|-+$/g, "")}
+                    data-session-suggestion-tone={suggestion.tone}
                   >
-                    {suggestion}
+                    <span aria-hidden="true" />
+                    {suggestion.label}
                   </button>
                 ))}
               </div>

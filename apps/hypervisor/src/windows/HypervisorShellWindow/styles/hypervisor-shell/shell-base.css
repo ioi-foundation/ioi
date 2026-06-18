@@ -2098,6 +2098,9 @@
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid #dededb;
   border-radius: 7px;
   background: #ffffff;
@@ -2107,6 +2110,48 @@
   font-size: 14px;
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(23, 23, 25, 0.04);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button span {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="blue"] span {
+  border: 1.5px dotted #3366ff;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, #ffffff 0 34%, transparent 36%);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="red"] span {
+  position: relative;
+  border: 1.5px solid #ff3b3b;
+  border-radius: 999px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="red"] span::before,
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="red"] span::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  bottom: 2px;
+  width: 1.5px;
+  background: #ff3b3b;
+  transform: translateX(-50%);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="red"] span::after {
+  transform: translateX(-50%) rotate(90deg);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button[data-session-suggestion-tone="purple"] span {
+  background:
+    linear-gradient(30deg, transparent 0 38%, #a528ff 39% 61%, transparent 62%),
+    linear-gradient(150deg, transparent 0 38%, #a528ff 39% 61%, transparent 62%),
+    radial-gradient(circle at 50% 50%, transparent 0 28%, #a528ff 30% 42%, transparent 44%);
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__workspace-suggestions button:hover {

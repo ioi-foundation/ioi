@@ -150,7 +150,7 @@ assert.match(
 
 assert.match(
   source,
-  /data-session-workspace-cockpit=\{projection\.selected_session_ref\}[\s\S]*What do you want to get done today\?[\s\S]*Automate env setup[\s\S]*Fix a bug[\s\S]*Boost your test coverage[\s\S]*Describe your task or type \/ for commands[\s\S]*data-session-environment-steps=\{projection\.environment_lifecycle_steps/,
+  /data-session-workspace-cockpit=\{projection\.selected_session_ref\}[\s\S]*What do you want to get done today\?[\s\S]*label: "Automate env setup", tone: "blue"[\s\S]*label: "Fix a bug", tone: "red"[\s\S]*label: "Boost your test coverage", tone: "purple"[\s\S]*data-session-suggestion-tone=\{suggestion\.tone\}[\s\S]*Describe your task or type \/ for commands[\s\S]*data-session-environment-steps=\{projection\.environment_lifecycle_steps/,
   "Sessions should render the reference workspace prompt while preserving lifecycle refs as metadata",
 );
 
@@ -321,7 +321,7 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace-mark-symbol[\s\S]*clip-path: polygon\(50% 0, 95% 84%, 50% 66%, 5% 84%\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace-mark-symbol[\s\S]*clip-path: polygon\(50% 0, 95% 84%, 50% 66%, 5% 84%\);[\s\S]*data-session-suggestion-tone="blue"[\s\S]*data-session-suggestion-tone="red"[\s\S]*data-session-suggestion-tone="purple"[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
   "Sessions should use first-class reference icons for tabs, editor controls, chevrons, files, and inspector actions",
 );
 
