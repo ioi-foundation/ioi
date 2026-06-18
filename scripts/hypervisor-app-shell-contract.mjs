@@ -277,7 +277,29 @@ async function main() {
       (await page.locator(".chat-activity-session-row").count()) === 0,
       "Selecting a New Session recipe must not create a launched session projection.",
     );
-    await page.locator('button[aria-label="Close New Session"]').click();
+    await page.locator('[data-new-session-start-selected="true"]').click();
+    await page.waitForSelector(".chat-activity-session-row");
+    const launchedSessionRows = await page
+      .locator(".chat-activity-session-row")
+      .allInnerTexts();
+    assert(
+      launchedSessionRows.some((row) =>
+        row.includes("Workbench for IOI Workspace"),
+      ),
+      "Launching the selected New Session recipe should create a readable launched-session rail row.",
+    );
+    assert(
+      launchedSessionRows.every(
+        (row) =>
+          !row.includes("Open a governed Hypervisor session for this workspace."),
+      ),
+      "Default Home seed text should not become the launched-session rail title.",
+    );
+    await page.waitForSelector(".chat-workspace-oss-shell.is-active");
+    assert(
+      (await page.locator(".chat-workspace-oss-shell.is-active").count()) === 1,
+      "Launching the selected Workbench recipe should open the active Workbench shell.",
+    );
 
     await page.goto(new URL("?view=sessions", url).toString(), {
       waitUntil: "domcontentloaded",
@@ -582,6 +604,8 @@ async function main() {
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
         "new_session_recipe_selection_review_gated",
+        "new_session_launch_creates_readable_session_row",
+        "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_environment_lifecycle_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",

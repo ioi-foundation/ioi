@@ -1323,6 +1323,10 @@ Current implementation cut:
   `session_ref`, caps local history, and is cleared by the existing frontend
   reset path. This cache is not restore truth; daemon admission, receipts, and
   Agentgres refs remain the authority boundary.
+  Launched session rail titles now keep operator-authored intent visible but
+  replace the generic Home seed with recipe/project labels such as "Workbench
+  for IOI Workspace", so the IOI-reference session list stays readable instead
+  of becoming a stack of default prompt text.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

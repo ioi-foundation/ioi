@@ -20,6 +20,7 @@ import { WORKSPACE_NAME } from "../hypervisorShellModel";
 import {
   HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS,
   HYPERVISOR_PRIMARY_ACTION,
+  HYPERVISOR_SESSION_LAUNCH_RECIPES,
   type HypervisorLaunchedSessionProjection,
 } from "../hypervisorShellNavigationModel";
 import {
@@ -62,6 +63,8 @@ interface ReferenceRailButtonProps {
 
 const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
   "hypervisor.primaryRailCollapsed.v2";
+const GENERIC_HOME_NEW_SESSION_INTENT =
+  "Open a governed Hypervisor session for this workspace.";
 
 const KEYBOARD_NAV_VIEWS: PrimaryView[] =
   [...HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds];
@@ -249,8 +252,18 @@ function resolveProfileInitials(profile: AssistantUserProfile): string {
 function launchedSessionRailTitle(
   session: HypervisorLaunchedSessionProjection,
 ): string {
+  const seedIntent = session.launch_summary.seed_intent?.trim();
+  if (seedIntent && seedIntent !== GENERIC_HOME_NEW_SESSION_INTENT) {
+    return seedIntent;
+  }
+  const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+    (candidate) => candidate.recipe_id === session.recipe_ref,
+  );
+  if (recipe) {
+    const projectLabel = session.project_label.trim() || "current project";
+    return `${recipe.label} for ${projectLabel}`;
+  }
   return (
-    session.launch_summary.seed_intent?.trim() ||
     session.project_label.trim() ||
     "Hypervisor session"
   );
