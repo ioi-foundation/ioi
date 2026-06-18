@@ -137,16 +137,10 @@ async function main() {
       promptPlaceholder === "Describe your task or type / for commands",
       "Home does not expose the reference prompt composer.",
     );
-    const homeReferenceSessionList = page.locator(
-      "[data-home-reference-session-list]",
-    );
     assert(
-      (await homeReferenceSessionList.count()) === 1,
-      "Home does not expose the IOI-reference Recent Sessions list.",
-    );
-    assert(
-      (await page.locator("[data-home-reference-session-ref]").count()) >= 3,
-      "Home Recent Sessions list is not backed by launched-session projections.",
+      (await page.locator("[data-home-reference-session-list]").count()) === 0 &&
+        (await page.locator("[data-home-reference-session-ref]").count()) === 0,
+      "Fresh Home should match the IOI reference clean prompt viewport without seeded Recent Sessions.",
     );
     assert(
       (await page.locator("[data-home-recent-sessions]").count()) === 0,
@@ -155,18 +149,8 @@ async function main() {
     const initialSessionRows = page.locator(".hypervisor-activity-session-row");
     const initialSessionRowCount = await initialSessionRows.count();
     assert(
-      initialSessionRowCount >= 3,
-      "Fresh Home should render normalized reference launched-session rail projections.",
-    );
-    const initialSessionRefs = await initialSessionRows.evaluateAll((rows) =>
-      rows.map((row) => row.getAttribute("data-launched-session-ref") ?? ""),
-    );
-    assert(
-      initialSessionRefs.every((ref) => ref.startsWith("session:launch/")) &&
-        bodyText.includes("Write Parent Harness Evidence Boundary Doc") &&
-        bodyText.includes("Write Harness Tool Call Documentation") &&
-        bodyText.includes("Design Postquantum Computers Website"),
-      "Fresh Home session rail rows are not backed by launched-session projection refs.",
+      initialSessionRowCount === 0,
+      "Fresh Home should not seed fake launched-session rail rows before a launch or restore.",
     );
     assert(
       (await page.locator(".hypervisor-activity-profile-indicator").count()) === 1 &&
@@ -275,8 +259,8 @@ async function main() {
       .locator(".hypervisor-activity-session-row")
       .count();
     assert(
-      launchedSessionRowCountBeforeRecipeSelection >= 3,
-      "Fresh shells should render the IOI-reference launched-session rail seed.",
+      launchedSessionRowCountBeforeRecipeSelection === 0,
+      "Fresh shells should not render seeded launched-session rows before a launch or restore.",
     );
     await page
       .locator('[data-new-session-recipe="workbench.default"]')
@@ -664,12 +648,12 @@ async function main() {
       checks: [
         "home_reference_prompt_surface_rendered",
         "home_reference_prompt_surface_sparse",
-        "home_reference_recent_sessions_rendered",
+        "home_reference_clean_boot_has_no_seeded_recent_sessions",
         "left_rail_workspace_account_footer_rendered",
         "left_rail_reference_brand_mark_rendered",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
-        "reference_launched_session_rail_seed_rendered",
+        "clean_boot_has_no_seeded_session_rail_rows",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",

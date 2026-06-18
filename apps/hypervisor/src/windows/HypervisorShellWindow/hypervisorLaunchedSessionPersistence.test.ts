@@ -8,7 +8,6 @@ import type {
 import {
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_LIMIT,
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
-  HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS,
   loadHypervisorLaunchedSessionProjections,
   mergeHypervisorLaunchedSessionProjection,
   persistHypervisorLaunchedSessionProjections,
@@ -164,52 +163,11 @@ test("launched session cache persists normalized projections only", () => {
   assert.equal(parsed[0]?.launch_summary.requires_daemon_gate, true);
 });
 
-test("reference launched session seed gives fresh shells IOI-reference rail history", () => {
-  assert.equal(HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.length, 3);
+test("fresh launched session projection cache starts empty without local restore truth", () => {
+  const storage = new MemoryStorage();
+
   assert.deepEqual(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
-      (session) => session.launch_summary.seed_intent,
-    ),
-    [
-      "Write Parent Harness Evidence Boundary Doc",
-      "Write Harness Tool Call Documentation",
-      "Design Postquantum Computers Website",
-    ],
-  );
-  assert.equal(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS[0]?.recipe_ref,
-    "workbench.default",
-  );
-  assert.equal(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS[0]?.admission_state,
-    "daemon_admitted",
-  );
-  assert.equal(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS[0]
-      ?.code_editor_adapter_admission?.decision,
-    "admitted",
-  );
-  assert.deepEqual(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
-      (session) => session.branch_label,
-    ),
-    ["main", "main", "main"],
-  );
-  assert.deepEqual(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
-      (session) => session.relative_time_label,
-    ),
-    ["6h ago", "6h ago", "6h ago"],
-  );
-  assert.deepEqual(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
-      (session) => session.activity_count,
-    ),
-    [3, 4, 5],
-  );
-  assert.ok(
-    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.every(
-      (session) => session.runtimeTruthSource === "daemon-runtime",
-    ),
+    loadHypervisorLaunchedSessionProjections({ storage }),
+    [],
   );
 });

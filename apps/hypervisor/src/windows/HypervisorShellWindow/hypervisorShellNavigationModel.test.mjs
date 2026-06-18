@@ -492,10 +492,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /CodeEditorAdapterLaunchAdmissionError/);
   assert.match(controller, /launchedSessionProjections/);
   assert.match(controller, /loadHypervisorLaunchedSessionProjections/);
-  assert.match(controller, /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/);
-  assert.match(
+  assert.doesNotMatch(
     controller,
-    /loaded\.length > 0[\s\S]*HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/,
+    /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS|loaded\.length > 0[\s\S]*REFERENCE/,
   );
   assert.match(controller, /mergeHypervisorLaunchedSessionProjection/);
   assert.match(controller, /persistHypervisorLaunchedSessionProjections/);
@@ -514,16 +513,10 @@ test("new session modal is a shell-level governed launch flow", () => {
     launchedSessionPersistence,
     /normalizeHypervisorLaunchedSessionProjection/,
   );
-  assert.match(
+  assert.doesNotMatch(
     launchedSessionPersistence,
-    /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/,
+    /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS|Write Parent Harness Evidence Boundary Doc|relative_time_label: "6h ago"|activity_count: 3/,
   );
-  assert.match(
-    launchedSessionPersistence,
-    /Write Parent Harness Evidence Boundary Doc/,
-  );
-  assert.match(launchedSessionPersistence, /relative_time_label: "6h ago"/);
-  assert.match(launchedSessionPersistence, /activity_count: 3/);
   assert.match(
     launchedSessionPersistence,
     /runtimeTruthSource !== "daemon-runtime"/,
