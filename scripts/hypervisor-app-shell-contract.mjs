@@ -417,6 +417,37 @@ async function main() {
       (await page.locator("[data-automation-row-ref]").count()) === 0,
       "Automations clean boot should not expose fake automation rows.",
     );
+    const automationsReferenceLayout = await page.evaluate(() => {
+      const main = document.querySelector(
+        ".hypervisor-automation-compositor__main",
+      );
+      const suggested = document.querySelector(
+        ".hypervisor-automation-compositor__suggested",
+      );
+      const mainRect = main?.getBoundingClientRect();
+      const suggestedRect = suggested?.getBoundingClientRect();
+      return {
+        mainWidth: mainRect?.width ?? null,
+        suggestedWidth: suggestedRect?.width ?? null,
+        suggestedLeft: suggestedRect?.left ?? null,
+        gap:
+          mainRect && suggestedRect
+            ? suggestedRect.left - mainRect.right
+            : null,
+      };
+    });
+    assert(
+      typeof automationsReferenceLayout.mainWidth === "number" &&
+        automationsReferenceLayout.mainWidth >= 720 &&
+        automationsReferenceLayout.mainWidth <= 760 &&
+        typeof automationsReferenceLayout.suggestedWidth === "number" &&
+        automationsReferenceLayout.suggestedWidth >= 285 &&
+        automationsReferenceLayout.suggestedWidth <= 305 &&
+        typeof automationsReferenceLayout.gap === "number" &&
+        automationsReferenceLayout.gap >= 36 &&
+        automationsReferenceLayout.gap <= 48,
+      `Automations should use the IOI-reference main/suggested column rhythm. layout=${JSON.stringify(automationsReferenceLayout)}`,
+    );
     const suggestedTemplates = await page
       .locator("[data-workflow-template-suggestion]")
       .allInnerTexts();

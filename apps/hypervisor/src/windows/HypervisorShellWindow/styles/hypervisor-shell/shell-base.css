@@ -2662,8 +2662,8 @@
 
 .hypervisor-automation-compositor__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 430px;
-  gap: 40px;
+  grid-template-columns: minmax(0, 740px) 293px;
+  gap: 42px;
   align-items: start;
 }
 
