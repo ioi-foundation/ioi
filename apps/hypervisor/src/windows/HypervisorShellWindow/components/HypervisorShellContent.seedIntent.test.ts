@@ -286,6 +286,54 @@ assert.match(
 );
 
 assert.match(
+  homeViewSource,
+  /HOME_REFERENCE_RECENT_SESSIONS[\s\S]*Recent Sessions[\s\S]*data-home-recent-session-status/,
+  "Home should keep the IOI reference recent-sessions strip under the prompt composer",
+);
+
+assert.match(
+  source,
+  /const conversationalSurfaceActive = activeView === "missions"[\s\S]*const auxiliaryChatVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  "The right chat pane should stay off application surfaces such as Agents, Models, and Privacy",
+);
+
+assert.doesNotMatch(
+  source,
+  /Configured workers, skills, memory, and capability leases|Hypervisor Daemon remains runtime truth|Daemon Owned|Proposal Source Only|Encrypted Agentgres refs|weights exposed/i,
+  "Application surfaces should not put daemon/runtime-truth doctrine into visible product copy",
+);
+
+assert.match(
+  source,
+  /<h2>Models<\/h2>[\s\S]*formatModelRouteRef\(route\.route_ref\)[\s\S]*formatProviderRef\(route\.provider_ref\)[\s\S]*formatCustodyLane\(route\.model_weight_custody_lane\)[\s\S]*Receipt recorded/,
+  "Models should render product labels while retaining raw model refs only as data attributes",
+);
+
+assert.match(
+  source,
+  /<h2>Private workspace<\/h2>[\s\S]*formatPrivacyPostureRef\(projection\.selected_privacy_ref\)[\s\S]*formatModelRouteRef\(projection\.default_model_route_ref\)[\s\S]*formatPrivacyOwner\(control\.owner\)/,
+  "Privacy should render custody as product language rather than daemon or Agentgres prose",
+);
+
+assert.match(
+  source,
+  /data-privacy-admission-control=\{control\.control_ref\}[\s\S]*Receipt recorded/,
+  "Privacy controls should render receipt status as product text while keeping raw receipt refs in the projection",
+);
+
+assert.match(
+  shellCss,
+  /\.chat-content-main:has\(\.hypervisor-privacy-posture\)[\s\S]*background: #ffffff/,
+  "Privacy should live on the same light reference content plane as the other application surfaces",
+);
+
+assert.doesNotMatch(
+  shellCss,
+  /\.hypervisor-privacy-posture\s*\{[^}]*background:\s*rgba\(15,\s*23,\s*42/,
+  "Privacy should not regress into the old dark architecture-card treatment",
+);
+
+assert.match(
   shellCss,
   /Phase 0A hard cut: mirror the IOI reference console rail[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*width: 300px;/,
   "The primary rail should use the IOI reference light 300px console shell",

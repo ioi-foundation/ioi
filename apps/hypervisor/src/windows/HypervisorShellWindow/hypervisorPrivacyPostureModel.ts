@@ -163,7 +163,7 @@ export const HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE: HypervisorPrivacyPos
       },
       {
         segment_ref: "workspace-segment:encrypted-agentgres-refs",
-        label: "Encrypted Agentgres refs",
+        label: "Encrypted state refs",
         custody_class: "encrypted_blob_ref",
         node_plaintext_allowed: false,
         owner: "agentgres",

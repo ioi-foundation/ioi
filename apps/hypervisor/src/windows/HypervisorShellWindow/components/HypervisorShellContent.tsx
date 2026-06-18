@@ -460,6 +460,25 @@ function formatModelRouteRef(ref: string): string {
   return ref.replace(/^model-route:/, "").replace(/[/:_-]+/g, " ");
 }
 
+function formatProviderRef(ref: string): string {
+  if (ref.includes("hypervisor-local") || ref.includes("local")) {
+    return "Local provider";
+  }
+  if (ref.includes("customer")) {
+    return "Customer cloud";
+  }
+  if (ref.includes("tee")) {
+    return "Confidential compute";
+  }
+  if (ref.includes("hosted")) {
+    return "Hosted API";
+  }
+  return ref
+    .replace(/^provider:/, "")
+    .replace(/[/:_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function formatPrivacyPostureRef(ref: string): string {
   if (ref === "privacy:ctee-private-workspace") {
     return "Private workspace";
@@ -467,7 +486,96 @@ function formatPrivacyPostureRef(ref: string): string {
   if (ref === "privacy:redacted-projection") {
     return "Redacted projection";
   }
-  return ref.replace(/^privacy:/, "").replace(/[._-]+/g, " ");
+  return ref
+    .replace(/^privacy:/, "")
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatCustodyLane(value: string): string {
+  if (value === "public_trunk") {
+    return "Public trunk";
+  }
+  if (value === "redacted_projection") {
+    return "Redacted projection";
+  }
+  if (value === "encrypted_blob_ref") {
+    return "Encrypted state";
+  }
+  if (value === "private_head") {
+    return "Private head";
+  }
+  if (value === "capability_exit") {
+    return "Capability exit";
+  }
+  if (value === "custody-profile:model/local") {
+    return "Local model";
+  }
+  if (value === "local_or_open_weight" || value === "open_or_local_weights") {
+    return "Local or open weights";
+  }
+  if (value === "remote_api_capability") {
+    return "Remote API";
+  }
+  if (value === "tee_or_customer_cloud_mount") {
+    return "Confidential mount";
+  }
+  if (value === "provider_trust_mount") {
+    return "Provider-trust mount";
+  }
+  if (value === "forbidden_plaintext_mount") {
+    return "Plaintext blocked";
+  }
+  if (value === "provider_trust_remote_mount") {
+    return "Provider trust";
+  }
+  if (value === "private_native") {
+    return "Private native";
+  }
+  if (value === "ctee_split") {
+    return "Private workspace";
+  }
+  if (value === "encrypted_storage_only") {
+    return "Encrypted storage";
+  }
+  if (value === "confidential_compute") {
+    return "Confidential compute";
+  }
+  if (value === "remote_api_provider_trust") {
+    return "Remote API";
+  }
+  return value
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatModelWeightProtection(
+  policy: { lane: string; protects_model_weights_from_provider_root: boolean },
+): string {
+  if (policy.lane === "forbidden_plaintext_mount") {
+    return "Plaintext blocked";
+  }
+  return policy.protects_model_weights_from_provider_root
+    ? "Weights protected"
+    : "Provider trust required";
+}
+
+function formatPrivacyOwner(value: string): string {
+  if (value === "wallet_network") {
+    return "Wallet authority";
+  }
+  if (value === "hypervisor_core" || value === "hypervisor_daemon") {
+    return "Hypervisor";
+  }
+  if (value === "agentgres") {
+    return "State log";
+  }
+  if (value === "storage_backend") {
+    return "Storage";
+  }
+  return value
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function formatWorkspaceRef(ref: string): string {
@@ -2108,10 +2216,10 @@ function HypervisorModelInfrastructureSurface({
     >
       <div className="hypervisor-model-infrastructure__header">
         <span>Models</span>
-        <h2>Routes, providers, custody lanes, and session bindings.</h2>
+        <h2>Models</h2>
         <p>
-          Select a model route, inspect custody posture, and review the session
-          binding before a harness or workspace uses it.
+          Choose the model path a session should use and review custody before
+          it starts.
         </p>
       </div>
 
@@ -2203,18 +2311,18 @@ function HypervisorModelRouteRow({
       <span className="hypervisor-model-infrastructure__row-route">
         <i aria-hidden="true" />
         <span>
-          <strong>{route.route_ref}</strong>
+          <strong>{formatModelRouteRef(route.route_ref)}</strong>
           <em>{route.role}</em>
         </span>
       </span>
       <span className="hypervisor-model-infrastructure__row-provider">
-        {route.provider_ref}
+        {formatProviderRef(route.provider_ref)}
       </span>
       <span className="hypervisor-model-infrastructure__row-custody">
-        {route.model_weight_custody_lane.split("_").join(" ")}
+        {formatCustodyLane(route.model_weight_custody_lane)}
       </span>
       <span className="hypervisor-model-infrastructure__row-scopes">
-        {route.authority_scope_refs.join(", ")}
+        {route.authority_scope_refs.map(formatCapabilityRef).join(", ")}
       </span>
     </button>
   );
@@ -2250,26 +2358,26 @@ function HypervisorModelRouteDetail({
     >
       <div className="hypervisor-model-infrastructure__detail-head">
         <span>{route.status}</span>
-        <h3>{route.route_ref}</h3>
-        <p>{route.privacy_posture}</p>
+        <h3>{formatModelRouteRef(route.route_ref)}</h3>
+        <p>{formatPrivacyPostureRef(`privacy:${route.privacy_posture}`)}</p>
       </div>
 
       <dl className="hypervisor-model-infrastructure__detail-list">
         <div>
           <dt>Provider</dt>
-          <dd>{route.provider_ref}</dd>
+          <dd>{formatProviderRef(route.provider_ref)}</dd>
         </div>
         <div>
           <dt>Endpoints</dt>
-          <dd>{route.endpoint_refs.join(", ") || "none"}</dd>
+          <dd>{route.endpoint_refs.length || "none"}</dd>
         </div>
         <div>
           <dt>Instances</dt>
-          <dd>{route.loaded_instance_refs.join(", ") || "none"}</dd>
+          <dd>{route.loaded_instance_refs.length || "none"}</dd>
         </div>
         <div>
           <dt>Scopes</dt>
-          <dd>{route.authority_scope_refs.join(", ")}</dd>
+          <dd>{route.authority_scope_refs.map(formatCapabilityRef).join(", ")}</dd>
         </div>
       </dl>
 
@@ -2284,7 +2392,7 @@ function HypervisorModelRouteDetail({
             >
               <strong>{provider.label}</strong>
               <em>{provider.privacy_posture}</em>
-              <code>{provider.receipt_ref}</code>
+              <small>Receipt recorded</small>
             </span>
           ))
         ) : (
@@ -2304,9 +2412,9 @@ function HypervisorModelRouteDetail({
               data-model-session-binding={binding.session_ref}
               data-model-session-route={binding.selected_model_route_ref}
             >
-              <strong>{binding.session_ref}</strong>
-              <em>{binding.custody_profile_ref}</em>
-              <code>{binding.receipt_ref}</code>
+              <strong>Active session</strong>
+              <em>{formatCustodyLane(binding.custody_profile_ref)}</em>
+              <small>Receipt recorded</small>
             </span>
           ))
         ) : (
@@ -2318,9 +2426,8 @@ function HypervisorModelRouteDetail({
       </section>
 
       <section className="hypervisor-model-infrastructure__chips">
-        {[...policyRefs, ...receiptRefs].slice(0, 6).map((ref) => (
-          <span key={ref}>{ref}</span>
-        ))}
+        <span>{policyRefs.length} custody policies</span>
+        <span>{receiptRefs.length} receipts</span>
       </section>
     </aside>
   );
@@ -2336,26 +2443,26 @@ function HypervisorPrivacyPostureSurface() {
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-privacy-posture__header">
-        <span>Privacy / cTEE</span>
-        <h2>Workspace custody, model custody, and provider admission.</h2>
+        <span>Workspace</span>
+        <h2>Private workspace</h2>
         <p>
-          See which workspace segments, model weights, and provider candidates
-          can be used without exposing protected state.
+          Decide what can run locally, what can run remotely, and what must
+          stay sealed.
         </p>
       </div>
 
       <div className="hypervisor-privacy-posture__summary">
         <div>
-          <span>Selected Privacy</span>
-          <strong>{projection.selected_privacy_ref}</strong>
+          <span>Workspace</span>
+          <strong>{formatPrivacyPostureRef(projection.selected_privacy_ref)}</strong>
         </div>
         <div>
-          <span>Model Route</span>
-          <strong>{projection.default_model_route_ref}</strong>
+          <span>Model</span>
+          <strong>{formatModelRouteRef(projection.default_model_route_ref)}</strong>
         </div>
         <div>
           <span>Session</span>
-          <strong>{projection.selected_session_ref}</strong>
+          <strong>Current</strong>
         </div>
       </div>
 
@@ -2371,11 +2478,12 @@ function HypervisorPrivacyPostureSurface() {
             >
               <div>
                 <strong>{segment.label}</strong>
-                <span>{segment.custody_class.split("_").join(" ")}</span>
+                <span>{formatCustodyLane(segment.custody_class)}</span>
               </div>
-              <em>{segment.owner.split("_").join(".")}</em>
+              <em>{formatPrivacyOwner(segment.owner)}</em>
               <small>
-                Node plaintext {segment.node_plaintext_allowed ? "allowed" : "blocked"}
+                Remote plaintext{" "}
+                {segment.node_plaintext_allowed ? "allowed" : "blocked"}
               </small>
             </article>
           ))}
@@ -2396,13 +2504,8 @@ function HypervisorPrivacyPostureSurface() {
                 <strong>{policy.label}</strong>
                 <span>{policy.admission_summary}</span>
               </div>
-              <em>
-                weights{" "}
-                {policy.protects_model_weights_from_provider_root
-                  ? "protected"
-                  : "exposed"}
-              </em>
-              <small>{policy.authority_scope_refs.join(", ")}</small>
+              <em>{formatModelWeightProtection(policy)}</em>
+              <small>{policy.authority_scope_refs.map(formatCapabilityRef).join(", ")}</small>
             </article>
           ))}
         </section>
@@ -2423,8 +2526,8 @@ function HypervisorPrivacyPostureSurface() {
                 <strong>{candidate.label}</strong>
                 <span>{candidate.admission_summary}</span>
               </div>
-              <em>{candidate.posture.split("_").join(" ")}</em>
-              <small>{candidate.model_weight_lane.split("_").join(" ")}</small>
+              <em>{formatCustodyLane(candidate.posture)}</em>
+              <small>{formatCustodyLane(candidate.model_weight_lane)}</small>
             </article>
           ))}
         </section>
@@ -2440,11 +2543,11 @@ function HypervisorPrivacyPostureSurface() {
             >
               <div>
                 <strong>{control.label}</strong>
-                <span>{control.receipt_ref}</span>
+                <span>Receipt recorded</span>
               </div>
-              <em>{control.owner.split("_").join(".")}</em>
+              <em>{formatPrivacyOwner(control.owner)}</em>
               <small>
-                unsafe plaintext{" "}
+                Unsafe plaintext{" "}
                 {control.blocks_unsafe_plaintext ? "blocked" : "allowed"}
               </small>
             </article>
