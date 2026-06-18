@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AgentWorkbenchRuntime, RuntimeCatalogEntry } from "../../runtime/agent-runtime";
+import type { AgentWorkbenchRuntime, RuntimeCatalogEntry } from "@ioi/hypervisor-workbench";
 import "./RuntimeCatalogView.css";
 
 interface RuntimeCatalogViewProps {

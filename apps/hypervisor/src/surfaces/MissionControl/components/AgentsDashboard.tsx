@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AgentWorkbenchRuntime, AgentSummary } from "../../runtime/agent-runtime";
+import type { AgentWorkbenchRuntime, AgentSummary } from "@ioi/hypervisor-workbench";
 import "./AgentsDashboard.css";
 
 interface AgentsDashboardProps {

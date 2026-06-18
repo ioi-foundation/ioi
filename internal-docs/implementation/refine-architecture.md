@@ -1105,6 +1105,9 @@ Current implementation cut:
   `EnvironmentEstateView` now lives under `apps/hypervisor/src/surfaces/Environments`
   instead of `@ioi/hypervisor-workbench`, so provider/environment posture is a
   Hypervisor shell surface rather than a code-editor/workflow package surface.
+  Workflow-side Agents, Builder, and Runtime Catalog views now live under
+  `apps/hypervisor/src/surfaces/MissionControl/components`; the Workbench
+  package no longer exports those product screens.
   workflow dogfood probes request `automations` as the initial shell surface
   `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
   `internal-docs/reverse-engineering/ioi` reference contract: source reference

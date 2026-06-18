@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
-import { AgentWorkbenchRuntime } from "../../runtime/agent-runtime";
-import { AgentConfiguration } from "../../types/graph";
+import type { AgentWorkbenchRuntime, AgentConfiguration } from "@ioi/hypervisor-workbench";
 import "./BuilderView.css";
 
 interface BuilderViewProps {

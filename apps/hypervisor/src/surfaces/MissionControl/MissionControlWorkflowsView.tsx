@@ -1,14 +1,14 @@
 import {
-  AgentsDashboard,
-  BuilderView,
   type RuntimeCatalogEntry,
   type AgentWorkbenchRuntime,
   type ProjectFile,
   type AgentSummary,
   type WorkflowComposerPreflightSeed,
-  RuntimeCatalogView,
   WorkflowComposer,
 } from "@ioi/hypervisor-workbench";
+import { AgentsDashboard } from "./components/AgentsDashboard";
+import { BuilderView } from "./components/BuilderView";
+import { RuntimeCatalogView } from "./components/RuntimeCatalogView";
 import { WelcomeView } from "./WelcomeView";
 
 interface ProjectScope {
