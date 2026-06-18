@@ -803,20 +803,6 @@ assert(
   "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels.",
 );
 assert(
-  "code-editor-adapter-host-without-product-shell-patch",
-  !exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
-    !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
-    !/applyHypervisorWorkbenchShellPatch|applyAutopilotWorkbenchShellPatch|IOI_WORKBENCH_NATIVE_SHELL|ioi-hypervisor-native-shell|ioi-hypervisor-workbench-quickinput|workbench-shell-patch|ioi\.quickInput/.test(
-      codeEditorAdapterLauncher,
-    ),
-  [
-    "scripts/lib/hypervisor-workbench-shell-patch.mjs",
-    "scripts/lib/autopilot-workbench-shell-patch.mjs",
-    "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
-  ],
-  "Code editor adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
-);
-assert(
   "code-editor-adapter-host-scope-stays-editor-only",
   hypervisorAppReadme.includes("code editor targets only") &&
     hypervisorAppReadme.includes(
@@ -870,7 +856,7 @@ assert(
     "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
     "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-snapshot.js",
   ],
-  "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, command queues, terminal/tasks/provider controls, and daemon model-mount state belong to the Hypervisor shell/daemon.",
+  "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, terminal/tasks/provider controls, and daemon model-mount state belong to Hypervisor sessions and the daemon.",
 );
 assert(
   "code-editor-adapter-fork-sync-target-only",

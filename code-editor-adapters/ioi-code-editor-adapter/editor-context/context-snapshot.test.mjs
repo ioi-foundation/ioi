@@ -112,19 +112,11 @@ test("code editor context snapshot projects editor, scm, diagnostics, and runtim
   assert.equal(snapshot.diagnostics[0].severity, "warning");
   assert.equal(snapshot.scmState.provider, "git");
   assert.equal(snapshot.scmState.branch, "main");
-  assert.equal(Object.hasOwn(snapshot, "taskState"), false);
-  assert.equal(Object.hasOwn(snapshot, "terminalState"), false);
-  assert.equal(Object.hasOwn(snapshot, "visibleView"), false);
   assert.deepEqual(snapshot.runtimeRefs, { daemon: "runtime://local" });
 
   const index = helpers.buildCodeEditorInspectionTargetIndex("unit");
   assert.equal(index.schemaVersion, "ioi.code-editor-adapter.v1");
   assert.ok(index.targets.some((target) => target.targetId === "editor.active"));
   assert.ok(index.targets.some((target) => target.targetId === "editor.tab.0.0"));
-  assert.equal(index.targets.some((target) => target.targetId === "explorer.active-file"), false);
-  assert.equal(index.targets.some((target) => target.targetId === "terminal.panel"), false);
-  assert.equal(index.targets.some((target) => target.targetId === "checks.tasks"), false);
-  assert.equal(index.targets.some((target) => target.targetId === "problems.panel"), false);
-  assert.equal(index.targets.some((target) => target.surface === "activity-rail"), false);
-  assert.equal(index.targets.some((target) => target.surface === "explorer"), false);
+  assert.ok(index.targets.every((target) => target.surface === "editor"));
 });

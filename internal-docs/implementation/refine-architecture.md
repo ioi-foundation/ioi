@@ -1073,20 +1073,16 @@ Current implementation cut:
   `HYPERVISOR_HARNESS_DEFAULT_PROMOTION`, and
   `HYPERVISOR_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT`. The old
   `AUTOPILOT_*` harness/dev env family is rejected by `check:runtime-layout`.
-  the code editor adapter shell patch path is retired entirely. The adapter host
-  syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
-  target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,
-  Receipts, and Settings stay in the Hypervisor App/Web clients.
-  `check:runtime-layout` rejects both the retired Autopilot shell-patch helper
-  and the later Hypervisor shell-patch helper so adapter targets cannot regain
-  product-shell duties.
+  the code editor adapter host is now only a code-editor target. It syncs the
+  `ioi-code-editor-adapter` extension into the packaged editor host and does
+  not patch, project, or host Hypervisor Home, Sessions, Projects, Workbench,
+  Foundry, Providers, Receipts, or Settings.
   the tracked extension package is now `code-editor-adapters/ioi-code-editor-adapter`.
-  It contributes no command-palette/product routes; it activates on startup and
-  publishes one-way `codeEditor.contextSnapshot` and
+  It contributes no product routes; it activates on startup and publishes
+  one-way `codeEditor.contextSnapshot` and
   `codeEditor.inspectionTargetIndex` request envelopes through the adapter
-  transport. The adapter no longer emits an open-surface request, exposes
-  status/output UI, polls bridge command queues, reads daemon model-mount state,
-  emits command-route receipt envelopes, or accepts product-shell routes such as
+  transport. The adapter no longer emits Hypervisor app route requests,
+  status/output UI, daemon model-mount state, command-route receipts, or routes such as
   command center, workflow, models, runs, policy, or connectors.
   The adapter context publisher is editor-only: it listens to active editor,
   selection, diagnostics, and tab changes, and it no longer listens to terminal
