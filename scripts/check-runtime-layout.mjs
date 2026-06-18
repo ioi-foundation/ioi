@@ -40,6 +40,11 @@ const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
 const retiredHypervisorFleetDoc = "docs/architecture/components/hypervisor/fleet.md";
+const retiredAutopilotWorkflowCanvasFixtures = [
+  "test.workflow",
+  "scripts/lib/prompt-parser.ts",
+  "scripts/custom-hypervisor-agenda.mjs",
+];
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -1579,6 +1584,12 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   ],
   "Hypervisor App surfaces must render explicit IOI-reference bodies instead of generic placeholder fallback screens.",
+);
+assert(
+  "retired-autopilot-workflow-canvas-fixtures-absent",
+  retiredAutopilotWorkflowCanvasFixtures.every((fixturePath) => !exists(fixturePath)),
+  retiredAutopilotWorkflowCanvasFixtures,
+  "Retired Autopilot workflow-canvas fixtures and agenda scripts must stay deleted; current workflow/compositor proof paths live under Hypervisor surfaces and daemon gates.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",
