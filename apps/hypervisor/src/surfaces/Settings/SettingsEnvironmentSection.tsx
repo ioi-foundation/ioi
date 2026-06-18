@@ -21,7 +21,7 @@ export function SettingsEnvironmentSection({
               <span className="chat-settings-card-eyebrow">
                 Compatibility bindings
               </span>
-              <h2>Legacy environment credentials</h2>
+              <h2>Environment credentials</h2>
             </div>
             <span className="chat-settings-pill chat-settings-pill-warning">
               Runtime unavailable
@@ -78,7 +78,7 @@ export function SettingsEnvironmentSection({
             <span className="chat-settings-card-eyebrow">
               Compatibility bindings
             </span>
-            <h2>Legacy environment credentials</h2>
+            <h2>Environment credentials</h2>
           </div>
           <span className={posturePillClass}>{authorityPosture.label}</span>
         </div>

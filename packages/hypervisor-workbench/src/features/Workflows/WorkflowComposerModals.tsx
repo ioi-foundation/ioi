@@ -349,7 +349,7 @@ export function ModelBindingModal({
                 </header>
                 <p className="workflow-create-summary">
                   Bind through {MODEL_CAPABILITY_BINDING_ENDPOINT} or{" "}
-                  {MODEL_AUTHORITY_BINDING_ENDPOINT}; legacy model ids are
+                  {MODEL_AUTHORITY_BINDING_ENDPOINT}; compatibility model ids are
                   projected into capability refs for compatibility.
                 </p>
                 <label>
@@ -422,9 +422,9 @@ export function ModelBindingModal({
                   />
                 </label>
                 <label>
-                  Legacy model id
+                  Compatibility model id
                   <input
-                    data-testid={`workflow-model-binding-legacy-model-id-${bindingKey}`}
+                    data-testid={`workflow-model-binding-compatibility-model-id-${bindingKey}`}
                     value={binding.modelId ?? ""}
                     placeholder="compatibility only"
                     onChange={(event) =>

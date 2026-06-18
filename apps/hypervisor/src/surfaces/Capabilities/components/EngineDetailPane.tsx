@@ -747,7 +747,7 @@ export function EngineDetailPane({
                   <textarea
                     value={stageNotes}
                     onChange={(event) => setStageNotes(event.target.value)}
-                    placeholder="Why this should be promoted, what it should replace, or how it maps from a legacy local setup."
+                    placeholder="Why this should be promoted, what it should replace, or how it maps from a previous local setup."
                   />
                 </label>
               </div>

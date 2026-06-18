@@ -1544,6 +1544,10 @@ Current implementation cut:
   Active shell responsive styles now live in `chat-responsive.css`; the
   `chat-legacy-and-responsive.css` filename is retired and guarded so legacy
   chat naming cannot remain as active product ballast.
+  Settings, capabilities, and workflow binding controls now use
+  compatibility/previous-config language instead of visible "Legacy ..."
+  product labels, while preserving compatibility fields where the graph model
+  still needs them.
   Current comparison evidence:
     `/tmp/reference-ioi-current.png`
     `/tmp/hypervisor-agents-current.png`

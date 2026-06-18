@@ -302,6 +302,11 @@ const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/surfaces/Capabilities/connectors/components/GoogleWorkspaceConnectorPanelOnboarding.tsx",
   "apps/hypervisor/src/surfaces/Capabilities/connectors/components/GenericConnectorPanel.tsx",
   "apps/hypervisor/src/surfaces/Capabilities/connectors/components/MailConnectorPanel.tsx",
+  "apps/hypervisor/src/surfaces/Capabilities/components/EngineDetailPane.tsx",
+  "apps/hypervisor/src/surfaces/Settings/SettingsEnvironmentSection.tsx",
+  "apps/hypervisor/src/surfaces/Settings/SettingsMaintenanceSection.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowComposerModals.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
 ]
   .map(read)
@@ -838,6 +843,9 @@ assert(
 assert(
   "active-visible-surfaces-hypervisor-named",
   !/\bAutopilot\b/.test(hypervisorVisibleSurfaceSources) &&
+    !/Legacy environment credentials|Legacy model id|Legacy connector ref|Legacy tool ref|legacy local setup|No legacy upgrades|legacy-model-id/.test(
+      hypervisorVisibleSurfaceSources,
+    ) &&
     hypervisorVisibleSurfaceSources.includes("Hypervisor workspace") &&
     hypervisorVisibleSurfaceSources.includes(
       "Hypervisor native-local fixture",

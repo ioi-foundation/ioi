@@ -202,7 +202,7 @@ export function SettingsMaintenanceSection({
                 ? ` Latest upgrade: ${latestConfigMigration.summary} (${formatSettingsTime(
                     latestConfigMigration.appliedAtMs,
                   )}).`
-                : " No legacy upgrades were needed for the current document."}
+                : " No config upgrades were needed for the current document."}
             </p>
             {latestConfigMigration?.details.length ? (
               <ul className="chat-settings-list">

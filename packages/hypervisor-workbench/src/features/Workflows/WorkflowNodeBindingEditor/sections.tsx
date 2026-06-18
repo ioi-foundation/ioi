@@ -661,7 +661,7 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Legacy model id
+            Compatibility model id
             <input
               data-testid="workflow-model-id"
               value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
@@ -1008,7 +1008,7 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Legacy model id
+            Compatibility model id
             <input
               data-testid="workflow-model-binding-model-id"
               value={String(logic.modelBinding?.modelId ?? logic.modelId ?? "")}
@@ -2530,7 +2530,7 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Legacy connector ref
+            Compatibility connector ref
             <input
               data-testid="workflow-connector-ref"
               value={String(logic.connectorBinding?.connectorRef ?? "")}
@@ -2793,7 +2793,7 @@ export function WorkflowNodeBindingSections({
             />
           </label>
           <label>
-            Legacy tool ref
+            Compatibility tool ref
             <input
               data-testid="workflow-tool-ref"
               value={String(logic.toolBinding?.toolRef ?? "")}
