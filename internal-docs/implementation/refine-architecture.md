@@ -1332,6 +1332,10 @@ Current implementation cut:
   empty. This gives first-run Home the IOI-reference recent-session posture
   without making local storage restore truth or duplicating recents in the Home
   main canvas.
+  The launched-session projection now carries reference-style rail display
+  metadata (`branch_label`, `relative_time_label`, `activity_count`) so the
+  left rail scans like the IOI reference (`main · 6h ago` plus count pills)
+  while admission state remains preserved in data attributes and session detail.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

@@ -294,6 +294,9 @@ export interface HypervisorLaunchedSessionProjection {
   project_ref: string;
   project_label: string;
   launched_at_ms: number;
+  branch_label?: string | null;
+  relative_time_label?: string | null;
+  activity_count?: number | null;
   admission_state:
     | "daemon_admitted"
     | "daemon_blocked"
@@ -377,12 +380,18 @@ export function buildHypervisorLaunchedSessionProjection({
   projectLabel,
   launchedAtMs = Date.now(),
   codeEditorAdapterAdmission = null,
+  displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
   recipe: HypervisorSessionLaunchRecipe;
   projectLabel: string;
   launchedAtMs?: number;
   codeEditorAdapterAdmission?: HypervisorCodeEditorAdapterLaunchAdmissionRecord | null;
+  displayMeta?: {
+    branchLabel?: string | null;
+    relativeTimeLabel?: string | null;
+    activityCount?: number | null;
+  };
 }): HypervisorLaunchedSessionProjection {
   const routeId = [
     safeLaunchId(recipe.kind),
@@ -408,6 +417,9 @@ export function buildHypervisorLaunchedSessionProjection({
     project_ref: request.project_id,
     project_label: projectLabel,
     launched_at_ms: launchedAtMs,
+    branch_label: displayMeta.branchLabel ?? null,
+    relative_time_label: displayMeta.relativeTimeLabel ?? null,
+    activity_count: displayMeta.activityCount ?? null,
     admission_state: admissionState,
     code_editor_adapter_admission: codeEditorAdapterAdmission,
     code_editor_adapter_admission_ref:

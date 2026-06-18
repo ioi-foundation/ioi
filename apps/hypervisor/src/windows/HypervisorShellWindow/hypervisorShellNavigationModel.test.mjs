@@ -329,6 +329,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /return `\$\{recipe\.label\} for \$\{projectLabel\}`;/);
   assert.match(activityBar, /launchedSessionRailTitle/);
   assert.match(activityBar, /launchedSessionRailMeta/);
+  assert.match(activityBar, /session\.branch_label/);
+  assert.match(activityBar, /session\.relative_time_label/);
+  assert.match(activityBar, /session\.activity_count/);
   assert.match(activityBar, /launchedSessionRailBadge/);
   assert.doesNotMatch(activityBar, /REFERENCE_SESSION_ROWS/);
   assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
@@ -517,6 +520,8 @@ test("new session modal is a shell-level governed launch flow", () => {
     launchedSessionPersistence,
     /Write Parent Harness Evidence Boundary Doc/,
   );
+  assert.match(launchedSessionPersistence, /relative_time_label: "6h ago"/);
+  assert.match(launchedSessionPersistence, /activity_count: 3/);
   assert.match(
     launchedSessionPersistence,
     /runtimeTruthSource !== "daemon-runtime"/,

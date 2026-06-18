@@ -73,18 +73,27 @@ const REFERENCE_SESSION_SEEDS = [
     seed_intent: "Write Parent Harness Evidence Boundary Doc",
     recipe_id: "workbench.default",
     launched_at: "2026-06-17T15:30:00.000Z",
+    branch_label: "main",
+    relative_time_label: "6h ago",
+    activity_count: 3,
     admitted: true,
   },
   {
     seed_intent: "Write Harness Tool Call Documentation",
     recipe_id: "mission.default",
     launched_at: "2026-06-17T15:24:00.000Z",
+    branch_label: "main",
+    relative_time_label: "6h ago",
+    activity_count: 4,
     admitted: false,
   },
   {
     seed_intent: "Design Postquantum Computers Website",
     recipe_id: "agent.default",
     launched_at: "2026-06-17T15:18:00.000Z",
+    branch_label: "main",
+    relative_time_label: "6h ago",
+    activity_count: 5,
     admitted: false,
   },
 ] as const;
@@ -188,6 +197,11 @@ export const HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS: HypervisorLaunch
       recipe,
       projectLabel: REFERENCE_PROJECT_LABEL,
       launchedAtMs: Date.parse(seed.launched_at),
+      displayMeta: {
+        branchLabel: seed.branch_label,
+        relativeTimeLabel: seed.relative_time_label,
+        activityCount: seed.activity_count,
+      },
       codeEditorAdapterAdmission: seed.admitted
         ? buildReferenceAdapterAdmission({
             seedIndex,
@@ -253,6 +267,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
   const projectRef = stringValue(record.project_ref);
   const projectLabel = stringValue(record.project_label);
   const launchedAtMs = numberValue(record.launched_at_ms);
+  const branchLabel = nullableStringValue(record.branch_label);
+  const relativeTimeLabel = nullableStringValue(record.relative_time_label);
+  const activityCount = numberValue(record.activity_count);
   const admissionState = stringValue(record.admission_state);
   const recipeKind = stringValue(record.recipe_kind);
   const surfaceId = stringValue(record.surface_id);
@@ -294,6 +311,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
     project_ref: projectRef,
     project_label: projectLabel,
     launched_at_ms: launchedAtMs,
+    branch_label: branchLabel,
+    relative_time_label: relativeTimeLabel,
+    activity_count: activityCount,
     admission_state:
       admissionState as HypervisorLaunchedSessionProjection["admission_state"],
     code_editor_adapter_admission: codeEditorAdapterAdmission,

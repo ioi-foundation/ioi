@@ -189,6 +189,24 @@ test("reference launched session seed gives fresh shells IOI-reference rail hist
       ?.code_editor_adapter_admission?.decision,
     "admitted",
   );
+  assert.deepEqual(
+    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
+      (session) => session.branch_label,
+    ),
+    ["main", "main", "main"],
+  );
+  assert.deepEqual(
+    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
+      (session) => session.relative_time_label,
+    ),
+    ["6h ago", "6h ago", "6h ago"],
+  );
+  assert.deepEqual(
+    HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.map(
+      (session) => session.activity_count,
+    ),
+    [3, 4, 5],
+  );
   assert.ok(
     HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS.every(
       (session) => session.runtimeTruthSource === "daemon-runtime",

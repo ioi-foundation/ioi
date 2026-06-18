@@ -272,6 +272,11 @@ function launchedSessionRailTitle(
 function launchedSessionRailMeta(
   session: HypervisorLaunchedSessionProjection,
 ): string {
+  const branchLabel = session.branch_label?.trim() || "main";
+  const relativeTimeLabel = session.relative_time_label?.trim();
+  if (relativeTimeLabel) {
+    return `${branchLabel} · ${relativeTimeLabel}`;
+  }
   const recipeKind = session.recipe_kind.replace(/_/g, " ");
   const state =
     session.admission_state === "daemon_admitted"
@@ -288,6 +293,13 @@ function launchedSessionRailMeta(
 function launchedSessionRailBadge(
   session: HypervisorLaunchedSessionProjection,
 ): string {
+  if (
+    typeof session.activity_count === "number" &&
+    Number.isFinite(session.activity_count) &&
+    session.activity_count > 0
+  ) {
+    return String(Math.min(session.activity_count, 99));
+  }
   switch (session.admission_state) {
     case "daemon_admitted":
       return "✓";
