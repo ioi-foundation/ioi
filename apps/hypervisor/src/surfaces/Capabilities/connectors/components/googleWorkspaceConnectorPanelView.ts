@@ -2,7 +2,7 @@ import type {
   ConnectorActionDefinition,
   ConnectorSubscriptionSummary,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import type { GoogleWorkspaceConnectorState } from "../hooks/useGoogleWorkspaceConnector";
 import type {
   GoogleScopeBundle,

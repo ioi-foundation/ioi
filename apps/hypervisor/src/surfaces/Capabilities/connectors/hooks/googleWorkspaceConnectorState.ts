@@ -3,8 +3,8 @@ import type {
   ConnectorConfigureResult,
   ConnectorSubscriptionSummary,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
-import type { ShieldApprovalRequest } from "../../../runtime/shield-approval";
+} from "@ioi/hypervisor-workbench";
+import type { ShieldApprovalRequest } from "@ioi/hypervisor-workbench";
 
 export function buildDefaultInput(
   action: ConnectorActionDefinition | null

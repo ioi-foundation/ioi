@@ -1,4 +1,4 @@
-import { Icons } from "../../../ui/icons";
+import { Codicon } from "@ioi/workspace-substrate";
 import {
   ONBOARDING_STEPS,
   TAB_DEFINITIONS,
@@ -55,7 +55,7 @@ export function GoogleWorkspaceConnectorPanelBody({
               onClick={() => setSettingsModalOpen(true)}
               disabled={workspace.busy || !workspace.runtimeReady}
             >
-              <Icons.Settings width="14" height="14" />
+              <Codicon name="gear" />
               <span>Local settings</span>
             </button>
             {onOpenPolicyCenter ? (
@@ -64,7 +64,7 @@ export function GoogleWorkspaceConnectorPanelBody({
                 className="btn-secondary workspace-utility-button"
                 onClick={() => onOpenPolicyCenter(connector)}
               >
-                <Icons.Gate width="14" height="14" />
+                <Codicon name="shield" />
                 <span>Open policy</span>
               </button>
             ) : null}

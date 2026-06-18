@@ -6,12 +6,12 @@ import type {
   WalletMailConfiguredAccount,
   WalletMailListRecentResult,
   WalletMailReadLatestResult,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import {
   buildConnectorApprovalMemoryRequest,
   parseShieldApprovalRequest,
   type ShieldApprovalRequest,
-} from "../../../runtime/shield-approval";
+} from "@ioi/hypervisor-workbench";
 
 export type MailProviderPresetKey =
   | "auto"

@@ -9,9 +9,9 @@ import {
   type ConnectorActionDefinition,
   type ConnectorConfigureResult,
   type ConnectorSummary,
-  useMailConnectorActions,
   workflowRuntimeUnavailableCopy,
 } from "@ioi/hypervisor-workbench";
+import { useMailConnectorActions } from "../connectors/hooks/useMailConnectorActions";
 import {
   listenIfHostBridge,
   safelyDisposeHostListener,

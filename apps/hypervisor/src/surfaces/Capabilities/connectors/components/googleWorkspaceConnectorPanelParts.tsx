@@ -4,7 +4,7 @@ import type {
   ConnectorSubscriptionStatus,
   ConnectorSubscriptionSummary,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import { getConnectorFocusedFormRecommendation } from "./connectorActionPatterns";
 import type { GoogleWorkspaceConnectorState } from "../hooks/useGoogleWorkspaceConnector";
 import {

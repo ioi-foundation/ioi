@@ -2,7 +2,7 @@ import {
   GenericConnectorPanel,
   GoogleWorkspaceConnectorPanel,
   MailConnectorPanel,
-} from "@ioi/hypervisor-workbench";
+} from "../connectors/components";
 import {
   connectorStatusLabel,
   formatAuthMode,

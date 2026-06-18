@@ -3,7 +3,7 @@ import type {
   ConnectorActionDefinition,
   ConnectorConfigureResult,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 
 export interface GoogleWorkspaceConnectorPanelProps {
   runtime: AgentWorkbenchRuntime;

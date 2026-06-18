@@ -6,7 +6,7 @@ import type {
   ConnectorConfigureResult,
   ConnectorSubscriptionSummary,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import {
   buildDefaultInput,
   coerceInput,
@@ -33,7 +33,7 @@ import {
 import {
   buildConnectorApprovalMemoryRequest,
   parseShieldApprovalRequest,
-} from "../../../runtime/shield-approval";
+} from "@ioi/hypervisor-workbench";
 
 export type {
   GoogleWorkspaceBootstrapWarning,

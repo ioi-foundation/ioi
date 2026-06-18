@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ConnectorActionDefinition,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import { useGoogleWorkspaceConnector } from "../hooks/useGoogleWorkspaceConnector";
 import {
   AUTOMATION_RECIPES,

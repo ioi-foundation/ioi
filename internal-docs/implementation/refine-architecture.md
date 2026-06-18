@@ -1100,8 +1100,9 @@ Current implementation cut:
   Hypervisor Sessions and Authority surfaces instead of alternate product
   windows.
   the dead package-level `ActivityBar` shell and aggregate `ConnectorsView`
-  wrapper are deleted from `@ioi/hypervisor-workbench`; the package keeps
-  reusable connector panels, workflow components, and runtime primitives only.
+  wrapper are deleted from `@ioi/hypervisor-workbench`; connector UI/hooks now
+  live under the Hypervisor Capabilities surface, leaving the package with
+  workflow components and runtime primitives only.
   `EnvironmentEstateView` now lives under `apps/hypervisor/src/surfaces/Environments`
   instead of `@ioi/hypervisor-workbench`, so provider/environment posture is a
   Hypervisor shell surface rather than a code-editor/workflow package surface.

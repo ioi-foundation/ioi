@@ -441,10 +441,6 @@ export {
   createRuntimeUsageMeterControlRequest,
   createRuntimeUsageMeterControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-usage-control-nodes";
-export { GenericConnectorPanel } from "./features/Connectors/components/GenericConnectorPanel";
-export { GoogleWorkspaceConnectorPanel } from "./features/Connectors/components/GoogleWorkspaceConnectorPanel";
-export { MailConnectorPanel } from "./features/Connectors/components/MailConnectorPanel";
-export { useMailConnectorActions } from "./features/Connectors/hooks/useMailConnectorActions";
 export {
   createChatSessionStore,
   createConnectedSessionStore,
@@ -1079,11 +1075,5 @@ export type {
   UseSessionUiStateOptions,
   UseSessionViewStateOptions,
 } from "./runtime/use-session-view-state";
-
-export type {
-  MailConnectorActionsState,
-  MailProviderPresetKey,
-  MailTlsMode,
-} from "./features/Connectors/hooks/useMailConnectorActions";
 
 export * from "./types/graph";

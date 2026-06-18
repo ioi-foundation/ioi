@@ -14,7 +14,7 @@ import type {
   ConnectorConfigureResult,
   ConnectorFieldDefinition,
   ConnectorSummary,
-} from "../../../runtime/agent-runtime";
+} from "@ioi/hypervisor-workbench";
 import {
   ConnectorActionPreviewStage,
   ConnectorActionUnlockModal,
