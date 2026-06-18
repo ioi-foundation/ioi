@@ -105,7 +105,7 @@ apps/hypervisor/
 workbench-adapters/
 ├── README.md                            # adapter-host ownership notes
 ├── ioi-workbench/                       # built-in code editor adapter extension
-├── shell.manifest.json                  # adapter-host manifest
+├── adapter-host.manifest.json           # code-editor adapter-host manifest
 ├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
 └── vscode/                              # ignored optional VS Code source checkout
 

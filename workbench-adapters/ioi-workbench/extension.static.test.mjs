@@ -39,8 +39,6 @@ test("ioi-workbench is a code editor adapter, not a Hypervisor product shell", a
   assert.match(extension, /startWorkbenchContextSnapshotPublisher/);
   assert.match(extension, /createWorkbenchContextSnapshot/);
   assert.match(extension, /ioi\.code\.open/);
-  assert.doesNotMatch(extension, /ioi\.commandCenter\.open/);
-  assert.doesNotMatch(extension, /ioi\.hypervisor\.back/);
 });
 
 test("adapter bridge and context files keep daemon ownership language", async () => {

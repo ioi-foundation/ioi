@@ -16,7 +16,6 @@ import {
   envFlag,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
@@ -674,13 +673,11 @@ if (!existsSync(binary)) {
 function syncWorkbenchExtension() {
   if (!extensionSyncEnabled) return;
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyHypervisorWorkbenchShellPatch();
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(
     `[Hypervisor Workbench Adapter] Synced ioi-workbench extension into ${copied}.` +
-      (skipped ? ` Skipped optional ${skipped}.` : "") +
-      ` Installed Workbench shell patch at ${shellPatch.installedAt}.`,
+      (skipped ? ` Skipped optional ${skipped}.` : ""),
   );
 }
 
@@ -697,7 +694,6 @@ const child = spawn(binary, launchArgs, {
     ...process.env,
     IOI_HYPERVISOR_WORKBENCH_ADAPTER_HOST: "vscode-electron-packaged-host",
     IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
-    IOI_WORKBENCH_NATIVE_SHELL: "1",
     ...(boot.endpoint ? { IOI_DAEMON_ENDPOINT: boot.endpoint } : {}),
     ...(boot.token ? { IOI_DAEMON_TOKEN: boot.token } : {}),
     ...(boot.discovery?.mounted?.[0]?.modelId

@@ -79,8 +79,7 @@ const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
 const workbenchAdapterHostPaths = read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs");
 const workbenchAdaptersReadme = read("workbench-adapters/README.md");
-const workbenchShellManifest = read("workbench-adapters/shell.manifest.json");
-const workbenchShellPatch = read("scripts/lib/hypervisor-workbench-shell-patch.mjs");
+const workbenchAdapterHostManifest = read("workbench-adapters/adapter-host.manifest.json");
 const rootGitignore = read(".gitignore");
 const hypervisorInstallProductMetadataSource = read(
   "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
@@ -626,31 +625,25 @@ assert(
   "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels.",
 );
 assert(
-  "workbench-shell-patch-code-adapter-only",
-  exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
+  "workbench-adapter-host-without-product-shell-patch",
+  !exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
     !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
-    workbenchShellPatch.includes("applyHypervisorWorkbenchShellPatch") &&
-    workbenchShellPatch.includes("ioi-hypervisor-native-shell") &&
-    workbenchShellPatch.includes("ioi-hypervisor-workbench-quickinput") &&
-    workbenchShellPatch.includes("ioi.hypervisor-workbench-shell-patch.v1") &&
-    !/ioi\.hypervisor\.shell\.mode|ioi\.hypervisor\.active\.mode|hypervisor-primary-rail|code-rail-back-to-hypervisor|ioi-hypervisor-back-rail|Hypervisor primary modes|Back to Hypervisor|hypervisorModeMenuHiddenByCssAndSettings|forkNativeRailShim|forkNativeModeHostShim|codeDrilldownRail|vscodeCommandCenterOwnsTopShell/.test(
-      workbenchShellPatch,
-    ) &&
-    !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
-      workbenchShellPatch,
+    !/applyHypervisorWorkbenchShellPatch|applyAutopilotWorkbenchShellPatch|IOI_WORKBENCH_NATIVE_SHELL|ioi-hypervisor-native-shell|ioi-hypervisor-workbench-quickinput|workbench-shell-patch|ioi\.quickInput/.test(
+      workbenchAdapterLauncher,
     ),
   [
     "scripts/lib/hypervisor-workbench-shell-patch.mjs",
     "scripts/lib/autopilot-workbench-shell-patch.mjs",
+    "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   ],
-  "Workbench adapter shell patch helper must stay code-editor-only; retired product shell rail/mode shims must not return.",
+  "Workbench adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
 );
 assert(
   "workbench-adapter-fork-sync-target-only",
   /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
     /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"workbenchSource":\s*"workbench-adapters\/ioi-workbench"/.test(workbenchShellManifest) &&
-    /"optionalForRuntimeLaunch":\s*true/.test(workbenchShellManifest) &&
+    /"adapterSource":\s*"workbench-adapters\/ioi-workbench"/.test(workbenchAdapterHostManifest) &&
+    /"optionalForRuntimeLaunch":\s*true/.test(workbenchAdapterHostManifest) &&
     workbenchAdaptersReadme.includes("workbench-adapters/ioi-workbench") &&
     workbenchAdaptersReadme.includes("target optional local VS Code source") &&
     /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-workbench",\s*\);/.test(
@@ -668,7 +661,7 @@ assert(
   [
     ".gitignore",
     "workbench-adapters/README.md",
-    "workbench-adapters/shell.manifest.json",
+    "workbench-adapters/adapter-host.manifest.json",
     "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
   ],
   "Ignored VS Code fork/build trees must stay sync targets copied from the canonical Workbench adapter source, not duplicate tracked JS truth paths.",

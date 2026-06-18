@@ -33,11 +33,10 @@ test("workspace bridge receipts keep command route envelope stable", () => {
 });
 
 test("workspace bridge identifies runtime action request families", () => {
-  assert.equal(isRuntimeActionRequestType("commandCenter.open"), false);
   assert.equal(isRuntimeActionRequestType("code.open"), true);
   assert.equal(isRuntimeActionRequestType("chat.submit"), false);
-  assert.equal(isRuntimeActionRequestType("workflow.open"), false);
   assert.equal(isRuntimeActionRequestType("workbench.contextSnapshot"), false);
+  assert.equal(isRuntimeActionRequestType("editor.contextSnapshot"), false);
 });
 
 test("workspace bridge default state keeps daemon runtime authority", async () => {

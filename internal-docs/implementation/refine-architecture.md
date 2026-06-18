@@ -1051,12 +1051,13 @@ Current implementation cut:
   and `buildBlockedHypervisorGuiHarnessResult`; `check:runtime-layout`
   rejects the retired helper filenames, exported symbols, and
   Autopilot-stamped active proof schemas.
-  the active Workbench adapter shell patch helper is
-  `scripts/lib/hypervisor-workbench-shell-patch.mjs` with
-  `applyHypervisorWorkbenchShellPatch`, `ioi-hypervisor-native-shell`, and
-  `ioi-hypervisor-workbench-quickinput`; `check:runtime-layout` rejects the
-  retired `scripts/lib/autopilot-workbench-shell-patch.mjs` helper path,
-  function, schema id, and quickinput source id.
+  the Workbench adapter shell patch path is retired entirely. The adapter host
+  syncs the `ioi-workbench` extension and launches a normal code-editor adapter
+  target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,
+  Receipts, and Settings stay in the Hypervisor App/Web clients.
+  `check:runtime-layout` rejects both the retired Autopilot shell-patch helper
+  and the later Hypervisor shell-patch helper so adapter targets cannot regain
+  product-shell duties.
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-workbench` directory is a code editor adapter implementation detail,
   not the public script/product name.
