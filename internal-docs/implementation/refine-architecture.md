@@ -2003,8 +2003,11 @@ Current implementation cut:
   the public container-adapter request, POSTs to
   `/v1/hypervisor/harness-public-fixture-runs`, normalizes daemon attempts back
   into comparison rows, and records daemon-unavailable state instead of
-  executing harnesses locally. Workbench remains the adapter target surface;
-  Foundry owns comparison/eval visibility.
+  executing harnesses locally. The built Hypervisor shell contract now opens
+  Foundry, verifies the comparison fixture candidate set, presses `Run fixture`,
+  and accepts only the governed daemon states (`admitted` or `unavailable`),
+  proving the app does not silently execute the fixture locally. Workbench
+  remains the adapter target surface; Foundry owns comparison/eval visibility.
 
   0B.2's launch contract is hardened: `HypervisorNewSessionModal` now emits an
   `ioi.hypervisor.new_session_launch_summary.v1` object binding recipe,
@@ -2052,7 +2055,9 @@ First implementation slice:
    fixture. Product wiring from Foundry into the daemon public-fixture route is
    implemented through `buildHarnessPublicFixtureRunRequest`,
    `requestHarnessPublicFixtureRun`, and
-   `normalizeHarnessComparisonRunFromPublicFixtureRun`.
+   `normalizeHarnessComparisonRunFromPublicFixtureRun`; the built-shell
+   Playwright contract verifies both the visible comparison dashboard and the
+   governed daemon route state after `Run fixture`.
 9. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```

@@ -1852,6 +1852,19 @@ assert(
     hypervisorAppShellContractSource.includes(
       ".chat-workspace-oss-shell__workbench-surface",
     ) &&
+    hypervisorAppShellContractSource.includes("?view=foundry") &&
+    hypervisorAppShellContractSource.includes(
+      "[data-hypervisor-harness-comparison-run]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "[data-harness-comparison-candidate]",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      '[data-harness-comparison-action="request-run"]',
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "foundry_harness_fixture_route_gated",
+    ) &&
     hypervisorAppShellContractSource.includes("?view=agents") &&
     hypervisorAppShellContractSource.includes(
       "Agents surface leaked implementation-truth copy into the visible product surface.",
@@ -1880,7 +1893,7 @@ assert(
     "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
-  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, direct Workbench workspace session, and Agents product-surface copy.",
+  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, direct Workbench workspace session, Foundry harness comparison gating, and Agents product-surface copy.",
 );
 assert(
   "hypervisor-conformance-command-contract",

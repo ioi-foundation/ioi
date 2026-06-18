@@ -305,6 +305,51 @@ async function main() {
       "Workbench did not render the code-editor workspace session surface.",
     );
 
+    await page.goto(new URL("?view=foundry", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
+    await page.waitForSelector("[data-hypervisor-harness-comparison-run]");
+    const foundryText = await page.locator("body").innerText();
+    assert(
+      foundryText.includes("Compare harness adapters against one public fixture."),
+      "Foundry did not render the harness comparison dashboard.",
+    );
+    assert(
+      foundryText.includes("Default Harness Profile") &&
+        foundryText.includes("Codex CLI") &&
+        foundryText.includes("DeepSeek TUI") &&
+        foundryText.includes("Generic CLI Harness"),
+      "Foundry harness comparison did not expose the expected adapter candidates.",
+    );
+    const harnessCandidateCount = await page
+      .locator("[data-harness-comparison-candidate]")
+      .count();
+    assert(
+      harnessCandidateCount >= 9,
+      "Foundry harness comparison did not render the full adapter fixture set.",
+    );
+    assert(
+      (await page
+        .locator('[data-harness-comparison-state="fixture"]')
+        .count()) === 1,
+      "Foundry harness comparison did not start from the read-only fixture state.",
+    );
+    await page.locator('[data-harness-comparison-action="request-run"]').click();
+    await page.waitForFunction(() => {
+      const state = document
+        .querySelector("[data-harness-comparison-state]")
+        ?.getAttribute("data-harness-comparison-state");
+      return state === "admitted" || state === "unavailable";
+    });
+    const foundryRunState = await page
+      .locator("[data-harness-comparison-state]")
+      .getAttribute("data-harness-comparison-state");
+    assert(
+      foundryRunState === "admitted" || foundryRunState === "unavailable",
+      "Foundry harness comparison did not route fixture execution through the governed daemon state.",
+    );
+
     await page.goto(new URL("?view=agents", url).toString(), {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
@@ -495,6 +540,8 @@ async function main() {
         "sessions_reference_environment_lifecycle_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
+        "foundry_harness_comparison_rendered",
+        "foundry_harness_fixture_route_gated",
         "agents_reference_product_surface_rendered",
         "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",
