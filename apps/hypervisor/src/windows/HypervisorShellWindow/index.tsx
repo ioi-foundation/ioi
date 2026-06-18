@@ -30,19 +30,19 @@ import "@ioi/hypervisor-workbench/dist/style.css";
 import "../shared/AssistantWorkbench.css";
 import "./HypervisorShellWindow.css";
 
-const runtime = new HypervisorClientRuntime("chat");
+const runtime = new HypervisorClientRuntime("hypervisor");
 
-type ChatCrashReport = {
+type HypervisorCrashReport = {
   source: "render" | "runtime";
   message: string;
   detail: string | null;
 };
 
-function describeChatError(
+function describeHypervisorError(
   value: unknown,
-  source: ChatCrashReport["source"],
+  source: HypervisorCrashReport["source"],
   fallbackMessage: string,
-): ChatCrashReport {
+): HypervisorCrashReport {
   if (value instanceof Error) {
     return {
       source,
@@ -103,14 +103,14 @@ function describeChatError(
   };
 }
 
-function shouldIgnoreChatRuntimeError(value: unknown): boolean {
+function shouldIgnoreHypervisorRuntimeError(value: unknown): boolean {
   return isBenignHostListenerCleanupError(value);
 }
 
 function HypervisorShellWindowCrashScreen({
   error,
 }: {
-  error: ChatCrashReport;
+  error: HypervisorCrashReport;
 }) {
   return (
     <div className="hypervisor-window hypervisor-window--crashed">
@@ -153,10 +153,10 @@ function HypervisorShellWindowCrashScreen({
 class HypervisorShellWindowRenderBoundary extends React.Component<
   {
     children: ReactNode;
-    externalError: ChatCrashReport | null;
+    externalError: HypervisorCrashReport | null;
   },
   {
-    renderError: ChatCrashReport | null;
+    renderError: HypervisorCrashReport | null;
   }
 > {
   state = {
@@ -165,7 +165,7 @@ class HypervisorShellWindowRenderBoundary extends React.Component<
 
   static getDerivedStateFromError(error: Error) {
     return {
-      renderError: describeChatError(
+      renderError: describeHypervisorError(
         error,
         "render",
         "Hypervisor failed to render.",
@@ -174,7 +174,7 @@ class HypervisorShellWindowRenderBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    const base = describeChatError(
+    const base = describeHypervisorError(
       error,
       "render",
       "Hypervisor failed to render.",
@@ -201,15 +201,15 @@ function HypervisorShellWindowCrashGuard({
 }: {
   children: ReactNode;
 }) {
-  const [runtimeError, setRuntimeError] = useState<ChatCrashReport | null>(null);
+  const [runtimeError, setRuntimeError] = useState<HypervisorCrashReport | null>(null);
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      if (shouldIgnoreChatRuntimeError(event.error ?? event.message)) {
+      if (shouldIgnoreHypervisorRuntimeError(event.error ?? event.message)) {
         return;
       }
       setRuntimeError(
-        describeChatError(
+        describeHypervisorError(
           event.error ?? event.message,
           "runtime",
           "Hypervisor hit a runtime error.",
@@ -217,11 +217,11 @@ function HypervisorShellWindowCrashGuard({
       );
     };
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (shouldIgnoreChatRuntimeError(event.reason)) {
+      if (shouldIgnoreHypervisorRuntimeError(event.reason)) {
         return;
       }
       setRuntimeError(
-        describeChatError(
+        describeHypervisorError(
           event.reason,
           "runtime",
           "Hypervisor hit an unhandled runtime rejection.",

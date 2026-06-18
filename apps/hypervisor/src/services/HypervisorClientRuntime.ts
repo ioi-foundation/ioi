@@ -346,7 +346,7 @@ function liveEnvironmentEstateStateFromSnapshot(snapshot: LocalEngineSnapshot): 
   };
 }
 
-type RuntimeShellSurface = "overlay" | "chat";
+type RuntimeShellSurface = "overlay" | "hypervisor";
 
 type WorkflowSkillPromotionOverride = {
     skillHash: string;
