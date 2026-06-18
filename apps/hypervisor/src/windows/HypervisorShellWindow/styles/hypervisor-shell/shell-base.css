@@ -3081,6 +3081,11 @@
   font-weight: 650;
 }
 
+.hypervisor-automation-compositor__row-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .hypervisor-automation-compositor__row-copy {
   min-width: 0;
 }

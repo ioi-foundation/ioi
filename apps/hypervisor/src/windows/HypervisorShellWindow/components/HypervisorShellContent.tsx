@@ -908,7 +908,33 @@ function HypervisorAutomationCompositorSurface({
       tone: "blue",
     },
   ];
-  const referenceAutomationTotal = 4;
+  const referenceAutomationRows = [
+    {
+      label: "Automated dev environment setup",
+      status: "Never ran",
+      icon: "play",
+      runnable: true,
+    },
+    {
+      label: "Draft weekly release notes",
+      status: "Never ran",
+      icon: "calendar",
+      runnable: false,
+    },
+    {
+      label: "10x engineer",
+      status: "Never ran",
+      icon: "calendar",
+      runnable: false,
+    },
+    {
+      label: "Scan recent commits for bugs",
+      status: "Never ran",
+      icon: "calendar",
+      runnable: false,
+    },
+  ] as const;
+  const referenceAutomationTotal = 0;
 
   return (
     <section
@@ -963,7 +989,7 @@ function HypervisorAutomationCompositorSurface({
             <button type="button">Sort: Recently completed</button>
             <div role="group" aria-label="Automation ownership filter">
               <button type="button" className="is-active">
-                Yours
+                Yours ({referenceAutomationRows.length})
               </button>
               <button type="button">All ({referenceAutomationTotal})</button>
             </div>
@@ -973,13 +999,41 @@ function HypervisorAutomationCompositorSurface({
             className="hypervisor-automation-compositor__table"
             aria-label="Workflow templates"
           >
-            <div className="hypervisor-automation-compositor__empty">
-              <strong>No automations yet</strong>
-              <span>
-                You haven't created any automations yet. Choose a template or
-                click + New to get started.
-              </span>
-            </div>
+            {referenceAutomationRows.map((row) => (
+              <article
+                key={row.label}
+                className="hypervisor-automation-compositor__row"
+                data-automation-row-ref={`automation:${row.label
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, "-")
+                  .replace(/^-+|-+$/g, "")}`}
+              >
+                <span className="hypervisor-automation-compositor__row-icon">
+                  <AutomationRowIcon kind={row.icon} />
+                </span>
+                <span className="hypervisor-automation-compositor__row-copy">
+                  <strong>{row.label}</strong>
+                  <em>{row.status}</em>
+                </span>
+                {row.runnable ? (
+                  <button
+                    type="button"
+                    className="hypervisor-automation-compositor__row-run"
+                  >
+                    Run
+                  </button>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+                <button
+                  type="button"
+                  aria-label={`Open ${row.label} actions`}
+                  className="hypervisor-automation-compositor__row-menu"
+                >
+                  ...
+                </button>
+              </article>
+            ))}
           </section>
         </main>
 
@@ -1103,6 +1157,32 @@ function HypervisorInsightsReferenceSurface({
         {children}
       </div>
     </section>
+  );
+}
+
+function AutomationRowIcon({ kind }: { kind: "play" | "calendar" }) {
+  if (kind === "play") {
+    return (
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path
+          d="M6 4.75v6.5L11 8 6 4.75Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M4 2.75v2M12 2.75v2M3.25 6.25h9.5M4.25 4h7.5c.83 0 1.5.67 1.5 1.5v6.25c0 .83-.67 1.5-1.5 1.5h-7.5c-.83 0-1.5-.67-1.5-1.5V5.5c0-.83.67-1.5 1.5-1.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.25"
+      />
+      <circle cx="11" cy="10.75" r="1" fill="currentColor" />
+    </svg>
   );
 }
 

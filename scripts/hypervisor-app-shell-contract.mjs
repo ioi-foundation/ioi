@@ -370,6 +370,31 @@ async function main() {
       "Sessions should render empty ports until daemon reports an opened service.",
     );
 
+    await page.goto(new URL("?view=automations", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
+    await page.waitForSelector("[data-automation-row-ref]");
+    const automationRows = await page
+      .locator("[data-automation-row-ref]")
+      .allInnerTexts();
+    assert(
+      automationRows.length >= 4 &&
+        automationRows.some((row) =>
+          row.includes("Automated dev environment setup"),
+        ) &&
+        automationRows.some((row) => row.includes("Draft weekly release notes")) &&
+        automationRows.some((row) => row.includes("10x engineer")) &&
+        automationRows.some((row) =>
+          row.includes("Scan recent commits for bugs"),
+        ),
+      `Automations did not render the IOI-reference row table. rows=${JSON.stringify(automationRows)}`,
+    );
+    assert(
+      (await page.locator(".hypervisor-automation-compositor__empty").count()) === 0,
+      "Automations reintroduced the empty-state card instead of the reference row table.",
+    );
+
     await page.locator('[data-window-surface="projects"]').click();
     await page.waitForSelector("[data-hypervisor-project-state]");
     const projectsText = await page.locator("body").innerText();
@@ -643,6 +668,7 @@ async function main() {
         "new_session_launch_creates_readable_session_row",
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_environment_lifecycle_rendered",
+        "automations_reference_rows_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
         "foundry_harness_comparison_rendered",

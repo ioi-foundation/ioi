@@ -147,8 +147,23 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*No automations yet[\s\S]*className="hypervisor-automation-compositor__suggested"/,
-  "Automations should render metrics, filters, the reference empty state, and the suggested-template rail",
+  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*className="hypervisor-automation-compositor__suggested"/,
+  "Automations should render metrics, filters, row table, and the suggested-template rail",
+);
+assert.match(
+  source,
+  /data-automation-row-ref[\s\S]*className="hypervisor-automation-compositor__row-run"[\s\S]*Run/,
+  "Automations should render reference rows with an actionable first row",
+);
+assert.match(
+  source,
+  /Automated dev environment setup[\s\S]*Draft weekly release notes[\s\S]*10x engineer[\s\S]*Scan recent commits for bugs/,
+  "Automations should render the IOI-reference automation row labels",
+);
+assert.doesNotMatch(
+  source,
+  /No automations yet|className="hypervisor-automation-compositor__empty"/,
+  "Automations should not reintroduce the empty-state card",
 );
 
 assert.match(

@@ -1630,15 +1630,14 @@ Current implementation cut:
   New Session instead of sitting on top of the home workplane.
   `HypervisorAutomationCompositorSurface` now matches the IOI reference
   automations posture: Webhooks and New actions in the topbar, three summary
-  metrics, filter controls, an empty-state workplane, a wider suggested-template
-  rail, and product copy for common engineering workflows. Workflow/compositor
-  projection data remains present as hidden
-  contract/data attributes and behind the editor boundary, but visible
-  automation rows are not rendered until the user has created automations.
+  metrics, filter controls, a reference automation row table, a wider
+  suggested-template rail, and product copy for common engineering workflows.
+  Workflow/compositor projection data remains present as hidden contract/data
+  attributes and behind the editor boundary, but the visible workplane now
+  follows the reference row-table shape instead of the retired empty card.
   Focused source guards verify the IOI-reference Home recent list and reject
-  visible workflow template rows, and Playwright probes verify `No automations
-  yet`, Webhooks, six suggestions, and zero visible
-  `data-workflow-template-ref` rows.
+  old static Home recents, and Automations guards verify the row table while
+  still rejecting visible workflow template refs.
 
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built
