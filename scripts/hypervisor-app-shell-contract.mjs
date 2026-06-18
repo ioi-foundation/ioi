@@ -339,15 +339,29 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector('[data-session-reference-page="environment-detail"]');
+    await page.waitForSelector('[data-session-reference-page="conversation-detail"]');
     const sessionsText = await page.locator("body").innerText();
     assert(
-      sessionsText.includes("Started remote environment") &&
-        sessionsText.includes("Initialized repository") &&
-        sessionsText.includes("Loaded secrets") &&
-        sessionsText.includes("Loaded automations") &&
-        sessionsText.includes("Started dev container"),
-      "Sessions did not render the IOI-reference environment lifecycle.",
+      sessionsText.includes("What do you want to get done today?") &&
+        sessionsText.includes("Automate env setup") &&
+        sessionsText.includes("Fix a bug") &&
+        sessionsText.includes("Boost your test coverage"),
+      "Sessions did not render the IOI-reference conversation cockpit.",
+    );
+    assert(
+      (await page
+        .locator(
+          '.hypervisor-session-operations__composer textarea[placeholder="Describe your task or type / for commands"]',
+        )
+        .count()) === 1,
+      "Sessions did not render the reference composer placeholder.",
+    );
+    assert(
+      (await page.locator(".hypervisor-session-operations__recent-launches").count()) ===
+        0 &&
+        (await page.locator(".hypervisor-session-operations__environment").count()) ===
+          0,
+      "Sessions reintroduced the launched-session strip or environment-first workplane.",
     );
     assert(
       sessionsText.includes("No open ports"),
@@ -667,7 +681,7 @@ async function main() {
         "new_session_recipe_selection_review_gated",
         "new_session_launch_creates_readable_session_row",
         "new_session_workbench_launch_opens_workspace_shell",
-        "sessions_reference_environment_lifecycle_rendered",
+        "sessions_reference_conversation_cockpit_rendered",
         "automations_reference_rows_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",

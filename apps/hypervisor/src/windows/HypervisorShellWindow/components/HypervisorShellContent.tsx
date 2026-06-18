@@ -82,8 +82,6 @@ import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
   isHypervisorSurfaceId,
-  type HypervisorLaunchedSessionProjection,
-  type HypervisorSurfaceId,
 } from "../hypervisorShellNavigationModel";
 
 const insightsDashboardPreviewUrl = new URL(
@@ -1215,29 +1213,6 @@ function AutomationMetric({
   );
 }
 
-function formatSessionDisplayTitle(sessionRef: string): string {
-  const rawTitle = sessionRef.split("/").pop() || sessionRef;
-  return rawTitle
-    .split(/[-_:]+/g)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatSessionLifecycleLabel(lifecycleState: string): string {
-  if (lifecycleState === "active") {
-    return "running";
-  }
-  return lifecycleState.split("_").join(" ");
-}
-
-function formatSessionStepStatus(status: string): string {
-  return status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function formatChangedFileStatus(status: string): string {
   const statusLabel: Record<string, string> = {
     added: "A",
@@ -1393,41 +1368,33 @@ function PortEmptyIcon() {
   );
 }
 
-function launchedSessionAdmissionLabel(
-  state: HypervisorLaunchedSessionProjection["admission_state"],
-): string {
-  switch (state) {
-    case "daemon_admitted":
-      return "Admitted";
-    case "daemon_blocked":
-      return "Blocked";
-    case "daemon_unavailable":
-      return "Daemon unavailable";
-    case "pending_daemon_admission":
-      return "Pending";
-  }
+function ConversationIoiMark() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M8 1.75 13.75 12.5H2.25L8 1.75Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.1"
+      />
+      <path
+        d="M8 4.35 10.95 10H5.05L8 4.35Z"
+        fill="currentColor"
+        opacity="0.2"
+      />
+      <path
+        d="M5.05 10 8 4.35 10.95 10 8 12.25 5.05 10Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1"
+      />
+    </svg>
+  );
 }
 
-function launchedSessionAdmissionDetail(
-  session: HypervisorLaunchedSessionProjection,
-): string {
-  const admission = session.code_editor_adapter_admission;
-  if (admission && "error_message" in admission) {
-    return admission.error_message;
-  }
-  if (session.admission_state === "daemon_admitted") {
-    return `Open ${session.surface_id} with ${session.launch_summary.harness_label}.`;
-  }
-  return `Inspect ${session.surface_id}; target entry waits for daemon admission.`;
-}
-
-function HypervisorSessionOperationsCockpit({
-  launchedSessions,
-  onOpenSurface,
-}: {
-  launchedSessions: readonly HypervisorLaunchedSessionProjection[];
-  onOpenSurface: (surfaceId: HypervisorSurfaceId) => void;
-}) {
+function HypervisorSessionOperationsCockpit() {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
@@ -1495,50 +1462,10 @@ function HypervisorSessionOperationsCockpit({
       data-session-operations-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
-      {launchedSessions.length > 0 ? (
-        <section
-          className="hypervisor-session-operations__recent-launches"
-          aria-label="Recent New Session routes"
-          data-launched-session-list="new-session-projection-cache"
-        >
-          <header>
-            <span>Recent launches</span>
-            <strong>{launchedSessions.length}</strong>
-          </header>
-          <div className="hypervisor-session-operations__recent-launch-list">
-            {launchedSessions.slice(0, 4).map((session) => {
-              const canOpenTarget =
-                session.admission_state === "daemon_admitted" &&
-                isHypervisorSurfaceId(session.surface_id);
-              return (
-                <button
-                  type="button"
-                  key={session.session_ref}
-                  data-launched-session-ref={session.session_ref}
-                  data-launched-session-surface={session.surface_id}
-                  data-launched-session-admission={session.admission_state}
-                  disabled={!canOpenTarget}
-                  onClick={() => {
-                    if (canOpenTarget) {
-                      onOpenSurface(session.surface_id);
-                    }
-                  }}
-                >
-                  <span>{session.project_label}</span>
-                  <strong>{session.launch_summary.harness_label}</strong>
-                  <em>{launchedSessionAdmissionLabel(session.admission_state)}</em>
-                  <small>{launchedSessionAdmissionDetail(session)}</small>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
       <div
         className="hypervisor-session-operations__reference-page"
         aria-label="Selected session detail"
-        data-session-reference-page="environment-detail"
+        data-session-reference-page="conversation-detail"
       >
         <header className="hypervisor-session-operations__session-topbar">
           <button
@@ -1598,7 +1525,7 @@ function HypervisorSessionOperationsCockpit({
                 key={mode.mode_id}
                 type="button"
                 role="tab"
-                aria-selected={mode.mode_id === "code"}
+                aria-selected="false"
                 data-session-workspace-mode={mode.mode_id}
               >
                 <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
@@ -1612,38 +1539,21 @@ function HypervisorSessionOperationsCockpit({
             type="button"
             className="hypervisor-session-operations__session-title"
             data-session-ref={projection.selected_session_ref}
+            aria-selected="true"
           >
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
               <SessionOctagonIcon />
             </span>
-            <strong>{projection.display_title || formatSessionDisplayTitle(projection.selected_session_ref)}</strong>
-            <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
-              <ChevronDownIcon />
-            </span>
+            <strong>Conversation</strong>
           </button>
-          <div
-            className="hypervisor-session-operations__detail-tabs"
-            role="tablist"
-            aria-label="Session detail tabs"
+          <span
+            hidden
             data-session-detail-tab-list={projection.detail_tabs
               .map((tab) => tab.tab_id)
               .join(" ")}
-          >
-            {projection.detail_tabs
-              .filter((tab) => tab.tab_id === "environment")
-              .map((tab) => (
-                <button
-                  key={tab.tab_id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab.tab_id === "environment"}
-                data-session-detail-tab={tab.tab_id}
-                >
-                  <span className="hypervisor-session-operations__detail-status-dot" aria-hidden="true" />
-                  <strong>{tab.label}</strong>
-                </button>
-              ))}
-          </div>
+            data-session-selected-ref={projection.selected_session_ref}
+            data-session-lifecycle-state={projection.lifecycle_state}
+          />
           <button
             type="button"
             className="hypervisor-session-operations__add-panel"
@@ -1655,70 +1565,73 @@ function HypervisorSessionOperationsCockpit({
 
         <div className="hypervisor-session-operations__body">
           <main
-            className="hypervisor-session-operations__environment"
-            aria-label="Environment lifecycle"
+            className="hypervisor-session-operations__conversation"
+            aria-label="Conversation task cockpit"
+            data-session-conversation-cockpit={projection.selected_session_ref}
+            data-session-environment-lifecycle-state={projection.lifecycle_state}
           >
-            <div className="hypervisor-session-operations__environment-header">
-              <div>
-                <span
-                  className="hypervisor-session-operations__toggle"
-                  aria-hidden="true"
-                />
-                <h2>
-                  Environment {formatSessionLifecycleLabel(projection.lifecycle_state)}
-                </h2>
+            <div className="hypervisor-session-operations__conversation-center">
+              <div
+                className="hypervisor-session-operations__conversation-mark"
+                aria-hidden="true"
+              >
+                <span />
+                <ConversationIoiMark />
+                <span />
               </div>
-              <dl>
-                <div>
-                  <dt>Auto-stop after</dt>
-                  <dd>
-                    {projection.auto_stop_label}
-                    <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
-                      <ChevronDownIcon />
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>{projection.created_label}</dd>
-                </div>
-                <div>
-                  <dt>Last started</dt>
-                  <dd>{projection.last_started_label}</dd>
-                </div>
-                <div>
-                  <dt>Resource usage</dt>
-                  <dd>
-                    <span
-                      className="hypervisor-session-operations__health-pill"
-                      data-resource-health-state={projection.resource_health_state}
-                    >
-                      {projection.resource_health_label}
-                    </span>
-                  </dd>
-                </div>
-              </dl>
+              <h2>What do you want to get done today?</h2>
+              <p>Here are some suggestions to get you started</p>
+              <div className="hypervisor-session-operations__conversation-suggestions">
+                {[
+                  "Automate env setup",
+                  "Fix a bug",
+                  "Boost your test coverage",
+                ].map((suggestion) => (
+                  <button
+                    type="button"
+                    key={suggestion}
+                    data-session-suggestion={suggestion
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/^-+|-+$/g, "")}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <ol className="hypervisor-session-operations__startup-list">
-              {projection.environment_lifecycle_steps.map((step) => (
-                <li
-                  key={step.step_ref}
-                  data-session-lifecycle-step={step.step_ref}
-                  data-session-lifecycle-step-status={step.status}
-                  data-session-lifecycle-step-evidence={step.evidence_ref}
+            <form
+              className="hypervisor-session-operations__composer"
+              aria-label="Describe session task"
+            >
+              <textarea
+                rows={3}
+                placeholder="Describe your task or type / for commands"
+              />
+              <div>
+                <button type="button" aria-label="Attach context">
+                  +
+                </button>
+                <span
+                  hidden
+                  data-session-environment-steps={projection.environment_lifecycle_steps
+                    .map((step) => step.step_ref)
+                    .join(" ")}
+                />
+                <button
+                  type="button"
+                  className="hypervisor-session-operations__composer-model"
                 >
-                  <span className="hypervisor-session-operations__check-dot">
-                    {step.status === "completed" ? "✓" : "•"}
+                  5.5 Medium
+                  <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                    <ChevronDownIcon />
                   </span>
-                  <div>
-                    <strong>{step.label}</strong>
-                    {step.detail ? <span>{step.detail}</span> : null}
-                    <em>{formatSessionStepStatus(step.status)}</em>
-                  </div>
-                </li>
-              ))}
-            </ol>
+                </button>
+                <button type="submit" aria-label="Send task">
+                  ↑
+                </button>
+              </div>
+            </form>
           </main>
         </div>
 
@@ -3066,12 +2979,7 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "sessions" ? (
-                    <HypervisorSessionOperationsCockpit
-                      launchedSessions={
-                        controller.sessions.launchedSessionProjections
-                      }
-                      onOpenSurface={controller.changePrimaryView}
-                    />
+                    <HypervisorSessionOperationsCockpit />
                   ) : null}
 
                   {activeView === "projects" ? (

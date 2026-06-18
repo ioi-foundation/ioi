@@ -1849,7 +1849,7 @@
   }
 }
 
-/* Phase 0A hard cut: Sessions uses the IOI reference environment detail view. */
+/* Phase 0A hard cut: Sessions uses the IOI reference conversation cockpit. */
 .hypervisor-session-detail-shell {
   width: 100%;
   height: 100%;
@@ -1860,102 +1860,6 @@
   padding: 0;
   background: #ffffff;
   color: #171719;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  gap: 12px;
-  align-items: stretch;
-  padding: 10px 24px;
-  border-bottom: 1px solid #e7e7e5;
-  background: #fbfbfa;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header span,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header span {
-  color: #7a7a7a;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header strong {
-  color: #171719;
-  font-size: 20px;
-  line-height: 24px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button {
-  min-width: 0;
-  min-height: 72px;
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  border: 1px solid #e7e7e5;
-  border-radius: 6px;
-  padding: 8px 10px;
-  background: #ffffff;
-  color: #171719;
-  text-align: left;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button:disabled {
-  color: #8c8c8c;
-  background: #f6f6f5;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button:not(:disabled):hover {
-  border-color: #b8d3ff;
-  background: #f3f8ff;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list span,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list strong,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list em,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list span,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list em,
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list small {
-  color: #707071;
-  font-size: 11px;
-  font-style: normal;
-  line-height: 14px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list strong {
-  color: #171719;
-  font-size: 13px;
-  line-height: 16px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
@@ -2116,7 +2020,14 @@
   gap: 6px;
   max-width: 260px;
   padding: 0 8px;
+  border-radius: 0;
   text-align: left;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title[aria-selected="true"] {
+  color: #111113;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 #111113;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__session-title strong,
@@ -2194,60 +2105,161 @@
   overflow: hidden;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__environment {
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation {
+  position: relative;
   min-width: 0;
   min-height: 0;
   height: 100%;
-  overflow: auto;
-  padding: 40px 28px 28px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(360px, max-content);
-  align-items: center;
-  gap: 24px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid #e7e7e5;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 32px 64px 28px;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header > div:first-child {
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-center {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 44px;
+  text-align: center;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #171719;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-mark span {
+  width: 1px;
+  height: 14px;
+  background: #171719;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-mark svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation h2 {
+  margin: 8px 0 0;
+  color: #111113;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation p {
+  margin: 0;
+  color: #6d6e75;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-suggestions button {
+  min-height: 40px;
+  border: 1px solid #dededb;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #171719;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(23, 23, 25, 0.04);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__conversation-suggestions button:hover {
+  border-color: #c7d7ff;
+  background: #f8fbff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer {
+  width: min(100%, 668px);
+  justify-self: center;
+  display: grid;
+  gap: 12px;
+  border-radius: 14px;
+  background: #f5f5f4;
+  padding: 10px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer textarea {
+  min-height: 76px;
+  resize: none;
+  border: 1px solid #d8d8d5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #171719;
+  padding: 16px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  outline: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer textarea::placeholder {
+  color: #9a9ba1;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer textarea:focus {
+  border-color: #9ab8ff;
+  box-shadow: 0 0 0 3px rgba(64, 111, 255, 0.13);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer > div {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header h2 {
-  margin: 0;
-  color: #111113;
-  font-size: 22px;
-  font-weight: 650;
-  line-height: 28px;
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #6d6e75;
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 600;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__toggle {
-  width: 34px;
-  height: 20px;
-  border-radius: 999px;
-  background: #00a316;
-  box-shadow: inset 14px 0 0 #00a316;
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer button:hover {
+  background: #e8e8e6;
+  color: #171719;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__toggle::after {
-  content: "";
-  width: 16px;
-  height: 16px;
-  display: block;
-  margin: 2px 2px 2px auto;
-  border-radius: 999px;
-  background: #ffffff;
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer button[type="submit"] {
+  width: 32px;
+  margin-left: 0;
+  background: #8c8c8c;
+  color: #ffffff;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header dl {
-  display: grid;
-  grid-template-columns: repeat(4, max-content);
-  gap: 26px;
-  margin: 0;
+.hypervisor-session-detail-shell .hypervisor-session-operations__composer-model {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #dededb !important;
+  background: #ffffff !important;
+  color: #171719 !important;
 }
 
 .hypervisor-session-detail-shell dt,
@@ -2257,117 +2269,6 @@
   font-size: 12px;
   font-weight: 450;
   line-height: 16px;
-}
-
-.hypervisor-session-detail-shell dd {
-  margin: 4px 0 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #111113;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__health-pill {
-  display: inline-flex;
-  min-height: 22px;
-  align-items: center;
-  border-radius: 999px;
-  background: #defbd9;
-  color: #087a12;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.hypervisor-session-detail-shell
-  .hypervisor-session-operations__health-pill[data-resource-health-state="attention"] {
-  background: #fff3cc;
-  color: #8a5a00;
-}
-
-.hypervisor-session-detail-shell
-  .hypervisor-session-operations__health-pill[data-resource-health-state="blocked"] {
-  background: #ffe2e2;
-  color: #aa1e1e;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list {
-  max-width: 720px;
-  display: grid;
-  gap: 0;
-  margin: 18px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 16px;
-  padding: 14px 0;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 34px;
-  bottom: -14px;
-  width: 1px;
-  background: #d9d9d7;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li:last-child::before {
-  display: none;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__check-dot {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: start;
-  border-radius: 999px;
-  background: #00a316;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list strong,
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list span {
-  display: block;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list strong {
-  color: #111113;
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 20px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list div span {
-  color: #5f6067;
-  font-size: 13px;
-  line-height: 19px;
-}
-
-.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list div em {
-  display: inline-flex;
-  width: max-content;
-  margin-top: 6px;
-  border-radius: 999px;
-  background: #f1f4f8;
-  color: #5f6067;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 650;
-  line-height: 14px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
@@ -2755,12 +2656,8 @@
     grid-template-columns: minmax(0, 1fr) 320px;
   }
 
-  .hypervisor-session-detail-shell .hypervisor-session-operations__environment-header {
-    grid-template-columns: 1fr;
-  }
-
-  .hypervisor-session-detail-shell .hypervisor-session-operations__environment-header dl {
-    grid-template-columns: repeat(2, max-content);
+  .hypervisor-session-detail-shell .hypervisor-session-operations__conversation {
+    padding-inline: 36px;
   }
 }
 

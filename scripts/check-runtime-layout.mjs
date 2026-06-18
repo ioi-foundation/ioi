@@ -2129,10 +2129,19 @@ assert(
     hypervisorSessionOperationsModelSource.includes(
       "parent-harness-evidence-boundary.md",
     ) &&
-    hypervisorShellContentSource.includes("projection.display_title") &&
     hypervisorShellContentSource.includes("projection.branch_label") &&
     hypervisorShellContentSource.includes(
-      "projection.environment_lifecycle_steps.map",
+      'data-session-reference-page="conversation-detail"',
+    ) &&
+    hypervisorShellContentSource.includes("data-session-conversation-cockpit") &&
+    hypervisorShellContentSource.includes(
+      "What do you want to get done today?",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "Describe your task or type / for commands",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "projection.environment_lifecycle_steps",
     ) &&
     hypervisorShellContentSource.includes(
       "projection.changed_file_groups.map",
@@ -2142,10 +2151,6 @@ assert(
     hypervisorSessionOperationsModelSource.includes("archive_ref") &&
     hypervisorSessionOperationsModelSource.includes("restore_ref") &&
     hypervisorShellContentSource.includes("projection.ports_services.map") &&
-    hypervisorShellContentSource.includes("launchedSessionAdmissionLabel") &&
-    hypervisorShellContentSource.includes("data-launched-session-list") &&
-    hypervisorShellContentSource.includes("data-launched-session-ref") &&
-    hypervisorShellContentSource.includes("data-launched-session-admission") &&
     hypervisorShellContentSource.includes(
       "controller.sessions.launchedSessionProjections",
     ) &&
@@ -2157,10 +2162,19 @@ assert(
     !hypervisorShellContentSource.includes("data-session-lease") &&
     !hypervisorShellContentSource.includes("data-session-archive-ref") &&
     !hypervisorShellContentSource.includes("data-session-restore-ref") &&
+    !hypervisorShellContentSource.includes(
+      "hypervisor-session-operations__recent-launches",
+    ) &&
+    !hypervisorShellContentSource.includes(
+      "hypervisor-session-operations__environment",
+    ) &&
+    !hypervisorShellContentSource.includes(
+      "hypervisor-session-operations__startup-list",
+    ) &&
     !hypervisorShellBaseCssSource.includes(
       "hypervisor-session-operations__activity-grid",
     ) &&
-    hypervisorShellContentSource.includes("data-session-lifecycle-step") &&
+    hypervisorShellContentSource.includes("data-session-environment-steps") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_session_operations",
@@ -2179,7 +2193,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Sessions should hydrate title, branch, session rails, detail tabs, inspectors, lifecycle steps, changed files, services, tasks, terminal events, and restore refs through daemon/public runtime routes without reintroducing the non-reference center activity card grid.",
+  "Hypervisor Sessions should hydrate branch, conversation cockpit, detail metadata, inspectors, lifecycle refs, changed files, services, tasks, terminal events, and restore refs through daemon/public runtime routes without reintroducing the non-reference center activity card grid or Sessions-local launch strip.",
 );
 assert(
   "hypervisor-project-state-live-projection",

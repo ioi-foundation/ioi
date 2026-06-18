@@ -615,20 +615,14 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /activity_signals/);
   assert.match(sessionOperationsModel, /access_log_leases/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
-  assert.match(shellContent, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
-  assert.match(shellContent, /data-launched-session-list/);
-  assert.match(shellContent, /data-launched-session-ref/);
-  assert.match(shellContent, /data-launched-session-admission/);
-  assert.match(
-    shellContent,
-    /launchedSessions=\{controller\.sessions\.launchedSessionProjections\}/,
-  );
-  assert.match(shellContent, /launchedSessionAdmissionLabel/);
-  assert.match(shellContent, /launchedSessionAdmissionDetail/);
   assert.match(
     shellContent,
     /controller\.sessions\.launchedSessionProjections/,
   );
+  assert.doesNotMatch(shellContent, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
+  assert.doesNotMatch(shellContent, /data-launched-session-list="new-session-projection-cache"/);
+  assert.doesNotMatch(shellContent, /launchedSessionAdmissionLabel/);
+  assert.doesNotMatch(shellContent, /launchedSessionAdmissionDetail/);
   assert.match(shellContent, /loadHypervisorSessionOperationsProjection/);
   assert.match(
     shellContent,
@@ -650,6 +644,10 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
     /\.filter\(\s*\(mode\) => mode\.mode_id === "code"/,
   );
   assert.match(shellContent, /data-session-workspace-mode=\{mode\.mode_id\}/);
+  assert.match(shellContent, /data-session-reference-page="conversation-detail"/);
+  assert.match(shellContent, /data-session-conversation-cockpit/);
+  assert.match(shellContent, /What do you want to get done today\?/);
+  assert.match(shellContent, /Describe your task or type \/ for commands/);
   assert.match(
     shellContent,
     /aria-label="Changes, files, comments, and session inspectors"/,
@@ -669,12 +667,13 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   );
   assert.match(shellContent, /data-session-changed-file/);
   assert.match(shellContent, /data-session-detail-tab-list/);
-  assert.match(
-    shellContent,
-    /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/,
-  );
-  assert.match(shellContent, /data-session-detail-tab/);
+  assert.match(shellContent, /data-session-lifecycle-state/);
+  assert.doesNotMatch(shellContent, /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/);
+  assert.doesNotMatch(shellContent, /data-session-detail-tab=\{tab\.tab_id\}/);
   assert.match(shellContent, /data-session-port-services-count/);
+  assert.doesNotMatch(shellContent, /hypervisor-session-operations__recent-launches/);
+  assert.doesNotMatch(shellContent, /hypervisor-session-operations__environment/);
+  assert.doesNotMatch(shellContent, /hypervisor-session-operations__startup-list/);
   assert.doesNotMatch(shellContent, /hypervisor-session-operations__activity-grid/);
   assert.doesNotMatch(shellContent, /data-session-activity-signal-list/);
   assert.doesNotMatch(shellContent, /data-session-activity-signal/);

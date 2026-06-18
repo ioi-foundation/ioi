@@ -117,8 +117,20 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*projection\.display_title \|\| formatSessionDisplayTitle\(projection\.selected_session_ref\)[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*className="hypervisor-session-operations__detail-status-dot"[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
-  "Sessions should render the IOI reference environment detail page with Code/title/Environment tab icons, status dot, projected title, and lifecycle status",
+  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="conversation-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*<strong>Conversation<\/strong>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*data-session-lifecycle-state=\{projection\.lifecycle_state\}/,
+  "Sessions should render the IOI reference conversation detail page with Code/Conversation tabs and hidden lifecycle metadata",
+);
+
+assert.match(
+  source,
+  /data-session-conversation-cockpit=\{projection\.selected_session_ref\}[\s\S]*What do you want to get done today\?[\s\S]*Automate env setup[\s\S]*Fix a bug[\s\S]*Boost your test coverage[\s\S]*Describe your task or type \/ for commands[\s\S]*data-session-environment-steps=\{projection\.environment_lifecycle_steps/,
+  "Sessions should render the reference conversation prompt while preserving lifecycle refs as metadata",
+);
+
+assert.doesNotMatch(
+  source,
+  /className="hypervisor-session-operations__recent-launches"|data-launched-session-list="new-session-projection-cache"|className="hypervisor-session-operations__environment"|className="hypervisor-session-operations__startup-list"/,
+  "Sessions should not reintroduce the launched-session strip or environment-first workplane",
 );
 
 assert.doesNotMatch(
@@ -234,8 +246,8 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /Phase 0A hard cut: Sessions uses the IOI reference environment detail view[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 340px;[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);/,
-  "Sessions should use the IOI-reference two-column environment detail page",
+  /Phase 0A hard cut: Sessions uses the IOI reference conversation cockpit[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 340px;[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__conversation\s*\{/,
+  "Sessions should use the IOI-reference two-column conversation page",
 );
 
 assert.match(

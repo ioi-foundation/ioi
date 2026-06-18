@@ -1402,12 +1402,13 @@ Current implementation cut:
   environment lifecycle evidence steps, and changed-file groups with receipt
   refs.
   `HypervisorShellContent` renders that projection in the Sessions surface as
-  the IOI-reference session detail view: branch/title tabs, environment
-  status, lifecycle steps, full-height Changes inspector, and the
-  ports/services/tasks/terminal dock. The center activity/lease/archive card
-  grid was cut so the main canvas moves from environment status directly into
-  lifecycle truth, while lease/archive/restore refs remain model and proposal
-  data rather than a separate visible console surface.
+  the IOI-reference session detail view: branch bar, Code/Conversation tabs,
+  a centered task prompt, suggestion chips, composer, full-height Changes
+  inspector, and the ports/services/tasks/terminal dock. The extra
+  Sessions-local Recent Launches strip and the environment-first center pane
+  were cut; recents belong to Home/left rail, while lifecycle, lease,
+  archive, and restore refs remain projection/proposal metadata until a
+  selected session explicitly opens an environment inspector.
   The default fixture now mirrors the IOI reference session semantics in
   Hypervisor language: remote environment started, repository initialized,
   secrets loaded, automations loaded from `.ioi/automations.yaml`, dev
@@ -1428,8 +1429,9 @@ Current implementation cut:
   Focused model and shell source tests guard the tab/inspector arrays, lease
   refs, restore refs, projected lifecycle steps, projected changed files,
   empty-or-populated port/service state, task rows, terminal events, session
-  operation proposal schema, daemon route, visible Playwright lifecycle
-  rendering, absence of the non-reference center activity card grid, and
+  operation proposal schema, daemon route, visible Playwright conversation
+  rendering, absence of the non-reference center activity card grid,
+  absence of the Sessions-local launch strip, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
 
 0A.9 first provider/environment surface cut is implemented:
