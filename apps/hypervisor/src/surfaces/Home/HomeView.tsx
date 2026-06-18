@@ -241,35 +241,6 @@ const HOME_REFERENCE_PROMPTS: Array<{
   },
 ] as const;
 
-const HOME_REFERENCE_RECENT_SESSIONS: Array<{
-  label: string;
-  status: "active" | "idle";
-  detail: string;
-  seedIntent: string;
-}> = [
-  {
-    label: "Repair login handoff",
-    status: "active",
-    detail: "Workbench - 14 min ago",
-    seedIntent:
-      "Continue the Repair login handoff session with its current project context.",
-  },
-  {
-    label: "Quant strategy backtest",
-    status: "idle",
-    detail: "Agent - 2h ago",
-    seedIntent:
-      "Continue the Quant strategy backtest session with private workspace policy preserved.",
-  },
-  {
-    label: "Provider placement review",
-    status: "idle",
-    detail: "Environment - yesterday",
-    seedIntent:
-      "Continue the Provider placement review session and inspect provider options.",
-  },
-] as const;
-
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
@@ -306,7 +277,6 @@ function HomeDashboardView({
   onOpenNewSession,
   onOpenWorkspace,
   onOpenModels,
-  onOpenCockpitSurface,
 }: HomeDashboardViewProps) {
   const seedIntent =
     "Open a governed Hypervisor session for this workspace with editor, terminal, model mount, policy, and receipts wired.";
@@ -396,39 +366,6 @@ function HomeDashboardView({
               </button>
             ))}
           </div>
-
-          <section
-            className="chat-home-zero-recent-sessions"
-            aria-label="Recent sessions"
-          >
-            <h2>Recent Sessions</h2>
-            <div>
-              {HOME_REFERENCE_RECENT_SESSIONS.map((session) => (
-                <button
-                  type="button"
-                  key={session.label}
-                  data-home-recent-session-status={session.status}
-                  onClick={() =>
-                    session.status === "active"
-                      ? onOpenCockpitSurface("sessions")
-                      : onOpenNewSession({
-                          seedIntent: session.seedIntent,
-                          recipeId: "ioi-reference-home",
-                        })
-                  }
-                >
-                  <span
-                    className="chat-home-zero-recent-sessions__dot"
-                    aria-hidden="true"
-                  />
-                  <span className="chat-home-zero-recent-sessions__copy">
-                    <strong>{session.label}</strong>
-                    <em>{session.detail}</em>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
         </main>
       </div>
     </section>

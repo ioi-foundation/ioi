@@ -509,8 +509,11 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /\[Hypervisor\]\[Automations\] compositor projection unavailable/);
   assert.match(shellContent, /data-hypervisor-automation-compositor/);
   assert.match(shellContent, /data-automation-compositor-source/);
-  assert.match(shellContent, /data-workflow-template-ref/);
-  assert.match(shellContent, /data-workflow-run-ref/);
+  assert.match(shellContent, /No automations yet/);
+  assert.match(shellContent, /data-workflow-template-suggestion/);
+  assert.match(shellContent, /className="hypervisor-automation-compositor__empty"/);
+  assert.doesNotMatch(shellContent, /data-workflow-template-ref/);
+  assert.doesNotMatch(shellContent, /data-workflow-run-ref/);
   assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
   assert.match(shellContent, /activeView === "automations"/);
 });

@@ -3807,19 +3807,35 @@
   line-height: 1.15;
 }
 
+.hypervisor-automation-compositor__topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hypervisor-automation-compositor__webhooks,
 .hypervisor-automation-compositor__new {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 0;
   border-radius: 8px;
-  background: #1f1f1f;
-  color: #ffffff;
   cursor: pointer;
   font-size: 14px;
   font-weight: 650;
   padding: 0 18px;
+}
+
+.hypervisor-automation-compositor__webhooks {
+  border: 1px solid #d8d8d8;
+  background: #ffffff;
+  color: #111111;
+}
+
+.hypervisor-automation-compositor__new {
+  border: 0;
+  background: #1f1f1f;
+  color: #ffffff;
 }
 
 .hypervisor-automation-compositor__layout {
@@ -3973,10 +3989,36 @@
 }
 
 .hypervisor-automation-compositor__table {
+  min-height: 170px;
   overflow: hidden;
   border: 1px solid #dedede;
   border-radius: 12px;
   background: #ffffff;
+}
+
+.hypervisor-automation-compositor__empty {
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: #626872;
+  text-align: center;
+}
+
+.hypervisor-automation-compositor__empty strong {
+  color: #1f1f1f;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.hypervisor-automation-compositor__empty span {
+  max-width: 560px;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .hypervisor-automation-compositor__row {
@@ -4121,6 +4163,24 @@
   color: #2357ff;
   font-size: 12px;
   font-weight: 750;
+}
+
+.hypervisor-automation-compositor__suggested-card[data-template-tone="orange"]
+  .hypervisor-automation-compositor__suggested-icon {
+  background: #fff0e5;
+  color: #f97316;
+}
+
+.hypervisor-automation-compositor__suggested-card[data-template-tone="green"]
+  .hypervisor-automation-compositor__suggested-icon {
+  background: #eafbea;
+  color: #22a447;
+}
+
+.hypervisor-automation-compositor__suggested-card[data-template-tone="gray"]
+  .hypervisor-automation-compositor__suggested-icon {
+  background: #f3f4f6;
+  color: #3f3f46;
 }
 
 .hypervisor-automation-compositor__suggested-card strong,

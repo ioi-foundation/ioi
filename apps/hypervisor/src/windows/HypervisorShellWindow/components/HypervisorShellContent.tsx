@@ -44,10 +44,6 @@ import {
 import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   loadHypervisorAutomationCompositorProjection,
-  type HypervisorAutomationCompositorProjection,
-  type HypervisorAutomationRun,
-  type HypervisorAutomationRunStatus,
-  type HypervisorAutomationTemplate,
 } from "../hypervisorAutomationCompositorModel";
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
@@ -813,14 +809,51 @@ function HypervisorAutomationCompositorSurface({
     };
   }, [currentProjectId]);
 
-  const completedRuns = projection.runs.filter(
-    (run) => run.status === "completed",
-  ).length;
-  const failedRuns = projection.runs.filter((run) =>
-    ["blocked"].includes(run.status),
-  ).length;
-  const rowTemplates = projection.templates.slice(0, 5);
-  const suggestedTemplates = projection.templates.slice().reverse().slice(0, 5);
+  const referenceTemplates = [
+    {
+      label: "Scan recent commits for bugs",
+      description:
+        "Finds likely bugs in recent commits and opens a draft PR with proposed fixes.",
+      icon: "Q",
+      tone: "orange",
+    },
+    {
+      label: "Draft weekly release notes",
+      description:
+        "Turns merged PRs into categorized release notes with concise summaries.",
+      icon: "D",
+      tone: "blue",
+    },
+    {
+      label: "Add optimized AGENTS.md",
+      description:
+        "Creates or updates AGENTS.md with project-specific guidance for coding agents.",
+      icon: "A",
+      tone: "gray",
+    },
+    {
+      label: "10x engineer",
+      description:
+        "Picks your highest-priority issue, implements it, runs tests, and opens a draft PR.",
+      icon: "10",
+      tone: "blue",
+    },
+    {
+      label: "Daily standup generator",
+      description:
+        "Combines Linear and Git activity into a daily standup update.",
+      icon: "D",
+      tone: "green",
+    },
+    {
+      label: "Tech spec from Linear issue",
+      description:
+        "Turns a Linear issue into an implementation-ready spec with technical design and execution details.",
+      icon: "T",
+      tone: "blue",
+    },
+  ];
+  const referenceAutomationTotal = 4;
 
   return (
     <section
@@ -833,10 +866,19 @@ function HypervisorAutomationCompositorSurface({
     >
       <header className="hypervisor-automation-compositor__topbar">
         <h2>Automations</h2>
-        <button type="button" className="hypervisor-automation-compositor__new">
-          <span aria-hidden="true">+</span>
-          <span>New</span>
-        </button>
+        <div className="hypervisor-automation-compositor__topbar-actions">
+          <button
+            type="button"
+            className="hypervisor-automation-compositor__webhooks"
+          >
+            <span aria-hidden="true">{"<>"}</span>
+            <span>Webhooks</span>
+          </button>
+          <button type="button" className="hypervisor-automation-compositor__new">
+            <span aria-hidden="true">+</span>
+            <span>New</span>
+          </button>
+        </div>
       </header>
 
       <div className="hypervisor-automation-compositor__layout">
@@ -848,10 +890,10 @@ function HypervisorAutomationCompositorSurface({
             <AutomationMetric
               active
               label="Total Automations"
-              value={projection.workflow_template_refs.length}
+              value={referenceAutomationTotal}
             />
-            <AutomationMetric label="Successful - 7d" value={completedRuns} />
-            <AutomationMetric label="Failed - 7d" value={failedRuns} />
+            <AutomationMetric label="Successful - 7d" value={0} />
+            <AutomationMetric label="Failed - 7d" value={0} />
           </div>
 
           <div
@@ -866,9 +908,9 @@ function HypervisorAutomationCompositorSurface({
             <button type="button">Sort: Recently completed</button>
             <div role="group" aria-label="Automation ownership filter">
               <button type="button" className="is-active">
-                Yours ({projection.templates.length})
+                Yours
               </button>
-              <button type="button">All ({projection.runs.length})</button>
+              <button type="button">All ({referenceAutomationTotal})</button>
             </div>
           </div>
 
@@ -876,40 +918,13 @@ function HypervisorAutomationCompositorSurface({
             className="hypervisor-automation-compositor__table"
             aria-label="Workflow templates"
           >
-            {rowTemplates.map((template, index) => {
-              const run = findAutomationRunForTemplate(projection, template);
-              return (
-                <article
-                  key={template.template_ref}
-                  className="hypervisor-automation-compositor__row"
-                  data-workflow-template-ref={template.template_ref}
-                  data-workflow-graph-ref={template.graph_ref}
-                  data-workflow-run-ref={run?.run_ref ?? ""}
-                  data-workflow-run-status={run?.status ?? "draft"}
-                >
-                  <span className="hypervisor-automation-compositor__row-icon">
-                    {index === 0 ? ">" : "[]"}
-                  </span>
-                  <div className="hypervisor-automation-compositor__row-copy">
-                    <strong>{template.label}</strong>
-                    <em>{formatAutomationRunState(run)}</em>
-                  </div>
-                  <button
-                    type="button"
-                    className="hypervisor-automation-compositor__row-run"
-                  >
-                    Run
-                  </button>
-                  <button
-                    type="button"
-                    className="hypervisor-automation-compositor__row-menu"
-                    aria-label={`Open ${template.label} automation actions`}
-                  >
-                    ...
-                  </button>
-                </article>
-              );
-            })}
+            <div className="hypervisor-automation-compositor__empty">
+              <strong>No automations yet</strong>
+              <span>
+                You haven't created any automations yet. Choose a template or
+                click + New to get started.
+              </span>
+            </div>
           </section>
         </main>
 
@@ -921,15 +936,16 @@ function HypervisorAutomationCompositorSurface({
             <h3>Suggested templates</h3>
             <p>Try these automations for common autonomous-work workflows.</p>
           </div>
-          {suggestedTemplates.map((template) => (
+          {referenceTemplates.map((template) => (
             <button
               type="button"
-              key={template.template_ref}
+              key={template.label}
               className="hypervisor-automation-compositor__suggested-card"
-              data-workflow-template-suggestion={template.template_ref}
+              data-workflow-template-suggestion={template.label}
+              data-template-tone={template.tone}
             >
               <span className="hypervisor-automation-compositor__suggested-icon">
-                {template.label.slice(0, 1)}
+                {template.icon}
               </span>
               <span>
                 <strong>{template.label}</strong>
@@ -976,29 +992,6 @@ function AutomationMetric({
       ) : null}
     </div>
   );
-}
-
-function findAutomationRunForTemplate(
-  projection: HypervisorAutomationCompositorProjection,
-  template: HypervisorAutomationTemplate,
-): HypervisorAutomationRun | undefined {
-  return projection.runs.find((run) => run.template_ref === template.template_ref);
-}
-
-function formatAutomationStatus(status: HypervisorAutomationRunStatus): string {
-  if (status === "completed") return "Successful";
-  if (status === "blocked") return "Failed";
-  if (status === "running") return "Running";
-  if (status === "scheduled") return "Scheduled";
-  if (status === "ready") return "Ready";
-  return "Never ran";
-}
-
-function formatAutomationRunState(run: HypervisorAutomationRun | undefined): string {
-  if (!run || run.status === "draft") {
-    return "Never ran";
-  }
-  return formatAutomationStatus(run.status);
 }
 
 function formatSessionDisplayTitle(sessionRef: string): string {

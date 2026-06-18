@@ -155,8 +155,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*className="hypervisor-automation-compositor__suggested"/,
-  "Automations should render metrics, filters, table rows, and the suggested-template rail",
+  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*No automations yet[\s\S]*className="hypervisor-automation-compositor__suggested"/,
+  "Automations should render metrics, filters, the reference empty state, and the suggested-template rail",
 );
 
 assert.match(
@@ -239,8 +239,8 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*border-radius: 12px;/,
-  "Automations should keep the reference main-column plus suggested-template rail layout",
+  /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*min-height: 170px;[\s\S]*border-radius: 12px;[\s\S]*\.hypervisor-automation-compositor__empty\s*\{/,
+  "Automations should keep the reference main-column, empty-state table, and suggested-template rail layout",
 );
 
 assert.match(
@@ -285,10 +285,16 @@ assert.match(
   "Home should match the IOI reference prompt-first home copy",
 );
 
-assert.match(
+assert.doesNotMatch(
   homeViewSource,
-  /HOME_REFERENCE_RECENT_SESSIONS[\s\S]*Recent Sessions[\s\S]*data-home-recent-session-status/,
-  "Home should keep the IOI reference recent-sessions strip under the prompt composer",
+  /HOME_REFERENCE_RECENT_SESSIONS|Recent Sessions|data-home-recent-session-status/,
+  "Home should not add a second recent-sessions list under the reference prompt composer",
+);
+
+assert.match(
+  source,
+  /className="hypervisor-automation-compositor__webhooks"[\s\S]*Webhooks[\s\S]*className="hypervisor-automation-compositor__new"/,
+  "Automations should expose the reference Webhooks and New actions in the topbar",
 );
 
 assert.match(

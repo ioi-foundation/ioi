@@ -1119,7 +1119,10 @@ Current implementation cut:
   `route.autopilot` authority/model-route contract shape.
 
 0A.2 remaining visual implementation:
-  Home still needs to become the full IOI-reference cockpit view
+  Home now carries the full IOI-reference prompt cockpit view; do not add
+  second-level session lists, doctrine dashboards, or architecture panels under
+  the prompt composer. Active session history belongs in the left session rail
+  and Sessions surface.
   the secondary project rail now has a normalized
   `ioi.hypervisor.project_state_projection.v1` loader and
   `/v1/hypervisor/project-state` public runtime route dispatching through
@@ -1424,19 +1427,33 @@ Current implementation cut:
   in the shell.
 
 0A.2 reference-product copy sweep is implemented:
-  Home now carries the IOI-reference prompt surface through to a Recent
-  Sessions strip instead of stopping at prompt chips. Application surfaces stay
-  behind the same shell, but visible copy avoids daemon/source-of-truth doctrine:
+  Home now carries the IOI-reference prompt surface without adding a second
+  main-canvas Recent Sessions strip. Application surfaces stay behind the same
+  shell, but visible copy avoids daemon/source-of-truth doctrine:
   Agents, Models, and Privacy render product labels such as Local model,
   Private workspace, Wallet authority, and Receipt recorded while preserving
   raw refs only as `data-*` attributes for conformance. The auxiliary chat pane
   remains restricted to the conversational Missions surface, so Agents/Models/
   Privacy do not show a right-side chat/daemon overlay. The focused seed-intent
-  guard now rejects the old Agents doctrine labels, verifies the Home recents
-  strip, and verifies that Models/Privacy format raw refs before display.
+  guard now rejects the old Agents doctrine labels, verifies the prompt-only
+  Home canvas, and verifies that Models/Privacy format raw refs before display.
   The Privacy surface was also moved off the old dark architecture-card island
   and onto the same light reference content plane as Agents and Models; visible
   copy now says Encrypted state refs instead of exposing Agentgres naming.
+
+0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
+  `HomeView` now matches the IOI reference home posture: left rail session
+  history, centered prompt composer, model/project controls, and prompt chips,
+  with no extra main-canvas session table.
+  `HypervisorAutomationCompositorSurface` now matches the IOI reference
+  automations posture: Webhooks and New actions in the topbar, three summary
+  metrics, filter controls, an empty-state workplane, and a suggested-template
+  rail. Workflow/compositor projection data remains present as hidden
+  contract/data attributes and behind the editor boundary, but visible
+  automation rows are not rendered until the user has created automations.
+  Focused source guards reject the old Home recent strip and visible workflow
+  template rows, and Playwright probes verify `No automations yet`, Webhooks,
+  six suggestions, and zero visible `data-workflow-template-ref` rows.
 
 0A.10 built-shell contract is implemented:
   `scripts/hypervisor-app-shell-contract.mjs` serves the built
