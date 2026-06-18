@@ -55,7 +55,7 @@ import {
 } from "../hypervisorModelInfrastructureModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import {
-  HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
+  HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
   loadHypervisorProjectStateProjection,
 } from "../hypervisorProjectStateModel";
@@ -1961,7 +1961,7 @@ function HypervisorProjectStateSurface({
   selectedProjectId: string;
 }) {
   const [projection, setProjection] = useState(
-    HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
+    HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   );
 
   useEffect(() => {
@@ -2018,32 +2018,36 @@ function HypervisorProjectStateSurface({
         <header className="hypervisor-project-state__header">
           <div>
             <h2>Projects</h2>
-            <p>
-              Workspaces, sessions, adapter targets, archives, and restore refs
-              admitted through Hypervisor Core.
-            </p>
+            {visibleProjects.length > 0 ? (
+              <p>
+                Workspaces, sessions, adapter targets, archives, and restore refs
+                admitted through Hypervisor Core.
+              </p>
+            ) : null}
           </div>
           <button type="button" className="hypervisor-project-state__new">
             New project
           </button>
         </header>
 
-        <div className="hypervisor-project-state__toolbar">
-          <label className="hypervisor-project-state__search">
-            <span aria-hidden="true">
-              <SearchIcon />
-            </span>
-            <input type="search" placeholder="Search projects" readOnly />
-          </label>
-          <div
-            className="hypervisor-project-state__filters"
-            aria-label="Project filters"
-          >
-            <button type="button">All ({visibleProjects.length})</button>
-            <button type="button">Active ({activeProjectCount})</button>
-            <button type="button">Restore ready ({restoreReadyCount})</button>
+        {visibleProjects.length > 0 ? (
+          <div className="hypervisor-project-state__toolbar">
+            <label className="hypervisor-project-state__search">
+              <span aria-hidden="true">
+                <SearchIcon />
+              </span>
+              <input type="search" placeholder="Search projects" readOnly />
+            </label>
+            <div
+              className="hypervisor-project-state__filters"
+              aria-label="Project filters"
+            >
+              <button type="button">All ({visibleProjects.length})</button>
+              <button type="button">Active ({activeProjectCount})</button>
+              <button type="button">Restore ready ({restoreReadyCount})</button>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {visibleProjects.length > 0 ? (
           <div className="hypervisor-project-state__layout">
@@ -2144,12 +2148,13 @@ function HypervisorProjectStateSurface({
             </span>
             <h3>No projects</h3>
             <p>
-              Projects appear after Hypervisor Core admits a workspace, session
-              graph, archive ref, and restore boundary for the operator.
+              Projects bundle your repo, secrets, and other configuration into
+              a shareable template, prebuilt in the background for faster startup
+              times.
             </p>
-            <button type="button" className="hypervisor-project-state__new">
-              New project
-            </button>
+            <a href="/projects" aria-label="Learn more about projects in IOI">
+              Learn more about projects in IOI.
+            </a>
           </section>
         )}
       </div>

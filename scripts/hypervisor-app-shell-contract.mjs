@@ -430,39 +430,34 @@ async function main() {
     await assertNoInactiveWorkspaceShell(page, "Projects");
     const projectsText = await page.locator("body").innerText();
     assert(
-      projectsText.includes("IOI Workspace") &&
-        projectsText.includes("Nested Guardian") &&
-        projectsText.includes("Capability Lab"),
-      "Projects page did not render visible project state rows.",
+      projectsText.includes("Projects") &&
+        projectsText.includes("No projects") &&
+        projectsText.includes("Projects bundle your repo, secrets, and other configuration") &&
+        projectsText.includes("Learn more about projects in IOI."),
+      "Projects page did not render the IOI-reference clean empty state.",
     );
     assert(
       projectsText.includes("New project"),
       "Projects page did not expose the New project action.",
     );
     assert(
-      projectsText.includes("Agentgres owns project truth") &&
-        projectsText.includes("workspace://hypervisor-core") &&
-        projectsText.includes("agentgres://state-root/project:hypervisor-core"),
-      "Projects page did not render the selected project restore inspector.",
+      !projectsText.includes("Agentgres owns project truth") &&
+        !projectsText.includes("workspace://hypervisor-core") &&
+        !projectsText.includes("Nested Guardian") &&
+        !projectsText.includes("Capability Lab"),
+      "Projects clean boot leaked daemon-fixture project truth.",
     );
     assert(
-      !projectsText.includes("Projects bundle your repo"),
-      "Projects page revived the retired project education empty copy.",
+      (await page.locator("[data-project-state-record]").count()) === 0,
+      "Projects clean boot should not expose project records before daemon admission.",
     );
     assert(
-      (await page.locator("[data-project-state-record]").count()) >= 3,
-      "Projects page did not expose project record metadata for conformance/replay.",
+      (await page.locator("[data-project-state-record-count='0']").count()) === 1,
+      "Projects clean boot should bind a zero-record projection.",
     );
     assert(
-      (await page.locator("[data-project-restore-state='active']").count()) >= 1,
-      "Projects page did not bind project restore state metadata.",
-    );
-    const projectsSearchPlaceholder = await page
-      .locator(".hypervisor-project-state__search input")
-      .getAttribute("placeholder");
-    assert(
-      projectsSearchPlaceholder === "Search projects",
-      "Projects page did not expose the reference search control.",
+      (await page.locator(".hypervisor-project-state__search input").count()) === 0,
+      "Projects clean boot should not render search/filter controls until projects exist.",
     );
 
     await page.goto(new URL("?view=workbench", url).toString(), {
@@ -699,7 +694,7 @@ async function main() {
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
         "automations_reference_rows_rendered",
-        "projects_reference_state_list_rendered",
+        "projects_reference_clean_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
         "foundry_harness_comparison_rendered",
         "foundry_harness_fixture_route_gated",

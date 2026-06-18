@@ -1517,14 +1517,14 @@ Current implementation cut:
   for project/workspace refs, current session refs, environment/provider refs,
   adapter preference, custody posture, restore state, Agentgres object heads,
   state roots, artifact refs, archive refs, restore refs, and latest receipts.
-  `HypervisorShellContent` now renders Projects as the IOI-reference Projects
-  page: top-level `Projects` heading, `Search projects`, reference filters,
-  visible project rows, restore/custody/session columns, and a compact selected
-  project restore inspector. The centered `No projects` empty state remains only
-  as the true zero-record fallback. Project truth is now visible where it helps
-  operation and still bound as `data-*` metadata for conformance/replay, while
-  the surface avoids code-repository, pull-request, and legacy IDE console
-  framing.
+  `HypervisorShellContent` now clean-boots Projects as the IOI-reference empty
+  page: top-level `Projects` heading, `No projects`, reference project education
+  copy, a single `New project` action, and no fake project rows. Search,
+  filters, visible project rows, restore/custody/session columns, and the compact
+  selected-project restore inspector appear only after daemon-admitted project
+  records exist. Project truth remains bound as `data-*` metadata for
+  conformance/replay once records exist, while the surface avoids
+  code-repository, pull-request, and legacy IDE console framing.
   This fixes the boundary: Projects is the project/template surface; Workbench
   owns code-editor sessions and repository editing posture, while terminal,
   browser, VM, and provider operations stay with Sessions/Environments and

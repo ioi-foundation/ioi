@@ -126,8 +126,8 @@ assert.match(
 
 assert.match(
   projectSurfaceSource,
-  /className="hypervisor-project-state__content"[\s\S]*<h2>Projects<\/h2>[\s\S]*Workspace[\s\S]*placeholder="Search projects"[\s\S]*data-project-state-records[\s\S]*data-project-state-record=\{project\.project_id\}[\s\S]*data-project-state-root-ref=\{project\.state_root_ref\}[\s\S]*Selected project restore context/,
-  "Projects should render visible project records while preserving Agentgres restore truth metadata",
+  /HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION[\s\S]*<h2>Projects<\/h2>[\s\S]*visibleProjects\.length > 0[\s\S]*placeholder="Search projects"[\s\S]*data-project-state-records[\s\S]*data-project-state-record=\{project\.project_id\}[\s\S]*No projects[\s\S]*Projects bundle your repo, secrets, and other configuration[\s\S]*Learn more about projects in IOI\./,
+  "Projects should clean boot to the IOI-reference empty state and render daemon project rows only when records exist",
 );
 
 assert.match(
@@ -262,7 +262,7 @@ assert.match(
 assert.match(
   shellCss,
   /\.hypervisor-project-state\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family: "ABC Diatype"[\s\S]*\.hypervisor-project-state__toolbar\s*\{[\s\S]*grid-template-columns: minmax\(240px,\s*1fr\) auto;[\s\S]*\.hypervisor-project-state__table\s*\{[\s\S]*border: 1px solid #d8dee6;[\s\S]*\.hypervisor-project-state__inspector\s*\{/,
-  "Projects should use the IOI-reference light workplane with visible rows and a compact restore inspector",
+  "Projects should use the IOI-reference light workplane while preserving loaded-row and restore-inspector styling",
 );
 
 assert.doesNotMatch(

@@ -704,6 +704,10 @@ test("Projects surface renders the reference Projects page over hidden project t
     projectStateModel,
     /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/,
   );
+  assert.match(
+    projectStateModel,
+    /HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION/,
+  );
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_PATH/);
   assert.match(projectStateModel, /loadHypervisorProjectStateProjection/);
   assert.match(projectStateModel, /normalizeHypervisorProjectStateProjection/);
@@ -733,6 +737,11 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /data-project-archive-ref/);
   assert.match(shellContent, /data-project-restore-ref/);
   assert.match(shellContent, /<h2>Projects<\/h2>/);
+  assert.match(shellContent, /HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION/);
+  assert.match(shellContent, /<h3>No projects<\/h3>/);
+  assert.match(shellContent, /Projects bundle your repo, secrets, and other configuration/);
+  assert.match(shellContent, /Learn more about projects in IOI\./);
+  assert.match(shellContent, /visibleProjects\.length > 0 \? \(/);
   assert.match(shellContent, /placeholder="Search projects"/);
   assert.match(shellContent, /aria-label="Project state records"/);
   assert.match(shellContent, /Restore ready/);

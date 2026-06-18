@@ -3,11 +3,27 @@ import test from "node:test";
 
 import { PROJECT_SCOPES } from "./hypervisorShellModel.ts";
 import {
+  HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
   HYPERVISOR_PROJECT_STATE_PROJECTION_PATH,
   loadHypervisorProjectStateProjection,
   normalizeHypervisorProjectStateProjection,
 } from "./hypervisorProjectStateModel.ts";
+
+test("project state clean boot starts empty until daemon admits project truth", () => {
+  const projection = HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION;
+
+  assert.equal(
+    projection.schema_version,
+    "ioi.hypervisor.project_state_projection.v1",
+  );
+  assert.equal(projection.source, "fixture");
+  assert.equal(projection.projection_id, "project-state:clean-boot/empty");
+  assert.equal(projection.selected_project_id, "");
+  assert.equal(projection.records.length, 0);
+  assert.equal(projection.runtimeTruthSource, "daemon-runtime");
+  assert.match(projection.project_boundary_invariant, /Agentgres admits project truth/);
+});
 
 test("project state projection binds each project to Agentgres restore truth", () => {
   const projection = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;

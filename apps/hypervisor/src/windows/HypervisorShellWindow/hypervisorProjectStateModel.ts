@@ -143,6 +143,18 @@ export const HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE: HypervisorProjectState
     runtimeTruthSource: "daemon-runtime",
   };
 
+export const HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION: HypervisorProjectStateProjection =
+  {
+    schema_version: "ioi.hypervisor.project_state_projection.v1",
+    projection_id: "project-state:clean-boot/empty",
+    source: "fixture",
+    selected_project_id: "",
+    records: [],
+    project_boundary_invariant:
+      HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.project_boundary_invariant,
+    runtimeTruthSource: "daemon-runtime",
+  };
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

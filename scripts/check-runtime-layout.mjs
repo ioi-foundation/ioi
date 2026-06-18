@@ -2297,6 +2297,12 @@ assert(
     hypervisorProjectStateModelSource.includes(
       "ioi.hypervisor.project_state_projection.v1",
     ) &&
+    hypervisorProjectStateModelSource.includes(
+      "HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION",
+    ) &&
     hypervisorProjectStateModelSource.includes("agentgres_object_head_ref") &&
     hypervisorProjectStateModelSource.includes("state_root_ref") &&
     hypervisorShellContentSource.includes(
@@ -2321,7 +2327,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Projects should hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Projects should clean boot without fake rows, then hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route.",
 );
 assert(
   "hypervisor-approved-operation-admission",
