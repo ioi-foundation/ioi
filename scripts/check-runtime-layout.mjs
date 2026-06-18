@@ -750,6 +750,10 @@ assert(
     hypervisorShellContentSource.includes(
       "launchedSessions={controller.sessions.launchedSessionProjections}",
     ) &&
+    hypervisorShellContentSource.includes("workspaceActive ? (") &&
+    hypervisorShellContentSource.includes("<WorkspaceShell") &&
+    hypervisorShellContentSource.includes("active\n              currentProject") &&
+    !hypervisorShellContentSource.includes("active={workspaceActive}") &&
     hypervisorActivityBarSource.includes("WORKSPACE_NAME") &&
     hypervisorActivityBarSource.includes("hypervisor-activity-profile-indicator") &&
     hypervisorActivityBarSource.includes("hypervisor-activity-profile-label") &&

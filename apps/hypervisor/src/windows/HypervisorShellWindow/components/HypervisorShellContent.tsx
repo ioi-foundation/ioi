@@ -3077,13 +3077,15 @@ export function HypervisorShellContent({
             workspaceActive && "hypervisor-main--workspace-mode",
           )}
         >
-          <WorkspaceShell
-            active={workspaceActive}
-            currentProject={currentProject}
-            projects={projects}
-            runtime={runtime}
-            host={workspaceHost}
-          />
+          {workspaceActive ? (
+            <WorkspaceShell
+              active
+              currentProject={currentProject}
+              projects={projects}
+              runtime={runtime}
+              host={workspaceHost}
+            />
+          ) : null}
 
           {!workspaceActive ? (
             <div

@@ -27,6 +27,26 @@ function assert(condition, message) {
   }
 }
 
+async function assertNoInactiveWorkspaceShell(page, surfaceName) {
+  const workspaceShellCount = await page.locator(".hypervisor-workspace-shell").count();
+  assert(
+    workspaceShellCount === 0,
+    `${surfaceName} should not mount the workbench workspace shell while inactive. count=${workspaceShellCount}`,
+  );
+  const text = await page.locator("body").innerText();
+  for (const staleWorkspaceText of [
+    "Environment starting",
+    "Environment needs runtime",
+    "Ports & Services",
+    "No open ports",
+  ]) {
+    assert(
+      !text.includes(staleWorkspaceText),
+      `${surfaceName} leaked inactive workspace copy: ${staleWorkspaceText}`,
+    );
+  }
+}
+
 function contentTypeFor(pathname) {
   return contentTypes.get(extname(pathname)) ?? "application/octet-stream";
 }
@@ -126,6 +146,7 @@ async function main() {
       );
     }
     const bodyText = await page.locator("body").innerText();
+    await assertNoInactiveWorkspaceShell(page, "Home");
     const promptPlaceholder = await page
       .locator(".hypervisor-home-prompt__composer textarea")
       .getAttribute("placeholder");
@@ -383,6 +404,7 @@ async function main() {
       timeout: 90_000,
     });
     await page.waitForSelector("[data-automation-row-ref]");
+    await assertNoInactiveWorkspaceShell(page, "Automations");
     const automationRows = await page
       .locator("[data-automation-row-ref]")
       .allInnerTexts();
@@ -405,6 +427,7 @@ async function main() {
 
     await page.locator('[data-window-surface="projects"]').click();
     await page.waitForSelector("[data-hypervisor-project-state]");
+    await assertNoInactiveWorkspaceShell(page, "Projects");
     const projectsText = await page.locator("body").innerText();
     assert(
       projectsText.includes("IOI Workspace") &&

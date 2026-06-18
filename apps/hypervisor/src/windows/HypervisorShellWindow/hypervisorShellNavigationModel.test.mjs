@@ -610,6 +610,11 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
     shellContent,
     /controller\.sessions\.launchedSessionProjections/,
   );
+  assert.match(
+    shellContent,
+    /workspaceActive \? \(\s*<WorkspaceShell\s+active\s+currentProject=\{currentProject\}/s,
+  );
+  assert.doesNotMatch(shellContent, /active=\{workspaceActive\}/);
   assert.doesNotMatch(shellContent, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
   assert.doesNotMatch(shellContent, /data-launched-session-list="new-session-projection-cache"/);
   assert.doesNotMatch(shellContent, /launchedSessionAdmissionLabel/);
