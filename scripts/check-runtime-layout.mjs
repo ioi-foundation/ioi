@@ -970,6 +970,26 @@ assert(
   "Active client storage keys, events, export prefixes, editor themes, replay formats, and shell stylesheet paths must use Hypervisor namespaces.",
 );
 assert(
+  "hypervisor-shell-responsive-styles-not-legacy-named",
+  exists(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/chat-responsive.css",
+  ) &&
+    !exists(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/chat-legacy-and-responsive.css",
+    ) &&
+    hypervisorClientNamespaceSources.includes(
+      '@import "./styles/hypervisor-shell/chat-responsive.css";',
+    ) &&
+    !hypervisorClientNamespaceSources.includes(
+      "chat-legacy-and-responsive.css",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell",
+  ],
+  "Active Hypervisor shell responsive styles must not preserve legacy chat stylesheet naming.",
+);
+assert(
   "active-model-mount-identities-hypervisor-named",
   [
     "provider.hypervisor.local",

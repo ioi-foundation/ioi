@@ -1541,6 +1541,9 @@ Current implementation cut:
   shell.
   Settings now describes the preference as a Default Workbench target, and the
   shell contract rejects the old singular-editor label and helper copy.
+  Active shell responsive styles now live in `chat-responsive.css`; the
+  `chat-legacy-and-responsive.css` filename is retired and guarded so legacy
+  chat naming cannot remain as active product ballast.
   Current comparison evidence:
     `/tmp/reference-ioi-current.png`
     `/tmp/hypervisor-agents-current.png`
