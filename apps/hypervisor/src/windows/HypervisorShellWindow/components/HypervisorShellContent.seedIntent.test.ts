@@ -186,23 +186,23 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*className="hypervisor-automation-compositor__suggested"/,
-  "Automations should render metrics, filters, row table, and the suggested-template rail",
+  /className="hypervisor-automation-compositor__metrics"[\s\S]*value=\{referenceAutomationTotal\}[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*Yours[\s\S]*All \(\{referenceAutomationTotal\}\)[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*No automations yet[\s\S]*className="hypervisor-automation-compositor__suggested"/,
+  "Automations should render reference metrics, filters, clean empty state, and suggested-template rail",
 );
 assert.match(
   source,
-  /data-automation-row-ref[\s\S]*className="hypervisor-automation-compositor__row-run"[\s\S]*Run/,
-  "Automations should render reference rows with an actionable first row",
+  /const referenceAutomationRows:[\s\S]*\[\] = \[\]/,
+  "Automations should clean boot without fake automation rows",
 );
 assert.match(
   source,
-  /Automated dev environment setup[\s\S]*Draft weekly release notes[\s\S]*10x engineer[\s\S]*Scan recent commits for bugs/,
-  "Automations should render the IOI-reference automation row labels",
+  /Scan recent commits for bugs[\s\S]*Draft weekly release notes[\s\S]*Add optimized AGENTS\.md[\s\S]*10x engineer[\s\S]*Daily standup generator[\s\S]*Tech spec from Linear issue[\s\S]*Automated dev environment setup[\s\S]*CVE mitigation & dependency updates/,
+  "Automations should render the IOI-reference suggested template catalog",
 );
-assert.doesNotMatch(
+assert.match(
   source,
-  /No automations yet|className="hypervisor-automation-compositor__empty"/,
-  "Automations should not reintroduce the empty-state card",
+  /className="hypervisor-automation-compositor__empty"/,
+  "Automations should render the IOI-reference empty-state panel",
 );
 
 assert.match(

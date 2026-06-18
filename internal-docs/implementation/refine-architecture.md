@@ -1355,6 +1355,10 @@ Current implementation cut:
   projection surface that marks fixture-vs-daemon source explicitly through
   `data-automation-compositor-source`. The Workflow Compositor remains the
   graph/proposal editor behind the projection; it is not runtime truth.
+  The visible clean-boot page now matches the IOI reference shell: metrics,
+  filters, `No automations yet`, no fake automation rows, and the suggested
+  template rail. Run rows and compositor truth appear only after daemon-admitted
+  records exist.
   `/v1/hypervisor/automation-compositor` is implemented as a public runtime
   route that dispatches through `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_automation_compositor`, returning

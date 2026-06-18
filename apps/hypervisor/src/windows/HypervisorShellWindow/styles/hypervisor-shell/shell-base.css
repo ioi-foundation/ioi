@@ -3027,6 +3027,12 @@
   color: #3f3f46;
 }
 
+.hypervisor-automation-compositor__suggested-card[data-template-tone="purple"]
+  .hypervisor-automation-compositor__suggested-icon {
+  background: #f4e8ff;
+  color: #a855f7;
+}
+
 .hypervisor-automation-compositor__suggested-card strong,
 .hypervisor-automation-compositor__suggested-card em {
   display: block;

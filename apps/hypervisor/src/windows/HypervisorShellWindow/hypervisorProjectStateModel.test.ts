@@ -127,6 +127,21 @@ test("project state normalization preserves Agentgres truth refs from daemon pro
   ]);
 });
 
+test("project state normalization preserves explicit empty daemon records", () => {
+  const projection = normalizeHypervisorProjectStateProjection(
+    {
+      projection_id: "project-state:daemon/empty",
+      selected_project_id: "",
+      records: [],
+    },
+    { source: "daemon-project-state-projection" },
+  );
+
+  assert.equal(projection.projection_id, "project-state:daemon/empty");
+  assert.equal(projection.source, "daemon-project-state-projection");
+  assert.equal(projection.records.length, 0);
+});
+
 test("project state loader calls the daemon projection route with selected project ref", async () => {
   const calls: Array<{ input: string; method?: string }> = [];
   const projection = await loadHypervisorProjectStateProjection({

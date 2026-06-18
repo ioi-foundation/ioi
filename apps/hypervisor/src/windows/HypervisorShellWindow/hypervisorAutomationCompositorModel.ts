@@ -284,6 +284,27 @@ export const HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE: HypervisorAuto
     state_root_ref: "agentgres://state-root/workflow-compositor/hypervisor-core",
   };
 
+export const HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION: HypervisorAutomationCompositorProjection =
+  {
+    schema_version: "ioi.hypervisor.automation_compositor_projection.v1",
+    projection_id: "automation-compositor:clean-boot/empty",
+    source: "fixture",
+    selected_project_id: selectedProject.id,
+    runtimeTruthSource: "daemon-runtime",
+    compositor_boundary_invariant:
+      HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.compositor_boundary_invariant,
+    workflow_template_refs: [],
+    run_recipe_refs: [],
+    graph_refs: [],
+    templates: [],
+    run_recipes: [],
+    graphs: [],
+    runs: [],
+    latest_receipt_refs: [],
+    agentgres_operation_refs: [],
+    state_root_ref: "",
+  };
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -453,6 +474,10 @@ export function normalizeHypervisorAutomationCompositorProjection(
   options: NormalizeAutomationCompositorProjectionOptions = {},
 ): HypervisorAutomationCompositorProjection {
   const value = objectRecord(snapshot);
+  const hasTemplatesArray = Array.isArray(value.templates);
+  const hasRunRecipesArray = Array.isArray(value.run_recipes);
+  const hasGraphsArray = Array.isArray(value.graphs);
+  const hasRunsArray = Array.isArray(value.runs);
   const templates = arrayOf(value.templates).map(normalizeTemplate);
   const runRecipes = arrayOf(value.run_recipes).map(normalizeRunRecipe);
   const graphs = arrayOf(value.graphs).map(normalizeGraph);
@@ -485,22 +510,18 @@ export function normalizeHypervisorAutomationCompositorProjection(
       value.graph_refs,
       HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.graph_refs,
     ),
-    templates:
-      templates.length > 0
-        ? templates
-        : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.templates,
-    run_recipes:
-      runRecipes.length > 0
-        ? runRecipes
-        : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.run_recipes,
-    graphs:
-      graphs.length > 0
-        ? graphs
-        : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.graphs,
-    runs:
-      runs.length > 0
-        ? runs
-        : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.runs,
+    templates: hasTemplatesArray
+      ? templates
+      : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.templates,
+    run_recipes: hasRunRecipesArray
+      ? runRecipes
+      : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.run_recipes,
+    graphs: hasGraphsArray
+      ? graphs
+      : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.graphs,
+    runs: hasRunsArray
+      ? runs
+      : HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.runs,
     latest_receipt_refs: stringList(
       value.latest_receipt_refs,
       HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.latest_receipt_refs,

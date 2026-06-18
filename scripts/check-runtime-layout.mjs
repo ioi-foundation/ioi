@@ -2436,6 +2436,12 @@ assert(
       "ioi.hypervisor.automation_compositor_projection.v1",
     ) &&
     hypervisorAutomationCompositorModelSource.includes(
+      "HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
       "workflow_template_refs",
     ) &&
     hypervisorAutomationCompositorModelSource.includes("run_recipe_refs") &&
@@ -2476,7 +2482,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Automations should hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Automations should clean boot without fake rows, then hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route.",
 );
 assert(
   "hypervisor-agents-live-projection",

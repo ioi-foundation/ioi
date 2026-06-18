@@ -2,11 +2,30 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH,
   loadHypervisorAutomationCompositorProjection,
   normalizeHypervisorAutomationCompositorProjection,
 } from "./hypervisorAutomationCompositorModel.ts";
+
+test("automation compositor clean boot starts with no admitted automations", () => {
+  const projection = HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION;
+
+  assert.equal(
+    projection.schema_version,
+    "ioi.hypervisor.automation_compositor_projection.v1",
+  );
+  assert.equal(projection.source, "fixture");
+  assert.equal(projection.projection_id, "automation-compositor:clean-boot/empty");
+  assert.equal(projection.runtimeTruthSource, "daemon-runtime");
+  assert.equal(projection.templates.length, 0);
+  assert.equal(projection.run_recipes.length, 0);
+  assert.equal(projection.graphs.length, 0);
+  assert.equal(projection.runs.length, 0);
+  assert.equal(projection.latest_receipt_refs.length, 0);
+  assert.match(projection.compositor_boundary_invariant, /edits and proposes/);
+});
 
 test("automation compositor projection binds templates, graphs, runs, and receipts", () => {
   const projection = HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE;
@@ -141,6 +160,27 @@ test("automation compositor normalization preserves daemon refs", () => {
     projection.agentgres_operation_refs[0],
     "agentgres://operation/workflow/normalized/run",
   );
+});
+
+test("automation compositor normalization preserves explicit empty daemon arrays", () => {
+  const projection = normalizeHypervisorAutomationCompositorProjection(
+    {
+      projection_id: "automation-compositor:daemon/empty",
+      selected_project_id: "project:empty",
+      templates: [],
+      run_recipes: [],
+      graphs: [],
+      runs: [],
+    },
+    { source: "daemon-automation-compositor-projection" },
+  );
+
+  assert.equal(projection.projection_id, "automation-compositor:daemon/empty");
+  assert.equal(projection.source, "daemon-automation-compositor-projection");
+  assert.equal(projection.templates.length, 0);
+  assert.equal(projection.run_recipes.length, 0);
+  assert.equal(projection.graphs.length, 0);
+  assert.equal(projection.runs.length, 0);
 });
 
 test("automation compositor loader calls the daemon projection route with selected project", async () => {

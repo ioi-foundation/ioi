@@ -403,26 +403,35 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector("[data-automation-row-ref]");
+    await page.waitForSelector(".hypervisor-automation-compositor__table");
     await assertNoInactiveWorkspaceShell(page, "Automations");
-    const automationRows = await page
-      .locator("[data-automation-row-ref]")
-      .allInnerTexts();
+    const automationsText = await page.locator("body").innerText();
     assert(
-      automationRows.length >= 4 &&
-        automationRows.some((row) =>
-          row.includes("Automated dev environment setup"),
-        ) &&
-        automationRows.some((row) => row.includes("Draft weekly release notes")) &&
-        automationRows.some((row) => row.includes("10x engineer")) &&
-        automationRows.some((row) =>
-          row.includes("Scan recent commits for bugs"),
-        ),
-      `Automations did not render the IOI-reference row table. rows=${JSON.stringify(automationRows)}`,
+      automationsText.includes("Total Automations") &&
+        automationsText.includes("No automations yet") &&
+        automationsText.includes("You haven't created any automations yet") &&
+        automationsText.includes("All (4)"),
+      "Automations did not render the IOI-reference clean empty state.",
     );
     assert(
-      (await page.locator(".hypervisor-automation-compositor__empty").count()) === 0,
-      "Automations reintroduced the empty-state card instead of the reference row table.",
+      (await page.locator("[data-automation-row-ref]").count()) === 0,
+      "Automations clean boot should not expose fake automation rows.",
+    );
+    const suggestedTemplates = await page
+      .locator("[data-workflow-template-suggestion]")
+      .allInnerTexts();
+    assert(
+      suggestedTemplates.length >= 8 &&
+        suggestedTemplates.some((template) =>
+          template.includes("Scan recent commits for bugs"),
+        ) &&
+        suggestedTemplates.some((template) =>
+          template.includes("Automated dev environment setup"),
+        ) &&
+        suggestedTemplates.some((template) =>
+          template.includes("CVE mitigation & dependency updates"),
+        ),
+      `Automations did not render the full IOI-reference suggested-template rail. templates=${JSON.stringify(suggestedTemplates)}`,
     );
 
     await page.locator('[data-window-surface="projects"]').click();
@@ -693,7 +702,7 @@ async function main() {
         "new_session_launch_creates_readable_session_row",
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
-        "automations_reference_rows_rendered",
+        "automations_reference_clean_empty_state_rendered",
         "projects_reference_clean_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
         "foundry_harness_comparison_rendered",

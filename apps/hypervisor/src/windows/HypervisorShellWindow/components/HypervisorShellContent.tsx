@@ -37,7 +37,7 @@ import {
 } from "../hypervisorAgentsModel";
 import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_DAEMON_ENDPOINT_STORAGE_KEY,
-  HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
+  HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   loadHypervisorAutomationCompositorProjection,
 } from "../hypervisorAutomationCompositorModel";
 import {
@@ -864,7 +864,7 @@ function HypervisorAutomationCompositorSurface({
   children: ReactNode;
 }) {
   const [projection, setProjection] = useState(
-    HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
+    HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   );
 
   useEffect(() => {
@@ -920,7 +920,7 @@ function HypervisorAutomationCompositorSurface({
     {
       label: "10x engineer",
       description:
-        "Picks your highest-priority issue, implements it, runs tests, and opens a draft PR.",
+        "Picks your highest-priority Linear issue, implements it, runs tests, and opens a draft PR.",
       icon: "10",
       tone: "blue",
     },
@@ -938,34 +938,28 @@ function HypervisorAutomationCompositorSurface({
       icon: "T",
       tone: "blue",
     },
-  ];
-  const referenceAutomationRows = [
     {
       label: "Automated dev environment setup",
-      status: "Never ran",
-      icon: "play",
-      runnable: true,
+      description:
+        "Standardizes your development environment and opens a PR with the required updates.",
+      icon: "A",
+      tone: "green",
     },
     {
-      label: "Draft weekly release notes",
-      status: "Never ran",
-      icon: "calendar",
-      runnable: false,
+      label: "CVE mitigation & dependency updates",
+      description:
+        "Fixes vulnerable or outdated dependencies, validates changes, and opens a PR.",
+      icon: "C",
+      tone: "purple",
     },
-    {
-      label: "10x engineer",
-      status: "Never ran",
-      icon: "calendar",
-      runnable: false,
-    },
-    {
-      label: "Scan recent commits for bugs",
-      status: "Never ran",
-      icon: "calendar",
-      runnable: false,
-    },
-  ] as const;
-  const referenceAutomationTotal = 0;
+  ];
+  const referenceAutomationRows: readonly {
+    label: string;
+    status: string;
+    icon: "play" | "calendar";
+    runnable: boolean;
+  }[] = [];
+  const referenceAutomationTotal = 4;
 
   return (
     <section
@@ -1020,7 +1014,7 @@ function HypervisorAutomationCompositorSurface({
             <button type="button">Sort: Recently completed</button>
             <div role="group" aria-label="Automation ownership filter">
               <button type="button" className="is-active">
-                Yours ({referenceAutomationRows.length})
+                Yours
               </button>
               <button type="button">All ({referenceAutomationTotal})</button>
             </div>
@@ -1030,41 +1024,51 @@ function HypervisorAutomationCompositorSurface({
             className="hypervisor-automation-compositor__table"
             aria-label="Workflow templates"
           >
-            {referenceAutomationRows.map((row) => (
-              <article
-                key={row.label}
-                className="hypervisor-automation-compositor__row"
-                data-automation-row-ref={`automation:${row.label
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]+/g, "-")
-                  .replace(/^-+|-+$/g, "")}`}
-              >
-                <span className="hypervisor-automation-compositor__row-icon">
-                  <AutomationRowIcon kind={row.icon} />
-                </span>
-                <span className="hypervisor-automation-compositor__row-copy">
-                  <strong>{row.label}</strong>
-                  <em>{row.status}</em>
-                </span>
-                {row.runnable ? (
+            {referenceAutomationRows.length > 0 ? (
+              referenceAutomationRows.map((row) => (
+                <article
+                  key={row.label}
+                  className="hypervisor-automation-compositor__row"
+                  data-automation-row-ref={`automation:${row.label
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")}`}
+                >
+                  <span className="hypervisor-automation-compositor__row-icon">
+                    <AutomationRowIcon kind={row.icon} />
+                  </span>
+                  <span className="hypervisor-automation-compositor__row-copy">
+                    <strong>{row.label}</strong>
+                    <em>{row.status}</em>
+                  </span>
+                  {row.runnable ? (
+                    <button
+                      type="button"
+                      className="hypervisor-automation-compositor__row-run"
+                    >
+                      Run
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
                   <button
                     type="button"
-                    className="hypervisor-automation-compositor__row-run"
+                    aria-label={`Open ${row.label} actions`}
+                    className="hypervisor-automation-compositor__row-menu"
                   >
-                    Run
+                    ...
                   </button>
-                ) : (
-                  <span aria-hidden="true" />
-                )}
-                <button
-                  type="button"
-                  aria-label={`Open ${row.label} actions`}
-                  className="hypervisor-automation-compositor__row-menu"
-                >
-                  ...
-                </button>
-              </article>
-            ))}
+                </article>
+              ))
+            ) : (
+              <div className="hypervisor-automation-compositor__empty">
+                <strong>No automations yet</strong>
+                <span>
+                  You haven't created any automations yet. Choose a template or
+                  click + New to get started.
+                </span>
+              </div>
+            )}
           </section>
         </main>
 

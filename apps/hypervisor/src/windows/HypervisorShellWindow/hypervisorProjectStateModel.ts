@@ -274,6 +274,7 @@ export function normalizeHypervisorProjectStateProjection(
 ): HypervisorProjectStateProjection {
   const value = objectRecord(snapshot);
   const fallback = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
+  const hasRecordArray = Array.isArray(value.records);
   const records = arrayOf(value.records).map(normalizeProjectStateRecord);
   return {
     schema_version: "ioi.hypervisor.project_state_projection.v1",
@@ -283,7 +284,7 @@ export function normalizeHypervisorProjectStateProjection(
       value.selected_project_id,
       fallback.selected_project_id,
     ),
-    records: records.length > 0 ? records : fallback.records,
+    records: hasRecordArray ? records : fallback.records,
     project_boundary_invariant: stringValue(
       value.project_boundary_invariant,
       fallback.project_boundary_invariant,
