@@ -984,13 +984,9 @@ Current implementation cut:
     watch configuration
 
 0A.1B is partially implemented:
-  ChatIdeHeader.tsx -> HypervisorClientHeader.tsx
-  workspaceIde.ts and the later `workspaceEditorAdapterBridge.ts` command-queue
-    shim are deleted from active implementation paths. Code editor adapters
-    publish context envelopes only; Hypervisor Home/Sessions/Projects owns
-    product controls.
-  `check:runtime-layout` rejects both retired `workspace_ide` command ids and
-    the later unused `code_editor_adapter_bridge` command queue.
+  HypervisorClientHeader owns the current client header contract.
+  Code editor adapters publish context envelopes only; Hypervisor
+    Home/Sessions/Projects owns product controls.
   companion/work-graph shell entry points now route to the canonical `process`
     view instead of the retired `autopilot` Chat shell view id, with a
     `check:runtime-layout` guard
@@ -1236,11 +1232,8 @@ Current implementation cut:
   Terminals, VMs, cloud providers, HypervisorOS nodes, and provider posture now
   belong to Sessions, Environments, Providers, and runtime operations rather than
   the Workbench editor-adapter surface.
-  The old adapter-state bridge path is deleted: `workspaceAdapterState`,
-  `workspaceAdapterStateLifecycle`, and `workspaceInspection` no longer project
-  chat, workflows, runs, policy, connectors, artifacts, or product navigation
-  into an editor/session adapter. Workbench sessions mount the governed
-  code-editor workspace substrate only; product state stays in Hypervisor
+  Workbench sessions mount the governed code-editor workspace substrate only;
+  product state stays in Hypervisor
   Home/Sessions/Projects/Automations/Agents/Models/Authority/Receipts surfaces.
   The former Workbench chooser component and its tests are deleted instead of
   preserved as absence-test ballast.

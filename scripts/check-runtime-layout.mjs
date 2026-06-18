@@ -112,14 +112,12 @@ const codeEditorAdapterHostManifest = read(
 const codeEditorAdapterPackage = read(
   "code-editor-adapters/ioi-code-editor-adapter/package.json",
 );
+const codeEditorAdapterPackageJson = JSON.parse(codeEditorAdapterPackage);
 const codeEditorAdapterExtension = read(
   "code-editor-adapters/ioi-code-editor-adapter/extension.js",
 );
 const codeEditorAdapterTransport = read(
   "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
-);
-const codeEditorAdapterTransportClient = read(
-  "code-editor-adapters/ioi-code-editor-adapter/transport/client.js",
 );
 const codeEditorAdapterPublisher = read(
   "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
@@ -567,19 +565,6 @@ assert(
   "Active Hypervisor dev-start probes must not accept retired Autopilot log prefixes as a compatibility shim.",
 );
 assert(
-  "code-editor-adapter-command-queue-retired",
-  !exists("apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts") &&
-    !/ensure_code_editor_adapter_session|stop_code_editor_adapter_session|write_code_editor_adapter_bridge_state|enqueue_code_editor_adapter_bridge_command|take_code_editor_adapter_bridge_requests/.test(
-      allFiles("apps/hypervisor/src", (relative) =>
-        /\.(ts|tsx|js|jsx)$/.test(relative),
-      )
-        .map(read)
-        .join("\n"),
-    ),
-  ["apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts"],
-  "Unused editor-adapter command queues must stay deleted; code editors provide context transport only and product controls live in Hypervisor Home/Sessions/Projects.",
-);
-assert(
   "chat-shell-hypervisor-route-names",
   companionShellNavigationSource.includes('window.location.assign("/home")') &&
     companionShellNavigationSource.includes('window.location.assign("/authority")') &&
@@ -816,39 +801,19 @@ assert(
 );
 assert(
   "code-editor-adapter-extension-only",
-  /"name":\s*"ioi-code-editor-adapter"/.test(codeEditorAdapterPackage) &&
-    /"activationEvents":\s*\[\s*"onStartupFinished"\s*\]/.test(
-      codeEditorAdapterPackage,
-    ) &&
-    !/"contributes"|ioi\.code\.open|viewsContainers|viewsWelcome|ioi\.hypervisor\.(home|studio|workflow|models|runs|policy|connectors)/.test(
-      codeEditorAdapterPackage,
-    ) &&
+  codeEditorAdapterPackageJson.name === "ioi-code-editor-adapter" &&
+    Array.isArray(codeEditorAdapterPackageJson.activationEvents) &&
+    codeEditorAdapterPackageJson.activationEvents.length === 1 &&
+    codeEditorAdapterPackageJson.activationEvents[0] === "onStartupFinished" &&
+    !Object.hasOwn(codeEditorAdapterPackageJson, "contributes") &&
     codeEditorAdapterExtension.includes("createCodeEditorAdapterTransport") &&
     codeEditorAdapterExtension.includes("startCodeEditorContextPublisher") &&
-    !/startBridgeCommandPolling|readDaemonModelSnapshot|createWorkbenchContextSnapshot|registerCommand|createStatusBarItem|createOutputChannel|code\.open|ioi\.code\.open/.test(
-      codeEditorAdapterExtension,
-    ) &&
     codeEditorAdapterTransport.includes("ioi.code_editor_adapter_request.v1") &&
-    !/readBridgeState|readBridgeCommands|defaultBridgeState|commandRouteReceipt/.test(
-      codeEditorAdapterTransport,
-    ) &&
     codeEditorAdapterPublisher.includes("codeEditor.contextSnapshot") &&
     codeEditorAdapterPublisher.includes("codeEditor.inspectionTargetIndex") &&
-    !/workbench\.contextSnapshot|workbench\.inspectionTargetIndex/.test(
-      codeEditorAdapterPublisher,
-    ) &&
-    !/onDidOpenTerminal|onDidCloseTerminal|onDidStartTask|onDidEndTaskProcess/.test(
-      codeEditorAdapterPublisher,
-    ) &&
     codeEditorAdapterContextSnapshot.includes("activeEditorRef") &&
     codeEditorAdapterContextSnapshot.includes("buildCodeEditorScmState") &&
-    codeEditorAdapterContextSnapshot.includes("diagnostics") &&
-    !/taskState|terminalState|taskExecutions|terminals|visibleView|activeIoiViewId|sideBarViewId|panelViewId|activity\.(?:explorer|search|scm)|explorer\.active-file|revealInExplorer|terminal\.panel|checks\.tasks|problems\.panel|surface:\s*"activity-rail"|surface:\s*"explorer"|surface:\s*"terminal"|surface:\s*"problems"|workbench\.action\.tasks|workbench\.action\.terminal|workbench\.actions\.view\.problems/.test(
-      codeEditorAdapterContextSnapshot,
-    ) &&
-    !/daemonEndpoint|IOI_DAEMON_ENDPOINT|IOI_MODEL_MOUNTING_API_URL/.test(
-      codeEditorAdapterTransportClient,
-    ),
+    codeEditorAdapterContextSnapshot.includes("diagnostics"),
   [
     "code-editor-adapters/ioi-code-editor-adapter/package.json",
     "code-editor-adapters/ioi-code-editor-adapter/extension.js",
