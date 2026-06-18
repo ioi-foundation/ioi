@@ -388,7 +388,7 @@ assert.match(
 
 assert.match(
   shellCss,
-  /\.chat-content-main:has\(\.hypervisor-privacy-posture\)[\s\S]*background: #ffffff/,
+  /\.hypervisor-content-main:has\(\.hypervisor-privacy-posture\)[\s\S]*background: #ffffff/,
   "Privacy should live on the same light reference content plane as the other application surfaces",
 );
 

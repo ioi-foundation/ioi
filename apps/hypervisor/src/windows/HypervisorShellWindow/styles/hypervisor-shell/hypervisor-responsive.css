@@ -138,21 +138,21 @@
    SCROLLBARS
    ========================================= */
 
-.chat-window ::-webkit-scrollbar {
+.hypervisor-window ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-.chat-window ::-webkit-scrollbar-track {
+.hypervisor-window ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.chat-window ::-webkit-scrollbar-thumb {
+.hypervisor-window ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
 
-.chat-window ::-webkit-scrollbar-thumb:hover {
+.hypervisor-window ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 

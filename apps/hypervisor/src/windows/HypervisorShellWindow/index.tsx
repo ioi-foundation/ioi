@@ -77,7 +77,7 @@ function describeChatError(
     return {
       source,
       message: sourceUrl
-        ? `Chat render asset failed to load from ${sourceUrl}.`
+        ? `Hypervisor render asset failed to load from ${sourceUrl}.`
         : fallbackMessage,
       detail: value.type ? `Event type: ${value.type}` : null,
     };
@@ -113,33 +113,33 @@ function HypervisorShellWindowCrashScreen({
   error: ChatCrashReport;
 }) {
   return (
-    <div className="chat-window chat-window--crashed">
-      <section className="chat-window-crash-card" aria-live="polite">
-        <p className="chat-window-crash-kicker">Chat render blocked</p>
+    <div className="hypervisor-window hypervisor-window--crashed">
+      <section className="hypervisor-window-crash-card" aria-live="polite">
+        <p className="hypervisor-window-crash-kicker">Hypervisor render blocked</p>
         <h1>{error.message}</h1>
         <p>
-          Chat hit a native render failure instead of opening a usable main
-          app surface. Reload this window and, if needed, continue from
-          Chat while we fix the underlying seam.
+          Hypervisor hit a native render failure instead of opening a usable
+          main app surface. Reload this window and, if needed, continue from
+          Sessions while we fix the underlying path.
         </p>
-        <div className="chat-window-crash-meta">
+        <div className="hypervisor-window-crash-meta">
           <span>{error.source === "render" ? "React render error" : "Runtime error"}</span>
           {error.detail ? <span>Stack captured</span> : <span>No stack available</span>}
         </div>
         {error.detail ? (
-          <pre className="chat-window-crash-detail">{error.detail}</pre>
+          <pre className="hypervisor-window-crash-detail">{error.detail}</pre>
         ) : null}
-        <div className="chat-window-crash-actions">
+        <div className="hypervisor-window-crash-actions">
           <button
             type="button"
-            className="chat-window-crash-button"
+            className="hypervisor-window-crash-button"
             onClick={() => window.location.reload()}
           >
-            Reload Chat
+            Reload Hypervisor
           </button>
           <button
             type="button"
-            className="chat-window-crash-button secondary"
+            className="hypervisor-window-crash-button secondary"
             onClick={() => window.location.replace("/sessions")}
           >
             Open Sessions
@@ -168,7 +168,7 @@ class HypervisorShellWindowRenderBoundary extends React.Component<
       renderError: describeChatError(
         error,
         "render",
-        "Chat failed to render.",
+        "Hypervisor failed to render.",
       ),
     };
   }
@@ -177,7 +177,7 @@ class HypervisorShellWindowRenderBoundary extends React.Component<
     const base = describeChatError(
       error,
       "render",
-      "Chat failed to render.",
+      "Hypervisor failed to render.",
     );
     this.setState({
       renderError: {
@@ -212,7 +212,7 @@ function HypervisorShellWindowCrashGuard({
         describeChatError(
           event.error ?? event.message,
           "runtime",
-          "Chat hit a runtime error.",
+          "Hypervisor hit a runtime error.",
         ),
       );
     };
@@ -224,7 +224,7 @@ function HypervisorShellWindowCrashGuard({
         describeChatError(
           event.reason,
           "runtime",
-          "Chat hit an unhandled runtime rejection.",
+          "Hypervisor hit an unhandled runtime rejection.",
         ),
       );
     };
@@ -252,7 +252,7 @@ function HypervisorShellWindowLoaded() {
     );
 
   useEffect(() => {
-    markHypervisorMetric("chat_window_loaded");
+    markHypervisorMetric("hypervisor_window_loaded");
   }, []);
 
   useEffect(() => {
@@ -287,7 +287,7 @@ function HypervisorShellWindowLoaded() {
   }, []);
 
   return (
-    <div className="chat-window">
+    <div className="hypervisor-window">
       <HypervisorShellContent controller={controller} runtime={runtime} />
 
       {controller.modals.commandPaletteOpen ? (

@@ -42,7 +42,7 @@
 }
 
 /* --- Main Shell --- */
-.chat-window {
+.hypervisor-window {
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -57,18 +57,18 @@
   letter-spacing: 0;
 }
 
-.chat-window > * {
+.hypervisor-window > * {
   position: relative;
   z-index: 1;
 }
 
-.chat-window--crashed {
+.hypervisor-window--crashed {
   align-items: center;
   justify-content: center;
   padding: 28px;
 }
 
-.chat-window-crash-card {
+.hypervisor-window-crash-card {
   width: min(720px, 100%);
   display: flex;
   flex-direction: column;
@@ -80,7 +80,7 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
-.chat-window-crash-kicker {
+.hypervisor-window-crash-kicker {
   margin: 0;
   color: var(--chat-text-muted);
   font-size: 11px;
@@ -89,26 +89,26 @@
   text-transform: uppercase;
 }
 
-.chat-window-crash-card h1 {
+.hypervisor-window-crash-card h1 {
   margin: 0;
   color: var(--chat-text);
   font-size: 24px;
   line-height: 1.2;
 }
 
-.chat-window-crash-card p {
+.hypervisor-window-crash-card p {
   margin: 0;
   color: var(--chat-text-secondary);
   line-height: 1.6;
 }
 
-.chat-window-crash-meta {
+.hypervisor-window-crash-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.chat-window-crash-meta span {
+.hypervisor-window-crash-meta span {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -120,7 +120,7 @@
   font-weight: 600;
 }
 
-.chat-window-crash-detail {
+.hypervisor-window-crash-detail {
   max-height: 240px;
   overflow: auto;
   margin: 0;
@@ -136,13 +136,13 @@
   word-break: break-word;
 }
 
-.chat-window-crash-actions {
+.hypervisor-window-crash-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.chat-window-crash-button {
+.hypervisor-window-crash-button {
   min-height: 36px;
   padding: 0 14px;
   border-radius: 8px;
@@ -158,23 +158,23 @@
     color 140ms ease;
 }
 
-.chat-window-crash-button:hover {
+.hypervisor-window-crash-button:hover {
   background: var(--chat-primary-bg-hover);
 }
 
-.chat-window-crash-button.secondary {
+.hypervisor-window-crash-button.secondary {
   border-color: var(--chat-border-strong);
   background: rgba(255, 255, 255, 0.04);
   color: var(--chat-text-secondary);
 }
 
-.chat-window-crash-button.secondary:hover {
+.hypervisor-window-crash-button.secondary:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--chat-text);
 }
 
 /* --- IDE Chrome --- */
-.chat-shell {
+.hypervisor-shell {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -184,32 +184,32 @@
   background: #f5f7fa;
 }
 
-.chat-shell--workspace-mode {
+.hypervisor-shell--workspace-mode {
   background: #1e1e1e;
 }
 
-.chat-shell--workspace-mode .hypervisor-client-header {
+.hypervisor-shell--workspace-mode .hypervisor-client-header {
   border-bottom: 1px solid #2b2b2b;
   background: #181818;
 }
 
-.chat-workspace--workspace-mode {
+.hypervisor-workspace--workspace-mode {
   background: #1e1e1e;
 }
 
-.chat-main--workspace-mode {
+.hypervisor-main--workspace-mode {
   display: flex;
   min-width: 0;
   min-height: 0;
   background: #1e1e1e;
 }
 
-.chat-shell--workspace-mode .hypervisor-activity-bar {
+.hypervisor-shell--workspace-mode .hypervisor-activity-bar {
   background: var(--hypervisor-activity-bg);
   border-right: 1px solid var(--hypervisor-activity-border);
 }
 
-.chat-workspace {
+.hypervisor-workspace {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -668,7 +668,7 @@
 }
 
 /* --- Scope + Surface Navigation --- */
-.chat-shell-nav {
+.hypervisor-shell-nav {
   width: 284px;
   flex-shrink: 0;
   display: flex;
@@ -681,14 +681,14 @@
   user-select: none;
 }
 
-.chat-shell-brand {
+.hypervisor-shell-brand {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 4px 8px 0;
 }
 
-.chat-shell-brand-mark {
+.hypervisor-shell-brand-mark {
   width: 40px;
   height: 40px;
   display: inline-flex;
@@ -700,26 +700,26 @@
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 
-.chat-shell-brand-copy {
+.hypervisor-shell-brand-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.chat-shell-brand-copy strong {
+.hypervisor-shell-brand-copy strong {
   font-size: 15px;
   line-height: 1.1;
   color: var(--chat-text);
 }
 
-.chat-shell-brand-copy span {
+.hypervisor-shell-brand-copy span {
   font-size: 12px;
   color: var(--chat-text-secondary);
 }
 
-.chat-shell-scope-card,
-.chat-shell-section {
+.hypervisor-shell-scope-card,
+.hypervisor-shell-section {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -731,7 +731,7 @@
   box-shadow: none;
 }
 
-.chat-shell-section-head {
+.hypervisor-shell-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -743,21 +743,21 @@
   text-transform: uppercase;
 }
 
-.chat-shell-scope-block {
+.hypervisor-shell-scope-block {
   display: flex;
   flex-direction: column;
   gap: 0;
   border-top: 1px solid var(--chat-border);
 }
 
-.chat-shell-scope-label {
+.hypervisor-shell-scope-label {
   color: var(--chat-text-muted);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.chat-shell-scope-chip {
+.hypervisor-shell-scope-chip {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -767,31 +767,31 @@
   border: none;
 }
 
-.chat-shell-scope-chip--project {
+.hypervisor-shell-scope-chip--project {
   flex-direction: row;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.chat-shell-scope-copy {
+.hypervisor-shell-scope-copy {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.chat-shell-scope-chip strong {
+.hypervisor-shell-scope-chip strong {
   color: var(--chat-text);
   font-size: 13px;
 }
 
-.chat-shell-scope-chip span {
+.hypervisor-shell-scope-chip span {
   color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
-.chat-shell-scope-badge {
+.hypervisor-shell-scope-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -805,15 +805,15 @@
   white-space: nowrap;
 }
 
-.chat-shell-project-list,
-.chat-shell-nav-list {
+.hypervisor-shell-project-list,
+.hypervisor-shell-nav-list {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-.chat-shell-project-button,
-.chat-shell-nav-button {
+.hypervisor-shell-project-button,
+.hypervisor-shell-nav-button {
   width: 100%;
   display: flex;
   align-items: center;
@@ -834,49 +834,49 @@
     transform 0.15s ease;
 }
 
-.chat-shell-project-button:hover,
-.chat-shell-nav-button:hover {
+.hypervisor-shell-project-button:hover,
+.hypervisor-shell-nav-button:hover {
   background: var(--warm-a3);
   color: var(--chat-text);
 }
 
-.chat-shell-project-button.is-active,
-.chat-shell-nav-button.is-active {
+.hypervisor-shell-project-button.is-active,
+.hypervisor-shell-nav-button.is-active {
   border-left-color: var(--chat-accent-soft);
   background: var(--chat-selection-bg);
   color: var(--chat-text);
 }
 
-.chat-shell-project-button:active,
-.chat-shell-nav-button:active {
+.hypervisor-shell-project-button:active,
+.hypervisor-shell-nav-button:active {
   transform: none;
 }
 
-.chat-shell-project-button {
+.hypervisor-shell-project-button {
   flex-direction: column;
   align-items: flex-start;
 }
 
-.chat-shell-project-button strong,
-.chat-shell-nav-copy strong {
+.hypervisor-shell-project-button strong,
+.hypervisor-shell-nav-copy strong {
   color: inherit;
   font-size: 13px;
   line-height: 1.2;
 }
 
-.chat-shell-project-button span,
-.chat-shell-nav-copy span {
+.hypervisor-shell-project-button span,
+.hypervisor-shell-nav-copy span {
   color: var(--chat-text-secondary);
   font-size: 11px;
   line-height: 1.4;
 }
 
-.chat-shell-project-button.is-active span,
-.chat-shell-nav-button.is-active .chat-shell-nav-copy span {
+.hypervisor-shell-project-button.is-active span,
+.hypervisor-shell-nav-button.is-active .hypervisor-shell-nav-copy span {
   color: var(--chat-text);
 }
 
-.chat-shell-nav-icon {
+.hypervisor-shell-nav-icon {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
@@ -885,7 +885,7 @@
   justify-content: center;
 }
 
-.chat-shell-nav-copy {
+.hypervisor-shell-nav-copy {
   min-width: 0;
   flex: 1;
   display: flex;
@@ -893,8 +893,8 @@
   gap: 3px;
 }
 
-.chat-shell-nav-badge,
-.chat-shell-nav-shortcut {
+.hypervisor-shell-nav-badge,
+.hypervisor-shell-nav-shortcut {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -909,28 +909,28 @@
   letter-spacing: 0.04em;
 }
 
-.chat-shell-nav-badge {
+.hypervisor-shell-nav-badge {
   color: var(--chat-text);
 }
 
-.chat-shell-nav-button--static {
+.hypervisor-shell-nav-button--static {
   cursor: default;
   border-left-color: var(--border-strong);
   background: var(--warm-a3);
   color: var(--chat-text);
 }
 
-.chat-shell-nav-button--static:hover {
+.hypervisor-shell-nav-button--static:hover {
   transform: none;
 }
 
-.chat-shell-spacer {
+.hypervisor-shell-spacer {
   flex: 1;
   min-height: 12px;
 }
 
 /* --- Main Content Area --- */
-.chat-main {
+.hypervisor-main {
   flex: 1;
   position: relative;
   display: flex;
@@ -941,7 +941,7 @@
   background: var(--surface-1);
 }
 
-.chat-content {
+.hypervisor-content {
   flex: 1;
   display: flex;
   flex-direction: row;
@@ -952,7 +952,7 @@
   background: var(--surface-1);
 }
 
-.chat-content-main {
+.hypervisor-content-main {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -965,7 +965,7 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
-.chat-workspace-oss-shell {
+.hypervisor-workspace-shell {
   position: absolute;
   inset: 0;
   min-width: 0;
@@ -977,7 +977,7 @@
   transition: opacity 140ms ease, visibility 140ms ease;
 }
 
-.chat-main--workspace-mode .chat-workspace-oss-shell {
+.hypervisor-main--workspace-mode .hypervisor-workspace-shell {
   position: relative;
   inset: auto;
   flex: 1;
@@ -988,13 +988,13 @@
   box-shadow: none;
 }
 
-.chat-workspace-oss-shell.is-active {
+.hypervisor-workspace-shell.is-active {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
 
-.chat-workspace-oss-shell.is-full-bleed {
+.hypervisor-workspace-shell.is-full-bleed {
   position: relative;
   inset: auto;
   flex: 1;
@@ -1003,7 +1003,7 @@
   pointer-events: auto;
 }
 
-.chat-workspace-oss-shell__frame {
+.hypervisor-workspace-shell__frame {
   width: 100%;
   height: 100%;
   border: 0;
@@ -1013,18 +1013,18 @@
   transition: opacity 180ms ease;
 }
 
-.chat-workspace-oss-shell__frame.is-ready {
+.hypervisor-workspace-shell__frame.is-ready {
   opacity: 1;
 }
 
-.chat-workspace-oss-shell__direct-surface {
+.hypervisor-workspace-shell__direct-surface {
   width: 100%;
   height: 100%;
   display: block;
   background: #1e1e1e;
 }
 
-.chat-workspace-oss-shell__workbench {
+.hypervisor-workspace-shell__workbench {
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -1033,7 +1033,7 @@
   background: #f7f7f6;
 }
 
-.chat-workspace-oss-shell__workbench-header {
+.hypervisor-workspace-shell__workbench-header {
   flex: 0 0 40px;
   min-width: 0;
   display: flex;
@@ -1045,7 +1045,7 @@
   color: #111111;
 }
 
-.chat-workspace-oss-shell__back {
+.hypervisor-workspace-shell__back {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -1062,12 +1062,12 @@
   cursor: pointer;
 }
 
-.chat-workspace-oss-shell__back:hover {
+.hypervisor-workspace-shell__back:hover {
   background: #eeeeed;
   color: #111111;
 }
 
-.chat-workspace-oss-shell__workbench-title {
+.hypervisor-workspace-shell__workbench-title {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1075,7 +1075,7 @@
   color: #111111;
 }
 
-.chat-workspace-oss-shell__workbench-title strong {
+.hypervisor-workspace-shell__workbench-title strong {
   overflow: hidden;
   color: #111111;
   font-size: 12px;
@@ -1084,7 +1084,7 @@
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__workbench-title code {
+.hypervisor-workspace-shell__workbench-title code {
   overflow: hidden;
   color: #707070;
   font-family: var(--font-mono);
@@ -1093,7 +1093,7 @@
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__workbench-surface {
+.hypervisor-workspace-shell__workbench-surface {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -1103,7 +1103,7 @@
   background: #f7f7f6;
 }
 
-.chat-workspace-oss-shell__surface-stage {
+.hypervisor-workspace-shell__surface-stage {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
@@ -4798,9 +4798,9 @@
   padding: 0;
 }
 
-.chat-content-main:has(.hypervisor-privacy-posture),
-.chat-center-area:has(.hypervisor-privacy-posture),
-.chat-content:has(.hypervisor-privacy-posture) {
+.hypervisor-content-main:has(.hypervisor-privacy-posture),
+.hypervisor-center-area:has(.hypervisor-privacy-posture),
+.hypervisor-content:has(.hypervisor-privacy-posture) {
   background: #ffffff;
 }
 
@@ -5281,17 +5281,17 @@
 }
 
 /* Phase 0A reference parity: primary rail follows the IOI captured shell. */
-.chat-window {
+.hypervisor-window {
   background: #ffffff;
 }
 
-.chat-shell,
-.chat-workspace,
-.chat-main--workspace-mode {
+.hypervisor-shell,
+.hypervisor-workspace,
+.hypervisor-main--workspace-mode {
   background: #ffffff;
 }
 
-.chat-shell--workspace-mode .hypervisor-client-header,
+.hypervisor-shell--workspace-mode .hypervisor-client-header,
 .hypervisor-client-header {
   display: none;
 }
@@ -5701,18 +5701,18 @@
   transform: translateY(-1px);
 }
 
-.chat-content {
+.hypervisor-content {
   gap: 0;
   padding: 0;
   background: #ffffff;
 }
 
-.chat-main,
-.chat-content-main {
+.hypervisor-main,
+.hypervisor-content-main {
   background: #ffffff;
 }
 
-.chat-content-main {
+.hypervisor-content-main {
   border-radius: 0;
   box-shadow: none;
 }

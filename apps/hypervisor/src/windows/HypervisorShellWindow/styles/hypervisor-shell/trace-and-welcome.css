@@ -1,4 +1,4 @@
-.chat-workspace-oss-shell__overlay {
+.hypervisor-workspace-shell__overlay {
   position: absolute;
   inset: 0;
   display: block;
@@ -8,7 +8,7 @@
     #f7f7f6;
 }
 
-.chat-workspace-oss-shell__fallback {
+.hypervisor-workspace-shell__fallback {
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -18,8 +18,8 @@
   color: #111111;
 }
 
-.chat-workspace-oss-shell__fallback-bar,
-.chat-workspace-oss-shell__fallback-tabs {
+.hypervisor-workspace-shell__fallback-bar,
+.hypervisor-workspace-shell__fallback-tabs {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -27,13 +27,13 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__fallback-bar {
+.hypervisor-workspace-shell__fallback-bar {
   justify-content: space-between;
   padding: 0 16px 0 26px;
 }
 
-.chat-workspace-oss-shell__branch,
-.chat-workspace-oss-shell__adapter-pill {
+.hypervisor-workspace-shell__branch,
+.hypervisor-workspace-shell__adapter-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -42,12 +42,12 @@
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__branch strong,
-.chat-workspace-oss-shell__adapter-pill {
+.hypervisor-workspace-shell__branch strong,
+.hypervisor-workspace-shell__adapter-pill {
   font-weight: 700;
 }
 
-.chat-workspace-oss-shell__adapter-pill {
+.hypervisor-workspace-shell__adapter-pill {
   min-height: 32px;
   padding: 0 12px;
   border: 1px solid #e1e1e1;
@@ -55,20 +55,20 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__status-dot {
+.hypervisor-workspace-shell__status-dot {
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: #11a035;
 }
 
-.chat-workspace-oss-shell__fallback-tabs {
+.hypervisor-workspace-shell__fallback-tabs {
   gap: 22px;
   padding: 0 26px;
 }
 
-.chat-workspace-oss-shell__fallback-tabs span,
-.chat-workspace-oss-shell__fallback-tabs strong {
+.hypervisor-workspace-shell__fallback-tabs span,
+.hypervisor-workspace-shell__fallback-tabs strong {
   height: 100%;
   display: inline-flex;
   align-items: center;
@@ -78,20 +78,20 @@
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__fallback-tabs strong {
+.hypervisor-workspace-shell__fallback-tabs strong {
   overflow: hidden;
   max-width: min(360px, 34vw);
   font-weight: 700;
   text-overflow: ellipsis;
 }
 
-.chat-workspace-oss-shell__fallback-tabs .is-active {
+.hypervisor-workspace-shell__fallback-tabs .is-active {
   position: relative;
   color: #111111;
   font-weight: 700;
 }
 
-.chat-workspace-oss-shell__fallback-tabs .is-active::after {
+.hypervisor-workspace-shell__fallback-tabs .is-active::after {
   position: absolute;
   right: 0;
   bottom: -1px;
@@ -102,7 +102,7 @@
   content: "";
 }
 
-.chat-workspace-oss-shell__fallback-grid {
+.hypervisor-workspace-shell__fallback-grid {
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -110,7 +110,7 @@
   overflow: hidden;
 }
 
-.chat-workspace-oss-shell__environment {
+.hypervisor-workspace-shell__environment {
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -121,7 +121,7 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__environment-head {
+.hypervisor-workspace-shell__environment-head {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(360px, 0.95fr);
   align-items: center;
@@ -130,14 +130,14 @@
   border-bottom: 1px solid #e9e9e9;
 }
 
-.chat-workspace-oss-shell__environment-title {
+.hypervisor-workspace-shell__environment-title {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.chat-workspace-oss-shell__environment-title h2 {
+.hypervisor-workspace-shell__environment-title h2 {
   overflow: hidden;
   margin: 0;
   color: #111111;
@@ -148,7 +148,7 @@
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__toggle {
+.hypervisor-workspace-shell__toggle {
   position: relative;
   width: 38px;
   height: 20px;
@@ -157,7 +157,7 @@
   background: #c9c9c9;
 }
 
-.chat-workspace-oss-shell__toggle::after {
+.hypervisor-workspace-shell__toggle::after {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -169,33 +169,33 @@
   content: "";
 }
 
-.chat-workspace-oss-shell__toggle.is-on {
+.hypervisor-workspace-shell__toggle.is-on {
   background: #0ba328;
 }
 
-.chat-workspace-oss-shell__toggle.is-on::after {
+.hypervisor-workspace-shell__toggle.is-on::after {
   transform: translateX(18px);
 }
 
-.chat-workspace-oss-shell__environment-stats {
+.hypervisor-workspace-shell__environment-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin: 0;
 }
 
-.chat-workspace-oss-shell__environment-stats div {
+.hypervisor-workspace-shell__environment-stats div {
   min-width: 0;
 }
 
-.chat-workspace-oss-shell__environment-stats dt {
+.hypervisor-workspace-shell__environment-stats dt {
   margin: 0 0 6px;
   color: #777777;
   font-size: 11px;
   font-weight: 600;
 }
 
-.chat-workspace-oss-shell__environment-stats dd {
+.hypervisor-workspace-shell__environment-stats dd {
   margin: 0;
   overflow: hidden;
   color: #111111;
@@ -205,31 +205,31 @@
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__environment-stats .is-ok,
-.chat-workspace-oss-shell__environment-stats .is-warn {
+.hypervisor-workspace-shell__environment-stats .is-ok,
+.hypervisor-workspace-shell__environment-stats .is-warn {
   width: fit-content;
   padding: 3px 10px;
   border-radius: 999px;
 }
 
-.chat-workspace-oss-shell__environment-stats .is-ok {
+.hypervisor-workspace-shell__environment-stats .is-ok {
   background: #dff8df;
   color: #12852a;
 }
 
-.chat-workspace-oss-shell__environment-stats .is-warn {
+.hypervisor-workspace-shell__environment-stats .is-warn {
   background: #fff4ce;
   color: #7b5800;
 }
 
-.chat-workspace-oss-shell__timeline {
+.hypervisor-workspace-shell__timeline {
   display: flex;
   flex-direction: column;
   gap: 0;
   max-width: 760px;
 }
 
-.chat-workspace-oss-shell__timeline-row {
+.hypervisor-workspace-shell__timeline-row {
   position: relative;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
@@ -237,7 +237,7 @@
   min-height: 66px;
 }
 
-.chat-workspace-oss-shell__timeline-row:not(:last-child)::before {
+.hypervisor-workspace-shell__timeline-row:not(:last-child)::before {
   position: absolute;
   top: 22px;
   bottom: -2px;
@@ -247,7 +247,7 @@
   content: "";
 }
 
-.chat-workspace-oss-shell__timeline-dot {
+.hypervisor-workspace-shell__timeline-dot {
   z-index: 1;
   width: 20px;
   height: 20px;
@@ -257,32 +257,32 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__timeline-dot.is-complete {
+.hypervisor-workspace-shell__timeline-dot.is-complete {
   border-color: #0ba328;
   background: #0ba328;
   box-shadow: inset 0 0 0 4px #ffffff;
 }
 
-.chat-workspace-oss-shell__timeline-dot.is-warn {
+.hypervisor-workspace-shell__timeline-dot.is-warn {
   border-color: #d99a00;
   background: #fff4ce;
 }
 
-.chat-workspace-oss-shell__timeline-row strong {
+.hypervisor-workspace-shell__timeline-row strong {
   display: block;
   margin: 0 0 6px;
   color: #111111;
   font-size: 14px;
 }
 
-.chat-workspace-oss-shell__timeline-row span {
+.hypervisor-workspace-shell__timeline-row span {
   display: block;
   color: #666666;
   font-size: 13px;
   line-height: 1.4;
 }
 
-.chat-workspace-oss-shell__runtime-pending {
+.hypervisor-workspace-shell__runtime-pending {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -290,7 +290,7 @@
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__changes {
+.hypervisor-workspace-shell__changes {
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -301,7 +301,7 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__changes-head {
+.hypervisor-workspace-shell__changes-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -310,7 +310,7 @@
   font-size: 14px;
 }
 
-.chat-workspace-oss-shell__search {
+.hypervisor-workspace-shell__search {
   height: 36px;
   display: flex;
   align-items: center;
@@ -322,7 +322,7 @@
   color: #777777;
 }
 
-.chat-workspace-oss-shell__search input {
+.hypervisor-workspace-shell__search input {
   min-width: 0;
   flex: 1;
   border: 0;
@@ -333,7 +333,7 @@
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__change-list {
+.hypervisor-workspace-shell__change-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -341,7 +341,7 @@
   padding-top: 6px;
 }
 
-.chat-workspace-oss-shell__change-list div {
+.hypervisor-workspace-shell__change-list div {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -351,19 +351,19 @@
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__change-list code,
-.chat-workspace-oss-shell__change-list span {
+.hypervisor-workspace-shell__change-list code,
+.hypervisor-workspace-shell__change-list span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__change-list code {
+.hypervisor-workspace-shell__change-list code {
   font-family: var(--font-mono);
 }
 
-.chat-workspace-oss-shell__change-list em,
-.chat-workspace-oss-shell__change-list strong {
+.hypervisor-workspace-shell__change-list em,
+.hypervisor-workspace-shell__change-list strong {
   flex: 0 0 auto;
   min-width: 22px;
   border-radius: 999px;
@@ -373,17 +373,17 @@
   text-align: center;
 }
 
-.chat-workspace-oss-shell__change-list em {
+.hypervisor-workspace-shell__change-list em {
   background: #eef2ff;
   color: #61708d;
 }
 
-.chat-workspace-oss-shell__change-list strong {
+.hypervisor-workspace-shell__change-list strong {
   background: #ecfff0;
   color: #0ba328;
 }
 
-.chat-workspace-oss-shell__bottom-panel {
+.hypervisor-workspace-shell__bottom-panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -393,26 +393,26 @@
   background: #ffffff;
 }
 
-.chat-workspace-oss-shell__bottom-panel nav,
-.chat-workspace-oss-shell__ports {
+.hypervisor-workspace-shell__bottom-panel nav,
+.hypervisor-workspace-shell__ports {
   display: flex;
   align-items: center;
   gap: 18px;
 }
 
-.chat-workspace-oss-shell__bottom-panel nav strong,
-.chat-workspace-oss-shell__bottom-panel nav span {
+.hypervisor-workspace-shell__bottom-panel nav strong,
+.hypervisor-workspace-shell__bottom-panel nav span {
   color: #333333;
   font-size: 13px;
   white-space: nowrap;
 }
 
-.chat-workspace-oss-shell__bottom-panel nav strong {
+.hypervisor-workspace-shell__bottom-panel nav strong {
   position: relative;
   color: #111111;
 }
 
-.chat-workspace-oss-shell__bottom-panel nav strong::after {
+.hypervisor-workspace-shell__bottom-panel nav strong::after {
   position: absolute;
   right: 0;
   bottom: -15px;
@@ -422,18 +422,18 @@
   content: "";
 }
 
-.chat-workspace-oss-shell__ports {
+.hypervisor-workspace-shell__ports {
   justify-content: space-between;
 }
 
-.chat-workspace-oss-shell__ports h3 {
+.hypervisor-workspace-shell__ports h3 {
   margin: 0;
   color: #2c3a4a;
   font-size: 18px;
   font-weight: 600;
 }
 
-.chat-workspace-oss-shell__ports button {
+.hypervisor-workspace-shell__ports button {
   min-height: 32px;
   border: 0;
   border-radius: 8px;
@@ -444,7 +444,7 @@
   font-weight: 700;
 }
 
-.chat-workspace-oss-shell__bottom-panel p {
+.hypervisor-workspace-shell__bottom-panel p {
   display: grid;
   place-items: center;
   min-height: 58px;
@@ -455,7 +455,7 @@
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__overlay-card {
+.hypervisor-workspace-shell__overlay-card {
   width: min(720px, 100%);
   display: flex;
   flex-direction: column;
@@ -467,7 +467,7 @@
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 }
 
-.chat-workspace-oss-shell__eyebrow {
+.hypervisor-workspace-shell__eyebrow {
   color: #777777;
   font-size: 10px;
   font-weight: 700;
@@ -475,20 +475,20 @@
   text-transform: uppercase;
 }
 
-.chat-workspace-oss-shell__overlay-card h2 {
+.hypervisor-workspace-shell__overlay-card h2 {
   margin: 0;
   color: #151515;
   font-size: 20px;
   line-height: 1.15;
 }
 
-.chat-workspace-oss-shell__overlay-card p {
+.hypervisor-workspace-shell__overlay-card p {
   margin: 0;
   color: #616161;
   line-height: 1.6;
 }
 
-.chat-workspace-oss-shell__surface-notice {
+.hypervisor-workspace-shell__surface-notice {
   position: absolute;
   top: 14px;
   right: 14px;
@@ -506,35 +506,35 @@
   pointer-events: auto;
 }
 
-.chat-workspace-oss-shell__surface-notice strong {
+.hypervisor-workspace-shell__surface-notice strong {
   color: #ffedb3;
   font-size: 12px;
   line-height: 1.35;
 }
 
-.chat-workspace-oss-shell__surface-notice span {
+.hypervisor-workspace-shell__surface-notice span {
   color: rgba(255, 237, 179, 0.76);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.chat-workspace-oss-shell__surface-notice-actions {
+.hypervisor-workspace-shell__surface-notice-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.chat-workspace-oss-shell__surface-notice-actions details {
+.hypervisor-workspace-shell__surface-notice-actions details {
   color: rgba(255, 237, 179, 0.68);
   font-size: 11px;
 }
 
-.chat-workspace-oss-shell__surface-notice-actions summary {
+.hypervisor-workspace-shell__surface-notice-actions summary {
   cursor: pointer;
 }
 
-.chat-workspace-oss-shell__surface-notice-actions code {
+.hypervisor-workspace-shell__surface-notice-actions code {
   display: block;
   max-width: 100%;
   margin-top: 6px;
@@ -542,13 +542,13 @@
   word-break: break-word;
 }
 
-.chat-workspace-oss-shell__meta {
+.hypervisor-workspace-shell__meta {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.chat-workspace-oss-shell__meta span {
+.hypervisor-workspace-shell__meta span {
   color: #777777;
   font-size: 11px;
   font-weight: 600;
@@ -556,7 +556,7 @@
   text-transform: uppercase;
 }
 
-.chat-workspace-oss-shell__meta code {
+.hypervisor-workspace-shell__meta code {
   padding: 11px 12px;
   border-radius: 6px;
   background: #f5f5f4;
@@ -567,37 +567,37 @@
   word-break: break-word;
 }
 
-.chat-workspace-oss-shell__spinner {
+.hypervisor-workspace-shell__spinner {
   width: 34px;
   height: 34px;
   border-radius: 999px;
   border: 2px solid rgba(17, 17, 17, 0.12);
   border-top-color: rgba(57, 119, 198, 0.95);
-  animation: chat-workspace-oss-spin 0.8s linear infinite;
+  animation: hypervisor-workspace-spin 0.8s linear infinite;
 }
 
-.chat-workspace-oss-shell__diagnostics {
+.hypervisor-workspace-shell__diagnostics {
   color: #777777;
 }
 
-.chat-workspace-oss-shell__diagnostics summary {
+.hypervisor-workspace-shell__diagnostics summary {
   width: fit-content;
   cursor: pointer;
   font-size: 11px;
 }
 
-.chat-workspace-oss-shell__diagnostics[open] {
+.hypervisor-workspace-shell__diagnostics[open] {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.chat-workspace-oss-shell__actions {
+.hypervisor-workspace-shell__actions {
   display: flex;
   justify-content: flex-start;
 }
 
-.chat-workspace-oss-shell__button {
+.hypervisor-workspace-shell__button {
   border: 1px solid #cbd6eb;
   border-radius: 6px;
   background: #eef4ff;
@@ -612,12 +612,12 @@
     border-color 140ms ease;
 }
 
-.chat-workspace-oss-shell__button:hover {
+.hypervisor-workspace-shell__button:hover {
   background: #e1edff;
   border-color: #aebfde;
 }
 
-.chat-workspace-oss-shell__error {
+.hypervisor-workspace-shell__error {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -633,32 +633,32 @@
   word-break: break-word;
 }
 
-.chat-workspace-oss-shell__error strong {
+.hypervisor-workspace-shell__error strong {
   color: #611f1f;
   font-size: 13px;
 }
 
-.chat-workspace-oss-shell__error details {
+.hypervisor-workspace-shell__error details {
   color: #7e5d5d;
 }
 
-.chat-workspace-oss-shell__error summary {
+.hypervisor-workspace-shell__error summary {
   cursor: pointer;
 }
 
-.chat-workspace-oss-shell__error code {
+.hypervisor-workspace-shell__error code {
   display: block;
   margin-top: 6px;
   white-space: pre-wrap;
 }
 
-@keyframes chat-workspace-oss-spin {
+@keyframes hypervisor-workspace-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.chat-shell-inspector {
+.hypervisor-shell-inspector {
   width: 336px;
   flex-shrink: 0;
   display: flex;
@@ -671,8 +671,8 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
-.chat-shell-inspector-head,
-.chat-shell-inspector-card {
+.hypervisor-shell-inspector-head,
+.hypervisor-shell-inspector-card {
   border: 1px solid transparent;
   border-radius: 18px;
   background: var(--surface-3);
@@ -680,7 +680,7 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
-.chat-shell-inspector-kicker,
+.hypervisor-shell-inspector-kicker,
 .hypervisor-surface-kicker {
   display: inline-flex;
   align-items: center;
@@ -691,7 +691,7 @@
   text-transform: uppercase;
 }
 
-.chat-shell-inspector-head h2,
+.hypervisor-shell-inspector-head h2,
 .hypervisor-surface-header-copy h2 {
   margin: 8px 0 0;
   font-size: 20px;
@@ -699,13 +699,13 @@
   color: var(--chat-text);
 }
 
-.chat-shell-inspector-head p,
+.hypervisor-shell-inspector-head p,
 .hypervisor-surface-header-copy p {
   margin: 10px 0 0;
   color: var(--chat-text-secondary);
 }
 
-.chat-shell-inspector-card-head {
+.hypervisor-shell-inspector-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -713,25 +713,25 @@
   margin-bottom: 12px;
 }
 
-.chat-shell-inspector-card-head strong {
+.hypervisor-shell-inspector-card-head strong {
   font-size: 13px;
   color: var(--chat-text);
 }
 
-.chat-shell-inspector-card-head span {
+.hypervisor-shell-inspector-card-head span {
   font-size: 11px;
   color: var(--chat-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.chat-shell-loop {
+.hypervisor-shell-loop {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.chat-shell-loop span {
+.hypervisor-shell-loop span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -744,30 +744,30 @@
   line-height: 1;
 }
 
-.chat-shell-loop span.is-active {
+.hypervisor-shell-loop span.is-active {
   border-color: var(--chat-selection-border);
   background: var(--chat-selection-bg);
   color: var(--chat-text);
 }
 
-.chat-shell-inspector-list {
+.hypervisor-shell-inspector-list {
   margin: 0;
   padding-left: 18px;
   color: var(--chat-text-secondary);
 }
 
-.chat-shell-inspector-list li + li {
+.hypervisor-shell-inspector-list li + li {
   margin-top: 8px;
 }
 
-.chat-shell-inspector-profile-head {
+.hypervisor-shell-inspector-profile-head {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
 }
 
-.chat-shell-inspector-avatar {
+.hypervisor-shell-inspector-avatar {
   width: 42px;
   height: 42px;
   border-radius: 999px;
@@ -782,29 +782,29 @@
   letter-spacing: 0.08em;
 }
 
-.chat-shell-inspector-profile-meta {
+.hypervisor-shell-inspector-profile-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.chat-shell-inspector-profile-meta strong {
+.hypervisor-shell-inspector-profile-meta strong {
   color: var(--chat-text);
   font-size: 14px;
 }
 
-.chat-shell-inspector-profile-meta span {
+.hypervisor-shell-inspector-profile-meta span {
   color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
-.chat-shell-inspector-actions {
+.hypervisor-shell-inspector-actions {
   display: flex;
   margin-top: 14px;
 }
 
-.chat-shell-inspector-button {
+.hypervisor-shell-inspector-button {
   width: 100%;
   border: 1px solid var(--chat-primary-border);
   border-radius: 12px;
@@ -820,13 +820,13 @@
     transform 0.15s ease;
 }
 
-.chat-shell-inspector-button:hover {
+.hypervisor-shell-inspector-button:hover {
   background: var(--chat-primary-bg-hover);
   border-color: var(--chat-primary-border);
   transform: translateY(-1px);
 }
 
-.chat-shell-inspector-quote {
+.hypervisor-shell-inspector-quote {
   margin: 0;
   color: var(--chat-text);
   font-size: 13px;
@@ -834,39 +834,39 @@
 }
 
 /* --- Chat Shell Refresh --- */
-.chat-main {
+.hypervisor-main {
   background: var(--chat-bg);
 }
 
-.chat-content {
+.hypervisor-content {
   gap: 1px;
   padding: 0;
   background: var(--chat-border);
   align-items: stretch;
 }
 
-.chat-content.is-dedicated-workbench,
-.chat-content.is-dedicated-workbench .chat-center-area,
-.chat-content-main--dedicated-workbench {
+.hypervisor-content.is-dedicated-workbench,
+.hypervisor-content.is-dedicated-workbench .hypervisor-center-area,
+.hypervisor-content-main--dedicated-workbench {
   height: 100%;
   min-height: 0;
 }
 
-.chat-content.is-dedicated-workbench {
+.hypervisor-content.is-dedicated-workbench {
   position: relative;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.chat-content.is-dedicated-workbench .chat-center-area,
-.chat-content-main--dedicated-workbench {
+.hypervisor-content.is-dedicated-workbench .hypervisor-center-area,
+.hypervisor-content-main--dedicated-workbench {
   position: absolute;
   inset: 0;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.chat-content-main--dedicated-workbench > .hypervisor-surface-view--workflow-canvas {
+.hypervisor-content-main--dedicated-workbench > .hypervisor-surface-view--workflow-canvas {
   position: absolute;
   inset: 0;
   flex: 1 1 auto;
@@ -877,7 +877,7 @@
 }
 
 .operator-chat-pane-shell,
-.chat-content-main,
+.hypervisor-content-main,
 .chat-left-sidebar {
   min-height: 0;
   height: 100%;
@@ -887,7 +887,7 @@
   box-shadow: none;
 }
 
-.chat-center-area {
+.hypervisor-center-area {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1004,7 +1004,7 @@
   overflow: hidden;
 }
 
-.operator-chat-pane-shell .spot-chat-shell {
+.operator-chat-pane-shell .spot-hypervisor-shell {
   min-height: 0;
   height: 100%;
 }
@@ -1041,13 +1041,13 @@
   border-color: var(--chat-border);
 }
 
-.chat-content-main {
+.hypervisor-content-main {
   background: var(--chat-bg-elevated);
   box-shadow: none;
 }
 
-.chat-content-main > .workspace-host,
-.chat-content-main .chat-workspace-host.workspace-host {
+.hypervisor-content-main > .workspace-host,
+.hypervisor-content-main .hypervisor-workspace-host.workspace-host {
   border-radius: 0;
 }
 
@@ -1077,7 +1077,7 @@
   cursor: default;
 }
 
-.chat-shell-inspector {
+.hypervisor-shell-inspector {
   background: var(--chat-bg-elevated);
 }
 
@@ -1414,10 +1414,10 @@
   color: var(--chat-text);
 }
 
-:root[data-hypervisor-theme^="light"] .chat-shell:not(.chat-shell--workspace-mode),
-:root[data-hypervisor-theme^="light"] .chat-workspace:not(.chat-workspace--workspace-mode),
-:root[data-hypervisor-theme^="light"] .chat-main,
-:root[data-hypervisor-theme^="light"] .chat-content {
+:root[data-hypervisor-theme^="light"] .hypervisor-shell:not(.hypervisor-shell--workspace-mode),
+:root[data-hypervisor-theme^="light"] .hypervisor-workspace:not(.hypervisor-workspace--workspace-mode),
+:root[data-hypervisor-theme^="light"] .hypervisor-main,
+:root[data-hypervisor-theme^="light"] .hypervisor-content {
   background: var(--chat-bg);
 }
 

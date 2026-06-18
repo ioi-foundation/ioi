@@ -598,7 +598,7 @@ assert(
   "Active Hypervisor dev-start probes must not accept retired Autopilot log prefixes as a compatibility shim.",
 );
 assert(
-  "chat-shell-hypervisor-route-names",
+  "hypervisor-shell-hypervisor-route-names",
   companionShellNavigationSource.includes('window.location.assign("/home")') &&
     companionShellNavigationSource.includes('window.location.assign("/authority")') &&
     chatSessionHookSource.includes('await openChat("process")') &&
@@ -1109,13 +1109,13 @@ assert(
 assert(
   "hypervisor-shell-responsive-styles-not-legacy-named",
   exists(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/chat-responsive.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/hypervisor-responsive.css",
   ) &&
     !exists(
       "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/chat-legacy-and-responsive.css",
     ) &&
     hypervisorClientNamespaceSources.includes(
-      '@import "./styles/hypervisor-shell/chat-responsive.css";',
+      '@import "./styles/hypervisor-shell/hypervisor-responsive.css";',
     ) &&
     !hypervisorClientNamespaceSources.includes(
       "chat-legacy-and-responsive.css",
@@ -1906,7 +1906,7 @@ assert(
     ) &&
     hypervisorAppShellContractSource.includes("?view=workbench") &&
     hypervisorAppShellContractSource.includes(
-      ".chat-workspace-oss-shell__workbench-surface",
+      ".hypervisor-workspace-shell__workbench-surface",
     ) &&
     hypervisorAppShellContractSource.includes("?view=foundry") &&
     hypervisorAppShellContractSource.includes(

@@ -325,9 +325,9 @@ async function main() {
       ),
       "Default Home seed text should not become the launched-session rail title.",
     );
-    await page.waitForSelector(".chat-workspace-oss-shell.is-active");
+    await page.waitForSelector(".hypervisor-workspace-shell.is-active");
     assert(
-      (await page.locator(".chat-workspace-oss-shell.is-active").count()) === 1,
+      (await page.locator(".hypervisor-workspace-shell.is-active").count()) === 1,
       "Launching the selected Workbench recipe should open the active Workbench shell.",
     );
 
@@ -448,9 +448,9 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector(".chat-workspace-oss-shell__workbench-surface");
+    await page.waitForSelector(".hypervisor-workspace-shell__workbench-surface");
     const workbenchSurfaceCount = await page
-      .locator(".chat-workspace-oss-shell__workbench-surface")
+      .locator(".hypervisor-workspace-shell__workbench-surface")
       .count();
     assert(
       workbenchSurfaceCount === 1,

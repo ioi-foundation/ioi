@@ -3049,16 +3049,16 @@ export function HypervisorShellContent({
   return (
     <div
       className={clsx(
-        "chat-shell",
-        workspaceActive && "chat-shell--workspace-mode",
+        "hypervisor-shell",
+        workspaceActive && "hypervisor-shell--workspace-mode",
       )}
     >
       <HypervisorClientHeader activeView={activeView} />
 
       <div
         className={clsx(
-          "chat-workspace",
-          workspaceActive && "chat-workspace--workspace-mode",
+          "hypervisor-workspace",
+          workspaceActive && "hypervisor-workspace--workspace-mode",
         )}
       >
         <HypervisorActivityRail
@@ -3073,8 +3073,8 @@ export function HypervisorShellContent({
 
         <div
           className={clsx(
-            "chat-main",
-            workspaceActive && "chat-main--workspace-mode",
+            "hypervisor-main",
+            workspaceActive && "hypervisor-main--workspace-mode",
           )}
         >
           <WorkspaceShell
@@ -3088,17 +3088,17 @@ export function HypervisorShellContent({
           {!workspaceActive ? (
             <div
               className={clsx(
-                "chat-content",
+                "hypervisor-content",
                 dedicatedWorkbenchActive && "is-dedicated-workbench",
               )}
             >
-              <div className="chat-center-area">
+              <div className="hypervisor-center-area">
                 <div
                   ref={contentMainRef}
                   className={clsx(
-                    "chat-content-main",
+                    "hypervisor-content-main",
                     dedicatedWorkbenchActive &&
-                      "chat-content-main--dedicated-workbench",
+                      "hypervisor-content-main--dedicated-workbench",
                   )}
                 >
                   {activeView === "home" ? (

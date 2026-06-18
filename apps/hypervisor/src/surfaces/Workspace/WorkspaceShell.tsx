@@ -152,29 +152,29 @@ export function WorkspaceShell({
   return (
     <section
       className={clsx(
-        "chat-workspace-oss-shell",
+        "hypervisor-workspace-shell",
         active && "is-active",
         fullBleed && "is-full-bleed",
       )}
       aria-label="Workspace"
       aria-hidden={!active}
     >
-      <div className="chat-workspace-oss-shell__workbench">
+      <div className="hypervisor-workspace-shell__workbench">
         {!overlayVisible ? (
-          <header className="chat-workspace-oss-shell__workbench-header">
-            <div className="chat-workspace-oss-shell__workbench-title">
+          <header className="hypervisor-workspace-shell__workbench-header">
+            <div className="hypervisor-workspace-shell__workbench-title">
               <strong>{currentProject.name}</strong>
               <code>{currentProject.rootPath}</code>
             </div>
           </header>
         ) : null}
 
-        <div className="chat-workspace-oss-shell__workbench-surface">
-          <div className="chat-workspace-oss-shell__surface-stage">
+        <div className="hypervisor-workspace-shell__workbench-surface">
+          <div className="hypervisor-workspace-shell__surface-stage">
             {session && surface ? (
               <WorkspaceHost
                 key={surface.key}
-                className="chat-workspace-host"
+                className="hypervisor-workspace-host"
                 adapter={surface.adapter}
                 root={surface.rootPath}
                 layoutMode={surface.layoutMode}
@@ -200,32 +200,32 @@ export function WorkspaceShell({
             ) : null}
 
             {overlayVisible ? (
-              <div className="chat-workspace-oss-shell__overlay">
-                <div className="chat-workspace-oss-shell__fallback">
-                  <div className="chat-workspace-oss-shell__fallback-bar">
-                    <div className="chat-workspace-oss-shell__branch">
-                      <span className="chat-workspace-oss-shell__status-dot" />
+              <div className="hypervisor-workspace-shell__overlay">
+                <div className="hypervisor-workspace-shell__fallback">
+                  <div className="hypervisor-workspace-shell__fallback-bar">
+                    <div className="hypervisor-workspace-shell__branch">
+                      <span className="hypervisor-workspace-shell__status-dot" />
                       <strong>main</strong>
                       <span aria-hidden="true">⌄</span>
                     </div>
-                    <div className="chat-workspace-oss-shell__adapter-pill">
+                    <div className="hypervisor-workspace-shell__adapter-pill">
                       Workspace session
                       <span aria-hidden="true">⌄</span>
                     </div>
                   </div>
-                  <div className="chat-workspace-oss-shell__fallback-tabs">
+                  <div className="hypervisor-workspace-shell__fallback-tabs">
                     <span>Code</span>
                     <strong>{currentProject.name}</strong>
                     <span className="is-active">Environment</span>
                   </div>
 
-                  <div className="chat-workspace-oss-shell__fallback-grid">
-                    <main className="chat-workspace-oss-shell__environment">
-                      <div className="chat-workspace-oss-shell__environment-head">
-                        <div className="chat-workspace-oss-shell__environment-title">
+                  <div className="hypervisor-workspace-shell__fallback-grid">
+                    <main className="hypervisor-workspace-shell__environment">
+                      <div className="hypervisor-workspace-shell__environment-head">
+                        <div className="hypervisor-workspace-shell__environment-title">
                           <span
                             className={clsx(
-                              "chat-workspace-oss-shell__toggle",
+                              "hypervisor-workspace-shell__toggle",
                               !blockingError && "is-on",
                             )}
                             aria-hidden="true"
@@ -236,7 +236,7 @@ export function WorkspaceShell({
                               : "Environment starting"}
                           </h2>
                         </div>
-                        <dl className="chat-workspace-oss-shell__environment-stats">
+                        <dl className="hypervisor-workspace-shell__environment-stats">
                           <div>
                             <dt>Auto-stop after</dt>
                             <dd>30m of inactivity</dd>
@@ -258,7 +258,7 @@ export function WorkspaceShell({
                         </dl>
                       </div>
 
-                      <div className="chat-workspace-oss-shell__timeline">
+                      <div className="hypervisor-workspace-shell__timeline">
                         {[
                           ["Resolved workspace root", currentProject.rootPath],
                           ["Loaded workspace refs", "Workspace state ready"],
@@ -277,12 +277,12 @@ export function WorkspaceShell({
                           ],
                         ].map(([label, detail], index) => (
                           <div
-                            className="chat-workspace-oss-shell__timeline-row"
+                            className="hypervisor-workspace-shell__timeline-row"
                             key={label}
                           >
                             <span
                               className={clsx(
-                                "chat-workspace-oss-shell__timeline-dot",
+                                "hypervisor-workspace-shell__timeline-dot",
                                 index < 3 && "is-complete",
                                 index === 3 && blockingError && "is-warn",
                               )}
@@ -296,7 +296,7 @@ export function WorkspaceShell({
                       </div>
 
                       {blockingError ? (
-                        <div className="chat-workspace-oss-shell__error">
+                        <div className="hypervisor-workspace-shell__error">
                           <strong>{blockingError.title}</strong>
                           <span>{blockingError.message}</span>
                           <details>
@@ -305,9 +305,9 @@ export function WorkspaceShell({
                           </details>
                         </div>
                       ) : (
-                        <div className="chat-workspace-oss-shell__runtime-pending">
+                        <div className="hypervisor-workspace-shell__runtime-pending">
                           <div
-                            className="chat-workspace-oss-shell__spinner"
+                            className="hypervisor-workspace-shell__spinner"
                             aria-hidden="true"
                           />
                           <span>
@@ -318,25 +318,25 @@ export function WorkspaceShell({
                       )}
 
                       {import.meta.env.DEV ? (
-                        <details className="chat-workspace-oss-shell__diagnostics">
+                        <details className="hypervisor-workspace-shell__diagnostics">
                           <summary>Diagnostics</summary>
-                          <div className="chat-workspace-oss-shell__meta">
+                          <div className="hypervisor-workspace-shell__meta">
                             <span>Debug</span>
                             <code>
                               {`status=${status} session=${session ? "yes" : "no"} surface=${surface?.kind ?? "none"}`}
                             </code>
                           </div>
-                          <div className="chat-workspace-oss-shell__meta">
+                          <div className="hypervisor-workspace-shell__meta">
                             <span>Phase</span>
                             <code>{bootPhase}</code>
                           </div>
                         </details>
                       ) : null}
 
-                      <div className="chat-workspace-oss-shell__actions">
+                      <div className="hypervisor-workspace-shell__actions">
                         <button
                           type="button"
-                          className="chat-workspace-oss-shell__button"
+                          className="hypervisor-workspace-shell__button"
                           onClick={() => {
                             setSurfaceError(null);
                             restartWorkspace();
@@ -349,12 +349,12 @@ export function WorkspaceShell({
                       </div>
                     </main>
 
-                    <aside className="chat-workspace-oss-shell__changes">
-                      <div className="chat-workspace-oss-shell__changes-head">
+                    <aside className="hypervisor-workspace-shell__changes">
+                      <div className="hypervisor-workspace-shell__changes-head">
                         <strong>Changes</strong>
                         <span aria-hidden="true">⌄</span>
                       </div>
-                      <label className="chat-workspace-oss-shell__search">
+                      <label className="hypervisor-workspace-shell__search">
                         <span>⌕</span>
                         <input
                           readOnly
@@ -362,7 +362,7 @@ export function WorkspaceShell({
                           placeholder="Search files..."
                         />
                       </label>
-                      <div className="chat-workspace-oss-shell__change-list">
+                      <div className="hypervisor-workspace-shell__change-list">
                         <div>
                           <span>.hypervisor/</span>
                           <em>2</em>
@@ -380,13 +380,13 @@ export function WorkspaceShell({
                           <em>1</em>
                         </div>
                       </div>
-                      <div className="chat-workspace-oss-shell__bottom-panel">
+                      <div className="hypervisor-workspace-shell__bottom-panel">
                         <nav>
                           <strong>Ports & Services</strong>
                           <span>Tasks</span>
                           <span>Terminal</span>
                         </nav>
-                        <div className="chat-workspace-oss-shell__ports">
+                        <div className="hypervisor-workspace-shell__ports">
                           <h3>Ports</h3>
                           <button type="button">+ Add port</button>
                         </div>

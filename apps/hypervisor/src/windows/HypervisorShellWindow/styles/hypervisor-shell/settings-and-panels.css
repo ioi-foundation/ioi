@@ -204,7 +204,7 @@
 }
 
 @media (max-width: 1280px) {
-  .chat-shell-inspector {
+  .hypervisor-shell-inspector {
     display: none;
   }
 
@@ -220,7 +220,7 @@
 }
 
 @media (max-width: 960px) {
-  .chat-content {
+  .hypervisor-content {
     padding: 0;
   }
 
@@ -243,7 +243,7 @@
 
 }
 
-.chat-center-area {
+.hypervisor-center-area {
   flex: 1;
   display: flex;
   flex-direction: column;
