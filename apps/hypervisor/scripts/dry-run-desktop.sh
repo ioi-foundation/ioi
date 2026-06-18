@@ -19,7 +19,7 @@ export HYPERVISOR_LOCAL_GPU_DEV=1
 export HYPERVISOR_RESET_DATA_ON_BOOT="${HYPERVISOR_RESET_DATA_ON_BOOT:-1}"
 
 if [[ "$MODE" == "wayland" ]]; then
-  npm run dev:hypervisor-app:wayland -- "${EXTRA_ARGS[@]}"
+  npm run dev:hypervisor-code-editor-adapter-host:wayland -- "${EXTRA_ARGS[@]}"
 else
-  npm run dev:hypervisor-app -- "${EXTRA_ARGS[@]}"
+  npm run dev:hypervisor-code-editor-adapter-host -- "${EXTRA_ARGS[@]}"
 fi

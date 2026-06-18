@@ -1499,7 +1499,7 @@ fn maybe_terminalize_workspace_package_manifest_read(
     let manifest_script =
         select_manifest_script_recovery_candidate(&agent_state.goal, manifest_raw)?;
     Some(format!(
-        "In `package.json`, the npm script that launches the desktop app is `{}`. It runs `{}`.",
+        "In `package.json`, the npm script that launches the code editor adapter host is `{}`. It runs `{}`.",
         manifest_script.name, manifest_script.command
     ))
 }
@@ -1546,7 +1546,7 @@ fn maybe_enqueue_workspace_package_manifest_recovery(
         AgentTool::FsRead { path: read_path },
         AgentTool::ChatReply {
             message: format!(
-                "In `package.json`, the npm script that launches the desktop app is `{}`. It runs `{}`.",
+                "In `package.json`, the npm script that launches the code editor adapter host is `{}`. It runs `{}`.",
                 manifest_script.name, manifest_script.command
             ),
         },
@@ -1697,7 +1697,9 @@ fn expand_runtime_home_alias(path: &str) -> String {
 
 fn workspace_goal_prefers_package_manifest_recovery(goal: &str) -> bool {
     let goal_lc = goal.to_ascii_lowercase();
-    goal_lc.contains("npm") && goal_lc.contains("script") && goal_lc.contains("desktop")
+    goal_lc.contains("npm")
+        && goal_lc.contains("script")
+        && (goal_lc.contains("code editor") || goal_lc.contains("adapter host"))
 }
 
 fn workspace_package_manifest_path(agent_state: &AgentState) -> Option<std::path::PathBuf> {
@@ -1744,7 +1746,7 @@ fn select_manifest_script_recovery_candidate(
             if (goal_lc.contains("desktop")
                 || goal_lc.contains("app")
                 || goal_lc.contains("launch"))
-                && name_lc == "dev:hypervisor-app"
+                && name_lc == "dev:hypervisor-code-editor-adapter-host"
             {
                 score += 14;
             }

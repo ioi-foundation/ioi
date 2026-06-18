@@ -13,5 +13,5 @@ npm run dev:web
 Run the packaged Code editor adapter host:
 
 ```bash
-npm run dev:hypervisor-app
+npm run dev:hypervisor-code-editor-adapter-host
 ```

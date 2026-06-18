@@ -1225,9 +1225,9 @@ fn already_satisfied_install_reply_hides_raw_receipt_tokens() {
 }
 
 #[test]
-fn workspace_goal_prefers_package_manifest_recovery_for_desktop_script_queries() {
+fn workspace_goal_prefers_package_manifest_recovery_for_adapter_host_script_queries() {
     assert!(workspace_goal_prefers_package_manifest_recovery(
-        "What npm script launches the desktop app in this repo?"
+        "What npm script launches the code editor adapter host in this repo?"
     ));
     assert!(!workspace_goal_prefers_package_manifest_recovery(
         "What does the README say about the desktop app?"
@@ -1235,80 +1235,85 @@ fn workspace_goal_prefers_package_manifest_recovery_for_desktop_script_queries()
 }
 
 #[test]
-fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
+fn select_manifest_script_recovery_candidate_prefers_unique_adapter_host_script() {
     let manifest = r#"{
       "scripts": {
         "dev": "vite",
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
+        "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
         "test": "vitest"
       }
     }"#;
 
     assert_eq!(
         select_manifest_script_recovery_candidate(
-            "What npm script launches the desktop app in this repo?",
+            "What npm script launches the code editor adapter host in this repo?",
             manifest,
         ),
         Some(ManifestScriptRecoveryCandidate {
-            name: "dev:hypervisor-app".to_string(),
+            name: "dev:hypervisor-code-editor-adapter-host".to_string(),
             command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
 
 #[test]
-fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_match() {
+fn select_manifest_script_recovery_candidate_prefers_launch_oriented_adapter_host_match() {
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
+        "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
         "start:desktop": "electron ."
       }
     }"#;
 
     assert_eq!(
         select_manifest_script_recovery_candidate(
-            "What npm script launches the desktop app in this repo?",
+            "What npm script launches the code editor adapter host in this repo?",
             manifest,
         ),
         Some(ManifestScriptRecoveryCandidate {
-            name: "dev:hypervisor-app".to_string(),
+            name: "dev:hypervisor-code-editor-adapter-host".to_string(),
             command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
 
 #[test]
-fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over_variants() {
+fn select_manifest_script_recovery_candidate_prefers_primary_adapter_host_script_over_variants() {
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
-        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland",
-        "dryrun:hypervisor-app": "bash apps/hypervisor/scripts/dry-run-desktop.sh x11"
+        "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
+        "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-code-editor-adapter-host:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland",
+        "dryrun:hypervisor-code-editor-adapter-host": "bash apps/hypervisor/scripts/dry-run-desktop.sh x11"
       }
     }"#;
 
     assert_eq!(
         select_manifest_script_recovery_candidate(
-            "What npm script launches the desktop app in this repo?",
+            "What npm script launches the code editor adapter host in this repo?",
             manifest,
         ),
         Some(ManifestScriptRecoveryCandidate {
-            name: "dev:hypervisor-app".to_string(),
+            name: "dev:hypervisor-code-editor-adapter-host".to_string(),
             command: "node scripts/launch-hypervisor-code-editor-adapter-host.mjs".to_string(),
         })
     );
 }
 
 #[test]
-fn manifest_read_terminalization_emits_desktop_script_reply() {
+fn manifest_read_terminalization_emits_adapter_host_script_reply() {
     let mut agent_state = test_agent_state();
-    agent_state.goal = "What npm script launches the desktop app in this repo?".to_string();
+    agent_state.goal =
+        "What npm script launches the code editor adapter host in this repo?".to_string();
     agent_state.resolved_intent = Some(workspace_ops_intent());
 
     let manifest = r#"{
       "scripts": {
-        "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
-        "dev:hypervisor-app:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland"
+        "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
+        "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
+        "dev:hypervisor-code-editor-adapter-host:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland"
       }
     }"#;
 
@@ -1319,7 +1324,7 @@ fn manifest_read_terminalization_emits_desktop_script_reply() {
             Some(manifest),
         ),
         Some(
-            "In `package.json`, the npm script that launches the desktop app is `dev:hypervisor-app`. It runs `node scripts/launch-hypervisor-code-editor-adapter-host.mjs`.".to_string()
+            "In `package.json`, the npm script that launches the code editor adapter host is `dev:hypervisor-code-editor-adapter-host`. It runs `node scripts/launch-hypervisor-code-editor-adapter-host.mjs`.".to_string()
         )
     );
 }
@@ -1339,14 +1344,16 @@ fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effe
         dir.join("package.json"),
         r#"{
           "scripts": {
-            "dev:hypervisor-app": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs"
+            "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
+            "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs"
           }
         }"#,
     )
     .expect("package.json should be written");
 
     let mut agent_state = test_agent_state();
-    agent_state.goal = "What npm script launches the desktop app in this repo?".to_string();
+    agent_state.goal =
+        "What npm script launches the code editor adapter host in this repo?".to_string();
     agent_state.resolved_intent = Some(workspace_ops_intent());
     agent_state.working_directory = dir.to_string_lossy().to_string();
 
@@ -1372,7 +1379,7 @@ fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effe
     }
     match reply_tool {
         AgentTool::ChatReply { message } => {
-            assert!(message.contains("`dev:hypervisor-app`"));
+            assert!(message.contains("`dev:hypervisor-code-editor-adapter-host`"));
             assert!(message.contains("launch-hypervisor-code-editor-adapter-host.mjs"));
         }
         other => panic!("expected ChatReply recovery tool, got {:?}", other),

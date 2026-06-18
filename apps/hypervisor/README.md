@@ -67,23 +67,26 @@ product path should not present any editor host as the parent product.
 # Install dependencies
 npm install
 
-# Run the current Workbench code-editor adapter host in development.
+# Run the Hypervisor App shell in development.
 npm run dev:hypervisor-app
+
+# Run the packaged code editor adapter host when testing editor targets.
+npm run dev:hypervisor-code-editor-adapter-host
 
 # Build the Hypervisor Workbench package
 npm run build:workbench
 ```
 
-`npm run dev:hypervisor-app` currently launches the packaged Electron/VS Code
-Code editor adapter host through
-`scripts/launch-hypervisor-code-editor-adapter-host.mjs`. The launcher role is
-editor-host launch, not Hypervisor product identity. Hypervisor App/Core owns
-daemon access, model mounting, session authority, and receipts; the editor-host
-launcher does not start daemon sidecars, mount models, or pass daemon tokens to
-the extension. The launcher only syncs the current `ioi-code-editor-adapter`
-extension into the packaged host. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip
-extension sync. The `code-editor-adapters/vscode` source checkout is optional for this
-launch path; the required editor-host artifact is the packaged Electron app at
+`npm run dev:hypervisor-app` starts the Hypervisor App workspace client.
+`npm run dev:hypervisor-code-editor-adapter-host` launches the packaged
+Electron/VS Code code editor adapter host through
+`scripts/launch-hypervisor-code-editor-adapter-host.mjs`. The adapter-host
+launcher syncs only the current `ioi-code-editor-adapter` extension into the
+packaged host; it is not the Hypervisor product shell, does not start daemon
+sidecars, does not mount models, and does not pass daemon tokens to the
+extension. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip extension sync. The
+`code-editor-adapters/vscode` source checkout is optional for this launch path;
+the required editor-host artifact is the packaged Electron app at
 `code-editor-adapters/builds/VSCode-linux-x64` or
 `HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path
 is retired.
@@ -125,8 +128,9 @@ packages/
 - All consequential actions resolve through daemon/domain APIs.
 
 ### Validation
-- `npm run dev:hypervisor-app` launches the current packaged editor host with a
-  supervised daemon sidecar by default.
+- `npm run dev:hypervisor-app` launches the Hypervisor App shell.
+- `npm run dev:hypervisor-code-editor-adapter-host` launches the packaged
+  editor adapter host when an editor target needs to be tested.
 - GUI probes and goal scripts should target Hypervisor App surfaces and may use
   the packaged editor host as one code editor adapter target while retaining
   screenshots, logs, receipts, and proof JSON.

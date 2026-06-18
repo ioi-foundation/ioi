@@ -225,10 +225,16 @@ cargo check --workspace
 npm run typecheck
 ```
 
-Run the local desktop surface:
+Run the Hypervisor App shell:
 
 ```bash
 npm run dev:hypervisor-app
+```
+
+Run the packaged code editor adapter host:
+
+```bash
+npm run dev:hypervisor-code-editor-adapter-host
 ```
 
 Build and test the SDK:

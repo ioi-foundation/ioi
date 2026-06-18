@@ -1008,7 +1008,9 @@ Current implementation cut:
 0A.1C is implemented for active app paths and remains a live regression guard:
   apps/hypervisor/src-tauri is absent from the live app path
   apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:hypervisor-app
-    launches the packaged Code editor adapter host, not a Tauri shell
+    launches the Hypervisor App shell, while
+    npm run dev:hypervisor-code-editor-adapter-host launches the packaged Code
+    editor adapter host
   internal-docs/legacy/autopilot-tauri-src is deleted from the active tree;
     git history is the historical extraction inventory
   any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
@@ -1016,9 +1018,10 @@ Current implementation cut:
   active desktop probes and active contract tests no longer create or read
   `apps/hypervisor/src-tauri`; throwaway probe workspaces live under `.tmp/`
   and client-runtime checks read `HypervisorClientRuntime.ts`.
-  active desktop probes now target Hypervisor/code-editor-adapter host windows by
-    default and `check:runtime-layout` rejects Tauri product language in active
-    Hypervisor probe files plus the retired `Workspace IDE` marker.
+  active desktop probes now target the explicit code-editor-adapter host command
+    when validating editor targets, and `check:runtime-layout` rejects Tauri
+    product language in active Hypervisor probe files plus the retired
+    `Workspace IDE` marker.
 
 0A.1B/0A.1C guardrails were tightened:
   `internal-docs/implementation/runtime-module-map.md` no longer points

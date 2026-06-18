@@ -2603,11 +2603,22 @@ assert(
 );
 assert(
   "hypervisor-app-launcher-names",
-  Boolean(packageJson.scripts?.["dev:hypervisor-app"]) &&
-    Boolean(packageJson.scripts?.["dev:hypervisor-app:wayland"]) &&
+  packageJson.scripts?.["dev:hypervisor-app"] ===
+    "npm run dev --workspace=@ioi/hypervisor-app" &&
+    packageJson.scripts?.["dev:hypervisor-code-editor-adapter-host"] ===
+      "node scripts/launch-hypervisor-code-editor-adapter-host.mjs" &&
+    packageJson.scripts?.["dev:hypervisor-code-editor-adapter-host:wayland"] ===
+      "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland" &&
+    packageJson.scripts?.["dryrun:hypervisor-code-editor-adapter-host"] ===
+      "bash apps/hypervisor/scripts/dry-run-desktop.sh x11" &&
+    packageJson.scripts?.["dryrun:hypervisor-code-editor-adapter-host:wayland"] ===
+      "bash apps/hypervisor/scripts/dry-run-desktop.sh wayland" &&
+    !packageJson.scripts?.["dev:hypervisor-app:wayland"] &&
+    !packageJson.scripts?.["dryrun:hypervisor-app"] &&
+    !packageJson.scripts?.["dryrun:hypervisor-app:wayland"] &&
     retiredDesktopLaunchScripts.length === 0,
   ["package.json", retiredDesktopLaunchScripts],
-  "Active launch/probe scripts must use Hypervisor App naming; retired dev/probe/dryrun:desktop script keys must not return.",
+  "Active launch/probe scripts must keep Hypervisor App and code editor adapter-host commands separate; retired desktop/app aliases must not return.",
 );
 assert(
   "desktop-probes-no-retired-tauri-workspace",

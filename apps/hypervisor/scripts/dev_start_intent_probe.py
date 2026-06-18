@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Launch the real desktop app with a seeded ChatRuntime intent and retain evidence.
+"""Launch the code editor adapter host with a seeded ChatRuntime intent and retain evidence.
 
 This probe avoids flaky synthetic typing by using the app's native
 `HYPERVISOR_DEV_START_INTENT` launch path for ChatRuntime. Each prompt runs in an
 isolated desktop session:
 - reset the desktop-localgpu profile
-- launch `npm run dev:hypervisor-app` with a seeded intent
+- launch `npm run dev:hypervisor-code-editor-adapter-host` with a seeded intent
 - wait for the local task to settle
 - capture a ChatRuntime screenshot and task JSON
 - terminate the desktop process group
@@ -887,7 +887,7 @@ def launch_dev_desktop(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
-        ["npm", "run", "dev:hypervisor-app"],
+        ["npm", "run", "dev:hypervisor-code-editor-adapter-host"],
         cwd=str(PROJECT_ROOT),
         env=env,
         stdout=log_handle,

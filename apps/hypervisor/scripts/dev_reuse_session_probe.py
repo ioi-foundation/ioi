@@ -2,7 +2,7 @@
 """Validate retained-session follow-ups in the real desktop app.
 
 This probe launches the local desktop app with an initial ChatRuntime seed intent,
-waits for the initial task to settle, then relaunches the desktop app with a
+waits for the initial task to settle, then relaunches the adapter host with a
 second seeded intent on the same profile without resetting data. The follow-up
 is considered successful only when the existing session history records:
 
@@ -600,7 +600,7 @@ def launch_dev_desktop(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
-        ["npm", "run", "dev:hypervisor-app"],
+        ["npm", "run", "dev:hypervisor-code-editor-adapter-host"],
         cwd=str(PROJECT_ROOT),
         env=env,
         stdout=log_handle,
