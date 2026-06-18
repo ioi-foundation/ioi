@@ -556,6 +556,13 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
   assert.match(shellContent, /Configure agents, skills, memory, model access, and scoped/);
+  assert.match(shellContent, /className="hypervisor-agents__metrics"/);
+  assert.match(shellContent, /<AgentMetric[\s\S]*active[\s\S]*label="Configured agents"/);
+  assert.match(shellContent, /AgentMetric label="Access grants"/);
+  assert.match(shellContent, /AgentMetric label="Memory bindings"/);
+  assert.match(shellContent, /AgentMetric label="Needs review"/);
+  assert.match(shellContent, /className="hypervisor-agents__detail-label"/);
+  assert.match(shellContent, />Selected agent</);
   assert.match(shellContent, /formatAgentHarnessLabel/);
   assert.match(shellContent, /formatCapabilityRef/);
   assert.match(shellContent, /formatModelRouteRef/);
