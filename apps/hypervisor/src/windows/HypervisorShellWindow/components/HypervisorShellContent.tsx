@@ -1158,27 +1158,6 @@ function formatSessionStepStatus(status: string): string {
     .join(" ");
 }
 
-function formatSessionSignalKind(kind: string): string {
-  const signalLabels: Record<string, string> = {
-    scm: "SCM",
-    service: "Service",
-    task: "Task",
-    approval: "Approval",
-    receipt: "Receipt",
-    restore: "Restore",
-  };
-  return signalLabels[kind] ?? kind;
-}
-
-function formatSessionLeaseStatus(status: string): string {
-  const leaseLabels: Record<string, string> = {
-    active: "Active",
-    requires_renewal: "Renew",
-    blocked: "Blocked",
-  };
-  return leaseLabels[status] ?? formatSessionStepStatus(status);
-}
-
 function formatChangedFileStatus(status: string): string {
   const statusLabel: Record<string, string> = {
     added: "A",
@@ -1640,79 +1619,6 @@ function HypervisorSessionOperationsCockpit({
                 </div>
               </dl>
             </div>
-
-            <section
-              className="hypervisor-session-operations__activity-grid"
-              aria-label="Session activity, leases, archive, and restore"
-            >
-              <div
-                className="hypervisor-session-operations__activity-signals"
-                data-session-activity-signal-list={projection.activity_signals
-                  .map((signal) => signal.signal_ref)
-                  .join(" ")}
-              >
-                {projection.activity_signals.map((signal) => (
-                  <button
-                    type="button"
-                    key={signal.signal_ref}
-                    data-session-activity-signal={signal.signal_ref}
-                    data-session-activity-kind={signal.kind}
-                    data-session-activity-status={signal.status}
-                    data-session-activity-receipt={signal.receipt_ref}
-                  >
-                    <span>{formatSessionSignalKind(signal.kind)}</span>
-                    <strong>{signal.label}</strong>
-                    <em>{signal.detail}</em>
-                  </button>
-                ))}
-              </div>
-              <div className="hypervisor-session-operations__lease-stack">
-                {projection.access_log_leases.map((lease) => (
-                  <button
-                    type="button"
-                    key={lease.lease_ref}
-                    data-session-lease={lease.lease_ref}
-                    data-session-lease-status={lease.status}
-                    data-session-lease-scope={lease.scope_ref}
-                    data-session-lease-receipt={lease.receipt_ref}
-                    onClick={() =>
-                      handleSessionOperation(
-                        lease.lease_ref === projection.log_lease_ref
-                          ? "request_log_lease"
-                          : "request_access_lease",
-                        lease.lease_ref,
-                      )
-                    }
-                  >
-                    <span>{lease.label}</span>
-                    <strong>{formatSessionLeaseStatus(lease.status)}</strong>
-                    <em>{lease.expires_label}</em>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  data-session-archive-ref={projection.archive_ref}
-                  onClick={() =>
-                    handleSessionOperation("archive_session", projection.archive_ref)
-                  }
-                >
-                  <span>Archive</span>
-                  <strong>Ready</strong>
-                  <em>Encrypted archive material</em>
-                </button>
-                <button
-                  type="button"
-                  data-session-restore-ref={projection.restore_ref}
-                  onClick={() =>
-                    handleSessionOperation("restore_session", projection.restore_ref)
-                  }
-                >
-                  <span>Restore</span>
-                  <strong>Available</strong>
-                  <em>Recorded restore operation</em>
-                </button>
-              </div>
-            </section>
 
             <ol className="hypervisor-session-operations__startup-list">
               {projection.environment_lifecycle_steps.map((step) => (

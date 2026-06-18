@@ -1385,12 +1385,15 @@ Current implementation cut:
   environment lifecycle evidence steps, and changed-file groups with receipt
   refs.
   `HypervisorShellContent` renders that projection in the Sessions surface as
-  a read-only operations cockpit before the chat/work session view. This makes
-  the IOI-reference session-detail tabs and ports/services/tasks/terminal
-  inspector implementation-visible without making the client runtime truth.
-  The Sessions surface now also exposes session operation proposal buttons for
-  access lease, log lease, open port, run task, terminal command review,
-  archive session, and restore session. Those actions call
+  the IOI-reference session detail view: branch/title tabs, environment
+  status, lifecycle steps, full-height Changes inspector, and the
+  ports/services/tasks/terminal dock. The center activity/lease/archive card
+  grid was cut so the main canvas moves from environment status directly into
+  lifecycle truth, while lease/archive/restore refs remain model and proposal
+  data rather than a separate visible console surface.
+  The Sessions surface exposes session operation proposal buttons for
+  adapter access, open port, run task, and terminal command review. Those
+  actions call
   `/v1/hypervisor/session-operations/proposals`, dispatch through
   `projectRuntimeLifecycle` with
   `runtime.lifecycle_operation.hypervisor_session_operation_proposal`, and
@@ -1402,8 +1405,8 @@ Current implementation cut:
   Focused model and shell source tests guard the tab/inspector arrays, lease
   refs, restore refs, projected lifecycle steps, projected changed files,
   projected port/service rows, task rows, terminal events, session operation
-  proposal schema, daemon route, and
-  `runtimeTruthSource: "daemon-runtime"` boundary.
+  proposal schema, daemon route, absence of the non-reference center activity
+  card grid, and `runtimeTruthSource: "daemon-runtime"` boundary.
 
 0A.9 first provider/environment surface cut is implemented:
   `hypervisorProviderPlacementModel.ts` defines

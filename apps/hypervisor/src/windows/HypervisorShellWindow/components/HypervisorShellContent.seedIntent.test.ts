@@ -235,6 +235,12 @@ assert.match(
   "Sessions should render the active Ports pane as IOI-reference empty or populated projection rows while retaining tabbed dock panels",
 );
 
+assert.doesNotMatch(
+  `${source}\n${shellCss}`,
+  /hypervisor-session-operations__activity-grid|hypervisor-session-operations__activity-signals|hypervisor-session-operations__lease-stack|data-session-activity-signal|data-session-lease=|data-session-archive-ref|data-session-restore-ref/,
+  "Sessions should not reintroduce the non-reference center activity, lease, archive, or restore card grid",
+);
+
 assert.match(
   shellCss,
   /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
