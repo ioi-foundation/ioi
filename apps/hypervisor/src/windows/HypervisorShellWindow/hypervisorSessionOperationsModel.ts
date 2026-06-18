@@ -254,7 +254,7 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
     project_ref: "project:hypervisor-core",
     environment_ref: "environment:local-workspace/hypervisor-core",
     provider_candidate_ref: "provider:local-workstation",
-    selected_adapter_ref: "code-editor-adapter:embedded_workbench",
+    selected_adapter_ref: "code-editor-adapter:embedded_code_editor",
     selected_adapter_admission_state: "daemon_admitted",
     authority_scope_refs: [
       "scope:workspace.read",

@@ -661,7 +661,7 @@ assert(
   "refine-architecture-hard-cut-editor-surface-drift",
   refineArchitectureGuide.includes("code-editor and workspace target choice") &&
     refineArchitectureGuide.includes("deleted onboarding walkthroughs") &&
-    refineArchitectureGuide.includes("default Workbench target"),
+    refineArchitectureGuide.includes("default code editor target"),
   ["internal-docs/implementation/refine-architecture.md"],
   "refine-architecture Phase 0A must describe code-editor adapters and deleted onboarding fat, not a direct editor product surface.",
 );
@@ -1130,6 +1130,12 @@ assert(
     codeEditorAdapterPreferencesSource.includes(
       "connection-contract:code-editor-adapter/browser-editor",
     ) &&
+    codeEditorAdapterPreferencesSource.includes("embedded_code_editor") &&
+    codeEditorAdapterPreferencesSource.includes("embedded_code_editor_host") &&
+    codeEditorAdapterPreferencesSource.includes("open_embedded_code_editor") &&
+    !/embedded_workbench|embedded_workbench_host|open_embedded_workbench|workbench\.adapterPreferenceRef|packaged Workbench|Default Workbench target|Embedded Workbench/.test(
+      codeEditorAdapterPreferencesSource,
+    ) &&
     !/adapter_id:\s*"remote_vm"|adapter_id:\s*"hypervisor_node"|adapter_id:\s*"terminal_workspace"|adapter_id:\s*"browser_workspace"|adapter_id:\s*"devin"|attach_provider_workspace|attach_hypervisor_node|attach_terminal_session|provider_environment|hypervisor_node_session|terminal_session/.test(
       codeEditorAdapterPreferencesSource,
     ) &&
@@ -1175,6 +1181,15 @@ assert(
     ) &&
     runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
       "browser_code_editor",
+    ) &&
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "embedded_code_editor_host",
+    ) &&
+    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
+      "open_embedded_code_editor",
+    ) &&
+    !/embedded_workbench_host|open_embedded_workbench/.test(
+      runtimeCodeEditorAdapterLaunchPlanAdmissionSource,
     ) &&
     runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
       "open_browser_editor",

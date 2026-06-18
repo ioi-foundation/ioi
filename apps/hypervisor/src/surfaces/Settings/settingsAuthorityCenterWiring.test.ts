@@ -150,11 +150,11 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.match(settingsViewBody, /Integrations/);
   assert.match(settingsViewBody, /Account details/);
   assert.match(settingsViewBody, /Account ID/);
-  assert.match(settingsViewBody, /Default Workbench target/);
+  assert.match(settingsViewBody, /Default code editor target/);
   assert.match(settingsViewBody, /SettingsEditorTargetList/);
   assert.match(settingsViewBody, /data-settings-editor-picker/);
   assert.match(settingsViewBody, /data-settings-editor-target/);
-  assert.match(settingsViewBody, /Embedded Workbench/);
+  assert.match(settingsViewBody, /Embedded code editor/);
   assert.match(settingsViewBody, /className="chat-settings-reference-advanced"/);
   assert.match(settingsViewBody, /<summary>Advanced<\/summary>/);
   assert.doesNotMatch(
@@ -163,8 +163,10 @@ test("settings expose code editor adapter preference as a client default", () =>
   );
   assert.match(
     settingsViewBody,
-    /This will be your default target for Workbench sessions/,
+    /This will be your default code editor for workspace sessions/,
   );
+  assert.doesNotMatch(settingsViewBody, /Default Workbench target/);
+  assert.doesNotMatch(settingsViewBody, /Embedded Workbench/);
   assert.doesNotMatch(settingsViewBody, /Default Editor/);
   assert.doesNotMatch(settingsViewBody, /default selected editor/);
   assert.doesNotMatch(settingsViewBody, /Code tab/);

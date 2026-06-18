@@ -751,7 +751,7 @@
   line-height: 1;
 }
 
-.chat-settings-reference-editor-option[data-settings-editor-target="embedded_workbench"]
+.chat-settings-reference-editor-option[data-settings-editor-target="embedded_code_editor"]
   .chat-settings-reference-editor-icon,
 .chat-settings-reference-editor-option[data-settings-editor-target="vscode_insiders"]
   .chat-settings-reference-editor-icon,

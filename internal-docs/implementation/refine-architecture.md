@@ -285,7 +285,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | --- | --- |
 | Severity | High |
 | Current UX evidence | Legacy screenshot showed the product trapped inside editor tabs for composer, models, runs, policy, connectors, and code. That shape is retired: code editors are adapter targets only, while Home/Sessions/Projects live in the Hypervisor shell. |
-| Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default Workbench target selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
+| Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default code editor target selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
 | Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry are application surfaces, provider/environment posture is a default Hypervisor view, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
 | Why it matters | If the UX stays IDE-first, the architecture will keep drifting back toward "Hypervisor IDE" instead of "Hypervisor of IDEs / governed autonomous-work cockpit." |
 | Recommended change | Add a staged implementation plan that converts the app shell from legacy editor gravity into a Hypervisor Core cockpit with sessions, projects, application surfaces, adapter targets, model/harness/provider setup, cTEE/privacy posture, authority, and receipts. |
@@ -553,7 +553,7 @@ Primary IOI reference mirror:
     Right inspector: Changes, changed-file tree, review controls
     Bottom inspector: Ports & Services, Tasks, Terminal
     Automations: metrics, filters, run actions, suggested templates
-    Settings: account, default Workbench target selection, embedded editor
+    Settings: account, default code editor target selection, embedded editor
           toggle, secrets, git authentications, personal access tokens,
           integrations
   note: the mirror contains sanitized reference labels; translate them into
@@ -975,7 +975,7 @@ Current implementation cut:
   the default project seed is Hypervisor Core
   VITE_HYPERVISOR_INITIAL_VIEW replaces the old initial-view flag
   the retired Workbench repository registry/materialization path is deleted;
-    Projects/New Session own project creation and Workbench opens the active
+    Projects/New Session own project creation and code editor sessions open the active
     governed code-editor workspace session directly
   apps/hypervisor/vite.config.ts no longer carries Tauri dev host or src-tauri
     watch configuration
@@ -1554,14 +1554,14 @@ Current implementation cut:
   above the product surface.
   Settings now exposes the Advanced section as an operator-configurable panel,
   and the code editor adapter controls render product labels such as Embedded
-  Workbench, Open embedded, Open desktop, and Local workspace while preserving
+  code editor, Open embedded, Open desktop, and Local workspace while preserving
   executor lane and control-action refs as metadata. The old Code tab /
   embedded-editor phrasing is now guarded against returning.
   The old Home onboarding walkthrough, condition matrix, and direct editor
   walkthrough assets are deleted from the active tree. Runtime-layout guards
   assert those paths stay absent and that Home remains the IOI-reference prompt
   shell.
-  Settings now describes the preference as a Default Workbench target, and the
+  Settings now describes the preference as a Default code editor target, and the
   shell contract rejects the old singular-editor label and helper copy.
   Active shell responsive styles now live in `chat-responsive.css`; the
   `chat-legacy-and-responsive.css` filename is retired and guarded so legacy
@@ -1620,7 +1620,7 @@ WorkspaceShell from Hypervisor; do delete adapter-local product chrome and
 rehome valuable surfaces under the sharper IA.
 Do not clone the IOI mirror literally; translate it:
   New Session, persistent sessions rail, session detail tabs, changes,
-  ports/services/tasks/terminal, automations, settings, default Workbench target.
+  ports/services/tasks/terminal, automations, settings, default code editor target.
 Do not make model mounting a lonely infra page; make it contextual in launch.
 Do not make Workbench the parent product; make it one surface.
 Do not let a code-editor adapter submit chat, workflow, settings, policy,
@@ -1679,7 +1679,7 @@ focused shell/navigation tests
 Built-shell contract:
   / -> Hypervisor Home
   New Session opens
-  Workbench opens the current project workspace session
+  code editor sessions open the current project workspace session
   Automations opens workflow/compositor templates
   Models surface opens daemon model-mount projection
   Changes/Authority/Privacy/Receipts inspector changes with selected session

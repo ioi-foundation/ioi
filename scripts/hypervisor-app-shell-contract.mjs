@@ -385,12 +385,12 @@ async function main() {
       "Settings did not expose Integrations navigation.",
     );
     assert(
-      settingsText.includes("Default Workbench target"),
-      "Settings did not expose default Workbench target preference.",
+      settingsText.includes("Default code editor target"),
+      "Settings did not expose default code editor target preference.",
     );
     assert(
-      settingsText.includes("Embedded Workbench"),
-      "Settings still uses the old embedded editor label.",
+      settingsText.includes("Embedded code editor"),
+      "Settings did not expose the embedded code editor preference.",
     );
     assert(
       !settingsText.match(

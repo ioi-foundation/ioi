@@ -37,7 +37,7 @@ function custodyPostureLabel(
 
 function controlActionLabel(action: HypervisorCodeEditorAdapterControlAction) {
   switch (action) {
-    case "open_embedded_workbench":
+    case "open_embedded_code_editor":
       return "Open embedded";
     case "open_desktop_editor":
       return "Open desktop";
@@ -74,7 +74,7 @@ export function SettingsCodeEditorAdapterSection({
         </div>
         <p className="chat-settings-body">
           Choose the embedded, desktop, or browser-based code editor that
-          Workbench should preselect. Sessions and Environments own terminal,
+          Hypervisor should preselect. Sessions and Environments own terminal,
           VM, node, and provider routes.
         </p>
         <div className="chat-settings-summary-grid">
@@ -120,8 +120,8 @@ export function SettingsCodeEditorAdapterSection({
         <div className="chat-settings-callout">
           <strong>Session preference</strong>
           <p>
-            The selected target becomes the default place where Workbench opens
-            code editor sessions.
+            The selected target becomes the default code editor for new
+            workspace sessions.
           </p>
         </div>
       </article>

@@ -18,13 +18,13 @@ const CONNECTION_KINDS = new Set([
 ]);
 
 const EXECUTOR_LANES = new Set([
-  "embedded_workbench_host",
+  "embedded_code_editor_host",
   "desktop_editor",
   "browser_code_editor",
 ]);
 
 const CONTROL_ACTIONS = new Set([
-  "open_embedded_workbench",
+  "open_embedded_code_editor",
   "open_desktop_editor",
   "open_browser_editor",
 ]);
@@ -236,8 +236,8 @@ function assertConnectionControlPair({
 }) {
   const expectedByConnection = {
     embedded_host: {
-      executorLane: "embedded_workbench_host",
-      controlAction: "open_embedded_workbench",
+      executorLane: "embedded_code_editor_host",
+      controlAction: "open_embedded_code_editor",
     },
     desktop_editor: {
       executorLane: "desktop_editor",

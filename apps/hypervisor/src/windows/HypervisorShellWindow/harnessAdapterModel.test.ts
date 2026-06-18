@@ -490,7 +490,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
 
 test("new session target bindings preserve recipe-specific destinations", () => {
   const codeEditorAdapter = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
-    (candidate) => candidate.adapter_id === "embedded_workbench",
+    (candidate) => candidate.adapter_id === "embedded_code_editor",
   );
   assert.ok(codeEditorAdapter);
 
@@ -569,18 +569,18 @@ test("code editor adapter launch plans bind connection contracts and leases", ()
   );
 
   assert.equal(
-    plans.embedded_workbench?.connection_kind,
+    plans.embedded_code_editor?.connection_kind,
     "embedded_host",
   );
   assert.equal(
-    plans.embedded_workbench?.executor_lane,
-    "embedded_workbench_host",
+    plans.embedded_code_editor?.executor_lane,
+    "embedded_code_editor_host",
   );
   assert.equal(
-    plans.embedded_workbench?.control_action,
-    "open_embedded_workbench",
+    plans.embedded_code_editor?.control_action,
+    "open_embedded_code_editor",
   );
-  assert.deepEqual(plans.embedded_workbench?.required_access_lease_refs, [
+  assert.deepEqual(plans.embedded_code_editor?.required_access_lease_refs, [
     "lease:code-editor-adapter/embedded-host",
   ]);
   assert.equal(
@@ -609,7 +609,7 @@ test("code editor adapter launch plans bind connection contracts and leases", ()
 
 test("code editor adapter launch admission posts canonical plans to the daemon", async () => {
   const preference = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.find(
-    (candidate) => candidate.adapter_id === "embedded_workbench",
+    (candidate) => candidate.adapter_id === "embedded_code_editor",
   );
   assert.ok(preference);
   const plan = buildCodeEditorAdapterLaunchPlan(preference);

@@ -180,19 +180,19 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
         </div>
 
         <div className="chat-settings-reference-field">
-          <span>Default Workbench target</span>
+          <span>Default code editor target</span>
           <SettingsEditorTargetList view={view} />
           <em>
-            This will be your default target for Workbench sessions.
+            This will be your default code editor for workspace sessions.
             {" "}
-            <a href="#learn-default-workbench-target">Learn more.</a>
+            <a href="#learn-default-code-editor-target">Learn more.</a>
           </em>
         </div>
 
         <SettingsSwitch
-          checked={selectedPreference.adapter_id === "embedded_workbench"}
-          label="Embedded Workbench"
-          description="Show the packaged editor adapter inside Workbench sessions. Disabling this reduces resource usage."
+          checked={selectedPreference.adapter_id === "embedded_code_editor"}
+          label="Embedded code editor"
+          description="Show the packaged editor adapter inside workspace sessions. Disabling this reduces resource usage."
         />
         <SettingsSwitch
           label="Agent done notification"

@@ -30,7 +30,7 @@ test("project state projection binds each project to Agentgres restore truth", (
     assert.ok(project.restore_ref.startsWith("agentgres://restore/"));
     assert.ok(project.artifact_refs.length >= 2);
     assert.ok(project.latest_receipt_refs.length >= 1);
-    assert.equal(project.adapter_preference_ref, "code-editor-adapter:embedded_workbench");
+    assert.equal(project.adapter_preference_ref, "code-editor-adapter:embedded_code_editor");
   }
 });
 

@@ -1,5 +1,5 @@
 export type HypervisorCodeEditorAdapterId =
-  | "embedded_workbench"
+  | "embedded_code_editor"
   | "external_editor"
   | "vscode_insiders"
   | "cursor"
@@ -30,12 +30,12 @@ export type HypervisorCodeEditorAdapterConnectionKind =
   | "browser_editor_url";
 
 export type HypervisorCodeEditorAdapterExecutorLane =
-  | "embedded_workbench_host"
+  | "embedded_code_editor_host"
   | "desktop_editor"
   | "browser_code_editor";
 
 export type HypervisorCodeEditorAdapterControlAction =
-  | "open_embedded_workbench"
+  | "open_embedded_code_editor"
   | "open_desktop_editor"
   | "open_browser_editor";
 
@@ -123,7 +123,7 @@ export class CodeEditorAdapterLaunchAdmissionError extends Error {
 }
 
 export const HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY =
-  "hypervisor.workbench.adapterPreferenceRef";
+  "hypervisor.codeEditorAdapter.preferenceRef";
 export const HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.hypervisor.daemonEndpoint";
 export const HYPERVISOR_CODE_EDITOR_ADAPTER_DEFAULT_DAEMON_ENDPOINT =
@@ -134,10 +134,10 @@ export const HYPERVISOR_CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH =
 export const HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES: CodeEditorAdapterPreference[] =
   [
     {
-      adapter_id: "embedded_workbench",
+      adapter_id: "embedded_code_editor",
       label: "VS Code",
       description:
-        "Open Hypervisor's packaged Workbench host with VS Code-compatible panes.",
+        "Open Hypervisor's packaged code editor host with VS Code-compatible panes.",
       launch_mode: "embedded",
       target_ref: "adapter-target:vscode-embedded",
       custody_posture: "local_projection",
@@ -388,15 +388,15 @@ export function buildCodeEditorAdapterLaunchPlan(
         ],
         required_receipt_refs: ["receipt-policy:code-editor-adapter/browser-editor"],
       };
-    case "embedded_workbench":
+    case "embedded_code_editor":
     default:
       return {
         ...base,
         connection_kind: "embedded_host",
         connection_contract_ref:
           "connection-contract:code-editor-adapter/embedded-host",
-        executor_lane: "embedded_workbench_host",
-        control_action: "open_embedded_workbench",
+        executor_lane: "embedded_code_editor_host",
+        control_action: "open_embedded_code_editor",
         control_channel_ref: "control-channel:code-editor-adapter/embedded-host",
         required_access_lease_refs: ["lease:code-editor-adapter/embedded-host"],
         required_authority_scope_refs: [
@@ -482,12 +482,12 @@ function normalizeCodeEditorAdapterLaunchAdmission(
     executor_lane:
       (nullableString(
         record.executor_lane,
-      ) as HypervisorCodeEditorAdapterExecutorLane) ?? "embedded_workbench_host",
+      ) as HypervisorCodeEditorAdapterExecutorLane) ?? "embedded_code_editor_host",
     control_action:
       (nullableString(
         record.control_action,
       ) as HypervisorCodeEditorAdapterControlAction) ??
-      "open_embedded_workbench",
+      "open_embedded_code_editor",
     control_channel_ref:
       nullableString(record.control_channel_ref) ??
       "control-channel:code-editor-adapter/unknown",
