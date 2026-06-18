@@ -233,6 +233,24 @@ export const ProjectsIcon = () => (
   </svg>
 );
 
+export const SessionReferenceIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.55"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="5" y="5" width="14" height="14" rx="1.6" />
+    <path d="M12 8.5V15.5" />
+    <path d="M8.5 12H15.5" />
+  </svg>
+);
+
 export const SessionsFilterIcon = () => (
   <svg
     width="18"

@@ -309,7 +309,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /New Session/);
   assert.match(activityBar, /topNavItems\.map/);
   assert.match(activityBar, /label="Sessions"/);
+  assert.match(activityBar, /icon=\{<SessionReferenceIcon \/>\}/);
   assert.match(activityBar, /shortcutKeys=\{\["Project"\]\}/);
+  assert.match(activityBar, /shortcutVariant="label"/);
+  assert.match(activityBar, /trailingIcon=\{<SessionsFilterIcon \/>\}/);
   assert.match(activityBar, /chat-activity-project-label/);
   assert.match(activityBar, /From scratch/);
   assert.match(activityBar, /chat-activity-session-list/);

@@ -5427,6 +5427,42 @@
   gap: 4px;
 }
 
+.chat-activity-button-trailing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chat-activity-button-shortcuts--label {
+  gap: 0;
+}
+
+.chat-activity-button-shortcut--label {
+  min-width: 0;
+  min-height: auto;
+  border: 0;
+  background: transparent;
+  color: var(--chat-activity-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chat-activity-button-trailing-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chat-activity-text-muted);
+}
+
+.chat-activity-button-trailing-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .chat-activity-button-icon--plus {
   font-size: 20px;
   font-weight: 300;

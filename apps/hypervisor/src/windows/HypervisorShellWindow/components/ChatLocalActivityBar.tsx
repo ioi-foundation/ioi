@@ -8,6 +8,8 @@ import {
   MountsIcon,
   NotificationsIcon,
   ProjectsIcon,
+  SessionReferenceIcon,
+  SessionsFilterIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -52,6 +54,8 @@ interface ReferenceRailButtonProps {
   isActive?: boolean;
   badgeCount?: number;
   shortcutKeys?: string[];
+  shortcutVariant?: "key" | "label";
+  trailingIcon?: ReactNode;
   title?: string;
   onClick: () => void;
 }
@@ -151,6 +155,8 @@ function ReferenceRailButton({
   isActive = false,
   badgeCount,
   shortcutKeys = [],
+  shortcutVariant = "key",
+  trailingIcon,
   title = label,
   onClick,
 }: ReferenceRailButtonProps) {
@@ -170,13 +176,27 @@ function ReferenceRailButton({
         {icon}
       </span>
       <span className="chat-activity-button-label">{label}</span>
-      {shortcutKeys.length > 0 ? (
-        <span className="chat-activity-button-shortcuts" aria-hidden="true">
-          {shortcutKeys.map((key) => (
-            <span key={key} className="chat-activity-button-shortcut">
-              {key}
+      {shortcutKeys.length > 0 || trailingIcon ? (
+        <span className="chat-activity-button-trailing" aria-hidden="true">
+          {shortcutKeys.length > 0 ? (
+            <span
+              className={`chat-activity-button-shortcuts chat-activity-button-shortcuts--${shortcutVariant}`}
+            >
+              {shortcutKeys.map((key) => (
+                <span
+                  key={key}
+                  className={`chat-activity-button-shortcut chat-activity-button-shortcut--${shortcutVariant}`}
+                >
+                  {key}
+                </span>
+              ))}
             </span>
-          ))}
+          ) : null}
+          {trailingIcon ? (
+            <span className="chat-activity-button-trailing-icon">
+              {trailingIcon}
+            </span>
+          ) : null}
         </span>
       ) : null}
       {badgeCount && badgeCount > 0 ? (
@@ -413,8 +433,10 @@ export function ChatLocalActivityBar({
           <ReferenceRailButton
             label="Sessions"
             dataWindowSurface="sessions"
-            icon={<NotificationsIcon />}
+            icon={<SessionReferenceIcon />}
             shortcutKeys={["Project"]}
+            shortcutVariant="label"
+            trailingIcon={<SessionsFilterIcon />}
             isActive={isActiveRailItem(sessionsNavItem)}
             title={sessionsNavItem.description}
             onClick={() => activateRoute(sessionsNavItem.route)}
