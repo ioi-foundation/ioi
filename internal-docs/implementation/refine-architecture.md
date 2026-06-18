@@ -1073,6 +1073,9 @@ Current implementation cut:
   the adapter-local Workflow Composer webview build command is retired; the
   `ioi-code-editor-adapter` directory is a code editor adapter implementation detail,
   not the public script/product name.
+  tracked `.internal/plans` Autopilot/Agent Studio/Tauri campaign guides are
+  deleted from the live repo; the refined implementation guide and conformance
+  guards are the continuation surface, and git history is the recovery handle.
 
 0A.1E repo-facing map cleanup is implemented:
   README points new implementers to `apps/hypervisor`,
@@ -1619,9 +1622,11 @@ Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy;
 the old Tauri tree is removed from the active repo, and `src-tauri` must not be
 recreated as a live product path.
 Do not leave Autopilot proof-runner names in active root package scripts after
-their owning runner has a Hypervisor name. Historical `.internal/plans`,
-`docs/evidence`, and `internal-docs/legacy` material may retain Autopilot as
-dated context.
+their owning runner has a Hypervisor name. Do not keep tracked `.internal/plans`
+campaign guides that present Autopilot, Agent Studio, Tauri, root `ide/`, or
+packages/agent-ide as executable continuation surfaces. Dated `docs/evidence`
+may retain old labels as immutable run evidence, but active instructions belong
+in this refined guide and current conformance checks.
 Do not collapse Settings and Authority:
   Settings configures account/secrets/git/tokens/integrations/policy defaults.
   Authority governs live approvals, leases, grants, revocation, and review.

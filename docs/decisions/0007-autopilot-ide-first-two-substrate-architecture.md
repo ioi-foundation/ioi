@@ -73,9 +73,11 @@ product substrate to keep.
 
 ## Source Guide
 
-The implementation umbrella guide is:
-
-`.internal/plans/autopilot-ide-first-tauri-retirement-ux-readiness-master-guide.md`
+The original implementation umbrella guide was a tracked `.internal/plans`
+campaign file. It has been removed from the live repo to avoid keeping retired
+Autopilot/Tauri execution instructions beside the current Hypervisor shell.
+Use `internal-docs/implementation/refine-architecture.md` for active
+implementation sequencing.
 
 ## Related Decisions
 
