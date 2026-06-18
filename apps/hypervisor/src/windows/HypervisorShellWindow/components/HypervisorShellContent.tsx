@@ -23,8 +23,6 @@ import { RuntimeInsightsView } from "../../../surfaces/Insights";
 import { ModelMountsSurfaceView } from "../../../surfaces/Models";
 import { HypervisorClientHeader } from "./HypervisorClientHeader";
 import { HomeView } from "../../../surfaces/Home";
-import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
-import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceSessionHost } from "../../../services/workspaceSessionHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
@@ -2953,16 +2951,6 @@ export function HypervisorShellContent({
   const workflowActive = activeView === "automations";
   const mountsActive = activeView === "models";
   const dedicatedWorkbenchActive = workflowActive || mountsActive;
-  const conversationalSurfaceActive = activeView === "missions";
-
-  const auxiliaryChatVisible =
-    conversationalSurfaceActive &&
-    controller.chat.paneVisible;
-  const utilityDrawerVisible =
-    conversationalSurfaceActive &&
-    controller.chat.paneVisible;
-  const auxiliaryChatFullscreen =
-    auxiliaryChatVisible && controller.chat.paneMaximized;
   const commandCenterModel = buildOperatorCommandCenterModel({
     activeView,
     currentProject,
@@ -3042,7 +3030,6 @@ export function HypervisorShellContent({
             <div
               className={clsx(
                 "chat-content",
-                auxiliaryChatFullscreen && "is-chat-fullscreen",
                 dedicatedWorkbenchActive && "is-dedicated-workbench",
               )}
             >
@@ -3159,8 +3146,7 @@ export function HypervisorShellContent({
                   {activeView === "missions" ? (
                     <InboxView
                       onOpenHypervisor={() => {
-                        controller.chat.setSurface("chat");
-                        controller.chat.showPane();
+                        controller.changePrimaryView("sessions");
                       }}
                       onOpenIntegrations={() =>
                         controller.capabilities.openSurface(null)
@@ -3324,45 +3310,7 @@ export function HypervisorShellContent({
                   ) : null}
 
                 </div>
-
-                {utilityDrawerVisible ? (
-                  <ChatUtilityDrawer
-                    runtime={runtime}
-                    activeView={activeView}
-                    chatSurface={controller.chat.surface}
-                    operatorPaneOpen={controller.chat.paneVisible}
-                    notificationCount={notificationBadgeCount}
-                    shieldPolicy={controller.policy.shieldPolicy}
-                    currentProject={currentProject}
-                    focusedPolicyConnectorId={
-                      controller.policy.focusedConnectorId
-                    }
-                    assistantWorkbench={controller.chat.assistantWorkbench}
-                    onOpenChatConversation={() =>
-                      controller.changePrimaryView("sessions")
-                    }
-                  />
-                ) : null}
               </div>
-
-              {auxiliaryChatVisible ? (
-                <ChatLeftUtilityPane
-                  surface={controller.chat.surface}
-                  session={controller.chat.assistantWorkbench}
-                  runtime={runtime}
-                  maximized={controller.chat.paneMaximized}
-                  seedIntent={null}
-                  onConsumeSeedIntent={undefined}
-                  onClose={controller.chat.hidePane}
-                  onToggleMaximize={controller.chat.toggleMaximize}
-                  onBackToInbox={() => {
-                    controller.chat.setSurface("chat");
-                    controller.changePrimaryView("missions");
-                  }}
-                  onOpenInbox={() => controller.changePrimaryView("missions")}
-                  onOpenHypervisor={controller.chat.openHypervisorSessionWithIntent}
-                />
-              ) : null}
             </div>
           ) : null}
         </div>

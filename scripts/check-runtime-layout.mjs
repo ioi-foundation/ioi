@@ -176,6 +176,9 @@ const hypervisorShellContentSource = read(
 const hypervisorShellBaseCssSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
 );
+const hypervisorTraceAndWelcomeCssSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
+);
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
@@ -701,6 +704,34 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
   ],
   "Hypervisor shell must bind Phase 0A to the IOI reference cockpit contract and derive rail shortcuts from that contract.",
+);
+assert(
+  "hypervisor-reference-shell-no-auxiliary-chat-overlay",
+  !exists(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLeftUtilityPane.tsx",
+  ) &&
+    !exists(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatUtilityDrawer.tsx",
+    ) &&
+    !exists(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatBenchmarkTraceDeck.tsx",
+    ) &&
+    !/ChatLeftUtilityPane|ChatUtilityDrawer|ChatBenchmarkTraceDeck|controller\.chat\.paneVisible|const auxiliaryChatVisible|const utilityDrawerVisible|const conversationalSurfaceActive/.test(
+      hypervisorShellContentSource,
+    ) &&
+    !/chat-left-utility-pane|chat-utility-drawer|is-chat-fullscreen|chat-trace-deck/.test(
+      `${hypervisorShellBaseCssSource}\n${hypervisorTraceAndWelcomeCssSource}`,
+    ) &&
+    !/chat-utility-drawer|Toggle utility drawer/.test(
+      read("apps/hypervisor/src/windows/shared/shellShortcuts.ts"),
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
+    "apps/hypervisor/src/windows/shared/shellShortcuts.ts",
+  ],
+  "Hypervisor reference shell must not keep the retired auxiliary chat overlay path.",
 );
 assert(
   "hypervisor-shell-light-reference-boot",

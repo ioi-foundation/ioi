@@ -47,10 +47,10 @@ assert.doesNotMatch(
   "Sessions cockpit should not mount a second chat pane underneath the workplane",
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /<ChatLeftUtilityPane[\s\S]*seedIntent=\{null\}[\s\S]*onConsumeSeedIntent=\{undefined\}/,
-  "the auxiliary chat pane should not auto-submit the same seed intent a second time",
+  /ChatLeftUtilityPane|ChatUtilityDrawer|ChatBenchmarkTraceDeck/,
+  "Hypervisor reference shell should not import legacy auxiliary chat overlays",
 );
 
 assert.match(
@@ -59,39 +59,10 @@ assert.match(
   "the main workplane should reset scroll during and after layout so reference cockpit surfaces open at the top",
 );
 
-const chatLeftUtilityPaneSource = fs.readFileSync(
-  new URL("./ChatLeftUtilityPane.tsx", import.meta.url),
-  "utf8",
-);
-
-assert.match(
-  chatLeftUtilityPaneSource,
-  /className=\{`operator-chat-pane-shell/,
-  "the persistent chat pane should use only a layout shell around shared operator chat chrome",
-);
-
 assert.doesNotMatch(
-  chatLeftUtilityPaneSource,
-  /chat-chat-pane-body/,
-  "the persistent chat pane should use the shared chat chrome without an extra pane body",
-);
-
-assert.match(
-  chatLeftUtilityPaneSource,
-  /chatPresentation=\{maximized \? "standalone" : "embedded-pane"\}/,
-  "the persistent chat pane should use the compact embedded chat presentation until it is maximized",
-);
-
-assert.match(
-  chatLeftUtilityPaneSource,
-  /const usesIntegratedChatChrome = surface === "chat"[\s\S]*paneLeadingAction=\{[\s\S]*usesIntegratedChatChrome \? layoutControl : undefined[\s\S]*paneTrailingAction=\{[\s\S]*usesIntegratedChatChrome \? closeControl : undefined/,
-  "the persistent chat pane should merge layout and close controls into the shared chat topbar",
-);
-
-assert.doesNotMatch(
-  chatLeftUtilityPaneSource,
-  /className="chat-chat-pane-controls"/,
-  "the persistent chat pane should not render a second standalone control strip above the chat topbar",
+  source,
+  /chat-left-utility-pane|chat-utility-drawer|is-chat-fullscreen/,
+  "Hypervisor reference shell should not keep legacy auxiliary pane class hooks",
 );
 
 const chatConversationSurfaceSource = fs.readFileSync(
@@ -204,15 +175,15 @@ assert.match(
   "settings should have an explicit shell focus mode",
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /const conversationalSurfaceActive = activeView === "missions"[\s\S]*const utilityDrawerVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  /const conversationalSurfaceActive|const utilityDrawerVisible/,
   "top-level product surfaces should not render the utility drawer over the IOI reference shell",
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /const auxiliaryChatVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  /const auxiliaryChatVisible|controller\.chat\.paneVisible/,
   "top-level product surfaces should not render the auxiliary chat pane over the IOI reference shell",
 );
 
@@ -354,9 +325,9 @@ assert.match(
   "Automations should expose the reference Webhooks and New actions in the topbar",
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /const conversationalSurfaceActive = activeView === "missions"[\s\S]*const auxiliaryChatVisible =[\s\S]*conversationalSurfaceActive[\s\S]*controller\.chat\.paneVisible/,
+  /const conversationalSurfaceActive|const auxiliaryChatVisible/,
   "The right chat pane should stay off application surfaces such as Agents, Models, and Privacy",
 );
 

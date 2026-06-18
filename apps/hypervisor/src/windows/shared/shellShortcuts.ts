@@ -114,15 +114,6 @@ export function buildDefaultShellShortcutRecords(
       summary: "Open Hypervisor search for commands, sessions, tools, and projects.",
     },
     {
-      id: "chat-utility-drawer",
-      command: "Toggle utility drawer",
-      binding: `${shellShortcutModifierGlyph(platformInfo)}J`,
-      defaultBinding: `${shellShortcutModifierGlyph(platformInfo)}J`,
-      scope: "Hypervisor shell",
-      source: "Hypervisor utility drawer",
-      summary: "Expand or collapse the bottom utility drawer.",
-    },
-    {
       id: "chat-nav-1",
       command: "Open Sessions",
       binding: chatNavigationShortcutLabel(1, platformInfo),

@@ -241,21 +241,6 @@
     width: 40px;
   }
 
-  .chat-utility-header {
-    flex-wrap: wrap;
-  }
-
-  .chat-utility-tabs {
-    order: 3;
-    width: 100%;
-    margin-left: 0;
-    justify-content: space-between;
-  }
-
-  .chat-utility-log-list,
-  .chat-utility-receipts {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .chat-center-area {

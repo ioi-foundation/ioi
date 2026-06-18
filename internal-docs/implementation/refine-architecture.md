@@ -1551,12 +1551,13 @@ Current implementation cut:
   shell, but visible copy avoids daemon/source-of-truth doctrine:
   Agents, Models, and Privacy render product labels such as Private workspace,
   Wallet authority, and Receipt recorded while preserving raw refs only as
-  `data-*` attributes for conformance. The auxiliary chat pane remains
-  restricted to the conversational Missions surface, so Home, Agents, Models,
-  Privacy, and Automations do not show a right-side chat/daemon overlay. The
-  focused seed-intent guard now rejects the old Agents doctrine labels, verifies
-  the prompt-only Home canvas, and verifies that Models/Privacy format raw refs
-  before display.
+  `data-*` attributes for conformance. The auxiliary chat pane, utility drawer,
+  and benchmark trace deck are deleted from the Hypervisor shell; Missions
+  returns operators to Sessions/New Session instead of opening a right-side
+  daemon/chat overlay. The focused seed-intent guard now rejects the old Agents
+  doctrine labels, verifies the prompt-only Home canvas, verifies that
+  Models/Privacy format raw refs before display, and rejects the retired overlay
+  imports/class hooks.
   The Privacy surface was also moved off the old dark architecture-card island
   and onto the same light reference content plane as Agents and Models; visible
   copy now says Encrypted state refs instead of exposing Agentgres naming.

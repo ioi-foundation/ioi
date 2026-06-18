@@ -197,10 +197,6 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
     "packages/workspace-substrate/src/components/Codicon.tsx",
     "utf8",
   );
-  const chatLeftUtilityPane = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLeftUtilityPane.tsx",
-    "utf8",
-  );
 
   assert.match(operatorChatPane, /data-operator-chat-pane=/);
   assert.match(
@@ -290,8 +286,6 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
   assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
   assert.match(codicon, /codicon-\$\{name\}/);
   assert.match(codicon, /"auxiliarybar-maximize": "screen-full"/);
-  assert.match(chatLeftUtilityPane, /Maximize Secondary Side Bar Size/);
-  assert.match(chatLeftUtilityPane, /Hide Secondary Side Bar \(Ctrl\+Alt\+B\)/);
   assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
 });
 
