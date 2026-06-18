@@ -1006,14 +1006,34 @@
 }
 
 .chat-home-zero::before {
-  display: none;
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 500px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(226, 239, 255, 0.88) 0%, rgba(248, 251, 255, 0.74) 58%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(30deg, transparent 0 47%, rgba(94, 156, 255, 0.22) 47.2% 47.8%, transparent 48% 100%),
+    linear-gradient(150deg, transparent 0 47%, rgba(94, 156, 255, 0.18) 47.2% 47.8%, transparent 48% 100%),
+    linear-gradient(90deg, transparent 0 47%, rgba(94, 156, 255, 0.14) 47.2% 47.8%, transparent 48% 100%);
+  background-size:
+    auto,
+    170px 98px,
+    170px 98px,
+    170px 98px;
+  background-position:
+    0 0,
+    34px -10px,
+    34px -10px,
+    34px -10px;
+  opacity: 0.92;
 }
 
 .chat-home-zero-shell {
   position: relative;
   width: min(1202px, calc(100% - 72px));
   margin: 0 auto;
-  padding: 48px 0 72px;
+  padding: 52px 0 72px;
 }
 
 .chat-home-zero-hero {
@@ -1034,10 +1054,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  background: var(--chat-accent);
+  color: #2563eb;
+  background: transparent;
   border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+  box-shadow: none;
+}
+
+.chat-home-zero-brand-mark__glyph {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border: 5px solid rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(37, 99, 235, 0.58);
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.12);
 }
 
 .chat-home-zero-title-row h1 {
@@ -1058,7 +1088,7 @@
   gap: 10px;
   border: 1px solid var(--chat-border-strong);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--chat-bg-elevated) 90%, transparent);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--chat-text-secondary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   cursor: pointer;
@@ -1215,7 +1245,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid color-mix(in srgb, var(--chat-accent) 64%, var(--chat-border));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--chat-bg-elevated) 94%, transparent);
+  background: rgba(255, 255, 255, 0.86);
   overflow: hidden;
 }
 

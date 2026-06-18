@@ -142,6 +142,8 @@ test("home dashboard routes model setup to the Models surface", () => {
 
 test("home application shell has responsive reference styling", () => {
   assert.match(homeCss, /\.chat-home-zero-shell\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero::before\s*\{[\s\S]*height: 500px;[\s\S]*linear-gradient\(30deg/);
+  assert.match(homeCss, /\.chat-home-zero-brand-mark__glyph\s*\{[\s\S]*border-bottom-color: rgba\(37, 99, 235, 0\.58\)/);
   assert.match(homeCss, /\.chat-home-zero-actions\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-body\s*\{/);
   assert.match(

@@ -2189,16 +2189,16 @@
 }
 
 :root[data-hypervisor-theme^="light"] .chat-activity-bar {
-  --chat-activity-bg: #f7f7f6;
-  --chat-activity-border: #d7dce2;
-  --chat-activity-divider: #e2e5e9;
-  --chat-activity-text: #4e5967;
-  --chat-activity-text-strong: #161a20;
-  --chat-activity-text-muted: #7a8491;
-  --chat-activity-hover-bg: #eceff3;
-  --chat-activity-active-bg: #e7ebef;
-  --chat-activity-active-hover-bg: #e1e6eb;
-  --chat-activity-avatar-bg: #111827;
+  --chat-activity-bg: #252b33;
+  --chat-activity-border: #151a20;
+  --chat-activity-divider: #333b46;
+  --chat-activity-text: #d7dde6;
+  --chat-activity-text-strong: #ffffff;
+  --chat-activity-text-muted: #9ea8b6;
+  --chat-activity-hover-bg: #303843;
+  --chat-activity-active-bg: #303843;
+  --chat-activity-active-hover-bg: #37414d;
+  --chat-activity-avatar-bg: #0f172a;
   --chat-activity-avatar-text: #ffffff;
 }
 
