@@ -1177,10 +1177,10 @@ Current implementation cut:
 
 0A.2 remaining visual implementation:
   Home now carries the full IOI-reference prompt cockpit view: centered prompt
-  composer, quick action chips, and the lightweight Recent Sessions list under
-  the prompt. Do not add doctrine dashboards, architecture panels, or cockpit
-  metric cards under the composer; heavier session operation detail belongs in
-  the left session rail and Sessions surface.
+  composer and quick action chips. Do not add doctrine dashboards,
+  architecture panels, cockpit metric cards, or a second Recent Sessions list
+  under the composer; session shortcuts belong in the left session rail and
+  heavier session operation detail belongs in the Sessions surface.
   the secondary project rail now has a normalized
   `ioi.hypervisor.project_state_projection.v1` loader and
   `/v1/hypervisor/project-state` public runtime route dispatching through
@@ -1607,7 +1607,7 @@ Current implementation cut:
 0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
   `HomeView` now matches the IOI reference home posture: left rail session
   heading, centered prompt composer, project/add-context/model controls, prompt
-  chips, and a lightweight Recent Sessions list under the prompt. The default
+  chips, and no duplicate Recent Sessions block under the prompt. The default
   prompt selector uses reference chrome (`5.5 Medium`) while model-mounting
   details remain available in Models and New Session instead of sitting on top
   of the home workplane.

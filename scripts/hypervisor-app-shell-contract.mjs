@@ -142,13 +142,9 @@ async function main() {
       "Home does not expose the reference prompt composer.",
     );
     assert(
-      bodyText.includes("Recent Sessions"),
-      "Home does not expose the IOI-reference recent session list.",
-    );
-    assert(
-      (await page.locator('[data-home-recent-sessions="ioi-reference"]').count()) ===
-        1,
-      "Home recent sessions list is not bound to the IOI-reference marker.",
+      (await page.locator("[data-home-recent-sessions]").count()) === 0 &&
+        (await page.locator(".chat-home-zero-recent").count()) === 0,
+      "Home duplicates session recents below the prompt instead of leaving them in the left rail.",
     );
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
@@ -532,6 +528,7 @@ async function main() {
       url,
       checks: [
         "home_reference_prompt_surface_rendered",
+        "home_reference_prompt_surface_sparse",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
         "new_session_launch_summary_rendered",

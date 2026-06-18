@@ -315,8 +315,13 @@ assert.doesNotMatch(
 
 assert.match(
   homeViewSource,
-  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*data-home-recent-sessions="ioi-reference"/,
-  "Home should keep the prompt-first session launcher with the IOI-reference recent-session list",
+  /chat-home-zero-prompt-stage[\s\S]*What do you want to get done today\?[\s\S]*chat-home-zero-composer[\s\S]*chat-home-zero-quickstarts/,
+  "Home should keep the prompt-first session launcher with the IOI-reference quick action chips",
+);
+assert.doesNotMatch(
+  homeViewSource,
+  /data-home-recent-sessions|HOME_RECENT_SESSIONS|chat-home-zero-recent/,
+  "Home should not duplicate session shortcuts below the prompt; the left rail owns session recents",
 );
 
 assert.match(

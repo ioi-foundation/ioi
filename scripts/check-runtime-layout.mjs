@@ -893,8 +893,9 @@ assert(
   ) &&
     hypervisorHomeSource.includes("What do you want to get done today?") &&
     hypervisorHomeSource.includes('data-home-start-session="true"') &&
-    hypervisorHomeSource.includes("HOME_RECENT_SESSIONS") &&
-    hypervisorHomeSource.includes('data-home-recent-sessions="ioi-reference"') &&
+    !hypervisorHomeSource.includes("HOME_RECENT_SESSIONS") &&
+    !hypervisorHomeSource.includes("data-home-recent-sessions") &&
+    !hypervisorHomeSource.includes("chat-home-zero-recent") &&
     retiredHomeOnboardingSurfacePaths.every(
       (surfacePath) => !exists(surfacePath),
     ) &&
@@ -1821,7 +1822,7 @@ assert(
       '[data-home-start-session="true"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      '[data-home-recent-sessions="ioi-reference"]',
+      "home_reference_prompt_surface_sparse",
     ) &&
     hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
