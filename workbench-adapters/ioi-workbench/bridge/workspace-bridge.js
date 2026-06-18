@@ -18,9 +18,7 @@ function hashRef(prefix, value) {
 }
 
 function isRuntimeActionRequestType(requestType) {
-  return /^(commandCenter|code)\./.test(
-    requestType,
-  );
+  return /^code\./.test(requestType);
 }
 
 function buildWorkbenchCommandRouteReceipt({

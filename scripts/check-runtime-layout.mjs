@@ -623,19 +623,16 @@ assert(
   "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels.",
 );
 assert(
-  "workbench-shell-patch-hypervisor-named",
+  "workbench-shell-patch-code-adapter-only",
   exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
     !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
     workbenchShellPatch.includes("applyHypervisorWorkbenchShellPatch") &&
     workbenchShellPatch.includes("ioi-hypervisor-native-shell") &&
     workbenchShellPatch.includes("ioi-hypervisor-workbench-quickinput") &&
     workbenchShellPatch.includes("ioi.hypervisor-workbench-shell-patch.v1") &&
-    workbenchShellPatch.includes("ioi.hypervisor.shell.mode") &&
-    workbenchShellPatch.includes("ioi.hypervisor.active.mode") &&
-    workbenchShellPatch.includes("hypervisor-primary-rail") &&
-    workbenchShellPatch.includes("code-rail-back-to-hypervisor") &&
-    workbenchShellPatch.includes("secondaryHypervisorHeaderRemoved") &&
-    workbenchShellPatch.includes("hypervisorModeMenuHiddenByCssAndSettings") &&
+    !/ioi\.hypervisor\.shell\.mode|ioi\.hypervisor\.active\.mode|hypervisor-primary-rail|code-rail-back-to-hypervisor|ioi-hypervisor-back-rail|Hypervisor primary modes|Back to Hypervisor|hypervisorModeMenuHiddenByCssAndSettings|forkNativeRailShim|forkNativeModeHostShim|codeDrilldownRail|vscodeCommandCenterOwnsTopShell/.test(
+      workbenchShellPatch,
+    ) &&
     !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
       workbenchShellPatch,
     ),
@@ -643,7 +640,7 @@ assert(
     "scripts/lib/hypervisor-workbench-shell-patch.mjs",
     "scripts/lib/autopilot-workbench-shell-patch.mjs",
   ],
-  "Workbench adapter shell patch helper must use Hypervisor naming; the retired Autopilot helper path/function/source ids must not return.",
+  "Workbench adapter shell patch helper must stay code-editor-only; retired product shell rail/mode shims must not return.",
 );
 assert(
   "workbench-adapter-fork-sync-target-only",

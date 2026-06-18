@@ -33,7 +33,7 @@ test("workspace bridge receipts keep command route envelope stable", () => {
 });
 
 test("workspace bridge identifies runtime action request families", () => {
-  assert.equal(isRuntimeActionRequestType("commandCenter.open"), true);
+  assert.equal(isRuntimeActionRequestType("commandCenter.open"), false);
   assert.equal(isRuntimeActionRequestType("code.open"), true);
   assert.equal(isRuntimeActionRequestType("chat.submit"), false);
   assert.equal(isRuntimeActionRequestType("workflow.open"), false);

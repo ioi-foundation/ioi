@@ -38,68 +38,6 @@ function workbenchShellCss() {
 .monaco-workbench.ioi-hypervisor-native-shell {
   --ioi-shell-header-height: 0px;
   --ioi-shell-code-menu-height: 30px;
-  --ioi-shell-rail-width: 48px;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail {
-  position: fixed;
-  top: var(--ioi-shell-header-top, 35px);
-  left: 0;
-  bottom: 22px;
-  width: var(--ioi-shell-rail-width);
-  z-index: 100002;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 8px 0;
-  border-right: 1px solid var(--vscode-activityBar-border, rgba(255,255,255,.08));
-  background: var(--vscode-activityBar-background, #181818);
-  color: var(--vscode-activityBar-inactiveForeground, #858585);
-  pointer-events: auto;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button {
-  width: 48px;
-  height: 46px;
-  flex: 0 0 46px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-left: 2px solid transparent;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button .codicon {
-  font-size: 22px;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-svg {
-  width: 24px;
-  height: 24px;
-  display: block;
-  background: currentColor;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-workflows {
-  mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 4.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM5 15.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM7.2 6.5h9.6v1.5H7.2V6.5Zm10.4 2.1 1.2.8-3.8 5.7-1.2-.8 3.8-5.7Zm-11.2 0 3.8 5.7-1.2.8-3.8-5.7 1.2-.8Zm1 8.2h9.2v1.5H7.4v-1.5Z' fill='currentColor'/%3E%3C/svg%3E") center / 24px 24px no-repeat;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 4.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM5 15.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM7.2 6.5h9.6v1.5H7.2V6.5Zm10.4 2.1 1.2.8-3.8 5.7-1.2-.8 3.8-5.7Zm-11.2 0 3.8 5.7-1.2.8-3.8-5.7 1.2-.8Zm1 8.2h9.2v1.5H7.4v-1.5Z' fill='currentColor'/%3E%3C/svg%3E") center / 24px 24px no-repeat;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button:hover,
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button.is-active {
-  color: var(--vscode-activityBar-foreground, #fff);
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button.is-active {
-  border-left-color: var(--vscode-activityBar-activeBorder, var(--vscode-focusBorder, #0078d4));
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-primary-rail {
-  display: none;
 }
 
 .monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-native-header {
@@ -212,14 +150,6 @@ function workbenchShellCss() {
   background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border, rgba(255,255,255,.14)));
 }
 
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.titlebar .menubar {
-  opacity: 0 !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-}
-
 .monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.titlebar .menubar {
   opacity: 1 !important;
   width: auto !important;
@@ -243,76 +173,15 @@ function workbenchShellCss() {
   padding-top: 0 !important;
 }
 
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.editor .editor-group-container > .title,
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.editor .tabs-and-actions-container {
-  display: none !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-
 .monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.editor .editor-group-container > .title,
 .monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.editor .tabs-and-actions-container {
   display: flex !important;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.sidebar {
-  display: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item {
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item.ioi-vscode-global-action {
-  display: none !important;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-hypervisor-mode-action:not(.ioi-code-action) {
-  display: none !important;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-code-action {
-  display: none !important;
 }
 
 .monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
 .monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-global-action {
   visibility: visible !important;
   pointer-events: auto !important;
-}
-
-#ioi-hypervisor-back-rail {
-  display: none;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-left: 2px solid transparent;
-  background: transparent;
-  color: var(--vscode-activityBar-inactiveForeground, #858585);
-  cursor: pointer;
-  font-size: 20px;
-}
-
-#ioi-hypervisor-back-rail:hover {
-  color: var(--vscode-activityBar-foreground, #fff);
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-back-rail {
-  display: flex;
-}
-
-.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode #ioi-hypervisor-back-rail {
-  display: none;
 }
 
 .monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-backdrop {
@@ -587,16 +456,7 @@ function workbenchShellJs() {
     /manage/i,
     /settings/i,
   ];
-  const hypervisorModes = [
-    { id: "home", title: "Home", codicon: "home", patterns: [/hypervisor overview/i, /home/i] },
-    { id: "studio", title: "Studio", codicon: "sparkle", patterns: [/agent studio/i, /studio/i] },
-    { id: "workflows", title: "Workflows", customIcon: "workflows", patterns: [/hypervisor workflows/i, /workflow/i] },
-    { id: "models", title: "Models", codicon: "server", patterns: [/hypervisor models/i, /models/i] },
-    { id: "runs", title: "Runs", codicon: "pulse", patterns: [/hypervisor runs/i, /runs/i] },
-    { id: "policy", title: "Policy", codicon: "shield", patterns: [/hypervisor policy/i, /policy/i] },
-    { id: "connectors", title: "Connectors", codicon: "plug", patterns: [/hypervisor connectors/i, /connectors/i] },
-    { id: "code", title: "Code", codicon: "code", patterns: [/hypervisor code/i, /code/i] },
-  ];
+  const codeAdapterPatterns = [/hypervisor code/i, /code repository/i, /code editor/i];
   const codeMenuModel = [
     {
       label: "File",
@@ -887,13 +747,10 @@ function workbenchShellJs() {
     },
   ];
 
-  let shellMode = localStorage.getItem("ioi.hypervisor.shell.mode") || "hypervisor";
-  let activeHypervisorMode = localStorage.getItem("ioi.hypervisor.active.mode") || "home";
+  let shellMode = "code";
   let scheduled = false;
   let lastHeaderMarkup = "";
   let lastCodeMenuMarkup = "";
-  let lastRailMarkup = "";
-  let navigationLockUntilMs = 0;
   let openCodeMenuLabel = "";
   let closeCodeMenuTimer = 0;
   let quickInputBackdrop = null;
@@ -931,65 +788,16 @@ function workbenchShellJs() {
     return values.filter(Boolean).join(" ");
   }
 
-  function classifyHypervisorAction(label) {
-    return hypervisorModes.find((mode) => mode.patterns.some((pattern) => pattern.test(label)));
-  }
-
   function inferModeFromLabel(label) {
-    return /hypervisor code|code repository|code mode/i.test(label) ? "code"
-      : /workflow composer|hypervisor workflow/i.test(label) ? "workflows"
-      : /hypervisor models/i.test(label) ? "models"
-      : /agent studio/i.test(label) ? "studio"
-      : /hypervisor runs/i.test(label) ? "runs"
-      : /hypervisor policy/i.test(label) ? "policy"
-      : /hypervisor connectors/i.test(label) ? "connectors"
-      : /hypervisor overview|hypervisor home/i.test(label) ? "home"
-      : null;
+    return codeAdapterPatterns.some((pattern) => pattern.test(label)) ? "code" : null;
   }
 
-  function setShellMode(nextMode, nextActiveMode) {
-    shellMode = nextMode === "code" ? "code" : "hypervisor";
-    if (nextActiveMode && nextActiveMode !== "code") {
-      activeHypervisorMode = nextActiveMode;
-      localStorage.setItem("ioi.hypervisor.active.mode", activeHypervisorMode);
-    }
-    localStorage.setItem("ioi.hypervisor.shell.mode", shellMode);
+  function setShellMode() {
+    shellMode = "code";
     applyClasses();
     renderHeader();
     renderCodeMenu();
-    renderPrimaryRail();
     decorateActivityBar();
-  }
-
-  function openMode(modeId) {
-    navigationLockUntilMs = Date.now() + 650;
-    if (modeId === "code") {
-      setShellMode("code");
-    } else {
-      setShellMode("hypervisor", modeId || "home");
-    }
-    const targetMode = modeId || "home";
-    const editorSelection = selectExistingEditor(targetMode);
-    if (editorSelection === "active") {
-      navigationLockUntilMs = Date.now() + 1800;
-      clickActivity(targetMode);
-    } else if (editorSelection === "selected") {
-      setTimeout(() => {
-        if (inferModeFromLabel(activeWorkbenchLabel()) !== targetMode) {
-          navigationLockUntilMs = Date.now() + 1800;
-          clickActivity(targetMode);
-        }
-      }, 180);
-    } else {
-      navigationLockUntilMs = Date.now() + 1800;
-      clickActivity(targetMode);
-    }
-    scheduleTick();
-  }
-
-  function modeTitle() {
-    if (shellMode === "code") return "Code";
-    return hypervisorModes.find((mode) => mode.id === activeHypervisorMode)?.title || "Home";
   }
 
   function activeWorkbenchLabel() {
@@ -1009,16 +817,10 @@ function workbenchShellJs() {
   }
 
   function synchronizeModeFromWorkbench() {
-    if (Date.now() < navigationLockUntilMs) return;
     const label = activeWorkbenchLabel();
     const inferred = inferModeFromLabel(label);
     if (!inferred) return;
-    shellMode = inferred === "code" ? "code" : "hypervisor";
-    if (inferred !== "code") {
-      activeHypervisorMode = inferred;
-      localStorage.setItem("ioi.hypervisor.active.mode", activeHypervisorMode);
-    }
-    localStorage.setItem("ioi.hypervisor.shell.mode", shellMode);
+    shellMode = "code";
   }
 
   function workspaceLabel() {
@@ -1031,10 +833,9 @@ function workbenchShellJs() {
     const wb = workbench();
     if (!wb) return;
     updateClass(wb, "ioi-hypervisor-native-shell", true);
-    updateClass(wb, "ioi-shell-code-mode", shellMode === "code");
-    updateClass(wb, "ioi-shell-hypervisor-mode", shellMode !== "code");
-    setDataset(wb, "ioiShellMode", shellMode);
-    setDataset(wb, "ioiActiveMode", shellMode === "code" ? "code" : activeHypervisorMode);
+    updateClass(wb, "ioi-shell-code-mode", true);
+    setDataset(wb, "ioiShellMode", "code");
+    setDataset(wb, "ioiActiveMode", "code");
 
     const titlebar = document.querySelector(".part.titlebar");
     const activitybar = document.querySelector(".part.activitybar");
@@ -1042,33 +843,6 @@ function workbenchShellJs() {
     const left = activitybar?.getBoundingClientRect().right || 48;
     setStyleProperty(document.documentElement, "--ioi-shell-header-top", top + "px");
     setStyleProperty(document.documentElement, "--ioi-shell-header-left", left + "px");
-  }
-
-  function selectExistingEditor(modeId) {
-    const activeLabel = activeWorkbenchLabel();
-    if (inferModeFromLabel(activeLabel) === modeId) {
-      return "active";
-    }
-
-    const tabs = Array.from(document.querySelectorAll(".part.editor .tabs-container .tab"));
-    const match = tabs.find((tab) => inferModeFromLabel(labelFor(tab)) === modeId);
-    if (!match) {
-      return "missing";
-    }
-    match.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-    match.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
-    match.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-    return "selected";
-  }
-
-  function clickActivity(modeId) {
-    const actions = Array.from(document.querySelectorAll(".part.activitybar .action-item"));
-    const match = actions.find((action) => {
-      const label = labelFor(action);
-      const mode = classifyHypervisorAction(label);
-      return mode?.id === modeId;
-    });
-    match?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
   }
 
   function renderHeader() {
@@ -1205,55 +979,6 @@ function workbenchShellJs() {
     document.getElementById("ioi-hypervisor-workbench-code-menu")?.remove();
     document.getElementById("ioi-hypervisor-workbench-code-menu-dropdown")?.remove();
     lastCodeMenuMarkup = "";
-  }
-
-  function renderPrimaryRail() {
-    const wb = workbench();
-    if (!wb) return;
-    let rail = document.getElementById("ioi-hypervisor-primary-rail");
-    if (!rail) {
-      rail = document.createElement("nav");
-      rail.id = "ioi-hypervisor-primary-rail";
-      rail.dataset.testid = "hypervisor-primary-rail";
-      rail.setAttribute("aria-label", "Hypervisor primary modes");
-      rail.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-ioi-native-mode]");
-        if (!button) return;
-        event.preventDefault();
-        event.stopPropagation();
-        openMode(button.getAttribute("data-ioi-native-mode") || "home");
-      }, true);
-    }
-    if (rail.parentElement !== wb) {
-      wb.appendChild(rail);
-    }
-    const signature = [shellMode, activeHypervisorMode].join("\\n");
-    if (signature === lastRailMarkup) return;
-    rail.replaceChildren(
-      ...hypervisorModes.map((mode) => {
-        const button = element("button", {
-          className: "ioi-native-rail-button" + (
-            (shellMode === "code" && mode.id === "code") ||
-            (shellMode !== "code" && mode.id === activeHypervisorMode)
-              ? " is-active"
-              : ""
-          ),
-          type: "button",
-          testId: "native-rail-" + mode.id,
-        }, [
-          element("span", {
-            className: mode.customIcon
-              ? "ioi-native-rail-svg ioi-native-rail-" + mode.customIcon
-              : "codicon codicon-" + mode.codicon,
-          }),
-        ]);
-        button.dataset.ioiNativeMode = mode.id;
-        button.title = mode.id === "code" ? "Code" : "Hypervisor " + mode.title;
-        button.setAttribute("aria-label", button.title);
-        return button;
-      }),
-    );
-    lastRailMarkup = signature;
   }
 
   function element(tagName, options = {}, children = []) {
@@ -2068,7 +1793,7 @@ function workbenchShellJs() {
           {
             id: "setup-recommended-models",
             label: "Set up recommended models",
-            detail: "Open Models to download a hardware-appropriate chat model, plus optional story and embedding models.",
+            detail: "Use Hypervisor App to configure model routes before launching this code adapter.",
             meta: "setup",
             codicon: "cloud-download",
             requestType: "models.open",
@@ -2085,43 +1810,13 @@ function workbenchShellJs() {
     });
   }
 
-  function installBackRail() {
-    const content = document.querySelector(".part.activitybar .content");
-    if (!content) return;
-    let back = document.getElementById("ioi-hypervisor-back-rail");
-    if (!back) {
-      back = document.createElement("button");
-      back.id = "ioi-hypervisor-back-rail";
-      back.type = "button";
-      back.title = "Back to Hypervisor";
-      back.setAttribute("aria-label", "Back to Hypervisor");
-      back.dataset.testid = "code-rail-back-to-hypervisor";
-      back.textContent = "‹";
-      back.addEventListener("click", () => {
-        openMode(activeHypervisorMode || "home");
-      });
-      content.prepend(back);
-    }
-  }
-
   function decorateActivityBar() {
-    renderPrimaryRail();
-    installBackRail();
     for (const action of document.querySelectorAll(".part.activitybar .action-item")) {
       const label = labelFor(action);
-      const hypervisorMode = classifyHypervisorAction(label);
-      const isHypervisor = Boolean(hypervisorMode);
-      const isSubstrate = !isHypervisor && substratePatterns.some((pattern) => pattern.test(label));
-      const isGlobal = !isHypervisor && !isSubstrate && globalPatterns.some((pattern) => pattern.test(label));
-      updateClass(action, "ioi-hypervisor-mode-action", isHypervisor);
-      updateClass(action, "ioi-code-action", hypervisorMode?.id === "code");
+      const isSubstrate = substratePatterns.some((pattern) => pattern.test(label));
+      const isGlobal = !isSubstrate && globalPatterns.some((pattern) => pattern.test(label));
       updateClass(action, "ioi-vscode-substrate-action", isSubstrate);
       updateClass(action, "ioi-vscode-global-action", isGlobal);
-      if (hypervisorMode) {
-        setDataset(action, "ioiRailKind", "hypervisor");
-        setDataset(action, "ioiMode", hypervisorMode.id);
-        continue;
-      }
       if (isSubstrate) {
         setDataset(action, "ioiRailKind", "substrate");
         setDataset(action, "ioiMode", "");
@@ -2186,26 +1881,11 @@ function workbenchShellJs() {
     closeCodeMenu();
   }, true);
 
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const action = target.closest(".part.activitybar .action-item");
-    if (!action) return;
-    const label = labelFor(action);
-    const hypervisorMode = classifyHypervisorAction(label);
-    if (hypervisorMode?.id === "code") {
-      setShellMode("code");
-    } else if (hypervisorMode) {
-      setShellMode("hypervisor", hypervisorMode.id);
-    }
-  }, true);
-
   function tick() {
     synchronizeModeFromWorkbench();
     applyClasses();
     renderHeader();
     renderCodeMenu();
-    renderPrimaryRail();
     decorateActivityBar();
   }
 
@@ -2409,22 +2089,15 @@ export function applyHypervisorWorkbenchShellPatch({
     workbenchHtmlPath,
     installedAt: new Date().toISOString(),
 	    capabilities: {
-	      forkNativeRailShim: true,
-	      forkNativeHeaderShim: false,
-	      secondaryHypervisorHeaderRemoved: true,
-	      vscodeCommandCenterOwnsTopShell: true,
-	      forkNativeModeHostShim: true,
       originalVscodeMenuRestoredInElectronMain: true,
       originalVscodeCustomTitlebarForcedInElectronMain: true,
       codeModeUsesOriginalVscodeMenubar: true,
-      hypervisorModeMenuHiddenByCssAndSettings: true,
       workbenchIntegrityWarningSuppressed: true,
       workbenchIntegrityPatched,
       workbenchCspPatched,
       forkQuickInputBridgeConnectSrcPatched: true,
       workbenchTitlebarPatched,
       electronMainMenuPatched,
-      codeDrilldownRail: true,
       forkNativeQuickInputShim: true,
       nativeQuickInputCommands: [
         "ioi.quickInput.context.open",

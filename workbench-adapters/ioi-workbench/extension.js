@@ -61,23 +61,6 @@ function buildWorkspaceActionContext(source, uri) {
   return buildWorkspaceActionContextFromWorkbench({ vscode, workspaceSummary }, source, uri);
 }
 
-async function openHypervisorHome(options = {}) {
-  const surface = typeof options.surface === "string" && options.surface.trim()
-    ? options.surface.trim()
-    : "home";
-  return writeBridgeRequest(
-    "commandCenter.open",
-    {
-      workspaceRoot: workspaceSummary().path,
-      sourceCommand: "ioi.commandCenter.open",
-      surface,
-      initialQuery: typeof options.initialQuery === "string" ? options.initialQuery : "",
-      ...(options.mode === "tools" ? { mode: "tools" } : {}),
-    },
-    buildWorkspaceActionContext("command-center.hypervisor-home"),
-  );
-}
-
 async function openCodeAdapter() {
   await writeBridgeRequest(
     "code.open",
@@ -101,17 +84,9 @@ function registerAdapterCommands(context, output) {
   };
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("ioi.commandCenter.open", async (options = {}) => {
-      await openHypervisorHome(options);
-      status("Opening Hypervisor Home.");
-    }),
     vscode.commands.registerCommand("ioi.code.open", async () => {
       await openCodeAdapter();
       status("Code editor adapter active.");
-    }),
-    vscode.commands.registerCommand("ioi.hypervisor.back", async () => {
-      await openHypervisorHome({ surface: "home", source: "code-back" });
-      status("Returned to Hypervisor Home.");
     }),
   );
 
@@ -144,8 +119,8 @@ function activate(context) {
   );
   statusItem.name = "IOI Code Adapter";
   statusItem.text = "$(symbol-keyword) IOI";
-  statusItem.tooltip = "Open Hypervisor Home.";
-  statusItem.command = "ioi.commandCenter.open";
+  statusItem.tooltip = "Activate IOI Code Adapter.";
+  statusItem.command = "ioi.code.open";
   statusItem.show();
   context.subscriptions.push(statusItem);
 }

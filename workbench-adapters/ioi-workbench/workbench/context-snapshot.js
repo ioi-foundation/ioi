@@ -324,30 +324,6 @@ function createWorkbenchContextSnapshot({
       runtimeRefs: buildRuntimeRefs(),
       targets: [
         {
-          targetId: "command-center.hypervisor-header",
-          label: "Hypervisor Home handoff",
-          surface: "command-center",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.commandCenter.open",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
-          targetId: "activity.back-to-hypervisor",
-          label: "Back to Hypervisor from Code",
-          surface: "activity-rail",
-          locators: [
-            {
-              kind: "vscode-command",
-              commandId: "ioi.hypervisor.back",
-            },
-          ],
-          fallbackAllowed: true,
-        },
-        {
           targetId: "activity.explorer",
           label: "Explorer activity",
           surface: "activity-rail",

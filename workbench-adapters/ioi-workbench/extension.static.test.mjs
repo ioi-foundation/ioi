@@ -27,21 +27,20 @@ test("ioi-workbench is a code editor adapter, not a Hypervisor product shell", a
   assert.equal(packageJson.displayName, "IOI Code Adapter");
   assert.deepEqual(packageJson.activationEvents, [
     "onStartupFinished",
-    "onCommand:ioi.commandCenter.open",
     "onCommand:ioi.code.open",
-    "onCommand:ioi.hypervisor.back",
   ]);
   assert.deepEqual(
     packageJson.contributes.commands.map((command) => command.command),
-    ["ioi.commandCenter.open", "ioi.code.open", "ioi.hypervisor.back"],
+    ["ioi.code.open"],
   );
   assert.equal(packageJson.contributes.views, undefined);
   assert.equal(packageJson.contributes.viewsContainers, undefined);
 
   assert.match(extension, /startWorkbenchContextSnapshotPublisher/);
   assert.match(extension, /createWorkbenchContextSnapshot/);
-  assert.match(extension, /ioi\.commandCenter\.open/);
   assert.match(extension, /ioi\.code\.open/);
+  assert.doesNotMatch(extension, /ioi\.commandCenter\.open/);
+  assert.doesNotMatch(extension, /ioi\.hypervisor\.back/);
 });
 
 test("adapter bridge and context files keep daemon ownership language", async () => {

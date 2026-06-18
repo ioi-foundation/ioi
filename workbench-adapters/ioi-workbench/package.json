@@ -18,9 +18,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:ioi.commandCenter.open",
-    "onCommand:ioi.code.open",
-    "onCommand:ioi.hypervisor.back"
+    "onCommand:ioi.code.open"
   ],
   "main": "./extension.js",
   "browser": "./extension.js",
@@ -31,31 +29,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "ioi.commandCenter.open",
-        "title": "IOI: Open Hypervisor Home",
-        "category": "IOI",
-        "icon": "$(search)"
-      },
-      {
         "command": "ioi.code.open",
         "title": "IOI: Open Code Editor Adapter",
         "category": "IOI",
         "icon": "$(code)"
-      },
-      {
-        "command": "ioi.hypervisor.back",
-        "title": "IOI: Back to Hypervisor",
-        "category": "IOI",
-        "icon": "$(arrow-left)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "ioi.code.open"
-        },
-        {
-          "command": "ioi.hypervisor.back"
         }
       ]
     }
