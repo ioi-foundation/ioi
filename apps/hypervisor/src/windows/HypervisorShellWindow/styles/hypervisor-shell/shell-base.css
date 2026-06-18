@@ -605,80 +605,6 @@
   cursor: grab;
 }
 
-.hypervisor-client-command-shell {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 2;
-  width: min(620px, calc(100vw - 260px));
-  transform: translate(-50%, -50%);
-  -webkit-app-region: no-drag;
-}
-
-.hypervisor-client-command-center {
-  width: 100%;
-  min-height: 27px;
-  display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border: 1px solid var(--chat-border);
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--chat-bg-elevated) 90%, #ffffff 10%);
-  color: var(--chat-text-secondary);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
-}
-
-.hypervisor-client-command-center:hover,
-.hypervisor-client-command-center:focus-visible {
-  border-color: var(--chat-accent);
-  color: var(--chat-text);
-  outline: none;
-}
-
-.hypervisor-client-command-center-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--chat-text-muted);
-}
-
-.hypervisor-client-command-center-scope,
-.hypervisor-client-command-center-placeholder {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hypervisor-client-command-center-scope {
-  color: var(--chat-text);
-  font-weight: 600;
-}
-
-.hypervisor-client-command-center-placeholder {
-  min-width: 0;
-}
-
-.hypervisor-client-command-center kbd {
-  min-width: 45px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px 5px;
-  border: 1px solid var(--chat-border);
-  border-radius: 4px;
-  background: var(--chat-bg);
-  color: var(--chat-text-muted);
-  font: inherit;
-  font-size: 11px;
-  line-height: 1.25;
-}
-
 .hypervisor-client-window-controls {
   position: relative;
   z-index: 3;
@@ -714,22 +640,6 @@
 .hypervisor-client-window-button--close:hover {
   background: var(--chat-error);
   color: var(--button-primary-text);
-}
-
-@media (max-width: 920px) {
-  .hypervisor-client-command-shell {
-    left: 12px;
-    width: calc(100vw - 150px);
-    transform: translateY(-50%);
-  }
-
-  .hypervisor-client-command-center {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .hypervisor-client-command-center-placeholder {
-    display: none;
-  }
 }
 
 .hypervisor-client-project-select {

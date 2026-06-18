@@ -462,14 +462,14 @@
   -webkit-backdrop-filter: none;
 }
 
-.spot-command-center-menu-overlay {
+.spot-quick-switcher-menu-overlay {
   position: fixed;
   inset: 0;
   z-index: 1300;
   background: transparent;
 }
 
-.spot-slash-menu--command-center {
+.spot-slash-menu--quick-switcher {
   position: fixed;
   right: auto;
   bottom: auto;
@@ -515,7 +515,7 @@
   padding: 6px 0 0;
 }
 
-.spot-slash-menu--command-center .spot-slash-menu-scroll {
+.spot-slash-menu--quick-switcher .spot-slash-menu-scroll {
   min-height: 0;
   max-height: none;
 }

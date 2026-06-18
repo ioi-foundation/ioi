@@ -4,20 +4,8 @@ import test from "node:test";
 
 import {
   buildOperatorActivityRailModel,
-  buildOperatorCommandCenterModel,
   buildWorkspaceSubstrateTargetIndex,
-  type OperatorCommandCenterModel,
 } from "./operatorSubstrateModel.ts";
-import type { ProjectScope } from "./hypervisorShellModel.ts";
-
-const PROJECT: ProjectScope = {
-  id: "hypervisor-core",
-  name: "Hypervisor Core",
-  description:
-    "Shared substrate for governed sessions, adapters, and operator surfaces.",
-  environment: "Production",
-  rootPath: ".",
-};
 
 const RETIRED_NATIVE_APP_PATH = ["apps/hypervisor", "src-tauri"].join("/");
 const RETIRED_NATIVE_ARCHIVE_PATH = [
@@ -28,39 +16,6 @@ const RETIRED_NATIVE_ARCHIVE_PATH = [
 test("retired native app path and archive stay absent", () => {
   assert.equal(existsSync(RETIRED_NATIVE_APP_PATH), false);
   assert.equal(existsSync(RETIRED_NATIVE_ARCHIVE_PATH), false);
-});
-
-test("operator command center is a daemon-runtime projection", () => {
-  const model: OperatorCommandCenterModel = buildOperatorCommandCenterModel({
-    activeView: "workbench",
-    currentProject: PROJECT,
-    notificationCount: 3,
-    evidenceRefs: {
-      receiptIds: ["receipt-1"],
-    },
-  });
-
-  assert.equal(model.runtimeTruthSource, "daemon-runtime");
-  assert.equal(model.scopeLabel, "Hypervisor Core / Workbench");
-  assert.equal(model.shortcutLabel, "Ctrl+K");
-  assert.deepEqual(model.evidenceRefs.receiptIds, ["receipt-1"]);
-  assert.ok(
-    model.commands.some(
-      (command) =>
-        command.id === "runtime.receipts" &&
-        command.source === "runtime-projection" &&
-        command.route.kind === "primary-view" &&
-        command.route.view === "receipts",
-    ),
-  );
-  assert.ok(
-    model.commands.some(
-      (command) =>
-        command.id === "workspace.search" &&
-        command.source === "workspace-projection" &&
-        command.route.kind === "command-palette",
-    ),
-  );
 });
 
 test("operator activity rail is a shell projection with deterministic surfaces", () => {
@@ -147,8 +102,8 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   assert.equal(index.schemaVersion, "ioi.workspace-substrate-target-index.v1");
   assert.equal(index.targets[0]?.runtimeTruthSource, "daemon-runtime");
   assert.ok(
-    index.targets.some(
-      (target) => target.targetId === "operator.command-center",
+    index.targets.every(
+      (target) => target.targetId !== "operator.command-center",
     ),
   );
   assert.ok(
@@ -251,17 +206,17 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
   );
   assert.match(
     chatInputSection,
-    /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/,
+    /QUICK_SWITCHER_ANCHOR_SELECTOR =\s*'\[data-hypervisor-quick-switcher-anchor="true"\]'/,
   );
   assert.match(chatInputSection, /useLayoutEffect\(\(\) => \{/);
   assert.match(chatInputSection, /createPortal\(/);
   assert.match(
     chatInputSection,
-    /data-inspection-target="operator-command-center-menu"/,
+    /data-inspection-target="operator-quick-switcher-menu"/,
   );
   assert.match(
     chatInputSection,
-    /placement=\{searchablePaletteMode \? "command-center" : "composer"\}/,
+    /placement=\{searchablePaletteMode \? "quick-switcher" : "composer"\}/,
   );
   assert.match(
     chatInputSection,
@@ -276,8 +231,8 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
     commandMenus,
     /\.spot-slash-menu--palette \.spot-slash-menu-search/,
   );
-  assert.match(commandMenus, /\.spot-command-center-menu-overlay/);
-  assert.match(commandMenus, /\.spot-slash-menu--command-center/);
+  assert.match(commandMenus, /\.spot-quick-switcher-menu-overlay/);
+  assert.match(commandMenus, /\.spot-slash-menu--quick-switcher/);
   assert.match(commandMenus, /position: fixed/);
   assert.match(commandMenus, /border-radius: 6px/);
   assert.match(commandMenus, /background: #242424/);
@@ -311,7 +266,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
   assert.match(bundledExtension, /startCodeEditorContextPublisher/);
 });
 
-test("Hypervisor command palette anchors to the header command center", () => {
+test("Hypervisor command palette anchors to the left-rail quick switcher", () => {
   const commandPalette = readFileSync(
     "apps/hypervisor/src/components/CommandPalette.tsx",
     "utf8",
@@ -326,7 +281,7 @@ test("Hypervisor command palette anchors to the header command center", () => {
 
   assert.match(
     commandPalette,
-    /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/,
+    /QUICK_SWITCHER_ANCHOR_SELECTOR =\s*'\[data-hypervisor-quick-switcher-anchor="true"\]'/,
   );
   assert.match(commandPalette, /getBoundingClientRect\(\)/);
   assert.match(commandPalette, /initialQuery = ""/);
@@ -397,7 +352,9 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
     "utf8",
   );
 
-  assert.match(chatHeader, /data-inspection-target="operator-command-center"/);
+  assert.doesNotMatch(chatHeader, /data-inspection-target="operator-command-center"/);
+  assert.doesNotMatch(chatHeader, /data-operator-command-center/);
+  assert.match(activityRail, /data-hypervisor-quick-switcher-anchor=/);
   assert.match(activityRail, /data-inspection-target="operator-activity-rail"/);
   assert.match(workspaceRail, /data-inspection-target="workspace-rail"/);
   assert.match(explorer, /data-inspection-target="workspace-explorer-row"/);

@@ -88,13 +88,13 @@ assert.match(
 assert.doesNotMatch(
   chatConversationSurfaceSource,
   /id: "search"/,
-  "sidebar chat should not add a separate search control that competes with the Hypervisor command center",
+  "sidebar chat should not add a separate search control that competes with the Hypervisor quick switcher",
 );
 
 assert.match(
   source,
   /className="hypervisor-automation-compositor hypervisor-automation-compositor--ioi-reference"/,
-  "Automations should use the IOI-reference operator console shell",
+  "Automations should use the IOI-reference shell",
 );
 
 assert.match(

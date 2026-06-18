@@ -123,6 +123,9 @@ function ActivityButton({
         item.routeState === "planned_surface" ? "is-planned" : ""
       }`}
       data-window-surface={item.dataWindowSurface}
+      data-hypervisor-quick-switcher-anchor={
+        item.dataWindowSurface === "search" ? "true" : undefined
+      }
       data-route-state={item.routeState}
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}

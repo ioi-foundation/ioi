@@ -30,7 +30,7 @@ type CommandMenuProps = {
   sections: CommandMenuSection[];
   emptyState?: string;
   mode?: "slash" | "palette";
-  placement?: "composer" | "command-center";
+  placement?: "composer" | "quick-switcher";
   selectedItemId?: string | null;
   onHighlightItem?: (itemId: string) => void;
   ariaLabel?: string;
@@ -58,7 +58,7 @@ export function CommandMenu({
   const visibleSections = sections.filter((section) => section.items.length > 0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const commandPaletteMode = mode === "palette";
-  const commandCenterPlacement = placement === "command-center";
+  const quickSwitcherPlacement = placement === "quick-switcher";
 
   useEffect(() => {
     if (!selectedItemId || !menuRef.current) {
@@ -76,7 +76,7 @@ export function CommandMenu({
       ref={menuRef}
       className={`spot-slash-menu ${
         commandPaletteMode ? "spot-slash-menu--palette" : ""
-      } ${commandCenterPlacement ? "spot-slash-menu--command-center" : ""}`}
+      } ${quickSwitcherPlacement ? "spot-slash-menu--quick-switcher" : ""}`}
       style={style}
       onClick={(event) => event.stopPropagation()}
       role="menu"

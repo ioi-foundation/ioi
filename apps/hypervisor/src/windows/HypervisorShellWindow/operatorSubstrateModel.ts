@@ -1,4 +1,4 @@
-import type { PrimaryView, ProjectScope } from "./hypervisorShellModel.ts";
+import type { PrimaryView } from "./hypervisorShellModel.ts";
 import {
   HYPERVISOR_PRIMARY_SURFACES,
   type HypervisorSurfaceId,
@@ -25,26 +25,6 @@ export interface OperatorRuntimeEvidenceRefs {
   artifactIds: string[];
   manifestRefs: string[];
   authorityRefs: string[];
-}
-
-export interface OperatorCommandCenterCommand {
-  id: string;
-  label: string;
-  description: string;
-  route: OperatorSurfaceRoute;
-  keywords: string[];
-  source: "shell-projection" | "runtime-projection" | "workspace-projection";
-}
-
-export interface OperatorCommandCenterModel {
-  projectionId: string;
-  activeRoute: OperatorSurfaceRoute;
-  scopeLabel: string;
-  placeholder: string;
-  shortcutLabel: string;
-  runtimeTruthSource: "daemon-runtime";
-  evidenceRefs: OperatorRuntimeEvidenceRefs;
-  commands: OperatorCommandCenterCommand[];
 }
 
 export interface OperatorActivityRailItem {
@@ -153,7 +133,6 @@ export interface OperatorInspectionTargetModel {
   label: string;
   surface:
     | "activity-rail"
-    | "command-center"
     | "explorer"
     | "editor"
     | "terminal"
@@ -202,67 +181,10 @@ export interface BuildWorkspaceSubstrateTargetIndexOptions
   generatedAtMs?: number;
 }
 
-export interface BuildOperatorCommandCenterModelOptions {
-  activeView: PrimaryView;
-  currentProject: ProjectScope;
-  notificationCount: number;
-  evidenceRefs?: Partial<OperatorRuntimeEvidenceRefs>;
-}
-
 export interface BuildOperatorActivityRailModelOptions {
   activeView: PrimaryView;
   collapsed: boolean;
   notificationCount: number;
-}
-
-const EMPTY_EVIDENCE_REFS: OperatorRuntimeEvidenceRefs = {
-  runIds: [],
-  receiptIds: [],
-  artifactIds: [],
-  manifestRefs: [],
-  authorityRefs: [],
-};
-
-const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
-  home: "Home",
-  sessions: "Sessions",
-  projects: "Projects",
-  missions: "Missions",
-  workbench: "Workbench",
-  automations: "Automations",
-  insights: "Insights",
-  agents: "Agents",
-  models: "Models",
-  privacy: "Privacy",
-  providers: "Providers",
-  environments: "Environments",
-  foundry: "Foundry",
-  authority: "Authority",
-  receipts: "Receipts",
-  settings: "Settings",
-};
-
-function mergeEvidenceRefs(
-  evidenceRefs: Partial<OperatorRuntimeEvidenceRefs> | undefined,
-): OperatorRuntimeEvidenceRefs {
-  return {
-    runIds: evidenceRefs?.runIds ?? [],
-    receiptIds: evidenceRefs?.receiptIds ?? [],
-    artifactIds: evidenceRefs?.artifactIds ?? [],
-    manifestRefs: evidenceRefs?.manifestRefs ?? [],
-    authorityRefs: evidenceRefs?.authorityRefs ?? [],
-  };
-}
-
-function primaryViewCommand(view: PrimaryView): OperatorCommandCenterCommand {
-  return {
-    id: `surface.${view}`,
-    label: `Open ${PRIMARY_VIEW_LABELS[view]}`,
-    description: `Switch to ${PRIMARY_VIEW_LABELS[view]}.`,
-    route: { kind: "primary-view", view },
-    keywords: [view, PRIMARY_VIEW_LABELS[view].toLowerCase()],
-    source: "shell-projection",
-  };
 }
 
 export function getHypervisorSurfaceIdForPrimaryView(
@@ -356,25 +278,6 @@ export function buildOperatorInspectionTargetModel({
   includeRunEvidenceTargets = true,
 }: BuildOperatorInspectionTargetModelOptions = {}): OperatorInspectionTargetModel[] {
   const targets: OperatorInspectionTargetModel[] = [
-    {
-      targetId: "operator.command-center",
-      label: "Operator command center",
-      surface: "command-center",
-      runtimeTruthSource: "daemon-runtime",
-      locators: [
-        dataTarget("operator-command-center"),
-        {
-          kind: "data-attribute",
-          dataAttribute: "data-operator-command-center",
-          selector: "[data-operator-command-center]",
-        },
-        {
-          kind: "aria",
-          accessibleName:
-            "Search Hypervisor, projects, insights, sessions, and commands",
-        },
-      ],
-    },
     {
       targetId: "operator.activity-rail",
       label: "Operator activity rail",
@@ -518,70 +421,5 @@ export function buildWorkspaceSubstrateTargetIndex({
     indexId: `workspace-substrate-target-index:${generatedAtMs}`,
     generatedAtMs,
     targets: buildOperatorInspectionTargetModel(options),
-  };
-}
-
-export function buildOperatorCommandCenterModel({
-  activeView,
-  currentProject,
-  notificationCount,
-  evidenceRefs,
-}: BuildOperatorCommandCenterModelOptions): OperatorCommandCenterModel {
-  const mergedEvidenceRefs = mergeEvidenceRefs(evidenceRefs);
-  const surfaceLabel = PRIMARY_VIEW_LABELS[activeView];
-  const commands: OperatorCommandCenterCommand[] = [
-    ...HYPERVISOR_PRIMARY_SURFACES.map((surface) =>
-      primaryViewCommand(surface.id),
-    ),
-    {
-      id: "workspace.search",
-      label: "Search workspace",
-      description: "Search files, commands, symbols, workflows, receipts, and settings.",
-      route: { kind: "command-palette", query: "%" },
-      keywords: ["search", "find", "file", "symbol", "workspace"],
-      source: "workspace-projection",
-    },
-    {
-      id: "workflow.new",
-      label: "New workflow",
-      description: "Create an agent workflow from the shared composer.",
-      route: { kind: "primary-view", view: "automations" },
-      keywords: ["workflow", "agent", "compose", "graph"],
-      source: "shell-projection",
-    },
-    {
-      id: "runtime.receipts",
-      label: "Inspect receipts",
-      description: "Open runtime receipts, artifacts, and retained evidence.",
-      route: { kind: "primary-view", view: "receipts" },
-      keywords: ["receipt", "artifact", "evidence", "trace", "run"],
-      source: "runtime-projection",
-    },
-  ];
-
-  if (notificationCount > 0) {
-    commands.push({
-      id: "inbox.pending",
-      label: `Open Inbox (${notificationCount})`,
-      description: "Review pending approvals, prompts, and interventions.",
-      route: { kind: "primary-view", view: "missions" },
-      keywords: ["inbox", "approval", "notification", "pending"],
-      source: "runtime-projection",
-    });
-  }
-
-  return {
-    projectionId: `operator-command-center:${activeView}:${currentProject.id}`,
-    activeRoute: { kind: "primary-view", view: activeView },
-    scopeLabel: `${currentProject.name} / ${surfaceLabel}`,
-    placeholder:
-      "Search Hypervisor, projects, insights, sessions, and commands",
-    shortcutLabel: "Ctrl+K",
-    runtimeTruthSource: "daemon-runtime",
-    evidenceRefs: {
-      ...EMPTY_EVIDENCE_REFS,
-      ...mergedEvidenceRefs,
-    },
-    commands,
   };
 }

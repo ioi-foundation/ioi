@@ -26,7 +26,6 @@ import { HypervisorClientHeader } from "./HypervisorClientHeader";
 import { HomeView } from "../../../surfaces/Home";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceSessionHost } from "../../../services/workspaceSessionHostRegistry";
-import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import {
   HYPERVISOR_AGENTS_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
@@ -3019,11 +3018,6 @@ export function HypervisorShellContent({
   const workflowActive = activeView === "automations";
   const mountsActive = activeView === "models";
   const dedicatedWorkbenchActive = workflowActive || mountsActive;
-  const commandCenterModel = buildOperatorCommandCenterModel({
-    activeView,
-    currentProject,
-    notificationCount: notificationBadgeCount,
-  });
   const contentMainRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
@@ -3059,11 +3053,7 @@ export function HypervisorShellContent({
         workspaceActive && "chat-shell--workspace-mode",
       )}
     >
-      <HypervisorClientHeader
-        activeView={activeView}
-        commandCenter={commandCenterModel}
-        onOpenCommandPalette={controller.modals.openCommandPalette}
-      />
+      <HypervisorClientHeader activeView={activeView} />
 
       <div
         className={clsx(

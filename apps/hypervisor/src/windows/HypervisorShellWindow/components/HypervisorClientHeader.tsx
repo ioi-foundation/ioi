@@ -8,12 +8,9 @@ import {
 } from "../../shared/hostWindowDrag";
 import type { PrimaryView } from "../hypervisorShellModel";
 import { getHypervisorSurfaceById } from "../hypervisorShellNavigationModel";
-import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface HypervisorClientHeaderProps {
   activeView: PrimaryView;
-  commandCenter: OperatorCommandCenterModel;
-  onOpenCommandPalette: () => void;
 }
 
 function windowSurfaceTitle(view: PrimaryView): string {
@@ -22,8 +19,6 @@ function windowSurfaceTitle(view: PrimaryView): string {
 
 export function HypervisorClientHeader({
   activeView,
-  commandCenter,
-  onOpenCommandPalette,
 }: HypervisorClientHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const windowControlsVisible = isHypervisorClientRuntime();
@@ -121,45 +116,6 @@ export function HypervisorClientHeader({
         onMouseDown={startHostWindowDrag}
         aria-hidden="true"
       />
-
-      <div className="hypervisor-client-command-shell">
-        <button
-          type="button"
-          className="hypervisor-client-command-center"
-          data-inspection-target="operator-command-center"
-          data-operator-command-center={commandCenter.projectionId}
-          data-operator-route-kind={commandCenter.activeRoute.kind}
-          aria-label={commandCenter.placeholder}
-          title={`${commandCenter.placeholder} (${commandCenter.shortcutLabel})`}
-          onClick={onOpenCommandPalette}
-        >
-          <span
-            className="hypervisor-client-command-center-icon"
-            aria-hidden="true"
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="8.5" cy="8.5" r="5.5" />
-              <path d="m12.6 12.6 4 4" />
-            </svg>
-          </span>
-          <span className="hypervisor-client-command-center-scope">
-            {commandCenter.scopeLabel}
-          </span>
-          <span className="hypervisor-client-command-center-placeholder">
-            {commandCenter.placeholder}
-          </span>
-          <kbd>{commandCenter.shortcutLabel}</kbd>
-        </button>
-      </div>
 
       {windowControlsVisible ? (
         <div

@@ -66,7 +66,8 @@ type CommandPaletteProps = {
   projects: ProjectScope[];
 };
 
-const COMMAND_CENTER_SELECTOR = "[data-operator-command-center]";
+const QUICK_SWITCHER_ANCHOR_SELECTOR =
+  '[data-hypervisor-quick-switcher-anchor="true"]';
 const PALETTE_EDGE_GUTTER = 8;
 const PALETTE_WIDTH = 596;
 
@@ -259,7 +260,7 @@ export function CommandPalette({
         viewportWidth - PALETTE_EDGE_GUTTER * 2,
       );
       const width = Math.min(PALETTE_WIDTH, availableWidth);
-      const anchor = document.querySelector(COMMAND_CENTER_SELECTOR);
+      const anchor = document.querySelector(QUICK_SWITCHER_ANCHOR_SELECTOR);
       const anchorRect = anchor?.getBoundingClientRect();
       const anchorCenter = anchorRect
         ? anchorRect.left + anchorRect.width / 2

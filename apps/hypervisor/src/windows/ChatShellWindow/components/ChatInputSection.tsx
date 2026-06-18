@@ -121,9 +121,10 @@ type ChatInputSectionProps = {
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
 const CHAT_COMPOSER_FOCUS_REQUESTED_EVENT = "chat-composer-focus-requested";
-const COMMAND_CENTER_SELECTOR = "[data-operator-command-center]";
-const COMMAND_CENTER_MENU_EDGE_GUTTER = 8;
-const COMMAND_CENTER_MENU_WIDTH = 596;
+const QUICK_SWITCHER_ANCHOR_SELECTOR =
+  '[data-hypervisor-quick-switcher-anchor="true"]';
+const QUICK_SWITCHER_MENU_EDGE_GUTTER = 8;
+const QUICK_SWITCHER_MENU_WIDTH = 596;
 
 type LiveToolRecord = {
   connector: ConnectorSummary;
@@ -210,12 +211,12 @@ export function ChatInputSection({
     useState<LoadStatus>("idle");
   const [liveTools, setLiveTools] = useState<LiveToolRecord[]>([]);
   const [liveToolsStatus, setLiveToolsStatus] = useState<LoadStatus>("idle");
-  const [commandCenterMenuStyle, setCommandCenterMenuStyle] =
+  const [quickSwitcherMenuStyle, setQuickSwitcherMenuStyle] =
     useState<CSSProperties>(() => ({
-      left: COMMAND_CENTER_MENU_EDGE_GUTTER,
+      left: QUICK_SWITCHER_MENU_EDGE_GUTTER,
       top: 40,
-      width: `min(${COMMAND_CENTER_MENU_WIDTH}px, calc(100vw - ${
-        COMMAND_CENTER_MENU_EDGE_GUTTER * 2
+      width: `min(${QUICK_SWITCHER_MENU_WIDTH}px, calc(100vw - ${
+        QUICK_SWITCHER_MENU_EDGE_GUTTER * 2
       }px))`,
       maxHeight: "min(74vh, 640px)",
     }));
@@ -337,7 +338,7 @@ export function ChatInputSection({
     [enterInsertMode, inputRef],
   );
 
-  const commandCenterMenuOpen =
+  const quickSwitcherMenuOpen =
     commandsMenuOpen && searchablePaletteMode && !inputLockedByCredential;
 
   useEffect(() => {
@@ -345,13 +346,13 @@ export function ChatInputSection({
       return;
     }
     const event = new CustomEvent("spot-command-menu-toggled", {
-      detail: { open: commandCenterMenuOpen },
+      detail: { open: quickSwitcherMenuOpen },
     });
     window.dispatchEvent(event);
-  }, [commandCenterMenuOpen]);
+  }, [quickSwitcherMenuOpen]);
 
   useLayoutEffect(() => {
-    if (!commandCenterMenuOpen || typeof window === "undefined") {
+    if (!quickSwitcherMenuOpen || typeof window === "undefined") {
       return;
     }
 
@@ -360,20 +361,20 @@ export function ChatInputSection({
       const viewportHeight = window.innerHeight;
       const availableWidth = Math.max(
         1,
-        viewportWidth - COMMAND_CENTER_MENU_EDGE_GUTTER * 2,
+        viewportWidth - QUICK_SWITCHER_MENU_EDGE_GUTTER * 2,
       );
-      const width = Math.min(COMMAND_CENTER_MENU_WIDTH, availableWidth);
-      const anchor = document.querySelector(COMMAND_CENTER_SELECTOR);
+      const width = Math.min(QUICK_SWITCHER_MENU_WIDTH, availableWidth);
+      const anchor = document.querySelector(QUICK_SWITCHER_ANCHOR_SELECTOR);
       const anchorRect = anchor?.getBoundingClientRect();
       const anchorCenter = anchorRect
         ? anchorRect.left + anchorRect.width / 2
         : viewportWidth / 2;
       const left = clampNumber(
         anchorCenter - width / 2,
-        COMMAND_CENTER_MENU_EDGE_GUTTER,
+        QUICK_SWITCHER_MENU_EDGE_GUTTER,
         Math.max(
-          COMMAND_CENTER_MENU_EDGE_GUTTER,
-          viewportWidth - width - COMMAND_CENTER_MENU_EDGE_GUTTER,
+          QUICK_SWITCHER_MENU_EDGE_GUTTER,
+          viewportWidth - width - QUICK_SWITCHER_MENU_EDGE_GUTTER,
         ),
       );
       const preferredTop = anchorRect ? anchorRect.bottom + 6 : 40;
@@ -381,19 +382,19 @@ export function ChatInputSection({
         640,
         Math.max(
           240,
-          viewportHeight - preferredTop - COMMAND_CENTER_MENU_EDGE_GUTTER,
+          viewportHeight - preferredTop - QUICK_SWITCHER_MENU_EDGE_GUTTER,
         ),
       );
       const top = clampNumber(
         preferredTop,
-        COMMAND_CENTER_MENU_EDGE_GUTTER,
+        QUICK_SWITCHER_MENU_EDGE_GUTTER,
         Math.max(
-          COMMAND_CENTER_MENU_EDGE_GUTTER,
-          viewportHeight - maxHeight - COMMAND_CENTER_MENU_EDGE_GUTTER,
+          QUICK_SWITCHER_MENU_EDGE_GUTTER,
+          viewportHeight - maxHeight - QUICK_SWITCHER_MENU_EDGE_GUTTER,
         ),
       );
 
-      setCommandCenterMenuStyle({
+      setQuickSwitcherMenuStyle({
         left,
         top,
         width,
@@ -408,7 +409,7 @@ export function ChatInputSection({
       window.removeEventListener("resize", computePosition);
       window.removeEventListener("scroll", computePosition, true);
     };
-  }, [commandCenterMenuOpen]);
+  }, [quickSwitcherMenuOpen]);
 
   const handleComposerWrapperMouseDown = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
@@ -1835,8 +1836,8 @@ export function ChatInputSection({
       <CommandMenu
         sections={actionSections}
         mode={searchablePaletteMode ? "palette" : "slash"}
-        placement={searchablePaletteMode ? "command-center" : "composer"}
-        style={searchablePaletteMode ? commandCenterMenuStyle : undefined}
+        placement={searchablePaletteMode ? "quick-switcher" : "composer"}
+        style={searchablePaletteMode ? quickSwitcherMenuStyle : undefined}
         ariaLabel={toolPaletteMode ? "Tool picker" : undefined}
         selectedItemId={activeHighlightedItemId}
         onHighlightItem={setHighlightedItemId}
@@ -1869,12 +1870,12 @@ export function ChatInputSection({
         }
       />
     ) : null;
-  const commandCenterMenuPortal =
-    commandCenterMenuOpen && commandMenu && typeof document !== "undefined"
+  const quickSwitcherMenuPortal =
+    quickSwitcherMenuOpen && commandMenu && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="spot-command-center-menu-overlay"
-            data-inspection-target="operator-command-center-menu"
+            className="spot-quick-switcher-menu-overlay"
+            data-inspection-target="operator-quick-switcher-menu"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) {
                 dismissCommandSurface(false);
@@ -1894,7 +1895,7 @@ export function ChatInputSection({
       }`}
       data-inspection-target="operator-chat-composer"
     >
-      {commandCenterMenuPortal}
+      {quickSwitcherMenuPortal}
       <div className="spot-input-wrapper" onMouseDown={handleComposerWrapperMouseDown}>
         {planMode ? (
           <div className="spot-plan-mode-banner">
@@ -1913,7 +1914,7 @@ export function ChatInputSection({
           </div>
         ) : null}
 
-        {!commandCenterMenuOpen ? commandMenu : null}
+        {!quickSwitcherMenuOpen ? commandMenu : null}
 
         {inputLockedByCredential ? (
           <ChatInputControls

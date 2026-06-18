@@ -43,13 +43,17 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
     /const activateRoute = \(route: OperatorSurfaceRoute\)/,
   );
   assert.match(activityBar, /route\.kind === "command-palette"/);
+  assert.match(activityBar, /data-hypervisor-quick-switcher-anchor=/);
   assert.match(activityBar, /chat-activity-button--new-session/);
   assert.match(activityBar, /data-window-surface="new-session"/);
   assert.match(activityBar, /New Session/);
   assert.match(activityBar, /Organization settings/);
   assert.match(activityBar, /chat-activity-project-label/);
-  assert.match(activityBar, /chat-activity-project-skeleton/);
-  assert.match(activityBar, /data-ioi-reference-session-list="project-skeleton"/);
+  assert.match(activityBar, /chat-activity-session-row/);
+  assert.match(
+    activityBar,
+    /data-ioi-reference-session-list="from-launched-sessions"/,
+  );
   assert.doesNotMatch(activityBar, /Search\.\.\./);
   assert.doesNotMatch(activityBar, /What's New/);
   assert.doesNotMatch(activityBar, /IOI Assist/);
