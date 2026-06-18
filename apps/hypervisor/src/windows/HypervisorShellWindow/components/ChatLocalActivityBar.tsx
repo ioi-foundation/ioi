@@ -8,7 +8,6 @@ import {
   MountsIcon,
   NotificationsIcon,
   ProjectsIcon,
-  SearchIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -276,14 +275,8 @@ export function ChatLocalActivityBar({
   });
   const railItemBySurface = (surfaceId: PrimaryView) =>
     primaryNavItems.find((item) => item.hypervisorSurfaceId === surfaceId);
-  const homeNavItem = railItemBySurface("home");
   const sessionsNavItem = railItemBySurface("sessions");
   const projectsNavItem = railItemBySurface("projects");
-  const automationsNavItem = railItemBySurface("automations");
-  const insightsNavItem = railItemBySurface("insights");
-  const searchItem = railModel.items.find(
-    (item) => item.dataWindowSurface === "search",
-  );
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
@@ -337,114 +330,84 @@ export function ChatLocalActivityBar({
       </div>
 
       <div className="chat-activity-group" aria-label="Primary surfaces">
-        {homeNavItem ? (
-          <ActivityButton
-            key={homeNavItem.id}
-            item={homeNavItem}
-            isActive={isActiveRailItem(homeNavItem)}
-            onClick={() => activateRoute(homeNavItem.route)}
-          />
-        ) : null}
-        {searchItem ? (
-          <ReferenceRailButton
-            label="Search..."
-            dataWindowSurface={searchItem.dataWindowSurface}
-            icon={<SearchIcon />}
-            shortcutKeys={["ctrl", "J"]}
-            title={searchItem.description}
-            onClick={() => activateRoute(searchItem.route)}
-          />
-        ) : null}
-        {sessionsNavItem ? (
-          <ActivityButton
-            key="notifications"
-            item={{
-              ...sessionsNavItem,
-              id: "surface.notifications",
-              label: "Notifications",
-              dataWindowSurface: "notifications",
-              badgeCount: notificationCount,
-            }}
-            icon={<NotificationsIcon />}
-            isActive={false}
-            onClick={() => onViewChange("missions")}
-          />
-        ) : null}
-        {insightsNavItem ? (
-          <ActivityButton
-            key="whats-new"
-            item={{
-              ...insightsNavItem,
-              id: "surface.whats-new",
-              label: "What's New",
-              dataWindowSurface: "whats-new",
-            }}
-            icon={<NotificationsIcon />}
-            isActive={isActiveRailItem(insightsNavItem)}
-            onClick={() => activateRoute(insightsNavItem.route)}
-          />
-        ) : null}
-      </div>
-
-      <div className="chat-activity-group chat-activity-group--reference-main" aria-label="Work surfaces">
-        {sessionsNavItem ? (
-          <ActivityButton
-            key={sessionsNavItem.id}
-            item={{ ...sessionsNavItem, label: "Recent" }}
-            icon={<EnvironmentIcon />}
-            isActive={isActiveRailItem(sessionsNavItem)}
-            onClick={() => activateRoute(sessionsNavItem.route)}
-          />
-        ) : null}
+        <button
+          type="button"
+          className="chat-activity-button chat-activity-button--new-session"
+          data-window-surface="new-session"
+          onClick={onOpenNewSession}
+          aria-label="New Session"
+          title={HYPERVISOR_PRIMARY_ACTION.description}
+        >
+          <span
+            className="chat-activity-button-icon chat-activity-button-icon--plus"
+            aria-hidden="true"
+          >
+            +
+          </span>
+          <span className="chat-activity-button-label">New Session</span>
+          <span className="chat-activity-button-shortcuts" aria-hidden="true">
+            <span className="chat-activity-button-shortcut">Ctrl</span>
+            <span className="chat-activity-button-shortcut">O</span>
+          </span>
+        </button>
         {projectsNavItem ? (
           <ActivityButton
             key={projectsNavItem.id}
-            item={{ ...projectsNavItem, label: "Files" }}
-            icon={<WorkspaceIcon />}
+            item={{ ...projectsNavItem, label: "Projects" }}
+            icon={<ProjectsIcon />}
             isActive={isActiveRailItem(projectsNavItem)}
             onClick={() => activateRoute(projectsNavItem.route)}
           />
         ) : null}
-        {automationsNavItem ? (
-          <ActivityButton
-            key={automationsNavItem.id}
-            item={automationsNavItem}
-            icon={<ComposeIcon />}
-            isActive={isActiveRailItem(automationsNavItem)}
-            onClick={() => activateRoute(automationsNavItem.route)}
-          />
-        ) : null}
-        <ReferenceRailButton
-          label="Applications"
-          dataWindowSurface="applications"
-          icon={<ProjectsIcon />}
-          title="Open the application portal"
-          onClick={() => onViewChange("home")}
-        />
       </div>
 
-      <div className="chat-activity-apps" aria-label="Favorite applications">
-        <div className="chat-activity-section-label">Applications</div>
-        <p>Your favorite apps will appear here</p>
+      <div className="chat-activity-group chat-activity-group--sessions" aria-label="Sessions">
+        {sessionsNavItem ? (
+          <ReferenceRailButton
+            label="Sessions"
+            dataWindowSurface="sessions"
+            icon={<NotificationsIcon />}
+            shortcutKeys={["Project"]}
+            isActive={isActiveRailItem(sessionsNavItem)}
+            title={sessionsNavItem.description}
+            onClick={() => activateRoute(sessionsNavItem.route)}
+          />
+        ) : null}
+      </div>
+
+      <div className="chat-activity-projects" aria-label="Projects">
+        <div className="chat-activity-project-label">
+          <span>Projects</span>
+        </div>
+        <div
+          className="chat-activity-project-skeleton"
+          data-ioi-reference-session-list="project-skeleton"
+          aria-hidden="true"
+        >
+          <span>
+            <i />
+            <b />
+          </span>
+          <span>
+            <i />
+            <b />
+          </span>
+          <span>
+            <i />
+            <b />
+          </span>
+        </div>
       </div>
 
       <div className="chat-activity-spacer" />
 
       <div className="chat-activity-group chat-activity-group--bottom">
         <ReferenceRailButton
-          label="IOI Assist"
-          dataWindowSurface="hypervisor-assist"
-          icon={<SparklesIcon />}
-          shortcutKeys={["ctrl", "shift", "U"]}
-          title={HYPERVISOR_PRIMARY_ACTION.description}
-          onClick={onOpenNewSession}
-        />
-        <ReferenceRailButton
-          label="Support"
-          dataWindowSurface="support"
+          label="Organization settings"
+          dataWindowSurface="organization-settings"
           icon={<SettingsIcon />}
-          title="Open support commands"
-          onClick={onOpenCommandPalette}
+          title="Open organization settings"
+          onClick={() => onViewChange("settings")}
         />
         <button
           type="button"

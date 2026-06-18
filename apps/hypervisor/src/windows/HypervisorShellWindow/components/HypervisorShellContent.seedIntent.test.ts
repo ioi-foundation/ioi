@@ -382,20 +382,20 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #252b33;[\s\S]*width: 230px;/,
-  "The primary rail should use the IOI reference dark navigation shell",
+  /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #ffffff;[\s\S]*width: 300px;/,
+  "The primary rail should use the IOI reference light navigation shell",
 );
 
 assert.match(
   traceAndWelcomeCss,
-  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #252b33;/,
-  "Light content theme should preserve the IOI reference dark rail palette",
+  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #ffffff;/,
+  "Light content theme should preserve the IOI reference light rail palette",
 );
 
 assert.doesNotMatch(
   traceAndWelcomeCss,
-  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;/,
-  "Light content theme must not restore the deprecated light scaffold rail",
+  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #252b33;/,
+  "Light content theme must not restore the deprecated dark product rail",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");

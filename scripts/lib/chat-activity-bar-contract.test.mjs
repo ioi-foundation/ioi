@@ -43,10 +43,17 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
     /const activateRoute = \(route: OperatorSurfaceRoute\)/,
   );
   assert.match(activityBar, /route\.kind === "command-palette"/);
-  assert.match(activityBar, /Search\.\.\./);
-  assert.match(activityBar, /What's New/);
-  assert.match(activityBar, /IOI Assist/);
-  assert.match(activityBar, /Your favorite apps will appear here/);
+  assert.match(activityBar, /chat-activity-button--new-session/);
+  assert.match(activityBar, /data-window-surface="new-session"/);
+  assert.match(activityBar, /New Session/);
+  assert.match(activityBar, /Organization settings/);
+  assert.match(activityBar, /chat-activity-project-label/);
+  assert.match(activityBar, /chat-activity-project-skeleton/);
+  assert.match(activityBar, /data-ioi-reference-session-list="project-skeleton"/);
+  assert.doesNotMatch(activityBar, /Search\.\.\./);
+  assert.doesNotMatch(activityBar, /What's New/);
+  assert.doesNotMatch(activityBar, /IOI Assist/);
+  assert.doesNotMatch(activityBar, /Your favorite apps will appear here/);
   assert.match(activityBar, /data-window-surface=\{item\.dataWindowSurface\}/);
   assert.match(activityBar, /data-window-surface="account"/);
   assert.match(
@@ -61,14 +68,14 @@ test("activity bar owns sidebar brand and can collapse without losing surface id
   assert.doesNotMatch(activityBar, /currentProject\.name/);
 });
 
-test("reference rail exposes search and assist shortcut pills", () => {
+test("reference rail exposes new session and session context shortcut pills", () => {
   assert.doesNotMatch(activityBar, /title=\{`\$\{item\.label\}/);
   assert.match(activityBar, /: item\.label/);
-  assert.match(activityBar, /shortcutKeys=\{\["ctrl", "J"\]\}/);
-  assert.match(activityBar, /shortcutKeys=\{\["ctrl", "shift", "U"\]\}/);
+  assert.match(activityBar, /chat-activity-button-shortcut">Ctrl/);
+  assert.match(activityBar, /chat-activity-button-shortcut">O/);
+  assert.match(activityBar, /shortcutKeys=\{\["Project"\]\}/);
   assert.match(activityBar, /shortcutKeys\.map\(\(key\) =>/);
   assert.match(activityBar, /className="chat-activity-button-shortcut"/);
-  assert.doesNotMatch(activityBar, /data-window-surface="new-session"/);
 });
 
 test("old client header leading block is removed so the rail is the single sidebar identity", () => {
@@ -85,15 +92,15 @@ test("old client header leading block is removed so the rail is the single sideb
 test("activity bar styling matches the themeable collapsible rail contract", () => {
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*width: 230px;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-bar\s*\{[\s\S]*width: 300px;/,
   );
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*--chat-activity-bg: #252b33;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--chat-activity-bg: #ffffff;/,
   );
   assert.doesNotMatch(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*width: 300px;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--chat-activity-bg: #252b33;[\s\S]*width: 230px;/,
   );
   assert.match(shellBaseCss, /background: var\(--chat-activity-bg\);/);
   assert.match(
@@ -106,7 +113,7 @@ test("activity bar styling matches the themeable collapsible rail contract", () 
   );
   assert.match(
     shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI mirror shell[\s\S]*\.chat-activity-brand-row\s*\{[\s\S]*min-height: 51px;/,
+    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.chat-activity-brand-row\s*\{[\s\S]*min-height: 51px;/,
   );
   assert.match(shellBaseCss, /\.chat-activity-group\s*\{[\s\S]*border-bottom:/);
   assert.match(shellBaseCss, /\.chat-activity-button::before\s*\{[\s\S]*display: none;/);
@@ -131,13 +138,17 @@ test("activity bar styling matches the themeable collapsible rail contract", () 
   );
 });
 
-test("light workbench mode preserves the IOI reference dark rail colors", () => {
+test("light workbench mode preserves the IOI reference light rail colors", () => {
   assert.doesNotMatch(
     traceAndWelcomeCss,
     /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-button,/,
   );
   assert.match(
     traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #252b33;[\s\S]*--chat-activity-text: #d7dde6;/,
+    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #ffffff;[\s\S]*--chat-activity-text: #6f737a;/,
+  );
+  assert.doesNotMatch(
+    traceAndWelcomeCss,
+    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #252b33;/,
   );
 });
