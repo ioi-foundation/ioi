@@ -9,12 +9,13 @@ Runtime UX has two layers:
   observations, postconditions, settlement bundles, and artifact promotion
   receipts.
 
-The IOI daemon is the hypervisor/control plane for autonomous execution.
-Autopilot Workbench, Electron/VS Code views, React Flow, CLI/TUI, SDK clients,
-harnesses, and extension-host code are operator surfaces or projections. They
-may request, render, approve, interrupt, and inspect work, but authority is only
-established when the daemon records the relevant policy, authority, receipt,
-replay, and settlement refs.
+The Hypervisor Daemon is the execution owner and authority boundary for
+autonomous work. Hypervisor App/Web, Workbench, Automations, Foundry, code
+editor adapters, browser/terminal/VM targets, SDK clients, and external agent
+harness adapters are operator surfaces or projections. They may request,
+render, approve, interrupt, and inspect work, but authority is only established
+when the daemon records the relevant policy, authority, receipt, replay, and
+settlement refs.
 
 Projection is useful, but it is not settlement. UI copy, exports, and debug
 views must not call projection-only events "canonical" unless persisted
