@@ -482,6 +482,14 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     plans.external_editor?.connection_contract_ref,
     "connection-contract:workbench-adapter/desktop-bridge",
   );
+  assert.equal(plans.cursor?.connection_kind, "desktop_bridge");
+  assert.equal(plans.windsurf?.connection_kind, "desktop_bridge");
+  assert.equal(plans.jetbrains_idea?.connection_kind, "desktop_bridge");
+  assert.equal(plans.jetbrains_clion?.connection_kind, "desktop_bridge");
+  assert.equal(plans.jetbrains_rustrover?.connection_kind, "desktop_bridge");
+  assert.equal(plans.jetbrains_rider?.connection_kind, "desktop_bridge");
+  assert.equal(plans.vscode_browser?.connection_kind, "browser_workspace_url");
+  assert.equal(plans.devin?.provider_posture_required, true);
   assert.equal(plans.terminal_workspace?.connection_kind, "terminal_session");
   assert.equal(plans.browser_workspace?.provider_posture_required, true);
   assert.equal(plans.remote_vm?.restore_archive_policy, "required_for_remote_persistence");

@@ -158,7 +158,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(source, /workbench_adapter/);
   assert.match(
     workbenchAdapterPreferences,
-    /Embedded Workbench[\s\S]*External Editor[\s\S]*Browser Workspace/,
+    /VS Code[\s\S]*VS Code Insiders[\s\S]*Cursor[\s\S]*Windsurf[\s\S]*IntelliJ IDEA Ultimate[\s\S]*CLion[\s\S]*RustRover[\s\S]*Rider/,
   );
   assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
   assert.match(

@@ -651,6 +651,113 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
+.chat-settings-reference-editor-picker {
+  max-height: 288px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid #575757;
+  border-radius: 7px;
+  background: #303030;
+}
+
+.chat-settings-reference-editor-option {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  background: transparent;
+  color: #f4f4f4;
+  padding: 6px 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-settings-reference-editor-option:last-child {
+  border-bottom: 0;
+}
+
+.chat-settings-reference-editor-option:hover,
+.chat-settings-reference-editor-option.is-selected {
+  background: #3a3a3a;
+}
+
+.chat-settings-reference-editor-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: #1f1f1f;
+  color: #8fd3ff;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.chat-settings-reference-editor-option[data-settings-editor-target="embedded_workbench"]
+  .chat-settings-reference-editor-icon,
+.chat-settings-reference-editor-option[data-settings-editor-target="vscode_insiders"]
+  .chat-settings-reference-editor-icon,
+.chat-settings-reference-editor-option[data-settings-editor-target="vscode_browser"]
+  .chat-settings-reference-editor-icon {
+  background: linear-gradient(135deg, #1f8cf0 0%, #0f5da8 100%);
+  color: #ffffff;
+}
+
+.chat-settings-reference-editor-option[data-settings-editor-target="cursor"]
+  .chat-settings-reference-editor-icon {
+  background: linear-gradient(135deg, #f6f6f6 0%, #141414 58%);
+  color: #ffffff;
+}
+
+.chat-settings-reference-editor-option[data-settings-editor-target="windsurf"]
+  .chat-settings-reference-editor-icon {
+  background: linear-gradient(135deg, #21d1b6 0%, #1477ff 100%);
+  color: #071313;
+}
+
+.chat-settings-reference-editor-option[data-settings-editor-target="devin"]
+  .chat-settings-reference-editor-icon {
+  background: linear-gradient(135deg, #f8f9fb 0%, #6c7380 100%);
+  color: #121212;
+}
+
+.chat-settings-reference-editor-option[data-settings-editor-target^="jetbrains_"]
+  .chat-settings-reference-editor-icon {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 42%),
+    linear-gradient(135deg, #ff3d7f 0%, #7c4dff 48%, #00c2ff 100%);
+  color: #ffffff;
+}
+
+.chat-settings-reference-editor-copy {
+  min-width: 0;
+  display: block;
+}
+
+.chat-settings-reference-editor-copy strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-settings-reference-editor-check {
+  color: #ffffff;
+  font-size: 13px;
+  text-align: right;
+}
+
 .chat-settings-reference-copy-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 72px;

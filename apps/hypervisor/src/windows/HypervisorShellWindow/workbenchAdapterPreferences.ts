@@ -1,6 +1,20 @@
 export type HypervisorWorkbenchAdapterId =
   | "embedded_workbench"
   | "external_editor"
+  | "vscode_insiders"
+  | "cursor"
+  | "windsurf"
+  | "devin"
+  | "vscode_browser"
+  | "jetbrains_idea"
+  | "jetbrains_goland"
+  | "jetbrains_pycharm"
+  | "jetbrains_phpstorm"
+  | "jetbrains_rubymine"
+  | "jetbrains_webstorm"
+  | "jetbrains_clion"
+  | "jetbrains_rustrover"
+  | "jetbrains_rider"
   | "browser_workspace"
   | "terminal_workspace"
   | "remote_vm"
@@ -33,6 +47,9 @@ export interface WorkbenchAdapterPreference {
   launch_mode: HypervisorWorkbenchAdapterLaunchMode;
   target_ref: string;
   custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  icon_label?: string;
+  settings_group?: "editor" | "browser" | "terminal" | "environment";
+  settings_visible?: boolean;
   default_for_project?: boolean;
 }
 
@@ -120,12 +137,14 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
   [
     {
       adapter_id: "embedded_workbench",
-      label: "Embedded Workbench",
+      label: "VS Code",
       description:
-        "Use Hypervisor's packaged workbench host for code, IOI panes, and extension-backed project work.",
+        "Open Hypervisor's packaged Workbench host with VS Code-compatible panes.",
       launch_mode: "embedded",
-      target_ref: "adapter-target:embedded-workbench",
+      target_ref: "adapter-target:vscode-embedded",
       custody_posture: "local_projection",
+      icon_label: "VS",
+      settings_group: "editor",
       default_for_project: true,
     },
     {
@@ -136,6 +155,160 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       launch_mode: "external",
       target_ref: "adapter-target:external-editor",
       custody_posture: "redacted_projection",
+      icon_label: "ED",
+      settings_group: "editor",
+      settings_visible: false,
+    },
+    {
+      adapter_id: "vscode_insiders",
+      label: "VS Code Insiders",
+      description:
+        "Attach the Insiders desktop editor as a governed Workbench adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:vscode-insiders",
+      custody_posture: "redacted_projection",
+      icon_label: "VI",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "cursor",
+      label: "Cursor",
+      description:
+        "Attach Cursor as a governed editor target without letting it own runtime truth.",
+      launch_mode: "external",
+      target_ref: "adapter-target:cursor",
+      custody_posture: "redacted_projection",
+      icon_label: "CU",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "windsurf",
+      label: "Windsurf",
+      description:
+        "Attach Windsurf as a governed editor target with daemon-mediated workspace access.",
+      launch_mode: "external",
+      target_ref: "adapter-target:windsurf",
+      custody_posture: "redacted_projection",
+      icon_label: "WS",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "devin",
+      label: "Devin",
+      description:
+        "Attach a hosted coding workspace through browser-workspace access leases and receipts.",
+      launch_mode: "remote_url",
+      target_ref: "adapter-target:devin-workspace",
+      custody_posture: "provider_session",
+      icon_label: "DV",
+      settings_group: "browser",
+    },
+    {
+      adapter_id: "vscode_browser",
+      label: "VS Code Browser",
+      description:
+        "Open a browser-hosted VS Code-compatible workspace through provider policy.",
+      launch_mode: "remote_url",
+      target_ref: "adapter-target:vscode-browser",
+      custody_posture: "provider_session",
+      icon_label: "VB",
+      settings_group: "browser",
+    },
+    {
+      adapter_id: "jetbrains_idea",
+      label: "IntelliJ IDEA Ultimate",
+      description:
+        "Attach IntelliJ IDEA as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-idea",
+      custody_posture: "redacted_projection",
+      icon_label: "IJ",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_goland",
+      label: "GoLand",
+      description: "Attach GoLand as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-goland",
+      custody_posture: "redacted_projection",
+      icon_label: "GO",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_pycharm",
+      label: "PyCharm Professional",
+      description:
+        "Attach PyCharm as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-pycharm",
+      custody_posture: "redacted_projection",
+      icon_label: "PY",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_phpstorm",
+      label: "PhpStorm",
+      description:
+        "Attach PhpStorm as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-phpstorm",
+      custody_posture: "redacted_projection",
+      icon_label: "PS",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_rubymine",
+      label: "RubyMine",
+      description:
+        "Attach RubyMine as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-rubymine",
+      custody_posture: "redacted_projection",
+      icon_label: "RM",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_webstorm",
+      label: "WebStorm",
+      description:
+        "Attach WebStorm as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-webstorm",
+      custody_posture: "redacted_projection",
+      icon_label: "WB",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_clion",
+      label: "CLion",
+      description: "Attach CLion as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-clion",
+      custody_posture: "redacted_projection",
+      icon_label: "CL",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_rustrover",
+      label: "RustRover",
+      description:
+        "Attach RustRover as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-rustrover",
+      custody_posture: "redacted_projection",
+      icon_label: "RR",
+      settings_group: "editor",
+    },
+    {
+      adapter_id: "jetbrains_rider",
+      label: "Rider",
+      description: "Attach Rider as a governed desktop editor adapter target.",
+      launch_mode: "external",
+      target_ref: "adapter-target:jetbrains-rider",
+      custody_posture: "redacted_projection",
+      icon_label: "RD",
+      settings_group: "editor",
     },
     {
       adapter_id: "browser_workspace",
@@ -145,6 +318,9 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       launch_mode: "remote_url",
       target_ref: "adapter-target:browser-workspace",
       custody_posture: "provider_session",
+      icon_label: "BR",
+      settings_group: "browser",
+      settings_visible: false,
     },
     {
       adapter_id: "terminal_workspace",
@@ -154,6 +330,9 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       launch_mode: "headless",
       target_ref: "adapter-target:terminal-workspace",
       custody_posture: "headless_session",
+      icon_label: ">_",
+      settings_group: "terminal",
+      settings_visible: false,
     },
     {
       adapter_id: "remote_vm",
@@ -163,6 +342,9 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       launch_mode: "remote_url",
       target_ref: "adapter-target:remote-vm-workspace",
       custody_posture: "provider_session",
+      icon_label: "VM",
+      settings_group: "environment",
+      settings_visible: false,
     },
     {
       adapter_id: "hypervisor_node",
@@ -172,6 +354,9 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       launch_mode: "remote_url",
       target_ref: "adapter-target:hypervisoros-node",
       custody_posture: "provider_session",
+      icon_label: "HN",
+      settings_group: "environment",
+      settings_visible: false,
     },
   ];
 
@@ -217,6 +402,18 @@ export function buildWorkbenchAdapterLaunchPlan(
 
   switch (workbenchAdapter.adapter_id) {
     case "external_editor":
+    case "vscode_insiders":
+    case "cursor":
+    case "windsurf":
+    case "jetbrains_idea":
+    case "jetbrains_goland":
+    case "jetbrains_pycharm":
+    case "jetbrains_phpstorm":
+    case "jetbrains_rubymine":
+    case "jetbrains_webstorm":
+    case "jetbrains_clion":
+    case "jetbrains_rustrover":
+    case "jetbrains_rider":
       return {
         ...base,
         connection_kind: "desktop_bridge",
@@ -228,10 +425,14 @@ export function buildWorkbenchAdapterLaunchPlan(
           "scope:workspace.patch",
           "scope:receipt.write",
         ],
-        required_receipt_refs: ["receipt-policy:workbench-adapter/desktop-bridge"],
+        required_receipt_refs: [
+          "receipt-policy:workbench-adapter/desktop-bridge",
+        ],
         restore_archive_policy: "not_required",
         provider_posture_required: false,
       };
+    case "devin":
+    case "vscode_browser":
     case "browser_workspace":
       return {
         ...base,

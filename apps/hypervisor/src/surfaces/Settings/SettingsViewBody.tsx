@@ -89,42 +89,67 @@ function SettingsSwitch({
   );
 }
 
+function SettingsEditorTargetList({ view }: { view: SettingsViewBodyView }) {
+  const visibleTargets = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.filter(
+    (preference) => preference.settings_visible !== false,
+  );
+
+  return (
+    <div
+      className="chat-settings-reference-editor-picker"
+      aria-label="Default editor adapter targets"
+      data-settings-editor-picker="workbench-adapter-targets"
+    >
+      {visibleTargets.map((preference) => {
+        const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
+        const selected = preferenceRef === view.workbenchAdapterPreferenceRef;
+
+        return (
+          <button
+            type="button"
+            key={preference.adapter_id}
+            className={`chat-settings-reference-editor-option ${
+              selected ? "is-selected" : ""
+            }`}
+            aria-pressed={selected}
+            data-settings-editor-target={preference.adapter_id}
+            data-workbench-adapter-preference={preferenceRef}
+            onClick={() => view.setWorkbenchAdapterPreferenceRef(preferenceRef)}
+          >
+            <span
+              className="chat-settings-reference-editor-icon"
+              aria-hidden="true"
+            >
+              {preference.icon_label ?? preference.label.slice(0, 2)}
+            </span>
+            <span className="chat-settings-reference-editor-copy">
+              <strong>{preference.label}</strong>
+            </span>
+            {selected ? (
+              <span
+                className="chat-settings-reference-editor-check"
+                aria-hidden="true"
+              >
+                ✓
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
   const selectedPreference = getWorkbenchAdapterPreferenceByRef(
     view.workbenchAdapterPreferenceRef,
   );
-  const profile = view.profileDraft;
-  const profileEmail = profile.primaryEmail || "operator@local.hypervisor";
-  const accountId = `account:${(profile.avatarSeed || "operator").toLowerCase()}`;
 
   return (
     <section
       className="chat-settings-reference-panel"
       aria-label="Account settings"
     >
-      <div className="chat-settings-reference-section">
-        <h2>Account details</h2>
-        <div className="chat-settings-reference-account-row">
-          <span className="chat-settings-reference-avatar" aria-hidden="true">
-            {(profile.avatarSeed || "OP").slice(0, 2).toUpperCase()}
-          </span>
-          <div>
-            <strong>{profile.displayName || "Operator"}</strong>
-            <em>{profileEmail}</em>
-          </div>
-        </div>
-
-        <label className="chat-settings-reference-field">
-          <span>Account ID</span>
-          <div className="chat-settings-reference-copy-field">
-            <input value={accountId} readOnly />
-            <button type="button" aria-label="Copy account ID">
-              Copy
-            </button>
-          </div>
-        </label>
-      </div>
-
       <div className="chat-settings-reference-section">
         <h2>Preferences</h2>
 
@@ -139,33 +164,19 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
           </div>
         </div>
 
-        <label className="chat-settings-reference-field">
+        <div className="chat-settings-reference-field">
           <span>Default Editor</span>
-          <select
-            value={view.workbenchAdapterPreferenceRef}
-            onChange={(event) =>
-              view.setWorkbenchAdapterPreferenceRef(event.target.value)
-            }
-          >
-            {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
-              const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
-              return (
-                <option key={preferenceRef} value={preferenceRef}>
-                  {preference.label}
-                </option>
-              );
-            })}
-          </select>
+          <SettingsEditorTargetList view={view} />
           <em>
             This will be your default selected editor or workspace target for
-            environments.
+            governed sessions.
           </em>
-        </label>
+        </div>
 
         <SettingsSwitch
           checked={selectedPreference.adapter_id === "embedded_workbench"}
-          label="Embedded Workbench"
-          description="Show the embedded code editor in the Workbench tab."
+          label="Embedded VS Code"
+          description="Show the embedded VS Code-compatible editor in the Workbench tab."
         />
         <SettingsSwitch
           label="Agent done notification"

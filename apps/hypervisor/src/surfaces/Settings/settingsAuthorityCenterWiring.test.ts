@@ -34,6 +34,13 @@ const workbenchAdapterSection = fs.readFileSync(
   new URL("./SettingsWorkbenchAdapterSection.tsx", import.meta.url),
   "utf8",
 );
+const workbenchAdapterPreferences = fs.readFileSync(
+  new URL(
+    "../../windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const missionControlControlView = fs.readFileSync(
   new URL("../MissionControl/MissionControlControlView.tsx", import.meta.url),
   "utf8",
@@ -142,7 +149,28 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(settingsViewBody, /Personal access tokens/);
   assert.match(settingsViewBody, /Integrations/);
   assert.match(settingsViewBody, /Default Editor/);
-  assert.match(settingsViewBody, /Embedded Workbench/);
+  assert.match(settingsViewBody, /SettingsEditorTargetList/);
+  assert.match(settingsViewBody, /data-settings-editor-picker/);
+  assert.match(settingsViewBody, /data-settings-editor-target/);
+  assert.match(settingsViewBody, /Embedded VS Code/);
+  assert.match(workbenchAdapterPreferences, /VS Code Insiders/);
+  assert.match(workbenchAdapterPreferences, /Cursor/);
+  assert.match(workbenchAdapterPreferences, /Windsurf/);
+  assert.match(workbenchAdapterPreferences, /IntelliJ IDEA Ultimate/);
+  assert.match(workbenchAdapterPreferences, /PyCharm Professional/);
+  assert.match(workbenchAdapterPreferences, /RubyMine/);
+  assert.match(workbenchAdapterPreferences, /WebStorm/);
+  assert.match(workbenchAdapterPreferences, /CLion/);
+  assert.match(workbenchAdapterPreferences, /RustRover/);
+  assert.match(workbenchAdapterPreferences, /Rider/);
+  assert.match(
+    workbenchAdapterPreferences,
+    /adapter_id: "browser_workspace"[\s\S]*settings_visible: false/,
+  );
+  assert.match(
+    workbenchAdapterPreferences,
+    /adapter_id: "remote_vm"[\s\S]*settings_visible: false/,
+  );
   assert.match(settingsView, /workbenchAdapterPreferenceRef/);
   assert.match(settingsView, /chat-settings-view--reference/);
   assert.match(
