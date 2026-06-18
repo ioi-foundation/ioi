@@ -276,7 +276,9 @@ export function ChatLocalActivityBar({
   const railItemBySurface = (surfaceId: PrimaryView) =>
     primaryNavItems.find((item) => item.hypervisorSurfaceId === surfaceId);
   const sessionsNavItem = railItemBySurface("sessions");
-  const projectsNavItem = railItemBySurface("projects");
+  const topNavItems = primaryNavItems.filter(
+    (item) => item.hypervisorSurfaceId !== "sessions",
+  );
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
@@ -350,15 +352,14 @@ export function ChatLocalActivityBar({
             <span className="chat-activity-button-shortcut">O</span>
           </span>
         </button>
-        {projectsNavItem ? (
+        {topNavItems.map((item) => (
           <ActivityButton
-            key={projectsNavItem.id}
-            item={{ ...projectsNavItem, label: "Projects" }}
-            icon={<ProjectsIcon />}
-            isActive={isActiveRailItem(projectsNavItem)}
-            onClick={() => activateRoute(projectsNavItem.route)}
+            key={item.id}
+            item={item}
+            isActive={isActiveRailItem(item)}
+            onClick={() => activateRoute(item.route)}
           />
-        ) : null}
+        ))}
       </div>
 
       <div className="chat-activity-group chat-activity-group--sessions" aria-label="Sessions">

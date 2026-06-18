@@ -1454,13 +1454,13 @@ assert(
       '[data-home-dashboard-variant="ioi-reference-home"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Welcome back, Operator",
+      "Sessions and workspaces",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Recommended applications",
+      "Recent sessions",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Search for anything in Hypervisor",
+      "Surfaces",
     ) &&
     hypervisorAppShellContractSource.includes(
       '[data-home-start-session="true"]',

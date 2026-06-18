@@ -316,14 +316,20 @@ assert.match(
 
 assert.match(
   homeCss,
-  /\.chat-home-zero-actions\s*\{[\s\S]*\.chat-home-zero-app-grid\s*\{/,
-  "Home should expose the IOI reference application portal as the default workplane",
+  /\.chat-home-zero-reference-header\s*\{[\s\S]*\.chat-home-zero-workplane\s*\{[\s\S]*\.chat-home-zero-surface-list\s*\{/,
+  "Home should expose the IOI reference session workplane as the default surface",
 );
 
 assert.match(
   homeViewSource,
-  /Welcome back, Operator[\s\S]*Recommended applications[\s\S]*HOME_REFERENCE_APPS/,
-  "Home should match the IOI reference application-home copy",
+  /Sessions and workspaces[\s\S]*Recent sessions[\s\S]*HOME_REFERENCE_SURFACES/,
+  "Home should match the IOI reference session-home copy",
+);
+
+assert.doesNotMatch(
+  homeViewSource,
+  /Welcome back, Operator|Recommended applications|HOME_REFERENCE_APPS|HOME_REFERENCE_ACTIONS/,
+  "Home should not return to the old marketing-card application portal",
 );
 
 assert.doesNotMatch(

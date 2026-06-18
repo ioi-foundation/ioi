@@ -166,7 +166,7 @@ async function main() {
       );
       throw new Error(
         [
-          "Hypervisor Home reference application shell did not become visible.",
+          "Hypervisor Home reference session workplane did not become visible.",
           `root_text=${JSON.stringify(rootText.slice(0, 600))}`,
           `console=${JSON.stringify(consoleMessages.slice(-10))}`,
           error instanceof Error ? error.message : String(error),
@@ -175,21 +175,23 @@ async function main() {
     }
     const bodyText = await page.locator("body").innerText();
     assert(
-      bodyText.includes("Welcome back, Operator"),
-      "Home does not expose the IOI-reference application shell.",
+      bodyText.includes("Sessions and workspaces"),
+      "Home does not expose the IOI-reference session workplane.",
     );
     assert(
-      bodyText.includes("Recommended applications"),
-      "Home does not expose the IOI-reference applications panel.",
+      bodyText.includes("Recent sessions"),
+      "Home does not expose recent sessions.",
     );
     assert(
-      bodyText.includes("Search for anything in Hypervisor"),
-      "Home does not expose the IOI-reference command search.",
+      bodyText.includes("Surfaces"),
+      "Home does not expose the session surface list.",
     );
+    assert(!bodyText.includes("Welcome back, Operator"), "Old operator-home copy is visible in the shell.");
+    assert(!bodyText.includes("Recommended applications"), "Old application-grid copy is visible in the shell.");
     assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
 
     const seededIntent =
-      "Open a governed Hypervisor session with example agents, workflows, model mounts, policy, and receipts wired.";
+      "Open a governed Hypervisor session for this workspace with editor, terminal, model mount, policy, and receipts wired.";
     await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
@@ -365,9 +367,9 @@ async function main() {
       ok: true,
       url,
       checks: [
-        "home_reference_application_shell_rendered",
+        "home_reference_session_workplane_rendered",
         "home_seed_intent_reaches_new_session",
-        "home_reference_application_action_reaches_new_session",
+        "home_reference_session_action_reaches_new_session",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",

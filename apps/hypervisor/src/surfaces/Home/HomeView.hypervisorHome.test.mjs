@@ -24,23 +24,26 @@ const shellContent = readFileSync(
   "utf8",
 );
 
-test("home dashboard uses the IOI reference application shell", () => {
+test("home dashboard uses the IOI reference session workplane", () => {
   assert.match(homeView, /aria-label="Hypervisor home"/);
   assert.match(homeView, /data-home-dashboard-variant="ioi-reference-home"/);
   assert.match(homeView, /chat-home-zero--ioi-enterprise/);
-  assert.match(homeView, /Welcome back, Operator/);
-  assert.match(homeView, /Search for anything in Hypervisor/);
-  assert.match(homeView, /Get started/);
-  assert.match(homeView, /Install examples/);
-  assert.match(homeView, /Join Developer Community/);
-  assert.match(homeView, /Recommended applications/);
-  assert.match(homeView, /Projects & files/);
-  assert.match(homeView, /Pipeline Builder/);
+  assert.match(homeView, /Sessions and workspaces/);
+  assert.match(homeView, /Recent sessions/);
+  assert.match(homeView, /What's new\?/);
+  assert.match(homeView, /Surfaces/);
   assert.match(homeView, /Workbench/);
   assert.match(homeView, /Agents/);
   assert.match(homeView, /Models/);
+  assert.match(homeView, /Providers/);
   assert.match(homeView, /Authority/);
   assert.match(homeView, /Receipts/);
+  assert.doesNotMatch(homeView, /Welcome back, Operator/);
+  assert.doesNotMatch(homeView, /Search for anything in Hypervisor/);
+  assert.doesNotMatch(homeView, /Get started/);
+  assert.doesNotMatch(homeView, /Install examples/);
+  assert.doesNotMatch(homeView, /Join Developer Community/);
+  assert.doesNotMatch(homeView, /Recommended applications/);
   assert.doesNotMatch(homeView, /What do you want to get done today\?/);
   assert.doesNotMatch(homeView, /className="chat-home-zero-prompt-stage"/);
   assert.doesNotMatch(homeView, /className="chat-home-zero-composer"/);
@@ -78,13 +81,11 @@ test("home dashboard exposes the reference-style application workplane", () => {
   assert.doesNotMatch(homeView, /data-home-intent-model/);
   assert.doesNotMatch(homeView, /data-home-intent-submit/);
   assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
-  assert.match(homeView, /HOME_REFERENCE_ACTIONS/);
-  assert.match(homeView, /HOME_REFERENCE_APPS/);
-  assert.match(homeView, /chat-home-zero-actions/);
-  assert.match(homeView, /chat-home-zero-search/);
-  assert.match(homeView, /chat-home-zero-body/);
+  assert.match(homeView, /HOME_REFERENCE_SURFACES/);
+  assert.match(homeView, /chat-home-zero-reference-header/);
+  assert.match(homeView, /chat-home-zero-workplane/);
   assert.match(homeView, /chat-home-zero-sidebar/);
-  assert.match(homeView, /chat-home-zero-app-grid/);
+  assert.match(homeView, /chat-home-zero-surface-list/);
   assert.match(homeView, /data-home-start-session/);
   assert.match(homeView, /onOpenCommandPalette/);
   assert.match(homeView, /onOpenCockpitSurface/);
@@ -111,10 +112,11 @@ test("home dashboard exposes the reference-style application workplane", () => {
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
-  assert.match(homeCss, /\.chat-home-zero-actions \{/);
   assert.match(homeCss, /\.chat-home-zero-table \{/);
   assert.match(homeCss, /\.chat-home-zero-side-card \{/);
-  assert.match(homeCss, /\.chat-home-zero-app-grid \{/);
+  assert.match(homeCss, /\.chat-home-zero-surface-list \{/);
+  assert.doesNotMatch(homeCss, /\.chat-home-zero-actions \{/);
+  assert.doesNotMatch(homeCss, /\.chat-home-zero-app-grid \{/);
 });
 
 test("home default dashboard does not mount hidden legacy workplanes", () => {
@@ -140,15 +142,18 @@ test("home dashboard routes model setup to the Models surface", () => {
   );
 });
 
-test("home application shell has responsive reference styling", () => {
+test("home session workplane has responsive reference styling", () => {
   assert.match(homeCss, /\.chat-home-zero-shell\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero::before\s*\{[\s\S]*height: 500px;[\s\S]*linear-gradient\(30deg/);
-  assert.match(homeCss, /\.chat-home-zero-brand-mark__glyph\s*\{[\s\S]*border-bottom-color: rgba\(37, 99, 235, 0\.58\)/);
-  assert.match(homeCss, /\.chat-home-zero-actions\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-body\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero::before\s*\{[\s\S]*content: none;[\s\S]*display: none;/);
+  assert.match(homeCss, /\.chat-home-zero-reference-header\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-primary-action\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-workplane\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-surface-list\s*\{/);
+  assert.doesNotMatch(homeCss, /linear-gradient\(30deg/);
+  assert.doesNotMatch(homeCss, /\.chat-home-zero-brand-mark__glyph/);
   assert.match(
     homeCss,
-    /@media \(max-width: 1200px\)[\s\S]*\.chat-home-zero-actions/,
+    /@media \(max-width: 1200px\)[\s\S]*\.chat-home-zero-workplane/,
   );
 });
 
