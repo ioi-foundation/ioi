@@ -25,6 +25,11 @@ function allFiles(dir, predicate = () => true) {
   });
 }
 
+function readOptional(relativePath) {
+  const absolute = path.join(root, relativePath);
+  return fs.existsSync(absolute) ? fs.readFileSync(absolute, "utf8") : "";
+}
+
 function assert(id, condition, evidence, message) {
   report.push({
     id,
@@ -82,6 +87,13 @@ const retiredDirectWorkspaceSurfacePaths = [
   "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
   "apps/hypervisor/src/services/workspaceDirectWebview.ts",
 ];
+const hypervisorDistSurfaceBundleFiles = allFiles(
+  "apps/hypervisor/dist",
+  (relativePath) => /\.(?:html|js|css)$/.test(relativePath),
+);
+const hypervisorDistSurfaceBundle = hypervisorDistSurfaceBundleFiles
+  .map((relativePath) => readOptional(relativePath))
+  .join("\n");
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -1772,6 +1784,16 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   ],
   "Hypervisor App surfaces must render explicit IOI-reference bodies instead of generic placeholder fallback screens.",
+);
+assert(
+  "hypervisor-dist-without-retired-operator-console",
+  !/Operator console for autonomous systems|Build, run, govern, and verify|Build, run, govern|CURRENT WORKSPACE|CONNECTOR SPRINT READINESS|Connector Dry Run|Mount Models|Workflow Composer/.test(
+    hypervisorDistSurfaceBundle,
+  ),
+  hypervisorDistSurfaceBundleFiles.length > 0
+    ? hypervisorDistSurfaceBundleFiles.slice(0, 24)
+    : ["apps/hypervisor/dist"],
+  "Ignored Hypervisor dist bundles may exist only as disposable build output; they must not retain the retired standalone operator console or Build/Run/Govern/Verify UX.",
 );
 assert(
   "retired-autopilot-workflow-canvas-fixtures-absent",
