@@ -392,7 +392,6 @@ export function HypervisorNewSessionModal({
                   disabled={launchBlockedByHarnessVerdict}
                   onClick={() => {
                     setRecipeId(launchRecipe.recipe_id);
-                    void onLaunch(buildLaunchRequest(launchRecipe));
                   }}
                 >
                   <span aria-hidden="true" />

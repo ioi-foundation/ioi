@@ -253,6 +253,30 @@ async function main() {
       !compatibleLaunchDisabled,
       "Compatible redacted external harness launch should be available.",
     );
+    await page
+      .locator('[data-new-session-recipe="workbench.default"]')
+      .click();
+    await page.waitForFunction(() => {
+      const targetKind = document.querySelector("[data-new-session-target-kind]");
+      const sessionRoute = document.querySelector(
+        "[data-new-session-target-session-route]",
+      );
+      return (
+        targetKind?.getAttribute("data-new-session-target-kind") ===
+          "workbench" &&
+        sessionRoute
+          ?.getAttribute("data-new-session-target-session-route")
+          ?.startsWith("session-route:workbench/")
+      );
+    });
+    assert(
+      (await page.locator(".hypervisor-new-session-modal").count()) === 1,
+      "Selecting a New Session recipe should keep the governed setup modal open.",
+    );
+    assert(
+      (await page.locator(".chat-activity-session-row").count()) === 0,
+      "Selecting a New Session recipe must not create a launched session projection.",
+    );
     await page.locator('button[aria-label="Close New Session"]').click();
 
     await page.goto(new URL("?view=sessions", url).toString(), {
@@ -557,6 +581,7 @@ async function main() {
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
+        "new_session_recipe_selection_review_gated",
         "sessions_reference_environment_lifecycle_rendered",
         "projects_reference_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",

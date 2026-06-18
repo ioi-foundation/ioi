@@ -78,6 +78,10 @@ const launchedSessionPersistence = readFileSync(
   new URL("./hypervisorLaunchedSessionPersistence.ts", import.meta.url),
   "utf8",
 );
+const shellBaseCss = readFileSync(
+  new URL("./styles/hypervisor-shell/shell-base.css", import.meta.url),
+  "utf8",
+);
 
 function sourceSlice(contents, startMarker, endMarker) {
   const start = contents.indexOf(startMarker);
@@ -396,6 +400,18 @@ test("new session modal is a shell-level governed launch flow", () => {
     newSessionModal,
     /data-new-session-recipe=\{choice\.recipe_id\}/,
   );
+  assert.doesNotMatch(
+    newSessionModal,
+    /onLaunch\(buildLaunchRequest\(launchRecipe\)\)/,
+  );
+  assert.match(
+    newSessionModal,
+    /onClick=\{\(\) => \{\s*setRecipeId\(launchRecipe\.recipe_id\);\s*\}\}/s,
+  );
+  assert.match(
+    newSessionModal,
+    /onClick=\{\(\) => void onLaunch\(buildLaunchRequest\(recipe\)\)\}/,
+  );
   for (const recipeId of [
     "mission.default",
     "workbench.default",
@@ -434,6 +450,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /projectOptions\.map/);
   assert.match(newSessionModal, /data-new-session-harness-verdict/);
   assert.match(newSessionModal, /cTEE private workspace/);
+  assert.match(shellBaseCss, /hypervisor-new-session-modal__compact-choice strong/);
+  assert.match(shellBaseCss, /grid-column: 2;/);
+  assert.match(shellBaseCss, /hypervisor-new-session-modal__compact-choice b/);
+  assert.match(shellBaseCss, /grid-column: 3;/);
   assert.doesNotMatch(newSessionModal, /Launch governed session/);
   assert.doesNotMatch(newSessionModal, /Code Editor Adapter/);
   assert.match(controller, /newSessionModalOpen/);

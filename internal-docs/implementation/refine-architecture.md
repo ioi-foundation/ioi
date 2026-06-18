@@ -1281,9 +1281,10 @@ Current implementation cut:
   Automation, Foundry Job, Provider/Environment Job, and Private Workspace
   launch recipes without the retired `fleet_job` identifier
   the New Session modal now exposes every canonical launch recipe as a visible
-  recipe card and `Launch type` selector, with a guarded `Start selected
-  session` path. The old three-choice Project/URL/Scratch launcher is gone;
-  the UI is backed directly by `HYPERVISOR_SESSION_LAUNCH_RECIPES`.
+  recipe card and `Launch type` selector, with recipe cards acting as
+  selection-only setup controls and a guarded `Start selected session` path as
+  the single launch boundary. The old three-choice Project/URL/Scratch launcher
+  is gone; the UI is backed directly by `HYPERVISOR_SESSION_LAUNCH_RECIPES`.
   `HypervisorNewSessionModal` binds project, harness, model route, privacy
   posture, authority scope templates, and receipt preview before launch
   the modal now exposes Project as an operator-selectable launch field rather

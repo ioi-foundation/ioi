@@ -1805,13 +1805,16 @@ assert(
     hypervisorNewSessionModalSource.includes("<span>Launch type</span>") &&
     hypervisorNewSessionModalSource.includes("data-new-session-recipe") &&
     hypervisorNewSessionModalSource.includes(
-      "void onLaunch(buildLaunchRequest(launchRecipe))",
+      "setRecipeId(launchRecipe.recipe_id)",
     ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-start-selected",
     ) &&
     hypervisorNewSessionModalSource.includes(
       "void onLaunch(buildLaunchRequest(recipe))",
+    ) &&
+    !hypervisorNewSessionModalSource.includes(
+      "onLaunch(buildLaunchRequest(launchRecipe))",
     ) &&
     hypervisorShellControllerSource.includes(
       "const summary = request.launch_summary",
