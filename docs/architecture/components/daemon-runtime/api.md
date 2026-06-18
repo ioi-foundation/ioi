@@ -563,6 +563,76 @@ requested lifecycle action, wallet scope requirements, archive/restore refs,
 state-root refs, and receipt refs before any provider-side deployment, access,
 archive, zero-to-idle, or restore operation can proceed.
 
+```http
+POST /v1/hypervisor/approved-operations
+```
+
+`POST /v1/hypervisor/approved-operations` admits an already-proposed
+Hypervisor operation for execution only after the operation has passed the
+wallet.network authority path and the Agentgres truth path.
+
+Request body:
+
+```json
+{
+  "operation_family": "session | provider",
+  "proposal_ref": "session-operation:... | provider-operation:...",
+  "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
+  "proposal_source": "daemon-session-operation-proposal",
+  "project_ref": "project:...",
+  "session_ref": "session:...",
+  "environment_ref": "environment:...",
+  "provider_candidate_ref": "provider:...",
+  "candidate_ref": "provider-candidate:...",
+  "direct_provider_ref": "provider:...",
+  "operation_kind": "restore_session | zero_to_idle | ...",
+  "target_ref": "agentgres://restore/...",
+  "wallet_approval_ref": "approval://wallet/...",
+  "wallet_lease_ref": "lease:wallet/...",
+  "required_scope_refs": ["scope:..."],
+  "authority_receipt_refs": ["receipt://wallet/..."],
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "receipt_ref": "receipt://...",
+  "state_root_ref": "agentgres://state-root/...",
+  "archive_ref": "artifact://agentgres/archive/...",
+  "restore_ref": "agentgres://restore/..."
+}
+```
+
+The response is an `ioi.runtime.hypervisor_approved_operation_admission.v1`
+object:
+
+```json
+{
+  "schema_version": "ioi.runtime.hypervisor_approved_operation_admission.v1",
+  "admission_id": "hypervisor-approved-operation:...",
+  "operation_family": "session",
+  "proposal_ref": "session-operation:...",
+  "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
+  "proposal_source": "daemon-session-operation-proposal",
+  "project_ref": "project:...",
+  "operation_kind": "restore_session",
+  "decision": "admitted",
+  "execution_status": "admitted_for_execution",
+  "wallet_approval_ref": "approval://wallet/...",
+  "wallet_lease_ref": "lease:wallet/...",
+  "required_scope_refs": ["scope:..."],
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "receipt_refs": ["receipt://..."],
+  "state_root_ref": "agentgres://state-root/...",
+  "archive_ref": "artifact://agentgres/archive/...",
+  "restore_ref": "agentgres://restore/...",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Approved operation admission rejects fixture or unverified proposal sources.
+The endpoint is not a provider adapter and not a wallet approval UI. It is the
+daemon admission boundary that proves the selected proposal, wallet approval,
+wallet lease, Agentgres operation refs, receipts, archive/restore refs, and
+state root are bound before Hypervisor executes the session or provider
+lifecycle operation.
+
 ### Runtime Manifest
 
 ```json

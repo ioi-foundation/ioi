@@ -1175,15 +1175,20 @@ Current implementation cut:
   for changes/authority/privacy/receipts/model-provider and
   ports/services/tasks/terminal/logs shape; session operations now have a
   first proposal path for access/log leases, port exposure, task run, terminal
-  command review, archive, and restore. Remaining work is approved operation
-  execution after wallet authority plus broader non-fixture project/session
-  data coverage.
+  command review, archive, and restore. Approved operation execution now has a
+  first daemon admission boundary that accepts only daemon-authored
+  session/provider proposals after wallet approval, wallet lease, Agentgres
+  operation refs, receipts, state-root refs, and required archive/restore refs
+  are bound. Broader non-fixture project/session data coverage remains follow-up
+  work.
 
 0A.5 Workbench adapter-hub landing is implemented through the primary shell:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
   Hypervisor Core instead of a `Code repositories` / pull-request console
-  the landing models code-editor, browser IDE, terminal, VM, provider
-  workspace, HypervisorOS node, and substrate-preview targets
+  the landing models embedded, desktop, and browser-based code editor targets
+  only. Terminals, VMs, cloud providers, HypervisorOS nodes, and provider
+  posture now belong to Sessions, Environments, Providers, and runtime
+  operations rather than the Workbench editor-adapter surface.
   the landing states that any editor host is one target, not the parent product
   or runtime truth
   existing workspace-root creation, recents, favorites, and open-workspace
@@ -1194,19 +1199,19 @@ Current implementation cut:
   request field
   `workbenchAdapterPreferences.ts` now owns `WorkbenchAdapterLaunchPlan`,
   converting each adapter preference into a daemon-gated connection contract
-  with access leases, authority scopes, receipt policy refs, provider-posture
-  requirements, restore/archive policy, and `no_durable_secret_release`. New
-  Session receipt previews surface the launch plan and connection contract
-  before launch, so adapter targets are governed session routes rather than
-  decorative editor choices.
+  with access leases, authority scopes, receipt policy refs, typed executor
+  lanes, typed control actions, and `no_durable_secret_release`. New Session
+  receipt previews surface the launch plan and connection contract before
+  launch, so editor targets are governed session routes rather than decorative
+  editor choices.
   The primary left rail now exposes Workbench directly, and `WorkspaceShell`
   lands on the adapter hub before starting an embedded editor or other
   workbench target. Explicit repository/session opens still transition into the
   governed workbench runtime.
   `runtime-workbench-adapter-launch-plan-admission.mjs` now admits those launch
   plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
-  secret release, adapter-runtime-truth claims, missing provider posture, and
-  persistent remote routes without archive/restore refs.
+  secret release, adapter-runtime-truth claims, retired provider/VM/node/terminal
+  adapter targets, and mismatched editor connection/control contracts.
   `requestWorkbenchAdapterLaunchPlanAdmission` now calls that daemon route from
   New Session launch. `HypervisorLaunchedSessionProjection` records the adapter
   admission as `daemon_admitted`, `daemon_blocked`, or `daemon_unavailable`,
@@ -1214,7 +1219,7 @@ Current implementation cut:
   `WorkbenchAdapterLaunchPlan` and daemon launch admissions now carry
   adapter-specific `executor_lane`, `control_action`, and
   `control_channel_ref` fields for embedded Workbench, desktop editor, browser
-  workspace, terminal session, provider workspace, and HypervisorOS node paths.
+  code-editor URL, and browser IDE paths.
   The runtime daemon validates that the control action matches the connection
   kind before admitting the launch plan, and the Workbench adapter hub renders
   product-facing action labels while keeping the raw control metadata in stable
