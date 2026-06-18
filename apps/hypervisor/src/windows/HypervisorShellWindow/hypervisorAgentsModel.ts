@@ -131,7 +131,7 @@ export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
         agent_ref: "agent:quant-research-private",
         label: "Quant research agent",
         objective:
-          "Backtest market hypotheses against public tensors while keeping AlphaSeal private-head scoring behind cTEE policy.",
+          "Backtest market hypotheses against public datasets while keeping private scoring and order logic off shared compute.",
         status: "running",
         workspace_ref: "workspace://ioi/quant-alpha",
         session_ref: "session:agent/quant-research-private",
@@ -154,7 +154,7 @@ export const HYPERVISOR_AGENTS_PROJECTION_FIXTURE: HypervisorAgentsProjection =
           },
           {
             skill_ref: "skill:alpha.seal.private-head",
-            label: "AlphaSeal private head",
+            label: "Private scoring head",
             source: "private_package",
             version_ref: "skill-version:alpha.seal.private-head/v1",
             promotion_state: "candidate",

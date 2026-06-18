@@ -290,10 +290,11 @@ async function main() {
     assert(agentsText.includes("Selected agent"), "Agents surface did not expose a selected agent detail pane.");
     assert(agentsText.includes("Interface"), "Agents surface did not expose the product-facing interface column.");
     assert(agentsText.includes("Access"), "Agents surface did not expose the product-facing access controls.");
+    assert(agentsText.includes("What's new?"), "Agents surface did not expose the reference-style right rail.");
     assert(
       !(
         agentsText.match(
-          /Configured workers|Review leases|Daemon Owned|Proposal Source Only|Default Harness Profile|Hypervisor Daemon|Agentgres|wallet\.network/i,
+          /Configured workers|Review leases|Daemon Owned|Proposal Source Only|Default Harness Profile|Hypervisor Daemon|Agentgres|wallet\.network|Total Agents|Personal Source Only|Provider Source Only/i,
         )
       ),
       "Agents surface leaked implementation-truth copy into the visible product surface.",
