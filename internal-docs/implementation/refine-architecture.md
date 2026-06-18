@@ -1372,20 +1372,22 @@ Current implementation cut:
   routes, provider leases, wallet declassification policy, and Agentgres
   privacy receipts.
 
-0A.3 first Projects state surface is implemented:
+0A.3 Projects reference page is corrected and implemented:
   `hypervisorProjectStateModel.ts` defines `HypervisorProjectStateProjection`
   for project/workspace refs, current session refs, environment/provider refs,
   adapter preference, custody posture, restore state, Agentgres object heads,
   state roots, artifact refs, archive refs, restore refs, and latest receipts.
-  `HypervisorShellContent` now renders Projects as a project-state and restore
-  posture surface instead of a placeholder. The surface keeps the boundary
-  explicit: Hypervisor clients inspect project state; Agentgres admits project
-  truth; storage backends hold bytes only. Project cards now expose governed
-  selection and drill-through actions for project selection, active session,
-  provider candidate, and restore evidence. These actions route to Sessions,
-  Providers, and Receipts surfaces rather than mutating project truth in the
-  client. Remaining work is live project projection hydration, archive/restore
-  operation proposals, and paginated project receipt history.
+  `HypervisorShellContent` now renders Projects as the IOI-reference Projects
+  page: top-level `Projects` heading, `Search projects`, centered `No projects`
+  empty state, project education copy, and `New project` action. Project truth
+  remains available as hidden `data-*` metadata for conformance/replay, but
+  visible product chrome no longer exposes object heads, state roots, restore
+  refs, raw Agentgres language, or a code-repository / pull-request console.
+  This fixes the boundary: Projects is the project/template surface; Workbench
+  owns code repositories, editor choice, terminal/browser adapters, and
+  repository recents. Remaining work is live project projection hydration,
+  archive/restore operation proposals in the appropriate inspector, and
+  paginated project receipt history.
 
 0A.2 first Home cockpit projection is implemented:
   `homeCockpitModel.ts` defines `HypervisorHomeCockpitProjection` by composing
