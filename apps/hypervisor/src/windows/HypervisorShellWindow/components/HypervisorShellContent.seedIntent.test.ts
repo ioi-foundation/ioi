@@ -167,6 +167,18 @@ assert.match(
 
 assert.match(
   source,
+  /className="hypervisor-insights-reference"[\s\S]*Turn Insights into actionable intelligence[\s\S]*data-insights-runtime-projection-boundary="hidden-runs-client"/,
+  "Insights should render the IOI-reference enterprise surface while keeping runtime analytics as a hidden boundary",
+);
+
+assert.doesNotMatch(
+  source,
+  /activeView === "insights" \? \(\s*<MissionControlRunsView runtime=\{runtime\} \/>/,
+  "Insights should not expose the raw runs client as the visible product route",
+);
+
+assert.match(
+  source,
   /const settingsActive = activeView === "settings"/,
   "settings should have an explicit shell focus mode",
 );

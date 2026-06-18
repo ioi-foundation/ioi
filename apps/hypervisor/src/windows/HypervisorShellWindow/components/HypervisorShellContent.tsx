@@ -89,6 +89,11 @@ import {
   isHypervisorSurfaceId,
 } from "../hypervisorShellNavigationModel";
 
+const insightsDashboardPreviewUrl = new URL(
+  "../../../assets/reference/insights-dashboard.webp",
+  import.meta.url,
+).href;
+
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
   runtime: HypervisorClientRuntime;
@@ -944,6 +949,89 @@ function HypervisorAutomationCompositorSurface({
       <div
         className="hypervisor-automation-compositor__editor"
         data-workflow-compositor-editor-boundary="projection-client"
+        hidden
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function HypervisorInsightsReferenceSurface({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const useCases = [
+    {
+      marker: "01",
+      title: "Analyze usage across your organization",
+      description:
+        "Monitor session usage patterns in real time. See resource consumption for users, projects, and environment classes.",
+    },
+    {
+      marker: "02",
+      title: "Maximize ROI and manage costs",
+      description:
+        "Find optimization opportunities across user activity, project activity, and resource allocation.",
+    },
+    {
+      marker: "03",
+      title: "Drive team productivity through insights",
+      description:
+        "Review adoption trends, agent activity, and usage patterns across users and projects.",
+    },
+  ];
+
+  return (
+    <section
+      className="hypervisor-insights-reference"
+      aria-label="Hypervisor insights"
+      data-hypervisor-insights-reference="ioi-reference-enterprise"
+    >
+      <div className="hypervisor-insights-reference__hero">
+        <span className="hypervisor-insights-reference__badge">
+          Available on Enterprise
+        </span>
+        <h2>Turn Insights into actionable intelligence</h2>
+        <p>
+          Hypervisor Insights provides analytics to monitor, understand, and
+          optimize autonomous workspace usage, improving team productivity and
+          cost effectiveness.
+        </p>
+        <div className="hypervisor-insights-reference__actions">
+          <button type="button">Request trial</button>
+          <a href="https://ioi.com/docs/ioi/organizations/insights">
+            Learn more
+          </a>
+        </div>
+      </div>
+
+      <div className="hypervisor-insights-reference__body">
+        <div className="hypervisor-insights-reference__use-cases">
+          <h3>Use Insights to:</h3>
+          {useCases.map((useCase) => (
+            <article key={useCase.title}>
+              <span>{useCase.marker}</span>
+              <div>
+                <h4>{useCase.title}</h4>
+                <p>{useCase.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <figure className="hypervisor-insights-reference__preview">
+          <img
+            src={insightsDashboardPreviewUrl}
+            alt="Hypervisor Insights dashboard"
+          />
+        </figure>
+      </div>
+
+      <div
+        className="hypervisor-insights-reference__analytics-client"
+        data-insights-runtime-projection-boundary="hidden-runs-client"
         hidden
       >
         {children}
@@ -2802,7 +2890,9 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "insights" ? (
-                    <MissionControlRunsView runtime={runtime} />
+                    <HypervisorInsightsReferenceSurface>
+                      <MissionControlRunsView runtime={runtime} />
+                    </HypervisorInsightsReferenceSurface>
                   ) : null}
 
                   {activeView === "models" ? (

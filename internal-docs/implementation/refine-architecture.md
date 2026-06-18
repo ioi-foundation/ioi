@@ -1240,6 +1240,16 @@ Current implementation cut:
   execution, schedule mutation, and package promotion after wallet authority
   and Agentgres admission.
 
+0A.6B Insights reference surface is implemented:
+  `HypervisorShellContent` now renders Insights as an IOI-reference Enterprise
+  product surface with the reference dashboard visual, product actions, and
+  usage/productivity/cost use cases. `MissionControlRunsView` remains mounted
+  only inside the hidden
+  `data-insights-runtime-projection-boundary="hidden-runs-client"` client so
+  runtime analytics can stay wired without becoming the visible product route.
+  Focused shell/source tests guard the reference copy, dashboard asset,
+  hidden-boundary wrapper, and the absence of a direct raw runs route.
+
 0A.7 Models as infrastructure and setup is implemented:
   `hypervisorModelInfrastructureModel.ts` defines
   `HypervisorModelInfrastructureProjection` over daemon-owned model routes,

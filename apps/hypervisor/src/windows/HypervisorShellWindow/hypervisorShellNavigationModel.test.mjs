@@ -575,6 +575,29 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /<CapabilitiesView/);
 });
 
+test("Insights surface renders the IOI reference product surface before runtime analytics", () => {
+  assert.match(shellContent, /insightsDashboardPreviewUrl/);
+  assert.match(shellContent, /HypervisorInsightsReferenceSurface/);
+  assert.match(shellContent, /data-hypervisor-insights-reference/);
+  assert.match(shellContent, /Turn Insights into actionable intelligence/);
+  assert.match(shellContent, /Available on Enterprise/);
+  assert.match(shellContent, /Request trial/);
+  assert.match(shellContent, /Learn more/);
+  assert.match(shellContent, /Use Insights to:/);
+  assert.match(shellContent, /Analyze usage across your organization/);
+  assert.match(shellContent, /Maximize ROI and manage costs/);
+  assert.match(shellContent, /Drive team productivity through insights/);
+  assert.match(shellContent, /data-insights-runtime-projection-boundary/);
+  assert.match(
+    shellContent,
+    /activeView === "insights"[\s\S]*<HypervisorInsightsReferenceSurface>[\s\S]*<MissionControlRunsView runtime=\{runtime\} \/>[\s\S]*<\/HypervisorInsightsReferenceSurface>/,
+  );
+  assert.doesNotMatch(
+    shellContent,
+    /activeView === "insights" \? \(\s*<MissionControlRunsView runtime=\{runtime\} \/>/,
+  );
+});
+
 test("Models surface renders model infrastructure projection before mount UI", () => {
   assert.match(modelInfrastructureModel, /HypervisorModelInfrastructureProjection/);
   assert.match(modelInfrastructureModel, /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE/);
