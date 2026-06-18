@@ -47,6 +47,34 @@ async function assertNoInactiveWorkspaceShell(page, surfaceName) {
   }
 }
 
+async function assertNoSessionRightPaneOverflow(page, surfaceName) {
+  const overflowingControls = await page.evaluate(() => {
+    const viewportRight = window.innerWidth;
+    return Array.from(
+      document.querySelectorAll(
+        [
+          ".hypervisor-session-operations__right-pane button",
+          ".hypervisor-session-operations__right-pane input",
+          ".hypervisor-session-operations__right-pane .hypervisor-session-operations__search",
+        ].join(", "),
+      ),
+    )
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          text: element.textContent?.replace(/\s+/g, " ").trim() ?? "",
+          right: Math.round(rect.right),
+          overflowRight: Math.round(rect.right - viewportRight),
+        };
+      })
+      .filter((item) => item.overflowRight > 0);
+  });
+  assert(
+    overflowingControls.length === 0,
+    `${surfaceName} should keep right-inspector controls inside the viewport. overflow=${JSON.stringify(overflowingControls)}`,
+  );
+}
+
 function contentTypeFor(pathname) {
   return contentTypes.get(extname(pathname)) ?? "application/octet-stream";
 }
@@ -249,6 +277,7 @@ async function main() {
       await deepLinkPage.waitForSelector(
         '[data-session-reference-page="workspace-detail"]',
       );
+      await assertNoSessionRightPaneOverflow(deepLinkPage, "/workspaces");
       const workspaceText = await deepLinkPage.locator("body").innerText();
       assert(
         (await deepLinkPage.locator('[data-window-surface="sessions"].is-active').count()) ===
@@ -273,6 +302,10 @@ async function main() {
       );
       await deepLinkPage.waitForSelector(
         '[data-session-reference-page="workspace-detail"]',
+      );
+      await assertNoSessionRightPaneOverflow(
+        deepLinkPage,
+        "/details/:sessionId/logs",
       );
       const detailsText = await deepLinkPage.locator("body").innerText();
       assert(

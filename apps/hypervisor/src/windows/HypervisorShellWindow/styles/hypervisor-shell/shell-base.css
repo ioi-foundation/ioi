@@ -1787,7 +1787,7 @@
   height: auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 25vw, 488px);
   grid-template-rows: 48px 48px minmax(0, 1fr);
   background: #ffffff;
 }
@@ -2199,6 +2199,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 48px 56px minmax(0, 1fr) minmax(224px, 32vh);
   border-left: 1px solid #e2e2df;
   background: #ffffff;

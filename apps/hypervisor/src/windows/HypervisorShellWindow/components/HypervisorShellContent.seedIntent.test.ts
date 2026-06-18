@@ -273,13 +273,13 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /Phase 0A hard cut: Sessions uses the IOI reference workspace cockpit[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 340px;[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace\s*\{/,
+  /Phase 0A hard cut: Sessions uses the IOI reference workspace cockpit[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) clamp\(340px, 25vw, 488px\);[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace\s*\{/,
   "Sessions should use the IOI-reference two-column workspace page",
 );
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-column: 2;[\s\S]*grid-row: 1 \/ -1;[\s\S]*grid-template-rows: 48px 56px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__change-filter-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 140px;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-column: 2;[\s\S]*grid-row: 1 \/ -1;[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*grid-template-rows: 48px 56px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__change-filter-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 140px;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
   "Sessions should keep the reference full-height Changes tree and Ports/Tasks/Terminal dock in the right inspector",
 );
 
