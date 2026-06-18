@@ -212,6 +212,70 @@ project truth remain Agentgres-admitted facts backed by daemon operations and
 receipt linkage.
 
 ```http
+GET /v1/hypervisor/agents
+```
+
+`GET /v1/hypervisor/agents` dispatches through the daemon runtime lifecycle
+projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_agents
+projection_kind = agents
+```
+
+Optional query params:
+
+```text
+project_id
+```
+
+The response feeds the `ioi.hypervisor.agents_projection.v1` client projection.
+Daemon-native agent rows may be normalized by clients into configured runtime
+actors with harness bindings, model routes, skills, memory bindings,
+wallet.network capability leases, Agentgres operation refs, state roots, and
+receipts:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.agents_projection.v1",
+  "projection_id": "agents:...",
+  "source": "daemon-agents-projection",
+  "selected_project_ref": "project:...",
+  "runtimeTruthSource": "daemon-runtime",
+  "records": [
+    {
+      "agent_ref": "agent:...",
+      "label": "Configured agent",
+      "objective": "Scoped work objective",
+      "status": "running",
+      "workspace_ref": "workspace://...",
+      "session_ref": "session:...",
+      "runtime": {
+        "harness_selection_ref": "harness-selection:...",
+        "harness_label": "Default Harness Profile",
+        "truth_boundary": "daemon_owned",
+        "model_route_ref": "model-route:...",
+        "adapter_target_ref": "adapter-target:...",
+        "privacy_posture_ref": "privacy:ctee-private-workspace"
+      },
+      "skill_bindings": [],
+      "memory_bindings": [],
+      "capability_leases": [],
+      "agentgres_operation_refs": ["agentgres://operation/..."],
+      "state_root_ref": "agentgres://state-root/...",
+      "latest_receipt_refs": ["receipt://..."]
+    }
+  ]
+}
+```
+
+Agents are not a wallet-only capability table. They are configured runtime
+actors over Hypervisor Core. External harnesses, model providers, and code-tool
+clients may supply proposals, but the daemon remains runtime truth; Agent Wiki /
+ioi-memory owns semantic memory; wallet.network leases credential use; and
+Agentgres records admitted operational facts.
+
+```http
 GET /v1/hypervisor/automation-compositor
 ```
 

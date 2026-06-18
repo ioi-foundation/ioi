@@ -58,6 +58,10 @@ const automationCompositorModel = readFileSync(
   new URL("./hypervisorAutomationCompositorModel.ts", import.meta.url),
   "utf8",
 );
+const agentsModel = readFileSync(
+  new URL("./hypervisorAgentsModel.ts", import.meta.url),
+  "utf8",
+);
 const modelInfrastructureModel = readFileSync(
   new URL("./hypervisorModelInfrastructureModel.ts", import.meta.url),
   "utf8",
@@ -507,6 +511,35 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /data-workflow-run-ref/);
   assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
   assert.match(shellContent, /activeView === "automations"/);
+});
+
+test("Agents surface renders configured runtime actors over Core", () => {
+  assert.match(agentsModel, /HypervisorAgentsProjection/);
+  assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_FIXTURE/);
+  assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_PATH/);
+  assert.match(agentsModel, /loadHypervisorAgentsProjection/);
+  assert.match(agentsModel, /normalizeHypervisorAgentsProjection/);
+  assert.match(agentsModel, /ioi\.hypervisor\.agents_projection\.v1/);
+  assert.match(agentsModel, /DEFAULT_HARNESS_PROFILE_OPTION/);
+  assert.match(agentsModel, /defaultHarnessRef/);
+  assert.match(agentsModel, /agent-harness-adapter:codex_cli/);
+  assert.match(agentsModel, /proposal_source_only/);
+  assert.match(agentsModel, /Agent Wiki \/ ioi-memory/);
+  assert.match(agentsModel, /wallet.network capability leases/);
+  assert.match(agentsModel, /agentgres_operation_refs/);
+  assert.match(agentsModel, /state_root_ref/);
+  assert.match(shellContent, /HypervisorAgentsSurface/);
+  assert.match(shellContent, /loadHypervisorAgentsProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Agents\] projection unavailable/);
+  assert.match(shellContent, /data-hypervisor-agents/);
+  assert.match(shellContent, /data-hypervisor-agents-source/);
+  assert.match(shellContent, /data-agent-harness-boundary/);
+  assert.match(shellContent, /data-agent-capability-lease/);
+  assert.match(shellContent, /data-agent-capability-management-boundary/);
+  assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /activeView === "agents"/);
+  assert.match(shellContent, /activeView !== "agents"/);
+  assert.match(shellContent, /<CapabilitiesView/);
 });
 
 test("Models surface renders model infrastructure projection before mount UI", () => {

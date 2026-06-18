@@ -36,6 +36,12 @@ import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
 import {
+  HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
+  loadHypervisorAgentsProjection,
+  type HypervisorAgentRecord,
+  type HypervisorAgentsProjection,
+} from "../hypervisorAgentsModel";
+import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   loadHypervisorAutomationCompositorProjection,
   type HypervisorAutomationCompositorProjection,
@@ -267,6 +273,231 @@ function HypervisorHarnessComparisonDashboard() {
         ))}
       </div>
     </section>
+  );
+}
+
+function HypervisorAgentsSurface({
+  currentProjectId,
+  children,
+  onOpenSessions,
+  onOpenReceipts,
+  onOpenAuthority,
+}: {
+  currentProjectId: string;
+  children: ReactNode;
+  onOpenSessions: () => void;
+  onOpenReceipts: () => void;
+  onOpenAuthority: () => void;
+}) {
+  const [projection, setProjection] = useState<HypervisorAgentsProjection>(
+    HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorAgentsProjection({ projectId: currentProjectId })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn("[Hypervisor][Agents] projection unavailable", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId]);
+
+  const activeAgents = projection.records.filter(
+    (agent) => agent.status === "running",
+  ).length;
+  const leaseCount = projection.records.reduce(
+    (total, agent) => total + agent.capability_leases.length,
+    0,
+  );
+  const memoryCount = projection.records.reduce(
+    (total, agent) => total + agent.memory_bindings.length,
+    0,
+  );
+
+  return (
+    <section
+      className="hypervisor-agents"
+      aria-label="Hypervisor agents"
+      data-hypervisor-agents={projection.projection_id}
+      data-hypervisor-agents-source={projection.source}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-agents__header">
+        <div>
+          <span>Agents</span>
+          <h2>Configured workers, skills, memory, and capability leases.</h2>
+          <p>{projection.boundary_invariant}</p>
+        </div>
+        <button type="button" onClick={onOpenAuthority}>
+          Review leases
+        </button>
+      </div>
+
+      <div className="hypervisor-agents__summary" aria-label="Agents summary">
+        <AgentMetric label="Configured agents" value={projection.records.length} />
+        <AgentMetric label="Running" value={activeAgents} />
+        <AgentMetric label="Capability leases" value={leaseCount} />
+        <AgentMetric label="Memory bindings" value={memoryCount} />
+      </div>
+
+      <div className="hypervisor-agents__grid">
+        {projection.records.map((agent) => (
+          <HypervisorAgentCard
+            key={agent.agent_ref}
+            agent={agent}
+            onOpenSessions={onOpenSessions}
+            onOpenReceipts={onOpenReceipts}
+            onOpenAuthority={onOpenAuthority}
+          />
+        ))}
+      </div>
+
+      <div className="hypervisor-agents__invariants" aria-label="Agents invariants">
+        <p>
+          <span>Memory</span>
+          {projection.memory_invariant}
+        </p>
+        <p>
+          <span>Capability</span>
+          {projection.capability_invariant}
+        </p>
+        <p>
+          <span>Runtime</span>
+          Agent harness adapters may propose work, but Core sessions,
+          authority gates, receipts, and Agentgres refs remain daemon-owned.
+        </p>
+      </div>
+
+      <div
+        className="hypervisor-agents__capability-client"
+        data-agent-capability-management-boundary="capability-client"
+        hidden
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function AgentMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="hypervisor-agents__metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function HypervisorAgentCard({
+  agent,
+  onOpenSessions,
+  onOpenReceipts,
+  onOpenAuthority,
+}: {
+  agent: HypervisorAgentRecord;
+  onOpenSessions: () => void;
+  onOpenReceipts: () => void;
+  onOpenAuthority: () => void;
+}) {
+  return (
+    <article
+      className="hypervisor-agents__card"
+      data-hypervisor-agent-record={agent.agent_ref}
+      data-agent-status={agent.status}
+      data-agent-harness-boundary={agent.runtime.truth_boundary}
+    >
+      <div className="hypervisor-agents__card-head">
+        <div>
+          <span className="hypervisor-agents__card-kicker">
+            {agent.status}
+          </span>
+          <h3>{agent.label}</h3>
+        </div>
+        <strong className="hypervisor-agents__status">
+          {agent.runtime.truth_boundary.replace(/_/g, " ")}
+        </strong>
+      </div>
+      <p>{agent.objective}</p>
+
+      <dl className="hypervisor-agents__runtime">
+        <div>
+          <dt>Harness</dt>
+          <dd>
+            <span>{agent.runtime.harness_label}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Model route</dt>
+          <dd>
+            <code>{agent.runtime.model_route_ref}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Privacy</dt>
+          <dd>
+            <code>{agent.runtime.privacy_posture_ref}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Workspace</dt>
+          <dd>
+            <code>{agent.workspace_ref}</code>
+          </dd>
+        </div>
+      </dl>
+
+      <div className="hypervisor-agents__chips" aria-label="Agent skills">
+        {agent.skill_bindings.slice(0, 3).map((skill) => (
+          <span key={skill.skill_ref} data-agent-skill-ref={skill.skill_ref}>
+            {skill.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="hypervisor-agents__lease-list" aria-label="Capability leases">
+        {agent.capability_leases.slice(0, 2).map((lease) => (
+          <span
+            key={lease.lease_ref}
+            data-agent-capability-lease={lease.lease_ref}
+            data-agent-capability-lease-status={lease.status}
+          >
+            <strong>{lease.capability_ref}</strong>
+            <em>{lease.status.replace(/_/g, " ")}</em>
+            <code>{lease.receipt_ref}</code>
+          </span>
+        ))}
+      </div>
+
+      <dl className="hypervisor-agents__refs">
+        <div>
+          <dt>State</dt>
+          <dd>{agent.state_root_ref}</dd>
+        </div>
+        <div>
+          <dt>Receipt</dt>
+          <dd>{agent.latest_receipt_refs[0]}</dd>
+        </div>
+      </dl>
+
+      <div className="hypervisor-agents__actions">
+        <button type="button" onClick={onOpenSessions}>
+          Session
+        </button>
+        <button type="button" onClick={onOpenAuthority}>
+          Authority
+        </button>
+        <button type="button" onClick={onOpenReceipts}>
+          Receipts
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -2228,47 +2459,62 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "agents" ? (
-                    <CapabilitiesView
-                      runtime={runtime}
-                      getConnectorPolicySummary={(connector) =>
-                        buildConnectorPolicySummary(
-                          controller.policy.shieldPolicy,
-                          connector.id,
-                        )
+                    <HypervisorAgentsSurface
+                      currentProjectId={currentProject.id}
+                      onOpenSessions={() =>
+                        controller.changePrimaryView("sessions")
                       }
-                      getConnectorTrustProfile={(connector, options) =>
-                        buildConnectorTrustProfile(
-                          connector,
-                          controller.policy.shieldPolicy,
-                          options,
-                        )
+                      onOpenReceipts={() =>
+                        controller.changePrimaryView("receipts")
                       }
-                      onOpenPolicyCenter={(connector) =>
-                        controller.policy.openPolicyCenter(
-                          connector?.id ?? null,
-                        )
+                      onOpenAuthority={() =>
+                        controller.changePrimaryView("authority")
                       }
-                      onOpenInbox={() => controller.changePrimaryView("missions")}
-                      onOpenSettings={() =>
-                        controller.changePrimaryView("settings")
-                      }
-                      onOpenSkillSources={() =>
-                        controller.settings.openSection("skill_sources")
-                      }
-                      seedSurface={controller.capabilities.seedSurface}
-                      seedConnectorId={
-                        controller.capabilities.targetConnectorId
-                      }
-                      seedConnectionDetailSection={
-                        controller.capabilities.targetDetailSection
-                      }
-                      onConsumeSeedSurface={
-                        controller.capabilities.consumeSeedSurface
-                      }
-                      onConsumeSeedConnector={
-                        controller.capabilities.consumeTarget
-                      }
-                    />
+                    >
+                      <CapabilitiesView
+                        runtime={runtime}
+                        getConnectorPolicySummary={(connector) =>
+                          buildConnectorPolicySummary(
+                            controller.policy.shieldPolicy,
+                            connector.id,
+                          )
+                        }
+                        getConnectorTrustProfile={(connector, options) =>
+                          buildConnectorTrustProfile(
+                            connector,
+                            controller.policy.shieldPolicy,
+                            options,
+                          )
+                        }
+                        onOpenPolicyCenter={(connector) =>
+                          controller.policy.openPolicyCenter(
+                            connector?.id ?? null,
+                          )
+                        }
+                        onOpenInbox={() =>
+                          controller.changePrimaryView("missions")
+                        }
+                        onOpenSettings={() =>
+                          controller.changePrimaryView("settings")
+                        }
+                        onOpenSkillSources={() =>
+                          controller.settings.openSection("skill_sources")
+                        }
+                        seedSurface={controller.capabilities.seedSurface}
+                        seedConnectorId={
+                          controller.capabilities.targetConnectorId
+                        }
+                        seedConnectionDetailSection={
+                          controller.capabilities.targetDetailSection
+                        }
+                        onConsumeSeedSurface={
+                          controller.capabilities.consumeSeedSurface
+                        }
+                        onConsumeSeedConnector={
+                          controller.capabilities.consumeTarget
+                        }
+                      />
+                    </HypervisorAgentsSurface>
                   ) : null}
 
                   {activeView === "authority" ? (
@@ -2360,11 +2606,12 @@ export function HypervisorShellContent({
                   activeView !== "projects" &&
                   activeView !== "foundry" &&
                   activeView !== "privacy" &&
-                  activeView !== "providers" &&
-                  activeView !== "environments" &&
-                  activeView !== "receipts" ? (
-                    <HypervisorSurfacePlaceholder activeView={activeView} />
-                  ) : null}
+                      activeView !== "providers" &&
+                      activeView !== "environments" &&
+                      activeView !== "receipts" &&
+                      activeView !== "agents" ? (
+                        <HypervisorSurfacePlaceholder activeView={activeView} />
+                      ) : null}
                 </div>
 
                 {utilityDrawerVisible ? (

@@ -487,6 +487,75 @@ test("public runtime routes dispatch Hypervisor automation compositor through li
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor agents through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const agentsProjection = {
+    schema_version: "ioi.hypervisor.agents_projection.v1",
+    projection_id: "agents:daemon/test",
+    source: "daemon-agents-projection",
+    selected_project_ref: "project:ioi",
+    runtimeTruthSource: "daemon-runtime",
+    records: [
+      {
+        agent_ref: "agent:daemon",
+        label: "Daemon agent",
+        status: "running",
+      },
+    ],
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: agentsProjection,
+        record: {
+          operation_kind: "runtime.lifecycle_projection.hypervisor_agents",
+          projection_kind: "agents",
+          projection: agentsProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/agents?project_id=project:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), agentsProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_agents_projection",
+        operation_kind: "runtime.lifecycle_projection.hypervisor_agents",
+        projection_kind: "agents",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        source: "public_runtime_routes./v1/hypervisor/agents",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor model infrastructure through lifecycle projection", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

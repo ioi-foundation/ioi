@@ -78,6 +78,9 @@ const hypervisorModelMountInventoryModelSource = read(
 const hypervisorAutomationCompositorModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
 );
+const hypervisorAgentsModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
+);
 const hypervisorModelInfrastructureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
 );
@@ -1688,6 +1691,47 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Automations should hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-agents-live-projection",
+  hypervisorAgentsModelSource.includes("HYPERVISOR_AGENTS_PROJECTION_PATH") &&
+    hypervisorAgentsModelSource.includes(
+      "normalizeHypervisorAgentsProjection",
+    ) &&
+    hypervisorAgentsModelSource.includes("loadHypervisorAgentsProjection") &&
+    hypervisorAgentsModelSource.includes(
+      "ioi.hypervisor.agents_projection.v1",
+    ) &&
+    hypervisorAgentsModelSource.includes("Agent Wiki / ioi-memory") &&
+    hypervisorAgentsModelSource.includes("wallet.network capability leases") &&
+    hypervisorAgentsModelSource.includes("state_root_ref") &&
+    hypervisorShellContentSource.includes("HypervisorAgentsSurface") &&
+    hypervisorShellContentSource.includes("loadHypervisorAgentsProjection") &&
+    hypervisorShellContentSource.includes("data-hypervisor-agents-source") &&
+    hypervisorShellContentSource.includes(
+      "data-agent-capability-management-boundary",
+    ) &&
+    hypervisorShellContentSource.includes("data-agent-harness-boundary") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/agents") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_agents",
+    ) &&
+    publicRuntimeRoutesSource.includes('projection_kind: "agents"') &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor agents through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/agents") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_agents",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Agents should hydrate configured runtime actors, skills, semantic memory, wallet capability leases, Agentgres refs, state roots, and receipts through the daemon/public runtime route; Capabilities remains a subordinate wallet-governed boundary.",
 );
 assert(
   "hypervisor-model-infrastructure-live-projection",
