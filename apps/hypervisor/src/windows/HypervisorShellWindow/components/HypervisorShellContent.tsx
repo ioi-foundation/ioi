@@ -319,6 +319,13 @@ function HypervisorAgentsSurface({
   const blockedAgents = projection.records.filter(
     (agent) => agent.status === "blocked",
   ).length;
+  const activeLeases = projection.records.reduce(
+    (count, agent) =>
+      count +
+      agent.capability_leases.filter((lease) => lease.status === "active")
+        .length,
+    0,
+  );
   const [selectedAgentRef, setSelectedAgentRef] = useState<string | null>(
     projection.records[0]?.agent_ref ?? null,
   );
@@ -354,6 +361,25 @@ function HypervisorAgentsSurface({
           <button type="button" onClick={onOpenAuthority}>
             Access
           </button>
+        </div>
+      </div>
+
+      <div className="hypervisor-agents__stats" aria-label="Agent summary">
+        <div className="hypervisor-agents__stat is-primary">
+          <span>Total Agents</span>
+          <strong>{projection.records.length}</strong>
+        </div>
+        <div className="hypervisor-agents__stat">
+          <span>Running</span>
+          <strong>{activeAgents}</strong>
+        </div>
+        <div className="hypervisor-agents__stat">
+          <span>Needs review</span>
+          <strong>{blockedAgents}</strong>
+        </div>
+        <div className="hypervisor-agents__stat">
+          <span>Active access</span>
+          <strong>{activeLeases}</strong>
         </div>
       </div>
 
@@ -402,15 +428,17 @@ function HypervisorAgentsSurface({
               />
             ))}
           </div>
-          {selectedAgent ? (
+        </div>
+        {selectedAgent ? (
+          <aside className="hypervisor-agents__aside" aria-label="Selected agent">
             <HypervisorAgentDetail
               agent={selectedAgent}
               onOpenSessions={onOpenSessions}
               onOpenReceipts={onOpenReceipts}
               onOpenAuthority={onOpenAuthority}
             />
-          ) : null}
-        </div>
+          </aside>
+        ) : null}
       </div>
 
       <div
