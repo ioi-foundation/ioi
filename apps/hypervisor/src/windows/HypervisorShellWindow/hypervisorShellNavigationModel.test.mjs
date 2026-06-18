@@ -222,7 +222,7 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   }
   assert.match(
     source,
-    /Default Harness Profile or Core-governed AgentHarnessAdapter/,
+    /Default Harness Profile or governed AgentHarnessAdapter/,
   );
   assert.match(source, /harnessOptions: HYPERVISOR_HARNESS_SELECTION_OPTIONS/);
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
@@ -555,14 +555,16 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /data-agent-capability-lease/);
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
-  assert.match(shellContent, /Configure agents, skills, memory, model access, and scoped/);
+  assert.match(shellContent, /<h2>Agents<\/h2>/);
+  assert.match(shellContent, /className="hypervisor-agents__primary"/);
   assert.match(shellContent, /className="hypervisor-agents__metrics"/);
-  assert.match(shellContent, /<AgentMetric[\s\S]*active[\s\S]*label="Configured agents"/);
-  assert.match(shellContent, /AgentMetric label="Access grants"/);
-  assert.match(shellContent, /AgentMetric label="Memory bindings"/);
+  assert.match(shellContent, /<AgentMetric[\s\S]*active[\s\S]*label="Total agents"/);
+  assert.match(shellContent, /className="hypervisor-agents__filters"/);
+  assert.match(shellContent, /placeholder="Search agents\.\.\."/);
+  assert.match(shellContent, />Sort: Recently updated</);
   assert.match(shellContent, /AgentMetric label="Needs review"/);
   assert.match(shellContent, /className="hypervisor-agents__detail-label"/);
-  assert.match(shellContent, />Selected agent</);
+  assert.match(shellContent, />Agent details</);
   assert.match(shellContent, /formatAgentHarnessLabel/);
   assert.match(shellContent, /formatCapabilityRef/);
   assert.match(shellContent, /formatModelRouteRef/);

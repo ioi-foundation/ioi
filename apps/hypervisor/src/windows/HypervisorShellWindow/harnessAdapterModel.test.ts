@@ -155,7 +155,7 @@ test("model route availability comes from model-mount inventory, not route label
       state: "unverified",
       available: false,
       summary:
-        "Hypervisor model mount inventory has not been verified by Core.",
+        "Hypervisor model mount inventory has not been verified.",
       route_refs: [],
       endpoint_refs: [],
       loaded_instance_refs: [],
@@ -312,7 +312,7 @@ test("foundry public fixture daemon response normalizes into comparison dashboar
   );
   assert.match(
     normalized.candidate_reports[0].output_summary,
-    /Daemon fixture completed/,
+    /Fixture completed/,
   );
   assert.deepEqual(normalized.candidate_reports[0].evidence_refs, [
     "agentgres://operation/deepseek/public-fixture",

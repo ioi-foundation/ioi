@@ -43,7 +43,7 @@ const MODEL_ROUTE_OPTIONS = [
   {
     ref: "model-route:hypervisor/default-local",
     label: "Hypervisor model mount",
-    detail: "Daemon-mediated local or configured model route.",
+    detail: "Managed local or configured model route.",
   },
   {
     ref: "model-route:adapter-native",

@@ -316,14 +316,6 @@ function HypervisorAgentsSurface({
   const activeAgents = projection.records.filter(
     (agent) => agent.status === "running",
   ).length;
-  const leaseCount = projection.records.reduce(
-    (total, agent) => total + agent.capability_leases.length,
-    0,
-  );
-  const memoryCount = projection.records.reduce(
-    (total, agent) => total + agent.memory_bindings.length,
-    0,
-  );
   const blockedAgents = projection.records.filter(
     (agent) => agent.status === "blocked",
   ).length;
@@ -355,61 +347,73 @@ function HypervisorAgentsSurface({
       <div className="hypervisor-agents__header">
         <div>
           <h2>Agents</h2>
-          <p>
-            Configure agents, skills, memory, model access, and scoped
-            permissions.
-          </p>
         </div>
-        <button type="button" onClick={onOpenAuthority}>
-          Manage access
-        </button>
-      </div>
-
-      <div className="hypervisor-agents__metrics" aria-label="Agent summary">
-        <AgentMetric
-          active
-          label="Configured agents"
-          value={projection.records.length}
-        />
-        <AgentMetric label="Running" value={activeAgents} />
-        <AgentMetric label="Access grants" value={leaseCount} />
-        <AgentMetric label="Memory bindings" value={memoryCount} />
-        <AgentMetric label="Needs review" value={blockedAgents} />
-      </div>
-
-      <div className="hypervisor-agents__tabs" aria-label="Agent filters">
-        <button type="button" className="is-active">
-          All <span>{projection.records.length}</span>
-        </button>
-        <button type="button">
-          Running <span>{activeAgents}</span>
-        </button>
-        <button type="button">
-          Access <span>{leaseCount}</span>
-        </button>
-        <button type="button">
-          Memory <span>{memoryCount}</span>
-        </button>
+        <div className="hypervisor-agents__header-actions">
+          <button type="button" onClick={onOpenAuthority}>
+            New agent
+          </button>
+          <button type="button" onClick={onOpenAuthority}>
+            Access
+          </button>
+        </div>
       </div>
 
       <div className="hypervisor-agents__workplane">
-        <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
-          <div className="hypervisor-agents__list-head" role="presentation">
-            <span>Agent</span>
-            <span>Interface</span>
-            <span>Access</span>
-            <span>Updated</span>
-          </div>
-          {projection.records.map((agent) => (
-            <HypervisorAgentRow
-              key={agent.agent_ref}
-              agent={agent}
-              selected={selectedAgent?.agent_ref === agent.agent_ref}
-              onSelect={() => setSelectedAgentRef(agent.agent_ref)}
+        <div className="hypervisor-agents__primary">
+          <div className="hypervisor-agents__metrics" aria-label="Agent summary">
+            <AgentMetric
+              active
+              label="Total agents"
+              value={projection.records.length}
             />
-          ))}
-        </div>
+            <AgentMetric label="Running" value={activeAgents} />
+            <AgentMetric label="Needs review" value={blockedAgents} />
+          </div>
 
+          <div className="hypervisor-agents__filters" aria-label="Agent controls">
+            <label className="hypervisor-agents__search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" placeholder="Search agents..." readOnly />
+            </label>
+            <button type="button">Status: All</button>
+            <button type="button">Sort: Recently updated</button>
+            <div className="hypervisor-agents__scope-switch">
+              <button type="button" className="is-active">
+                Yours
+              </button>
+              <button type="button">All</button>
+            </div>
+          </div>
+
+          <div className="hypervisor-agents__tabs" aria-label="Agent filters">
+            <button type="button" className="is-active">
+              All <span>{projection.records.length}</span>
+            </button>
+            <button type="button">
+              Running <span>{activeAgents}</span>
+            </button>
+            <button type="button">
+              Needs review <span>{blockedAgents}</span>
+            </button>
+          </div>
+
+          <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
+            <div className="hypervisor-agents__list-head" role="presentation">
+              <span>Agent</span>
+              <span>Interface</span>
+              <span>Access</span>
+              <span>Updated</span>
+            </div>
+            {projection.records.map((agent) => (
+              <HypervisorAgentRow
+                key={agent.agent_ref}
+                agent={agent}
+                selected={selectedAgent?.agent_ref === agent.agent_ref}
+                onSelect={() => setSelectedAgentRef(agent.agent_ref)}
+              />
+            ))}
+          </div>
+        </div>
         {selectedAgent ? (
           <HypervisorAgentDetail
             agent={selectedAgent}
@@ -721,7 +725,7 @@ function HypervisorAgentDetail({
       data-agent-latest-receipt-ref={agent.latest_receipt_refs[0] ?? ""}
     >
       <div className="hypervisor-agents__detail-head">
-        <span className="hypervisor-agents__detail-label">Selected agent</span>
+        <span className="hypervisor-agents__detail-label">Agent details</span>
         <span>{statusLabel(agent.status)}</span>
         <h3>{agent.label}</h3>
         <p>{agent.objective}</p>

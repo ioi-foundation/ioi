@@ -30,10 +30,8 @@ export function SettingsWorkbenchAdapterSection({
         </div>
         <p className="chat-settings-body">
           Choose the default editor, terminal, browser workspace, VM, or node
-          adapter that New Session should preselect. The adapter target does not
-          own runtime truth; every launch still binds harness, model route,
-          privacy posture, authority scopes, and receipts through Hypervisor
-          Core.
+          adapter that New Session should preselect. Every launch still binds a
+          harness, model route, privacy posture, authority scopes, and receipts.
         </p>
         <div className="chat-settings-summary-grid">
           {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {

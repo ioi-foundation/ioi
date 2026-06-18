@@ -267,7 +267,7 @@ export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
   profile_ref: "default_harness_profile",
   label: "Default Harness Profile",
   description:
-    "IOI reference scaffold and fallback HarnessProfile executed through Hypervisor Core.",
+    "Reference scaffold and fallback HarnessProfile for governed sessions.",
   runtimeTruthSource: "daemon-runtime",
   role: "reference_scaffold_fallback",
   default_model_route_policy: "hypervisor_model_mount",
@@ -281,7 +281,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "codex_cli",
       label: "Codex CLI",
       description:
-        "Codex-style command harness mediated as a proposal source under Core gates.",
+        "Codex-style command harness mediated as a proposal source.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "adapter_builtin",
@@ -296,7 +296,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "codex_desktop_linux",
       label: "Codex Desktop Linux",
       description:
-        "Desktop/client parity harness for computer-use experiments, not Hypervisor runtime truth.",
+        "Desktop/client parity harness for computer-use experiments.",
       adapter_kind: "desktop_example",
       execution_lane: "desktop_linux_example",
       model_route_policy: "adapter_builtin",
@@ -386,7 +386,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "shell_tmux_agent",
       label: "Shell/tmux Agent",
       description:
-        "Terminal or tmux-oriented agent loop mediated through Core-gated commands, mounts, network, and receipts.",
+        "Terminal or tmux-oriented agent loop with governed commands, mounts, network, and receipts.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "forbidden",
@@ -401,7 +401,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "generic_cli",
       label: "Generic CLI Harness",
       description:
-        "Explicitly configured command harness adapter with Core-gated argv, mounts, network, and receipts.",
+        "Explicitly configured command harness adapter with governed argv, mounts, network, and receipts.",
       adapter_kind: "cli",
       execution_lane: "docker_container",
       model_route_policy: "forbidden",
@@ -487,7 +487,7 @@ export function modelRouteSupportsHypervisorMountFromInventory(
       state: "unverified",
       available: false,
       summary:
-        "Hypervisor model mount inventory has not been verified by Core.",
+        "Hypervisor model mount inventory has not been verified.",
       route_refs: [],
       endpoint_refs: [],
       loaded_instance_refs: [],
@@ -535,8 +535,8 @@ export function modelRouteSupportsHypervisorMountFromInventory(
     available: true,
     summary:
       inventory.source === "daemon-model-mount-inventory"
-        ? "Core model-mount inventory reports an active local route and mounted execution target."
-        : "Fixture inventory reports the expected local route contract until live Core probing is injected.",
+        ? "Model-mount inventory reports an active local route and mounted execution target."
+        : "Fixture inventory reports the expected local route contract until live probing is injected.",
     route_refs: matchingRoutes.map((route) => route.id),
     endpoint_refs: mountedEndpoints.map((endpoint) => endpoint.id),
     loaded_instance_refs: loadedInstances.map((instance) => instance.id),
@@ -568,7 +568,7 @@ export function buildHarnessCompatibilityVerdict(
       selection_ref: selectionRef,
       state: modelMountAvailable ? "compatible" : "local_route_unavailable",
       summary: modelMountAvailable
-        ? "Default Harness Profile can use the selected Hypervisor model mount under Core gates."
+        ? "Default Harness Profile can use the selected Hypervisor model mount."
         : "Default Harness Profile needs a verified Hypervisor model route before local execution.",
       requiresDaemonGate: true,
     };
@@ -613,7 +613,7 @@ export function buildHarnessCompatibilityVerdict(
       selection_ref: selectionRef,
       state: modelMountAvailable ? "compatible" : "local_route_unavailable",
       summary: modelMountAvailable
-        ? "Adapter can use a verified Hypervisor model route when launched through Core mediation."
+        ? "Adapter can use a verified Hypervisor model route."
         : "Local Hypervisor model route is unavailable; do not silently fall back to a provider lane.",
       requiresDaemonGate: true,
     };
@@ -678,7 +678,7 @@ function harnessComparisonCandidateReport(
     execution_lane: adapterLane,
     output_summary:
       option.selection_kind === "harness_profile"
-        ? "Reference scaffold owns loop policy and Core-mediated model/tool routing."
+        ? "Reference scaffold owns loop policy and governed model/tool routing."
         : `Adapter proposal source over ${adapterLane} with ${modelPolicy} model policy.`,
     estimated_cost_usd: Number((0.04 + index * 0.015).toFixed(3)),
     verification_status: index === 0 ? "passed" : "requires_review",
@@ -696,7 +696,7 @@ export const HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE: HarnessAdapterTestbedFi
     fixture_id: "harness-testbed:public-code-edit-smoke",
     label: "Public code edit smoke",
     description:
-      "Non-sensitive fixture for comparing Default Harness Profile and external AgentHarnessAdapters without granting runtime truth.",
+      "Non-sensitive fixture for comparing Default Harness Profile and external AgentHarnessAdapters.",
     project_ref: "project:fixture/public-workbench",
     task_ref: "task:fixture/public-code-edit-smoke",
     workspace_mount_policy: "public_trunk",
@@ -868,10 +868,10 @@ function harnessComparisonCandidateReportFromAttempt(
         : fallback.execution_lane,
     output_summary:
       exitStatus === "success"
-        ? `Daemon fixture completed under ${commandHash}.`
+        ? `Fixture completed under ${commandHash}.`
         : exitStatus === "failure"
-          ? `Daemon fixture failed under ${commandHash}.`
-          : `Daemon fixture planned under ${commandHash}; executor not mounted.`,
+          ? `Fixture failed under ${commandHash}.`
+          : `Fixture planned under ${commandHash}; executor not mounted.`,
     estimated_cost_usd: numberValue(
       attempt.estimated_cost_usd,
       Number((0.01 + index * 0.005).toFixed(3)),

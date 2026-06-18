@@ -185,7 +185,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "windsurf",
       label: "Windsurf",
       description:
-        "Attach Windsurf as a governed editor target with Core-mediated workspace access.",
+        "Attach Windsurf as a governed editor target with scoped workspace access.",
       launch_mode: "external",
       target_ref: "adapter-target:windsurf",
       custody_posture: "redacted_projection",
@@ -314,7 +314,7 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreferenc
       adapter_id: "browser_workspace",
       label: "Browser Workspace",
       description:
-        "Open a browser-hosted workspace through Core-mediated workspace, auth, and receipt policy.",
+        "Open a browser-hosted workspace through scoped workspace, auth, and receipt policy.",
       launch_mode: "remote_url",
       target_ref: "adapter-target:browser-workspace",
       custody_posture: "provider_session",

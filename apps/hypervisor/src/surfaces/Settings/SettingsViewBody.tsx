@@ -304,7 +304,7 @@ function SettingsReferencePrimaryPanel({
       return (
         <SettingsSimplePanel
           title="Integrations"
-          body="Editor, terminal, browser, cloud, model, and provider integrations attach as adapters over Hypervisor Core."
+          body="Editor, terminal, browser, cloud, model, and provider integrations attach as governed adapters for sessions."
           rows={[
             {
               label: "Workbench adapters",
