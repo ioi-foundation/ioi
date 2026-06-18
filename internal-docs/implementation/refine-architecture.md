@@ -1600,11 +1600,13 @@ Current implementation cut:
   Visible boot and error copy now says "Opening the workspace" and "workspace
   shell" rather than "runtime bridge", so implementation plumbing does not sit
   above the product surface.
-  Settings now exposes the Advanced section as an operator-configurable panel,
-  and the code editor adapter controls render product labels such as Embedded
-  code editor, Open embedded, Open desktop, and Local workspace while preserving
-  executor lane and control-action refs as metadata. The old Code tab /
-  embedded-editor phrasing is now guarded against returning.
+  Settings now follows the reference user-settings modal: Account, Secrets, Git
+  authentications, Personal access tokens, and Integrations are the visible
+  sections; runtime, authority, storage, and adapter-control detail stay in
+  their real application surfaces. The Account preferences own the Default code
+  editor target and Embedded code editor switches, while guards reject the old
+  Code tab, singular-editor, raw adapter ref, and visible Advanced settings
+  drawer returning.
   The old Home onboarding walkthrough, condition matrix, and direct editor
   walkthrough assets are deleted from the active tree. Runtime-layout guards
   assert those paths stay absent and that Home remains the IOI-reference prompt
@@ -1653,7 +1655,7 @@ Current implementation cut:
   truth out of the visible default chrome. It also verifies the Settings
   reference shell, Account, Secrets, Git authentications, Personal access
   tokens, Integrations, default code-editor target preference, embedded editor
-  preference, and governed code editor adapter controls.
+  preference, and absence of the retired Advanced settings drawer.
   The left rail brand now uses the small filled faceted IOI reference mark
   instead of the retired oversized outline icon, and the Home prompt typography
   is tuned to the sparse reference posture. Source guards reject the old stroked

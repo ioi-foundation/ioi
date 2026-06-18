@@ -222,7 +222,7 @@ assert.match(
 
 assert.match(
   source,
-  /settingsActive \?[\s\S]*<SettingsView[\s\S]*source: "settings"/,
+  /settingsActive \?[\s\S]*<SettingsView[\s\S]*seedSection=\{controller\.settings\.seedSection\}/,
   "the settings route should render SettingsView directly as a client preference surface",
 );
 

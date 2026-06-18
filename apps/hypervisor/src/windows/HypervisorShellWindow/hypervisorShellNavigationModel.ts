@@ -130,7 +130,7 @@ export type HypervisorShellRegion =
   | "settings";
 
 export type HypervisorSettingsSectionId =
-  | "code_editor_adapter"
+  | "identity"
   | "secrets"
   | "git_auth"
   | "personal_access_tokens"
@@ -961,7 +961,7 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
     rightInspectorPanels: HYPERVISOR_RIGHT_INSPECTOR_PANELS,
     bottomInspectorPanels: HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
     settingsSections: [
-      "code_editor_adapter",
+      "identity",
       "secrets",
       "git_auth",
       "personal_access_tokens",

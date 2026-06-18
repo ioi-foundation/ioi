@@ -3103,7 +3103,7 @@ export function HypervisorShellContent({
                           controller.changePrimaryView("settings")
                         }
                         onOpenSkillSources={() =>
-                          controller.settings.openSection("skill_sources")
+                          controller.settings.openSection("integrations")
                         }
                         seedSurface={controller.capabilities.seedSurface}
                         seedConnectorId={
@@ -3127,10 +3127,6 @@ export function HypervisorShellContent({
                       runtime={runtime}
                       surface="policy"
                       policyState={controller.policy.shieldPolicy}
-                      profile={controller.profile.value}
-                      profileDraft={controller.profile.draft}
-                      profileSaving={controller.profile.saving}
-                      profileError={controller.profile.error}
                       governanceRequest={controller.policy.governanceRequest}
                       focusedConnectorId={controller.policy.focusedConnectorId}
                       onSurfaceChange={(surface) =>
@@ -3143,9 +3139,6 @@ export function HypervisorShellContent({
                         controller.settings.consumeSeedSection
                       }
                       onPolicyChange={controller.policy.setShieldPolicy}
-                      onProfileDraftChange={controller.profile.updateDraft}
-                      onResetProfileDraft={controller.profile.resetDraft}
-                      onSaveProfile={controller.profile.saveDraft}
                       onFocusConnector={controller.policy.focusConnector}
                       onApplyGovernanceRequest={
                         controller.policy.applyGovernanceRequest
@@ -3172,37 +3165,9 @@ export function HypervisorShellContent({
 
                   {settingsActive ? (
                     <SettingsView
-                      runtime={runtime}
-                      profile={controller.profile.value}
-                      profileDraft={controller.profile.draft}
-                      profileSaving={controller.profile.saving}
-                      profileError={controller.profile.error}
-                      policyState={controller.policy.shieldPolicy}
-                      governanceRequest={controller.policy.governanceRequest}
                       seedSection={controller.settings.seedSection}
                       onConsumeSeedSection={
                         controller.settings.consumeSeedSection
-                      }
-                      onProfileDraftChange={controller.profile.updateDraft}
-                      onResetProfileDraft={controller.profile.resetDraft}
-                      onSaveProfile={controller.profile.saveDraft}
-                      onPolicyChange={controller.policy.setShieldPolicy}
-                      onOpenPolicySurface={() =>
-                        controller.changePrimaryView("authority")
-                      }
-                      onOpenConnections={() =>
-                        controller.changePrimaryView("agents")
-                      }
-                      onOpenModelRoutes={() =>
-                        controller.changePrimaryView("models")
-                      }
-                      onOpenWorkflowPreflight={(seed) =>
-                        controller.workflow.openPreflight(
-                          seed ?? {
-                            panel: "readiness",
-                            source: "settings",
-                          },
-                        )
                       }
                     />
                   ) : null}

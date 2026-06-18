@@ -322,8 +322,6 @@ const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/surfaces/Capabilities/connectors/components/GenericConnectorPanel.tsx",
   "apps/hypervisor/src/surfaces/Capabilities/connectors/components/MailConnectorPanel.tsx",
   "apps/hypervisor/src/surfaces/Capabilities/components/EngineDetailPane.tsx",
-  "apps/hypervisor/src/surfaces/Settings/SettingsEnvironmentSection.tsx",
-  "apps/hypervisor/src/surfaces/Settings/SettingsMaintenanceSection.tsx",
   "packages/hypervisor-workbench/src/features/Workflows/WorkflowComposerModals.tsx",
   "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
@@ -689,7 +687,7 @@ assert(
       '"right_inspector"',
       '"bottom_inspector"',
     ].every((region) => hypervisorShellNavigationSource.includes(region)) &&
-    hypervisorShellNavigationSource.includes('"code_editor_adapter"') &&
+    hypervisorShellNavigationSource.includes('"identity"') &&
     hypervisorShellNavigationSource.includes('"git_auth"') &&
     hypervisorShellNavigationSource.includes("Codex CLI") &&
     hypervisorShellNavigationSource.includes("Claude Code") &&

@@ -485,27 +485,6 @@
   color: #161616;
 }
 
-.chat-settings-reference-advanced {
-  margin-top: 28px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e2e2;
-  color: #666666;
-}
-
-.chat-settings-reference-advanced summary {
-  margin: 0 8px 10px;
-  color: #696969;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.chat-settings-reference-advanced .chat-settings-reference-nav-item {
-  min-height: 28px;
-  color: #4d4d4d;
-  font-size: 12px;
-}
-
 .chat-settings-reference-org {
   margin-top: auto;
   min-height: 32px;

@@ -1,7 +1,6 @@
 import { SettingsView } from "../Settings";
 import { PolicyView } from "../Policy";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
-import type { AssistantUserProfile } from "../../types";
 import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import type {
   CapabilityGovernanceRequest,
@@ -13,22 +12,12 @@ interface AuthoritySettingsSurfaceViewProps {
   runtime: HypervisorClientRuntime;
   surface: "policy" | "system";
   policyState: ShieldPolicyState;
-  profile: AssistantUserProfile;
-  profileDraft: AssistantUserProfile;
-  profileSaving: boolean;
-  profileError: string | null;
   governanceRequest?: CapabilityGovernanceRequest | null;
   focusedConnectorId?: string | null;
   settingsSeedSection?: SettingsSection | null;
   onSurfaceChange: (surface: "policy" | "system") => void;
   onConsumeSettingsSeedSection?: () => void;
   onPolicyChange: (next: ShieldPolicyState) => void;
-  onProfileDraftChange: <K extends keyof AssistantUserProfile>(
-    key: K,
-    value: AssistantUserProfile[K],
-  ) => void;
-  onResetProfileDraft: () => void;
-  onSaveProfile: () => Promise<void>;
   onFocusConnector: (connectorId: string | null) => void;
   onApplyGovernanceRequest?: (next: ShieldPolicyState) => void;
   onDismissGovernanceRequest?: () => void;
@@ -41,19 +30,12 @@ export function AuthoritySettingsSurfaceView({
   runtime,
   surface,
   policyState,
-  profile,
-  profileDraft,
-  profileSaving,
-  profileError,
   governanceRequest,
   focusedConnectorId,
   settingsSeedSection,
   onSurfaceChange,
   onConsumeSettingsSeedSection,
   onPolicyChange,
-  onProfileDraftChange,
-  onResetProfileDraft,
-  onSaveProfile,
   onFocusConnector,
   onApplyGovernanceRequest,
   onDismissGovernanceRequest,
@@ -121,23 +103,8 @@ export function AuthoritySettingsSurfaceView({
             />
           ) : (
             <SettingsView
-              runtime={runtime}
-              profile={profile}
-              profileDraft={profileDraft}
-              profileSaving={profileSaving}
-              profileError={profileError}
-              policyState={policyState}
-              governanceRequest={governanceRequest}
               seedSection={settingsSeedSection}
               onConsumeSeedSection={onConsumeSettingsSeedSection}
-              onProfileDraftChange={onProfileDraftChange}
-              onResetProfileDraft={onResetProfileDraft}
-              onSaveProfile={onSaveProfile}
-              onPolicyChange={onPolicyChange}
-              onOpenPolicySurface={() => onSurfaceChange("policy")}
-              onOpenConnections={onOpenConnections}
-              onOpenModelRoutes={onOpenModelRoutes}
-              onOpenWorkflowPreflight={onOpenWorkflowPreflight}
             />
           )}
         </div>

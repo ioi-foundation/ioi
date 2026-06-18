@@ -10,10 +10,6 @@ const settingsViewBody = fs.readFileSync(
   new URL("./SettingsViewBody.tsx", import.meta.url),
   "utf8",
 );
-const settingsAuthoritySection = fs.readFileSync(
-  new URL("./SettingsAuthoritySection.tsx", import.meta.url),
-  "utf8",
-);
 const authorityRuntime = fs.readFileSync(
   new URL("../Policy/authorityCenterRuntime.ts", import.meta.url),
   "utf8",
@@ -24,14 +20,6 @@ const authorityCenterPanel = fs.readFileSync(
 );
 const authorityCenterModel = fs.readFileSync(
   new URL("../Policy/authorityCenter.ts", import.meta.url),
-  "utf8",
-);
-const environmentSection = fs.readFileSync(
-  new URL("./SettingsEnvironmentSection.tsx", import.meta.url),
-  "utf8",
-);
-const codeEditorAdapterSection = fs.readFileSync(
-  new URL("./SettingsCodeEditorAdapterSection.tsx", import.meta.url),
   "utf8",
 );
 const codeEditorAdapterPreferences = fs.readFileSync(
@@ -50,30 +38,14 @@ const retiredToolCatalogRoutePattern = new RegExp(
 );
 const retiredAuthorityFetchHelper = ["fetchAuthorityJson", "First"].join("");
 
-test("settings authority section is wired to the canonical authority projection", () => {
-  assert.match(settingsViewBody, /selectedSection === "authority"/);
-  assert.match(settingsViewBody, /SettingsAuthoritySection/);
-  assert.match(settingsView, /loadAuthorityCenterRuntimeProjection/);
-  assert.match(settingsView, /authorityCenterProjection/);
-  assert.match(settingsAuthoritySection, /settings-authority-center/);
-  assert.match(settingsAuthoritySection, /settings-authority-fail-closed/);
-  assert.match(settingsAuthoritySection, /settings-authority-capability-row/);
-  assert.match(settingsAuthoritySection, /data-capability-ref/);
-  assert.match(settingsAuthoritySection, /data-grant-status/);
-  assert.match(settingsAuthoritySection, /data-policy-status/);
-  assert.match(settingsAuthoritySection, /data-receipt-status/);
-  assert.match(settingsAuthoritySection, /data-repair-receipt-count/);
-  assert.match(settingsAuthoritySection, /chat-settings-repair-trail/);
-  assert.match(settingsAuthoritySection, /lastRepairSummary/);
-  assert.match(settingsAuthoritySection, /lastRepairReceiptRefs/);
-  assert.match(settingsAuthoritySection, /Runtime refs/);
-  assert.match(settingsAuthoritySection, /settings-authority-repair-actions/);
-  assert.match(settingsAuthoritySection, /data-repair-action-kind/);
-  assert.match(
-    settingsAuthoritySection,
-    /openWorkflowPreflight[\s\S]*panel: "readiness"[\s\S]*capabilityRef: action\.targetRef[\s\S]*source: "settings-authority"/,
-  );
-  assert.match(settingsAuthoritySection, /openModelRoute/);
+test("policy authority surface is wired to the canonical authority projection", () => {
+  assert.match(authorityRuntime, /loadAuthorityCenterRuntimeProjection/);
+  assert.match(authorityRuntime, /buildAuthorityCenterProjection/);
+  assert.match(authoritySettingsSurfaceView, /<PolicyView/);
+  assert.match(authoritySettingsSurfaceView, /onOpenModelRoutes/);
+  assert.match(authoritySettingsSurfaceView, /onOpenWorkflowPreflight/);
+  assert.doesNotMatch(settingsViewBody, /SettingsAuthoritySection/);
+  assert.doesNotMatch(settingsViewBody, /selectedSection === "authority"/);
 });
 
 test("authority center exposes canonical grant policy receipt posture", () => {
@@ -133,15 +105,7 @@ test("settings authority runtime uses stable Rust authority and tool catalog pro
   assert.doesNotMatch(authorityRuntime, /\/api\/v1\/workflow-capability-preflight/);
 });
 
-test("environment settings are labeled as compatibility, not authority truth", () => {
-  assert.match(environmentSection, /Compatibility bindings/);
-  assert.match(environmentSection, /Source of truth/);
-  assert.match(environmentSection, /Authority Center/);
-});
-
 test("settings expose code editor adapter preference as a client default", () => {
-  assert.match(settingsViewBody, /selectedSection === "code_editor_adapter"/);
-  assert.match(settingsViewBody, /SettingsCodeEditorAdapterSection/);
   assert.match(settingsViewBody, /data-settings-reference-shell="ioi-settings"/);
   assert.match(settingsViewBody, /Account/);
   assert.match(settingsViewBody, /Secrets/);
@@ -155,11 +119,9 @@ test("settings expose code editor adapter preference as a client default", () =>
   assert.match(settingsViewBody, /data-settings-editor-picker/);
   assert.match(settingsViewBody, /data-settings-editor-target/);
   assert.match(settingsViewBody, /Embedded code editor/);
-  assert.match(settingsViewBody, /className="chat-settings-reference-advanced"/);
-  assert.match(settingsViewBody, /<summary>Advanced<\/summary>/);
   assert.doesNotMatch(
     settingsViewBody,
-    /className="chat-settings-reference-advanced" hidden/,
+    /chat-settings-reference-advanced|<summary>Advanced<\/summary>/,
   );
   assert.match(
     settingsViewBody,
@@ -175,6 +137,7 @@ test("settings expose code editor adapter preference as a client default", () =>
     settingsViewBody,
     /Connect editor adapters, terminals, browsers, cloud accounts, model providers, and storage services/,
   );
+  assert.match(settingsViewBody, /data-settings-reference-organization-link/);
   assert.doesNotMatch(settingsViewBody, /governed sessions/);
   assert.doesNotMatch(settingsViewBody, /plaintext custody domain/);
   assert.doesNotMatch(settingsViewBody, /adapter_preference_ref/);
@@ -195,30 +158,20 @@ test("settings expose code editor adapter preference as a client default", () =>
     settingsView,
     /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCE_STORAGE_KEY/,
   );
-  assert.match(codeEditorAdapterSection, /Default editor target/);
-  assert.match(codeEditorAdapterSection, /HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES/);
-  assert.match(codeEditorAdapterSection, /buildCodeEditorAdapterLaunchPlan/);
-  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-preference/);
-  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-executor-lane/);
-  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-control-action/);
-  assert.match(codeEditorAdapterSection, /data-code-editor-adapter-control-channel-ref/);
-  assert.match(codeEditorAdapterSection, /controlActionLabel/);
-  assert.match(codeEditorAdapterSection, /Open embedded/);
-  assert.match(codeEditorAdapterSection, /Open desktop/);
-  assert.match(codeEditorAdapterSection, /Open browser editor/);
-  assert.match(codeEditorAdapterSection, /Local workspace/);
-  assert.match(codeEditorAdapterSection, /Session preference/);
-  assert.match(codeEditorAdapterSection, /Sessions and Environments own terminal/);
-  assert.doesNotMatch(codeEditorAdapterSection, /adapter_preference_ref/);
-  assert.doesNotMatch(codeEditorAdapterSection, /preference\.launch_mode\} \/ /);
-  assert.doesNotMatch(codeEditorAdapterSection, /custody_posture\.split/);
+  assert.match(codeEditorAdapterPreferences, /executor_lane/);
+  assert.match(codeEditorAdapterPreferences, /control_action/);
+  assert.match(codeEditorAdapterPreferences, /control_channel_ref/);
+  assert.match(codeEditorAdapterPreferences, /custody_posture/);
+  assert.doesNotMatch(settingsViewBody, /buildCodeEditorAdapterLaunchPlan/);
+  assert.doesNotMatch(settingsViewBody, /data-code-editor-adapter-executor-lane/);
+  assert.doesNotMatch(settingsViewBody, /data-code-editor-adapter-control-action/);
 });
 
-test("settings authority repair actions route to canonical surfaces", () => {
-  assert.match(settingsView, /onOpenModelRoutes/);
-  assert.match(settingsView, /onOpenWorkflowPreflight/);
+test("authority repair actions route to canonical surfaces outside Settings", () => {
   assert.match(authoritySettingsSurfaceView, /onOpenModelRoutes/);
   assert.match(authoritySettingsSurfaceView, /onOpenWorkflowPreflight/);
+  assert.doesNotMatch(settingsView, /onOpenModelRoutes/);
+  assert.doesNotMatch(settingsView, /onOpenWorkflowPreflight/);
 });
 
 console.log("settingsAuthorityCenterWiring.test.ts: ok");

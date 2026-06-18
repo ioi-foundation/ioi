@@ -155,7 +155,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     assert.match(source, new RegExp(`"${shellRegion}"`));
   }
   for (const settingsSection of [
-    "code_editor_adapter",
+    "identity",
     "secrets",
     "git_auth",
     "personal_access_tokens",

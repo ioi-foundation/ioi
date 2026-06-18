@@ -3,17 +3,7 @@ import {
   getCodeEditorAdapterPreferenceByRef,
   getCodeEditorAdapterPreferenceRef,
 } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
-import { SettingsAuthoritySection } from "./SettingsAuthoritySection";
-import { SettingsEnvironmentSection } from "./SettingsEnvironmentSection";
-import { SettingsKnowledgeSection } from "./SettingsKnowledgeSection";
-import { SettingsMaintenanceSection } from "./SettingsMaintenanceSection";
-import { SettingsManagedSection } from "./SettingsManagedSection";
-import { SettingsRuntimeSection } from "./SettingsRuntimeSection";
-import { SettingsSkillSourcesSection } from "./SettingsSkillSourcesSection";
-import { SettingsSourcesSection } from "./SettingsSourcesSection";
-import { SettingsStorageApiSection } from "./SettingsStorageApiSection";
-import { SettingsCodeEditorAdapterSection } from "./SettingsCodeEditorAdapterSection";
-import { isEngineSection, type SettingsSection } from "./settingsViewShared";
+import { type SettingsSection } from "./settingsViewShared";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
 
 const PRIMARY_SETTINGS_NAV: Array<{
@@ -25,24 +15,6 @@ const PRIMARY_SETTINGS_NAV: Array<{
   { id: "git_auth", label: "Git authentications" },
   { id: "personal_access_tokens", label: "Personal access tokens" },
   { id: "integrations", label: "Integrations" },
-];
-
-const ADVANCED_SETTINGS_NAV: Array<{
-  id: SettingsSection;
-  label: string;
-}> = [
-  { id: "authority", label: "Authority" },
-  { id: "knowledge", label: "Knowledge" },
-  { id: "skill_sources", label: "Skill sources" },
-  { id: "managed_settings", label: "Managed settings" },
-  { id: "code_editor_adapter", label: "code editor adapter" },
-  { id: "runtime", label: "Runtime" },
-  { id: "storage_api", label: "Storage / API" },
-  { id: "sources", label: "Sources" },
-  { id: "environment", label: "Environment" },
-  { id: "local_data", label: "Local data" },
-  { id: "repair_reset", label: "Repair / reset" },
-  { id: "diagnostics", label: "Diagnostics" },
 ];
 
 function SettingsNavButton({
@@ -348,54 +320,13 @@ function SettingsReferencePrimaryPanel({
   }
 }
 
-function SettingsAdvancedPanel({ view }: { view: SettingsViewBodyView }) {
-  const { selectedSection, renderEngineControls } = view;
-
-  return (
-    <section className="chat-settings-panel">
-      {isEngineSection(selectedSection) ? renderEngineControls() : null}
-
-      {selectedSection === "authority" ? (
-        <SettingsAuthoritySection view={view} />
-      ) : null}
-      {selectedSection === "managed_settings" ? (
-        <SettingsManagedSection view={view} />
-      ) : null}
-      {selectedSection === "code_editor_adapter" ? (
-        <SettingsCodeEditorAdapterSection view={view} />
-      ) : null}
-      {selectedSection === "runtime" ? (
-        <SettingsRuntimeSection view={view} />
-      ) : null}
-      {selectedSection === "storage_api" ? (
-        <SettingsStorageApiSection view={view} />
-      ) : null}
-      {selectedSection === "sources" ? (
-        <SettingsSourcesSection view={view} />
-      ) : null}
-      {selectedSection === "environment" ? (
-        <SettingsEnvironmentSection view={view} />
-      ) : null}
-      {selectedSection === "knowledge" ? (
-        <SettingsKnowledgeSection view={view} />
-      ) : null}
-      {selectedSection === "skill_sources" ? (
-        <SettingsSkillSourcesSection view={view} />
-      ) : null}
-      {selectedSection === "local_data" ||
-      selectedSection === "repair_reset" ||
-      selectedSection === "diagnostics" ? (
-        <SettingsMaintenanceSection view={view} />
-      ) : null}
-    </section>
-  );
-}
-
 export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
   const { selectedSection, setSelectedSection } = view;
-  const primarySelected = PRIMARY_SETTINGS_NAV.some(
+  const selectedPrimarySection = PRIMARY_SETTINGS_NAV.some(
     (item) => item.id === selectedSection,
-  );
+  )
+    ? selectedSection
+    : "identity";
 
   return (
     <div
@@ -417,29 +348,16 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
                 key={item.id}
                 section={item.id}
                 label={item.label}
-                selectedSection={selectedSection}
+                selectedSection={selectedPrimarySection}
                 setSelectedSection={setSelectedSection}
               />
             ))}
           </div>
 
-          <details className="chat-settings-reference-advanced">
-            <summary>Advanced</summary>
-            {ADVANCED_SETTINGS_NAV.map((item) => (
-              <SettingsNavButton
-                key={item.id}
-                section={item.id}
-                label={item.label}
-                selectedSection={selectedSection}
-                setSelectedSection={setSelectedSection}
-              />
-            ))}
-          </details>
-
           <button
             type="button"
             className="chat-settings-reference-org"
-            onClick={() => setSelectedSection("authority")}
+            data-settings-reference-organization-link="true"
           >
             <span aria-hidden="true">&larr;</span>
             Go to Organization settings
@@ -447,11 +365,9 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
         </aside>
 
         <main className="chat-settings-reference-main">
-          {primarySelected ? (
-            <SettingsReferencePrimaryPanel view={view} />
-          ) : (
-            <SettingsAdvancedPanel view={view} />
-          )}
+          <SettingsReferencePrimaryPanel
+            view={{ ...view, selectedSection: selectedPrimarySection }}
+          />
         </main>
       </div>
     </div>

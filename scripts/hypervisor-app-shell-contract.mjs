@@ -615,51 +615,26 @@ async function main() {
     );
     assert(
       !settingsText.match(
-        /Default Editor|default selected editor|Code tab|Show the embedded VS Code editor|adapter_preference_ref/i,
+        /Default Editor|default selected editor|Code tab|Show the embedded VS Code editor|adapter_preference_ref|Advanced|Runtime|Storage \/ API/i,
       ),
-      "Settings leaked old Code tab or raw adapter-preference copy.",
+      "Settings leaked old Code tab, raw adapter-preference copy, or retired advanced settings copy.",
     );
     const settingsShell = page.locator(
       '[data-settings-reference-shell="ioi-settings"]',
     );
-    const settingsAdvancedSummary = settingsShell
-      .locator("summary:has-text('Advanced')")
-      .first();
-    if (await settingsAdvancedSummary.isVisible()) {
-      await settingsAdvancedSummary.click();
-    }
-    const codeEditorAdapterSettingsNav = settingsShell
-      .locator(
-        '.chat-settings-reference-advanced button:has-text("Code editor adapter")',
-      )
-      .first();
-    await codeEditorAdapterSettingsNav.scrollIntoViewIfNeeded();
-    await codeEditorAdapterSettingsNav.click();
-    const settingsMain = settingsShell.locator(".chat-settings-reference-main");
-    await settingsMain
-      .locator("[data-code-editor-adapter-executor-lane]")
-      .first()
-      .waitFor({ state: "visible", timeout: 30_000 });
-    const settingsAdapterRows = await settingsMain
-      .locator("[data-code-editor-adapter-executor-lane]")
+    const settingsAdapterTargets = await settingsShell
+      .locator("[data-settings-editor-target]")
       .count();
     assert(
-      settingsAdapterRows >= 8,
-      "Settings did not expose governed adapter target metadata.",
-    );
-    const settingsControlRows = await settingsMain
-      .locator("[data-code-editor-adapter-control-action]")
-      .count();
-    assert(
-      settingsControlRows === settingsAdapterRows,
-      "Settings adapter rows did not carry control action metadata.",
+      settingsAdapterTargets >= 8,
+      "Settings did not expose code editor adapter preference targets.",
     );
     const settingsAdapterText = await page.locator("body").innerText();
     assert(
-      settingsAdapterText.includes("Open embedded") &&
-        settingsAdapterText.includes("Open desktop") &&
-        settingsAdapterText.includes("Local workspace"),
-      "Settings adapter section did not render product-facing adapter control labels.",
+      settingsAdapterText.includes("This will be your default code editor for workspace sessions.") &&
+        settingsAdapterText.includes("Embedded code editor") &&
+        settingsAdapterText.includes("Dotfiles repository"),
+      "Settings did not render reference account preferences.",
     );
 
     const result = {
@@ -690,8 +665,8 @@ async function main() {
         "agents_reference_product_surface_rendered",
         "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",
-        "settings_reference_authority_sections_rendered",
-        "settings_adapter_controls_rendered",
+        "settings_reference_primary_nav_rendered",
+        "settings_code_editor_preference_rendered",
       ],
       consoleMessages,
     };
