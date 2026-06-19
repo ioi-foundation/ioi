@@ -261,6 +261,12 @@ const runtimeHypervisorApprovedOperationAdmissionSource = read(
 const runtimeHypervisorApprovedOperationAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
 );
+const runtimeHypervisorApprovedOperationDispatchSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.mjs",
+);
+const runtimeHypervisorApprovedOperationDispatchTestSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
+);
 const runtimeHypervisorCoreTaxonomySource = read(
   "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
 );
@@ -2515,6 +2521,71 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound, then emit a daemon-owned execution plan awaiting a real executor.",
+);
+assert(
+  "hypervisor-approved-operation-dispatch",
+  runtimeHypervisorApprovedOperationDispatchSource.includes(
+    "ioi.runtime.hypervisor_approved_operation_dispatch.v1",
+  ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "dispatchHypervisorApprovedOperationPlan",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "hypervisor_approved_operation_executor_required",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "execution_plan_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes("dispatch_ref") &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes("executor_ref") &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "next_state_root_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "execution_receipt_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchSource.includes(
+      "runtimeTruthSource: \"daemon-runtime\"",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/approved-operation-dispatches",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "dispatchHypervisorApprovedOperationPlan",
+    ) &&
+    publicRuntimeRoutesSource.includes("executeApprovedOperationPlan") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch approved Hypervisor operation plans through mounted executors",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "fail approved-operation dispatch without mounted executor",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
+      "dispatches an admitted execution plan through a mounted executor",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
+      "rejects dispatch when no concrete executor is mounted",
+    ) &&
+    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
+      "rejects non-daemon plans",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "POST /v1/hypervisor/approved-operation-dispatches",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.hypervisor_approved_operation_dispatch.v1",
+    ) &&
+    daemonRuntimeApiDoc.includes("awaiting_executor"),
+  [
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Approved Hypervisor operation dispatch must consume daemon-owned execution plans through mounted executors only, fail closed without an executor, and return execution receipts plus state-root refs instead of allowing client-local side effects.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",

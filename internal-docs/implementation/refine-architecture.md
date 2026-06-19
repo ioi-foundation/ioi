@@ -1234,8 +1234,14 @@ Current implementation cut:
   receipt evidence pagination and project/session receipt handoff now close the
   project receipt-history gap. Approved-operation admission now emits a
   daemon-owned execution plan and dispatch ref, so real adapters have a single
-  handoff after wallet approval and Agentgres truth binding. Remaining work is
-  real adapter fulfillment of those execution plans.
+  handoff after wallet approval and Agentgres truth binding. Approved-operation
+  dispatch now exposes `/v1/hypervisor/approved-operation-dispatches`, consuming
+  only the admitted `ioi.runtime.hypervisor_approved_operation_execution_plan.v1`
+  through a mounted executor and returning
+  `ioi.runtime.hypervisor_approved_operation_dispatch.v1` records with execution
+  receipts, state-root refs, artifact refs, trace refs, and daemon-runtime truth.
+  Remaining work is concrete session/provider/project/automation executor
+  adapters behind that dispatch seam.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader while the
@@ -1267,10 +1273,14 @@ Current implementation cut:
   command review, archive, and restore. Approved operation execution now has a
   daemon-owned execution plan handoff after admission, so adapter execution
   must consume the plan rather than receiving UI-authored side effects. The
-  admission boundary accepts only daemon-authored session/provider/project/
-  automation proposals after wallet approval, wallet lease, Agentgres operation
-  refs, receipts, state-root refs, and required archive/restore refs are bound.
-  Broader non-fixture project/session data coverage remains follow-up work.
+  dispatch boundary accepts only daemon-runtime plans awaiting an executor,
+  fails closed without a mounted executor, and requires execution receipts plus
+  state-root refs from the concrete adapter. The admission boundary accepts only
+  daemon-authored session/provider/project/automation proposals after wallet
+  approval, wallet lease, Agentgres operation refs, receipts, state-root refs,
+  and required archive/restore refs are bound. Broader non-fixture
+  project/session data coverage and concrete executor integrations remain
+  follow-up work.
 
 0A.5 Workbench direct workspace session is implemented through the primary shell:
   `WorkspaceShell` now mounts the current project directly into the governed
@@ -1521,8 +1531,10 @@ Current implementation cut:
   refs, receipt refs, state-root refs, archive refs, and restore refs. Provider
   actions therefore remain proposals until wallet.network grants a scoped lease
   and Agentgres admits lifecycle truth.
-  Remaining work is executing the approved provider operation lifecycle against
-  real provider adapters after wallet approval and Agentgres admission.
+  Approved provider operations now have the shared approved-operation dispatch
+  seam, so real provider adapters must consume daemon-owned execution plans and
+  return execution receipts instead of mutating provider state directly from
+  the client. Remaining work is concrete provider adapters behind that seam.
 
 0A.8/0A.10 first receipt evidence surface is implemented:
   `hypervisorReceiptEvidenceModel.ts` defines

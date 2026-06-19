@@ -912,6 +912,74 @@ session, provider, project, or workflow-compositor adapter consumes it and
 returns admitted execution receipts. This gives adapters a single execution
 handoff without letting clients turn approval into local side effects.
 
+```http
+POST /v1/hypervisor/approved-operation-dispatches
+```
+
+`POST /v1/hypervisor/approved-operation-dispatches` is the executor-facing
+handoff for a daemon-owned execution plan. The endpoint does not approve an
+operation and does not create a plan. It consumes the exact
+`ioi.runtime.hypervisor_approved_operation_execution_plan.v1` returned by
+approved-operation admission and requires a mounted executor for the plan's
+`executor_kind`.
+
+Request body:
+
+```json
+{
+  "execution_plan_ref": "execution-plan://hypervisor/...",
+  "dispatch_ref": "dispatch://hypervisor/...",
+  "executor_kind": "session_lifecycle_adapter",
+  "executor_ref": "executor://hypervisor/session/local-workstation",
+  "execution_plan": {
+    "schema_version": "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+    "execution_plan_ref": "execution-plan://hypervisor/...",
+    "dispatch_ref": "dispatch://hypervisor/...",
+    "executor_kind": "session_lifecycle_adapter",
+    "dispatch_status": "awaiting_executor",
+    "wallet_lease_ref": "lease:wallet/...",
+    "agentgres_operation_refs": ["agentgres://operation/..."],
+    "receipt_refs": ["receipt://..."],
+    "state_root_ref": "agentgres://state-root/...",
+    "runtimeTruthSource": "daemon-runtime"
+  }
+}
+```
+
+The response is an `ioi.runtime.hypervisor_approved_operation_dispatch.v1`
+receipt-bearing dispatch record:
+
+```json
+{
+  "schema_version": "ioi.runtime.hypervisor_approved_operation_dispatch.v1",
+  "execution_plan_ref": "execution-plan://hypervisor/...",
+  "dispatch_ref": "dispatch://hypervisor/...",
+  "execution_attempt_ref": "execution-attempt://hypervisor/...",
+  "dispatch_status": "executed | failed | blocked",
+  "execution_status": "completed | failed | blocked",
+  "executor_kind": "session_lifecycle_adapter",
+  "executor_ref": "executor://hypervisor/session/local-workstation",
+  "operation_family": "session",
+  "operation_kind": "restore_session",
+  "wallet_lease_ref": "lease:wallet/...",
+  "required_scope_refs": ["scope:..."],
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "receipt_refs": ["receipt://...", "receipt://.../executed"],
+  "previous_state_root_ref": "agentgres://state-root/...",
+  "next_state_root_ref": "agentgres://state-root/...",
+  "artifact_refs": ["artifact://..."],
+  "trace_refs": ["trace://..."],
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Dispatch fails closed when no executor is mounted, the client supplies
+camelCase aliases, the supplied refs do not match the plan, the plan is not
+`awaiting_executor`, the plan is not daemon-runtime truth, or the executor
+does not return an execution receipt. This keeps provider, session, project,
+and automation adapters behind the same plan/receipt boundary instead of
+letting approved UI actions become direct side effects.
+
 ### Runtime Manifest
 
 ```json

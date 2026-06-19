@@ -8,6 +8,7 @@ import { admitArtifactAvailabilityIncident } from "../runtime-artifact-availabil
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
+import { dispatchHypervisorApprovedOperationPlan } from "../runtime-hypervisor-approved-operation-dispatch.mjs";
 import { buildHypervisorCoreTaxonomy } from "../runtime-hypervisor-core-taxonomy.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
@@ -23,6 +24,7 @@ export function createPublicRuntimeRequestHandler(deps) {
     createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
     createLifecycleThread: createLifecycleThreadDep = createLifecycleThread,
     ensureProviderAvailable = null,
+    executeApprovedOperationPlan = null,
     executeHarnessContainerLane = null,
     eventStreamIdForThread = null,
     handleAgentRoute,
@@ -523,6 +525,17 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(
           response,
           admitHypervisorApprovedOperation(body),
+          202,
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/approved-operation-dispatches") {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          await dispatchHypervisorApprovedOperationPlan(body, {
+            executeApprovedOperationPlan,
+          }),
           202,
         );
         return;
