@@ -2,9 +2,9 @@
 
 Status: internal implementation master guide.
 Owner: implementation/canon hardening workstream.
-Primary product/UX authority: `internal-docs/reverse-engineering/ioi`.
-Secondary canon target: `docs/architecture`.
-Last reviewed against current canon: 2026-06-16.
+Primary authority: `internal-docs/reverse-engineering/ioi` product/UX reference.
+Secondary authority: `docs/architecture` canon translation.
+Last reviewed against current canon: 2026-06-18.
 
 ## Purpose
 
@@ -1228,8 +1228,10 @@ Current implementation cut:
   project operations are admitted only through the wallet.network lease,
   Agentgres operation, receipt, archive, restore, and state-root gate. Shared
   receipt evidence pagination and project/session receipt handoff now close the
-  project receipt-history gap. Remaining work is real adapter execution after
-  approved admission.
+  project receipt-history gap. Approved-operation admission now emits a
+  daemon-owned execution plan and dispatch ref, so real adapters have a single
+  handoff after wallet approval and Agentgres truth binding. Remaining work is
+  real adapter fulfillment of those execution plans.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader while the
@@ -1259,11 +1261,12 @@ Current implementation cut:
   ports/services/tasks/terminal/logs shape; session operations now have a
   first proposal path for access/log leases, port exposure, task run, terminal
   command review, archive, and restore. Approved operation execution now has a
-  first daemon admission boundary that accepts only daemon-authored
-  session/provider proposals after wallet approval, wallet lease, Agentgres
-  operation refs, receipts, state-root refs, and required archive/restore refs
-  are bound. Broader non-fixture project/session data coverage remains follow-up
-  work.
+  daemon-owned execution plan handoff after admission, so adapter execution
+  must consume the plan rather than receiving UI-authored side effects. The
+  admission boundary accepts only daemon-authored session/provider/project/
+  automation proposals after wallet approval, wallet lease, Agentgres operation
+  refs, receipts, state-root refs, and required archive/restore refs are bound.
+  Broader non-fixture project/session data coverage remains follow-up work.
 
 0A.5 Workbench direct workspace session is implemented through the primary shell:
   `WorkspaceShell` now mounts the current project directly into the governed

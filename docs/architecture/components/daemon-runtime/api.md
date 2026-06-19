@@ -877,6 +877,16 @@ object:
   "operation_kind": "restore_session",
   "decision": "admitted",
   "execution_status": "admitted_for_execution",
+  "executor_kind": "session_lifecycle_adapter",
+  "execution_plan_ref": "execution-plan://hypervisor/...",
+  "execution_dispatch_ref": "dispatch://hypervisor/...",
+  "execution_plan": {
+    "schema_version": "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+    "execution_plan_ref": "execution-plan://hypervisor/...",
+    "dispatch_ref": "dispatch://hypervisor/...",
+    "executor_kind": "session_lifecycle_adapter",
+    "dispatch_status": "awaiting_executor"
+  },
   "wallet_approval_ref": "approval://wallet/...",
   "wallet_lease_ref": "lease:wallet/...",
   "required_scope_refs": ["scope:..."],
@@ -895,6 +905,12 @@ daemon admission boundary that proves the selected proposal, wallet approval,
 wallet lease, Agentgres operation refs, receipts, archive/restore refs, and
 state root are bound before Hypervisor executes the session or provider
 lifecycle operation.
+
+The admission response also returns a daemon-owned execution plan. The plan is
+not execution by itself and must remain `awaiting_executor` until a concrete
+session, provider, project, or workflow-compositor adapter consumes it and
+returns admitted execution receipts. This gives adapters a single execution
+handoff without letting clients turn approval into local side effects.
 
 ### Runtime Manifest
 

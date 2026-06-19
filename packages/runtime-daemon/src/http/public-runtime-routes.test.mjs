@@ -1419,6 +1419,16 @@ test("public runtime routes admit approved Hypervisor operations after wallet an
   );
   assert.equal(result.decision, "admitted");
   assert.equal(result.execution_status, "admitted_for_execution");
+  assert.equal(result.executor_kind, "session_lifecycle_adapter");
+  assert.match(result.execution_plan_ref, /^execution-plan:\/\/hypervisor\/session\//);
+  assert.match(result.execution_dispatch_ref, /^dispatch:\/\/hypervisor\/session\//);
+  assert.equal(
+    result.execution_plan.schema_version,
+    "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+  );
+  assert.equal(result.execution_plan.dispatch_status, "awaiting_executor");
+  assert.equal(result.execution_plan.executor_kind, "session_lifecycle_adapter");
+  assert.equal(result.execution_plan.wallet_lease_ref, result.wallet_lease_ref);
   assert.equal(result.wallet_approval_ref, "approval://wallet/session/restore");
   assert.deepEqual(result.agentgres_operation_refs, [
     "agentgres://operation/session/ioi/restore",

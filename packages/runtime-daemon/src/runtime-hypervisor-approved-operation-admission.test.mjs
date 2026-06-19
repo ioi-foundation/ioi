@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION,
+  HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION,
   admitHypervisorApprovedOperation,
 } from "./runtime-hypervisor-approved-operation-admission.mjs";
 
@@ -104,6 +105,21 @@ test("admits daemon session operation after wallet approval and Agentgres truth 
   assert.equal(result.operation_family, "session");
   assert.equal(result.decision, "admitted");
   assert.equal(result.execution_status, "admitted_for_execution");
+  assert.equal(result.executor_kind, "session_lifecycle_adapter");
+  assert.match(result.execution_plan_ref, /^execution-plan:\/\/hypervisor\/session\//);
+  assert.match(result.execution_dispatch_ref, /^dispatch:\/\/hypervisor\/session\//);
+  assert.equal(
+    result.execution_plan.schema_version,
+    HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION,
+  );
+  assert.equal(result.execution_plan.dispatch_status, "awaiting_executor");
+  assert.equal(result.execution_plan.executor_kind, "session_lifecycle_adapter");
+  assert.equal(result.execution_plan.admission_id, result.admission_id);
+  assert.equal(result.execution_plan.wallet_lease_ref, result.wallet_lease_ref);
+  assert.deepEqual(
+    result.execution_plan.agentgres_operation_refs,
+    result.agentgres_operation_refs,
+  );
   assert.equal(result.wallet_approval_ref, "approval://wallet/session/restore");
   assert.deepEqual(result.agentgres_operation_refs, [
     "agentgres://operation/session/ioi/restore",
@@ -118,6 +134,11 @@ test("admits daemon provider operation after wallet approval and Agentgres truth
   const result = admitHypervisorApprovedOperation(providerRequest);
 
   assert.equal(result.operation_family, "provider");
+  assert.equal(result.executor_kind, "provider_lifecycle_adapter");
+  assert.equal(
+    result.execution_plan.executor_kind,
+    "provider_lifecycle_adapter",
+  );
   assert.equal(result.candidate_ref, "provider-candidate:akash-gpu");
   assert.equal(result.direct_provider_ref, "provider:akash/gpu-market");
   assert.equal(result.provider_candidate_ref, "provider-candidate:akash-gpu");
@@ -129,6 +150,8 @@ test("admits daemon project operation after wallet approval and Agentgres archiv
   const result = admitHypervisorApprovedOperation(projectRequest);
 
   assert.equal(result.operation_family, "project");
+  assert.equal(result.executor_kind, "project_lifecycle_adapter");
+  assert.equal(result.execution_plan.dispatch_status, "awaiting_executor");
   assert.equal(result.workspace_ref, "workspace://ioi");
   assert.equal(result.target_ref, "workspace://ioi");
   assert.equal(result.archive_ref, "artifact://agentgres/archive/ioi/latest");
@@ -143,6 +166,11 @@ test("admits daemon automation run after wallet approval and Agentgres refs", ()
   const result = admitHypervisorApprovedOperation(automationRequest);
 
   assert.equal(result.operation_family, "automation");
+  assert.equal(result.executor_kind, "workflow_compositor_runner");
+  assert.equal(
+    result.execution_plan.executor_kind,
+    "workflow_compositor_runner",
+  );
   assert.equal(result.template_ref, "workflow-template:mission-to-workbench");
   assert.equal(result.run_recipe_ref, "run-recipe:mission-to-workbench/manual");
   assert.equal(result.graph_ref, "workflow://graph/mission-to-workbench");

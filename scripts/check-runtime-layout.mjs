@@ -2420,7 +2420,22 @@ assert(
     "ioi.runtime.hypervisor_approved_operation_admission.v1",
   ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "admitHypervisorApprovedOperation",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "buildExecutionPlan",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "execution_plan_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "execution_dispatch_ref",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "dispatch_status: \"awaiting_executor\"",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "daemon-session-operation-proposal",
@@ -2464,6 +2479,9 @@ assert(
       "admit approved Hypervisor operations after wallet and Agentgres refs",
     ) &&
     publicRuntimeRoutesTestSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
       "reject fixture Hypervisor operation execution admission",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
@@ -2481,6 +2499,9 @@ assert(
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
     daemonRuntimeApiDoc.includes(
       "ioi.runtime.hypervisor_approved_operation_admission.v1",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
     ),
   [
     "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.mjs",
@@ -2488,7 +2509,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
+  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound, then emit a daemon-owned execution plan awaiting a real executor.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",

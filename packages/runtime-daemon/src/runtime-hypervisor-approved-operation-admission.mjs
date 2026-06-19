@@ -8,6 +8,8 @@ import {
 
 export const HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION =
   "ioi.runtime.hypervisor_approved_operation_admission.v1";
+export const HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION =
+  "ioi.runtime.hypervisor_approved_operation_execution_plan.v1";
 
 const OPERATION_FAMILIES = new Set([
   "session",
@@ -132,9 +134,31 @@ export function admitHypervisorApprovedOperation(request = {}, deps = {}) {
   assertOperationSpecificRefs({ operationKind, archiveRef, restoreRef });
 
   const familyTargets = familyTargetRefs(operationFamily, request);
+  const targetRef =
+    optionalString(request.target_ref) ?? familyTargets.target_ref ?? null;
   const admissionId =
     optionalString(request.admission_id) ??
     `hypervisor-approved-operation:${safeId(operationFamily)}:${safeId(proposalRef)}`;
+  const executorKind = executorKindFor(operationFamily);
+  const executionPlan = buildExecutionPlan({
+    admissionId,
+    operationFamily,
+    proposalRef,
+    projectRef,
+    familyTargets,
+    operationKind,
+    targetRef,
+    executorKind,
+    walletLeaseRef,
+    requiredScopeRefs,
+    authorityReceiptRefs,
+    agentgresOperationRefs,
+    artifactRefs,
+    receiptRefs,
+    stateRootRef,
+    archiveRef,
+    restoreRef,
+  });
 
   return {
     schema_version: HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION,
@@ -146,9 +170,13 @@ export function admitHypervisorApprovedOperation(request = {}, deps = {}) {
     project_ref: projectRef,
     ...familyTargets,
     operation_kind: operationKind,
-    target_ref: optionalString(request.target_ref) ?? familyTargets.target_ref ?? null,
+    target_ref: targetRef,
     decision: "admitted",
     execution_status: "admitted_for_execution",
+    executor_kind: executorKind,
+    execution_plan_ref: executionPlan.execution_plan_ref,
+    execution_dispatch_ref: executionPlan.dispatch_ref,
+    execution_plan: executionPlan,
     wallet_approval_ref: walletApprovalRef,
     wallet_lease_ref: walletLeaseRef,
     required_scope_refs: requiredScopeRefs,
@@ -165,6 +193,71 @@ export function admitHypervisorApprovedOperation(request = {}, deps = {}) {
     admitted_at: optionalString(request.admitted_at) ?? nowIso(),
     runtimeTruthSource: "daemon-runtime",
   };
+}
+
+function buildExecutionPlan({
+  admissionId,
+  operationFamily,
+  proposalRef,
+  projectRef,
+  familyTargets,
+  operationKind,
+  targetRef,
+  executorKind,
+  walletLeaseRef,
+  requiredScopeRefs,
+  authorityReceiptRefs,
+  agentgresOperationRefs,
+  artifactRefs,
+  receiptRefs,
+  stateRootRef,
+  archiveRef,
+  restoreRef,
+}) {
+  const planRef =
+    `execution-plan://hypervisor/${safeId(operationFamily)}/${safeId(admissionId)}`;
+  return {
+    schema_version: HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION,
+    execution_plan_ref: planRef,
+    dispatch_ref:
+      `dispatch://hypervisor/${safeId(operationFamily)}/${safeId(admissionId)}`,
+    executor_kind: executorKind,
+    dispatch_status: "awaiting_executor",
+    operation_family: operationFamily,
+    operation_kind: operationKind,
+    proposal_ref: proposalRef,
+    admission_id: admissionId,
+    project_ref: projectRef,
+    ...familyTargets,
+    target_ref: targetRef,
+    wallet_lease_ref: walletLeaseRef,
+    required_scope_refs: requiredScopeRefs,
+    authority_receipt_refs: authorityReceiptRefs,
+    agentgres_operation_refs: agentgresOperationRefs,
+    artifact_refs: artifactRefs,
+    receipt_refs: receiptRefs,
+    state_root_ref: stateRootRef,
+    archive_ref: archiveRef,
+    restore_ref: restoreRef,
+    execution_boundary_invariant:
+      "Approved Hypervisor operations produce daemon-owned execution plans; adapters execute only after wallet authority and Agentgres truth refs are bound.",
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+function executorKindFor(operationFamily) {
+  switch (operationFamily) {
+    case "session":
+      return "session_lifecycle_adapter";
+    case "provider":
+      return "provider_lifecycle_adapter";
+    case "project":
+      return "project_lifecycle_adapter";
+    case "automation":
+      return "workflow_compositor_runner";
+    default:
+      throw requiredFieldError("operation_family");
+  }
 }
 
 function assertDaemonProposalBoundary({
