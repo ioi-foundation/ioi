@@ -48,6 +48,10 @@ test("SDK source imports wallet semantics from the protocol package", async () =
   assert.match(routeSourcesSource, /exchangeRouteSourceAdapter/);
   assert.match(routeSourcesSource, /tradeVenueSourceAdapter/);
   assert.match(routeSourcesSource, /createHttpCandidateSourceClient/);
+  assert.match(routeSourcesSource, /createDecentralizedExchangeCandidateSourceClient/);
+  assert.match(routeSourcesSource, /createDecentralizedTradeCandidateSourceClient/);
+  assert.match(routeSourcesSource, /DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER_ID/);
+  assert.match(routeSourcesSource, /DECENTRALIZED_TRADE_VENUE_ADAPTER_ID/);
   assert.match(routeSourcesSource, /assertCandidateEvidenceExecutable/);
   assert.match(routeSourcesSource, /candidate_source_only/);
 });
@@ -100,6 +104,92 @@ test("SDK HTTP candidate source client validates executable evidence from route 
   assert.equal(calls[0].url, "https://routes.example/v1/route-candidates");
   assert.equal(JSON.parse(calls[0].init.body).adapter_id, "adapter:decentralized-exchange");
   assert.equal(evidence[0].candidate_id, "route-candidate:eth/usdc/1");
+});
+
+test("SDK exposes first-party decentralized.exchange and trade candidate clients", async () => {
+  const sdk = await import("../dist/index.js");
+  const calls = [];
+  const fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url, body });
+    const isExchange = body.source === "decentralized.exchange";
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          candidate_evidence: [
+            {
+              candidate_id: isExchange
+                ? "route-candidate:decentralized-exchange/usdc-eth"
+                : "venue-candidate:decentralized-trade/eth-perp",
+              source: body.source,
+              adapter_id: body.adapter_id,
+              observed_at: "2026-06-17T12:01:00.000Z",
+              expires_at: "2026-06-17T12:05:00.000Z",
+              coverage_state: "assessed",
+              evidence_refs: [
+                isExchange
+                  ? "evidence://decentralized.exchange/route/1"
+                  : "evidence://decentralized.trade/venue/1",
+              ],
+              risk_labels: isExchange ? ["No Bridge"] : ["Venue Risk"],
+              claims: isExchange
+                ? { route_source_count: "3" }
+                : { market: "ETH-PERP" },
+            },
+          ],
+        };
+      },
+    };
+  };
+
+  const exchange = sdk.createDecentralizedExchangeCandidateSourceClient({
+    base_url: "https://decentralized.exchange",
+    validation: { now: "2026-06-17T12:00:00.000Z" },
+    fetch,
+  });
+  const trade = sdk.createDecentralizedTradeCandidateSourceClient({
+    base_url: "https://decentralized.trade/api",
+    validation: { now: "2026-06-17T12:00:00.000Z" },
+    fetch,
+  });
+
+  assert.equal(exchange.adapter.source, "decentralized.exchange");
+  assert.equal(exchange.adapter.trust_boundary, "candidate_source_only");
+  assert.equal(trade.adapter.source, "decentralized.trade");
+  assert.equal(trade.adapter.trust_boundary, "candidate_source_only");
+
+  const routeEvidence = await exchange.getRouteCandidates({
+    body: { from_asset: "USDC", to_asset: "ETH" },
+  });
+  const venueEvidence = await trade.getVenueCandidates({
+    body: { market: "ETH-PERP", side: "long" },
+  });
+
+  assert.deepEqual(
+    calls.map((call) => [call.url, call.body.adapter_id, call.body.source]),
+    [
+      [
+        "https://decentralized.exchange/v1/route-candidates",
+        "adapter:decentralized-exchange",
+        "decentralized.exchange",
+      ],
+      [
+        "https://decentralized.trade/api/v1/venue-candidates",
+        "adapter:decentralized-trade",
+        "decentralized.trade",
+      ],
+    ],
+  );
+  assert.equal(
+    routeEvidence[0].candidate_id,
+    "route-candidate:decentralized-exchange/usdc-eth",
+  );
+  assert.equal(
+    venueEvidence[0].candidate_id,
+    "venue-candidate:decentralized-trade/eth-perp",
+  );
 });
 
 test("SDK HTTP candidate source client rejects evidence from the wrong adapter", async () => {

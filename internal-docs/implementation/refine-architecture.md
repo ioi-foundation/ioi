@@ -471,7 +471,7 @@ IntegrationSurface endpoint adoption
 PhysicalActionPolicy and SafetyEnvelope live actuator adapters
 ExecutionPrivacyPosture live model/provider admission hydration
 ModelWeightCustodyProfile model-router route selection
-CandidateEvidence provider-specific route-source integrations
+CandidateEvidence live decentralized.exchange/decentralized.trade services
 ArtifactAvailabilityIncident live Agentgres artifact endpoint integration
 ServiceCompositionReceiptBundle SAS endpoint adoption
 ```
@@ -2451,7 +2451,7 @@ future aiagent and managed-agent product surfaces.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded; protocol-level route/venue source adapter contracts are implemented and exposed through the Wallet SDK. First source-agnostic HTTP candidate-source client implemented in the Wallet SDK; provider-specific decentralized.exchange/decentralized.trade deployments remain follow-up integration. |
+| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded; protocol-level route/venue source adapter contracts are implemented and exposed through the Wallet SDK. Source-agnostic HTTP candidate-source client plus first-party decentralized.exchange/decentralized.trade client constructors are implemented in the Wallet SDK; live decentralized.exchange/decentralized.trade services remain follow-up integration. |
 | Files | decentralized exchange/trade docs, Wallet product risk, API scopes, conformance docs |
 | Change | Require source, adapter, timestamp, expiry, evidence refs, coverage state, failure conditions for route/trade candidates. |
 | Acceptance | Candidate services cannot be hidden trust roots. |
@@ -2475,7 +2475,11 @@ helpers as a thin facade over the protocol package. `@ioi/wallet-sdk` now also
 exposes `createHttpCandidateSourceClient()`, a source-agnostic HTTP adapter
 that can call route/venue candidate services and only returns evidence after
 `assertCandidateEvidenceExecutable()` passes and the returned `source` /
-`adapter_id` match the declared adapter. This is the first live network seam
+`adapter_id` match the declared adapter. The SDK now also exposes
+`createDecentralizedExchangeCandidateSourceClient()` and
+`createDecentralizedTradeCandidateSourceClient()`, fixed-source wrappers over
+that generic client with `adapter:decentralized-exchange` and
+`adapter:decentralized-trade` IDs. This is the first live network seam
 for route-intelligence services while preserving the canon boundary: route
 sources propose; Wallet verifies, authorizes, and receipts.
 ```

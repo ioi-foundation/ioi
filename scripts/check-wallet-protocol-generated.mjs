@@ -187,6 +187,8 @@ for (const sdkFile of [
 const walletSdkRouteSources = read("packages/wallet-sdk/src/route-sources.ts");
 for (const text of [
   "createHttpCandidateSourceClient",
+  "createDecentralizedExchangeCandidateSourceClient",
+  "createDecentralizedTradeCandidateSourceClient",
   "assertCandidateEvidenceExecutable",
   "candidate_source_only",
   "wallet candidate source evidence must match the declared adapter and source",

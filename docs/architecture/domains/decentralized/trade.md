@@ -241,6 +241,28 @@ struct TradeIntent {
 }
 ```
 
+### Wallet SDK Source Client
+
+The canonical SDK seam for this first-party source is
+`createDecentralizedTradeCandidateSourceClient()` in `@ioi/wallet-sdk`.
+
+That client fixes:
+
+```text
+source: decentralized.trade
+adapter_id: adapter:decentralized-trade
+domain: trade
+candidate_kind: venue_candidate
+trust_boundary: candidate_source_only
+evidence_policy: claims_plus_refs_required
+```
+
+The helper is a source client, not a broker, custodian, approval client, or
+venue execution client. It may fetch executable `CandidateEvidence` from a
+decentralized.trade-compatible endpoint, but Wallet must still verify,
+simulate, policy-check, approve or deny, execute, monitor, and receipt the
+selected `TradeIntent`, `PredictionIntent`, position action, or event exposure.
+
 ### PositionReceipt
 
 ```rust

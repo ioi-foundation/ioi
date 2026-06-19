@@ -183,6 +183,27 @@ It binds the selected route, calldata commitments, slippage, simulation hash,
 policy hash, grant/lease, revocation epoch, economics, risk labels, and exact
 `TxIntent` records before exchange execution can be approved or signed.
 
+### Wallet SDK Source Client
+
+The canonical SDK seam for this first-party source is
+`createDecentralizedExchangeCandidateSourceClient()` in `@ioi/wallet-sdk`.
+
+That client fixes:
+
+```text
+source: decentralized.exchange
+adapter_id: adapter:decentralized-exchange
+domain: exchange
+candidate_kind: route_candidate
+trust_boundary: candidate_source_only
+evidence_policy: claims_plus_refs_required
+```
+
+The helper is a source client, not an approval client. It may fetch executable
+`CandidateEvidence` from a decentralized.exchange-compatible endpoint, but
+Wallet must still verify, simulate, policy-check, approve or deny, execute, and
+receipt the selected `ExchangeIntent`.
+
 ## Risk Labels
 
 Examples:

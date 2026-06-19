@@ -8,6 +8,8 @@ export {
 import {
   assertCandidateEvidenceExecutable,
   assertCandidateSourceAdapter,
+  exchangeRouteSourceAdapter,
+  tradeVenueSourceAdapter,
   type CandidateEvidence,
   type CandidateEvidenceValidationOptions,
   type WalletCandidateSourceAdapter,
@@ -69,6 +71,44 @@ export interface CandidateSourceHttpClient {
   ) => Promise<readonly CandidateEvidence[]>;
   readonly getTradeVenueCandidates: (
     request: CandidateSourceDomainRequest,
+  ) => Promise<readonly CandidateEvidence[]>;
+}
+
+export const DECENTRALIZED_EXCHANGE_SOURCE = "decentralized.exchange" as const;
+export const DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER_ID =
+  "adapter:decentralized-exchange" as const;
+export const DECENTRALIZED_TRADE_SOURCE = "decentralized.trade" as const;
+export const DECENTRALIZED_TRADE_VENUE_ADAPTER_ID =
+  "adapter:decentralized-trade" as const;
+
+export const DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER =
+  exchangeRouteSourceAdapter({
+    adapter_id: DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER_ID,
+    source: DECENTRALIZED_EXCHANGE_SOURCE,
+  });
+
+export const DECENTRALIZED_TRADE_VENUE_ADAPTER = tradeVenueSourceAdapter({
+  adapter_id: DECENTRALIZED_TRADE_VENUE_ADAPTER_ID,
+  source: DECENTRALIZED_TRADE_SOURCE,
+});
+
+export interface FirstPartyCandidateSourceRequest {
+  readonly body?: Readonly<Record<string, unknown>>;
+  readonly path?: string;
+  readonly validation?: CandidateEvidenceValidationOptions;
+}
+
+export interface DecentralizedExchangeCandidateSourceClient {
+  readonly adapter: WalletCandidateSourceAdapter;
+  readonly getRouteCandidates: (
+    request?: FirstPartyCandidateSourceRequest,
+  ) => Promise<readonly CandidateEvidence[]>;
+}
+
+export interface DecentralizedTradeCandidateSourceClient {
+  readonly adapter: WalletCandidateSourceAdapter;
+  readonly getVenueCandidates: (
+    request?: FirstPartyCandidateSourceRequest,
   ) => Promise<readonly CandidateEvidence[]>;
 }
 
@@ -147,6 +187,40 @@ export function createHttpCandidateSourceClient(
           trust_boundary: "candidate_source_only",
           evidence_policy: "claims_plus_refs_required",
         },
+        path: request.path,
+        body: request.body,
+        validation: request.validation,
+      });
+    },
+  };
+}
+
+export function createDecentralizedExchangeCandidateSourceClient(
+  options: CandidateSourceHttpClientOptions,
+): DecentralizedExchangeCandidateSourceClient {
+  const client = createHttpCandidateSourceClient(options);
+  return {
+    adapter: DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER,
+    getRouteCandidates(request = {}) {
+      return client.requestCandidateEvidence({
+        adapter: DECENTRALIZED_EXCHANGE_ROUTE_ADAPTER,
+        path: request.path,
+        body: request.body,
+        validation: request.validation,
+      });
+    },
+  };
+}
+
+export function createDecentralizedTradeCandidateSourceClient(
+  options: CandidateSourceHttpClientOptions,
+): DecentralizedTradeCandidateSourceClient {
+  const client = createHttpCandidateSourceClient(options);
+  return {
+    adapter: DECENTRALIZED_TRADE_VENUE_ADAPTER,
+    getVenueCandidates(request = {}) {
+      return client.requestCandidateEvidence({
+        adapter: DECENTRALIZED_TRADE_VENUE_ADAPTER,
         path: request.path,
         body: request.body,
         validation: request.validation,
