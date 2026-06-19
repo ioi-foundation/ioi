@@ -23,6 +23,7 @@ import {
   modelRouteSupportsHypervisorMountFromInventory,
   normalizeHarnessComparisonRunFromPublicFixtureRun,
   requestHarnessSessionBindingAdmission,
+  requestHarnessSessionLaunch,
   requestHarnessPublicFixtureRun,
 } from "./harnessAdapterModel.ts";
 import {
@@ -562,6 +563,8 @@ test("new session launch summary binds harness, model route, adapter target, pri
   assert.equal(launchedSession.code_editor_adapter_admission_ref, null);
   assert.equal(launchedSession.harness_session_binding_admission, null);
   assert.equal(launchedSession.harness_session_binding_admission_ref, null);
+  assert.equal(launchedSession.harness_session_launch, null);
+  assert.equal(launchedSession.harness_session_launch_ref, null);
   assert.equal(
     launchedSession.harness_session_binding_ref,
     summary.harness_session_binding_ref,
@@ -857,6 +860,106 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     harnessAdmission.model_configuration_ref,
     HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
   );
+  const harnessLaunch = await requestHarnessSessionLaunch(harnessAdmission, {
+    endpoint: "http://daemon.local",
+    workspaceRef: "workspace:project:ioi",
+    terminalSessionRef: "terminal-session:project:ioi/mission.default",
+    fetchImpl: async (input, init) => {
+      assert.equal(
+        input,
+        "http://daemon.local/v1/hypervisor/harness-session-launches",
+      );
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.headers?.["content-type"], "application/json");
+      const request = JSON.parse(init?.body ?? "{}");
+      assert.equal(
+        request.binding_admission.admission_id,
+        harnessAdmission.admission_id,
+      );
+      assert.equal(request.workspace_ref, "workspace:project:ioi");
+      return {
+        ok: true,
+        status: 202,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "ioi.runtime.harness_session_launch.v1",
+            launch_id: "harness-session-launch:local-codex",
+            decision: "admitted",
+            launch_state: "ready_to_spawn",
+            launch_lane: "host_dev_pty",
+            session_binding_ref: harnessAdmission.session_binding_ref,
+            session_route_ref: harnessAdmission.session_route_ref,
+            binding_admission_id: harnessAdmission.admission_id,
+            harness_selection_ref: harnessAdmission.harness_selection_ref,
+            harness_selection_kind: harnessAdmission.harness_selection_kind,
+            harness_truth_boundary: harnessAdmission.harness_truth_boundary,
+            harness_launch_route_ref: harnessAdmission.harness_launch_route_ref,
+            agent_harness_adapter_id: harnessAdmission.agent_harness_adapter_id,
+            harness_profile_ref: harnessAdmission.harness_profile_ref,
+            model_configuration_ref: harnessAdmission.model_configuration_ref,
+            model_route_ref: harnessAdmission.model_route_ref,
+            model_route_policy: harnessAdmission.model_route_policy,
+            model_route_endpoint_refs: harnessAdmission.model_route_endpoint_refs,
+            model_route_loaded_instance_refs:
+              harnessAdmission.model_route_loaded_instance_refs,
+            model_mount_contract: {
+              provider: "ollama",
+              api_format: "openai_compatible",
+              model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+              model_default: "qwen",
+              endpoint_refs: harnessAdmission.model_route_endpoint_refs,
+              loaded_instance_refs:
+                harnessAdmission.model_route_loaded_instance_refs,
+            },
+            workspace_ref: "workspace:project:ioi",
+            workspace_mount_policy: harnessAdmission.workspace_mount_policy,
+            privacy_posture_ref: harnessAdmission.privacy_posture_ref,
+            terminal_session_ref: "terminal-session:project:ioi/mission.default",
+            command_contract: {
+              command_ref: "host-command:codex-cli/local-ollama-qwen",
+              binary_name: "codex",
+              argv_template: [
+                "codex",
+                "--oss",
+                "--local-provider",
+                "ollama",
+                "--model",
+                "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+                "--sandbox",
+                "workspace-write",
+                "--ask-for-approval",
+                "on-request",
+                "--cd",
+                "${HYPERVISOR_SESSION_WORKSPACE}",
+              ],
+              env_policy_ref: "env-policy:harness-session/codex-oss-local-qwen",
+              secret_release_policy: "none",
+              requires_pty: true,
+              workspace_env: "HYPERVISOR_SESSION_WORKSPACE",
+              model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+            },
+            authority_scope_refs: harnessAdmission.authority_scope_refs,
+            receipt_policy_ref: harnessAdmission.receipt_policy_ref,
+            receipt_refs: ["receipt://harness-session-launch/local-codex"],
+            agentgres_operation_refs: [
+              "agentgres://operation/harness-session-launch/local-codex",
+            ],
+            state_root:
+              "agentgres://state-root/harness-session-launch/local-codex",
+            launched_at: "2026-06-18T12:30:00.000Z",
+            requiresDaemonGate: true,
+            runtimeTruthSource: "daemon-runtime",
+          }),
+      };
+    },
+  });
+
+  assert.equal(harnessLaunch.decision, "admitted");
+  assert.equal(harnessLaunch.launch_state, "ready_to_spawn");
+  assert.equal(
+    harnessLaunch.command_contract.command_ref,
+    "host-command:codex-cli/local-ollama-qwen",
+  );
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
       recipe_id: recipe.recipe_id,
@@ -875,6 +978,7 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     launchedAtMs: 1_718_001,
     codeEditorAdapterAdmission: admission,
     harnessSessionBindingAdmission: harnessAdmission,
+    harnessSessionLaunch: harnessLaunch,
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
@@ -891,6 +995,11 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     launchedSession.harness_session_binding_admission,
     harnessAdmission,
   );
+  assert.equal(
+    launchedSession.harness_session_launch_ref,
+    "harness-session-launch:local-codex",
+  );
+  assert.equal(launchedSession.harness_session_launch, harnessLaunch);
 });
 
 test("harness session binding admission failures are explicit session state", async () => {

@@ -2682,6 +2682,149 @@ test("public runtime harness session binding route blocks external cTEE custody"
   });
 });
 
+test("public runtime routes expose Codex OSS harness session launches", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-launches",
+      body: {
+        binding_admission: {
+          schema_version: "ioi.runtime.harness_session_binding_admission.v1",
+          admission_id:
+            "harness-session-binding-admission:harness-session-binding-session-route-sessions-mission-default-project-ioi-agent-harness-adapter-codex_cli-model-config-local-codex-oss-qwen",
+          decision: "admitted",
+          admission_state: "admitted_for_harness_launch",
+          session_binding_ref:
+            "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-codex_cli:model-config-local-codex-oss-qwen",
+          session_route_ref: "session-route:sessions/mission.default/project:ioi",
+          harness_selection_ref: "agent-harness-adapter:codex_cli",
+          harness_selection_kind: "agent_harness_adapter",
+          harness_truth_boundary: "proposal_source_only",
+          harness_launch_route_ref: "harness-route:codex-cli/local-model",
+          agent_harness_adapter_id: "codex_cli",
+          harness_profile_ref: null,
+          model_configuration_ref: "model-config:local/codex-oss-qwen",
+          model_route_ref: "model-route:hypervisor/default-local",
+          model_route_policy: "hypervisor_model_mount",
+          model_route_availability_state: "daemon_verified",
+          model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+          model_route_loaded_instance_refs: [
+            "model-instance:hypervisor/default-local",
+          ],
+          workspace_mount_policy: "redacted_projection",
+          privacy_posture_ref: "privacy:redacted-projection",
+          authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+          receipt_policy_ref: "receipt-policy:harness-adapter/default",
+          receipt_preview_ref: "receipt-preview:new-session/admitted",
+          expected_receipt_refs: [
+            "receipt-preview:new-session/admitted",
+            "receipt-policy:harness-adapter/default",
+          ],
+          agentgres_operation_refs: [
+            "agentgres://operation/harness-session-binding/admit",
+          ],
+          receipt_refs: ["receipt://harness-session-binding/admit"],
+          state_root: "agentgres://state-root/harness-session-binding/admit",
+          harness_runtime_truth_claimed: false,
+          requiresDaemonGate: true,
+          runtimeTruthSource: "daemon-runtime",
+          admitted_at: "2026-06-18T12:00:00.000Z",
+        },
+        workspace_ref: "workspace://local/ioi",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(payload.schema_version, "ioi.runtime.harness_session_launch.v1");
+  assert.equal(payload.decision, "admitted");
+  assert.equal(payload.launch_state, "ready_to_spawn");
+  assert.equal(payload.launch_lane, "host_dev_pty");
+  assert.equal(
+    payload.command_contract.command_ref,
+    "host-command:codex-cli/local-ollama-qwen",
+  );
+  assert.deepEqual(payload.command_contract.argv_template.slice(0, 6), [
+    "codex",
+    "--oss",
+    "--local-provider",
+    "ollama",
+    "--model",
+    "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+  ]);
+  assert.equal(payload.model_mount_contract.provider, "ollama");
+  assert.equal(payload.command_contract.secret_release_policy, "none");
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
+test("public runtime harness session launch route blocks unsupported harnesses", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-launches",
+      body: {
+        binding_admission: {
+          schema_version: "ioi.runtime.harness_session_binding_admission.v1",
+          admission_id: "harness-session-binding-admission:claude",
+          decision: "admitted",
+          admission_state: "admitted_for_harness_launch",
+          session_binding_ref:
+            "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-claude_code_cli:model-config-local-codex-oss-qwen",
+          session_route_ref: "session-route:sessions/mission.default/project:ioi",
+          harness_selection_ref: "agent-harness-adapter:claude_code_cli",
+          harness_selection_kind: "agent_harness_adapter",
+          harness_truth_boundary: "proposal_source_only",
+          harness_launch_route_ref: "harness-route:claude-code-cli/local-example",
+          agent_harness_adapter_id: "claude_code_cli",
+          harness_profile_ref: null,
+          model_configuration_ref: "model-config:local/codex-oss-qwen",
+          model_route_ref: "model-route:hypervisor/default-local",
+          model_route_policy: "hypervisor_model_mount",
+          model_route_availability_state: "daemon_verified",
+          model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+          model_route_loaded_instance_refs: [
+            "model-instance:hypervisor/default-local",
+          ],
+          workspace_mount_policy: "redacted_projection",
+          privacy_posture_ref: "privacy:redacted-projection",
+          authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+          receipt_policy_ref: "receipt-policy:harness-adapter/local-example",
+          receipt_preview_ref: "receipt-preview:new-session/admitted",
+          expected_receipt_refs: [
+            "receipt-preview:new-session/admitted",
+            "receipt-policy:harness-adapter/local-example",
+          ],
+          agentgres_operation_refs: [
+            "agentgres://operation/harness-session-binding/admit",
+          ],
+          receipt_refs: ["receipt://harness-session-binding/admit"],
+          harness_runtime_truth_claimed: false,
+          requiresDaemonGate: true,
+          runtimeTruthSource: "daemon-runtime",
+          admitted_at: "2026-06-18T12:00:00.000Z",
+        },
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "harness_session_launch_harness_unsupported",
+  });
+});
+
 test("public runtime code editor adapter launch route rejects provider workspace targets", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

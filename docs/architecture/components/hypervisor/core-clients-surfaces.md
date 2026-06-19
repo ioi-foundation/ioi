@@ -515,18 +515,37 @@ HarnessSessionBinding
 ```
 
 The binding is not sufficient by itself. Hypervisor Core must request a
-daemon-side `HarnessSessionBindingAdmission` before a launched session may be
-reported as `daemon_admitted`. This admission is the local-first harness gate:
-it can admit Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI
-over the local OpenAI-compatible Codex OSS / Qwen model route without provider
-API authentication, while blocking provider-trust shortcuts, external harness
-cTEE custody claims, missing local model endpoints/instances, and any harness
+daemon-side `HarnessSessionBindingAdmission` and then a
+`HarnessSessionLaunch` before a launched session may be reported as
+`daemon_admitted`. The admission is the local-first harness gate: it can admit
+Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI over the
+local OpenAI-compatible Codex OSS / Qwen model route without provider API
+authentication, while blocking provider-trust shortcuts, external harness cTEE
+custody claims, missing local model endpoints/instances, and any harness
 runtime-truth claim.
 
-For the first local bring-up lane, Codex OSS, an example Claude Code harness,
-and DeepSeek TUI may all bind to a local OpenAI-compatible model configuration
-instead of requiring provider API authentication. This is a launchable
-configuration path, not proof that those external harnesses own runtime truth.
+The first launch-ready host-dev contract is Codex OSS over local Ollama/Qwen:
+
+```text
+HarnessSessionLaunch
+  schema_version: ioi.runtime.harness_session_launch.v1
+  launch_lane: host_dev_pty
+  command_contract:
+    codex --oss --local-provider ollama
+      --model ${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}
+      --sandbox workspace-write
+      --ask-for-approval on-request
+      --cd ${HYPERVISOR_SESSION_WORKSPACE}
+  model_mount_contract:
+    provider: ollama
+    api_format: openai_compatible
+  secret_release_policy: none
+```
+
+The example Claude Code path and DeepSeek TUI remain first-session candidates
+that may bind to the same local model configuration, but they are not
+launch-ready until their daemon-owned launch contracts exist. This is a
+configuration path, not proof that external harnesses own runtime truth.
 
 Every external harness run should produce a `HarnessAdapterReceipt` binding the
 selection ref, execution lane, model route ref, workspace mount policy,

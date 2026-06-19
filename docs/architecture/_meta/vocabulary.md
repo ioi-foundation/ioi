@@ -546,9 +546,16 @@ compliance acronyms for hidden audit material.
   this binding is an invalid loose UI projection.
 - `HarnessSessionBindingAdmission`: daemon-admitted launch gate for a
   `HarnessSessionBinding`. It makes a local-first harness/model binding
-  launchable, blocks external harness cTEE custody and provider-trust shortcuts
-  until explicit leases exist, and prevents Codex/Claude/DeepSeek-style adapters
-  from claiming runtime truth.
+  eligible for daemon launch planning, blocks external harness cTEE custody and
+  provider-trust shortcuts until explicit leases exist, and prevents
+  Codex/Claude/DeepSeek-style adapters from claiming runtime truth.
+- `HarnessSessionLaunch`: daemon-authored launch-ready contract for an admitted
+  `HarnessSessionBinding`. The first host-dev contract is Codex OSS over local
+  Ollama/Qwen, using `codex --oss --local-provider ollama` with workspace-write
+  sandboxing, on-request approvals, no durable secret release, and the
+  Hypervisor local OpenAI-compatible model mount. Example Claude Code and
+  DeepSeek TUI may bind to the same local model configuration, but are not
+  launch-ready until their own daemon-owned launch contracts exist.
 - `HarnessAdapterReceipt`: receipt envelope for an external harness run. It
   binds selection ref, execution lane, model route ref when present, workspace
   mount policy, authority scope refs, privacy posture ref, Agentgres operation

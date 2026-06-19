@@ -43,6 +43,7 @@ import {
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   buildHypervisorHarnessSessionBindingAdmissionFailure,
+  buildHypervisorHarnessSessionLaunchFailure,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildCodeEditorAdapterLaunchPlan,
@@ -51,6 +52,7 @@ import {
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
   requestHarnessSessionBindingAdmission,
+  requestHarnessSessionLaunch,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
@@ -432,12 +434,35 @@ export function useHypervisorShellController() {
               "Attach a Hypervisor Daemon endpoint before requesting harness session binding admission.",
             ),
           });
+    const harnessSessionLaunch =
+      harnessSessionBindingAdmission.decision === "admitted" &&
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHarnessSessionLaunch(harnessSessionBindingAdmission, {
+            workspaceRef: `workspace:${request.project_id}`,
+            terminalSessionRef: `terminal-session:${request.project_id}/${request.recipe_id}`,
+          }).catch((error: unknown) =>
+            buildHypervisorHarnessSessionLaunchFailure({
+              binding: request.launch_summary.harness_session_binding,
+              bindingAdmission: harnessSessionBindingAdmission,
+              error,
+            }),
+          )
+        : buildHypervisorHarnessSessionLaunchFailure({
+            binding: request.launch_summary.harness_session_binding,
+            bindingAdmission: harnessSessionBindingAdmission,
+            error: new Error(
+              "Harness session binding was not admitted for launch.",
+            ),
+          });
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
       projectLabel: project.name,
       codeEditorAdapterAdmission,
       harnessSessionBindingAdmission,
+      harnessSessionLaunch,
     });
 
     setCurrentProjectId(project.id);

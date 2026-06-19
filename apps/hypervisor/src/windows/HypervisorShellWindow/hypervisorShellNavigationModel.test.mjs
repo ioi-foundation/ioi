@@ -491,7 +491,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /recipeId/);
   assert.match(controller, /launchNewSession = async/);
   assert.match(controller, /requestCodeEditorAdapterLaunchPlanAdmission/);
+  assert.match(controller, /requestHarnessSessionLaunch/);
   assert.match(controller, /buildHypervisorCodeEditorAdapterAdmissionFailure/);
+  assert.match(controller, /buildHypervisorHarnessSessionLaunchFailure/);
   assert.match(controller, /buildCodeEditorAdapterLaunchPlan/);
   assert.match(controller, /codeEditorAdapterAdmission/);
   assert.match(source, /HypervisorLaunchedSessionProjection/);
@@ -499,7 +501,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /ioi\.hypervisor\.launched_session_projection\.v1/);
   assert.match(source, /code_editor_adapter_admission/);
   assert.match(source, /harness_session_binding/);
+  assert.match(source, /harness_session_launch/);
   assert.match(harnessAdapterModel, /ioi\.hypervisor\.harness_session_binding\.v1/);
+  assert.match(harnessAdapterModel, /ioi\.runtime\.harness_session_launch\.v1/);
   assert.match(source, /code_editor_adapter_executor_lane/);
   assert.match(source, /code_editor_adapter_control_action/);
   assert.match(source, /code_editor_adapter_control_channel_ref/);
@@ -539,6 +543,7 @@ test("new session modal is a shell-level governed launch flow", () => {
     /runtimeTruthSource !== "daemon-runtime"/,
   );
   assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{[\s\S]*request,[\s\S]*recipe,[\s\S]*projectLabel: project\.name,[\s\S]*codeEditorAdapterAdmission/);
+  assert.match(controller, /harnessSessionLaunch/);
   assert.match(controller, /setCurrentProjectId\(project\.id\)/);
   assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);

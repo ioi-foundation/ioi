@@ -98,6 +98,77 @@ function harnessSessionBindingAdmission(id: string) {
   };
 }
 
+function harnessSessionLaunch(id: string) {
+  const binding = harnessSessionBinding(id);
+  const admission = harnessSessionBindingAdmission(id);
+  return {
+    schema_version: "ioi.runtime.harness_session_launch.v1" as const,
+    launch_id: `harness-session-launch:${id}`,
+    decision: "admitted" as const,
+    launch_state: "ready_to_spawn" as const,
+    launch_lane: "host_dev_pty" as const,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    binding_admission_id: admission.admission_id,
+    harness_selection_ref: binding.harness_selection_ref,
+    harness_selection_kind: binding.harness_selection_kind,
+    harness_truth_boundary: binding.harness_truth_boundary,
+    harness_launch_route_ref: binding.harness_launch_route_ref,
+    agent_harness_adapter_id: null,
+    harness_profile_ref: binding.harness_profile_ref ?? null,
+    model_configuration_ref: binding.model_configuration_ref,
+    model_route_ref: binding.model_route_ref,
+    model_route_policy: binding.model_route_policy,
+    model_route_endpoint_refs: binding.model_route_endpoint_refs,
+    model_route_loaded_instance_refs: binding.model_route_loaded_instance_refs,
+    model_mount_contract: {
+      provider: "ollama" as const,
+      api_format: "openai_compatible" as const,
+      model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+      model_default: "qwen",
+      endpoint_refs: binding.model_route_endpoint_refs,
+      loaded_instance_refs: binding.model_route_loaded_instance_refs,
+    },
+    workspace_ref: `workspace:${id}`,
+    workspace_mount_policy: binding.workspace_mount_policy,
+    privacy_posture_ref: binding.privacy_posture_ref,
+    terminal_session_ref: `terminal-session:${id}`,
+    command_contract: {
+      command_ref: "host-command:codex-cli/local-ollama-qwen",
+      binary_name: "codex" as const,
+      argv_template: [
+        "codex",
+        "--oss",
+        "--local-provider",
+        "ollama",
+        "--model",
+        "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+        "--sandbox",
+        "workspace-write",
+        "--ask-for-approval",
+        "on-request",
+        "--cd",
+        "${HYPERVISOR_SESSION_WORKSPACE}",
+      ],
+      env_policy_ref: "env-policy:harness-session/codex-oss-local-qwen",
+      secret_release_policy: "none" as const,
+      requires_pty: true as const,
+      workspace_env: "HYPERVISOR_SESSION_WORKSPACE",
+      model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+    },
+    authority_scope_refs: binding.authority_scope_refs,
+    receipt_policy_ref: binding.receipt_policy_ref,
+    receipt_refs: [`receipt://harness-session-launch/${id}`],
+    agentgres_operation_refs: [
+      `agentgres://operation/harness-session-launch/${id}`,
+    ],
+    state_root: `agentgres://state-root/harness-session-launch/${id}`,
+    launched_at: "2026-06-18T12:30:00.000Z",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+  };
+}
+
 function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
   const binding = harnessSessionBinding(id);
   return {
@@ -161,6 +232,7 @@ function launchedSession(
 ): HypervisorLaunchedSessionProjection {
   const binding = harnessSessionBinding(id);
   const bindingAdmission = harnessSessionBindingAdmission(id);
+  const bindingLaunch = harnessSessionLaunch(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${id}`,
@@ -178,6 +250,8 @@ function launchedSession(
     harness_session_binding: binding,
     harness_session_binding_admission: bindingAdmission,
     harness_session_binding_admission_ref: bindingAdmission.admission_id,
+    harness_session_launch: bindingLaunch,
+    harness_session_launch_ref: bindingLaunch.launch_id,
     launch_summary: launchSummary(id),
     runtimeTruthSource: "daemon-runtime",
   };
@@ -251,6 +325,14 @@ test("launched session cache persists normalized projections only", () => {
     parsed[0]?.harness_session_binding_admission?.schema_version,
     "ioi.runtime.harness_session_binding_admission.v1",
   );
+  assert.equal(
+    parsed[0]?.harness_session_launch?.schema_version,
+    "ioi.runtime.harness_session_launch.v1",
+  );
+  assert.equal(
+    parsed[0]?.harness_session_launch?.command_contract.command_ref,
+    "host-command:codex-cli/local-ollama-qwen",
+  );
 });
 
 test("launched session cache rejects loose sessions without harness admission", () => {
@@ -258,6 +340,19 @@ test("launched session cache rejects loose sessions without harness admission", 
   const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
   delete looseSession.harness_session_binding_admission;
   delete looseSession.harness_session_binding_admission_ref;
+  storage.setItem(
+    HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
+    JSON.stringify([looseSession]),
+  );
+
+  assert.deepEqual(loadHypervisorLaunchedSessionProjections({ storage }), []);
+});
+
+test("launched session cache rejects loose sessions without harness launch", () => {
+  const storage = new MemoryStorage();
+  const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
+  delete looseSession.harness_session_launch;
+  delete looseSession.harness_session_launch_ref;
   storage.setItem(
     HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
     JSON.stringify([looseSession]),

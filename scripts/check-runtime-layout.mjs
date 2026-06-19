@@ -222,6 +222,12 @@ const runtimeHarnessSessionBindingAdmissionSource = read(
 const runtimeHarnessSessionBindingAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
 );
+const runtimeHarnessSessionLaunchSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-launch.mjs",
+);
+const runtimeHarnessSessionLaunchTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-launch.test.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1662,6 +1668,63 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
   "Harness session bindings must be daemon-admitted before New Session launch can become daemon_admitted; local Codex/Qwen bindings are admitted, provider-trust and external cTEE custody shortcuts are blocked.",
+);
+assert(
+  "hypervisor-harness-session-launch-contract",
+  runtimeHarnessSessionLaunchSource.includes(
+    "ioi.runtime.harness_session_launch.v1",
+  ) &&
+    runtimeHarnessSessionLaunchSource.includes("buildHarnessSessionLaunch") &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "host-command:codex-cli/local-ollama-qwen",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes("--oss") &&
+    runtimeHarnessSessionLaunchSource.includes("--local-provider") &&
+    runtimeHarnessSessionLaunchSource.includes("ollama") &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "harness_session_launch_model_route_policy_blocked",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "harness_session_launch_harness_unsupported",
+    ) &&
+    runtimeHarnessSessionLaunchTestSource.includes(
+      "builds a launch-ready Codex OSS contract",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-session-launches",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose Codex OSS harness session launches",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessSessionLaunch",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHarnessSessionLaunch",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorHarnessSessionLaunchRecord",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionLaunch",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "harness_session_launch_ref",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-session-launch.mjs",
+    "packages/runtime-daemon/src/runtime-harness-session-launch.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+  ],
+  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS over local Ollama/Qwen is the first host-dev PTY contract, while provider-trust and unsupported harness launches stay blocked.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",
