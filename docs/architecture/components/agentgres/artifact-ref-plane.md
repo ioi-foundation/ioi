@@ -5,7 +5,7 @@ Canonical owner: this file for Agentgres-governed artifact refs, payload refs, e
 Supersedes: product prose that lets storage backends appear to own artifact
 meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-19.
 
 ## Canonical Definition
 
@@ -26,6 +26,13 @@ state checkpoints may live as encrypted payload bytes in storage backends.
 Agentgres records their refs, state roots, policy, authority context, receipts,
 and restore/import validity; wallet.network controls who can decrypt, view,
 mutate, export, or declassify them.
+
+Encrypted payloads and archive blobs may be continuously refreshed from local
+or remote workspaces, similar to pushing commits or uploading checkpointed
+workspace state. That makes them live restore material. It does not make them
+restore truth. Restore truth exists only when Agentgres admits the operation
+that created, adopted, verified, imported, or restored the payload and binds it
+to state roots, object heads, authority context, and receipts.
 
 ```text
 Agentgres operation

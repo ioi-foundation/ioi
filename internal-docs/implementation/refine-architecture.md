@@ -459,7 +459,8 @@ Blocking object/API/schema gaps:
 ```text
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
-Live terminal transcript streaming from admitted client PTY attach projections
+Continuous terminal transcript polling/sealing after the first admitted client
+  PTY read observation
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
@@ -1557,6 +1558,19 @@ Current implementation cut:
   rendering, absence of the non-reference center activity card grid,
   absence of the Sessions-local launch strip, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
+
+0A.8C first admitted harness terminal transcript observation is implemented:
+  after recipe admission, harness binding admission, launch, spawn, readiness,
+  and terminal attach admission, the native Hypervisor client creates the host
+  PTY, writes the daemon-resolved initial command, performs the first
+  `readTerminalSession` against the attached terminal, and folds observed
+  chunks into the daemon-originated
+  `ioi.runtime.harness_terminal_transcript_projection.v1` projection. The
+  Activity rail and Sessions drill-in now expose transcript state, cursor, and
+  line count so a launched session is not merely admitted on paper; it has an
+  observable PTY stream ref. This remains a transport observation, not client
+  runtime truth. Remaining work is continuous transcript polling, transcript
+  sealing/closure receipts, and durable replay hydration from Agentgres.
 
 0A.9 first provider/environment surface cut is implemented:
   `hypervisorProviderPlacementModel.ts` defines

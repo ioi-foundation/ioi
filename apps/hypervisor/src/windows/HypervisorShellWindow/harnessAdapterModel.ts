@@ -1,3 +1,5 @@
+import type { WorkspaceTerminalReadResult } from "@ioi/workspace-substrate";
+
 export type HarnessSelectionKind =
   | "harness_profile"
   | "agent_harness_adapter";
@@ -413,6 +415,8 @@ export interface HypervisorHarnessSessionReadiness {
 export interface HypervisorHarnessTerminalTranscriptLine {
   stream: "system" | "stdin" | "stdout" | "stderr";
   text: string;
+  sequence?: number;
+  terminal_session_ref?: string;
 }
 
 export interface HypervisorHarnessSessionTerminalAttach {
@@ -462,6 +466,8 @@ export interface HypervisorHarnessSessionTerminalAttach {
   requiresDaemonGate: true;
   runtimeTruthSource: "daemon-runtime";
 }
+
+const MAX_HARNESS_TERMINAL_TRANSCRIPT_LINES = 240;
 
 export class HarnessSessionBindingAdmissionError extends Error {
   readonly endpoint: string;
@@ -2067,12 +2073,21 @@ function normalizeHarnessSessionTerminalAttach(
         typeof transcript.cursor === "number" && Number.isFinite(transcript.cursor)
           ? transcript.cursor
           : 0,
-      lines: arrayRecords(transcript.lines).map((line) => ({
-        stream:
-          (nullableString(line.stream) as HypervisorHarnessTerminalTranscriptLine["stream"]) ??
-          "system",
-        text: nullableString(line.text) ?? "",
-      })),
+      lines: arrayRecords(transcript.lines).map((line) => {
+        const terminalSessionRef = nullableString(line.terminal_session_ref);
+        return {
+          stream:
+            (nullableString(line.stream) as HypervisorHarnessTerminalTranscriptLine["stream"]) ??
+            "system",
+          text: nullableString(line.text) ?? "",
+          ...(typeof line.sequence === "number" && Number.isFinite(line.sequence)
+            ? { sequence: line.sequence }
+            : {}),
+          ...(terminalSessionRef
+            ? { terminal_session_ref: terminalSessionRef }
+            : {}),
+        };
+      }),
       runtimeTruthSource: "daemon-runtime",
     },
     workspace_mount_policy:
@@ -2092,6 +2107,35 @@ function normalizeHarnessSessionTerminalAttach(
     attached_at: nullableString(record.attached_at) ?? new Date().toISOString(),
     requiresDaemonGate: true,
     runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function observeHarnessTerminalTranscriptRead(
+  terminalAttach: HypervisorHarnessSessionTerminalAttach,
+  readResult: WorkspaceTerminalReadResult,
+): HypervisorHarnessSessionTerminalAttach {
+  const observedLines: HypervisorHarnessTerminalTranscriptLine[] = readResult.chunks
+    .filter((chunk) => chunk.text.length > 0)
+    .map((chunk) => ({
+      stream: "stdout",
+      text: chunk.text,
+      sequence: chunk.sequence,
+      terminal_session_ref: readResult.sessionId,
+    }));
+  const nextLines = [
+    ...terminalAttach.terminal_transcript_projection.lines,
+    ...observedLines,
+  ].slice(-MAX_HARNESS_TERMINAL_TRANSCRIPT_LINES);
+  return {
+    ...terminalAttach,
+    terminal_transcript_projection: {
+      ...terminalAttach.terminal_transcript_projection,
+      transcript_state: readResult.running ? "streaming" : "closed",
+      cursor: Number.isFinite(readResult.cursor)
+        ? readResult.cursor
+        : terminalAttach.terminal_transcript_projection.cursor,
+      lines: nextLines,
+    },
   };
 }
 

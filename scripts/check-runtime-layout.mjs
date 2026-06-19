@@ -2034,8 +2034,17 @@ assert(
     hypervisorShellControllerSource.includes(
       "client_attach_contract.initial_write",
     ) &&
+    hypervisorShellControllerSource.includes(
+      "observeHarnessTerminalTranscriptRead",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "hostWorkspaceAdapter.readTerminalSession",
+    ) &&
     hypervisorShellNavigationSource.includes(
       "HypervisorHarnessSessionTerminalAttachRecord",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "observeHarnessTerminalTranscriptRead",
     ) &&
     hypervisorLaunchedSessionPersistenceSource.includes(
       "normalizeHarnessSessionTerminalAttach",
@@ -2048,6 +2057,9 @@ assert(
     ) &&
     hypervisorShellContentSource.includes(
       "data-session-harness-drill-in-terminal-transcript",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-session-harness-drill-in-terminal-transcript-cursor",
     ) &&
     hypervisorAppShellContractSource.includes(
       "data-launched-session-terminal-transcript",
@@ -2065,7 +2077,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "scripts/hypervisor-app-shell-contract.mjs",
   ],
-  "Daemon-admitted harness sessions must not stop at readiness: terminal attach is a daemon-admitted client-PTY contract with transcript refs before the host adapter writes the command.",
+  "Daemon-admitted harness sessions must not stop at readiness: terminal attach is a daemon-admitted client-PTY contract with transcript refs before the host adapter writes the command and observes PTY transcript output.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",

@@ -388,6 +388,33 @@ function launchedSessionTerminalTranscriptRef(
     : "";
 }
 
+function launchedSessionTerminalTranscriptState(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach && "terminal_transcript_projection" in attach
+    ? attach.terminal_transcript_projection.transcript_state
+    : "";
+}
+
+function launchedSessionTerminalTranscriptCursor(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach && "terminal_transcript_projection" in attach
+    ? String(attach.terminal_transcript_projection.cursor)
+    : "";
+}
+
+function launchedSessionTerminalTranscriptLineCount(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach && "terminal_transcript_projection" in attach
+    ? String(attach.terminal_transcript_projection.lines.length)
+    : "";
+}
+
 export function HypervisorActivityRail({
   activeView,
   onViewChange,
@@ -588,6 +615,15 @@ export function HypervisorActivityRail({
                 }
                 data-launched-session-terminal-transcript={
                   launchedSessionTerminalTranscriptRef(session)
+                }
+                data-launched-session-terminal-transcript-state={
+                  launchedSessionTerminalTranscriptState(session)
+                }
+                data-launched-session-terminal-transcript-cursor={
+                  launchedSessionTerminalTranscriptCursor(session)
+                }
+                data-launched-session-terminal-transcript-lines={
+                  launchedSessionTerminalTranscriptLineCount(session)
                 }
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}

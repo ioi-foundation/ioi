@@ -812,7 +812,16 @@ async function main() {
         ((await launchedSessionRow.getAttribute(
           "data-launched-session-terminal-transcript",
         )) ?? ""
-        ).startsWith("agentgres://trace/harness-terminal-transcript/"),
+        ).startsWith("agentgres://trace/harness-terminal-transcript/") &&
+        (await launchedSessionRow.getAttribute(
+          "data-launched-session-terminal-transcript-state",
+        )) === "awaiting_client_stream" &&
+        (await launchedSessionRow.getAttribute(
+          "data-launched-session-terminal-transcript-cursor",
+        )) === "0" &&
+        (await launchedSessionRow.getAttribute(
+          "data-launched-session-terminal-transcript-lines",
+        )) === "2",
       "Daemon-admitted launched session did not expose terminal attach and transcript refs.",
     );
     await page.evaluate(() => {
@@ -872,6 +881,12 @@ async function main() {
         (await sessionHarnessDrillIn.getAttribute(
           "data-session-harness-drill-in-terminal-transcript-state",
         )) === "awaiting_client_stream" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-terminal-transcript-cursor",
+        )) === "0" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-terminal-transcript-lines",
+        )) === "2" &&
         drillInCommand.includes("codex --oss") &&
         drillInCommand.includes("--local-provider ollama") &&
         drillInCommand.includes("--model qwen"),

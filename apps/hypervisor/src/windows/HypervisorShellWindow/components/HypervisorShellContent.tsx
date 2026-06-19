@@ -1615,6 +1615,11 @@ function HypervisorSessionOperationsCockpit({
   const launchedHarnessTranscriptState =
     launchedHarnessTerminalAttach?.terminal_transcript_projection
       .transcript_state ?? "";
+  const launchedHarnessTranscriptCursor =
+    launchedHarnessTerminalAttach?.terminal_transcript_projection.cursor ?? 0;
+  const launchedHarnessTranscriptLineCount =
+    launchedHarnessTerminalAttach?.terminal_transcript_projection.lines.length ??
+    0;
   const launchedHarnessTranscriptRef =
     launchedHarnessTerminalAttach?.client_attach_contract
       .transcript_stream_ref ?? "";
@@ -1847,6 +1852,12 @@ function HypervisorSessionOperationsCockpit({
                   data-session-harness-drill-in-terminal-transcript-state={
                     launchedHarnessTranscriptState
                   }
+                  data-session-harness-drill-in-terminal-transcript-cursor={
+                    launchedHarnessTranscriptCursor
+                  }
+                  data-session-harness-drill-in-terminal-transcript-lines={
+                    launchedHarnessTranscriptLineCount
+                  }
                   data-session-harness-drill-in-command={
                     launchedHarnessCommand
                   }
@@ -1882,7 +1893,11 @@ function HypervisorSessionOperationsCockpit({
                     <code>{launchedHarnessCommand}</code>
                   ) : null}
                   {launchedHarnessTranscriptRef ? (
-                    <small>{launchedHarnessTranscriptRef}</small>
+                    <small>
+                      {launchedHarnessTranscriptRef} | cursor{" "}
+                      {launchedHarnessTranscriptCursor} |{" "}
+                      {launchedHarnessTranscriptLineCount} lines
+                    </small>
                   ) : null}
                   <p>{launchedHarnessNextAction}</p>
                 </section>

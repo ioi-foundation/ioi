@@ -69,6 +69,7 @@ import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemon
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
+import { observeHarnessTerminalTranscriptRead } from "./harnessAdapterModel";
 
 type ToastCandidate = Pick<
   InterventionRecord,
@@ -531,7 +532,7 @@ export function useHypervisorShellController() {
               "Harness session spawn was not ready for host readiness verification.",
             ),
           });
-    const harnessSessionTerminalAttach =
+    let harnessSessionTerminalAttach =
       harnessSessionSpawn.decision === "admitted" &&
       harnessSessionReadiness.decision === "ready" &&
       shouldAttemptHypervisorDaemonProjectionFetch(
@@ -572,6 +573,45 @@ export function useHypervisorShellController() {
           terminal.sessionId,
           harnessSessionTerminalAttach.client_attach_contract.initial_write,
         );
+        let transcriptChunkCount = 0;
+        let transcriptCursor =
+          harnessSessionTerminalAttach.terminal_transcript_projection.cursor;
+        let transcriptState =
+          harnessSessionTerminalAttach.terminal_transcript_projection
+            .transcript_state;
+        try {
+          const transcriptReadResult =
+            await hostWorkspaceAdapter.readTerminalSession(
+              terminal.sessionId,
+              transcriptCursor,
+            );
+          transcriptChunkCount = transcriptReadResult.chunks.length;
+          harnessSessionTerminalAttach = observeHarnessTerminalTranscriptRead(
+            harnessSessionTerminalAttach,
+            transcriptReadResult,
+          );
+          transcriptCursor =
+            harnessSessionTerminalAttach.terminal_transcript_projection.cursor;
+          transcriptState =
+            harnessSessionTerminalAttach.terminal_transcript_projection
+              .transcript_state;
+        } catch (transcriptError) {
+          await recordHypervisorLaunchReceipt(
+            "hypervisor_harness_terminal_transcript_observation_failed",
+            {
+              spawnId: harnessSessionSpawn.spawn_id,
+              attachId: harnessSessionTerminalAttach.attach_id,
+              terminalId: terminal.sessionId,
+              transcriptStreamRef:
+                harnessSessionTerminalAttach.client_attach_contract
+                  .transcript_stream_ref,
+              error:
+                transcriptError instanceof Error
+                  ? transcriptError.message
+                  : String(transcriptError ?? ""),
+            },
+          );
+        }
         await recordHypervisorLaunchReceipt(
           "hypervisor_harness_session_terminal_attach_admitted",
           {
@@ -583,6 +623,9 @@ export function useHypervisorShellController() {
             transcriptStreamRef:
               harnessSessionTerminalAttach.client_attach_contract
                 .transcript_stream_ref,
+            transcriptCursor,
+            transcriptState,
+            transcriptChunkCount,
           },
         );
       } catch (error) {

@@ -598,9 +598,13 @@ HarnessSessionTerminalAttach
 The native Hypervisor client may attach a host PTY only after the attach
 admission exists, then write the daemon-resolved `initial_write` and stream
 terminal output into the transcript projection. The client is a PTY transport,
-not the source of runtime truth. Web/headless clients may record spawn,
-readiness, attach, and transcript projection contracts without a local PTY until
-a compatible terminal transport is available.
+not the source of runtime truth. A native client may immediately observe PTY
+output with `readTerminalSession` and fold the observed chunks, cursor, terminal
+session ref, and stream state into the transcript projection, but those
+observations remain evidence under the daemon-admitted transcript stream ref.
+Web/headless clients may record spawn, readiness, attach, and transcript
+projection contracts without a local PTY until a compatible terminal transport
+is available.
 
 The example Claude Code path and DeepSeek TUI remain first-session candidates
 that may bind to the same local model configuration, but they are not
@@ -750,6 +754,15 @@ archive refs and restore refs are Agentgres/artifact-plane objects
 encrypted blobs are restore material, not restore truth
 restore applies through daemon lifecycle operations and Agentgres receipts
 local/provider files must not be silently mutated as canonical restore
+```
+
+Zero-to-idle and restore doctrine:
+
+```text
+zero_to_idle releases compute/provider resources without deleting workspace truth
+storage backends may continuously receive encrypted workspace/archive material
+restore rehydrates from Agentgres-bound archive/payload refs
+provider/devcontainer/log output explains the lifecycle but does not prove it
 ```
 
 ## Projects, Sessions, And Missions

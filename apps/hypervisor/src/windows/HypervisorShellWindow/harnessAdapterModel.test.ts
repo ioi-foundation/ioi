@@ -22,6 +22,7 @@ import {
   isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
   normalizeHarnessComparisonRunFromPublicFixtureRun,
+  observeHarnessTerminalTranscriptRead,
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
   requestHarnessSessionReadiness,
@@ -1334,6 +1335,128 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     launchedSession.harness_session_terminal_attach,
     harnessTerminalAttach,
   );
+});
+
+test("terminal transcript observation folds host PTY reads into admitted attach projection", () => {
+  const terminalAttach = {
+    schema_version: "ioi.runtime.harness_session_terminal_attach.v1" as const,
+    attach_id: "harness-session-terminal-attach:test",
+    decision: "admitted" as const,
+    attach_state: "client_pty_attach_admitted" as const,
+    attach_lane: "hypervisor_client_terminal_adapter" as const,
+    spawn_id: "harness-session-spawn:test",
+    readiness_id: "harness-session-readiness:test",
+    launch_id: "harness-session-launch:test",
+    session_binding_ref: "harness-session-binding:test",
+    session_route_ref: "session-route:test",
+    harness_selection_ref: "harness-profile:default_harness_profile",
+    agent_harness_adapter_id: null,
+    model_configuration_ref:
+      HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    model_name: "qwen",
+    workspace_ref: "workspace:test",
+    workspace_root: "/workspace/test",
+    terminal_session_ref: "terminal-session:test",
+    command_contract_ref: "host-command:codex-cli/local-ollama-qwen",
+    command_contract: {
+      command_ref: "host-command:codex-cli/local-ollama-qwen",
+      binary_name: "codex",
+      argv_template: ["codex", "--oss"],
+      example_script_ref: null,
+      example_script_env: null,
+      readiness_probe_argv_template: ["codex", "--help"],
+      env_policy_ref: "env-policy:harness-session/local-ollama-qwen",
+      secret_release_policy: "none" as const,
+      requires_pty: true as const,
+      workspace_env: "HYPERVISOR_SESSION_WORKSPACE",
+      model_env: "HYPERVISOR_LOCAL_HARNESS_MODEL",
+      resolved_argv: ["codex", "--oss"],
+      readiness_probe_argv: ["codex", "--help"],
+      resolved_command_line: "codex --oss",
+      pty_transport: "hypervisor_client_terminal_adapter" as const,
+      process_custody:
+        "client_host_pty_after_daemon_spawn_admission" as const,
+    },
+    client_attach_contract: {
+      root: "/workspace/test",
+      cols: 120,
+      rows: 32,
+      command_line: "codex --oss",
+      requires_pty: true as const,
+      launch_after_attach: true as const,
+      initial_write: "codex --oss\n",
+      transcript_stream_ref:
+        "agentgres://trace/harness-terminal-transcript/test",
+      pty_transport: "hypervisor_client_terminal_adapter" as const,
+      process_custody:
+        "client_host_pty_after_daemon_attach_admission" as const,
+    },
+    terminal_transcript_projection: {
+      schema_version:
+        "ioi.runtime.harness_terminal_transcript_projection.v1" as const,
+      transcript_id: "harness-terminal-transcript:test",
+      transcript_state: "awaiting_client_stream" as const,
+      transcript_stream_ref:
+        "agentgres://trace/harness-terminal-transcript/test",
+      cursor: 0,
+      lines: [
+        {
+          stream: "stdin" as const,
+          text: "codex --oss",
+        },
+      ],
+      runtimeTruthSource: "daemon-runtime" as const,
+    },
+    workspace_mount_policy: "redacted_projection" as const,
+    privacy_posture_ref: "privacy:redacted-projection",
+    authority_scope_refs: ["scope:workspace.read"],
+    receipt_policy_ref: "receipt-policy:harness-adapter/default",
+    receipt_refs: ["receipt://harness-session-terminal-attach/test"],
+    agentgres_operation_refs: [
+      "agentgres://operation/harness-session-terminal-attach/test",
+    ],
+    state_root:
+      "agentgres://state-root/harness-session-terminal-attach/test",
+    attached_at: "2026-06-19T00:00:00.000Z",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+  };
+
+  const streaming = observeHarnessTerminalTranscriptRead(terminalAttach, {
+    sessionId: "terminal-session:test",
+    cursor: 7,
+    chunks: [{ sequence: 1, text: "Codex ready\n" }],
+    running: true,
+    exitCode: null,
+  });
+
+  assert.equal(
+    terminalAttach.terminal_transcript_projection.transcript_state,
+    "awaiting_client_stream",
+  );
+  assert.equal(
+    streaming.terminal_transcript_projection.transcript_state,
+    "streaming",
+  );
+  assert.equal(streaming.terminal_transcript_projection.cursor, 7);
+  assert.equal(streaming.terminal_transcript_projection.lines.length, 2);
+  assert.deepEqual(streaming.terminal_transcript_projection.lines[1], {
+    stream: "stdout",
+    text: "Codex ready\n",
+    sequence: 1,
+    terminal_session_ref: "terminal-session:test",
+  });
+
+  const closed = observeHarnessTerminalTranscriptRead(streaming, {
+    sessionId: "terminal-session:test",
+    cursor: 8,
+    chunks: [],
+    running: false,
+    exitCode: 0,
+  });
+  assert.equal(closed.terminal_transcript_projection.transcript_state, "closed");
+  assert.equal(closed.terminal_transcript_projection.cursor, 8);
 });
 
 test("harness session binding admission failures are explicit session state", async () => {
