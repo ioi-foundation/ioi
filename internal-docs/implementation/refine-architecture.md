@@ -1459,12 +1459,23 @@ Current implementation cut:
   route that dispatches through `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_model_infrastructure`, binding
   `project_id` and `session_ref` to the projection request.
+  Model route mutation now has a daemon admission boundary:
+  `runtime-model-route-mutation-admission.mjs` and
+  `/v1/hypervisor/model-route-mutation-admissions` admit bind/select/enable/
+  disable/credential-update route changes only after wallet approval, wallet
+  lease, `scope:model.route.mutate`, credential lease posture, model-weight
+  custody admission refs, privacy posture refs, provider-trust/TEE/customer
+  boundary refs where required, Agentgres operation refs, receipt refs, and
+  state-root refs are bound. The Models detail panel requests that admission
+  through the same projection model instead of treating route binding as local
+  UI state.
   `check:runtime-layout`, focused model tests, shell source tests, and public
   runtime route tests guard the schema, loader, source marker, daemon route,
   API docs, session binding, custody lane, authority scopes, receipt boundary,
   and the absence of the old summary/grid/card dashboard shape. Remaining work
-  is live route mutation, provider credential lease flows, and deeper
-  model-router admission hydration.
+  is wiring concrete provider credential lease issuance, provider vault
+  fulfillment, and deeper model-router execution hydration behind the admitted
+  route mutation refs.
 
 0A.8 first session operations cockpit is implemented:
   `hypervisorSessionOperationsModel.ts` defines

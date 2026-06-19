@@ -70,10 +70,83 @@ export const HYPERVISOR_MODEL_INFRASTRUCTURE_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_PATH =
   "/v1/hypervisor/model-infrastructure";
+export const HYPERVISOR_MODEL_ROUTE_MUTATION_ADMISSION_PATH =
+  "/v1/hypervisor/model-route-mutation-admissions";
+
+export type HypervisorModelRouteMutationKind =
+  | "select_route"
+  | "bind_session_route"
+  | "enable_route"
+  | "disable_route"
+  | "update_provider_credentials";
+
+export type HypervisorModelRouteCredentialPosture =
+  | "no_credentials_required"
+  | "wallet_credential_lease"
+  | "provider_vault_token"
+  | "customer_boundary"
+  | "unsafe_plaintext_secret";
+
+export interface HypervisorModelRouteMutationAdmissionRequest {
+  mutation_kind: HypervisorModelRouteMutationKind;
+  route_ref: string;
+  project_ref: string;
+  session_ref?: string;
+  provider_ref: string;
+  provider_kind: HypervisorModelInfrastructureProvider["provider_kind"];
+  endpoint_refs: string[];
+  loaded_instance_refs: string[];
+  credential_posture: HypervisorModelRouteCredentialPosture;
+  provider_root_receives_prompt_plaintext: boolean;
+  provider_root_receives_credential_plaintext: boolean;
+  authority_scope_refs: string[];
+  credential_scope_refs: string[];
+  wallet_approval_ref: string;
+  wallet_lease_ref: string;
+  provider_credential_lease_ref?: string;
+  model_weight_custody_admission_ref?: string;
+  privacy_posture_ref?: string;
+  provider_trust_acceptance_ref?: string;
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root_ref: string;
+}
+
+export interface HypervisorModelRouteMutationAdmission {
+  schema_version: "ioi.runtime.model_route_mutation_admission.v1";
+  admission_id: string;
+  decision: "admitted";
+  admission_state: "admitted_for_model_router";
+  mutation_kind: HypervisorModelRouteMutationKind;
+  route_ref: string;
+  project_ref: string;
+  session_ref: string | null;
+  provider_ref: string;
+  provider_kind: HypervisorModelInfrastructureProvider["provider_kind"];
+  endpoint_refs: string[];
+  loaded_instance_refs: string[];
+  credential_posture: HypervisorModelRouteCredentialPosture;
+  provider_root_receives_prompt_plaintext: boolean;
+  provider_root_receives_credential_plaintext: boolean;
+  authority_scope_refs: string[];
+  credential_scope_refs: string[];
+  wallet_approval_ref: string;
+  wallet_lease_ref: string;
+  provider_credential_lease_ref: string | null;
+  model_weight_custody_admission_ref: string | null;
+  privacy_posture_ref: string | null;
+  provider_trust_acceptance_ref: string | null;
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root_ref: string;
+  admitted_at: string;
+  route_mutation_invariant: string;
+  runtimeTruthSource: "daemon-runtime";
+}
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -90,6 +163,17 @@ interface LoadModelInfrastructureProjectionOptions
   fetchImpl?: FetchLike;
   projectId?: string | null;
   sessionRef?: string | null;
+}
+
+interface BuildModelRouteMutationAdmissionRequestOptions {
+  mutationKind?: HypervisorModelRouteMutationKind;
+  provider?: HypervisorModelInfrastructureProvider;
+}
+
+interface RequestModelRouteMutationAdmissionOptions
+  extends BuildModelRouteMutationAdmissionRequestOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
 }
 
 const modelCustodyPolicies =
@@ -258,6 +342,10 @@ function arrayOf(value: unknown): Record<string, unknown>[] {
 
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function safeId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.-]+/g, "_");
 }
 
 function stringList(value: unknown, fallback: string[]): string[] {
@@ -490,4 +578,209 @@ export async function loadHypervisorModelInfrastructureProjection(
   return normalizeHypervisorModelInfrastructureProjection(value, {
     source: options.source ?? "daemon-model-infrastructure-projection",
   });
+}
+
+export function buildHypervisorModelRouteMutationAdmissionRequest(
+  projection: HypervisorModelInfrastructureProjection,
+  route: HypervisorModelInfrastructureRoute,
+  options: BuildModelRouteMutationAdmissionRequestOptions = {},
+): HypervisorModelRouteMutationAdmissionRequest {
+  const provider =
+    options.provider ??
+    projection.providers.find(
+      (candidate) => candidate.provider_ref === route.provider_ref,
+    );
+  const providerKind = provider?.provider_kind ?? "provider_trust";
+  const mutationKind = options.mutationKind ?? "bind_session_route";
+  const credentialPosture: HypervisorModelRouteCredentialPosture =
+    providerKind === "local"
+      ? "no_credentials_required"
+      : providerKind === "customer"
+        ? "customer_boundary"
+        : "wallet_credential_lease";
+  const credentialScopeRefs =
+    credentialPosture === "no_credentials_required"
+      ? []
+      : uniqueStrings([
+          ...(provider?.credential_scope_refs ?? []),
+          "scope:secret.use",
+        ]);
+  const providerTrust =
+    providerKind === "provider_trust" || route.privacy_posture === "provider_trust";
+  return {
+    mutation_kind: mutationKind,
+    route_ref: route.route_ref,
+    project_ref: projection.selected_project_id,
+    session_ref: projection.selected_session_ref,
+    provider_ref: route.provider_ref,
+    provider_kind: providerKind,
+    endpoint_refs: route.endpoint_refs,
+    loaded_instance_refs: route.loaded_instance_refs,
+    credential_posture: credentialPosture,
+    provider_root_receives_prompt_plaintext: providerTrust,
+    provider_root_receives_credential_plaintext: false,
+    authority_scope_refs: uniqueStrings([
+      ...route.authority_scope_refs,
+      "scope:model.route.mutate",
+    ]),
+    credential_scope_refs: credentialScopeRefs,
+    wallet_approval_ref: `approval://wallet/model-route/${safeId(route.route_ref)}`,
+    wallet_lease_ref: `lease:wallet/model-route/${safeId(route.route_ref)}`,
+    provider_credential_lease_ref:
+      credentialPosture === "no_credentials_required"
+        ? undefined
+        : `lease:wallet/provider-credential/${safeId(route.provider_ref)}`,
+    model_weight_custody_admission_ref:
+      mutationKind === "disable_route"
+        ? undefined
+        : `model-weight-custody-admission:${safeId(route.route_ref)}`,
+    privacy_posture_ref:
+      mutationKind === "disable_route"
+        ? undefined
+        : `privacy-posture:${safeId(route.privacy_posture)}`,
+    provider_trust_acceptance_ref: providerTrust
+      ? `approval://provider-trust/model-route/${safeId(route.route_ref)}`
+      : undefined,
+    agentgres_operation_refs: [
+      `agentgres://operation/model-route/${safeId(route.route_ref)}/${safeId(mutationKind)}`,
+    ],
+    receipt_refs: [
+      `receipt://model-route/${safeId(route.route_ref)}/${safeId(mutationKind)}`,
+    ],
+    state_root_ref: `agentgres://state-root/model-route/${safeId(route.route_ref)}`,
+  };
+}
+
+export function normalizeHypervisorModelRouteMutationAdmission(
+  snapshot: unknown,
+): HypervisorModelRouteMutationAdmission {
+  const value = objectRecord(snapshot);
+  const fallbackRequest = buildHypervisorModelRouteMutationAdmissionRequest(
+    HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
+    HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE.routes[0]!,
+  );
+  return {
+    schema_version: "ioi.runtime.model_route_mutation_admission.v1",
+    admission_id: stringValue(
+      value.admission_id,
+      `model-route-mutation-admission:${safeId(fallbackRequest.route_ref)}`,
+    ),
+    decision: "admitted",
+    admission_state: "admitted_for_model_router",
+    mutation_kind: stringValue(
+      value.mutation_kind,
+      fallbackRequest.mutation_kind,
+    ) as HypervisorModelRouteMutationKind,
+    route_ref: stringValue(value.route_ref, fallbackRequest.route_ref),
+    project_ref: stringValue(value.project_ref, fallbackRequest.project_ref),
+    session_ref:
+      typeof value.session_ref === "string" && value.session_ref.trim()
+        ? value.session_ref.trim()
+        : null,
+    provider_ref: stringValue(value.provider_ref, fallbackRequest.provider_ref),
+    provider_kind: providerKindValue(
+      value.provider_kind,
+      fallbackRequest.provider_kind,
+    ),
+    endpoint_refs: stringList(value.endpoint_refs, fallbackRequest.endpoint_refs),
+    loaded_instance_refs: stringList(
+      value.loaded_instance_refs,
+      fallbackRequest.loaded_instance_refs,
+    ),
+    credential_posture: stringValue(
+      value.credential_posture,
+      fallbackRequest.credential_posture,
+    ) as HypervisorModelRouteCredentialPosture,
+    provider_root_receives_prompt_plaintext:
+      value.provider_root_receives_prompt_plaintext === true,
+    provider_root_receives_credential_plaintext:
+      value.provider_root_receives_credential_plaintext === true,
+    authority_scope_refs: stringList(
+      value.authority_scope_refs,
+      fallbackRequest.authority_scope_refs,
+    ),
+    credential_scope_refs: stringList(
+      value.credential_scope_refs,
+      fallbackRequest.credential_scope_refs,
+    ),
+    wallet_approval_ref: stringValue(
+      value.wallet_approval_ref,
+      fallbackRequest.wallet_approval_ref,
+    ),
+    wallet_lease_ref: stringValue(
+      value.wallet_lease_ref,
+      fallbackRequest.wallet_lease_ref,
+    ),
+    provider_credential_lease_ref:
+      typeof value.provider_credential_lease_ref === "string" &&
+      value.provider_credential_lease_ref.trim()
+        ? value.provider_credential_lease_ref.trim()
+        : null,
+    model_weight_custody_admission_ref:
+      typeof value.model_weight_custody_admission_ref === "string" &&
+      value.model_weight_custody_admission_ref.trim()
+        ? value.model_weight_custody_admission_ref.trim()
+        : null,
+    privacy_posture_ref:
+      typeof value.privacy_posture_ref === "string" &&
+      value.privacy_posture_ref.trim()
+        ? value.privacy_posture_ref.trim()
+        : null,
+    provider_trust_acceptance_ref:
+      typeof value.provider_trust_acceptance_ref === "string" &&
+      value.provider_trust_acceptance_ref.trim()
+        ? value.provider_trust_acceptance_ref.trim()
+        : null,
+    agentgres_operation_refs: stringList(
+      value.agentgres_operation_refs,
+      fallbackRequest.agentgres_operation_refs,
+    ),
+    receipt_refs: stringList(value.receipt_refs, fallbackRequest.receipt_refs),
+    state_root_ref: stringValue(value.state_root_ref, fallbackRequest.state_root_ref),
+    admitted_at: stringValue(value.admitted_at, new Date(0).toISOString()),
+    route_mutation_invariant: stringValue(
+      value.route_mutation_invariant,
+      "Model route mutation is daemon-admitted.",
+    ),
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export async function requestHypervisorModelRouteMutationAdmission(
+  projection: HypervisorModelInfrastructureProjection,
+  route: HypervisorModelInfrastructureRoute,
+  options: RequestModelRouteMutationAdmissionOptions = {},
+): Promise<HypervisorModelRouteMutationAdmission> {
+  const endpoint =
+    options.endpoint ?? readHypervisorModelInfrastructureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error(
+      "fetch unavailable for Hypervisor model route mutation admission",
+    );
+  }
+  const requestBody = buildHypervisorModelRouteMutationAdmissionRequest(
+    projection,
+    route,
+    options,
+  );
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_MODEL_ROUTE_MUTATION_ADMISSION_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Model route mutation admission request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorModelRouteMutationAdmission(value);
 }

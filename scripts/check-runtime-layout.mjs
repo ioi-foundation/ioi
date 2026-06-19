@@ -171,6 +171,9 @@ const hypervisorAgentsModelTestSource = read(
 const hypervisorModelInfrastructureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
 );
+const hypervisorModelInfrastructureModelTestSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.test.ts",
+);
 const hypervisorPrivacyPostureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts",
 );
@@ -254,6 +257,12 @@ const runtimeManagedWorkerLifecycleAdmissionSource = read(
 );
 const runtimeManagedWorkerLifecycleAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
+);
+const runtimeModelRouteMutationAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-model-route-mutation-admission.mjs",
+);
+const runtimeModelRouteMutationAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-model-route-mutation-admission.test.mjs",
 );
 const runtimePhysicalActionIntentAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs",
@@ -2902,6 +2911,15 @@ assert(
       "loadHypervisorModelInfrastructureProjection",
     ) &&
     hypervisorModelInfrastructureModelSource.includes(
+      "HYPERVISOR_MODEL_ROUTE_MUTATION_ADMISSION_PATH",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "buildHypervisorModelRouteMutationAdmissionRequest",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "requestHypervisorModelRouteMutationAdmission",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
       "buildHypervisorModelInfrastructureProjectionFromInventory",
     ) &&
     hypervisorModelInfrastructureModelSource.includes(
@@ -2921,9 +2939,49 @@ assert(
     hypervisorShellContentSource.includes(
       "loadHypervisorModelInfrastructureProjection",
     ) &&
+    hypervisorShellContentSource.includes(
+      "requestHypervisorModelRouteMutationAdmission",
+    ) &&
     hypervisorShellContentSource.includes("data-model-infrastructure-source") &&
     hypervisorShellContentSource.includes("data-model-mounting-ui-boundary") &&
+    hypervisorShellContentSource.includes(
+      "data-model-route-mutation-admission-request",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-model-route-mutation-admission",
+    ) &&
+    runtimeModelRouteMutationAdmissionSource.includes(
+      "ioi.runtime.model_route_mutation_admission.v1",
+    ) &&
+    runtimeModelRouteMutationAdmissionSource.includes(
+      "admitModelRouteMutation",
+    ) &&
+    runtimeModelRouteMutationAdmissionSource.includes(
+      "scope:model.route.mutate",
+    ) &&
+    runtimeModelRouteMutationAdmissionSource.includes(
+      "model_route_mutation_provider_credential_lease_required",
+    ) &&
+    runtimeModelRouteMutationAdmissionSource.includes(
+      "model_route_mutation_custody_admission_required",
+    ) &&
+    runtimeModelRouteMutationAdmissionTestSource.includes(
+      "credentialed hosted API route requires secret scope and provider credential lease",
+    ) &&
+    runtimeModelRouteMutationAdmissionTestSource.includes(
+      "unsafe plaintext secret routes require explicit export scope",
+    ) &&
+    hypervisorModelInfrastructureModelTestSource.includes(
+      "model route mutation builder maps selected route to daemon admission request",
+    ) &&
+    hypervisorModelInfrastructureModelTestSource.includes(
+      "model route mutation admission client posts canonical request to daemon",
+    ) &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/model-infrastructure") &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/model-route-mutation-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes("admitModelRouteMutation") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_model_infrastructure",
     ) &&
@@ -2931,17 +2989,29 @@ assert(
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor model infrastructure through lifecycle projection",
     ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose model route mutation admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks credentialed providers without leases",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/model-infrastructure") &&
+    daemonRuntimeApiDoc.includes(
+      "POST /v1/hypervisor/model-route-mutation-admissions",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_model_infrastructure",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/runtime-model-route-mutation-admission.mjs",
+    "packages/runtime-daemon/src/runtime-model-route-mutation-admission.test.mjs",
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Models should hydrate model routes, provider endpoints, loaded instances, session bindings, custody policy refs, authority scopes, and receipts through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Models should hydrate model routes, provider endpoints, loaded instances, session bindings, custody policy refs, authority scopes, and receipts through the daemon/public runtime route, and route model-route mutations through daemon admission instead of local UI truth.",
 );
 assert(
   "hypervisor-provider-placement-live-projection",

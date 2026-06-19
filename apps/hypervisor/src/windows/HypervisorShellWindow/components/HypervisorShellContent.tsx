@@ -57,9 +57,11 @@ import {
   HYPERVISOR_MODEL_INFRASTRUCTURE_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
   loadHypervisorModelInfrastructureProjection,
+  requestHypervisorModelRouteMutationAdmission,
   type HypervisorModelInfrastructureProvider,
   type HypervisorModelInfrastructureRoute,
   type HypervisorModelInfrastructureSessionBinding,
+  type HypervisorModelRouteMutationAdmission,
 } from "../hypervisorModelInfrastructureModel";
 import {
   HYPERVISOR_PRIVACY_POSTURE_DAEMON_ENDPOINT_STORAGE_KEY,
@@ -2888,6 +2890,10 @@ function HypervisorModelInfrastructureSurface({
   const [projection, setProjection] = useState(
     HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
   );
+  const [routeMutationAdmission, setRouteMutationAdmission] =
+    useState<HypervisorModelRouteMutationAdmission | null>(null);
+  const [routeMutationAdmissionError, setRouteMutationAdmissionError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (
@@ -2933,6 +2939,22 @@ function HypervisorModelInfrastructureSurface({
       setSelectedRouteRef(projection.routes[0]?.route_ref ?? null);
     }
   }, [projection.routes, selectedRouteRef]);
+
+  function onRequestRouteMutationAdmission(
+    route: HypervisorModelInfrastructureRoute,
+  ) {
+    setRouteMutationAdmission(null);
+    setRouteMutationAdmissionError(null);
+    requestHypervisorModelRouteMutationAdmission(projection, route)
+      .then((admission) => {
+        setRouteMutationAdmission(admission);
+      })
+      .catch((error) => {
+        setRouteMutationAdmissionError(
+          error instanceof Error ? error.message : "Model route mutation blocked",
+        );
+      });
+  }
 
   return (
     <section
@@ -3002,6 +3024,9 @@ function HypervisorModelInfrastructureSurface({
             sessionBindings={projection.session_bindings}
             policyRefs={projection.model_weight_custody_policy_refs}
             receiptRefs={projection.latest_receipt_refs}
+            routeMutationAdmission={routeMutationAdmission}
+            routeMutationAdmissionError={routeMutationAdmissionError}
+            onRequestRouteMutationAdmission={onRequestRouteMutationAdmission}
           />
         ) : null}
       </div>
@@ -3063,12 +3088,20 @@ function HypervisorModelRouteDetail({
   sessionBindings,
   policyRefs,
   receiptRefs,
+  routeMutationAdmission,
+  routeMutationAdmissionError,
+  onRequestRouteMutationAdmission,
 }: {
   route: HypervisorModelInfrastructureRoute;
   providers: HypervisorModelInfrastructureProvider[];
   sessionBindings: HypervisorModelInfrastructureSessionBinding[];
   policyRefs: string[];
   receiptRefs: string[];
+  routeMutationAdmission: HypervisorModelRouteMutationAdmission | null;
+  routeMutationAdmissionError: string | null;
+  onRequestRouteMutationAdmission: (
+    route: HypervisorModelInfrastructureRoute,
+  ) => void;
 }) {
   const routeProviders = providers.filter(
     (provider) => provider.provider_ref === route.provider_ref,
@@ -3089,7 +3122,42 @@ function HypervisorModelRouteDetail({
         <span>{route.status}</span>
         <h3>{formatModelRouteRef(route.route_ref)}</h3>
         <p>{formatPrivacyPostureRef(`privacy:${route.privacy_posture}`)}</p>
+        <button
+          type="button"
+          data-model-route-mutation-admission-request={route.route_ref}
+          onClick={() => onRequestRouteMutationAdmission(route)}
+        >
+          Bind route
+        </button>
       </div>
+
+      {routeMutationAdmission || routeMutationAdmissionError ? (
+        <section
+          className="hypervisor-model-infrastructure__detail-section"
+          data-model-route-mutation-admission={
+            routeMutationAdmission?.admission_id ?? "error"
+          }
+          data-model-route-mutation-runtime-truth={
+            routeMutationAdmission?.runtimeTruthSource ?? "blocked"
+          }
+        >
+          <h4>
+            {routeMutationAdmission
+              ? "Route mutation admitted"
+              : "Route mutation blocked"}
+          </h4>
+          <span>
+            <strong>
+              {routeMutationAdmission?.admission_state ??
+                routeMutationAdmissionError}
+            </strong>
+            <em>
+              {routeMutationAdmission?.wallet_lease_ref ??
+                "wallet/model-router admission required"}
+            </em>
+          </span>
+        </section>
+      ) : null}
 
       <dl className="hypervisor-model-infrastructure__detail-list">
         <div>

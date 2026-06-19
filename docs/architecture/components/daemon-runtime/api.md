@@ -529,6 +529,52 @@ weight-custody admission, and receipt creation remain daemon-mediated and
 Agentgres-linked.
 
 ```http
+POST /v1/hypervisor/model-route-mutation-admissions
+```
+
+`POST /v1/hypervisor/model-route-mutation-admissions` admits a model-route
+change before the model router may bind, select, enable, disable, or update a
+provider-backed route. It is the daemon boundary for route mutation, credential
+lease posture, model-weight custody admission, provider-trust disclosure, and
+Agentgres receipt refs.
+
+Request body:
+
+```json
+{
+  "mutation_kind": "select_route | bind_session_route | enable_route | disable_route | update_provider_credentials",
+  "route_ref": "model-route:...",
+  "project_ref": "project:...",
+  "session_ref": "session:...",
+  "provider_ref": "provider:...",
+  "provider_kind": "local | customer | hosted_api | tee | provider_trust",
+  "endpoint_refs": ["model-endpoint:..."],
+  "loaded_instance_refs": ["model-instance:..."],
+  "credential_posture": "no_credentials_required | wallet_credential_lease | provider_vault_token | customer_boundary | unsafe_plaintext_secret",
+  "authority_scope_refs": ["scope:model.route.mutate"],
+  "credential_scope_refs": ["scope:secret.use"],
+  "wallet_approval_ref": "approval://wallet/...",
+  "wallet_lease_ref": "lease:wallet/...",
+  "provider_credential_lease_ref": "lease:wallet/provider-credential/...",
+  "model_weight_custody_admission_ref": "model-weight-custody-admission:...",
+  "privacy_posture_ref": "privacy-posture:...",
+  "provider_trust_acceptance_ref": "approval://provider-trust/...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "receipt_refs": ["receipt://..."],
+  "state_root_ref": "agentgres://state-root/..."
+}
+```
+
+The response is an `ioi.runtime.model_route_mutation_admission.v1` object with
+`admission_state = admitted_for_model_router`. The endpoint fails closed when
+the route lacks wallet approval, wallet lease, `scope:model.route.mutate`,
+model-weight custody admission, privacy posture, credential lease, TEE
+attestation, customer boundary, provider-trust acceptance, Agentgres operation
+refs, receipts, or state-root refs required by the route posture. Unsafe
+plaintext secret routes additionally require explicit `scope:secret.export`,
+secret disclosure receipts, and provider-trust acceptance.
+
+```http
 GET /v1/hypervisor/privacy-posture
 ```
 
