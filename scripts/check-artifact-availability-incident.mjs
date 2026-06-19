@@ -21,6 +21,8 @@ function requireAll(file, values) {
 
 requireAll("docs/architecture/components/agentgres/artifact-ref-plane.md", [
   "ArtifactAvailabilityIncident",
+  "ArtifactAvailabilityIncidentAgentgresOperation",
+  "ioi.agentgres.artifact_availability_incident_operation.v1",
   "missing | unavailable | invalid_hash | invalid_cid",
   "repair receipts",
   "replace missing or corrupt payload bytes without an Agentgres operation",
@@ -47,7 +49,9 @@ requireAll("docs/architecture/_meta/vocabulary.md", [
 
 requireAll("packages/runtime-daemon/src/runtime-artifact-availability-incident.mjs", [
   "ioi.runtime.artifact_availability_incident.v1",
+  "ioi.agentgres.artifact_availability_incident_operation.v1",
   "admitArtifactAvailabilityIncident",
+  "buildArtifactAvailabilityIncidentAgentgresOperation",
   "invalid_hash",
   "invalid_cid",
   "fallback_attempted",
@@ -56,10 +60,12 @@ requireAll("packages/runtime-daemon/src/runtime-artifact-availability-incident.m
   "repair_receipt_refs",
   "verification_refs",
   "restore_import_refs",
+  "agentgresTruthSource",
   "artifact_availability_silent_payload_mutation_blocked",
 ]);
 
 requireAll("packages/runtime-daemon/src/runtime-artifact-availability-incident.test.mjs", [
+  "Agentgres operation builder rejects unadmitted incidents",
   "require integrity evidence for invalid hash or CID",
   "fallback, quarantine, and repair states require the relevant refs and receipts",
   "blocks silent payload mutation",
@@ -72,6 +78,7 @@ requireAll("packages/runtime-daemon/src/http/public-runtime-routes.mjs", [
 
 requireAll("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs", [
   "expose artifact availability incident admissions",
+  "ioi.agentgres.artifact_availability_incident_operation.v1",
   "blocks silent payload mutation",
 ]);
 

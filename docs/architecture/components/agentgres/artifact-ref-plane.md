@@ -212,6 +212,36 @@ ArtifactAvailabilityIncident:
     unrecoverable | escalated
 ```
 
+Daemon admission should also materialize an Agentgres operation envelope:
+
+```yaml
+ArtifactAvailabilityIncidentAgentgresOperation:
+  schema_version: ioi.agentgres.artifact_availability_incident_operation.v1
+  operation_ref: agentgres://operation/...
+  operation_kind: artifact_availability_incident
+  incident_id: artifact_incident://...
+  artifact_ref: artifact://...
+  payload_ref: payload://...
+  backend_ref: storage://...
+  lifecycle_state:
+    opened | fallback_attempted | repaired | quarantined |
+    unrecoverable | closed
+  incident_receipt_refs:
+    - receipt://...
+  repair_receipt_refs:
+    - receipt://...
+  verification_refs:
+    - verification://...
+  restore_import_refs:
+    - restore://...
+  state_root: agentgres://state-root/...
+  agentgresTruthSource: agentgres-operation
+```
+
+The incident describes the failure. The Agentgres operation envelope admits the
+lifecycle transition, receipts, restore/import linkage, and state root that make
+the failure repairable and replayable.
+
 ### EvidenceBundle
 
 ```yaml

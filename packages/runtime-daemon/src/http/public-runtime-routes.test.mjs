@@ -3425,6 +3425,18 @@ test("public runtime routes expose artifact availability incident admissions", a
   assert.equal(payload.expected_hash, "sha256:expected");
   assert.equal(payload.observed_hash, "sha256:observed");
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+  assert.equal(
+    payload.agentgres_operation.schema_version,
+    "ioi.agentgres.artifact_availability_incident_operation.v1",
+  );
+  assert.equal(
+    payload.agentgres_operation.operation_ref,
+    "agentgres://operation/artifact-incident/open",
+  );
+  assert.equal(
+    payload.agentgres_operation.agentgresTruthSource,
+    "agentgres-operation",
+  );
 });
 
 test("public runtime artifact availability route blocks silent payload mutation", async () => {

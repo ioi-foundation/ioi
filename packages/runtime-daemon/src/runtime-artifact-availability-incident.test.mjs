@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION,
   ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION,
   admitArtifactAvailabilityIncident,
+  buildArtifactAvailabilityIncidentAgentgresOperation,
 } from "./runtime-artifact-availability-incident.mjs";
 
 function baseIncident(overrides = {}) {
@@ -32,6 +34,22 @@ test("admits artifact availability incident through Agentgres-backed daemon trut
   assert.equal(incident.incident_id, "artifact-availability-incident:artifact_evidence_report:missing");
   assert.equal(incident.lifecycle_state, "opened");
   assert.equal(incident.runtimeTruthSource, "daemon-runtime");
+  assert.equal(
+    incident.agentgres_operation.schema_version,
+    ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION,
+  );
+  assert.equal(
+    incident.agentgres_operation.operation_ref,
+    "agentgres://operation/artifact-incident/open",
+  );
+  assert.equal(
+    incident.agentgres_operation.agentgresTruthSource,
+    "agentgres-operation",
+  );
+  assert.equal(
+    incident.agentgres_operation.state_root,
+    "agentgres://state-root/artifact-availability-incident/artifact-availability-incident_artifact_evidence_report_missing",
+  );
 });
 
 test("artifact availability incidents require integrity evidence for invalid hash or CID", () => {
@@ -118,6 +136,13 @@ test("fallback, quarantine, and repair states require the relevant refs and rece
     }),
   );
   assert.equal(repaired.lifecycle_state, "repaired");
+  assert.equal(
+    repaired.agentgres_operation.restore_validity,
+    "restore_import_refs_bound",
+  );
+  assert.deepEqual(repaired.agentgres_operation.repair_receipt_refs, [
+    "receipt://artifact-repair/verified",
+  ]);
 });
 
 test("artifact availability admission blocks silent payload mutation", () => {
@@ -152,6 +177,24 @@ test("artifact availability admission rejects retired camelCase aliases", () => 
         "payloadRef",
         "repairReceiptRefs",
       ]);
+      return true;
+    },
+  );
+});
+
+test("artifact availability Agentgres operation builder rejects unadmitted incidents", () => {
+  assert.throws(
+    () =>
+      buildArtifactAvailabilityIncidentAgentgresOperation({
+        schema_version: ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION,
+        runtimeTruthSource: "client",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(
+        error.code,
+        "artifact_availability_agentgres_operation_incident_required",
+      );
       return true;
     },
   );

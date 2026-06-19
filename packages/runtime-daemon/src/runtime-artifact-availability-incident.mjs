@@ -10,6 +10,9 @@ import {
 export const ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION =
   "ioi.runtime.artifact_availability_incident.v1";
 
+export const ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION =
+  "ioi.agentgres.artifact_availability_incident_operation.v1";
+
 const INCIDENT_KINDS = new Set([
   "missing",
   "unavailable",
@@ -97,7 +100,7 @@ export function admitArtifactAvailabilityIncident(request = {}, deps = {}) {
     optionalString(request.incident_id) ??
     `artifact-availability-incident:${safeId(artifactRef)}:${safeId(incidentKind)}`;
 
-  return {
+  const admittedIncident = {
     schema_version: ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION,
     incident_id: incidentId,
     artifact_ref: artifactRef,
@@ -120,6 +123,79 @@ export function admitArtifactAvailabilityIncident(request = {}, deps = {}) {
     payload_bytes_mutated: payloadBytesMutated,
     admitted_at: optionalString(request.admitted_at) ?? nowIso(),
     runtimeTruthSource: "daemon-runtime",
+  };
+
+  return {
+    ...admittedIncident,
+    agentgres_operation: buildArtifactAvailabilityIncidentAgentgresOperation(
+      admittedIncident,
+    ),
+  };
+}
+
+export function buildArtifactAvailabilityIncidentAgentgresOperation(
+  incident = {},
+) {
+  const record = objectRecord(incident);
+  if (
+    !record ||
+    record.schema_version !== ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION ||
+    record.runtimeTruthSource !== "daemon-runtime"
+  ) {
+    throw runtimeError({
+      status: 400,
+      code: "artifact_availability_agentgres_operation_incident_required",
+      message:
+        "Artifact availability Agentgres operation requires an admitted daemon incident.",
+      details: {
+        expected_schema_version: ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION,
+      },
+    });
+  }
+
+  const incidentId = requiredString(record.incident_id, "incident_id");
+  const agentgresOperationRefs = uniqueRefs(record.agentgres_operation_refs);
+  const incidentReceiptRefs = uniqueRefs(record.incident_receipt_refs);
+  const repairReceiptRefs = uniqueRefs(record.repair_receipt_refs);
+  const verificationRefs = uniqueRefs(record.verification_refs);
+  const restoreImportRefs = uniqueRefs(record.restore_import_refs);
+  const affectedObjectRefs = uniqueRefs(record.affected_object_refs);
+  requireRefs(agentgresOperationRefs, "agentgres_operation_refs");
+  requireRefs(incidentReceiptRefs, "incident_receipt_refs");
+  requireRefs(affectedObjectRefs, "affected_object_refs");
+
+  const operationRef = agentgresOperationRefs[0];
+  return {
+    schema_version: ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION,
+    operation_ref: operationRef,
+    operation_kind: "artifact_availability_incident",
+    incident_id: incidentId,
+    artifact_ref: requiredString(record.artifact_ref, "artifact_ref"),
+    payload_ref: requiredString(record.payload_ref, "payload_ref"),
+    backend_ref: requiredString(record.backend_ref, "backend_ref"),
+    lifecycle_state: requiredString(record.lifecycle_state, "lifecycle_state"),
+    incident_kind: requiredString(record.incident_kind, "incident_kind"),
+    affected_object_refs: affectedObjectRefs,
+    incident_receipt_refs: incidentReceiptRefs,
+    repair_receipt_refs: repairReceiptRefs,
+    verification_refs: verificationRefs,
+    restore_import_refs: restoreImportRefs,
+    fallback_backend_refs: uniqueRefs(record.fallback_backend_refs),
+    quarantine_refs: uniqueRefs(record.quarantine_refs),
+    payload_bytes_mutated: booleanValue(record.payload_bytes_mutated) ?? false,
+    restore_validity:
+      restoreImportRefs.length > 0
+        ? "restore_import_refs_bound"
+        : "no_restore_import",
+    state_root: `agentgres://state-root/artifact-availability-incident/${safeId(
+      incidentId,
+    )}`,
+    receipt_refs: uniqueRefs([
+      ...incidentReceiptRefs,
+      ...repairReceiptRefs,
+    ]),
+    runtimeTruthSource: "daemon-runtime",
+    agentgresTruthSource: "agentgres-operation",
   };
 }
 
