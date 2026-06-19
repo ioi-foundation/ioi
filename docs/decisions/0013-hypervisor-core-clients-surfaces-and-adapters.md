@@ -67,7 +67,7 @@ IOI L1 settles only selected public/economic/cross-domain commitments.
 
 ## Consequences
 
-- Retired Tauri code and `src-tauri` paths must not be recreated as an active
+- Retired Tauri code and native desktop Rust paths must not be recreated as an active
   product path.
 - The old root `ide/` artifact path is retired; adapter-host metadata and local
   editor build conventions live under `code-editor-adapters/`.

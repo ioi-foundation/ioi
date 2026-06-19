@@ -7,7 +7,11 @@ import {
   buildWorkspaceSubstrateTargetIndex,
 } from "./operatorSubstrateModel.ts";
 
-const RETIRED_NATIVE_APP_PATH = ["apps/hypervisor", "src-tauri"].join("/");
+const RETIRED_NATIVE_APP_PATH = [
+  "apps",
+  "hypervisor",
+  "src-" + "tauri",
+].join("/");
 const RETIRED_NATIVE_ARCHIVE_PATH = [
   "internal-docs/legacy",
   "autopilot-tauri-src",

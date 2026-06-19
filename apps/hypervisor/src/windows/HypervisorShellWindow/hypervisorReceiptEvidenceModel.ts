@@ -1,4 +1,7 @@
-import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "./harnessAdapterModel.ts";
+import {
+  HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  type HypervisorHarnessSessionTerminalAttach,
+} from "./harnessAdapterModel.ts";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel.ts";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
 
@@ -7,6 +10,7 @@ export type HypervisorReceiptEvidenceKind =
   | "authority"
   | "provider_placement"
   | "harness_comparison"
+  | "terminal_transcript"
   | "environment_lease"
   | "artifact_restore";
 
@@ -95,6 +99,55 @@ function receiptRecord(
   };
 }
 
+function safeEvidenceSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/^([a-z]+:\/\/)/, "")
+    .replace(/[^a-zA-Z0-9._:-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 160) || "unknown";
+}
+
+export function buildTerminalTranscriptReceiptEvidenceRecord({
+  sessionRef,
+  terminalAttach,
+  status = "admitted",
+}: {
+  sessionRef: string;
+  terminalAttach: HypervisorHarnessSessionTerminalAttach;
+  status?: HypervisorReceiptEvidenceRecord["status"];
+}): HypervisorReceiptEvidenceRecord | null {
+  const transcript = terminalAttach.terminal_transcript_projection;
+  if (
+    terminalAttach.decision !== "admitted" ||
+    transcript.transcript_state !== "closed"
+  ) {
+    return null;
+  }
+
+  const sessionSegment = safeEvidenceSegment(sessionRef);
+  const transcriptSegment = safeEvidenceSegment(transcript.transcript_id);
+  const evidencePath = `${sessionSegment}/${transcriptSegment}`;
+  const receiptRef = `receipt://hypervisor/session-terminal-transcript/${evidencePath}`;
+  return {
+    receipt_ref: receiptRef,
+    kind: "terminal_transcript",
+    summary: `Closed harness terminal transcript for ${sessionRef}; cursor ${transcript.cursor}, ${transcript.lines.length} retained lines.`,
+    source_projection_ref: transcript.transcript_stream_ref,
+    agentgres_operation_refs: [
+      `agentgres://operation/hypervisor/session-terminal-transcript/${evidencePath}`,
+      ...terminalAttach.agentgres_operation_refs,
+    ],
+    artifact_refs: [
+      `artifact://hypervisor/session-terminal-transcript/${evidencePath}`,
+    ],
+    trace_refs: [transcript.transcript_stream_ref],
+    state_root_ref: `agentgres://state-root/hypervisor/session-terminal-transcript/${evidencePath}`,
+    replay_ref: `agentgres://replay/hypervisor/session-terminal-transcript/${evidencePath}`,
+    status,
+  };
+}
+
 const sessionProjection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
 const providerProjection = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE;
 const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
@@ -142,6 +195,27 @@ export const HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE: HypervisorReceiptEv
           receiptRef.startsWith("receipt:draft:") ? "draft" : "pending",
         ),
       ),
+      {
+        receipt_ref:
+          "receipt://hypervisor/session-terminal-transcript/session:recent/harness-terminal-transcript:recent",
+        kind: "terminal_transcript",
+        summary:
+          "Closed harness terminal transcript evidence with replay and state-root refs.",
+        source_projection_ref:
+          "agentgres://trace/harness-terminal-transcript/recent",
+        agentgres_operation_refs: [
+          "agentgres://operation/hypervisor/session-terminal-transcript/session:recent/harness-terminal-transcript:recent",
+        ],
+        artifact_refs: [
+          "artifact://hypervisor/session-terminal-transcript/session:recent/harness-terminal-transcript:recent",
+        ],
+        trace_refs: ["agentgres://trace/harness-terminal-transcript/recent"],
+        state_root_ref:
+          "agentgres://state-root/hypervisor/session-terminal-transcript/session:recent/harness-terminal-transcript:recent",
+        replay_ref:
+          "agentgres://replay/hypervisor/session-terminal-transcript/session:recent/harness-terminal-transcript:recent",
+        status: "admitted",
+      },
     ],
     runtimeTruthSource: "daemon-runtime",
   };
@@ -209,6 +283,7 @@ function normalizeReceiptEvidenceRecord(
       "authority",
       "provider_placement",
       "harness_comparison",
+      "terminal_transcript",
       "environment_lease",
       "artifact_restore",
     ]),

@@ -1033,14 +1033,21 @@ test("public runtime routes dispatch Hypervisor receipt evidence through lifecyc
     records: [
       {
         receipt_ref: "receipt://session/test",
-        kind: "session_lifecycle",
-        summary: "Session transition receipt evidence.",
-        source_projection_ref: "session-operations:daemon/test",
-        agentgres_operation_refs: ["agentgres://operation/session/test"],
-        artifact_refs: ["artifact://receipt-evidence/session/test"],
-        trace_refs: ["trace://hypervisor/session/test"],
-        state_root_ref: "agentgres://state-root/session/test",
-        replay_ref: "agentgres://replay/session/test",
+        kind: "terminal_transcript",
+        summary: "Closed harness terminal transcript receipt evidence.",
+        source_projection_ref:
+          "agentgres://trace/harness-terminal-transcript/test",
+        agentgres_operation_refs: [
+          "agentgres://operation/hypervisor/session-terminal-transcript/test",
+        ],
+        artifact_refs: [
+          "artifact://hypervisor/session-terminal-transcript/test",
+        ],
+        trace_refs: ["agentgres://trace/harness-terminal-transcript/test"],
+        state_root_ref:
+          "agentgres://state-root/hypervisor/session-terminal-transcript/test",
+        replay_ref:
+          "agentgres://replay/hypervisor/session-terminal-transcript/test",
         status: "admitted",
       },
     ],

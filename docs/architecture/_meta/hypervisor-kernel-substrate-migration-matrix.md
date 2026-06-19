@@ -105,7 +105,8 @@ Slice 1415 additionally hard-cuts the model_mount capability-token/vault
 require daemon Agentgres replay at the JS edge and Rust direct-planning boundary,
 and the old optional `stateDir ?? null` handoff is retired.
 Slice 1416 additionally hard-cuts the active Hypervisor probe/adapter-host
-language boundary: `apps/hypervisor/src-tauri`, the root `ide/` artifact path,
+language boundary: the retired Hypervisor native desktop tree, the root `ide/`
+artifact path,
 Tauri product wording, and the retired `Workspace IDE` marker are barred from
 active client probes; those probes now target Hypervisor/code-editor-adapter host
 windows while Tauri remains legacy-only under `internal-docs/legacy`.

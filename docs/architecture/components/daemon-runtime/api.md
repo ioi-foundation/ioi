@@ -797,7 +797,7 @@ projection:
   "records": [
     {
       "receipt_ref": "receipt://...",
-      "kind": "session_lifecycle | authority | provider_placement | harness_comparison | environment_lease | artifact_restore",
+      "kind": "session_lifecycle | authority | provider_placement | harness_comparison | terminal_transcript | environment_lease | artifact_restore",
       "summary": "Evidence summary.",
       "source_projection_ref": "session-operations:...",
       "agentgres_operation_refs": ["agentgres://operation/..."],

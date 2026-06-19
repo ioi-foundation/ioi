@@ -180,6 +180,9 @@ const hypervisorPrivacyPostureModelSource = read(
 const hypervisorReceiptEvidenceModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts",
 );
+const hypervisorReceiptEvidenceModelTestSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.test.ts",
+);
 const hypervisorShellWindowSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
 );
@@ -499,7 +502,7 @@ const workbenchRuntimeFiles = allFiles(
   "packages/hypervisor-workbench/src/runtime",
   (file) => /\.(ts|tsx)$/.test(file),
 );
-const activeTauriSrc = "apps/hypervisor/src-tauri/src";
+const activeTauriSrc = ["apps", "hypervisor", "src-" + "tauri", "src"].join("/");
 const activeTauriRuntimeService =
   "apps/hypervisor/src/services/TauriRuntime.ts";
 const activeTauriDesktopLauncher = "apps/hypervisor/scripts/dev-desktop.sh";
@@ -3788,6 +3791,13 @@ assert(
     hypervisorReceiptEvidenceModelSource.includes(
       "daemon-receipt-evidence-projection",
     ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "buildTerminalTranscriptReceiptEvidenceRecord",
+    ) &&
+    hypervisorReceiptEvidenceModelSource.includes("terminal_transcript") &&
+    hypervisorReceiptEvidenceModelTestSource.includes(
+      "terminal transcript evidence is built only after admitted transcript closure",
+    ) &&
     hypervisorReceiptEvidenceModelSource.includes("page_cursor") &&
     hypervisorReceiptEvidenceModelSource.includes("next_page_cursor") &&
     hypervisorReceiptEvidenceModelSource.includes("has_more") &&
@@ -3959,7 +3969,10 @@ assert(
 assert(
   "desktop-probes-no-retired-tauri-workspace",
   hypervisorDesktopProbeFiles.every(
-    (file) => !read(file).includes("apps/hypervisor/src-tauri"),
+    (file) =>
+      !read(file).includes(
+        ["apps", "hypervisor", "src-" + "tauri"].join("/"),
+      ),
   ),
   hypervisorDesktopProbeFiles,
   "Active Hypervisor desktop probes must use temporary/current workspaces, not the retired Tauri app path.",

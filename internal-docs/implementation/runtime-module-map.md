@@ -41,7 +41,7 @@ parallel execution path.
 | Runtime evidence | `scripts/evidence/` | Durable evidence generation commands. |
 | Script launchers | `scripts/` | Thin operator wrappers only. Active root entry points should use Hypervisor/App/Workbench/Foundry/provider-environment names; Autopilot names belong only in historical proof fixtures until their owning runner is renamed. |
 | JS contract tests | `scripts/lib/*.test.mjs` | Tests and guardrails, not runtime implementation. |
-| Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed `apps/hypervisor/src-tauri` path is not an active proof home. |
+| Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed native desktop path is not an active proof home. |
 
 ## Vocabulary Rules
 

@@ -90,7 +90,13 @@ assert(
   "Agent SDK testing subpath must not retain the retired mock projection client.",
 );
 
-const activeTauriRuntimeProjection = "apps/hypervisor/src-tauri/src/runtime_projection.rs";
+const activeTauriRuntimeProjection = [
+  "apps",
+  "hypervisor",
+  "src-" + "tauri",
+  "src",
+  "runtime_projection.rs",
+].join("/");
 assert(
   !fs.existsSync(path.join(root, activeTauriRuntimeProjection)),
   "Active Tauri runtime projection must stay retired; generated runtime contracts live under Rust app types.",

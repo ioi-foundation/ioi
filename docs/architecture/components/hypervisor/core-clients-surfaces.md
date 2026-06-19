@@ -604,6 +604,10 @@ session ref, and stream state into the transcript projection, but those
 observations remain evidence under the daemon-admitted transcript stream ref.
 It may then continue polling the same terminal session until the PTY closes,
 updating the transcript projection and emitting observation/closure receipts.
+Closed transcript observations SHOULD be materialized as `terminal_transcript`
+receipt-evidence records with Agentgres operation refs, artifact refs, trace
+refs, state-root refs, and replay refs. The client may construct the projection
+for display, but durable replay and restore truth belongs to Agentgres.
 Web/headless clients may record spawn, readiness, attach, and transcript
 projection contracts without a local PTY until a compatible terminal transport
 is available.

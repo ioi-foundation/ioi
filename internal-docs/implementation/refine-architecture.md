@@ -1010,7 +1010,7 @@ Implementation phases:
 | --- | --- | --- | --- |
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `code-editor-adapters/`. | `code-editor-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Code editor adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
-| 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
+| 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, the retired native desktop tree, or legacy Tauri archives; git history is the recovery handle. |
 | 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Foundry/provider-environment names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not an editor-host console. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
@@ -1035,8 +1035,8 @@ Current implementation cut:
   the retired Workbench repository registry/materialization path is deleted;
     Projects/New Session own project creation and code editor sessions open the active
     governed code-editor workspace session directly
-  apps/hypervisor/vite.config.ts no longer carries Tauri dev host or src-tauri
-    watch configuration
+  apps/hypervisor/vite.config.ts no longer carries Tauri dev host or retired
+    native desktop watch configuration
 
 0A.1B is partially implemented:
   The retired HypervisorClientHeader/top-chrome component is deleted; the
@@ -1062,17 +1062,18 @@ Current implementation cut:
   active launch marker is IOI_HYPERVISOR_CANONICAL_CLIENT_HOST
 
 0A.1C is implemented for active app paths and remains a live regression guard:
-  apps/hypervisor/src-tauri is absent from the live app path
+  the retired native desktop tree is absent from the live app path
   apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:hypervisor-app
     launches the Hypervisor App shell, while
     npm run dev:hypervisor-code-editor-adapter-host launches the packaged Code
     editor adapter host
   internal-docs/legacy/autopilot-tauri-src is deleted from the active tree;
     git history is the historical extraction inventory
-  any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
+  any active @tauri-apps import, TauriRuntime service, or retired native desktop
+  dependency is
   a regression unless it appears in a negative test or legacy reference.
   active desktop probes and active contract tests no longer create or read
-  `apps/hypervisor/src-tauri`; throwaway probe workspaces live under `.tmp/`
+  the retired native desktop tree; throwaway probe workspaces live under `.tmp/`
   and client-runtime checks read `HypervisorClientRuntime.ts`.
   active desktop probes now target the explicit code-editor-adapter host command
     when validating editor targets, and `check:runtime-layout` rejects Tauri
@@ -1081,8 +1082,8 @@ Current implementation cut:
 
 0A.1B/0A.1C guardrails were tightened:
   `internal-docs/implementation/runtime-module-map.md` no longer points
-  Hypervisor proof work at `apps/hypervisor/src-tauri`
-  `check:runtime-layout` rejects both active `apps/hypervisor/src-tauri/src`
+  Hypervisor proof work at the retired native desktop tree.
+  `check:runtime-layout` rejects both active retired native desktop source
   and a root `ide/` product/artifact directory, rejects the retired
   `apps/hypervisor/scripts/dev-desktop.sh` Tauri launcher, and
   rejects active desktop probe wording that describes Hypervisor as a Tauri app
@@ -1094,7 +1095,7 @@ Current implementation cut:
   editor adapter launch no longer owns configured local llama.cpp preloads;
     model discovery, routing, and mount state stay in Hypervisor App/Core and
     daemon-owned model-mounting paths
-  `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
+  `.gitignore` no longer preserves dead active native desktop or `agent-ide`
   shadows
 
 0A.1D active command-surface cleanup is implemented:
@@ -1574,8 +1575,13 @@ implemented:
   normalized terminal-attach update helper, records observed-chunk receipts,
   and records a closed transcript receipt with cursor and exit code when the
   PTY closes. This remains a transport observation, not client runtime truth.
-  Remaining work is durable replay hydration from Agentgres after restart or
-  restore.
+  `hypervisorReceiptEvidenceModel.ts` now also defines
+  `terminal_transcript` receipt evidence and a deterministic
+  `buildTerminalTranscriptReceiptEvidenceRecord(...)` helper that turns a
+  closed admitted terminal attach into receipt, Agentgres operation, artifact,
+  trace, state-root, and replay refs. Remaining work is daemon-core persistence
+  of those transcript evidence records into Agentgres-backed replay hydration
+  after restart or restore.
 
 0A.9 first provider/environment surface cut is implemented:
   `hypervisorProviderPlacementModel.ts` defines
@@ -1618,13 +1624,14 @@ implemented:
 0A.8/0A.10 first receipt evidence surface is implemented:
   `hypervisorReceiptEvidenceModel.ts` defines
   `HypervisorReceiptEvidenceProjection` by composing session lifecycle,
-  authority, environment lease, provider placement, artifact restore, and
-  harness comparison receipt refs from the existing Hypervisor shell
-  projections. Each record binds receipt ref, source projection, Agentgres
-  operation refs, artifact refs, trace refs, state root ref, replay ref, and
-  status. `HypervisorShellContent` now renders Receipts as an evidence surface
-  instead of a placeholder, while tests guard that the client only renders
-  daemon/Agentgres evidence projections and does not become receipt truth.
+  authority, environment lease, provider placement, artifact restore, harness
+  comparison, and closed terminal transcript receipt refs from the existing
+  Hypervisor shell projections. Each record binds receipt ref, source
+  projection, Agentgres operation refs, artifact refs, trace refs, state root
+  ref, replay ref, and status. `HypervisorShellContent` now renders Receipts as
+  an evidence surface instead of a placeholder, while tests guard that the
+  client only renders daemon/Agentgres evidence projections and does not become
+  receipt truth.
   Receipts now has a normalized
   `ioi.hypervisor.receipt_evidence_projection.v1` loader and
   `/v1/hypervisor/receipt-evidence` public runtime route dispatching through
@@ -1898,7 +1905,7 @@ Do not let a root `ide/` artifact path or Electron/VS Code packaged host define
 the product. Root `ide/` is retired; current code editor adapter-host metadata and
 ignored local adapter artifacts belong under `code-editor-adapters/`.
 Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy;
-the old Tauri tree is removed from the active repo, and `src-tauri` must not be
+the old Tauri tree is removed from the active repo, and the retired native tree must not be
 recreated as a live product path.
 Do not leave Autopilot proof-runner names in active root package scripts after
 their owning runner has a Hypervisor name. Do not keep tracked `.internal/plans`

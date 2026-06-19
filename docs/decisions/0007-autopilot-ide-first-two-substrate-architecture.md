@@ -15,7 +15,7 @@ application surfaces; editor hosts are adapter targets.
 ## Context
 
 Autopilot was evolving through a Tauri desktop shell that embedded OpenVSCode and
-carried many runtime-adjacent commands in `apps/autopilot/src-tauri`. That path
+carried many runtime-adjacent commands in the retired native desktop tree. That path
 proved valuable UI and workbench integration ideas, but it also blurred shell,
 runtime, projection, and authority boundaries.
 

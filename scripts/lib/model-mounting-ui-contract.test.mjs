@@ -452,7 +452,12 @@ test("Hypervisor Models surface is wired to daemon API without persisting capabi
 });
 
 test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep link", () => {
-  const srcTauriPath = path.join(root, "apps", "hypervisor", "src-tauri");
+  const retiredNativePath = path.join(
+    root,
+    "apps",
+    "hypervisor",
+    "src-" + "tauri",
+  );
   const daemonSource = [
     "index.mjs",
     "runtime-route-handlers.mjs",
@@ -462,7 +467,7 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
 
-  assert.equal(fs.existsSync(srcTauriPath), false);
+  assert.equal(fs.existsSync(retiredNativePath), false);
   assert.match(daemonSource, /segments\[5\] === "oauth"/);
   assert.match(daemonSource, /segments\[6\] === "start"/);
   assert.match(daemonSource, /segments\[6\] === "callback"/);

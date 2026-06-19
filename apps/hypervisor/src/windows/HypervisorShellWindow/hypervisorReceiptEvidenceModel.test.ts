@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
   HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH,
+  buildTerminalTranscriptReceiptEvidenceRecord,
   loadHypervisorReceiptEvidenceProjection,
   normalizeHypervisorReceiptEvidenceProjection,
 } from "./hypervisorReceiptEvidenceModel.ts";
@@ -37,7 +38,9 @@ test("receipt evidence projection binds receipts to Agentgres, artifacts, traces
   );
   assert.ok(
     projection.records.every((record) =>
-      record.trace_refs.every((ref) => ref.startsWith("trace://")),
+      record.trace_refs.every(
+        (ref) => ref.startsWith("trace://") || ref.startsWith("agentgres://trace/"),
+      ),
     ),
   );
   assert.ok(
@@ -64,11 +67,142 @@ test("receipt evidence projection covers session, provider, harness, lease, and 
   assert.ok(kinds.has("provider_placement"));
   assert.ok(kinds.has("artifact_restore"));
   assert.ok(kinds.has("harness_comparison"));
+  assert.ok(kinds.has("terminal_transcript"));
   assert.ok(
     HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE.records.some(
       (record) => record.status === "draft",
     ),
   );
+});
+
+test("terminal transcript evidence is built only after admitted transcript closure", () => {
+  const terminalAttach = {
+    schema_version: "ioi.runtime.harness_session_terminal_attach.v1" as const,
+    attach_id: "terminal-attach:test",
+    decision: "admitted" as const,
+    attach_state: "client_pty_attach_admitted" as const,
+    attach_lane: "hypervisor_client_terminal_adapter" as const,
+    spawn_id: "harness-session-spawn:test",
+    readiness_id: "harness-session-readiness:test",
+    launch_id: "harness-session-launch:test",
+    session_binding_ref: "harness-session-binding:test",
+    session_route_ref: "session-route:test",
+    harness_selection_ref: "agent-harness-adapter:codex_cli",
+    agent_harness_adapter_id: "codex_cli" as const,
+    model_configuration_ref: "model-config:qwen",
+    model_route_ref: "model-route:local-qwen",
+    model_name: "qwen",
+    workspace_ref: "workspace:test",
+    workspace_root: "/workspace",
+    terminal_session_ref: "terminal-session:test",
+    command_contract_ref: "harness-command:test",
+    command_contract: {
+      command_ref: "harness-command:test",
+      binary_name: "codex",
+      argv_template: [
+        "codex",
+        "--oss",
+        "--model",
+        "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
+        "--cd",
+        "${HYPERVISOR_SESSION_WORKSPACE}",
+      ],
+      resolved_argv: ["codex", "--oss", "--model", "qwen", "--cd", "/workspace"],
+      resolved_command_line: "codex --oss --model qwen --cd /workspace",
+      env_policy_ref: "env-policy:test",
+      secret_release_policy: "none" as const,
+      requires_pty: true as const,
+      workspace_env: "HYPERVISOR_SESSION_WORKSPACE",
+      model_env: "HYPERVISOR_LOCAL_HARNESS_MODEL",
+      pty_transport: "hypervisor_client_terminal_adapter" as const,
+      process_custody:
+        "client_host_pty_after_daemon_spawn_admission" as const,
+    },
+    client_attach_contract: {
+      root: ".",
+      cols: 120,
+      rows: 32,
+      command_line: "codex --oss",
+      requires_pty: true as const,
+      launch_after_attach: true as const,
+      initial_write: "codex --oss\n",
+      transcript_stream_ref:
+        "agentgres://trace/harness-terminal-transcript/test",
+      pty_transport: "hypervisor_client_terminal_adapter" as const,
+      process_custody:
+        "client_host_pty_after_daemon_attach_admission" as const,
+    },
+    terminal_transcript_projection: {
+      schema_version:
+        "ioi.runtime.harness_terminal_transcript_projection.v1" as const,
+      transcript_id: "harness-terminal-transcript:test",
+      transcript_state: "streaming" as const,
+      transcript_stream_ref:
+        "agentgres://trace/harness-terminal-transcript/test",
+      cursor: 7,
+      lines: [
+        {
+          stream: "stdout" as const,
+          text: "Codex ready\n",
+          sequence: 1,
+          terminal_session_ref: "terminal-session:test",
+        },
+      ],
+      runtimeTruthSource: "daemon-runtime" as const,
+    },
+    workspace_mount_policy: "redacted_projection" as const,
+    privacy_posture_ref: "privacy:redacted-projection",
+    authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+    receipt_policy_ref: "receipt-policy:harness-adapter/default",
+    receipt_refs: ["receipt://harness-session-terminal-attach/test"],
+    agentgres_operation_refs: [
+      "agentgres://operation/harness-session-terminal-attach/test",
+    ],
+    state_root:
+      "agentgres://state-root/harness-session-terminal-attach/test",
+    attached_at: "2026-06-19T00:00:00.000Z",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+  };
+
+  assert.equal(
+    buildTerminalTranscriptReceiptEvidenceRecord({
+      sessionRef: "session:test",
+      terminalAttach,
+    }),
+    null,
+  );
+
+  const record = buildTerminalTranscriptReceiptEvidenceRecord({
+    sessionRef: "session:test",
+    terminalAttach: {
+      ...terminalAttach,
+      terminal_transcript_projection: {
+        ...terminalAttach.terminal_transcript_projection,
+        transcript_state: "closed" as const,
+        cursor: 8,
+      },
+    },
+  });
+
+  assert.equal(record?.kind, "terminal_transcript");
+  assert.match(
+    record?.receipt_ref ?? "",
+    /^receipt:\/\/hypervisor\/session-terminal-transcript\//,
+  );
+  assert.equal(
+    record?.source_projection_ref,
+    "agentgres://trace/harness-terminal-transcript/test",
+  );
+  assert.ok(
+    record?.agentgres_operation_refs.includes(
+      "agentgres://operation/harness-session-terminal-attach/test",
+    ),
+  );
+  assert.match(record?.artifact_refs[0] ?? "", /^artifact:\/\//);
+  assert.match(record?.state_root_ref ?? "", /^agentgres:\/\/state-root\//);
+  assert.match(record?.replay_ref ?? "", /^agentgres:\/\/replay\//);
+  assert.match(record?.summary ?? "", /cursor 8/);
 });
 
 test("receipt evidence normalization preserves daemon evidence boundaries", () => {
