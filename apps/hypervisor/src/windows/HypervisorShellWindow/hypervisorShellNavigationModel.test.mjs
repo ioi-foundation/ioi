@@ -1126,6 +1126,11 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   );
   assert.match(receiptEvidenceModel, /loadHypervisorReceiptEvidenceProjection/);
   assert.match(receiptEvidenceModel, /daemon-receipt-evidence-projection/);
+  assert.match(receiptEvidenceModel, /page_cursor/);
+  assert.match(receiptEvidenceModel, /next_page_cursor/);
+  assert.match(receiptEvidenceModel, /has_more/);
+  assert.match(receiptEvidenceModel, /pageCursor/);
+  assert.match(receiptEvidenceModel, /pageSize/);
   assert.match(receiptEvidenceModel, /receipt_boundary_invariant/);
   assert.match(receiptEvidenceModel, /Agentgres admits operational truth/);
   assert.match(receiptEvidenceModel, /artifact_refs/);
@@ -1144,6 +1149,10 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /data-receipt-evidence-filter-controls/);
   assert.match(shellContent, /data-receipt-evidence-filtered-count/);
   assert.match(shellContent, /data-receipt-evidence-selected-ref/);
+  assert.match(shellContent, /data-receipt-evidence-page-cursor/);
+  assert.match(shellContent, /data-receipt-evidence-next-page-cursor/);
+  assert.match(shellContent, /data-receipt-evidence-next-page/);
+  assert.match(shellContent, /data-receipt-evidence-has-more/);
   assert.match(shellContent, /data-receipt-evidence-detail/);
   assert.match(shellContent, /data-receipt-evidence-replay-ref/);
   assert.match(shellContent, /data-receipt-evidence-review/);

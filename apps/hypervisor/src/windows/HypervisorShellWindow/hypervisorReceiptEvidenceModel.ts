@@ -33,6 +33,10 @@ export interface HypervisorReceiptEvidenceProjection {
   projection_id: string;
   source: HypervisorReceiptEvidenceSource;
   records: HypervisorReceiptEvidenceRecord[];
+  page_cursor: string | null;
+  next_page_cursor: string | null;
+  page_size: number;
+  has_more: boolean;
   receipt_boundary_invariant: string;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -63,6 +67,8 @@ interface LoadReceiptEvidenceProjectionOptions
   fetchImpl?: FetchLike;
   projectId?: string | null;
   sessionRef?: string | null;
+  pageCursor?: string | null;
+  pageSize?: number | null;
 }
 
 function receiptRecord(
@@ -100,6 +106,10 @@ export const HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE: HypervisorReceiptEv
     source: "fixture",
     receipt_boundary_invariant:
       "Receipts make transitions attributable; Agentgres admits operational truth, artifact refs bind payload meaning, and the Hypervisor client only renders evidence projections.",
+    page_cursor: null,
+    next_page_cursor: null,
+    page_size: 25,
+    has_more: false,
     records: [
       ...sessionProjection.latest_receipt_refs.map((receiptRef, index) =>
         receiptRecord(
@@ -148,6 +158,21 @@ function arrayOf(value: unknown): Record<string, unknown>[] {
 
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function nullableStringValue(value: unknown, fallback: string | null): string | null {
+  if (value === null || typeof value === "undefined") {
+    return fallback;
+  }
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function stringList(value: unknown, fallback: string[]): string[] {
@@ -230,12 +255,20 @@ export function normalizeHypervisorReceiptEvidenceProjection(
 ): HypervisorReceiptEvidenceProjection {
   const value = objectRecord(snapshot);
   const fallback = HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE;
+  const hasRecordsArray = Array.isArray(value.records);
   const records = arrayOf(value.records).map(normalizeReceiptEvidenceRecord);
   return {
     schema_version: "ioi.hypervisor.receipt_evidence_projection.v1",
     projection_id: stringValue(value.projection_id, fallback.projection_id),
     source: options.source ?? "daemon-receipt-evidence-projection",
-    records: records.length > 0 ? records : fallback.records,
+    records: hasRecordsArray ? records : fallback.records,
+    page_cursor: nullableStringValue(value.page_cursor, fallback.page_cursor),
+    next_page_cursor: nullableStringValue(
+      value.next_page_cursor,
+      fallback.next_page_cursor,
+    ),
+    page_size: numberValue(value.page_size, fallback.page_size),
+    has_more: booleanValue(value.has_more, fallback.has_more),
     receipt_boundary_invariant: stringValue(
       value.receipt_boundary_invariant,
       fallback.receipt_boundary_invariant,
@@ -249,12 +282,18 @@ export async function loadHypervisorReceiptEvidenceProjection({
   fetchImpl = fetch,
   projectId,
   sessionRef,
+  pageCursor,
+  pageSize,
   source,
 }: LoadReceiptEvidenceProjectionOptions = {}): Promise<HypervisorReceiptEvidenceProjection> {
   const base = endpoint.replace(/\/$/, "");
   const search = new URLSearchParams();
   if (projectId) search.set("project_id", projectId);
   if (sessionRef) search.set("session_ref", sessionRef);
+  if (pageCursor) search.set("page_cursor", pageCursor);
+  if (pageSize && Number.isFinite(pageSize)) {
+    search.set("page_size", String(pageSize));
+  }
   const query = search.toString();
   const response = await fetchImpl(
     `${base}${HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH}${query ? `?${query}` : ""}`,

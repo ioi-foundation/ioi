@@ -478,6 +478,8 @@ Optional query params:
 ```text
 project_id
 session_ref
+page_cursor
+page_size
 ```
 
 The response is an `ioi.hypervisor.model_infrastructure_projection.v1`
@@ -677,6 +679,10 @@ projection:
   "schema_version": "ioi.hypervisor.receipt_evidence_projection.v1",
   "projection_id": "receipt-evidence:...",
   "source": "daemon-receipt-evidence-projection",
+  "page_cursor": "cursor:... | null",
+  "next_page_cursor": "cursor:... | null",
+  "page_size": 25,
+  "has_more": false,
   "records": [
     {
       "receipt_ref": "receipt://...",
@@ -700,6 +706,9 @@ Receipt evidence projections let Hypervisor clients inspect operational
 evidence, replay refs, traces, artifact refs, Agentgres operation refs, and
 state roots without becoming receipt truth. Filtering, drill-in replay, and
 pagination must remain daemon/Agentgres-backed rather than client-authored.
+Clients may request `page_cursor` / `page_size` values, but those cursors are
+projection inputs only. The daemon and Agentgres decide which records exist,
+which cursor follows, and whether more admitted history is available.
 
 ```http
 POST /v1/hypervisor/provider-operations

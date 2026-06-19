@@ -2564,6 +2564,9 @@ function HypervisorReceiptEvidenceSurface({
   const [selectedReceiptRef, setSelectedReceiptRef] = useState<string | null>(
     null,
   );
+  const [receiptPageCursor, setReceiptPageCursor] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (
@@ -2577,10 +2580,13 @@ function HypervisorReceiptEvidenceSurface({
     loadHypervisorReceiptEvidenceProjection({
       projectId: currentProjectId,
       sessionRef: HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.selected_session_ref,
+      pageCursor: receiptPageCursor,
+      pageSize: 25,
     })
       .then((nextProjection) => {
         if (!cancelled) {
           setProjection(nextProjection);
+          setSelectedReceiptRef(null);
         }
       })
       .catch((error) => {
@@ -2592,7 +2598,7 @@ function HypervisorReceiptEvidenceSurface({
     return () => {
       cancelled = true;
     };
-  }, [currentProjectId]);
+  }, [currentProjectId, receiptPageCursor]);
 
   const kindOptions = useMemo(
     () => Array.from(new Set(projection.records.map((record) => record.kind))),
@@ -2628,6 +2634,10 @@ function HypervisorReceiptEvidenceSurface({
       data-receipt-evidence-status-filter={statusFilter}
       data-receipt-evidence-filtered-count={filteredRecords.length}
       data-receipt-evidence-selected-ref={selectedRecord?.receipt_ref ?? ""}
+      data-receipt-evidence-page-cursor={projection.page_cursor ?? ""}
+      data-receipt-evidence-next-page-cursor={projection.next_page_cursor ?? ""}
+      data-receipt-evidence-page-size={projection.page_size}
+      data-receipt-evidence-has-more={projection.has_more ? "true" : "false"}
     >
       <div className="hypervisor-receipt-evidence__header">
         <span>Receipts</span>
@@ -2676,6 +2686,22 @@ function HypervisorReceiptEvidenceSurface({
           </select>
         </label>
         <strong>{filteredRecords.length} shown</strong>
+        <button
+          type="button"
+          data-receipt-evidence-first-page="true"
+          disabled={!projection.page_cursor}
+          onClick={() => setReceiptPageCursor(null)}
+        >
+          First page
+        </button>
+        <button
+          type="button"
+          data-receipt-evidence-next-page={projection.next_page_cursor ?? ""}
+          disabled={!projection.has_more || !projection.next_page_cursor}
+          onClick={() => setReceiptPageCursor(projection.next_page_cursor)}
+        >
+          Next page
+        </button>
       </div>
 
       <div className="hypervisor-receipt-evidence__grid">

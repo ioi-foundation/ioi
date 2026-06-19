@@ -2,7 +2,8 @@
 
 Status: internal implementation master guide.
 Owner: implementation/canon hardening workstream.
-Primary canon target: `docs/architecture`.
+Primary product/UX authority: `internal-docs/reverse-engineering/ioi`.
+Secondary canon target: `docs/architecture`.
 Last reviewed against current canon: 2026-06-16.
 
 ## Purpose
@@ -12,6 +13,12 @@ pressure audit. It is not a marketing summary and not another doctrine layer.
 It is the guide for finding places where the canon is correct in principle but
 would become awkward, ambiguous, or over-abstracted when an engineer tries to
 build the system.
+
+For Hypervisor product shape, `internal-docs/reverse-engineering/ioi` is the
+primary authority. Architecture docs are secondary: they translate the product
+reference into runtime, authority, state, receipt, privacy, and adapter
+contracts. If the two disagree, update secondary docs or implementation to
+serve the reference shell rather than reviving legacy IDE/console surfaces.
 
 The review posture is:
 
@@ -1531,7 +1538,13 @@ Current implementation cut:
   drill-in replay detail are now implemented in the client projection surface:
   operators can filter by kind/status, select a receipt, and inspect replay,
   state-root, operation, artifact, and trace refs without making the client
-  receipt truth. Remaining work is durable Agentgres-backed receipt pagination.
+  receipt truth. Durable Agentgres-backed receipt pagination now flows through
+  `page_cursor` / `page_size` query params on
+  `/v1/hypervisor/receipt-evidence` and returns projection-owned
+  `page_cursor`, `next_page_cursor`, `page_size`, and `has_more` metadata;
+  clients may request daemon cursors but must not synthesize receipt history.
+  Remaining work is project/session deep-link wiring into filtered receipt
+  views, not a separate client-side receipt archive.
 
 0A.8/0A.9 first Privacy/cTEE admission posture surface is implemented:
   `hypervisorPrivacyPostureModel.ts` defines

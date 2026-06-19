@@ -2890,6 +2890,11 @@ assert(
     hypervisorReceiptEvidenceModelSource.includes(
       "daemon-receipt-evidence-projection",
     ) &&
+    hypervisorReceiptEvidenceModelSource.includes("page_cursor") &&
+    hypervisorReceiptEvidenceModelSource.includes("next_page_cursor") &&
+    hypervisorReceiptEvidenceModelSource.includes("has_more") &&
+    hypervisorReceiptEvidenceModelSource.includes("pageCursor") &&
+    hypervisorReceiptEvidenceModelSource.includes("pageSize") &&
     hypervisorReceiptEvidenceModelSource.includes(
       "Agentgres admits operational truth",
     ) &&
@@ -2907,10 +2912,22 @@ assert(
     hypervisorShellContentSource.includes(
       "data-receipt-evidence-selected-ref",
     ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-page-cursor",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-next-page-cursor",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-next-page",
+    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-has-more") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-detail") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-replay-ref") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-review") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/receipt-evidence") &&
+    publicRuntimeRoutesSource.includes("receipt_page_cursor") &&
+    publicRuntimeRoutesSource.includes("receipt_page_size") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_receipt_evidence",
     ) &&
@@ -2919,6 +2936,8 @@ assert(
       "dispatch Hypervisor receipt evidence through lifecycle projection",
     ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/receipt-evidence") &&
+    daemonRuntimeApiDoc.includes("page_cursor") &&
+    daemonRuntimeApiDoc.includes("next_page_cursor") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_receipt_evidence",
     ),
@@ -2928,7 +2947,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Receipts should hydrate receipt evidence, Agentgres operation refs, artifacts, traces, state roots, and replay refs through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Receipts should hydrate paginated receipt evidence, Agentgres operation refs, artifacts, traces, state roots, and replay refs through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "contract-family-modules",

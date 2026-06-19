@@ -1021,6 +1021,10 @@ test("public runtime routes dispatch Hypervisor receipt evidence through lifecyc
     schema_version: "ioi.hypervisor.receipt_evidence_projection.v1",
     projection_id: "receipt-evidence:daemon/test",
     source: "daemon-receipt-evidence-projection",
+    page_cursor: "cursor:receipt/current",
+    next_page_cursor: "cursor:receipt/next",
+    page_size: 10,
+    has_more: true,
     records: [
       {
         receipt_ref: "receipt://session/test",
@@ -1063,7 +1067,7 @@ test("public runtime routes dispatch Hypervisor receipt evidence through lifecyc
 
   await handleRequest({
     request: request({
-      url: "/v1/hypervisor/receipt-evidence?project_id=project:ioi&session_ref=session:ioi",
+      url: "/v1/hypervisor/receipt-evidence?project_id=project:ioi&session_ref=session:ioi&page_cursor=cursor:receipt/current&page_size=10",
     }),
     response,
     store,
@@ -1087,6 +1091,8 @@ test("public runtime routes dispatch Hypervisor receipt evidence through lifecyc
         runtime_schema_version: "ioi.agentgres.runtime.v0",
         project_id: "project:ioi",
         session_ref: "session:ioi",
+        receipt_page_cursor: "cursor:receipt/current",
+        receipt_page_size: "10",
         source: "public_runtime_routes./v1/hypervisor/receipt-evidence",
       },
     },

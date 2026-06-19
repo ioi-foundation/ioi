@@ -375,6 +375,10 @@ export function createPublicRuntimeRequestHandler(deps) {
           runtime_schema_version: store.schemaVersion,
           project_id: optionalString(url.searchParams.get("project_id")),
           session_ref: optionalString(url.searchParams.get("session_ref")),
+          receipt_page_cursor: optionalString(
+            url.searchParams.get("page_cursor"),
+          ),
+          receipt_page_size: optionalString(url.searchParams.get("page_size")),
           source: "public_runtime_routes./v1/hypervisor/receipt-evidence",
         });
         writeJsonResponse(

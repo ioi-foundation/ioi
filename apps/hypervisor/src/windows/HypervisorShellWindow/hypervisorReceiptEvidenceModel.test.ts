@@ -16,6 +16,10 @@ test("receipt evidence projection binds receipts to Agentgres, artifacts, traces
   );
   assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
+  assert.equal(projection.page_cursor, null);
+  assert.equal(projection.next_page_cursor, null);
+  assert.equal(projection.page_size, 25);
+  assert.equal(projection.has_more, false);
   assert.match(projection.receipt_boundary_invariant, /Agentgres admits operational truth/);
   assert.match(projection.receipt_boundary_invariant, /Hypervisor client only renders/);
   assert.ok(projection.records.length >= 8);
@@ -71,6 +75,10 @@ test("receipt evidence normalization preserves daemon evidence boundaries", () =
   const projection = normalizeHypervisorReceiptEvidenceProjection(
     {
       projection_id: "receipt-evidence:daemon/normalized",
+      page_cursor: "cursor:receipt/current",
+      next_page_cursor: "cursor:receipt/next",
+      page_size: 10,
+      has_more: true,
       receipt_boundary_invariant:
         "Agentgres admits receipt truth; clients render evidence.",
       records: [
@@ -96,6 +104,10 @@ test("receipt evidence normalization preserves daemon evidence boundaries", () =
   assert.equal(projection.source, "daemon-receipt-evidence-projection");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.equal(projection.projection_id, "receipt-evidence:daemon/normalized");
+  assert.equal(projection.page_cursor, "cursor:receipt/current");
+  assert.equal(projection.next_page_cursor, "cursor:receipt/next");
+  assert.equal(projection.page_size, 10);
+  assert.equal(projection.has_more, true);
   assert.equal(projection.records[0]?.receipt_ref, "receipt://daemon/session/normalized");
   assert.equal(projection.records[0]?.kind, "session_lifecycle");
   assert.deepEqual(projection.records[0]?.agentgres_operation_refs, [
@@ -103,12 +115,35 @@ test("receipt evidence normalization preserves daemon evidence boundaries", () =
   ]);
 });
 
-test("receipt evidence loader calls the daemon projection route with project and session refs", async () => {
+test("receipt evidence normalization preserves empty daemon pages", () => {
+  const projection = normalizeHypervisorReceiptEvidenceProjection(
+    {
+      projection_id: "receipt-evidence:daemon/empty-page",
+      page_cursor: "cursor:receipt/page-2",
+      next_page_cursor: null,
+      page_size: 25,
+      has_more: false,
+      records: [],
+    },
+    { source: "daemon-receipt-evidence-projection" },
+  );
+
+  assert.equal(projection.projection_id, "receipt-evidence:daemon/empty-page");
+  assert.equal(projection.records.length, 0);
+  assert.equal(projection.page_cursor, "cursor:receipt/page-2");
+  assert.equal(projection.next_page_cursor, null);
+  assert.equal(projection.page_size, 25);
+  assert.equal(projection.has_more, false);
+});
+
+test("receipt evidence loader calls the daemon projection route with project, session, and page refs", async () => {
   const calls: Array<{ input: string; method?: string }> = [];
   const projection = await loadHypervisorReceiptEvidenceProjection({
     endpoint: "http://daemon.test/",
     projectId: "project:ioi",
     sessionRef: "session:ioi",
+    pageCursor: "cursor:receipt/next",
+    pageSize: 10,
     fetchImpl: async (input, init) => {
       calls.push({ input, method: init?.method });
       return {
@@ -117,6 +152,10 @@ test("receipt evidence loader calls the daemon projection route with project and
         async text() {
           return JSON.stringify({
             projection_id: "receipt-evidence:daemon/loaded",
+            page_cursor: "cursor:receipt/next",
+            next_page_cursor: null,
+            page_size: 10,
+            has_more: false,
             records: [
               {
                 receipt_ref: "receipt://loaded/session",
@@ -140,11 +179,13 @@ test("receipt evidence loader calls the daemon projection route with project and
   assert.deepEqual(calls, [
     {
       input:
-        `http://daemon.test${HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH}?project_id=project%3Aioi&session_ref=session%3Aioi`,
+        `http://daemon.test${HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH}?project_id=project%3Aioi&session_ref=session%3Aioi&page_cursor=cursor%3Areceipt%2Fnext&page_size=10`,
       method: "GET",
     },
   ]);
   assert.equal(projection.source, "daemon-receipt-evidence-projection");
   assert.equal(projection.projection_id, "receipt-evidence:daemon/loaded");
+  assert.equal(projection.page_cursor, "cursor:receipt/next");
+  assert.equal(projection.page_size, 10);
   assert.equal(projection.records[0]?.receipt_ref, "receipt://loaded/session");
 });
