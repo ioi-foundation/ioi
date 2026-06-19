@@ -595,12 +595,40 @@ assert(
   !exists(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
   ) &&
-    !exists("apps/hypervisor/src/windows/shared/hostWindowDrag.ts"),
+    !exists("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
+    ![
+      architectureImplementationMatrix,
+      architectureSourceOfTruthMap,
+      hypervisorCoreClientsSurfacesDoc,
+    ]
+      .join("\n")
+      .includes(
+        "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
+      ) &&
+    ![
+      architectureImplementationMatrix,
+      architectureSourceOfTruthMap,
+      hypervisorCoreClientsSurfacesDoc,
+    ]
+      .join("\n")
+      .includes("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
+    architectureImplementationMatrix.includes(
+      "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
+    ) &&
+    architectureImplementationMatrix.includes(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
+    ) &&
+    architectureImplementationMatrix.includes(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
     "apps/hypervisor/src/windows/shared/hostWindowDrag.ts",
+    "docs/architecture/_meta/implementation-matrix.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
   ],
-  "Hypervisor shell must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail.",
+  "Hypervisor shell and secondary canon docs must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail.",
 );
 assert(
   "hypervisor-dev-start-probe-no-dual-product-log-prefix",
