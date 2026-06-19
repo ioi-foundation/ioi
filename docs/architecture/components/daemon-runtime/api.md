@@ -402,6 +402,72 @@ weight-custody admission, and receipt creation remain daemon-mediated and
 Agentgres-linked.
 
 ```http
+GET /v1/hypervisor/privacy-posture
+```
+
+`GET /v1/hypervisor/privacy-posture` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_privacy_posture
+projection_kind = hypervisor_privacy_posture
+```
+
+Optional query params:
+
+```text
+project_id
+session_ref
+```
+
+The response is an `ioi.hypervisor.execution_privacy_posture_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.execution_privacy_posture_projection.v1",
+  "projection_id": "privacy-posture:...",
+  "source": "daemon-privacy-posture-projection",
+  "project_ref": "project:...",
+  "selected_session_ref": "session:...",
+  "selected_privacy_ref": "privacy:ctee-private-workspace",
+  "default_model_route_ref": "model-route:...",
+  "workspace_segments": [
+    {
+      "segment_ref": "workspace-segment:...",
+      "label": "Encrypted state refs",
+      "custody_class": "encrypted_blob_ref",
+      "node_plaintext_allowed": false,
+      "owner": "agentgres",
+      "evidence_refs": ["artifact://..."]
+    }
+  ],
+  "model_weight_policies": [
+    {
+      "lane": "forbidden_plaintext_mount",
+      "label": "Forbidden plaintext mount",
+      "protects_workspace_state": true,
+      "protects_model_weights_from_provider_root": false,
+      "allowed_postures": ["ctee_split"],
+      "admission_summary": "Remote nodes receive no protected plaintext.",
+      "authority_scope_refs": ["scope:privacy.enforce_no_plaintext_custody"]
+    }
+  ],
+  "provider_candidates": [],
+  "admission_controls": [],
+  "unsafe_mount_receipt_ref": "receipt://privacy/...",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Privacy posture projections power the Hypervisor Privacy/cTEE surface and
+session setup warnings. They distinguish workspace plaintext custody,
+declassification gates, model-input/output posture, provider-root exposure, and
+model-weight custody. The client renders and reviews the posture, but unsafe
+mount blocking, model-weight custody admission, wallet declassification policy,
+and Agentgres privacy receipts remain daemon-mediated.
+
+```http
 GET /v1/hypervisor/provider-placement
 ```
 

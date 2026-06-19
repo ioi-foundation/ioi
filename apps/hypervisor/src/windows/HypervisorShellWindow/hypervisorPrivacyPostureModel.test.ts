@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "./hypervisorPrivacyPostureModel.ts";
+import {
+  HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH,
+  HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
+  loadHypervisorPrivacyPostureProjection,
+  normalizeHypervisorPrivacyPostureProjection,
+} from "./hypervisorPrivacyPostureModel.ts";
 
 test("privacy posture projection separates workspace custody from model-weight custody", () => {
   const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
@@ -93,4 +98,102 @@ test("privacy posture projection covers rented-node, storage, TEE, and API postu
     ),
   );
   assert.match(projection.unsafe_mount_receipt_ref, /unsafe-mount-blocked/);
+});
+
+test("privacy posture projection normalizes daemon projection source and refs", () => {
+  const projection = normalizeHypervisorPrivacyPostureProjection({
+    projection_id: "privacy-posture:daemon/test",
+    project_ref: "project:ioi",
+    selected_session_ref: "session:ioi",
+    selected_privacy_ref: "privacy:ctee-private-workspace",
+    default_model_route_ref: "model-route:hypervisor/default-local",
+    invariant:
+      "Daemon privacy posture separates workspace custody and model-weight custody.",
+    workspace_segments: [
+      {
+        segment_ref: "workspace-segment:daemon/encrypted",
+        label: "Daemon encrypted state",
+        custody_class: "encrypted_blob_ref",
+        node_plaintext_allowed: false,
+        owner: "agentgres",
+        evidence_refs: ["artifact://daemon/encrypted"],
+      },
+    ],
+    model_weight_policies: [
+      {
+        lane: "forbidden_plaintext_mount",
+        label: "No provider-readable weights",
+        protects_workspace_state: true,
+        protects_model_weights_from_provider_root: false,
+        allowed_postures: ["ctee_split"],
+        admission_summary: "Remote nodes receive no protected plaintext.",
+        authority_scope_refs: ["scope:privacy.enforce_no_plaintext_custody"],
+      },
+    ],
+    provider_candidates: [
+      {
+        candidate_ref: "provider-candidate:akash-gpu",
+        label: "Akash GPU provider",
+        posture: "ctee_split",
+        model_weight_lane: "forbidden_plaintext_mount",
+        provider_root_plaintext_risk: "bounded",
+        admission_summary: "Public/redacted only.",
+        receipt_ref: "receipt://privacy/akash",
+      },
+    ],
+    admission_controls: [
+      {
+        control_ref: "privacy-control:daemon",
+        label: "Daemon admission",
+        owner: "hypervisor_daemon",
+        blocks_unsafe_plaintext: true,
+        receipt_ref: "receipt://privacy/daemon",
+      },
+    ],
+    unsafe_mount_receipt_ref: "receipt://privacy/unsafe-mount-blocked/daemon",
+  });
+
+  assert.equal(projection.source, "daemon-privacy-posture-projection");
+  assert.equal(projection.projection_id, "privacy-posture:daemon/test");
+  assert.equal(projection.project_ref, "project:ioi");
+  assert.equal(projection.selected_session_ref, "session:ioi");
+  assert.equal(projection.workspace_segments[0]?.owner, "agentgres");
+  assert.equal(projection.provider_candidates[0]?.posture, "ctee_split");
+  assert.equal(projection.runtimeTruthSource, "daemon-runtime");
+});
+
+test("privacy posture loader calls the daemon projection route", async () => {
+  const calls: Array<{ input: string; method?: string }> = [];
+  const projection = await loadHypervisorPrivacyPostureProjection({
+    endpoint: "http://daemon.test/",
+    projectId: "project:ioi",
+    sessionRef: "session:ioi",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, method: init?.method });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            projection_id: "privacy-posture:daemon/loaded",
+            project_ref: "project:ioi",
+            selected_session_ref: "session:ioi",
+            workspace_segments: [],
+            model_weight_policies: [],
+            provider_candidates: [],
+            admission_controls: [],
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(projection.projection_id, "privacy-posture:daemon/loaded");
+  assert.equal(projection.source, "daemon-privacy-posture-projection");
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.input);
+  assert.equal(url.pathname, HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH);
+  assert.equal(url.searchParams.get("project_id"), "project:ioi");
+  assert.equal(url.searchParams.get("session_ref"), "session:ioi");
+  assert.equal(calls[0]!.method, "GET");
 });

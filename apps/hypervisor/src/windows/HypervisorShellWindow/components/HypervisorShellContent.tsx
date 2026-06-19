@@ -52,7 +52,11 @@ import {
   type HypervisorModelInfrastructureRoute,
   type HypervisorModelInfrastructureSessionBinding,
 } from "../hypervisorModelInfrastructureModel";
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
+import {
+  HYPERVISOR_PRIVACY_POSTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+  HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
+  loadHypervisorPrivacyPostureProjection,
+} from "../hypervisorPrivacyPostureModel";
 import {
   HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
@@ -2903,13 +2907,47 @@ function HypervisorModelRouteDetail({
   );
 }
 
-function HypervisorPrivacyPostureSurface() {
-  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+function HypervisorPrivacyPostureSurface({
+  currentProjectId,
+}: {
+  currentProjectId: string;
+}) {
+  const [projection, setProjection] = useState(
+    HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    if (
+      !shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_PRIVACY_POSTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+    ) {
+      return;
+    }
+    let cancelled = false;
+    loadHypervisorPrivacyPostureProjection({
+      projectId: currentProjectId,
+      sessionRef: projection.selected_session_ref,
+    })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn("[Hypervisor][Privacy] posture projection unavailable", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId, projection.selected_session_ref]);
+
   return (
     <section
       className="hypervisor-privacy-posture"
       aria-label="Privacy and cTEE posture surface"
       data-hypervisor-privacy-posture={projection.projection_id}
+      data-privacy-posture-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-privacy-posture__header">
@@ -3201,7 +3239,9 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "privacy" ? (
-                    <HypervisorPrivacyPostureSurface />
+                    <HypervisorPrivacyPostureSurface
+                      currentProjectId={currentProject.id}
+                    />
                   ) : null}
 
                   {activeView === "foundry" ? (

@@ -171,6 +171,9 @@ const hypervisorAgentsModelTestSource = read(
 const hypervisorModelInfrastructureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
 );
+const hypervisorPrivacyPostureModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts",
+);
 const hypervisorReceiptEvidenceModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts",
 );
@@ -2733,6 +2736,51 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Providers should hydrate direct provider placement candidates through the daemon/public runtime route while preserving wallet authority, Agentgres truth, and storage-backend boundaries.",
+);
+assert(
+  "hypervisor-privacy-posture-live-projection",
+  hypervisorPrivacyPostureModelSource.includes(
+    "HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH",
+  ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "normalizeHypervisorPrivacyPostureProjection",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "loadHypervisorPrivacyPostureProjection",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "ioi.hypervisor.execution_privacy_posture_projection.v1",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "daemon-privacy-posture-projection",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "Model-weight custody is a separate admission lane",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorPrivacyPostureProjection",
+    ) &&
+    hypervisorShellContentSource.includes("data-privacy-posture-source") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/privacy-posture") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_privacy_posture",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor privacy posture through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/privacy-posture") &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.hypervisor.execution_privacy_posture_projection.v1",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Privacy/cTEE should hydrate workspace custody, model-weight custody, provider posture, admission controls, and receipt refs through the daemon/public runtime route instead of staying fixture-only.",
 );
 assert(
   "hypervisor-receipt-evidence-live-projection",

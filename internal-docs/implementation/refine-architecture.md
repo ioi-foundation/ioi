@@ -1531,9 +1531,19 @@ Current implementation cut:
   from proprietary model-weight custody: cTEE can block protected workspace
   plaintext on rented nodes, while proprietary weights require local/open,
   remote API, TEE/customer-cloud, explicit provider-trust, or forbidden mount
-  lanes. Remaining work is live admission hydration from daemon model-mount
-  routes, provider leases, wallet declassification policy, and Agentgres
-  privacy receipts.
+  lanes. Privacy now has a normalized
+  `ioi.hypervisor.execution_privacy_posture_projection.v1` loader and
+  `/v1/hypervisor/privacy-posture` public runtime route dispatching through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_privacy_posture`, binding
+  `project_id` and `session_ref` to the posture request. The Privacy surface
+  marks fixture-vs-daemon source explicitly through
+  `data-privacy-posture-source`, preserving the boundary that clients inspect
+  privacy posture while the daemon, wallet.network, and Agentgres own
+  admission, declassification, and operational truth. Remaining work is
+  mutation/admission actions for unsafe mounts, model-weight custody route
+  changes, wallet declassification decisions, provider privacy leases, and
+  durable Agentgres privacy receipts.
 
 0A.3 Projects reference page is corrected and implemented:
   `hypervisorProjectStateModel.ts` defines `HypervisorProjectStateProjection`

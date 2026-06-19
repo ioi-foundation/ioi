@@ -800,6 +800,118 @@ test("public runtime routes dispatch Hypervisor provider placement through lifec
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor privacy posture through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const privacyPostureProjection = {
+    schema_version: "ioi.hypervisor.execution_privacy_posture_projection.v1",
+    projection_id: "privacy-posture:daemon/test",
+    source: "daemon-privacy-posture-projection",
+    project_ref: "project:ioi",
+    selected_session_ref: "session:ioi",
+    selected_privacy_ref: "privacy:ctee-private-workspace",
+    default_model_route_ref: "model-route:hypervisor/default-local",
+    invariant:
+      "Daemon projection separates workspace privacy from model-weight custody.",
+    workspace_segments: [
+      {
+        segment_ref: "workspace-segment:daemon/encrypted",
+        label: "Daemon encrypted state",
+        custody_class: "encrypted_blob_ref",
+        node_plaintext_allowed: false,
+        owner: "agentgres",
+        evidence_refs: ["artifact://daemon/encrypted"],
+      },
+    ],
+    model_weight_policies: [
+      {
+        lane: "forbidden_plaintext_mount",
+        label: "No provider-readable weights",
+        protects_workspace_state: true,
+        protects_model_weights_from_provider_root: false,
+        allowed_postures: ["ctee_split"],
+        admission_summary: "Remote nodes receive no protected plaintext.",
+        authority_scope_refs: ["scope:privacy.enforce_no_plaintext_custody"],
+      },
+    ],
+    provider_candidates: [
+      {
+        candidate_ref: "provider-candidate:akash-gpu",
+        label: "Akash GPU provider",
+        posture: "ctee_split",
+        model_weight_lane: "forbidden_plaintext_mount",
+        provider_root_plaintext_risk: "bounded",
+        admission_summary: "Public/redacted only.",
+        receipt_ref: "receipt://privacy/akash",
+      },
+    ],
+    admission_controls: [
+      {
+        control_ref: "privacy-control:daemon",
+        label: "Daemon admission",
+        owner: "hypervisor_daemon",
+        blocks_unsafe_plaintext: true,
+        receipt_ref: "receipt://privacy/daemon",
+      },
+    ],
+    unsafe_mount_receipt_ref: "receipt://privacy/unsafe-mount-blocked/daemon",
+    runtimeTruthSource: "daemon-runtime",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: privacyPostureProjection,
+        record: {
+          operation_kind:
+            "runtime.lifecycle_projection.hypervisor_privacy_posture",
+          projection_kind: "hypervisor_privacy_posture",
+          projection: privacyPostureProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/privacy-posture?project_id=project:ioi&session_ref=session:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), privacyPostureProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_privacy_posture_projection",
+        operation_kind:
+          "runtime.lifecycle_projection.hypervisor_privacy_posture",
+        projection_kind: "hypervisor_privacy_posture",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        session_ref: "session:ioi",
+        source: "public_runtime_routes./v1/hypervisor/privacy-posture",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor receipt evidence through lifecycle projection", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
