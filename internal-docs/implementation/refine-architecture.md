@@ -1168,6 +1168,10 @@ Current implementation cut:
   of a hand-maintained IDE-era list
   left-rail session shortcuts are projection-backed launched sessions only; a
   fresh workspace no longer renders static reference-looking session rows
+  the primary rail is fixed open at the IOI-reference 300px sidebar posture;
+  the old persisted collapsed icon-rail state, localStorage key, model field,
+  data attribute, and collapsed CSS are cut rather than retained as alternate
+  product chrome
   `check:runtime-layout` now guards this contract so Phase 0A remains tied to
   the IOI reference cockpit rather than ONA, Tauri, or singular-IDE framing
   active visible chat, workspace, connector, model, and harness-workflow

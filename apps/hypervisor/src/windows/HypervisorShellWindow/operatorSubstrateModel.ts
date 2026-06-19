@@ -44,7 +44,6 @@ export interface OperatorActivityRailItem {
 export interface OperatorActivityRailModel {
   projectionId: string;
   chromeMode: OperatorChromeMode;
-  collapsed: boolean;
   activeRoute: OperatorSurfaceRoute;
   items: OperatorActivityRailItem[];
   runtimeTruthSource: "daemon-runtime";
@@ -183,7 +182,6 @@ export interface BuildWorkspaceSubstrateTargetIndexOptions
 
 export interface BuildOperatorActivityRailModelOptions {
   activeView: PrimaryView;
-  collapsed: boolean;
   notificationCount: number;
 }
 
@@ -219,13 +217,11 @@ function railItemForHypervisorSurface(
 
 export function buildOperatorActivityRailModel({
   activeView,
-  collapsed,
   notificationCount,
 }: BuildOperatorActivityRailModelOptions): OperatorActivityRailModel {
   return {
-    projectionId: `operator-activity-rail:${activeView}:${collapsed ? "collapsed" : "expanded"}`,
-    chromeMode: collapsed ? "sidebar" : "full",
-    collapsed,
+    projectionId: `operator-activity-rail:${activeView}:expanded`,
+    chromeMode: "full",
     activeRoute: { kind: "primary-view", view: activeView },
     runtimeTruthSource: "daemon-runtime",
     items: [

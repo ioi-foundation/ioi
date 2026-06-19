@@ -238,10 +238,6 @@
   transition: width 0.16s ease;
 }
 
-.hypervisor-activity-bar.is-collapsed {
-  width: 48px;
-}
-
 .hypervisor-activity-brand-row {
   min-height: 43px;
   display: flex;
@@ -292,12 +288,20 @@
   border-radius: 4px;
   background: transparent;
   color: var(--hypervisor-activity-text);
-  cursor: pointer;
+  cursor: default;
 }
 
 .hypervisor-activity-collapse-button:hover {
   background: var(--hypervisor-activity-hover-bg);
   color: var(--hypervisor-activity-text-strong);
+}
+
+.hypervisor-activity-collapse-button[aria-disabled="true"],
+.hypervisor-activity-collapse-button[aria-disabled="true"]:hover,
+.hypervisor-activity-collapse-button[aria-disabled="true"]:focus-visible {
+  background: transparent;
+  color: var(--hypervisor-activity-text-muted);
+  cursor: default;
 }
 
 .hypervisor-activity-group {
@@ -525,69 +529,6 @@
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-brand-row {
-  min-height: 48px;
-  justify-content: center;
-  padding: 0;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-brand {
-  display: none;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-collapse-button {
-  width: 42px;
-  height: 42px;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-group {
-  align-items: center;
-  padding: 8px 0;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-button {
-  width: 48px;
-  min-height: 42px;
-  display: flex;
-  justify-content: center;
-  padding: 0;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-button--new-session {
-  margin: 4px auto 8px;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-button-label,
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-button-shortcut,
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-apps,
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-section-label,
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-profile-label,
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-profile-menu-indicator {
-  display: none;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-profile-indicator {
-  min-height: 42px;
-  display: flex;
-  justify-content: center;
-  padding: 0;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-footer-profile-row {
-  width: 48px;
-  display: flex;
-  justify-content: center;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-profile-secondary {
-  display: none;
-}
-
-.hypervisor-activity-bar.is-collapsed .hypervisor-activity-button-badge {
-  top: 8px;
-  left: 27px;
 }
 
 .hypervisor-client-project-select {

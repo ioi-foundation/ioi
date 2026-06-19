@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   HypervisorRailLogoIcon,
   ComposeIcon,
@@ -61,8 +61,6 @@ interface ReferenceRailButtonProps {
   onClick: () => void;
 }
 
-const HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY =
-  "hypervisor.primaryRailCollapsed.v2";
 const GENERIC_HOME_NEW_SESSION_INTENT =
   "Open a governed Hypervisor session for this workspace.";
 
@@ -88,7 +86,7 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   settings: <SettingsIcon />,
 };
 
-function CollapseIcon({ collapsed }: { collapsed: boolean }) {
+function SidebarControlIcon() {
   return (
     <svg
       width="16"
@@ -100,11 +98,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
       <path
         fillRule="evenodd"
         clipRule="evenodd"
-        d={
-          collapsed
-            ? "M14.6667 2.66663H1.33334V13.3333H14.6667V2.66663ZM5.66667 3.66663V12.3333H2.33334V3.66663H5.66667Z"
-            : "M14.6667 2.66663H1.33334V13.3333H14.6667V2.66663ZM13.6667 3.66663V12.3333H7.66667V3.66663H13.6667Z"
-        }
+        d="M14.6667 2.66663H1.33334V13.3333H14.6667V2.66663ZM13.6667 3.66663V12.3333H7.66667V3.66663H13.6667Z"
       />
     </svg>
   );
@@ -324,12 +318,6 @@ export function HypervisorActivityRail({
   profile,
   launchedSessions,
 }: HypervisorActivityRailProps) {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const stored = window.localStorage.getItem(HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY);
-    return stored === "true";
-  });
-
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (isEditableElement(event.target)) return;
@@ -346,16 +334,8 @@ export function HypervisorActivityRail({
     return () => window.removeEventListener("keydown", handler);
   }, [onViewChange]);
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY,
-      collapsed ? "true" : "false",
-    );
-  }, [collapsed]);
-
   const railModel = buildOperatorActivityRailModel({
     activeView,
-    collapsed,
     notificationCount,
   });
   const referenceLeftNavSurfaceIds =
@@ -393,10 +373,9 @@ export function HypervisorActivityRail({
 
   return (
     <aside
-      className={`hypervisor-activity-bar ${collapsed ? "is-collapsed" : ""}`}
+      className="hypervisor-activity-bar"
       role="navigation"
       aria-label="Hypervisor navigation"
-      data-collapsed={collapsed ? "true" : "false"}
       data-inspection-target="operator-activity-rail"
       data-operator-activity-rail={railModel.projectionId}
       data-ioi-reference-primary-rail="true"
@@ -416,12 +395,11 @@ export function HypervisorActivityRail({
         <button
           type="button"
           className="hypervisor-activity-collapse-button"
-          aria-label={collapsed ? "Expand hypervisor activity rail" : "Collapse hypervisor activity rail"}
-          aria-pressed={collapsed}
-          title={collapsed ? "Expand hypervisor activity rail" : "Collapse hypervisor activity rail"}
-          onClick={() => setCollapsed((value) => !value)}
+          aria-label="Primary sidebar is fixed open"
+          aria-disabled="true"
+          title="Primary sidebar is fixed open"
         >
-          <CollapseIcon collapsed={collapsed} />
+          <SidebarControlIcon />
         </button>
       </div>
 

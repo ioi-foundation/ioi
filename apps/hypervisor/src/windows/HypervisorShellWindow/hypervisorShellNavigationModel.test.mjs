@@ -202,9 +202,10 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     activityBar,
     /\[\.\.\.HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS\.leftNavSurfaceIds\]/,
   );
-  assert.match(activityBar, /hypervisor\.primaryRailCollapsed\.v2/);
+  assert.doesNotMatch(activityBar, /hypervisor\.primaryRailCollapsed\.v2/);
   assert.doesNotMatch(activityBar, /hypervisor\.activityBarCollapsed/);
-  assert.match(activityBar, /return stored === "true"/);
+  assert.doesNotMatch(activityBar, /data-collapsed/);
+  assert.doesNotMatch(activityBar, /return stored === "true"/);
   assert.doesNotMatch(
     activityBar,
     /stored === null \? true : stored === "true"/,

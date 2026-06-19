@@ -21,13 +21,11 @@ test("retired native app path and archive stay absent", () => {
 test("operator activity rail is a shell projection with deterministic surfaces", () => {
   const model = buildOperatorActivityRailModel({
     activeView: "automations",
-    collapsed: true,
     notificationCount: 4,
   });
 
   assert.equal(model.runtimeTruthSource, "daemon-runtime");
-  assert.equal(model.collapsed, true);
-  assert.equal(model.chromeMode, "sidebar");
+  assert.equal(model.chromeMode, "full");
   assert.deepEqual(model.activeRoute, {
     kind: "primary-view",
     view: "automations",

@@ -814,6 +814,11 @@ assert(
     ) &&
     hypervisorActivityBarSource.includes("referenceLeftNavSurfaceIds") &&
     hypervisorActivityBarSource.includes("primaryNavItems") &&
+    !hypervisorActivityBarSource.includes("primaryRailCollapsed") &&
+    !hypervisorActivityBarSource.includes("data-collapsed") &&
+    !hypervisorActivityBarSource.includes("setCollapsed") &&
+    !hypervisorActivityBarSource.includes("is-collapsed") &&
+    !hypervisorShellBaseCssSource.includes(".hypervisor-activity-bar.is-collapsed") &&
     hypervisorActivityBarSource.includes(
       'data-ioi-reference-session-list="from-launched-sessions"',
     ) &&
