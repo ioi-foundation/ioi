@@ -395,6 +395,73 @@ creation, and package promotion still require daemon admission, wallet/network
 authority where relevant, and Agentgres operation linkage.
 
 ```http
+POST /v1/hypervisor/automation-runs/proposals
+```
+
+`POST /v1/hypervisor/automation-runs/proposals` creates a daemon-authored
+proposal to run, schedule, or promote an automation recipe. Hypervisor clients
+may request a projected recipe run, but the Workflow Compositor and App shell do
+not become runtime truth.
+
+The route dispatches through the daemon runtime lifecycle boundary with:
+
+```text
+operation_kind = runtime.lifecycle_operation.hypervisor_automation_run_proposal
+projection_kind = hypervisor_automation_run_proposal
+```
+
+Request body:
+
+```json
+{
+  "selected_project_id": "project:...",
+  "template_ref": "workflow-template:...",
+  "run_recipe_ref": "run-recipe:...",
+  "graph_ref": "workflow://graph/...",
+  "launch_action_ref": "action://workflow/...",
+  "operation_kind": "run_now | schedule_run | promote_package",
+  "required_scope_refs": ["scope:..."],
+  "model_route_policy_ref": "model-route-policy:...",
+  "receipt_policy_ref": "receipt-policy:...",
+  "context_chamber_refs": ["chamber://..."],
+  "artifact_refs": ["artifact://..."],
+  "latest_receipt_refs": ["receipt://..."],
+  "state_root_ref": "agentgres://state-root/..."
+}
+```
+
+The response is an `ioi.hypervisor.automation_run_proposal.v1` object:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.automation_run_proposal.v1",
+  "proposal_ref": "automation-run:...",
+  "source": "daemon-automation-run-proposal",
+  "selected_project_id": "project:...",
+  "template_ref": "workflow-template:...",
+  "run_recipe_ref": "run-recipe:...",
+  "graph_ref": "workflow://graph/...",
+  "launch_action_ref": "action://workflow/...",
+  "operation_kind": "run_now",
+  "admission_state": "ready_for_daemon_admission",
+  "wallet_lease_ref": "lease:wallet/automation/...",
+  "required_scope_refs": ["scope:..."],
+  "action_proposal_ref": "action://workflow/...",
+  "agentgres_operation_ref": "agentgres://operation/automation/...",
+  "receipt_ref": "receipt://automation/...",
+  "state_root_ref": "agentgres://state-root/...",
+  "context_chamber_refs": ["chamber://..."],
+  "artifact_refs": ["artifact://..."],
+  "latest_receipt_refs": ["receipt://..."],
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Automation run proposals are not execution admissions. Final execution still
+requires wallet.network approval where required, Agentgres operation refs,
+receipt refs, state roots, and the approved-operation admission boundary.
+
+```http
 GET /v1/hypervisor/model-infrastructure
 ```
 
@@ -757,12 +824,16 @@ Request body:
 
 ```json
 {
-  "operation_family": "session | provider | project",
-  "proposal_ref": "session-operation:... | provider-operation:... | project-operation:...",
+  "operation_family": "session | provider | project | automation",
+  "proposal_ref": "session-operation:... | provider-operation:... | project-operation:... | automation-run:...",
   "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
   "proposal_source": "daemon-session-operation-proposal",
   "project_ref": "project:...",
   "workspace_ref": "workspace://...",
+  "template_ref": "workflow-template:...",
+  "run_recipe_ref": "run-recipe:...",
+  "graph_ref": "workflow://graph/...",
+  "launch_action_ref": "action://workflow/...",
   "session_ref": "session:...",
   "environment_ref": "environment:...",
   "provider_candidate_ref": "provider:...",

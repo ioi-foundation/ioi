@@ -536,6 +536,107 @@ test("public runtime routes dispatch Hypervisor automation compositor through li
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor automation run proposals through lifecycle admission proposal", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const automationRunProposal = {
+    schema_version: "ioi.hypervisor.automation_run_proposal.v1",
+    proposal_ref: "automation-run:daemon/mission",
+    source: "daemon-automation-run-proposal",
+    selected_project_id: "project:ioi",
+    template_ref: "workflow-template:test",
+    run_recipe_ref: "run-recipe:test/manual",
+    graph_ref: "workflow://graph/test",
+    launch_action_ref: "action://workflow/test/launch",
+    operation_kind: "run_now",
+    admission_state: "ready_for_daemon_admission",
+    wallet_lease_ref: "lease:wallet/automation/test",
+    required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
+    action_proposal_ref: "action://workflow/test/launch",
+    agentgres_operation_ref: "agentgres://operation/automation/test/run",
+    receipt_ref: "receipt://automation/test/run",
+    state_root_ref: "agentgres://state-root/automation/test",
+    context_chamber_refs: ["chamber://workflow/test"],
+    artifact_refs: ["artifact://workflow/test/graph"],
+    latest_receipt_refs: ["receipt://workflow/test"],
+    run_boundary_invariant:
+      "Workflow compositor proposes; daemon admits; Agentgres records.",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return { proposal: automationRunProposal };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/automation-runs/proposals",
+      body: {
+        selected_project_id: "project:ioi",
+        template_ref: "workflow-template:test",
+        run_recipe_ref: "run-recipe:test/manual",
+        graph_ref: "workflow://graph/test",
+        launch_action_ref: "action://workflow/test/launch",
+        operation_kind: "run_now",
+        required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
+        model_route_policy_ref: "model-route-policy:test",
+        receipt_policy_ref: "receipt-policy:workflow/test",
+        context_chamber_refs: ["chamber://workflow/test"],
+        artifact_refs: ["artifact://workflow/test/graph"],
+        latest_receipt_refs: ["receipt://workflow/test"],
+        state_root_ref: "agentgres://state-root/automation/test",
+      },
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), automationRunProposal);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_automation_run_proposal",
+        operation_kind:
+          "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
+        projection_kind: "hypervisor_automation_run_proposal",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        template_ref: "workflow-template:test",
+        run_recipe_ref: "run-recipe:test/manual",
+        graph_ref: "workflow://graph/test",
+        launch_action_ref: "action://workflow/test/launch",
+        requested_operation: "run_now",
+        required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
+        model_route_policy_ref: "model-route-policy:test",
+        receipt_policy_ref: "receipt-policy:workflow/test",
+        context_chamber_refs: ["chamber://workflow/test"],
+        artifact_refs: ["artifact://workflow/test/graph"],
+        latest_receipt_refs: ["receipt://workflow/test"],
+        state_root_ref: "agentgres://state-root/automation/test",
+        source:
+          "public_runtime_routes./v1/hypervisor/automation-runs/proposals",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor agents through lifecycle projection", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

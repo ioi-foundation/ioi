@@ -781,7 +781,23 @@ test("Automations surface renders workflow compositor projection before editor",
   );
   assert.match(
     automationCompositorModel,
+    /HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH/,
+  );
+  assert.match(
+    automationCompositorModel,
     /loadHypervisorAutomationCompositorProjection/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /proposeHypervisorAutomationRun/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /HypervisorAutomationRunProposal/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /ioi\.hypervisor\.automation_run_proposal\.v1/,
   );
   assert.match(
     automationCompositorModel,
@@ -810,6 +826,9 @@ test("Automations surface renders workflow compositor projection before editor",
   );
   assert.match(shellContent, /data-hypervisor-automation-compositor/);
   assert.match(shellContent, /data-automation-compositor-source/);
+  assert.match(shellContent, /data-automation-run-proposal/);
+  assert.match(shellContent, /data-automation-run-proposal-source/);
+  assert.match(shellContent, /data-automation-run-admission-state/);
   assert.match(shellContent, /HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION/);
   assert.match(shellContent, /Total Automations/);
   assert.match(shellContent, /referenceAutomationTotal = 4/);
@@ -820,11 +839,16 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /10x engineer/);
   assert.match(shellContent, /Scan recent commits for bugs/);
   assert.match(shellContent, /className="hypervisor-automation-compositor__empty"/);
-  assert.match(shellContent, /referenceAutomationRows\.length > 0/);
-  assert.match(shellContent, /data-automation-row-ref/);
+  assert.match(shellContent, /automationRows\.length > 0/);
+  assert.match(
+    shellContent,
+    /projection\.source !== "daemon-automation-compositor-projection"/,
+  );
+  assert.match(shellContent, /data-workflow-template-ref/);
+  assert.match(shellContent, /data-workflow-run-recipe-ref/);
+  assert.match(shellContent, /data-workflow-graph-ref/);
+  assert.match(shellContent, /data-automation-run-proposal-template/);
   assert.match(shellContent, /data-workflow-template-suggestion/);
-  assert.doesNotMatch(shellContent, /data-workflow-template-ref/);
-  assert.doesNotMatch(shellContent, /data-workflow-run-ref/);
   assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
   assert.match(shellContent, /activeView === "automations"/);
 });

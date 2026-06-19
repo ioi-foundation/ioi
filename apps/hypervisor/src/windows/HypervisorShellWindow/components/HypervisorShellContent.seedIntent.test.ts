@@ -171,8 +171,8 @@ assert.match(
 );
 assert.match(
   source,
-  /const referenceAutomationRows:[\s\S]*\[\] = \[\]/,
-  "Automations should clean boot without fake automation rows",
+  /projection\.source !== "daemon-automation-compositor-projection"[\s\S]*return \[\]/,
+  "Automations should clean boot without fake automation rows unless daemon projection admits templates",
 );
 assert.match(
   source,

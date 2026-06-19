@@ -2976,6 +2976,29 @@
   background: #eeeeee;
 }
 
+.hypervisor-automation-compositor__proposal {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #b7d9c2;
+  border-radius: 12px;
+  background: #f7fcf8;
+  color: #1b5d2f;
+  font-size: 12px;
+}
+
+.hypervisor-automation-compositor__proposal strong,
+.hypervisor-automation-compositor__proposal span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-automation-compositor__proposal strong {
+  color: #163d24;
+  font-size: 13px;
+}
+
 .hypervisor-automation-compositor__suggested {
   display: grid;
   gap: 10px;

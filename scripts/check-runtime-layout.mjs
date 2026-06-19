@@ -2432,7 +2432,13 @@ assert(
       "daemon-project-operation-proposal",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "daemon-automation-run-proposal",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "ioi.hypervisor.project_operation_proposal.v1",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "ioi.hypervisor.automation_run_proposal.v1",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "hypervisor_approved_operation_proposal_source_not_admissible",
@@ -2467,6 +2473,9 @@ assert(
       "admits daemon project operation",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
+      "admits daemon automation run",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
       "rejects approved operations without Agentgres operation, receipt, or state root",
     ) &&
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
@@ -2479,7 +2488,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
+  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",
@@ -2527,7 +2536,16 @@ assert(
       "loadHypervisorAutomationCompositorProjection",
     ) &&
     hypervisorAutomationCompositorModelSource.includes(
+      "HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "proposeHypervisorAutomationRun",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
       "ioi.hypervisor.automation_compositor_projection.v1",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "ioi.hypervisor.automation_run_proposal.v1",
     ) &&
     hypervisorAutomationCompositorModelSource.includes(
       "HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION",
@@ -2553,6 +2571,10 @@ assert(
     hypervisorShellContentSource.includes(
       "data-automation-compositor-source",
     ) &&
+    hypervisorShellContentSource.includes("data-automation-run-proposal") &&
+    hypervisorShellContentSource.includes(
+      "data-automation-run-admission-state",
+    ) &&
     hypervisorShellContentSource.includes(
       "data-workflow-compositor-editor-boundary",
     ) &&
@@ -2560,13 +2582,25 @@ assert(
       "/v1/hypervisor/automation-compositor",
     ) &&
     publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/automation-runs/proposals",
+    ) &&
+    publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_automation_compositor",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
     ) &&
     publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor automation compositor through lifecycle projection",
     ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor automation run proposals through lifecycle admission proposal",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/automation-compositor") &&
+    daemonRuntimeApiDoc.includes(
+      "POST /v1/hypervisor/automation-runs/proposals",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_automation_compositor",
     ),
@@ -2576,7 +2610,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Automations should clean boot without fake rows, then hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route.",
+  "Hypervisor Automations should clean boot without fake rows, hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route, then request run proposals through daemon admission instead of client-local execution.",
 );
 assert(
   "hypervisor-agents-live-projection",

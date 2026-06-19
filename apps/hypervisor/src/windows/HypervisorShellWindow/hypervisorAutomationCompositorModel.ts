@@ -51,6 +51,37 @@ export interface HypervisorAutomationRun {
   latest_receipt_ref: string;
 }
 
+export type HypervisorAutomationRunOperationKind =
+  | "run_now"
+  | "schedule_run"
+  | "promote_package";
+
+export interface HypervisorAutomationRunProposal {
+  schema_version: "ioi.hypervisor.automation_run_proposal.v1";
+  proposal_ref: string;
+  source: "daemon-automation-run-proposal" | "fixture" | "unverified";
+  selected_project_id: string;
+  template_ref: string;
+  run_recipe_ref: string;
+  graph_ref: string;
+  launch_action_ref: string;
+  operation_kind: HypervisorAutomationRunOperationKind;
+  admission_state:
+    | "requires_wallet_lease"
+    | "ready_for_daemon_admission"
+    | "blocked";
+  wallet_lease_ref: string;
+  required_scope_refs: string[];
+  action_proposal_ref: string;
+  agentgres_operation_ref: string;
+  receipt_ref: string;
+  state_root_ref: string;
+  context_chamber_refs: string[];
+  artifact_refs: string[];
+  latest_receipt_refs: string[];
+  run_boundary_invariant: string;
+}
+
 export interface HypervisorAutomationCompositorProjection {
   schema_version: "ioi.hypervisor.automation_compositor_projection.v1";
   projection_id: string;
@@ -79,10 +110,12 @@ export const HYPERVISOR_AUTOMATION_COMPOSITOR_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH =
   "/v1/hypervisor/automation-compositor";
+export const HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH =
+  "/v1/hypervisor/automation-runs/proposals";
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -98,6 +131,26 @@ interface LoadAutomationCompositorProjectionOptions
   endpoint?: string;
   fetchImpl?: FetchLike;
   projectId?: string | null;
+}
+
+interface NormalizeAutomationRunProposalOptions {
+  projection?: HypervisorAutomationCompositorProjection;
+  template?: HypervisorAutomationTemplate;
+  recipe?: HypervisorAutomationRunRecipe;
+  graph?: HypervisorAutomationGraph | null;
+  operationKind?: HypervisorAutomationRunOperationKind;
+  source?: HypervisorAutomationRunProposal["source"];
+}
+
+interface ProposeAutomationRunOptions
+  extends NormalizeAutomationRunProposalOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  projection: HypervisorAutomationCompositorProjection;
+  template: HypervisorAutomationTemplate;
+  recipe: HypervisorAutomationRunRecipe;
+  graph?: HypervisorAutomationGraph | null;
+  operationKind?: HypervisorAutomationRunOperationKind;
 }
 
 const selectedProject =
@@ -331,6 +384,10 @@ function stringList(value: unknown, fallback: string[]): string[] {
     .filter((item): item is string => typeof item === "string" && !!item.trim())
     .map((item) => item.trim());
   return values.length > 0 ? values : fallback;
+}
+
+function safeId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._:-]+/g, "_");
 }
 
 function enumValue<T extends string>(
@@ -567,5 +624,202 @@ export async function loadHypervisorAutomationCompositorProjection(
   }
   return normalizeHypervisorAutomationCompositorProjection(value, {
     source: options.source ?? "daemon-automation-compositor-projection",
+  });
+}
+
+export function buildHypervisorAutomationRunProposal(
+  projection: HypervisorAutomationCompositorProjection,
+  template: HypervisorAutomationTemplate,
+  recipe: HypervisorAutomationRunRecipe,
+  graph: HypervisorAutomationGraph | null = null,
+  options: {
+    source?: HypervisorAutomationRunProposal["source"];
+    operationKind?: HypervisorAutomationRunOperationKind;
+  } = {},
+): HypervisorAutomationRunProposal {
+  const operationKind = options.operationKind ?? "run_now";
+  const graphRef = graph?.graph_ref ?? template.graph_ref;
+  const baseId = `${safeId(template.template_ref)}:${safeId(recipe.run_recipe_ref)}`;
+  return {
+    schema_version: "ioi.hypervisor.automation_run_proposal.v1",
+    proposal_ref: `automation-run:${operationKind}/${baseId}`,
+    source: options.source ?? "fixture",
+    selected_project_id: projection.selected_project_id,
+    template_ref: template.template_ref,
+    run_recipe_ref: recipe.run_recipe_ref,
+    graph_ref: graphRef,
+    launch_action_ref: recipe.launch_action_ref,
+    operation_kind: operationKind,
+    admission_state:
+      operationKind === "promote_package"
+        ? "requires_wallet_lease"
+        : "ready_for_daemon_admission",
+    wallet_lease_ref: `lease:wallet/automation/${safeId(recipe.run_recipe_ref)}/${operationKind}`,
+    required_scope_refs: recipe.authority_scope_refs.length
+      ? recipe.authority_scope_refs
+      : template.required_scope_refs,
+    action_proposal_ref: recipe.launch_action_ref,
+    agentgres_operation_ref: `agentgres://operation/automation/${safeId(recipe.run_recipe_ref)}/${operationKind}`,
+    receipt_ref: `receipt://automation/${safeId(recipe.run_recipe_ref)}/${operationKind}`,
+    state_root_ref:
+      projection.state_root_ref ||
+      `agentgres://state-root/automation/${safeId(recipe.run_recipe_ref)}`,
+    context_chamber_refs: graph?.context_chamber_refs ?? [],
+    artifact_refs: graph?.artifact_refs ?? [],
+    latest_receipt_refs: [
+      ...recipe.receipt_refs,
+      ...template.latest_receipt_refs,
+    ].filter((ref, index, refs) => refs.indexOf(ref) === index),
+    run_boundary_invariant:
+      "Automation run proposals are not execution. Hypervisor clients request a recipe run; the daemon admits the action, wallet.network authorizes required scopes, and Agentgres records run truth.",
+  };
+}
+
+export function normalizeHypervisorAutomationRunProposal(
+  snapshot: unknown,
+  options: NormalizeAutomationRunProposalOptions = {},
+): HypervisorAutomationRunProposal {
+  const projection =
+    options.projection ?? HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE;
+  const template =
+    options.template ?? projection.templates[0] ??
+    HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.templates[0]!;
+  const recipe =
+    options.recipe ??
+    projection.run_recipes.find(
+      (candidate) => candidate.run_recipe_ref === template.recipe_ref,
+    ) ??
+    projection.run_recipes[0] ??
+    HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE.run_recipes[0]!;
+  const graph =
+    options.graph ??
+    projection.graphs.find((candidate) => candidate.graph_ref === template.graph_ref) ??
+    null;
+  const fallback = buildHypervisorAutomationRunProposal(
+    projection,
+    template,
+    recipe,
+    graph,
+    {
+      operationKind: options.operationKind ?? "run_now",
+      source: options.source ?? "daemon-automation-run-proposal",
+    },
+  );
+  const value = objectRecord(snapshot);
+  return {
+    schema_version: "ioi.hypervisor.automation_run_proposal.v1",
+    proposal_ref: stringValue(value.proposal_ref, fallback.proposal_ref),
+    source: enumValue(value.source, fallback.source, [
+      "daemon-automation-run-proposal",
+      "fixture",
+      "unverified",
+    ]),
+    selected_project_id: stringValue(
+      value.selected_project_id,
+      fallback.selected_project_id,
+    ),
+    template_ref: stringValue(value.template_ref, fallback.template_ref),
+    run_recipe_ref: stringValue(value.run_recipe_ref, fallback.run_recipe_ref),
+    graph_ref: stringValue(value.graph_ref, fallback.graph_ref),
+    launch_action_ref: stringValue(
+      value.launch_action_ref,
+      fallback.launch_action_ref,
+    ),
+    operation_kind: enumValue(value.operation_kind, fallback.operation_kind, [
+      "run_now",
+      "schedule_run",
+      "promote_package",
+    ]),
+    admission_state: enumValue(value.admission_state, fallback.admission_state, [
+      "requires_wallet_lease",
+      "ready_for_daemon_admission",
+      "blocked",
+    ]),
+    wallet_lease_ref: stringValue(value.wallet_lease_ref, fallback.wallet_lease_ref),
+    required_scope_refs: stringList(
+      value.required_scope_refs,
+      fallback.required_scope_refs,
+    ),
+    action_proposal_ref: stringValue(
+      value.action_proposal_ref,
+      fallback.action_proposal_ref,
+    ),
+    agentgres_operation_ref: stringValue(
+      value.agentgres_operation_ref,
+      fallback.agentgres_operation_ref,
+    ),
+    receipt_ref: stringValue(value.receipt_ref, fallback.receipt_ref),
+    state_root_ref: stringValue(value.state_root_ref, fallback.state_root_ref),
+    context_chamber_refs: stringList(
+      value.context_chamber_refs,
+      fallback.context_chamber_refs,
+    ),
+    artifact_refs: stringList(value.artifact_refs, fallback.artifact_refs),
+    latest_receipt_refs: stringList(
+      value.latest_receipt_refs,
+      fallback.latest_receipt_refs,
+    ),
+    run_boundary_invariant: stringValue(
+      value.run_boundary_invariant,
+      fallback.run_boundary_invariant,
+    ),
+  };
+}
+
+export async function proposeHypervisorAutomationRun(
+  options: ProposeAutomationRunOptions,
+): Promise<HypervisorAutomationRunProposal> {
+  const endpoint =
+    options.endpoint ?? readHypervisorAutomationCompositorDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor automation run proposal");
+  }
+  const graph = options.graph ?? null;
+  const operationKind = options.operationKind ?? "run_now";
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        selected_project_id: options.projection.selected_project_id,
+        template_ref: options.template.template_ref,
+        run_recipe_ref: options.recipe.run_recipe_ref,
+        graph_ref: graph?.graph_ref ?? options.template.graph_ref,
+        launch_action_ref: options.recipe.launch_action_ref,
+        operation_kind: operationKind,
+        required_scope_refs: options.recipe.authority_scope_refs.length
+          ? options.recipe.authority_scope_refs
+          : options.template.required_scope_refs,
+        model_route_policy_ref: options.template.model_route_policy_ref,
+        receipt_policy_ref: options.template.receipt_policy_ref,
+        context_chamber_refs: graph?.context_chamber_refs ?? [],
+        artifact_refs: graph?.artifact_refs ?? [],
+        latest_receipt_refs: [
+          ...options.recipe.receipt_refs,
+          ...options.template.latest_receipt_refs,
+        ].filter((ref, index, refs) => refs.indexOf(ref) === index),
+        state_root_ref: options.projection.state_root_ref,
+      }),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Automation run proposal request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorAutomationRunProposal(value, {
+    projection: options.projection,
+    template: options.template,
+    recipe: options.recipe,
+    graph,
+    operationKind,
+    source: options.source ?? "daemon-automation-run-proposal",
   });
 }

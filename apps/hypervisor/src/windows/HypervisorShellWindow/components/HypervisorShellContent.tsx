@@ -35,9 +35,15 @@ import {
   type HypervisorWorkerPackageInstallAdmission,
 } from "../hypervisorAgentsModel";
 import {
+  buildHypervisorAutomationRunProposal,
   HYPERVISOR_AUTOMATION_COMPOSITOR_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   loadHypervisorAutomationCompositorProjection,
+  proposeHypervisorAutomationRun,
+  type HypervisorAutomationGraph,
+  type HypervisorAutomationRunProposal,
+  type HypervisorAutomationRunRecipe,
+  type HypervisorAutomationTemplate,
 } from "../hypervisorAutomationCompositorModel";
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
@@ -878,6 +884,8 @@ function HypervisorAutomationCompositorSurface({
   const [projection, setProjection] = useState(
     HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   );
+  const [runProposal, setRunProposal] =
+    useState<HypervisorAutomationRunProposal | null>(null);
 
   useEffect(() => {
     if (
@@ -965,13 +973,69 @@ function HypervisorAutomationCompositorSurface({
       tone: "purple",
     },
   ];
-  const referenceAutomationRows: readonly {
-    label: string;
-    status: string;
-    icon: "play" | "calendar";
-    runnable: boolean;
-  }[] = [];
   const referenceAutomationTotal = 4;
+  const automationRows = useMemo(() => {
+    if (projection.source !== "daemon-automation-compositor-projection") {
+      return [];
+    }
+    return projection.templates.flatMap((template) => {
+      const recipe =
+        projection.run_recipes.find(
+          (candidate) => candidate.run_recipe_ref === template.recipe_ref,
+        ) ?? null;
+      if (!recipe) {
+        return [];
+      }
+      const graph =
+        projection.graphs.find(
+          (candidate) => candidate.graph_ref === template.graph_ref,
+        ) ?? null;
+      const run = projection.runs.find(
+        (candidate) => candidate.template_ref === template.template_ref,
+      );
+      return [
+        {
+          template,
+          recipe,
+          graph,
+          label: template.label,
+          status: run?.status ?? "ready",
+          icon:
+            recipe.schedule_ref === "schedule:manual"
+              ? ("play" as const)
+              : ("calendar" as const),
+          runnable:
+            (run?.status ?? "ready") === "ready" ||
+            (run?.status ?? "ready") === "scheduled",
+        },
+      ];
+    });
+  }, [projection]);
+
+  const onRunAutomation = (
+    template: HypervisorAutomationTemplate,
+    recipe: HypervisorAutomationRunRecipe,
+    graph: HypervisorAutomationGraph | null,
+  ) => {
+    proposeHypervisorAutomationRun({
+      projection,
+      template,
+      recipe,
+      graph,
+    })
+      .then((proposal) => setRunProposal(proposal))
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Automations] run proposal unavailable",
+          error,
+        );
+        setRunProposal(
+          buildHypervisorAutomationRunProposal(projection, template, recipe, graph, {
+            source: "unverified",
+          }),
+        );
+      });
+  };
 
   return (
     <section
@@ -1036,15 +1100,14 @@ function HypervisorAutomationCompositorSurface({
             className="hypervisor-automation-compositor__table"
             aria-label="Workflow templates"
           >
-            {referenceAutomationRows.length > 0 ? (
-              referenceAutomationRows.map((row) => (
+            {automationRows.length > 0 ? (
+              automationRows.map((row) => (
                 <article
-                  key={row.label}
+                  key={row.template.template_ref}
                   className="hypervisor-automation-compositor__row"
-                  data-automation-row-ref={`automation:${row.label
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/^-+|-+$/g, "")}`}
+                  data-workflow-template-ref={row.template.template_ref}
+                  data-workflow-run-recipe-ref={row.recipe.run_recipe_ref}
+                  data-workflow-graph-ref={row.graph?.graph_ref ?? row.template.graph_ref}
                 >
                   <span className="hypervisor-automation-compositor__row-icon">
                     <AutomationRowIcon kind={row.icon} />
@@ -1057,6 +1120,12 @@ function HypervisorAutomationCompositorSurface({
                     <button
                       type="button"
                       className="hypervisor-automation-compositor__row-run"
+                      data-automation-run-proposal-template={
+                        row.template.template_ref
+                      }
+                      onClick={() =>
+                        onRunAutomation(row.template, row.recipe, row.graph)
+                      }
                     >
                       Run
                     </button>
@@ -1082,6 +1151,23 @@ function HypervisorAutomationCompositorSurface({
               </div>
             )}
           </section>
+
+          {runProposal ? (
+            <section
+              className="hypervisor-automation-compositor__proposal"
+              aria-label="Automation run proposal"
+              data-automation-run-proposal={runProposal.proposal_ref}
+              data-automation-run-proposal-source={runProposal.source}
+              data-automation-run-admission-state={
+                runProposal.admission_state
+              }
+            >
+              <strong>Run proposal</strong>
+              <span>{runProposal.operation_kind}</span>
+              <span>{runProposal.admission_state.replace(/_/g, " ")}</span>
+              <span>{runProposal.receipt_ref}</span>
+            </section>
+          ) : null}
         </main>
 
         <aside

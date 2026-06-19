@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildHypervisorAutomationRunProposal,
   HYPERVISOR_AUTOMATION_COMPOSITOR_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH,
+  HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH,
   loadHypervisorAutomationCompositorProjection,
   normalizeHypervisorAutomationCompositorProjection,
+  normalizeHypervisorAutomationRunProposal,
+  proposeHypervisorAutomationRun,
 } from "./hypervisorAutomationCompositorModel.ts";
 
 test("automation compositor clean boot starts with no admitted automations", () => {
@@ -225,4 +229,170 @@ test("automation compositor loader calls the daemon projection route with select
   assert.deepEqual(projection.latest_receipt_refs, [
     "receipt://workflow/loaded",
   ]);
+});
+
+test("automation run proposal binds recipe execution to wallet and Agentgres refs", () => {
+  const projection = HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE;
+  const template = projection.templates[0]!;
+  const recipe = projection.run_recipes[0]!;
+  const graph = projection.graphs[0]!;
+  const proposal = buildHypervisorAutomationRunProposal(
+    projection,
+    template,
+    recipe,
+    graph,
+  );
+
+  assert.equal(
+    proposal.schema_version,
+    "ioi.hypervisor.automation_run_proposal.v1",
+  );
+  assert.equal(proposal.source, "fixture");
+  assert.equal(proposal.selected_project_id, projection.selected_project_id);
+  assert.equal(proposal.template_ref, template.template_ref);
+  assert.equal(proposal.run_recipe_ref, recipe.run_recipe_ref);
+  assert.equal(proposal.graph_ref, graph.graph_ref);
+  assert.equal(proposal.launch_action_ref, recipe.launch_action_ref);
+  assert.equal(proposal.operation_kind, "run_now");
+  assert.equal(proposal.admission_state, "ready_for_daemon_admission");
+  assert.ok(proposal.wallet_lease_ref.startsWith("lease:wallet/automation/"));
+  assert.deepEqual(proposal.required_scope_refs, recipe.authority_scope_refs);
+  assert.equal(proposal.action_proposal_ref, recipe.launch_action_ref);
+  assert.ok(
+    proposal.agentgres_operation_ref.startsWith(
+      "agentgres://operation/automation/",
+    ),
+  );
+  assert.ok(proposal.receipt_ref.startsWith("receipt://automation/"));
+  assert.equal(proposal.state_root_ref, projection.state_root_ref);
+  assert.deepEqual(proposal.context_chamber_refs, graph.context_chamber_refs);
+  assert.deepEqual(proposal.artifact_refs, graph.artifact_refs);
+  assert.match(proposal.run_boundary_invariant, /not execution/);
+});
+
+test("automation run proposal normalization preserves daemon admission envelope", () => {
+  const projection = HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE;
+  const template = projection.templates[1]!;
+  const recipe = projection.run_recipes[1]!;
+  const graph = projection.graphs[1]!;
+  const proposal = normalizeHypervisorAutomationRunProposal(
+    {
+      proposal_ref: "automation-run:daemon/private-backtest",
+      source: "daemon-automation-run-proposal",
+      selected_project_id: "project:ioi",
+      template_ref: template.template_ref,
+      run_recipe_ref: recipe.run_recipe_ref,
+      graph_ref: graph.graph_ref,
+      launch_action_ref: recipe.launch_action_ref,
+      operation_kind: "schedule_run",
+      admission_state: "requires_wallet_lease",
+      wallet_lease_ref: "lease:wallet/automation/private-backtest",
+      required_scope_refs: ["scope:workflow.run", "scope:provider.spend"],
+      action_proposal_ref: recipe.launch_action_ref,
+      agentgres_operation_ref:
+        "agentgres://operation/automation/private-backtest/schedule",
+      receipt_ref: "receipt://automation/private-backtest/schedule",
+      state_root_ref: "agentgres://state-root/automation/private-backtest",
+      context_chamber_refs: ["chamber://automation/private-backtest"],
+      artifact_refs: ["artifact://automation/private-backtest/graph"],
+      latest_receipt_refs: ["receipt://automation/private-backtest"],
+      run_boundary_invariant:
+        "Workflow compositor proposes; daemon admits; Agentgres records.",
+    },
+    {
+      projection,
+      template,
+      recipe,
+      graph,
+      operationKind: "schedule_run",
+    },
+  );
+
+  assert.equal(proposal.source, "daemon-automation-run-proposal");
+  assert.equal(proposal.proposal_ref, "automation-run:daemon/private-backtest");
+  assert.equal(proposal.operation_kind, "schedule_run");
+  assert.equal(proposal.admission_state, "requires_wallet_lease");
+  assert.deepEqual(proposal.required_scope_refs, [
+    "scope:workflow.run",
+    "scope:provider.spend",
+  ]);
+  assert.equal(
+    proposal.agentgres_operation_ref,
+    "agentgres://operation/automation/private-backtest/schedule",
+  );
+});
+
+test("automation run proposal client posts canonical request to daemon", async () => {
+  const projection = HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE;
+  const template = projection.templates[0]!;
+  const recipe = projection.run_recipes[0]!;
+  const graph = projection.graphs[0]!;
+  const calls: Array<{ input: string; method?: string; body?: string }> = [];
+  const proposal = await proposeHypervisorAutomationRun({
+    endpoint: "http://daemon.test/",
+    projection,
+    template,
+    recipe,
+    graph,
+    fetchImpl: async (input, init) => {
+      calls.push({ input, method: init?.method, body: init?.body });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            proposal_ref: "automation-run:daemon/mission",
+            source: "daemon-automation-run-proposal",
+            selected_project_id: projection.selected_project_id,
+            template_ref: template.template_ref,
+            run_recipe_ref: recipe.run_recipe_ref,
+            graph_ref: graph.graph_ref,
+            launch_action_ref: recipe.launch_action_ref,
+            operation_kind: "run_now",
+            admission_state: "ready_for_daemon_admission",
+            wallet_lease_ref: "lease:wallet/automation/mission",
+            required_scope_refs: recipe.authority_scope_refs,
+            action_proposal_ref: recipe.launch_action_ref,
+            agentgres_operation_ref:
+              "agentgres://operation/automation/mission/run",
+            receipt_ref: "receipt://automation/mission/run",
+            state_root_ref: projection.state_root_ref,
+            context_chamber_refs: graph.context_chamber_refs,
+            artifact_refs: graph.artifact_refs,
+            latest_receipt_refs: recipe.receipt_refs,
+            run_boundary_invariant:
+              "Workflow compositor proposes; daemon admits; Agentgres records.",
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0]?.input,
+    `http://daemon.test${HYPERVISOR_AUTOMATION_RUN_PROPOSAL_PATH}`,
+  );
+  assert.equal(calls[0]?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]?.body ?? "{}"), {
+    selected_project_id: projection.selected_project_id,
+    template_ref: template.template_ref,
+    run_recipe_ref: recipe.run_recipe_ref,
+    graph_ref: graph.graph_ref,
+    launch_action_ref: recipe.launch_action_ref,
+    operation_kind: "run_now",
+    required_scope_refs: recipe.authority_scope_refs,
+    model_route_policy_ref: template.model_route_policy_ref,
+    receipt_policy_ref: template.receipt_policy_ref,
+    context_chamber_refs: graph.context_chamber_refs,
+    artifact_refs: graph.artifact_refs,
+    latest_receipt_refs: [
+      ...recipe.receipt_refs,
+      ...template.latest_receipt_refs,
+    ].filter((ref, index, refs) => refs.indexOf(ref) === index),
+    state_root_ref: projection.state_root_ref,
+  });
+  assert.equal(proposal.source, "daemon-automation-run-proposal");
+  assert.equal(proposal.proposal_ref, "automation-run:daemon/mission");
+  assert.equal(proposal.operation_kind, "run_now");
 });

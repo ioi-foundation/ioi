@@ -1387,11 +1387,18 @@ Current implementation cut:
   route that dispatches through `projectRuntimeLifecycle` with
   `runtime.lifecycle_projection.hypervisor_automation_compositor`, returning
   only the client projection body.
+  `/v1/hypervisor/automation-runs/proposals` now creates daemon-authored
+  `ioi.hypervisor.automation_run_proposal.v1` envelopes for projected
+  templates and run recipes. The Automations shell only shows runnable rows
+  once daemon-admitted templates/recipes exist; clean boot remains the
+  IOI-reference empty state with suggested templates. Approved automation runs
+  are admitted through the shared approved-operation gate after wallet.network
+  approval and Agentgres operation/receipt/state-root refs.
   `check:runtime-layout`, focused app model tests, and public runtime route
   tests guard the schema, loader, source marker, daemon route, API docs, and
-  Agentgres/receipt/state-root boundary. Remaining work is live recipe
-  execution, schedule mutation, and package promotion after wallet authority
-  and Agentgres admission.
+  Agentgres/receipt/state-root boundary. Remaining work is executing admitted
+  recipe runs against real step/module backends, schedule mutation, and package
+  promotion after wallet authority and Agentgres admission.
 
 0A.6B Insights reference surface is implemented:
   `HypervisorShellContent` now renders Insights as an IOI-reference Enterprise
@@ -1572,9 +1579,9 @@ Current implementation cut:
   This fixes the boundary: Projects is the project/template surface; Workbench
   owns code-editor sessions and repository editing posture, while terminal,
   browser, VM, and provider operations stay with Sessions/Environments and
-  repository recents. Remaining work is live project projection hydration,
-  archive/restore operation proposals in the appropriate inspector, and
-  paginated project receipt history.
+  repository recents. Live project projection hydration and archive/restore
+  operation proposals are now implemented through daemon/public runtime routes;
+  remaining work is paginated project receipt history.
 
 0A.2 first Home cockpit projection is implemented:
   `homeCockpitModel.ts` defines `HypervisorHomeCockpitProjection` by composing

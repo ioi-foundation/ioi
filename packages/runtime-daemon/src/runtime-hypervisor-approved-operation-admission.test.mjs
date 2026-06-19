@@ -67,6 +67,31 @@ const projectRequest = {
   restore_ref: "agentgres://restore/ioi/latest",
 };
 
+const automationRequest = {
+  operation_family: "automation",
+  proposal_ref: "automation-run:daemon/mission",
+  proposal_schema_version: "ioi.hypervisor.automation_run_proposal.v1",
+  proposal_source: "daemon-automation-run-proposal",
+  project_ref: "project:ioi",
+  template_ref: "workflow-template:mission-to-workbench",
+  run_recipe_ref: "run-recipe:mission-to-workbench/manual",
+  graph_ref: "workflow://graph/mission-to-workbench",
+  launch_action_ref: "action://workflow/mission-to-workbench/launch",
+  operation_kind: "run_now",
+  wallet_approval_ref: "approval://wallet/automation/mission",
+  wallet_lease_ref: "lease:wallet/automation/mission",
+  required_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+  authority_receipt_refs: ["receipt://wallet/automation/mission"],
+  agentgres_operation_ref: "agentgres://operation/automation/mission/run",
+  receipt_ref: "receipt://automation/mission/run",
+  state_root_ref: "agentgres://state-root/automation/mission",
+  context_chamber_refs: [
+    "chamber://mission/evidence",
+    "chamber://workbench/setup",
+  ],
+  artifact_refs: ["artifact://workflow/mission-to-workbench/graph"],
+};
+
 test("admits daemon session operation after wallet approval and Agentgres truth refs", () => {
   const result = admitHypervisorApprovedOperation(sessionRequest, {
     nowIso: () => "2026-06-18T00:00:00.000Z",
@@ -114,11 +139,50 @@ test("admits daemon project operation after wallet approval and Agentgres archiv
   assert.deepEqual(result.receipt_refs, ["receipt://project/ioi/restore"]);
 });
 
+test("admits daemon automation run after wallet approval and Agentgres refs", () => {
+  const result = admitHypervisorApprovedOperation(automationRequest);
+
+  assert.equal(result.operation_family, "automation");
+  assert.equal(result.template_ref, "workflow-template:mission-to-workbench");
+  assert.equal(result.run_recipe_ref, "run-recipe:mission-to-workbench/manual");
+  assert.equal(result.graph_ref, "workflow://graph/mission-to-workbench");
+  assert.equal(
+    result.action_proposal_ref,
+    "action://workflow/mission-to-workbench/launch",
+  );
+  assert.equal(
+    result.target_ref,
+    "action://workflow/mission-to-workbench/launch",
+  );
+  assert.deepEqual(result.context_chamber_refs, [
+    "chamber://mission/evidence",
+    "chamber://workbench/setup",
+  ]);
+  assert.deepEqual(result.artifact_refs, [
+    "artifact://workflow/mission-to-workbench/graph",
+  ]);
+  assert.deepEqual(result.agentgres_operation_refs, [
+    "agentgres://operation/automation/mission/run",
+  ]);
+  assert.deepEqual(result.receipt_refs, ["receipt://automation/mission/run"]);
+});
+
 test("rejects project operations from non-daemon proposal sources", () => {
   assert.throws(
     () =>
       admitHypervisorApprovedOperation({
         ...projectRequest,
+        proposal_source: "fixture",
+      }),
+    /daemon-authored proposals/,
+  );
+});
+
+test("rejects automation runs from non-daemon proposal sources", () => {
+  assert.throws(
+    () =>
+      admitHypervisorApprovedOperation({
+        ...automationRequest,
         proposal_source: "fixture",
       }),
     /daemon-authored proposals/,

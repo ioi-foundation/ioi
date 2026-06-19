@@ -203,6 +203,66 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/automation-runs/proposals") {
+        const body = await readBody(request);
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
+        );
+        const projected = routeContextPolicyCore.projectRuntimeLifecycle({
+          operation: "hypervisor_automation_run_proposal",
+          operation_kind:
+            "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
+          projection_kind: "hypervisor_automation_run_proposal",
+          base_url: baseUrlForRequest(request),
+          workspace_root: store.defaultCwd,
+          state_dir: store.stateDir,
+          home_dir: store.homeDir,
+          runtime_schema_version: store.schemaVersion,
+          project_id: optionalString(
+            body.selected_project_id ?? body.project_id ?? body.project_ref,
+          ),
+          template_ref: optionalString(body.template_ref),
+          run_recipe_ref: optionalString(body.run_recipe_ref),
+          graph_ref: optionalString(body.graph_ref),
+          launch_action_ref: optionalString(body.launch_action_ref),
+          requested_operation: optionalString(body.operation_kind),
+          required_scope_refs: Array.isArray(body.required_scope_refs)
+            ? body.required_scope_refs.filter(
+                (scopeRef) => typeof scopeRef === "string" && scopeRef,
+              )
+            : [],
+          model_route_policy_ref: optionalString(body.model_route_policy_ref),
+          receipt_policy_ref: optionalString(body.receipt_policy_ref),
+          context_chamber_refs: Array.isArray(body.context_chamber_refs)
+            ? body.context_chamber_refs.filter(
+                (chamberRef) => typeof chamberRef === "string" && chamberRef,
+              )
+            : [],
+          artifact_refs: Array.isArray(body.artifact_refs)
+            ? body.artifact_refs.filter(
+                (artifactRef) => typeof artifactRef === "string" && artifactRef,
+              )
+            : [],
+          latest_receipt_refs: Array.isArray(body.latest_receipt_refs)
+            ? body.latest_receipt_refs.filter(
+                (receiptRef) => typeof receiptRef === "string" && receiptRef,
+              )
+            : [],
+          state_root_ref: optionalString(body.state_root_ref),
+          source:
+            "public_runtime_routes./v1/hypervisor/automation-runs/proposals",
+        });
+        writeJsonResponse(
+          response,
+          projected.proposal ??
+            projected.record?.proposal ??
+            projected.record?.projection ??
+            projected.record ??
+            projected,
+        );
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/hypervisor/agents") {
         const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
           contextPolicyCore,
