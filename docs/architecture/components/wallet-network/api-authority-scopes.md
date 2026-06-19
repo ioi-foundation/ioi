@@ -284,6 +284,31 @@ Capability leases are the Wallet-native answer to credential orchestration:
 the agent receives a scoped, expiring right to ask Wallet or a provider to use a
 capability. It does not receive long-lived credentials by default.
 
+### Capability Lease Revocation
+
+Revocation is a typed authority action, not silent local state mutation. The
+request should bind the lease, initiator, holder, scope, policy hash,
+revocation epoch, timestamp, and receipt refs.
+
+```json
+{
+  "revocation_id": "revocation://capability/gmail-send/abc",
+  "schema_version": "ioi.wallet.protocol.v1",
+  "lease_id": "lease://capability/gmail-send/abc",
+  "initiator_id": "wallet://user_123",
+  "holder_id": "account://primary",
+  "capability_scope": "scope:gmail.send",
+  "policy_hash": "sha256:...",
+  "revocation_epoch": 8,
+  "revoked_at": "2026-06-17T00:30:00Z",
+  "reason": "User revoked the delegated Gmail send capability.",
+  "receipt_refs": ["receipt://wallet/capability-lease/revoked/abc"]
+}
+```
+
+After revocation, future capability use must fail unless a later policy review
+issues a new lease under a newer revocation epoch.
+
 ## Secret and BYOK API
 
 ```http

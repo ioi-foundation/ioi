@@ -24,6 +24,10 @@ test("exports canonical wallet protocol version, methods, and fixtures", async (
     protocol.WALLET_NETWORK_PROTOCOL_METHODS.issueCapabilityLease,
     "wallet.capability.lease.issue",
   );
+  assert.equal(
+    protocol.WALLET_NETWORK_PROTOCOL_METHODS.revokeCapabilityLease,
+    "wallet.capability.lease.revoke",
+  );
   assert.equal(typeof protocol.assertExchangeIntentCandidateEvidence, "function");
   assert.equal(typeof protocol.assertTradeIntentCandidateEvidence, "function");
   assert.equal(typeof protocol.exchangeRouteSourceAdapter, "function");
@@ -43,6 +47,7 @@ test("checked-in schemas and OpenAPI are valid JSON with expected ids", async ()
   const schemaFiles = [
     "schemas/authority-review.schema.json",
     "schemas/capability-lease.schema.json",
+    "schemas/capability-lease-revocation.schema.json",
     "schemas/wallet-receipt.schema.json",
     "schemas/exchange-intent.schema.json",
     "schemas/trade-intent.schema.json",
@@ -62,6 +67,7 @@ test("checked-in schemas and OpenAPI are valid JSON with expected ids", async ()
   assert.equal(openapi.openapi, "3.1.0");
   assert.ok(openapi.paths["/v1/authority/reviews"]);
   assert.ok(openapi.paths["/v1/capability/leases"]);
+  assert.ok(openapi.paths["/v1/capability/leases/{lease_id}/revoke"]);
   assert.ok(openapi.paths["/v1/exchange/intents"]);
   assert.ok(openapi.paths["/v1/trade/intents"]);
   assert.ok(openapi.paths["/v1/receipts"]);
@@ -89,6 +95,15 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
   assert.equal(review.recommended_presentation_profile, "standard_wallet_review");
   assert.equal(review.policy_checks[0].result, "passed");
   assert.equal(review.policy_result, "requires_human");
+  assert.match(fixture.capability_lease.capability_scope, /^scope:/);
+  assert.equal(
+    fixture.capability_lease_revocation.lease_id,
+    fixture.capability_lease.lease_id,
+  );
+  assert.equal(
+    fixture.capability_lease_revocation.revocation_epoch,
+    fixture.capability_lease.revocation_epoch + 1,
+  );
 });
 
 test("candidate evidence validators fail closed for stale or mismatched exchange and trade intents", async () => {

@@ -1,6 +1,7 @@
 import {
   type AuthorityReview,
   type CapabilityLease,
+  type CapabilityLeaseRevocation,
   type WalletNetworkProtocolMethod,
   type WalletReceipt,
   WALLET_NETWORK_PROTOCOL_METHODS,
@@ -31,6 +32,15 @@ export class WalletNetworkClient {
     return this.#transport.request(
       WALLET_NETWORK_PROTOCOL_METHODS.issueCapabilityLease,
       lease,
+    );
+  }
+
+  revokeCapabilityLease(
+    revocation: CapabilityLeaseRevocation,
+  ): Promise<CapabilityLeaseRevocation> {
+    return this.#transport.request(
+      WALLET_NETWORK_PROTOCOL_METHODS.revokeCapabilityLease,
+      revocation,
     );
   }
 

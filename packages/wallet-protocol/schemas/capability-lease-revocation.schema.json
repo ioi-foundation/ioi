@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/capability-lease-revocation.schema.json",
+  "title": "CapabilityLeaseRevocation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revocation_id",
+    "schema_version",
+    "lease_id",
+    "initiator_id",
+    "holder_id",
+    "capability_scope",
+    "policy_hash",
+    "revocation_epoch",
+    "revoked_at",
+    "receipt_refs"
+  ],
+  "properties": {
+    "revocation_id": { "type": "string" },
+    "schema_version": { "const": "ioi.wallet.protocol.v1" },
+    "lease_id": { "type": "string" },
+    "initiator_id": { "type": "string" },
+    "holder_id": { "type": "string" },
+    "capability_scope": { "type": "string", "pattern": "^scope:" },
+    "policy_hash": { "type": "string" },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
+    "revoked_at": { "type": "string", "format": "date-time" },
+    "reason": { "type": "string" },
+    "receipt_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

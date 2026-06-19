@@ -42,6 +42,32 @@
     "receipt_preview_ref": "receipt-preview:exchange-example",
     "expires_at": "2026-06-17T00:05:00.000Z"
   },
+  "capability_lease": {
+    "lease_id": "lease:example-gmail-send",
+    "subject_id": "agent:assistant",
+    "holder_id": "account:primary",
+    "capability_scope": "scope:gmail.send",
+    "mode": "session_envelope",
+    "policy_hash": "hash:policy-example",
+    "grant_ref": "grant:example",
+    "revocation_epoch": 3,
+    "issued_at": "2026-06-17T00:00:00.000Z",
+    "expires_at": "2026-06-17T01:00:00.000Z",
+    "receipt_refs": ["receipt:lease-issued-example"]
+  },
+  "capability_lease_revocation": {
+    "revocation_id": "revocation:example-gmail-send",
+    "schema_version": "ioi.wallet.protocol.v1",
+    "lease_id": "lease:example-gmail-send",
+    "initiator_id": "user:primary",
+    "holder_id": "account:primary",
+    "capability_scope": "scope:gmail.send",
+    "policy_hash": "hash:policy-example",
+    "revocation_epoch": 4,
+    "revoked_at": "2026-06-17T00:30:00.000Z",
+    "reason": "User revoked the delegated Gmail send capability.",
+    "receipt_refs": ["receipt:lease-revoked-example"]
+  },
   "exchange_intent": {
     "intent_id": "intent:exchange-example",
     "schema_version": "ioi.wallet.protocol.v1",

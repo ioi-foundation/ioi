@@ -463,7 +463,7 @@ HypervisorSessionLaunchRecipe live daemon admission and execution
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
-CapabilityLease product flows
+CapabilityLease wallet-network product app adoption
 ApprovalMode embedded/lite UI adoption
 ManagedWorkerInstance live marketplace endpoints
 VerticalOntologyPack live package manifests
@@ -2367,7 +2367,7 @@ approval.
 
 | Field | Detail |
 | --- | --- |
-| Status | Initial package boundary implemented on 2026-06-17. First Hypervisor product import adoption implemented through the Authority Center grant-review path. Deeper Rust-derived generation remains follow-up hardening. |
+| Status | Initial package boundary implemented on 2026-06-17. First Hypervisor product import adoption implemented through the Authority Center grant-review path. Capability lease issue/revoke protocol and SDK helpers are now typed. Deeper Rust-derived generation remains follow-up hardening. |
 | Files | `packages/wallet-protocol`, `packages/wallet-sdk`, `crates/types/src/app/wallet_network`, scripts, conformance |
 | Change | Added checked-in wallet protocol package tied to Rust wallet truth and SDK helpers over it. |
 | Acceptance | Packages build/test; schemas and fixtures exist; product repo imports packages. |
@@ -2393,6 +2393,16 @@ presentation profile, risk labels, policy checks, and receipt preview refs. The
 wallet packaging conformance guard rejects a return to the retired
 `autopilot-authority-center` audience and requires the product import to flow
 through `@ioi/wallet-sdk`.
+
+Capability leases now have a typed issue/revoke product flow inside the package
+boundary. `@ioi/wallet-protocol` exposes `CapabilityLeaseRevocation`, a
+checked-in JSON schema, OpenAPI request/response contract for
+`revokeCapabilityLease`, and fixtures tying the revocation to the issued lease,
+scope, policy hash, revocation epoch, timestamp, and receipt refs.
+`@ioi/wallet-sdk` exposes `buildCapabilityLeaseRevocation()` and
+`WalletNetworkClient.revokeCapabilityLease()`, so Hypervisor and future Wallet
+product surfaces can revoke leased credentials/capabilities without inventing
+local payloads or mutating lease state silently.
 ```
 
 ### Phase 4: Add cTEE and Model-Weight Custody Lane Table

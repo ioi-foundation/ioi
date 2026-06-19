@@ -66,8 +66,23 @@
             "schema": { "type": "string" }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CapabilityLeaseRevocation" }
+            }
+          }
+        },
         "responses": {
-          "204": { "description": "Capability lease revoked." }
+          "200": {
+            "description": "Capability lease revoked.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CapabilityLeaseRevocation" }
+              }
+            }
+          }
         }
       }
     },
@@ -127,6 +142,9 @@
       },
       "CapabilityLease": {
         "$ref": "../schemas/capability-lease.schema.json"
+      },
+      "CapabilityLeaseRevocation": {
+        "$ref": "../schemas/capability-lease-revocation.schema.json"
       },
       "WalletReceipt": {
         "$ref": "../schemas/wallet-receipt.schema.json"

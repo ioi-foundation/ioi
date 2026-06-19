@@ -40,8 +40,14 @@ test("SDK source imports wallet semantics from the protocol package", async () =
   assert.match(authorityReviewSource, /allowed_approval_modes/);
   assert.match(authorityReviewSource, /scope:/);
 
+  const capabilitiesSource = await read("src/capabilities.ts");
+  assert.match(capabilitiesSource, /buildCapabilityLease/);
+  assert.match(capabilitiesSource, /buildCapabilityLeaseRevocation/);
+  assert.match(capabilitiesSource, /WALLET_PROTOCOL_SCHEMA_VERSION/);
+
   const clientSource = await read("src/client.ts");
   assert.match(clientSource, /WALLET_NETWORK_PROTOCOL_METHODS/);
+  assert.match(clientSource, /revokeCapabilityLease/);
 
   const routeSourcesSource = await read("src/route-sources.ts");
   assert.match(routeSourcesSource, /buildCandidateEvidenceFromSourceAdapter/);
@@ -61,6 +67,68 @@ test("SDK dist keeps protocol package imports instead of embedding protocol trut
 
   assert.match(dist, /@ioi\/wallet-protocol/);
   assert.doesNotMatch(dist, /ioi\.wallet\.protocol\.v1/);
+});
+
+test("SDK builds and submits capability lease revocations through wallet protocol methods", async () => {
+  const sdk = await import("../dist/index.js");
+  const lease = sdk.buildCapabilityLease({
+    lease_id: "lease:unit:gmail-send",
+    subject_id: "agent:unit",
+    holder_id: "account:unit",
+    capability_scope: "scope:gmail.send",
+    policy_hash: "hash:policy-unit",
+    revocation_epoch: 7,
+    issued_at: "2026-06-17T12:00:00.000Z",
+    expires_at: "2026-06-17T13:00:00.000Z",
+    receipt_refs: ["receipt:lease-issued-unit"],
+  });
+  const revocation = sdk.buildCapabilityLeaseRevocation({
+    revocation_id: "revocation:unit:gmail-send",
+    lease_id: lease.lease_id,
+    initiator_id: "user:unit",
+    holder_id: lease.holder_id,
+    capability_scope: lease.capability_scope,
+    policy_hash: lease.policy_hash,
+    revocation_epoch: lease.revocation_epoch + 1,
+    revoked_at: "2026-06-17T12:30:00.000Z",
+    receipt_refs: ["receipt:lease-revoked-unit"],
+  });
+  const calls = [];
+  const client = new sdk.WalletNetworkClient({
+    async request(method, body) {
+      calls.push({ method, body });
+      return body;
+    },
+  });
+
+  assert.equal(lease.capability_scope, "scope:gmail.send");
+  assert.equal(revocation.schema_version, "ioi.wallet.protocol.v1");
+  assert.equal(revocation.lease_id, lease.lease_id);
+  assert.equal(revocation.revocation_epoch, 8);
+
+  await client.issueCapabilityLease(lease);
+  await client.revokeCapabilityLease(revocation);
+
+  assert.deepEqual(
+    calls.map((call) => call.method),
+    ["wallet.capability.lease.issue", "wallet.capability.lease.revoke"],
+  );
+  assert.equal(calls[1].body.receipt_refs[0], "receipt:lease-revoked-unit");
+
+  assert.throws(
+    () =>
+      sdk.buildCapabilityLeaseRevocation({
+        revocation_id: "revocation:bad",
+        lease_id: lease.lease_id,
+        initiator_id: "user:unit",
+        holder_id: lease.holder_id,
+        capability_scope: "gmail.send",
+        policy_hash: lease.policy_hash,
+        revocation_epoch: 9,
+        revoked_at: "2026-06-17T12:31:00.000Z",
+      }),
+    /scope: prefix/,
+  );
 });
 
 test("SDK HTTP candidate source client validates executable evidence from route sources", async () => {

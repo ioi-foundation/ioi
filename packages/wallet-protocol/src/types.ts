@@ -164,6 +164,20 @@ export interface CapabilityLease {
   readonly receipt_refs: readonly string[];
 }
 
+export interface CapabilityLeaseRevocation {
+  readonly revocation_id: string;
+  readonly schema_version: typeof WALLET_PROTOCOL_SCHEMA_VERSION;
+  readonly lease_id: string;
+  readonly initiator_id: string;
+  readonly holder_id: string;
+  readonly capability_scope: string;
+  readonly policy_hash: string;
+  readonly revocation_epoch: number;
+  readonly revoked_at: string;
+  readonly reason?: string;
+  readonly receipt_refs: readonly string[];
+}
+
 export interface ExchangeIntent {
   readonly intent_id: string;
   readonly schema_version: typeof WALLET_PROTOCOL_SCHEMA_VERSION;

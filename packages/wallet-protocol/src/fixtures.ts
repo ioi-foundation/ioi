@@ -1,6 +1,7 @@
 import {
   type AuthorityReview,
   type CapabilityLease,
+  type CapabilityLeaseRevocation,
   type ExchangeIntent,
   type TradeIntent,
   type WalletReceipt,
@@ -91,6 +92,20 @@ export const EXAMPLE_CAPABILITY_LEASE: CapabilityLease = {
   issued_at: "2026-06-17T00:00:00.000Z",
   expires_at: "2026-06-17T01:00:00.000Z",
   receipt_refs: ["receipt:lease-issued-example"],
+};
+
+export const EXAMPLE_CAPABILITY_LEASE_REVOCATION: CapabilityLeaseRevocation = {
+  revocation_id: "revocation:example-gmail-send",
+  schema_version: WALLET_PROTOCOL_SCHEMA_VERSION,
+  lease_id: EXAMPLE_CAPABILITY_LEASE.lease_id,
+  initiator_id: "user:primary",
+  holder_id: EXAMPLE_CAPABILITY_LEASE.holder_id,
+  capability_scope: EXAMPLE_CAPABILITY_LEASE.capability_scope,
+  policy_hash: EXAMPLE_CAPABILITY_LEASE.policy_hash,
+  revocation_epoch: EXAMPLE_CAPABILITY_LEASE.revocation_epoch + 1,
+  revoked_at: "2026-06-17T00:30:00.000Z",
+  reason: "User revoked the delegated Gmail send capability.",
+  receipt_refs: ["receipt:lease-revoked-example"],
 };
 
 export const EXAMPLE_EXCHANGE_INTENT: ExchangeIntent = {

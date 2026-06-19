@@ -55,6 +55,7 @@ const rustService = assertFile("crates/services/src/wallet_network/mod.rs", [
 const protocolTypes = assertFile("packages/wallet-protocol/src/types.ts", [
   "AuthorityReview",
   "CapabilityLease",
+  "CapabilityLeaseRevocation",
   "WalletReceipt",
   "ExchangeIntent",
   "TradeIntent",
@@ -78,6 +79,7 @@ const protocolMethods = assertFile("packages/wallet-protocol/src/methods.ts", [
   "record_approval@v1",
   "grant_secret_injection@v1",
   "wallet.capability.lease.issue",
+  "wallet.capability.lease.revoke",
 ]);
 
 for (const kernelMethod of [
@@ -103,6 +105,7 @@ for (const objectName of [
 for (const protocolObject of [
   "AuthorityReview",
   "CapabilityLease",
+  "CapabilityLeaseRevocation",
   "WalletReceipt",
   "CandidateEvidence",
   "WalletPresentationProfile",
@@ -122,6 +125,7 @@ for (const validationExport of [
 const schemaFiles = [
   "packages/wallet-protocol/schemas/authority-review.schema.json",
   "packages/wallet-protocol/schemas/capability-lease.schema.json",
+  "packages/wallet-protocol/schemas/capability-lease-revocation.schema.json",
   "packages/wallet-protocol/schemas/wallet-receipt.schema.json",
   "packages/wallet-protocol/schemas/exchange-intent.schema.json",
   "packages/wallet-protocol/schemas/trade-intent.schema.json",
@@ -142,6 +146,7 @@ const openapi = readJson("packages/wallet-protocol/openapi/wallet-network.openap
 for (const path of [
   "/v1/authority/reviews",
   "/v1/capability/leases",
+  "/v1/capability/leases/{lease_id}/revoke",
   "/v1/exchange/intents",
   "/v1/trade/intents",
   "/v1/receipts",
@@ -166,6 +171,17 @@ if (!Array.isArray(fixtures.authority_review.allowed_approval_modes)) {
 
 if (!fixtures.authority_review.recommended_presentation_profile) {
   throw new Error("authority review fixtures must include recommended_presentation_profile");
+}
+
+if (!fixtures.capability_lease?.capability_scope?.startsWith("scope:")) {
+  throw new Error("wallet protocol fixtures must include a scoped capability lease");
+}
+
+if (
+  fixtures.capability_lease_revocation?.lease_id !==
+  fixtures.capability_lease.lease_id
+) {
+  throw new Error("wallet protocol fixtures must include capability lease revocation");
 }
 
 const sdkPackage = readJson("packages/wallet-sdk/package.json");
@@ -194,6 +210,24 @@ for (const text of [
   "wallet candidate source evidence must match the declared adapter and source",
 ]) {
   assertIncludes("packages/wallet-sdk/src/route-sources.ts", walletSdkRouteSources, text);
+}
+
+const walletSdkCapabilities = read("packages/wallet-sdk/src/capabilities.ts");
+for (const text of [
+  "buildCapabilityLease",
+  "buildCapabilityLeaseRevocation",
+  "WALLET_PROTOCOL_SCHEMA_VERSION",
+]) {
+  assertIncludes("packages/wallet-sdk/src/capabilities.ts", walletSdkCapabilities, text);
+}
+
+const walletSdkClient = read("packages/wallet-sdk/src/client.ts");
+for (const text of [
+  "issueCapabilityLease",
+  "revokeCapabilityLease",
+  "WALLET_NETWORK_PROTOCOL_METHODS.revokeCapabilityLease",
+]) {
+  assertIncludes("packages/wallet-sdk/src/client.ts", walletSdkClient, text);
 }
 
 const hypervisorPackage = readJson("apps/hypervisor/package.json");
