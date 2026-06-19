@@ -452,6 +452,40 @@ ExecutionPrivacyPosture:
 `ModelWeightCustodyProfile` answers what happens to the model weights. They are
 separate decisions.
 
+### PrivateWorkspaceMountAdmission
+
+Before a session, adapter, model route, provider target, or runtime mount
+receives workspace material, the daemon admits the mount posture through
+`POST /v1/hypervisor/private-workspace-mount-admissions`.
+
+The admission boundary is the concrete enforcement point for Plaintext-Free
+Runtime Mounting:
+
+```text
+public trunk
+  may be provider-readable because it is not protected workspace plaintext
+
+redacted projection
+  requires redaction evidence before provider-readable mounting
+
+encrypted blob ref
+  remains sealed; the provider receives refs/bytes, not decrypted state
+
+private head
+  routes local/browser/user-owned, cTEE split, TEE, or customer-cloud custody
+  handles depending on policy
+
+capability exit
+  lets the node request scoped action without receiving durable secrets
+
+unsafe plaintext mount
+  requires wallet approval, declassification receipts, provider-trust
+  acceptance, explicit unsafe scope, and Agentgres-linked receipt refs
+```
+
+Clients may display the result and request admissions. They do not become
+workspace custody truth.
+
 ```text
 cTEE workspace state can remain sealed while public/open model weights run on a
 rented GPU.

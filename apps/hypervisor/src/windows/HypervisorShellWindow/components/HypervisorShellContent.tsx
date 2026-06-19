@@ -67,8 +67,11 @@ import {
   loadHypervisorPrivacyPostureProjection,
   modelWeightCustodyAdmissionAction,
   requestHypervisorModelWeightCustodyAdmission,
+  requestHypervisorPrivateWorkspaceMountAdmission,
   type HypervisorModelWeightCustodyAdmission,
   type HypervisorModelWeightCustodyPolicy,
+  type HypervisorPrivateWorkspaceMountAdmission,
+  type HypervisorWorkspaceCustodySegment,
 } from "../hypervisorPrivacyPostureModel";
 import {
   buildHypervisorProjectOperationProposal,
@@ -3171,6 +3174,10 @@ function HypervisorPrivacyPostureSurface({
     useState<HypervisorModelWeightCustodyAdmission | null>(null);
   const [modelWeightAdmissionError, setModelWeightAdmissionError] =
     useState<string | null>(null);
+  const [workspaceMountAdmission, setWorkspaceMountAdmission] =
+    useState<HypervisorPrivateWorkspaceMountAdmission | null>(null);
+  const [workspaceMountAdmissionError, setWorkspaceMountAdmissionError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (
@@ -3212,6 +3219,26 @@ function HypervisorPrivacyPostureSurface({
       setModelWeightAdmission(null);
       setModelWeightAdmissionError(
         error instanceof Error ? error.message : "Model-weight admission failed",
+      );
+    }
+  }
+
+  async function onRequestWorkspaceMountAdmission(
+    segment: HypervisorWorkspaceCustodySegment,
+  ) {
+    setWorkspaceMountAdmissionError(null);
+    try {
+      const admission = await requestHypervisorPrivateWorkspaceMountAdmission(
+        projection,
+        segment,
+      );
+      setWorkspaceMountAdmission(admission);
+    } catch (error) {
+      setWorkspaceMountAdmission(null);
+      setWorkspaceMountAdmissionError(
+        error instanceof Error
+          ? error.message
+          : "Private workspace mount admission failed",
       );
     }
   }
@@ -3267,6 +3294,16 @@ function HypervisorPrivacyPostureSurface({
                 Remote plaintext{" "}
                 {segment.node_plaintext_allowed ? "allowed" : "blocked"}
               </small>
+              <button
+                type="button"
+                data-private-workspace-mount-admission-request={segment.segment_ref}
+                title="Request daemon admission for this workspace custody segment"
+                onClick={() => {
+                  void onRequestWorkspaceMountAdmission(segment);
+                }}
+              >
+                Request mount
+              </button>
             </article>
           ))}
         </section>
@@ -3370,6 +3407,29 @@ function HypervisorPrivacyPostureSurface({
             <>
               <strong>Daemon admission blocked</strong>
               <span>{modelWeightAdmissionError}</span>
+            </>
+          )}
+        </div>
+      )}
+      {(workspaceMountAdmission || workspaceMountAdmissionError) && (
+        <div
+          className="hypervisor-privacy-posture__admission"
+          data-private-workspace-mount-admission={
+            workspaceMountAdmission?.admission_id ?? "error"
+          }
+          data-private-workspace-mount-admission-runtime-truth={
+            workspaceMountAdmission?.runtimeTruthSource ?? "daemon-runtime"
+          }
+        >
+          {workspaceMountAdmission ? (
+            <>
+              <strong>Workspace mount admitted</strong>
+              <span>{workspaceMountAdmission.receipt_ref}</span>
+            </>
+          ) : (
+            <>
+              <strong>Workspace mount blocked</strong>
+              <span>{workspaceMountAdmissionError}</span>
             </>
           )}
         </div>

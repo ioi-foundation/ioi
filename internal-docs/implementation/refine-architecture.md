@@ -1589,15 +1589,25 @@ Current implementation cut:
   `data-privacy-posture-source`, preserving the boundary that clients inspect
   privacy posture while the daemon, wallet.network, and Agentgres own
   admission, declassification, and operational truth. The Privacy surface now
-  exposes safe model-weight custody route changes through
+  exposes private workspace mount admission through
+  `requestHypervisorPrivateWorkspaceMountAdmission`, which posts canonical
+  snake_case custody envelopes to
+  `/v1/hypervisor/private-workspace-mount-admissions`. The daemon admits public
+  trunks, redacted projections, encrypted refs, cTEE private-head handles,
+  TEE/customer-cloud private-head handles, local/browser/user-owned private
+  heads, and capability exits while requiring wallet approval,
+  declassification receipts, provider-trust acceptance, and unsafe-plaintext
+  scopes before any provider-root-readable protected workspace plaintext can be
+  mounted. The Privacy surface also exposes safe model-weight custody route
+  changes through
   `requestHypervisorModelWeightCustodyAdmission`, which posts canonical
   snake_case admission envelopes to
   `/v1/hypervisor/model-weight-custody-admissions`. Provider-trust mounts,
   forbidden plaintext mounts, and attestation-dependent TEE/customer-cloud
-  mounts remain blocked or review-required in the client instead of becoming
-  one-click local UI truth. Remaining work is mutation/admission actions for
-  unsafe workspace mounts, wallet declassification decisions, provider privacy
-  leases, and durable Agentgres privacy receipts.
+  mounts remain blocked or review-required instead of becoming one-click local
+  UI truth. Remaining work is wiring concrete wallet declassification UI,
+  provider privacy leases, and durable Agentgres privacy receipt pagination
+  behind these daemon admission refs.
 
 0A.3 Projects reference page is corrected and implemented:
   `hypervisorProjectStateModel.ts` defines `HypervisorProjectStateProjection`

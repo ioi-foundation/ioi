@@ -13,6 +13,7 @@ import { buildHypervisorCoreTaxonomy } from "../runtime-hypervisor-core-taxonomy
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
+import { admitPrivateWorkspaceMount } from "../runtime-private-workspace-mount-admission.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 import { admitWorkerPackageInstall } from "../runtime-worker-package-install-admission.mjs";
 import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter-launch-plan-admission.mjs";
@@ -588,6 +589,23 @@ export function createPublicRuntimeRequestHandler(deps) {
             source:
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/model-weight-custody-admissions",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/private-workspace-mount-admissions"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitPrivateWorkspaceMount({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/private-workspace-mount-admissions",
           }),
           202,
         );

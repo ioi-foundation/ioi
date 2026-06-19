@@ -597,6 +597,71 @@ forbidden plaintext mounts, unsafe workspace mounts, wallet declassification
 policy, and Agentgres privacy receipts remain daemon/wallet/Agentgres-mediated.
 
 ```http
+POST /v1/hypervisor/private-workspace-mount-admissions
+```
+
+`POST /v1/hypervisor/private-workspace-mount-admissions` admits a concrete
+workspace mount posture before a session, adapter, model route, or provider
+target may receive workspace material. It is the daemon boundary for
+Plaintext-Free Runtime Mounting: public trunks and redacted projections may be
+provider-readable, encrypted refs stay sealed, private heads route through
+cTEE/TEE/local/customer-custody handles, and unsafe plaintext exceptions require
+wallet declassification evidence.
+
+Request body:
+
+```json
+{
+  "workspace_ref": "workspace://...",
+  "mount_ref": "mount://...",
+  "segment_ref": "workspace-segment:private-head",
+  "provider_ref": "provider:...",
+  "custody_class": "public_trunk | redacted_projection | encrypted_blob_ref | private_head | capability_exit | unsafe_plaintext_mount",
+  "mount_target": "local_device | user_owned_node | browser_client | rented_gpu | customer_cloud | tee_session",
+  "execution_privacy_posture": "private_native | ctee_split | encrypted_storage_only | confidential_compute | remote_api_provider_trust | unsafe_plaintext_mount",
+  "provider_root_can_read_plaintext": false,
+  "protected_plaintext_requested": false,
+  "required_controls": ["ctee_private_head_handle"],
+  "authority_scope_refs": ["scope:ctee.private-head.evaluate"],
+  "wallet_approval_ref": "approval://wallet/...",
+  "wallet_lease_ref": "lease:wallet/...",
+  "user_disclosure_ref": "disclosure://...",
+  "provider_trust_acceptance_ref": "approval://provider-trust/...",
+  "declassification_receipt_refs": ["receipt://privacy/declassification/..."],
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "artifact_refs": ["artifact://..."],
+  "state_root_ref": "agentgres://state-root/..."
+}
+```
+
+The response is an `ioi.runtime.private_workspace_mount_admission.v1` object:
+
+```json
+{
+  "schema_version": "ioi.runtime.private_workspace_mount_admission.v1",
+  "decision": "admitted | admitted_declassification | admitted_unsafe_exception",
+  "workspace_ref": "workspace://...",
+  "mount_ref": "mount://...",
+  "custody_class": "private_head",
+  "mount_target": "rented_gpu",
+  "execution_privacy_posture": "ctee_split",
+  "provider_root_can_read_plaintext": false,
+  "protected_plaintext_requested": false,
+  "protected_plaintext_exposed_to_provider_root": false,
+  "protects_workspace_plaintext_from_provider_root": true,
+  "receipt_ref": "receipt://private-workspace-mount/...",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+The endpoint fails closed for redacted projections without redaction evidence,
+encrypted blob refs that request plaintext, capability exits that expose
+plaintext, private-head rented-node mounts without cTEE private-head handles,
+TEE/customer-cloud mounts without attestation or customer-boundary refs, and
+unsafe plaintext exceptions without wallet approval, wallet lease,
+provider-trust acceptance, user disclosure, and declassification receipts.
+
+```http
 GET /v1/hypervisor/provider-placement
 ```
 

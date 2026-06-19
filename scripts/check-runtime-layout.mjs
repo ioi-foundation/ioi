@@ -243,6 +243,12 @@ const runtimeModelWeightCustodyAdmissionSource = read(
 const runtimeModelWeightCustodyAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
 );
+const runtimePrivateWorkspaceMountAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.mjs",
+);
+const runtimePrivateWorkspaceMountAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.test.mjs",
+);
 const runtimeManagedWorkerLifecycleAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.mjs",
 );
@@ -1717,6 +1723,70 @@ assert(
   "Model-weight custody admission must block unsafe private-weight plaintext mounts, separate remote API/TEE/provider-trust lanes, and keep daemon runtime truth.",
 );
 assert(
+  "hypervisor-private-workspace-mount-admission",
+  runtimePrivateWorkspaceMountAdmissionSource.includes(
+    "ioi.runtime.private_workspace_mount_admission.v1",
+  ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "admitPrivateWorkspaceMount",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes("public_trunk") &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "encrypted_blob_ref",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes("private_head") &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "unsafe_plaintext_mount",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "ctee_private_head_handle",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "explicit_unsafe_plaintext_acceptance",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "private_workspace_mount_required_ref_missing",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      "protected_plaintext_exposed_to_provider_root",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/private-workspace-mount-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes("admitPrivateWorkspaceMount") &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose private workspace mount admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks unsafe plaintext without wallet declassification",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
+      "admits cTEE private-head handles on rented GPUs without provider plaintext",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
+      "unsafe plaintext mounts require wallet approval and declassification receipts",
+    ) &&
+    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
+      "rejects retired camelCase request aliases",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "POST /v1/hypervisor/private-workspace-mount-admissions",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.private_workspace_mount_admission.v1",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.mjs",
+    "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Private workspace mount admission must keep protected workspace plaintext out of provider-root custody by default, require cTEE/TEE/local/customer handles for private heads, and make unsafe plaintext mounts wallet-declassified and receipt-backed.",
+);
+assert(
   "hypervisor-managed-worker-lifecycle-admission",
   runtimeManagedWorkerLifecycleAdmissionSource.includes(
     "ioi.runtime.managed_worker_instance_lifecycle_admission.v1",
@@ -2916,6 +2986,15 @@ assert(
       "requestHypervisorModelWeightCustodyAdmission",
     ) &&
     hypervisorPrivacyPostureModelSource.includes(
+      "HYPERVISOR_PRIVATE_WORKSPACE_MOUNT_ADMISSION_PATH",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "buildHypervisorPrivateWorkspaceMountAdmissionRequest",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "requestHypervisorPrivateWorkspaceMountAdmission",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
       "modelWeightCustodyAdmissionAction",
     ) &&
     hypervisorPrivacyPostureModelSource.includes(
@@ -2936,7 +3015,16 @@ assert(
     hypervisorShellContentSource.includes(
       "requestHypervisorModelWeightCustodyAdmission",
     ) &&
+    hypervisorShellContentSource.includes(
+      "requestHypervisorPrivateWorkspaceMountAdmission",
+    ) &&
     hypervisorShellContentSource.includes("data-privacy-posture-source") &&
+    hypervisorShellContentSource.includes(
+      "data-private-workspace-mount-admission-request",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-private-workspace-mount-admission",
+    ) &&
     hypervisorShellContentSource.includes(
       "data-model-weight-custody-admission-action",
     ) &&
@@ -2951,13 +3039,22 @@ assert(
       "/v1/hypervisor/model-weight-custody-admissions",
     ) &&
     publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/private-workspace-mount-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_privacy_posture",
     ) &&
     publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor privacy posture through lifecycle projection",
     ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose private workspace mount admissions",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/privacy-posture") &&
+    daemonRuntimeApiDoc.includes(
+      "POST /v1/hypervisor/private-workspace-mount-admissions",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "ioi.hypervisor.execution_privacy_posture_projection.v1",
     ),

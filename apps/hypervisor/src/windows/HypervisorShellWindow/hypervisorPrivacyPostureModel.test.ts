@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildHypervisorPrivateWorkspaceMountAdmissionRequest,
   buildHypervisorModelWeightCustodyAdmissionRequest,
   HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH,
+  HYPERVISOR_PRIVATE_WORKSPACE_MOUNT_ADMISSION_PATH,
   HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH,
   HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
   loadHypervisorPrivacyPostureProjection,
   modelWeightCustodyAdmissionAction,
+  normalizeHypervisorPrivateWorkspaceMountAdmission,
   normalizeHypervisorPrivacyPostureProjection,
   requestHypervisorModelWeightCustodyAdmission,
+  requestHypervisorPrivateWorkspaceMountAdmission,
 } from "./hypervisorPrivacyPostureModel.ts";
 
 test("privacy posture projection separates workspace custody from model-weight custody", () => {
@@ -343,4 +347,197 @@ test("model-weight custody admission client posts canonical request to daemon", 
       "artifact://privacy-posture/privacy-posture_hypervisor-core_default",
     ],
   });
+});
+
+test("private workspace mount admission builder maps custody segments to daemon requests", () => {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  const publicTrunk = projection.workspace_segments.find(
+    (segment) => segment.custody_class === "public_trunk",
+  )!;
+  const encryptedRefs = projection.workspace_segments.find(
+    (segment) => segment.custody_class === "encrypted_blob_ref",
+  )!;
+  const privateHead = projection.workspace_segments.find(
+    (segment) => segment.custody_class === "private_head",
+  )!;
+  const capabilityExit = projection.workspace_segments.find(
+    (segment) => segment.custody_class === "capability_exit",
+  )!;
+
+  const publicRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    publicTrunk,
+  );
+  assert.equal(publicRequest.custody_class, "public_trunk");
+  assert.equal(publicRequest.provider_root_can_read_plaintext, true);
+  assert.equal(publicRequest.protected_plaintext_requested, false);
+
+  const encryptedRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    encryptedRefs,
+  );
+  assert.equal(encryptedRequest.custody_class, "encrypted_blob_ref");
+  assert.equal(encryptedRequest.provider_root_can_read_plaintext, false);
+  assert.deepEqual(encryptedRequest.required_controls, [
+    "encrypted_blob_refs_only",
+  ]);
+
+  const privateHeadRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    privateHead,
+  );
+  assert.equal(privateHeadRequest.custody_class, "private_head");
+  assert.equal(privateHeadRequest.mount_target, "rented_gpu");
+  assert.equal(privateHeadRequest.execution_privacy_posture, "ctee_split");
+  assert.equal(privateHeadRequest.provider_root_can_read_plaintext, false);
+  assert.deepEqual(privateHeadRequest.required_controls, [
+    "ctee_private_head_handle",
+  ]);
+  assert.deepEqual(privateHeadRequest.authority_scope_refs, [
+    "scope:ctee.private-head.evaluate",
+  ]);
+
+  const teeRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    privateHead,
+    {
+      teeAttestationRef: "attestation://confidential-gpu/session",
+    },
+  );
+  assert.equal(teeRequest.mount_target, "tee_session");
+  assert.equal(teeRequest.execution_privacy_posture, "confidential_compute");
+  assert.equal(teeRequest.protected_plaintext_requested, true);
+  assert.deepEqual(teeRequest.required_controls, ["tee_attestation"]);
+
+  const capabilityRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    capabilityExit,
+  );
+  assert.equal(capabilityRequest.custody_class, "capability_exit");
+  assert.deepEqual(capabilityRequest.required_controls, ["capability_exit_only"]);
+  assert.deepEqual(capabilityRequest.authority_scope_refs, [
+    "scope:capability.use",
+  ]);
+});
+
+test("private workspace mount admission client posts canonical request to daemon", async () => {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  const privateHead = projection.workspace_segments.find(
+    (segment) => segment.custody_class === "private_head",
+  )!;
+  const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
+
+  const admission = await requestHypervisorPrivateWorkspaceMountAdmission(
+    projection,
+    privateHead,
+    {
+      endpoint: "http://daemon.test/",
+      fetchImpl: async (input, init) => {
+        calls.push({
+          input,
+          method: init?.method,
+          body: init?.body ? JSON.parse(init.body) : null,
+        });
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({
+              schema_version: "ioi.runtime.private_workspace_mount_admission.v1",
+              admission_id: "private-workspace-mount-admission:ctee-head",
+              decision: "admitted_declassification",
+              workspace_ref: "workspace://ioi",
+              mount_ref: "mount://workspace-segment_private-head",
+              segment_ref: "workspace-segment:private-head",
+              provider_ref: "provider:rented-gpu",
+              custody_class: "private_head",
+              mount_target: "rented_gpu",
+              execution_privacy_posture: "ctee_split",
+              provider_root_can_read_plaintext: false,
+              protected_plaintext_requested: false,
+              protected_plaintext_exposed_to_provider_root: false,
+              protects_workspace_plaintext_from_provider_root: true,
+              required_controls: ["ctee_private_head_handle"],
+              authority_scope_refs: ["scope:ctee.private-head.evaluate"],
+              agentgres_operation_refs: [
+                "agentgres://operation/privacy-mount/test",
+              ],
+              artifact_refs: ["artifact://workspace/private-head-commitment"],
+              state_root_ref: "agentgres://state-root/project_ioi",
+              receipt_ref: "receipt://private-workspace-mount/ctee-head",
+              admitted_at: "2026-06-19T00:00:00.000Z",
+              runtimeTruthSource: "daemon-runtime",
+            });
+          },
+        };
+      },
+    },
+  );
+
+  assert.equal(admission.admission_id, "private-workspace-mount-admission:ctee-head");
+  assert.equal(admission.decision, "admitted_declassification");
+  assert.equal(admission.runtimeTruthSource, "daemon-runtime");
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.input);
+  assert.equal(url.pathname, HYPERVISOR_PRIVATE_WORKSPACE_MOUNT_ADMISSION_PATH);
+  assert.equal(calls[0]!.method, "POST");
+  assert.deepEqual(calls[0]!.body, {
+    workspace_ref: "workspace://ioi",
+    mount_ref: "mount://workspace-segment_private-head",
+    segment_ref: "workspace-segment:private-head",
+    provider_ref: "provider:rented-gpu",
+    custody_class: "private_head",
+    mount_target: "rented_gpu",
+    execution_privacy_posture: "ctee_split",
+    provider_root_can_read_plaintext: false,
+    protected_plaintext_requested: false,
+    required_controls: ["ctee_private_head_handle"],
+    authority_scope_refs: ["scope:ctee.private-head.evaluate"],
+    agentgres_operation_refs: [
+      "agentgres://operation/privacy-mount/privacy-posture_hypervisor-core_default",
+    ],
+    artifact_refs: ["artifact://privacy-mount/workspace-segment_private-head"],
+    state_root_ref: "agentgres://state-root/project_ioi",
+  });
+});
+
+test("private workspace mount admission normalizer preserves unsafe exception receipts", () => {
+  const admission = normalizeHypervisorPrivateWorkspaceMountAdmission({
+    schema_version: "ioi.runtime.private_workspace_mount_admission.v1",
+    admission_id: "private-workspace-mount-admission:unsafe",
+    decision: "admitted_unsafe_exception",
+    workspace_ref: "workspace://ioi",
+    mount_ref: "mount://unsafe",
+    segment_ref: "workspace-segment:private-head",
+    provider_ref: "provider:rented-gpu",
+    custody_class: "unsafe_plaintext_mount",
+    mount_target: "rented_gpu",
+    execution_privacy_posture: "unsafe_plaintext_mount",
+    provider_root_can_read_plaintext: true,
+    protected_plaintext_requested: true,
+    protected_plaintext_exposed_to_provider_root: true,
+    protects_workspace_plaintext_from_provider_root: false,
+    required_controls: ["explicit_unsafe_plaintext_acceptance"],
+    authority_scope_refs: ["scope:privacy.unsafe_plaintext_mount"],
+    wallet_approval_ref: "approval://wallet/privacy/unsafe-mount",
+    wallet_lease_ref: "lease:wallet/privacy/unsafe-mount",
+    user_disclosure_ref: "disclosure://privacy/unsafe-mount",
+    provider_trust_acceptance_ref: "approval://provider-trust/unsafe-mount",
+    declassification_receipt_refs: [
+      "receipt://privacy/declassification/unsafe-mount",
+    ],
+    agentgres_operation_refs: ["agentgres://operation/privacy-mount/unsafe"],
+    artifact_refs: ["artifact://workspace/private-head-unsafe"],
+    state_root_ref: "agentgres://state-root/workspace/ioi",
+    receipt_ref: "receipt://private-workspace-mount/unsafe",
+    admitted_at: "2026-06-19T00:00:00.000Z",
+    runtimeTruthSource: "daemon-runtime",
+  });
+
+  assert.equal(admission.decision, "admitted_unsafe_exception");
+  assert.equal(admission.protected_plaintext_exposed_to_provider_root, true);
+  assert.equal(admission.protects_workspace_plaintext_from_provider_root, false);
+  assert.deepEqual(admission.declassification_receipt_refs, [
+    "receipt://privacy/declassification/unsafe-mount",
+  ]);
 });

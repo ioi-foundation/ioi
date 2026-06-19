@@ -96,6 +96,8 @@ export const HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH =
   "/v1/hypervisor/privacy-posture";
 export const HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH =
   "/v1/hypervisor/model-weight-custody-admissions";
+export const HYPERVISOR_PRIVATE_WORKSPACE_MOUNT_ADMISSION_PATH =
+  "/v1/hypervisor/private-workspace-mount-admissions";
 
 export type HypervisorModelWeightCustodyAdmissionActionState =
   | "daemon_admissible"
@@ -166,6 +168,74 @@ export interface HypervisorModelWeightCustodyAdmission {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export type HypervisorPrivateWorkspaceMountTarget =
+  | "local_device"
+  | "user_owned_node"
+  | "browser_client"
+  | "rented_gpu"
+  | "customer_cloud"
+  | "tee_session";
+
+export interface HypervisorPrivateWorkspaceMountAdmissionRequest {
+  workspace_ref: string;
+  mount_ref: string;
+  segment_ref: string;
+  provider_ref: string;
+  custody_class:
+    | HypervisorWorkspaceCustodyClass
+    | "unsafe_plaintext_mount";
+  mount_target: HypervisorPrivateWorkspaceMountTarget;
+  execution_privacy_posture: HypervisorExecutionPrivacyPosture;
+  provider_root_can_read_plaintext: boolean;
+  protected_plaintext_requested: boolean;
+  required_controls: string[];
+  authority_scope_refs: string[];
+  wallet_approval_ref?: string;
+  wallet_lease_ref?: string;
+  user_disclosure_ref?: string;
+  provider_trust_acceptance_ref?: string;
+  tee_attestation_ref?: string;
+  customer_boundary_ref?: string;
+  declassification_receipt_refs?: string[];
+  agentgres_operation_refs: string[];
+  artifact_refs: string[];
+  state_root_ref: string;
+}
+
+export interface HypervisorPrivateWorkspaceMountAdmission {
+  schema_version: "ioi.runtime.private_workspace_mount_admission.v1";
+  admission_id: string;
+  decision: "admitted" | "admitted_declassification" | "admitted_unsafe_exception";
+  workspace_ref: string;
+  mount_ref: string;
+  segment_ref: string;
+  provider_ref: string;
+  custody_class:
+    | HypervisorWorkspaceCustodyClass
+    | "unsafe_plaintext_mount";
+  mount_target: HypervisorPrivateWorkspaceMountTarget;
+  execution_privacy_posture: HypervisorExecutionPrivacyPosture;
+  provider_root_can_read_plaintext: boolean;
+  protected_plaintext_requested: boolean;
+  protected_plaintext_exposed_to_provider_root: boolean;
+  protects_workspace_plaintext_from_provider_root: boolean;
+  required_controls: string[];
+  authority_scope_refs: string[];
+  wallet_approval_ref: string | null;
+  wallet_lease_ref: string | null;
+  user_disclosure_ref: string | null;
+  provider_trust_acceptance_ref: string | null;
+  tee_attestation_ref: string | null;
+  customer_boundary_ref: string | null;
+  declassification_receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  artifact_refs: string[];
+  state_root_ref: string;
+  receipt_ref: string;
+  admitted_at: string;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string },
@@ -198,6 +268,20 @@ interface BuildModelWeightCustodyAdmissionRequestOptions {
 
 interface RequestModelWeightCustodyAdmissionOptions
   extends BuildModelWeightCustodyAdmissionRequestOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+}
+
+interface BuildPrivateWorkspaceMountAdmissionRequestOptions {
+  providerRef?: string;
+  workspaceRef?: string;
+  mountTarget?: HypervisorPrivateWorkspaceMountTarget;
+  teeAttestationRef?: string;
+  customerBoundaryRef?: string;
+}
+
+interface RequestPrivateWorkspaceMountAdmissionOptions
+  extends BuildPrivateWorkspaceMountAdmissionRequestOptions {
   endpoint?: string;
   fetchImpl?: FetchLike;
 }
@@ -914,6 +998,262 @@ export async function requestHypervisorModelWeightCustodyAdmission(
     );
   }
   return normalizeHypervisorModelWeightCustodyAdmission(value);
+}
+
+export function buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+  projection: HypervisorPrivacyPostureProjection,
+  segment: HypervisorWorkspaceCustodySegment,
+  options: BuildPrivateWorkspaceMountAdmissionRequestOptions = {},
+): HypervisorPrivateWorkspaceMountAdmissionRequest {
+  const workspaceRef =
+    options.workspaceRef ??
+    projection.project_ref.replace(/^project:/, "workspace://") ??
+    "workspace://hypervisor";
+  const providerRef = options.providerRef ?? "provider:rented-gpu";
+  const base = {
+    workspace_ref: workspaceRef,
+    mount_ref: `mount://${safeId(segment.segment_ref)}`,
+    segment_ref: segment.segment_ref,
+    provider_ref: providerRef,
+    custody_class: segment.custody_class,
+    agentgres_operation_refs: [
+      `agentgres://operation/privacy-mount/${safeId(projection.projection_id)}`,
+    ],
+    artifact_refs:
+      segment.evidence_refs.filter((ref) => ref.startsWith("artifact://")).length > 0
+        ? segment.evidence_refs.filter((ref) => ref.startsWith("artifact://"))
+        : [`artifact://privacy-mount/${safeId(segment.segment_ref)}`],
+    state_root_ref: `agentgres://state-root/${safeId(projection.project_ref)}`,
+  };
+
+  if (segment.custody_class === "public_trunk") {
+    return {
+      ...base,
+      mount_target: options.mountTarget ?? "rented_gpu",
+      execution_privacy_posture: "ctee_split",
+      provider_root_can_read_plaintext: true,
+      protected_plaintext_requested: false,
+      required_controls: [],
+      authority_scope_refs: [],
+    };
+  }
+
+  if (segment.custody_class === "redacted_projection") {
+    return {
+      ...base,
+      mount_target: options.mountTarget ?? "rented_gpu",
+      execution_privacy_posture: "ctee_split",
+      provider_root_can_read_plaintext: true,
+      protected_plaintext_requested: false,
+      required_controls: ["redaction_verified"],
+      authority_scope_refs: [],
+    };
+  }
+
+  if (segment.custody_class === "encrypted_blob_ref") {
+    return {
+      ...base,
+      mount_target: options.mountTarget ?? "rented_gpu",
+      execution_privacy_posture: "encrypted_storage_only",
+      provider_root_can_read_plaintext: false,
+      protected_plaintext_requested: false,
+      required_controls: ["encrypted_blob_refs_only"],
+      authority_scope_refs: [],
+    };
+  }
+
+  if (segment.custody_class === "capability_exit") {
+    return {
+      ...base,
+      mount_target: options.mountTarget ?? "rented_gpu",
+      execution_privacy_posture: "ctee_split",
+      provider_root_can_read_plaintext: false,
+      protected_plaintext_requested: false,
+      required_controls: ["capability_exit_only"],
+      authority_scope_refs: ["scope:capability.use"],
+      artifact_refs: [],
+    };
+  }
+
+  const confidentialMount =
+    options.teeAttestationRef || options.customerBoundaryRef;
+  if (confidentialMount) {
+    return {
+      ...base,
+      provider_ref: options.providerRef ?? "provider:customer-cloud",
+      mount_target: options.customerBoundaryRef ? "customer_cloud" : "tee_session",
+      execution_privacy_posture: "confidential_compute",
+      provider_root_can_read_plaintext: false,
+      protected_plaintext_requested: true,
+      required_controls: options.customerBoundaryRef
+        ? ["customer_account_boundary"]
+        : ["tee_attestation"],
+      authority_scope_refs: ["scope:artifact.decrypt"],
+      tee_attestation_ref: options.teeAttestationRef,
+      customer_boundary_ref: options.customerBoundaryRef,
+    };
+  }
+
+  return {
+    ...base,
+    mount_target: options.mountTarget ?? "rented_gpu",
+    execution_privacy_posture: "ctee_split",
+    provider_root_can_read_plaintext: false,
+    protected_plaintext_requested: false,
+    required_controls: ["ctee_private_head_handle"],
+    authority_scope_refs: ["scope:ctee.private-head.evaluate"],
+  };
+}
+
+export function normalizeHypervisorPrivateWorkspaceMountAdmission(
+  snapshot: unknown,
+): HypervisorPrivateWorkspaceMountAdmission {
+  const value = objectRecord(snapshot);
+  const fallbackRequest = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
+    HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE.workspace_segments[0]!,
+  );
+  return {
+    schema_version: "ioi.runtime.private_workspace_mount_admission.v1",
+    admission_id: stringValue(
+      value.admission_id,
+      `private-workspace-mount-admission:${safeId(fallbackRequest.segment_ref)}`,
+    ),
+    decision: enumValue(value.decision, "admitted", [
+      "admitted",
+      "admitted_declassification",
+      "admitted_unsafe_exception",
+    ]),
+    workspace_ref: stringValue(value.workspace_ref, fallbackRequest.workspace_ref),
+    mount_ref: stringValue(value.mount_ref, fallbackRequest.mount_ref),
+    segment_ref: stringValue(value.segment_ref, fallbackRequest.segment_ref),
+    provider_ref: stringValue(value.provider_ref, fallbackRequest.provider_ref),
+    custody_class: enumValue(
+      value.custody_class,
+      fallbackRequest.custody_class,
+      [
+        "public_trunk",
+        "redacted_projection",
+        "encrypted_blob_ref",
+        "private_head",
+        "capability_exit",
+        "unsafe_plaintext_mount",
+      ],
+    ),
+    mount_target: enumValue(value.mount_target, fallbackRequest.mount_target, [
+      "local_device",
+      "user_owned_node",
+      "browser_client",
+      "rented_gpu",
+      "customer_cloud",
+      "tee_session",
+    ]),
+    execution_privacy_posture: enumValue(
+      value.execution_privacy_posture,
+      fallbackRequest.execution_privacy_posture,
+      [
+        "private_native",
+        "ctee_split",
+        "encrypted_storage_only",
+        "confidential_compute",
+        "remote_api_provider_trust",
+        "unsafe_plaintext_mount",
+      ],
+    ),
+    provider_root_can_read_plaintext: booleanValue(
+      value.provider_root_can_read_plaintext,
+      fallbackRequest.provider_root_can_read_plaintext,
+    ),
+    protected_plaintext_requested: booleanValue(
+      value.protected_plaintext_requested,
+      fallbackRequest.protected_plaintext_requested,
+    ),
+    protected_plaintext_exposed_to_provider_root: booleanValue(
+      value.protected_plaintext_exposed_to_provider_root,
+      false,
+    ),
+    protects_workspace_plaintext_from_provider_root: booleanValue(
+      value.protects_workspace_plaintext_from_provider_root,
+      true,
+    ),
+    required_controls: stringList(
+      value.required_controls,
+      fallbackRequest.required_controls,
+    ),
+    authority_scope_refs: stringList(
+      value.authority_scope_refs,
+      fallbackRequest.authority_scope_refs,
+    ),
+    wallet_approval_ref:
+      typeof value.wallet_approval_ref === "string" ? value.wallet_approval_ref : null,
+    wallet_lease_ref:
+      typeof value.wallet_lease_ref === "string" ? value.wallet_lease_ref : null,
+    user_disclosure_ref:
+      typeof value.user_disclosure_ref === "string" ? value.user_disclosure_ref : null,
+    provider_trust_acceptance_ref:
+      typeof value.provider_trust_acceptance_ref === "string"
+        ? value.provider_trust_acceptance_ref
+        : null,
+    tee_attestation_ref:
+      typeof value.tee_attestation_ref === "string" ? value.tee_attestation_ref : null,
+    customer_boundary_ref:
+      typeof value.customer_boundary_ref === "string"
+        ? value.customer_boundary_ref
+        : null,
+    declassification_receipt_refs: stringList(
+      value.declassification_receipt_refs,
+      [],
+    ),
+    agentgres_operation_refs: stringList(
+      value.agentgres_operation_refs,
+      fallbackRequest.agentgres_operation_refs,
+    ),
+    artifact_refs: stringList(value.artifact_refs, fallbackRequest.artifact_refs),
+    state_root_ref: stringValue(value.state_root_ref, fallbackRequest.state_root_ref),
+    receipt_ref: stringValue(
+      value.receipt_ref,
+      `receipt://private-workspace-mount/${safeId(fallbackRequest.segment_ref)}`,
+    ),
+    admitted_at: stringValue(value.admitted_at, new Date(0).toISOString()),
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export async function requestHypervisorPrivateWorkspaceMountAdmission(
+  projection: HypervisorPrivacyPostureProjection,
+  segment: HypervisorWorkspaceCustodySegment,
+  options: RequestPrivateWorkspaceMountAdmissionOptions = {},
+): Promise<HypervisorPrivateWorkspaceMountAdmission> {
+  const endpoint =
+    options.endpoint ?? readHypervisorPrivacyPostureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor private workspace mount admission");
+  }
+  const request = buildHypervisorPrivateWorkspaceMountAdmissionRequest(
+    projection,
+    segment,
+    options,
+  );
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_PRIVATE_WORKSPACE_MOUNT_ADMISSION_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Private workspace mount admission request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorPrivateWorkspaceMountAdmission(value);
 }
 
 export async function loadHypervisorPrivacyPostureProjection(
