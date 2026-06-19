@@ -76,7 +76,7 @@ test("builds a launch-ready Codex OSS contract for local Qwen model mounts", () 
     "--local-provider",
     "ollama",
     "--model",
-    "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+    "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
     "--sandbox",
     "workspace-write",
     "--ask-for-approval",
@@ -100,6 +100,50 @@ test("builds a launch-ready Codex OSS contract for local Qwen model mounts", () 
       ref.startsWith("agentgres://operation/harness-session-launch/"),
     ),
   );
+});
+
+test("builds a launch-ready DeepSeek TUI contract for local Qwen model mounts", () => {
+  const launch = buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:deepseek-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-deepseek_tui:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:deepseek_tui",
+        harness_launch_route_ref: "harness-route:deepseek-tui/local-model",
+        agent_harness_adapter_id: "deepseek_tui",
+        receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      }),
+      workspace_ref: "workspace://local/ioi",
+      terminal_session_ref: "terminal-session:ioi/deepseek",
+    },
+    { nowIso: () => "2026-06-18T12:31:00.000Z" },
+  );
+
+  assert.equal(launch.schema_version, HARNESS_SESSION_LAUNCH_SCHEMA_VERSION);
+  assert.equal(launch.decision, "admitted");
+  assert.equal(launch.launch_state, "ready_to_spawn");
+  assert.equal(launch.launch_lane, "host_dev_pty");
+  assert.equal(
+    launch.command_contract.command_ref,
+    "host-command:deepseek-tui/local-ollama-qwen",
+  );
+  assert.deepEqual(launch.command_contract.argv_template, [
+    "deepseek",
+    "--provider",
+    "ollama",
+    "--model",
+    "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
+  ]);
+  assert.equal(launch.command_contract.binary_name, "deepseek");
+  assert.equal(
+    launch.command_contract.env_policy_ref,
+    "env-policy:harness-session/deepseek-local-qwen",
+  );
+  assert.equal(launch.command_contract.secret_release_policy, "none");
+  assert.equal(launch.model_mount_contract.provider, "ollama");
+  assert.equal(launch.requiresDaemonGate, true);
+  assert.equal(launch.runtimeTruthSource, "daemon-runtime");
 });
 
 test("blocks provider-trust and unavailable model route launches", () => {

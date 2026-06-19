@@ -13,8 +13,8 @@ export const HARNESS_SESSION_LAUNCH_SCHEMA_VERSION =
 const ADMISSION_SCHEMA_VERSION =
   "ioi.runtime.harness_session_binding_admission.v1";
 
-const LOCAL_CODEX_MODEL_ENV = "HYPERVISOR_LOCAL_CODEX_OSS_MODEL";
-const LOCAL_CODEX_WORKSPACE_ENV = "HYPERVISOR_SESSION_WORKSPACE";
+const LOCAL_HARNESS_MODEL_ENV = "HYPERVISOR_LOCAL_HARNESS_MODEL";
+const LOCAL_HARNESS_WORKSPACE_ENV = "HYPERVISOR_SESSION_WORKSPACE";
 
 export function buildHarnessSessionLaunch(request = {}, deps = {}) {
   const nowIso = deps.nowIso ?? (() => new Date().toISOString());
@@ -65,7 +65,7 @@ export function buildHarnessSessionLaunch(request = {}, deps = {}) {
     model_mount_contract: {
       provider: "ollama",
       api_format: "openai_compatible",
-      model_env: LOCAL_CODEX_MODEL_ENV,
+      model_env: LOCAL_HARNESS_MODEL_ENV,
       model_default: "qwen",
       endpoint_refs: normalizeArray(admission.model_route_endpoint_refs),
       loaded_instance_refs: normalizeArray(
@@ -83,8 +83,8 @@ export function buildHarnessSessionLaunch(request = {}, deps = {}) {
       env_policy_ref: launchProfile.env_policy_ref,
       secret_release_policy: "none",
       requires_pty: true,
-      workspace_env: LOCAL_CODEX_WORKSPACE_ENV,
-      model_env: LOCAL_CODEX_MODEL_ENV,
+      workspace_env: LOCAL_HARNESS_WORKSPACE_ENV,
+      model_env: LOCAL_HARNESS_MODEL_ENV,
     },
     authority_scope_refs: normalizeArray(admission.authority_scope_refs),
     receipt_policy_ref: admission.receipt_policy_ref,
@@ -207,11 +207,17 @@ function launchProfileForAdmission(admission) {
   ) {
     return codexOssLaunchProfile();
   }
+  if (
+    admission.harness_selection_ref === "agent-harness-adapter:deepseek_tui" ||
+    admission.agent_harness_adapter_id === "deepseek_tui"
+  ) {
+    return deepseekTuiLaunchProfile();
+  }
   throw launchError({
     status: 403,
     code: "harness_session_launch_harness_unsupported",
     message:
-      "Only the Codex OSS local-model harness is launch-ready in this slice.",
+      "Only the Codex OSS and DeepSeek TUI local-model harnesses are launch-ready in this slice.",
     details: {
       harness_selection_ref: admission.harness_selection_ref ?? null,
       agent_harness_adapter_id: admission.agent_harness_adapter_id ?? null,
@@ -224,20 +230,36 @@ function codexOssLaunchProfile() {
     launch_lane: "host_dev_pty",
     command_ref: "host-command:codex-cli/local-ollama-qwen",
     binary_name: "codex",
-    env_policy_ref: "env-policy:harness-session/codex-oss-local-qwen",
+    env_policy_ref: "env-policy:harness-session/local-ollama-qwen",
     argv_template: [
       "codex",
       "--oss",
       "--local-provider",
       "ollama",
       "--model",
-      `\${${LOCAL_CODEX_MODEL_ENV}:-qwen}`,
+      `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
       "--sandbox",
       "workspace-write",
       "--ask-for-approval",
       "on-request",
       "--cd",
-      `\${${LOCAL_CODEX_WORKSPACE_ENV}}`,
+      `\${${LOCAL_HARNESS_WORKSPACE_ENV}}`,
+    ],
+  };
+}
+
+function deepseekTuiLaunchProfile() {
+  return {
+    launch_lane: "host_dev_pty",
+    command_ref: "host-command:deepseek-tui/local-ollama-qwen",
+    binary_name: "deepseek",
+    env_policy_ref: "env-policy:harness-session/deepseek-local-qwen",
+    argv_template: [
+      "deepseek",
+      "--provider",
+      "ollama",
+      "--model",
+      `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
     ],
   };
 }

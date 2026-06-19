@@ -64,6 +64,25 @@ function launchContract() {
   );
 }
 
+function deepseekLaunchContract() {
+  return buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:deepseek-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-deepseek_tui:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:deepseek_tui",
+        harness_launch_route_ref: "harness-route:deepseek-tui/local-model",
+        agent_harness_adapter_id: "deepseek_tui",
+        receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      }),
+      workspace_ref: "workspace:hypervisor-core",
+      terminal_session_ref: "terminal-session:hypervisor-core/deepseek",
+    },
+    { nowIso: () => "2026-06-18T12:31:00.000Z" },
+  );
+}
+
 test("builds a Codex OSS local Qwen spawn contract for client PTY attach", () => {
   const spawn = buildHarnessSessionSpawn(
     {
@@ -117,7 +136,7 @@ test("honors a configured local model name without allowing shell fragments", ()
     },
     {
       baseWorkspaceRoot: "/repo",
-      env: { HYPERVISOR_LOCAL_CODEX_OSS_MODEL: "qwen2.5-coder:7b" },
+      env: { HYPERVISOR_LOCAL_HARNESS_MODEL: "qwen2.5-coder:7b" },
     },
   );
   assert.equal(spawn.model_name, "qwen2.5-coder:7b");
@@ -138,6 +157,40 @@ test("honors a configured local model name without allowing shell fragments", ()
       return true;
     },
   );
+});
+
+test("builds a DeepSeek TUI local Qwen spawn contract for client PTY attach", () => {
+  const spawn = buildHarnessSessionSpawn(
+    {
+      session_launch: deepseekLaunchContract(),
+      workspace_root: ".",
+    },
+    {
+      baseWorkspaceRoot: "/home/heathledger/Documents/ioi/repos/ioi",
+      env: {},
+      nowIso: () => "2026-06-18T12:36:00.000Z",
+    },
+  );
+
+  assert.equal(spawn.schema_version, HARNESS_SESSION_SPAWN_SCHEMA_VERSION);
+  assert.equal(spawn.decision, "admitted");
+  assert.equal(spawn.spawn_state, "ready_for_client_pty_attach");
+  assert.equal(spawn.spawn_lane, "host_terminal_session");
+  assert.equal(spawn.agent_harness_adapter_id, "deepseek_tui");
+  assert.equal(spawn.command_contract_ref, "host-command:deepseek-tui/local-ollama-qwen");
+  assert.deepEqual(spawn.command_contract.resolved_argv, [
+    "deepseek",
+    "--provider",
+    "ollama",
+    "--model",
+    "qwen",
+  ]);
+  assert.equal(
+    spawn.terminal_attach_contract.command_line,
+    "deepseek --provider ollama --model qwen",
+  );
+  assert.equal(spawn.requiresDaemonGate, true);
+  assert.equal(spawn.runtimeTruthSource, "daemon-runtime");
 });
 
 test("blocks invalid launch contracts and filesystem root workspaces", () => {

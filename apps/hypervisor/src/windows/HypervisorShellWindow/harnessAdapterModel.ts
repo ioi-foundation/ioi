@@ -378,8 +378,8 @@ export interface HypervisorHarnessSessionReadiness {
   decision: "ready" | "blocked";
   readiness_state:
     | "ready_for_harness_pty_attach"
-    | "codex_binary_unavailable"
-    | "codex_oss_flags_unavailable"
+    | "harness_binary_unavailable"
+    | "harness_local_model_flags_unavailable"
     | "ollama_provider_unavailable"
     | "qwen_model_unavailable"
     | "host_readiness_blocked";
@@ -393,7 +393,7 @@ export interface HypervisorHarnessSessionReadiness {
   model_route_ref: string;
   model_name: string;
   provider: "ollama";
-  codex_binary: string;
+  harness_binary: string;
   provider_binary: string;
   available_model_names: string[];
   checks: HypervisorHarnessSessionReadinessCheck[];
@@ -696,13 +696,13 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       label: "DeepSeek TUI",
       description:
         "Terminal harness candidate that may use OpenAI-compatible model routes when compatibility is proven.",
-      adapter_kind: "containerized_cli",
-      execution_lane: "docker_container",
+      adapter_kind: "cli",
+      execution_lane: "host_dev",
       model_route_policy: "hypervisor_model_mount",
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
-      receipt_policy_ref: "receipt-policy:harness-adapter/container",
-      launch_route_ref: "harness-route:deepseek-tui/local-model-container",
+      receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      launch_route_ref: "harness-route:deepseek-tui/local-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -1331,7 +1331,7 @@ function maybeHarnessSelectionOption(
   );
 }
 
-function containerFixtureAdapterProfiles(): AgentHarnessAdapterProfile[] {
+function publicFixtureAdapterProfiles(): AgentHarnessAdapterProfile[] {
   return HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.filter(
     (profile) =>
       profile.adapter_id === "deepseek_tui" ||
@@ -1339,10 +1339,10 @@ function containerFixtureAdapterProfiles(): AgentHarnessAdapterProfile[] {
   );
 }
 
-function containerRuntimeForLane(
-  lane: HarnessExecutionLane,
+function publicFixtureRuntimeForAdapter(
+  profile: AgentHarnessAdapterProfile,
 ): HarnessPublicFixtureCandidateLane["runtime"] {
-  return lane === "podman_container" ? "podman" : "docker";
+  return profile.execution_lane === "podman_container" ? "podman" : "docker";
 }
 
 function containerImageRefForAdapter(adapterId: AgentHarnessAdapterId): string {
@@ -1350,19 +1350,19 @@ function containerImageRefForAdapter(adapterId: AgentHarnessAdapterId): string {
 }
 
 export function buildHarnessPublicFixtureRunRequest(): HarnessPublicFixtureRunRequest {
-  const containerProfiles = containerFixtureAdapterProfiles();
+  const fixtureProfiles = publicFixtureAdapterProfiles();
   return {
     source: "hypervisor_foundry.harness_comparison_dashboard",
     fixture_id: "harness-testbed:public-code-edit-fixture",
     task_ref: "task:fixture/public-code-edit-fixture",
     min_installed_adapters: 2,
-    installed_adapter_ids: containerProfiles.map(
+    installed_adapter_ids: fixtureProfiles.map(
       (profile) => profile.adapter_id,
     ),
-    candidate_lanes: containerProfiles.map((profile) => ({
+    candidate_lanes: fixtureProfiles.map((profile) => ({
       adapter_id: profile.adapter_id,
       selection_ref: getHarnessSelectionRef(profile),
-      runtime: containerRuntimeForLane(profile.execution_lane),
+      runtime: publicFixtureRuntimeForAdapter(profile),
       container_image_ref: containerImageRefForAdapter(profile.adapter_id),
     })),
   };
@@ -1599,7 +1599,7 @@ function normalizeHarnessSessionLaunch(
           : "openai_compatible",
       model_env:
         nullableString(modelMountContract.model_env) ??
-        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+        "HYPERVISOR_LOCAL_HARNESS_MODEL",
       model_default:
         nullableString(modelMountContract.model_default) ?? "qwen",
       endpoint_refs: stringList(modelMountContract.endpoint_refs, []),
@@ -1625,7 +1625,7 @@ function normalizeHarnessSessionLaunch(
         "--local-provider",
         "ollama",
         "--model",
-        "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+        "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
         "--sandbox",
         "workspace-write",
         "--ask-for-approval",
@@ -1635,7 +1635,7 @@ function normalizeHarnessSessionLaunch(
       ]),
       env_policy_ref:
         nullableString(commandContract.env_policy_ref) ??
-        "env-policy:harness-session/codex-oss-local-qwen",
+        "env-policy:harness-session/local-ollama-qwen",
       secret_release_policy: "none",
       requires_pty: true,
       workspace_env:
@@ -1643,7 +1643,7 @@ function normalizeHarnessSessionLaunch(
         "HYPERVISOR_SESSION_WORKSPACE",
       model_env:
         nullableString(commandContract.model_env) ??
-        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+        "HYPERVISOR_LOCAL_HARNESS_MODEL",
     },
     authority_scope_refs: stringList(record.authority_scope_refs, []),
     receipt_policy_ref:
@@ -1712,7 +1712,7 @@ function normalizeHarnessSessionSpawn(
         "--local-provider",
         "ollama",
         "--model",
-        "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+        "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
         "--sandbox",
         "workspace-write",
         "--ask-for-approval",
@@ -1722,7 +1722,7 @@ function normalizeHarnessSessionSpawn(
       ]),
       env_policy_ref:
         nullableString(commandContract.env_policy_ref) ??
-        "env-policy:harness-session/codex-oss-local-qwen",
+        "env-policy:harness-session/local-ollama-qwen",
       secret_release_policy: "none",
       requires_pty: true,
       workspace_env:
@@ -1730,7 +1730,7 @@ function normalizeHarnessSessionSpawn(
         "HYPERVISOR_SESSION_WORKSPACE",
       model_env:
         nullableString(commandContract.model_env) ??
-        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+        "HYPERVISOR_LOCAL_HARNESS_MODEL",
       resolved_argv: stringList(commandContract.resolved_argv, []),
       resolved_command_line:
         nullableString(commandContract.resolved_command_line) ?? "codex --oss",
@@ -1763,7 +1763,7 @@ function normalizeHarnessSessionSpawn(
           : "openai_compatible",
       model_env:
         nullableString(modelMountContract.model_env) ??
-        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+        "HYPERVISOR_LOCAL_HARNESS_MODEL",
       model_default:
         nullableString(modelMountContract.model_default) ?? "qwen",
       endpoint_refs: stringList(modelMountContract.endpoint_refs, []),
@@ -1824,7 +1824,7 @@ function normalizeHarnessSessionReadiness(
       HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
     model_name: nullableString(record.model_name) ?? "qwen",
     provider: nullableString(record.provider) === "ollama" ? "ollama" : "ollama",
-    codex_binary: nullableString(record.codex_binary) ?? "codex",
+    harness_binary: nullableString(record.harness_binary) ?? "codex",
     provider_binary: nullableString(record.provider_binary) ?? "ollama",
     available_model_names: stringList(record.available_model_names, []),
     checks: arrayRecords(record.checks).map((check) => ({

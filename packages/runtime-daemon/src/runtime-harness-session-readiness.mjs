@@ -27,8 +27,8 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
     optionalString(spawn.model_name) ??
     optionalString(modelMountContract?.model_default) ??
     "qwen";
-  const codexBinary =
-    optionalString(request.codex_binary) ??
+  const requestedHarnessBinary =
+    optionalString(request.harness_binary) ??
     optionalString(normalizeArray(commandContract?.resolved_argv)[0]) ??
     optionalString(commandContract?.binary_name) ??
     "codex";
@@ -43,33 +43,37 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
     optionalString(request.readiness_receipt_ref) ??
     `receipt://harness-session-readiness/${safeId(readinessId)}`;
 
-  const codexHelp = await commandResult(runCommand, codexBinary, ["--help"]);
-  const codexBinaryCheck = codexHelp.ok
+  const harnessBinary = requestedHarnessBinary;
+  const harnessBinaryName =
+    optionalString(commandContract?.binary_name) ?? harnessBinary;
+  const help = await commandResult(runCommand, harnessBinary, ["--help"]);
+  const harnessBinaryCheck = help.ok
     ? passCheck(
-        "codex_binary",
-        `Codex binary resolved through ${codexBinary}.`,
-        [`host-command:${safeId(codexBinary)}:--help`],
+        "harness_binary",
+        `Harness binary resolved through ${harnessBinary}.`,
+        [`host-command:${safeId(harnessBinary)}:--help`],
       )
     : failCheck(
-        "codex_binary",
-        `Codex binary is not runnable through ${codexBinary}.`,
-        [`host-command:${safeId(codexBinary)}:--help`],
+        "harness_binary",
+        `Harness binary is not runnable through ${harnessBinary}.`,
+        [`host-command:${safeId(harnessBinary)}:--help`],
       );
-  const codexHelpText = `${codexHelp.stdout}\n${codexHelp.stderr}`;
-  const codexOssFlagsCheck =
-    codexHelp.ok &&
-    ["--oss", "--local-provider", "--model", "--cd"].every((flag) =>
-      codexHelpText.includes(flag),
+  const helpText = `${help.stdout}\n${help.stderr}`;
+  const requiredFlags = requiredLocalModelFlagsForBinary(harnessBinaryName);
+  const localModelFlagsCheck =
+    help.ok &&
+    requiredFlags.every((flag) =>
+      helpText.includes(flag),
     )
       ? passCheck(
-          "codex_oss_flags",
-          "Codex supports OSS local-provider model mounting flags.",
-          [`host-command:${safeId(codexBinary)}:oss-flags`],
+          "harness_local_model_flags",
+          `${harnessBinaryName} supports the local-provider model mounting flags required by this route.`,
+          [`host-command:${safeId(harnessBinary)}:local-model-flags`],
         )
       : failCheck(
-          "codex_oss_flags",
-          "Codex does not expose the OSS local-provider flags required by this harness route.",
-          [`host-command:${safeId(codexBinary)}:oss-flags`],
+          "harness_local_model_flags",
+          `${harnessBinaryName} does not expose the local-provider flags required by this harness route.`,
+          [`host-command:${safeId(harnessBinary)}:local-model-flags`],
         );
 
   const providerList = await commandResult(runCommand, providerBinary, ["list"]);
@@ -101,8 +105,8 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
         );
 
   const checks = [
-    codexBinaryCheck,
-    codexOssFlagsCheck,
+    harnessBinaryCheck,
+    localModelFlagsCheck,
     providerCheck,
     modelCheck,
   ];
@@ -127,7 +131,7 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
     model_route_ref: spawn.model_route_ref,
     model_name: modelName,
     provider: "ollama",
-    codex_binary: codexBinary,
+    harness_binary: harnessBinary,
     provider_binary: providerBinary,
     available_model_names: availableModels,
     checks,
@@ -185,7 +189,7 @@ function requireSpawn(value) {
     });
   }
   if (
-    spawn.command_contract?.binary_name !== "codex" ||
+    !["codex", "deepseek"].includes(spawn.command_contract?.binary_name) ||
     spawn.model_mount_contract?.provider !== "ollama" ||
     spawn.command_contract?.secret_release_policy !== "none"
   ) {
@@ -193,7 +197,7 @@ function requireSpawn(value) {
       status: 403,
       code: "harness_session_readiness_route_unsupported",
       message:
-        "Only secret-free Codex OSS over local Ollama model mounts can be readiness-checked in this slice.",
+        "Only secret-free Codex OSS or DeepSeek TUI over local Ollama model mounts can be readiness-checked in this slice.",
       details: {
         binary_name: spawn.command_contract?.binary_name ?? null,
         provider: spawn.model_mount_contract?.provider ?? null,
@@ -283,12 +287,19 @@ function modelNameAvailable(availableModels, modelName) {
   );
 }
 
+function requiredLocalModelFlagsForBinary(binaryName) {
+  if (binaryName === "deepseek") {
+    return ["--provider", "--model"];
+  }
+  return ["--oss", "--local-provider", "--model"];
+}
+
 function readinessStateForCheck(checkId) {
   switch (checkId) {
-    case "codex_binary":
-      return "codex_binary_unavailable";
-    case "codex_oss_flags":
-      return "codex_oss_flags_unavailable";
+    case "harness_binary":
+      return "harness_binary_unavailable";
+    case "harness_local_model_flags":
+      return "harness_local_model_flags_unavailable";
     case "ollama_provider":
       return "ollama_provider_unavailable";
     case "qwen_model_available":
@@ -300,10 +311,10 @@ function readinessStateForCheck(checkId) {
 
 function nextActionForReadinessState(state, modelName) {
   switch (state) {
-    case "codex_binary_unavailable":
-      return "Install or expose the Codex CLI before attaching this harness session.";
-    case "codex_oss_flags_unavailable":
-      return "Upgrade the Codex CLI to a build that supports OSS local-provider sessions.";
+    case "harness_binary_unavailable":
+      return "Install or expose the selected harness CLI before attaching this harness session.";
+    case "harness_local_model_flags_unavailable":
+      return "Upgrade or configure the selected harness CLI to support the local Ollama model route.";
     case "ollama_provider_unavailable":
       return "Start the Ollama server before attaching this harness session.";
     case "qwen_model_unavailable":

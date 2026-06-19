@@ -73,6 +73,36 @@ function spawnContract() {
   );
 }
 
+function deepseekSpawnContract() {
+  const launch = buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:deepseek-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-deepseek_tui:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:deepseek_tui",
+        harness_launch_route_ref: "harness-route:deepseek-tui/local-model",
+        agent_harness_adapter_id: "deepseek_tui",
+        receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      }),
+      workspace_ref: "workspace:hypervisor-core",
+      terminal_session_ref: "terminal-session:hypervisor-core/deepseek",
+    },
+    { nowIso: () => "2026-06-18T12:31:00.000Z" },
+  );
+  return buildHarnessSessionSpawn(
+    {
+      session_launch: launch,
+      workspace_root: ".",
+    },
+    {
+      baseWorkspaceRoot: "/home/heathledger/Documents/ioi/repos/ioi",
+      env: {},
+      nowIso: () => "2026-06-18T12:36:00.000Z",
+    },
+  );
+}
+
 test("admits Codex OSS Qwen readiness when host commands and model are available", async () => {
   const readiness = await buildHarnessSessionReadiness(
     {
@@ -112,13 +142,13 @@ test("admits Codex OSS Qwen readiness when host commands and model are available
   );
   assert.equal(readiness.spawn_id, spawnContract().spawn_id);
   assert.equal(readiness.model_name, "qwen");
-  assert.equal(readiness.codex_binary, "codex");
+  assert.equal(readiness.harness_binary, "codex");
   assert.equal(readiness.provider_binary, "ollama");
   assert.deepEqual(
     readiness.checks.map((check) => `${check.id}:${check.status}`),
     [
-      "codex_binary:pass",
-      "codex_oss_flags:pass",
+      "harness_binary:pass",
+      "harness_local_model_flags:pass",
       "ollama_provider:pass",
       "qwen_model_available:pass",
     ],
@@ -166,10 +196,55 @@ test("blocks readiness when Ollama is not reachable", async () => {
   assert.deepEqual(
     readiness.checks.map((check) => `${check.id}:${check.status}`),
     [
-      "codex_binary:pass",
-      "codex_oss_flags:pass",
+      "harness_binary:pass",
+      "harness_local_model_flags:pass",
       "ollama_provider:fail",
       "qwen_model_available:fail",
+    ],
+  );
+});
+
+test("admits DeepSeek TUI local Qwen readiness when binary and model are available", async () => {
+  const readiness = await buildHarnessSessionReadiness(
+    {
+      session_spawn: deepseekSpawnContract(),
+    },
+    {
+      runCommand: async (command, args) => {
+        if (command === "deepseek" && args[0] === "--help") {
+          return {
+            status: 0,
+            stdout:
+              "DeepSeek TUI\nOptions:\n  --provider <PROVIDER>\n  --model <MODEL>\n",
+            stderr: "",
+          };
+        }
+        if (command === "ollama" && args[0] === "list") {
+          return {
+            status: 0,
+            stdout: "NAME ID SIZE MODIFIED\nqwen 123 4 GB now\n",
+            stderr: "",
+          };
+        }
+        return { status: 127, stdout: "", stderr: "not found" };
+      },
+    },
+  );
+
+  assert.equal(readiness.decision, "ready");
+  assert.equal(
+    readiness.readiness_state,
+    "ready_for_harness_pty_attach",
+  );
+  assert.equal(readiness.harness_binary, "deepseek");
+  assert.equal(readiness.model_name, "qwen");
+  assert.deepEqual(
+    readiness.checks.map((check) => `${check.id}:${check.status}`),
+    [
+      "harness_binary:pass",
+      "harness_local_model_flags:pass",
+      "ollama_provider:pass",
+      "qwen_model_available:pass",
     ],
   );
 });

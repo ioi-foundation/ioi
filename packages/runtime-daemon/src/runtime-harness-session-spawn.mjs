@@ -128,9 +128,10 @@ function requireLaunch(value) {
       },
     });
   }
+  const supportedBinaryNames = ["codex", "deepseek"];
   if (
     launch.launch_lane !== "host_dev_pty" ||
-    launch.command_contract?.binary_name !== "codex" ||
+    !supportedBinaryNames.includes(launch.command_contract?.binary_name) ||
     launch.command_contract?.requires_pty !== true ||
     launch.command_contract?.secret_release_policy !== "none"
   ) {
@@ -138,7 +139,7 @@ function requireLaunch(value) {
       status: 403,
       code: "harness_session_spawn_contract_unsupported",
       message:
-        "Only secret-free Codex OSS host PTY launch contracts can be spawned in this slice.",
+        "Only secret-free Codex OSS and DeepSeek TUI host PTY launch contracts can be spawned in this slice.",
       details: {
         launch_lane: launch.launch_lane ?? null,
         binary_name: launch.command_contract?.binary_name ?? null,

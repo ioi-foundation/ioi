@@ -276,7 +276,7 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
     adapterReceipt.selection_ref,
     "agent-harness-adapter:deepseek_tui",
   );
-  assert.equal(adapterReceipt.execution_lane, "docker_container");
+  assert.equal(adapterReceipt.execution_lane, "host_dev");
   assert.equal(adapterReceipt.runtimeTruthSource, "daemon-runtime");
   assert.deepEqual(adapterReceipt.agentgres_operation_refs, []);
 
@@ -290,7 +290,7 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
   assert.equal(defaultReceipt.workspace_mount_policy, "ctee_private_workspace");
 });
 
-test("foundry public fixture request only targets container adapters under daemon gates", () => {
+test("foundry public fixture request targets fixture candidates under daemon gates", () => {
   const request = buildHarnessPublicFixtureRunRequest();
 
   assert.equal(
@@ -530,7 +530,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
   );
   assert.equal(
     summary.harness_session_binding.harness_launch_route_ref,
-    "harness-route:deepseek-tui/local-model-container",
+    "harness-route:deepseek-tui/local-model",
   );
 
   const launchedSession = buildHypervisorLaunchedSessionProjection({
@@ -907,7 +907,7 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
             model_mount_contract: {
               provider: "ollama",
               api_format: "openai_compatible",
-              model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+              model_env: "HYPERVISOR_LOCAL_HARNESS_MODEL",
               model_default: "qwen",
               endpoint_refs: harnessAdmission.model_route_endpoint_refs,
               loaded_instance_refs:
@@ -926,7 +926,7 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
                 "--local-provider",
                 "ollama",
                 "--model",
-                "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+                "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
                 "--sandbox",
                 "workspace-write",
                 "--ask-for-approval",
@@ -934,11 +934,11 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
                 "--cd",
                 "${HYPERVISOR_SESSION_WORKSPACE}",
               ],
-              env_policy_ref: "env-policy:harness-session/codex-oss-local-qwen",
+              env_policy_ref: "env-policy:harness-session/local-ollama-qwen",
               secret_release_policy: "none",
               requires_pty: true,
               workspace_env: "HYPERVISOR_SESSION_WORKSPACE",
-              model_env: "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+              model_env: "HYPERVISOR_LOCAL_HARNESS_MODEL",
             },
             authority_scope_refs: harnessAdmission.authority_scope_refs,
             receipt_policy_ref: harnessAdmission.receipt_policy_ref,
@@ -1080,22 +1080,22 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
             model_route_ref: harnessSpawn.model_route_ref,
             model_name: "qwen2.5-coder:7b",
             provider: "ollama",
-            codex_binary: "codex",
+            harness_binary: "codex",
             provider_binary: "ollama",
             available_model_names: ["qwen2.5-coder:7b"],
             checks: [
               {
-                id: "codex_binary",
+                id: "harness_binary",
                 status: "pass",
                 required: true,
-                summary: "Codex binary resolved.",
+                summary: "Harness binary resolved.",
                 evidence_refs: ["host-command:codex:--help"],
               },
               {
-                id: "codex_oss_flags",
+                id: "harness_local_model_flags",
                 status: "pass",
                 required: true,
-                summary: "Codex OSS flags resolved.",
+                summary: "Harness local-model flags resolved.",
                 evidence_refs: ["host-command:codex:oss-flags"],
               },
               {

@@ -1605,7 +1605,7 @@ assert(
       "harness-route:codex-cli/local-model",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
-      "harness-route:deepseek-tui/local-model-container",
+      "harness-route:deepseek-tui/local-model",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
       'workspace_mount_policy: "public_trunk"',
@@ -1690,11 +1690,14 @@ assert(
     runtimeHarnessSessionLaunchSource.includes(
       "host-command:codex-cli/local-ollama-qwen",
     ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "host-command:deepseek-tui/local-ollama-qwen",
+    ) &&
     runtimeHarnessSessionLaunchSource.includes("--oss") &&
     runtimeHarnessSessionLaunchSource.includes("--local-provider") &&
     runtimeHarnessSessionLaunchSource.includes("ollama") &&
     runtimeHarnessSessionLaunchSource.includes(
-      "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+      "HYPERVISOR_LOCAL_HARNESS_MODEL",
     ) &&
     runtimeHarnessSessionLaunchSource.includes(
       "harness_session_launch_model_route_policy_blocked",
@@ -1705,11 +1708,17 @@ assert(
     runtimeHarnessSessionLaunchTestSource.includes(
       "builds a launch-ready Codex OSS contract",
     ) &&
+    runtimeHarnessSessionLaunchTestSource.includes(
+      "builds a launch-ready DeepSeek TUI contract",
+    ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-launches",
     ) &&
     publicRuntimeRoutesTestSource.includes(
       "public runtime routes expose Codex OSS harness session launches",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose DeepSeek TUI local harness session spawn contracts",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
       "requestHarnessSessionLaunch",
@@ -1809,7 +1818,10 @@ assert(
     runtimeHarnessSessionReadinessSource.includes(
       "ready_for_harness_pty_attach",
     ) &&
-    runtimeHarnessSessionReadinessSource.includes("codex_oss_flags") &&
+    runtimeHarnessSessionReadinessSource.includes("harness_binary") &&
+    runtimeHarnessSessionReadinessSource.includes(
+      "harness_local_model_flags",
+    ) &&
     runtimeHarnessSessionReadinessSource.includes("ollama_provider") &&
     runtimeHarnessSessionReadinessSource.includes("qwen_model_available") &&
     runtimeHarnessSessionReadinessTestSource.includes(
