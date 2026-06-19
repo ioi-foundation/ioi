@@ -428,7 +428,7 @@ compliance acronyms for hidden audit material.
   inside a governed autonomous-system chain. It may reason, plan, diagnose,
   route work, and propose upgrades, but consequential transitions must pass the
   deterministic authority boundary.
-- `HypervisorCore`: the shared Hypervisor product/runtime substrate used by
+- `HypervisorCore`: the shared Hypervisor runtime/control substrate used by
   first-class clients and application surfaces. Its execution owner is the
   Hypervisor Daemon. It coordinates sessions, adapter targets, daemon APIs,
   receipts/replay projections, policy admission hooks, wallet.network
@@ -453,6 +453,18 @@ compliance acronyms for hidden audit material.
 - `HypervisorTui`: an optional interactive presentation of the
   HypervisorCliHeadless client. It is not a separate first-class client lane and
   must not maintain hidden runtime controls outside daemon/domain APIs.
+- `HypervisorHome`: the default command and resume surface in the Hypervisor
+  shell. It can start a New Session, resume recent work, surface approvals,
+  route into Projects, Automations, Applications, Sessions, receipts, and
+  replay, or draft a reviewed handoff. It is not a durable automation owner,
+  ioi.ai replacement, or default deploy-as-service funnel.
+- `HypervisorApplications`: the catalog, launcher, and vertical surface layer
+  inside Hypervisor. Applications can expose first-party, organization-built,
+  generated, marketplace, or domain-specific surfaces over Hypervisor Core.
+  Applications may create, inspect, modify, or govern Projects, Automations,
+  Sessions, Workers, Models, Policies, Artifacts, Receipts, provider posture, or
+  other domain objects, but they are not separate runtimes, authority owners, or
+  Agentgres truth sources.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
   such as Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
   Receipts/Audit, or Connectors. Provider/environment posture is a default

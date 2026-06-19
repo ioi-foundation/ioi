@@ -25,6 +25,11 @@ Hypervisor clients
   Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Authority Gateway adapters
   TUI is an optional CLI presentation, not a separate first-class client
 
+Hypervisor product shell
+  Home starts/resumes work; Projects organize persistent software/system work;
+  Automations own durable workflows/services; Applications expose specialized
+  surfaces; Sessions show live and historical execution
+
 Hypervisor application surfaces
   organize the same Core by job-to-be-done
   Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
@@ -47,7 +52,8 @@ Hypervisor sessions/providers/environments
   services, tasks, ports, logs, archive refs, restore refs, costs, and health
 
 Hypervisor Core
-  shared product/runtime substrate whose execution owner is the daemon
+  shared runtime/control substrate whose execution owner is the daemon; it
+  coordinates authority gateways but does not replace wallet.network
 
 Agent harness adapters
   mediate external agent harnesses such as Codex, Claude Code, Grok Build,

@@ -53,27 +53,29 @@ or ontology-aware worker building
   -> components/hypervisor/foundry.md
 ```
 
-Current Hypervisor product-surface addition:
+Current Hypervisor product-shell addition:
 
-> **Hypervisor Core is the shared product/runtime substrate whose execution owner
+> **Hypervisor Core is the shared runtime/control substrate whose execution owner
 > is the Hypervisor Daemon. Hypervisor App, Hypervisor Web, and CLI/headless are
-> first-class clients over Core; TUI is an optional CLI presentation. Hypervisor
-> Workbench, Automations, and Foundry are application surfaces over the same
-> Core. Automations owns the durable workflow/service/mission surface, while
-> Canvas is a visual editor/projection inside Automations, Workbench, or
-> Foundry. ioi.ai is the intent-to-outcome surface; when a goal calls for it,
-> ioi.ai can coordinate multiple models, harnesses, workers, connectors,
-> sessions, branches, and verifier lanes over Hypervisor. Foundry is the model,
-> worker, eval, dataset, simulation-training, endpoint, registry, and
-> ontology-aware package-building surface.
-> Sessions are
-> the primary unit. Providers, environments, services, tasks, ports, logs,
-> archive refs, restore refs, and infrastructure posture are default Hypervisor
-> session/project/provider views. Editor
-> integrations and external agent harnesses such as VS Code, Cursor, Windsurf,
-> JetBrains, Codex, Claude Code, Grok Build, browser IDEs, terminals, VMs,
-> local OS surfaces, and HypervisorOS nodes are adapter targets, not
-> Hypervisor's product identity.**
+> first-class clients over Core; TUI is an optional CLI presentation. The default
+> shell is Home, Projects, Automations, Applications, and Sessions: Home starts
+> or resumes work, Projects organize persistent software/system work,
+> Automations own durable workflows/services, Applications expose specialized
+> surfaces, and Sessions show live and historical execution. Workbench,
+> Automations, and Foundry are application surfaces over the same Core; Canvas
+> is a visual editor/projection inside Automations, Workbench, or Foundry. ioi.ai
+> is the intent-to-outcome surface; when a goal calls for it, ioi.ai can
+> coordinate multiple models, harnesses, workers, connectors, sessions, branches,
+> and verifier lanes over Hypervisor. Foundry is the model, worker, eval,
+> dataset, simulation-training, endpoint, registry, and ontology-aware
+> package-building surface. Providers, environments, services, tasks, ports,
+> logs, archive refs, restore refs, and infrastructure posture are default
+> Hypervisor session/project/provider views. Editor integrations and external
+> agent harnesses such as VS Code, Cursor, Windsurf, JetBrains, Codex, Claude
+> Code, Grok Build, browser IDEs, terminals, VMs, local OS surfaces, and
+> HypervisorOS nodes are adapter targets, not Hypervisor's product identity.
+> Hypervisor Core coordinates authority gateways but does not replace
+> wallet.network authority or Agentgres truth.**
 
 Current Wallet addition:
 

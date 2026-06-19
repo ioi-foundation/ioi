@@ -29,6 +29,17 @@ Many application surfaces.
 Every consequential action governed.
 ```
 
+Product IA doctrine:
+
+```text
+Home starts or resumes work.
+Projects organize persistent software/system work.
+Automations own durable workflows, pipelines, APIs, and services.
+Applications expose specialized vertical and platform surfaces.
+Sessions show live and historical execution.
+Hypervisor Core governs the runtime/control boundary underneath.
+```
+
 Product boundary doctrine:
 
 ```text
@@ -44,7 +55,7 @@ Canvas visually edits automations; it is not runtime truth.
 
 ## Hypervisor Core
 
-**Hypervisor Core** is the shared product/runtime substrate used by Hypervisor
+**Hypervisor Core** is the shared runtime/control substrate used by Hypervisor
 clients and application surfaces.
 
 It is not a new runtime beside the Hypervisor Daemon. The daemon remains the
@@ -100,8 +111,10 @@ Hypervisor
       Receipts / Audit
       Connectors
   -> default session and provider views
+      Home
       Sessions
       Projects
+      Applications
       Providers
       Environments
       Services / Tasks / Ports / Logs / Restore
@@ -144,6 +157,73 @@ cTEE, and provider contracts.
 
 They do not own runtime truth.
 
+## Top-Level Product IA
+
+The default Hypervisor shell should stay small enough that new users can tell
+where work lives:
+
+```text
++ New Session
+
+Home
+Projects
+Automations
+Applications
+Sessions
+
+Pinned Applications
+  Foundry
+  Models
+  Workers
+  Connectors
+  Policies
+  Receipts
+  Monitoring
+```
+
+This is a product-navigation doctrine, not a new ownership graph. The durable
+owners remain the daemon, wallet.network, Agentgres, storage backends, AIIP, and
+IOI L1 as defined by their canonical docs.
+
+Use these product meanings:
+
+```text
+Home
+  default command surface for starting, resuming, approving, or inspecting work
+
+Projects
+  persistent software/system work containers with repos, files, environments,
+  adapter preferences, policy defaults, linked automations, and receipts
+
+Automations
+  durable workflow/service/API/trigger/approval-flow objects
+
+Applications
+  catalog and launcher for specialized surfaces over Hypervisor Core
+
+Sessions
+  live and historical governed execution contexts
+```
+
+Avoid turning platform primitives into permanent top-level nav by default.
+Models, Workers, Connectors, Policies, Receipts, Monitoring, Foundry, and
+similar surfaces should usually live under Applications or appear as pinned
+applications. Power users may pin them; the architecture must not require every
+user to manage the full primitive list.
+
+The compact doctrine:
+
+```text
+Ask in ioi.ai.
+Start or resume work from Home.
+Build software in Projects.
+Build workflows in Automations.
+Open specialized tools in Applications.
+Track execution in Sessions.
+Run consequential work through Hypervisor Core, the daemon, wallet.network,
+Agentgres, and receipt/replay boundaries.
+```
+
 ## Application Surfaces
 
 Application surfaces are major product modes inside one or more first-class
@@ -179,6 +259,94 @@ integrations.
 
 Provider and infrastructure posture is part of Hypervisor's default session,
 project, provider, and environment views.
+
+## Hypervisor Home
+
+**Hypervisor Home** is the default command and resume surface.
+
+Home may accept goal prompts, show recent sessions, surface waiting approvals,
+and route the user into a Project, Automation, Application, Session, receipt, or
+replay. Home is allowed to draft work, but it must not become the durable owner
+of automations, projects, or sessions.
+
+Correct:
+
+```text
+Home starts or resumes governed work.
+Home can ask Hypervisor Core to create a New Session.
+Home can draft an Automation or Foundry job for review.
+```
+
+Avoid:
+
+```text
+Home = durable automation owner
+Home = ioi.ai chat replacement
+Home = default deploy-as-service funnel
+```
+
+## Hypervisor Projects
+
+**Hypervisor Projects** are persistent software/system work containers.
+
+A Project may bind repositories, files, branches, packages, assets,
+environments, adapter preferences, linked automations, sessions, policies,
+secrets scopes, artifacts, receipts, and Agentgres domain links. Workbench is
+the IDE-grade code/systems mode inside or attached to a Project; the Project is
+the durable object.
+
+Project-owned product state is still admitted through the canonical owners:
+daemon/Core for execution semantics, wallet.network for authority and secret
+release, Agentgres for operational truth and restore validity, and storage
+backends for bytes.
+
+Correct:
+
+```text
+Open the Project.
+Use Workbench or an editor adapter to inspect and change it.
+Resume the Project's governed Sessions.
+```
+
+Avoid:
+
+```text
+Project = editor folder with no Agentgres identity
+Workbench = parent product
+editor adapter = project truth
+```
+
+## Hypervisor Applications
+
+**Hypervisor Applications** is the catalog, launcher, and vertical surface layer
+inside Hypervisor.
+
+An Application is a specialized UI/work surface over Hypervisor Core that
+creates, inspects, modifies, or governs Projects, Automations, Sessions,
+Workers, Models, Policies, Artifacts, Receipts, provider posture, or other
+domain objects.
+
+Applications may be first-party, organization-built, generated, marketplace, or
+vertical-specific. They are product surfaces, not separate runtimes or authority
+owners.
+
+Examples:
+
+```text
+Foundry
+Model Garden
+Worker Registry
+Connectors
+Policies
+Receipts
+Monitoring
+Security / Governance
+Provider and environment views
+Domain-specific operations consoles
+```
+
+Applications may contain or manage Automations, Projects, or Sessions, but they
+do not replace those durable object classes.
 
 ## Hypervisor Workbench
 
@@ -853,6 +1021,10 @@ HypervisorClient:
   org_ref: org://... | null
   core_endpoint_ref: hypervisor_core://...
   supported_surfaces:
+    - home
+    - projects
+    - sessions
+    - applications
     - automations
     - workbench
     - foundry
@@ -867,8 +1039,9 @@ HypervisorClient:
 HypervisorSurface:
   surface_id: hypervisor_surface:...
   surface_kind:
-    automations | workbench | foundry | canvas | agents | services |
-    models | ctee_privacy | receipts_audit | connectors
+    home | projects | automations | applications | sessions | workbench |
+    foundry | canvas | agents | services | models | ctee_privacy |
+    receipts_audit | connectors
   client_ref: hypervisor_client:...
   session_refs:
     - hypervisor_session:...
