@@ -75,6 +75,12 @@ type NewSessionModalSeed =
     }
   | null
   | undefined;
+export interface HypervisorReceiptEvidenceTarget {
+  source: "project" | "session" | "artifact" | "agent";
+  projectId?: string | null;
+  sessionRef?: string | null;
+  receiptRef?: string | null;
+}
 const appliedHypervisorLaunchIds = new Set<string>();
 
 const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
@@ -304,6 +310,8 @@ export function useHypervisorShellController() {
     useState<SettingsSection | null>(resolveInitialSettingsSectionSeed);
   const [workflowPreflightSeed, setWorkflowPreflightSeed] =
     useState<WorkflowComposerPreflightSeed | null>(null);
+  const [receiptEvidenceTarget, setReceiptEvidenceTarget] =
+    useState<HypervisorReceiptEvidenceTarget | null>(null);
 
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
@@ -502,6 +510,10 @@ export function useHypervisorShellController() {
           });
           return;
         case "artifact":
+          setReceiptEvidenceTarget({
+            source: "artifact",
+            receiptRef: pendingRequest.artifactId,
+          });
           setActiveView("receipts");
           await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
@@ -824,7 +836,18 @@ export function useHypervisorShellController() {
   }, [shieldPolicy, shieldPolicyHydrated]);
 
   const changePrimaryView = (view: PrimaryView) => {
+    if (view !== "receipts") {
+      setReceiptEvidenceTarget(null);
+    }
     setActiveView(view);
+  };
+
+  const openReceiptEvidenceTarget = (target: HypervisorReceiptEvidenceTarget) => {
+    if (target.projectId) {
+      setCurrentProjectId(target.projectId);
+    }
+    setReceiptEvidenceTarget(target);
+    setActiveView("receipts");
   };
 
   const openSettingsSection = (section: SettingsSection | null = null) => {
@@ -922,6 +945,11 @@ export function useHypervisorShellController() {
     },
     sessions: {
       launchedSessionProjections,
+    },
+    receipts: {
+      target: receiptEvidenceTarget,
+      openTarget: openReceiptEvidenceTarget,
+      clearTarget: () => setReceiptEvidenceTarget(null),
     },
     policy: {
       shieldPolicy,

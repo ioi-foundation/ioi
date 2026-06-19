@@ -1226,8 +1226,9 @@ Current implementation cut:
   `/v1/hypervisor/project-operations` using
   `runtime.lifecycle_operation.hypervisor_project_operation_proposal`; approved
   project operations are admitted only through the wallet.network lease,
-  Agentgres operation, receipt, archive, restore, and state-root gate. Remaining
-  work is paginated project receipt history and real adapter execution after
+  Agentgres operation, receipt, archive, restore, and state-root gate. Shared
+  receipt evidence pagination and project/session receipt handoff now close the
+  project receipt-history gap. Remaining work is real adapter execution after
   approved admission.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
@@ -1543,8 +1544,11 @@ Current implementation cut:
   `/v1/hypervisor/receipt-evidence` and returns projection-owned
   `page_cursor`, `next_page_cursor`, `page_size`, and `has_more` metadata;
   clients may request daemon cursors but must not synthesize receipt history.
-  Remaining work is project/session deep-link wiring into filtered receipt
-  views, not a separate client-side receipt archive.
+  Project and session surfaces now hand off selected project/session/receipt
+  targets to the shared Receipts surface, which marks the target in data
+  attributes and requests daemon evidence using those refs. This closes the
+  project/session receipt-history gap without adding a separate client-side
+  receipt archive.
 
 0A.8/0A.9 first Privacy/cTEE admission posture surface is implemented:
   `hypervisorPrivacyPostureModel.ts` defines

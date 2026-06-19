@@ -9,7 +9,10 @@ import {
 } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
-import { useHypervisorShellController } from "../useHypervisorShellController";
+import {
+  useHypervisorShellController,
+  type HypervisorReceiptEvidenceTarget,
+} from "../useHypervisorShellController";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "../hypervisorDaemonEndpoint";
@@ -1503,7 +1506,11 @@ function PortEmptyIcon() {
   );
 }
 
-function HypervisorSessionOperationsCockpit() {
+function HypervisorSessionOperationsCockpit({
+  onOpenReceiptEvidence,
+}: {
+  onOpenReceiptEvidence: (target: HypervisorReceiptEvidenceTarget) => void;
+}) {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
@@ -1617,6 +1624,21 @@ function HypervisorSessionOperationsCockpit() {
               <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
                 <ChevronDownIcon />
               </span>
+            </button>
+            <button
+              type="button"
+              aria-label={`Open receipts for ${projection.selected_session_ref}`}
+              data-session-open-receipts={projection.latest_receipt_refs[0] ?? ""}
+              data-session-open-receipts-session={projection.selected_session_ref}
+              onClick={() =>
+                onOpenReceiptEvidence({
+                  source: "session",
+                  sessionRef: projection.selected_session_ref,
+                  receiptRef: projection.latest_receipt_refs[0] ?? null,
+                })
+              }
+            >
+              Receipts
             </button>
           </div>
         </header>
@@ -2063,8 +2085,10 @@ function HypervisorSessionOperationsCockpit() {
 
 function HypervisorProjectStateSurface({
   selectedProjectId,
+  onOpenReceiptEvidence,
 }: {
   selectedProjectId: string;
+  onOpenReceiptEvidence: (target: HypervisorReceiptEvidenceTarget) => void;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
@@ -2290,6 +2314,29 @@ function HypervisorProjectStateSurface({
                     }}
                   >
                     Restore
+                  </button>
+                  <button
+                    type="button"
+                    data-project-open-receipts={
+                      selectedProject.latest_receipt_refs[0] ?? ""
+                    }
+                    data-project-open-receipts-project={
+                      selectedProject.project_id
+                    }
+                    data-project-open-receipts-session={
+                      selectedProject.current_session_ref
+                    }
+                    onClick={() =>
+                      onOpenReceiptEvidence({
+                        source: "project",
+                        projectId: selectedProject.project_id,
+                        sessionRef: selectedProject.current_session_ref,
+                        receiptRef:
+                          selectedProject.latest_receipt_refs[0] ?? null,
+                      })
+                    }
+                  >
+                    View receipts
                   </button>
                 </div>
               ) : null}
@@ -2549,8 +2596,10 @@ function HypervisorEnvironmentEstateSurface({
 
 function HypervisorReceiptEvidenceSurface({
   currentProjectId,
+  target,
 }: {
   currentProjectId: string;
+  target: HypervisorReceiptEvidenceTarget | null;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
@@ -2569,6 +2618,10 @@ function HypervisorReceiptEvidenceSurface({
   );
 
   useEffect(() => {
+    setReceiptPageCursor(null);
+  }, [target?.projectId, target?.receiptRef, target?.sessionRef, target?.source]);
+
+  useEffect(() => {
     if (
       !shouldAttemptHypervisorDaemonProjectionFetch(
         HYPERVISOR_RECEIPT_EVIDENCE_DAEMON_ENDPOINT_STORAGE_KEY,
@@ -2578,15 +2631,17 @@ function HypervisorReceiptEvidenceSurface({
     }
     let cancelled = false;
     loadHypervisorReceiptEvidenceProjection({
-      projectId: currentProjectId,
-      sessionRef: HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.selected_session_ref,
+      projectId: target?.projectId ?? currentProjectId,
+      sessionRef:
+        target?.sessionRef ??
+        HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.selected_session_ref,
       pageCursor: receiptPageCursor,
       pageSize: 25,
     })
       .then((nextProjection) => {
         if (!cancelled) {
           setProjection(nextProjection);
-          setSelectedReceiptRef(null);
+          setSelectedReceiptRef(target?.receiptRef ?? null);
         }
       })
       .catch((error) => {
@@ -2598,7 +2653,14 @@ function HypervisorReceiptEvidenceSurface({
     return () => {
       cancelled = true;
     };
-  }, [currentProjectId, receiptPageCursor]);
+  }, [
+    currentProjectId,
+    receiptPageCursor,
+    target?.projectId,
+    target?.receiptRef,
+    target?.sessionRef,
+    target?.source,
+  ]);
 
   const kindOptions = useMemo(
     () => Array.from(new Set(projection.records.map((record) => record.kind))),
@@ -2638,6 +2700,10 @@ function HypervisorReceiptEvidenceSurface({
       data-receipt-evidence-next-page-cursor={projection.next_page_cursor ?? ""}
       data-receipt-evidence-page-size={projection.page_size}
       data-receipt-evidence-has-more={projection.has_more ? "true" : "false"}
+      data-receipt-evidence-target-source={target?.source ?? ""}
+      data-receipt-evidence-target-project={target?.projectId ?? currentProjectId}
+      data-receipt-evidence-target-session={target?.sessionRef ?? ""}
+      data-receipt-evidence-target-ref={target?.receiptRef ?? ""}
     >
       <div className="hypervisor-receipt-evidence__header">
         <span>Receipts</span>
@@ -3444,12 +3510,15 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "sessions" ? (
-                    <HypervisorSessionOperationsCockpit />
+                    <HypervisorSessionOperationsCockpit
+                      onOpenReceiptEvidence={controller.receipts.openTarget}
+                    />
                   ) : null}
 
                   {activeView === "projects" ? (
                     <HypervisorProjectStateSurface
                       selectedProjectId={currentProject.id}
+                      onOpenReceiptEvidence={controller.receipts.openTarget}
                     />
                   ) : null}
 
@@ -3505,6 +3574,7 @@ export function HypervisorShellContent({
                   {activeView === "receipts" ? (
                     <HypervisorReceiptEvidenceSurface
                       currentProjectId={currentProject.id}
+                      target={controller.receipts.target}
                     />
                   ) : null}
 

@@ -626,6 +626,9 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-hypervisor-session-operations/);
   assert.match(shellContent, /data-session-operations-source/);
   assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /onOpenReceiptEvidence/);
+  assert.match(shellContent, /data-session-open-receipts/);
+  assert.match(shellContent, /data-session-open-receipts-session/);
   assert.match(shellContent, /HYPERVISOR_SESSION_WORKSPACE_MODES/);
   assert.match(shellContent, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
   assert.match(
@@ -744,6 +747,9 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /data-project-archive-ref/);
   assert.match(shellContent, /data-project-restore-ref/);
   assert.match(shellContent, /data-project-operation-kind/);
+  assert.match(shellContent, /data-project-open-receipts/);
+  assert.match(shellContent, /data-project-open-receipts-project/);
+  assert.match(shellContent, /data-project-open-receipts-session/);
   assert.match(shellContent, /data-project-operation-proposal/);
   assert.match(shellContent, /data-project-operation-proposal-source/);
   assert.match(shellContent, /data-project-operation-admission-state/);
@@ -759,6 +765,7 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /className="hypervisor-project-state__inspector"/);
   assert.match(shellContent, /aria-label="Selected project restore context"/);
   assert.match(shellContent, /Agentgres owns project truth/);
+  assert.match(controller, /openReceiptEvidenceTarget/);
   assert.match(shellContent, /activeView === "projects"/);
 });
 
@@ -1153,6 +1160,10 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /data-receipt-evidence-next-page-cursor/);
   assert.match(shellContent, /data-receipt-evidence-next-page/);
   assert.match(shellContent, /data-receipt-evidence-has-more/);
+  assert.match(shellContent, /data-receipt-evidence-target-source/);
+  assert.match(shellContent, /data-receipt-evidence-target-project/);
+  assert.match(shellContent, /data-receipt-evidence-target-session/);
+  assert.match(shellContent, /data-receipt-evidence-target-ref/);
   assert.match(shellContent, /data-receipt-evidence-detail/);
   assert.match(shellContent, /data-receipt-evidence-replay-ref/);
   assert.match(shellContent, /data-receipt-evidence-review/);

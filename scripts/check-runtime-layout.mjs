@@ -2922,6 +2922,18 @@ assert(
       "data-receipt-evidence-next-page",
     ) &&
     hypervisorShellContentSource.includes("data-receipt-evidence-has-more") &&
+    hypervisorShellContentSource.includes("data-project-open-receipts") &&
+    hypervisorShellContentSource.includes("data-session-open-receipts") &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-target-source",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-target-project",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-receipt-evidence-target-session",
+    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-target-ref") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-detail") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-replay-ref") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-review") &&
