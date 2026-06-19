@@ -188,11 +188,6 @@
   background: #1e1e1e;
 }
 
-.hypervisor-shell--workspace-mode .hypervisor-client-header {
-  border-bottom: 1px solid #2b2b2b;
-  background: #181818;
-}
-
 .hypervisor-workspace--workspace-mode {
   background: #1e1e1e;
 }
@@ -381,7 +376,6 @@
 
 .hypervisor-activity-button:focus-visible,
 .hypervisor-activity-collapse-button:focus-visible,
-.hypervisor-client-window-button:focus-visible,
 .hypervisor-client-project-select select:focus-visible {
   outline: 1px solid var(--chat-border-strong);
   outline-offset: -1px;
@@ -594,62 +588,6 @@
 .hypervisor-activity-bar.is-collapsed .hypervisor-activity-button-badge {
   top: 8px;
   left: 27px;
-}
-
-.hypervisor-client-header {
-  position: relative;
-  min-height: 35px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 8px;
-  background: #181818;
-  border-bottom: 1px solid #2b2b2b;
-}
-
-.hypervisor-client-drag-surface {
-  min-width: 48px;
-  align-self: stretch;
-  flex: 1 1 auto;
-  cursor: grab;
-}
-
-.hypervisor-client-window-controls {
-  position: relative;
-  z-index: 3;
-  display: inline-flex;
-  align-items: stretch;
-  align-self: stretch;
-  margin-left: auto;
-  margin-right: -8px;
-  -webkit-app-region: no-drag;
-}
-
-.hypervisor-client-window-button {
-  width: 42px;
-  height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--chat-text-secondary);
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.hypervisor-client-window-button:hover {
-  background: var(--chat-bg-hover);
-  color: var(--chat-text);
-}
-
-.hypervisor-client-window-button--close:hover {
-  background: var(--chat-error);
-  color: var(--button-primary-text);
 }
 
 .hypervisor-client-project-select {
@@ -5391,11 +5329,6 @@
 .hypervisor-workspace,
 .hypervisor-main--workspace-mode {
   background: #ffffff;
-}
-
-.hypervisor-shell--workspace-mode .hypervisor-client-header,
-.hypervisor-client-header {
-  display: none;
 }
 
 .hypervisor-activity-bar {

@@ -207,10 +207,6 @@
   .hypervisor-shell-inspector {
     display: none;
   }
-
-  .hypervisor-client-header {
-    gap: 10px;
-  }
 }
 
 @media (max-width: 1180px) {
@@ -226,19 +222,6 @@
 
   .operator-chat-pane-shell {
     width: 320px;
-  }
-
-  .hypervisor-client-header {
-    gap: 10px;
-    padding: 10px 12px;
-  }
-
-  .hypervisor-client-window-controls {
-    margin-right: -12px;
-  }
-
-  .hypervisor-client-window-button {
-    width: 40px;
   }
 
 }

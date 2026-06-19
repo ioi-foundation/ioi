@@ -362,17 +362,3 @@ button:focus-visible {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
-
-/* Draggable regions */
-[data-host-drag-region] {
-  -webkit-app-region: drag;
-}
-
-[data-host-drag-region] button,
-[data-host-drag-region] input,
-[data-host-drag-region] select,
-[data-host-drag-region] textarea,
-[data-host-drag-region] a,
-[data-host-drag-region] [role="button"] {
-  -webkit-app-region: no-drag;
-}

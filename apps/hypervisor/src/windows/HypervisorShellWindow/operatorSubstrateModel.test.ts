@@ -254,10 +254,6 @@ test("Hypervisor command palette anchors to the left-rail quick switcher", () =>
 });
 
 test("controlled substrate surfaces expose inspection target attributes", () => {
-  const chatHeader = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
-    "utf8",
-  );
   const activityRail = readFileSync(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     "utf8",
@@ -283,8 +279,6 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
     "utf8",
   );
 
-  assert.doesNotMatch(chatHeader, /data-inspection-target="operator-command-center"/);
-  assert.doesNotMatch(chatHeader, /data-operator-command-center/);
   assert.match(activityRail, /data-hypervisor-quick-switcher-anchor=/);
   assert.match(activityRail, /data-inspection-target="operator-activity-rail"/);
   assert.match(workspaceRail, /data-inspection-target="workspace-rail"/);

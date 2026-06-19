@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const activityBar = readFileSync(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
-  "utf8",
-);
-const hypervisorClientHeader = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
   "utf8",
 );
 const shellBaseCss = readFileSync(
@@ -82,14 +78,20 @@ test("reference rail exposes new session and session context shortcut pills", ()
   assert.match(activityBar, /className="hypervisor-activity-button-shortcut"/);
 });
 
-test("old client header leading block is removed so the rail is the single sidebar identity", () => {
-  assert.doesNotMatch(hypervisorClientHeader, /hypervisor-client-leading/);
-  assert.doesNotMatch(hypervisorClientHeader, /hypervisor-client-brand/);
-  assert.doesNotMatch(shellBaseCss, /\.hypervisor-client-leading/);
-  assert.doesNotMatch(shellBaseCss, /\.hypervisor-client-brand/);
-  assert.match(
-    hypervisorClientHeader,
-    /className="hypervisor-client-drag-surface"[\s\S]*data-host-drag-region/,
+test("old client header is absent so the rail is the single sidebar identity", () => {
+  assert.equal(
+    existsSync(
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
+    ),
+    false,
+  );
+  assert.doesNotMatch(
+    shellBaseCss,
+    /\.hypervisor-client-(?:header|drag-surface|window-)/,
+  );
+  assert.doesNotMatch(
+    traceAndWelcomeCss,
+    /\.hypervisor-client-(?:header|drag-surface|window-)/,
   );
 });
 

@@ -22,7 +22,6 @@ import { AuthoritySettingsSurfaceView } from "../../../surfaces/Authority";
 import { AutomationsWorkflowComposerView } from "../../../surfaces/Automations";
 import { RuntimeInsightsView } from "../../../surfaces/Insights";
 import { ModelMountsSurfaceView } from "../../../surfaces/Models";
-import { HypervisorClientHeader } from "./HypervisorClientHeader";
 import { HomeView } from "../../../surfaces/Home";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
 import { getDefaultWorkspaceSessionHost } from "../../../services/workspaceSessionHostRegistry";
@@ -3076,8 +3075,6 @@ export function HypervisorShellContent({
         workspaceActive && "hypervisor-shell--workspace-mode",
       )}
     >
-      <HypervisorClientHeader activeView={activeView} />
-
       <div
         className={clsx(
           "hypervisor-workspace",

@@ -34,10 +34,6 @@ const shellWindow = readFileSync(
   new URL("./index.tsx", import.meta.url),
   "utf8",
 );
-const header = readFileSync(
-  new URL("./components/HypervisorClientHeader.tsx", import.meta.url),
-  "utf8",
-);
 const shellContent = readFileSync(
   new URL("./components/HypervisorShellContent.tsx", import.meta.url),
   "utf8",
@@ -372,8 +368,8 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
     /aria-label="Governance and infrastructure"/,
   );
   assert.match(activityBar, /data-route-state=\{item\.routeState\}/);
-  assert.match(header, /`Hypervisor .*?\$\{windowSurfaceTitle/s);
-  assert.doesNotMatch(header, /Autopilot Chat/);
+  assert.doesNotMatch(shellContent, /HypervisorClientHeader/);
+  assert.doesNotMatch(shellContent, /hypervisor-client-header/);
 });
 
 test("new session modal is a shell-level governed launch flow", () => {

@@ -993,7 +993,9 @@ Current implementation cut:
     watch configuration
 
 0A.1B is partially implemented:
-  HypervisorClientHeader owns the current client header contract.
+  The retired HypervisorClientHeader/top-chrome component is deleted; the
+  IOI-reference activity rail is the single product shell identity, and native
+  window/host concerns remain below the product chrome.
   Code editor adapters publish context envelopes only; Hypervisor
     Home/Sessions/Projects owns product controls.
   companion/work-graph shell entry points now route to the canonical `process`

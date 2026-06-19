@@ -350,7 +350,6 @@ const hypervisorClientNamespaceSources = [
   "apps/hypervisor/src/services/workspaceShellState.ts",
   "apps/hypervisor/src/services/hypervisorLaunchState.ts",
   "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
   "packages/workspace-substrate/src/codeOss.ts",
   "packages/workspace-substrate/src/notebook.ts",
@@ -590,6 +589,18 @@ assert(
     ),
   ["apps/hypervisor/src/services/HypervisorClientRuntime.ts"],
   "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
+);
+assert(
+  "hypervisor-retired-client-header-absent",
+  !exists(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
+  ) &&
+    !exists("apps/hypervisor/src/windows/shared/hostWindowDrag.ts"),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
+    "apps/hypervisor/src/windows/shared/hostWindowDrag.ts",
+  ],
+  "Hypervisor shell must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail.",
 );
 assert(
   "hypervisor-dev-start-probe-no-dual-product-log-prefix",

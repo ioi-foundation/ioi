@@ -1421,12 +1421,6 @@
   background: var(--chat-bg);
 }
 
-:root[data-hypervisor-theme^="light"] .hypervisor-client-header {
-  background: #f3f3f3;
-  border-color: #e5e5e5;
-  color: #424242;
-}
-
 :root[data-hypervisor-theme^="light"] .hypervisor-activity-bar {
   --hypervisor-activity-bg: #ffffff;
   --hypervisor-activity-border: #e5e7eb;
@@ -1439,10 +1433,6 @@
   --hypervisor-activity-active-hover-bg: #e8e8e8;
   --hypervisor-activity-avatar-bg: #155cff;
   --hypervisor-activity-avatar-text: #ffffff;
-}
-
-:root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {
-  color: #424242;
 }
 
 .hypervisor-surface-view {
