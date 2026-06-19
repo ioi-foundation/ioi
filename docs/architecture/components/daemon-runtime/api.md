@@ -933,6 +933,66 @@ adapter targets, AgentHarnessAdapters, and truth owners from collapsing back
 into editor-host or Fleet-era product language.
 
 ```http
+POST /v1/hypervisor/session-launch-recipe-admissions
+```
+
+`POST /v1/hypervisor/session-launch-recipe-admissions` admits a selected
+Hypervisor New Session recipe before the client may request harness binding or
+spawn. The recipe admission binds the selected recipe, target binding, project,
+surface route, model route, privacy posture, authority scopes, receipt preview,
+Agentgres operation refs, and state-root intent under daemon runtime truth.
+
+Request body:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+  "recipe": {
+    "schema_version": "ioi.hypervisor.session_launch_recipe.v1",
+    "recipe_id": "workbench.default",
+    "kind": "workbench",
+    "surface_id": "workbench",
+    "required_inputs": ["project", "adapter_preference", "harness"],
+    "model_mount_policy": "inherit",
+    "harness_profile_policy": "select",
+    "authority_scope_templates": ["scope:workspace.read"],
+    "privacy_posture_templates": ["public_trunk", "redacted_projection"]
+  },
+  "target_binding": {
+    "schema_version": "ioi.hypervisor.new_session_target_binding.v1",
+    "target_binding_ref": "target-binding:new-session/workbench.default/ioi",
+    "recipe_ref": "workbench.default",
+    "target_kind": "workbench",
+    "surface_id": "workbench",
+    "project_ref": "project:ioi",
+    "session_route_ref": "session-route:workbench/workbench.default/ioi",
+    "code_editor_adapter_target_ref": "code-editor-target:vscode",
+    "runtimeTruthSource": "daemon-runtime"
+  },
+  "model_route_ref": "model-route:hypervisor/default-local",
+  "privacy_posture_ref": "privacy:redacted-projection",
+  "authority_scope_refs": ["scope:workspace.read", "scope:workspace.patch"],
+  "receipt_preview_ref": "receipt-preview:new-session/workbench",
+  "expected_receipt_refs": [
+    "receipt-preview:new-session/workbench",
+    "receipt-policy:harness-adapter/default"
+  ],
+  "agentgres_operation_refs": [
+    "agentgres://operation/hypervisor/session-launch-recipe/workbench"
+  ],
+  "receipt_refs": ["receipt://hypervisor/session-launch-recipe/workbench"],
+  "requires_daemon_gate": true,
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+The response is an
+`ioi.runtime.hypervisor_session_launch_recipe_admission.v1` object. A launched
+session must not be considered `daemon_admitted` unless it carries this recipe
+admission, followed by harness binding admission, harness launch, spawn, and
+readiness records.
+
+```http
 POST /v1/hypervisor/approved-operations
 ```
 

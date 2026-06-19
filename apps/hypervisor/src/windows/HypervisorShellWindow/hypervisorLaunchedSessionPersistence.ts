@@ -1,6 +1,7 @@
 import {
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchSummary,
+  type HypervisorSessionLaunchRecipeAdmissionRecord,
   type HypervisorSessionLaunchRecipe,
   type HypervisorSurfaceId,
 } from "./hypervisorShellNavigationModel.ts";
@@ -45,7 +46,9 @@ const RECIPE_KINDS = new Set<HypervisorSessionLaunchRecipe["kind"]>([
   "privacy_workspace",
 ]);
 
-const ADMISSION_STATES = new Set<HypervisorLaunchedSessionProjection["admission_state"]>([
+const ADMISSION_STATES = new Set<
+  HypervisorLaunchedSessionProjection["admission_state"]
+>([
   "daemon_admitted",
   "daemon_blocked",
   "daemon_unavailable",
@@ -131,6 +134,46 @@ function normalizeHarnessSessionBinding(
   }
 
   return record as unknown as HypervisorHarnessSessionBinding;
+}
+
+function normalizeSessionLaunchRecipeAdmission(
+  value: unknown,
+  launchSummary: HypervisorNewSessionLaunchSummary,
+): HypervisorSessionLaunchRecipeAdmissionRecord | null {
+  const record = recordValue(value);
+  if (!record || record.runtimeTruthSource !== "daemon-runtime") {
+    return null;
+  }
+  const schemaVersion = stringValue(record.schema_version);
+  const admissionId = stringValue(record.admission_id);
+  const recipeRef = stringValue(record.recipe_ref);
+  const targetBindingRef = stringValue(record.target_binding_ref);
+  const sessionRouteRef = stringValue(record.session_route_ref);
+  const decision = stringValue(record.decision);
+  if (
+    !admissionId ||
+    recipeRef !== launchSummary.recipe_ref ||
+    targetBindingRef !== launchSummary.target_binding_ref ||
+    sessionRouteRef !== launchSummary.target_binding.session_route_ref ||
+    !decision
+  ) {
+    return null;
+  }
+  if (
+    schemaVersion ===
+      "ioi.runtime.hypervisor_session_launch_recipe_admission.v1" &&
+    decision === "admitted"
+  ) {
+    return record as unknown as HypervisorSessionLaunchRecipeAdmissionRecord;
+  }
+  if (
+    schemaVersion ===
+      "ioi.hypervisor.session_launch_recipe_admission_failure.v1" &&
+    (decision === "blocked" || decision === "daemon_unavailable")
+  ) {
+    return record as unknown as HypervisorSessionLaunchRecipeAdmissionRecord;
+  }
+  return null;
 }
 
 function normalizeHarnessSessionBindingAdmission(
@@ -295,6 +338,15 @@ export function normalizeHypervisorLaunchedSessionProjection(
   const recipeKind = stringValue(record.recipe_kind);
   const surfaceId = stringValue(record.surface_id);
   const launchSummary = normalizeLaunchSummary(record.launch_summary);
+  const sessionLaunchRecipeAdmission = launchSummary
+    ? normalizeSessionLaunchRecipeAdmission(
+        record.session_launch_recipe_admission,
+        launchSummary,
+      )
+    : null;
+  const sessionLaunchRecipeAdmissionRef = nullableStringValue(
+    record.session_launch_recipe_admission_ref,
+  );
   const harnessSessionBinding = normalizeHarnessSessionBinding(
     record.harness_session_binding,
   );
@@ -352,6 +404,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
     !surfaceId ||
     !SURFACE_IDS.has(surfaceId as HypervisorSurfaceId) ||
     !launchSummary ||
+    !sessionLaunchRecipeAdmission ||
+    sessionLaunchRecipeAdmissionRef !==
+      sessionLaunchRecipeAdmission.admission_id ||
     !harnessSessionBinding ||
     harnessSessionBindingRef !== harnessSessionBinding.session_binding_ref ||
     !harnessSessionBindingAdmission ||
@@ -392,6 +447,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
     code_editor_adapter_admission_ref: nullableStringValue(
       record.code_editor_adapter_admission_ref,
     ),
+    session_launch_recipe_admission: sessionLaunchRecipeAdmission,
+    session_launch_recipe_admission_ref:
+      sessionLaunchRecipeAdmission.admission_id,
     harness_session_binding_ref: harnessSessionBinding.session_binding_ref,
     harness_session_binding: harnessSessionBinding,
     harness_session_binding_admission: harnessSessionBindingAdmission,

@@ -488,11 +488,17 @@ AgentHarnessAdapterProfile
     receipt policy
 ```
 
-The New Session flow should expose the selected harness beside the selected
-model route, privacy posture, authority scope, and receipt preview. External
-harnesses must not silently fall back from a local/private model route to a
-provider-trust model route; provider-trust or adapter-native routes are explicit
-privacy posture states.
+The New Session flow should expose the selected launch recipe and selected
+harness beside the selected model route, privacy posture, authority scope, and
+receipt preview. The recipe is not launchable until Hypervisor Core asks the
+daemon to admit it as a `HypervisorSessionLaunchRecipeAdmission`. That
+admission binds recipe, target binding, project, session route, model route,
+privacy posture, authority scopes, receipt refs, Agentgres operation refs, and
+state root before any harness binding can be requested.
+
+External harnesses must not silently fall back from a local/private model route
+to a provider-trust model route; provider-trust or adapter-native routes are
+explicit privacy posture states.
 
 The launch result must include a `HarnessSessionBinding`:
 
@@ -514,12 +520,13 @@ HarnessSessionBinding
   requires_daemon_gate: true
 ```
 
-The binding is not sufficient by itself. Hypervisor Core must request a
-daemon-side `HarnessSessionBindingAdmission`, then a `HarnessSessionLaunch`,
-then a `HarnessSessionSpawn` before a launched session may be reported as
-`daemon_admitted`. The admission is the local-first harness gate: it can admit
-Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI over the
-local OpenAI-compatible Codex OSS / Qwen model route without provider API
+The binding is not sufficient by itself. Hypervisor Core must first request a
+daemon-side `HypervisorSessionLaunchRecipeAdmission`, then a
+`HarnessSessionBindingAdmission`, then a `HarnessSessionLaunch`, then a
+`HarnessSessionSpawn` before a launched session may be reported as
+`daemon_admitted`. The admission chain is the local-first harness gate: it can
+admit Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI over
+the local OpenAI-compatible Codex OSS / Qwen model route without provider API
 authentication, while blocking provider-trust shortcuts, external harness cTEE
 custody claims, missing local model endpoints/instances, and any harness
 runtime-truth claim.

@@ -2565,6 +2565,94 @@ test("public runtime routes expose code editor adapter launch plan admissions", 
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
 
+test("public runtime routes expose Hypervisor session launch recipe admissions", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/session-launch-recipe-admissions",
+      body: {
+        schema_version:
+          "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+        recipe: {
+          schema_version: "ioi.hypervisor.session_launch_recipe.v1",
+          recipe_id: "workbench.default",
+          label: "Workbench",
+          description:
+            "Governed code/systems session that opens the selected code editor adapter.",
+          kind: "workbench",
+          surface_id: "workbench",
+          required_inputs: [
+            "project",
+            "adapter_preference",
+            "harness",
+            "model_route",
+            "privacy_posture",
+          ],
+          model_mount_policy: "inherit",
+          harness_profile_policy: "select",
+          authority_scope_templates: [
+            "scope:workspace.read",
+            "scope:workspace.patch",
+          ],
+          privacy_posture_templates: ["public_trunk", "redacted_projection"],
+        },
+        target_binding: {
+          schema_version: "ioi.hypervisor.new_session_target_binding.v1",
+          target_binding_ref: "target-binding:new-session/workbench.default/ioi",
+          recipe_ref: "workbench.default",
+          target_kind: "workbench",
+          surface_id: "workbench",
+          project_ref: "project:ioi",
+          operator_intent_ref:
+            "target-binding:new-session/workbench.default/ioi/operator-intent",
+          session_route_ref: "session-route:workbench/workbench.default/ioi",
+          code_editor_adapter_target_ref: "code-editor-target:vscode",
+          automation_recipe_ref: null,
+          agent_template_ref: null,
+          foundry_job_ref: null,
+          provider_candidate_ref: null,
+          environment_ref: null,
+          private_workspace_ref: null,
+          runtimeTruthSource: "daemon-runtime",
+        },
+        model_route_ref: "model-route:hypervisor/default-local",
+        privacy_posture_ref: "privacy:redacted-projection",
+        authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+        receipt_preview_ref: "receipt-preview:new-session/workbench",
+        expected_receipt_refs: [
+          "receipt-preview:new-session/workbench",
+          "receipt-policy:harness-adapter/default",
+        ],
+        agentgres_operation_refs: [
+          "agentgres://operation/hypervisor/session-launch-recipe/workbench",
+        ],
+        receipt_refs: ["receipt://hypervisor/session-launch-recipe/workbench"],
+        requires_daemon_gate: true,
+        runtimeTruthSource: "daemon-runtime",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+  );
+  assert.equal(payload.decision, "admitted");
+  assert.equal(payload.admission_state, "admitted_for_session_binding");
+  assert.equal(payload.recipe_ref, "workbench.default");
+  assert.equal(payload.target_binding_ref, "target-binding:new-session/workbench.default/ioi");
+  assert.equal(payload.session_route_ref, "session-route:workbench/workbench.default/ioi");
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
 test("public runtime routes expose harness session binding admissions", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

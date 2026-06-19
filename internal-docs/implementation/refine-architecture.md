@@ -459,7 +459,7 @@ Blocking object/API/schema gaps:
 ```text
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
-HypervisorSessionLaunchRecipe live daemon admission and execution
+HypervisorSessionLaunchRecipe product drill-in and PTY polish
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
@@ -2191,17 +2191,25 @@ Current implementation cut:
   `ioi.hypervisor.new_session_launch_summary.v1` object binding recipe,
   project, code editor adapter target/custody, harness selection/kind/truth
   boundary, harness verdict, model-route availability, privacy posture,
-  authority scopes, receipt preview, and daemon-gate requirement. It now also
-  emits `ioi.hypervisor.harness_session_binding.v1`, which binds session route,
+  authority scopes, receipt preview, and daemon-gate requirement. The app now
+  first posts `ioi.hypervisor.session_launch_recipe_admission_request.v1` to
+  `/v1/hypervisor/session-launch-recipe-admissions`; the daemon returns
+  `ioi.runtime.hypervisor_session_launch_recipe_admission.v1`, binding the
+  selected recipe, target binding, project, session route, model route, privacy
+  posture, authority scopes, receipt preview, Agentgres operation refs, and
+  state root before any harness binding may proceed. It now also emits
+  `ioi.hypervisor.harness_session_binding.v1`, which binds session route,
   selected harness, harness launch route, model configuration, route policy,
   workspace mount policy, privacy posture, authority scopes, receipt policy,
-  expected receipt refs, and example root where applicable. That binding is now
-  posted to `/v1/hypervisor/harness-session-binding-admissions`; the daemon
+  expected receipt refs, and example root where applicable. After recipe
+  admission, that binding is posted to
+  `/v1/hypervisor/harness-session-binding-admissions`; the daemon
   returns `ioi.runtime.harness_session_binding_admission.v1`, then the app posts
   that admission to `/v1/hypervisor/harness-session-launches`, then posts the
   admitted launch to `/v1/hypervisor/harness-session-spawns`, then posts the
   admitted spawn to `/v1/hypervisor/harness-session-readiness`. A launched
   session may be `daemon_admitted` only when it also carries
+  `ioi.runtime.hypervisor_session_launch_recipe_admission.v1`,
   `ioi.runtime.harness_session_launch.v1`,
   `ioi.runtime.harness_session_spawn.v1`, and
   `ioi.runtime.harness_session_readiness.v1` with `decision: ready`. The first
@@ -2235,8 +2243,9 @@ Current implementation cut:
   auth and wallet capability leases are later authority paths rather than
   blockers for the local harness bring-up. The controller seeds sessions from
   that summary instead of reconstructing loose UI refs, and the launched-session
-  cache rejects records without a matching harness session
-  binding/admission/launch/spawn. `harnessAdapterModel.test.ts`,
+  cache rejects records without a matching recipe admission, harness session
+  binding admission, launch, spawn, and readiness record.
+  `harnessAdapterModel.test.ts`,
   `hypervisorLaunchedSessionPersistence.test.ts`,
   `hypervisorShellNavigationModel.test.mjs`, and `check:runtime-layout` guard
   the summary and binding path.

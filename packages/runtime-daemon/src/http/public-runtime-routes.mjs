@@ -15,6 +15,7 @@ import { admitHarnessSessionBinding } from "../runtime-harness-session-binding-a
 import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs";
 import { buildHarnessSessionReadiness } from "../runtime-harness-session-readiness.mjs";
 import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
+import { admitHypervisorSessionLaunchRecipe } from "../runtime-hypervisor-session-launch-recipe-admission.mjs";
 import { admitModelRouteMutation } from "../runtime-model-route-mutation-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
@@ -594,6 +595,23 @@ export function createPublicRuntimeRequestHandler(deps) {
             source:
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/model-route-mutation-admissions",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/session-launch-recipe-admissions"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitHypervisorSessionLaunchRecipe({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/session-launch-recipe-admissions",
           }),
           202,
         );

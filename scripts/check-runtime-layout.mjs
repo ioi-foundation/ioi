@@ -222,6 +222,12 @@ const runtimeHarnessSessionBindingAdmissionSource = read(
 const runtimeHarnessSessionBindingAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
 );
+const runtimeHypervisorSessionLaunchRecipeAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.mjs",
+);
+const runtimeHypervisorSessionLaunchRecipeAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.test.mjs",
+);
 const runtimeHarnessSessionLaunchSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-launch.mjs",
 );
@@ -1632,6 +1638,58 @@ assert(
   "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with first-session local-model bindings, public testbed custody, comparison receipts, and no runtime-truth shortcut.",
 );
 assert(
+  "hypervisor-session-launch-recipe-admission",
+  runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
+    "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+  ) &&
+    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
+      "admitHypervisorSessionLaunchRecipe",
+    ) &&
+    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
+      "hypervisor_session_launch_recipe_workbench_adapter_required",
+    ) &&
+    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
+      "hypervisor_session_launch_recipe_retired_aliases",
+    ) &&
+    runtimeHypervisorSessionLaunchRecipeAdmissionTestSource.includes(
+      "admits Hypervisor session launch recipes before harness binding",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/session-launch-recipe-admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose Hypervisor session launch recipe admissions",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorSessionLaunchRecipeAdmissionRecord",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "buildHypervisorSessionLaunchRecipeAdmissionRequest",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHypervisorSessionLaunchRecipeAdmission",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "buildHypervisorSessionLaunchRecipeAdmissionFailure",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeSessionLaunchRecipeAdmission",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "session_launch_recipe_admission_ref",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+  ],
+  "Hypervisor New Session recipes must be daemon-admitted before harness binding, and launched-session cache records must carry that recipe admission.",
+);
+assert(
   "hypervisor-harness-session-binding-admission",
   runtimeHarnessSessionBindingAdmissionSource.includes(
     "ioi.runtime.harness_session_binding_admission.v1",
@@ -2454,6 +2512,12 @@ assert(
     hypervisorShellControllerSource.includes(
       "buildHypervisorLaunchedSessionProjection",
     ) &&
+    hypervisorShellControllerSource.includes(
+      "buildHypervisorSessionLaunchRecipeAdmissionRequest",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "sessionLaunchRecipeAdmission.decision === \"admitted\"",
+    ) &&
     hypervisorShellControllerSource.includes("request,") &&
     hypervisorShellControllerSource.includes("codeEditorAdapterAdmission") &&
     !hypervisorNewSessionModalSource.includes(
@@ -2470,7 +2534,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
-  "New Session must emit a typed launch summary plus harness session binding, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
+  "New Session must emit a typed launch summary, admit the selected recipe through the daemon before harness binding, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
 );
 assert(
   "hypervisor-app-shell-contract",

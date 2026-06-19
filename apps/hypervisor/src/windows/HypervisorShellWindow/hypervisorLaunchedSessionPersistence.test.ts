@@ -301,6 +301,40 @@ function harnessSessionReadiness(id: string) {
   };
 }
 
+function sessionLaunchRecipeAdmission(id: string) {
+  return {
+    schema_version:
+      "ioi.runtime.hypervisor_session_launch_recipe_admission.v1" as const,
+    admission_id: `hypervisor-session-launch-recipe-admission:${id}`,
+    decision: "admitted" as const,
+    admission_state: "admitted_for_session_binding" as const,
+    recipe_ref: "mission.default",
+    recipe_kind: "mission" as const,
+    surface_id: "sessions" as const,
+    target_binding_ref: `target-binding:${id}`,
+    project_ref: "project:ioi",
+    operator_intent_ref: `target-binding:${id}/intent`,
+    session_route_ref: `session-route:sessions/${id}`,
+    code_editor_adapter_target_ref: null,
+    model_route_ref: "model-route:hypervisor/default-local",
+    privacy_posture_ref: "privacy:ctee-private-workspace",
+    authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+    receipt_preview_ref: `receipt-preview:new-session/${id}`,
+    expected_receipt_refs: [
+      `receipt-preview:new-session/${id}`,
+      "receipt-policy:harness-profile/default",
+    ],
+    agentgres_operation_refs: [
+      `agentgres://operation/hypervisor/session-launch-recipe/${id}`,
+    ],
+    receipt_refs: [`receipt://hypervisor/session-launch-recipe/${id}`],
+    state_root: `agentgres://state-root/hypervisor/session-launch-recipe/${id}`,
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+    admitted_at: "2026-06-18T12:20:00.000Z",
+  };
+}
+
 function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
   const binding = harnessSessionBinding(id);
   return {
@@ -367,6 +401,7 @@ function launchedSession(
   const bindingLaunch = harnessSessionLaunch(id);
   const bindingSpawn = harnessSessionSpawn(id);
   const bindingReadiness = harnessSessionReadiness(id);
+  const recipeAdmission = sessionLaunchRecipeAdmission(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${id}`,
@@ -380,6 +415,8 @@ function launchedSession(
     admission_state: "daemon_admitted",
     code_editor_adapter_admission: null,
     code_editor_adapter_admission_ref: null,
+    session_launch_recipe_admission: recipeAdmission,
+    session_launch_recipe_admission_ref: recipeAdmission.admission_id,
     harness_session_binding_ref: binding.session_binding_ref,
     harness_session_binding: binding,
     harness_session_binding_admission: bindingAdmission,
@@ -464,6 +501,10 @@ test("launched session cache persists normalized projections only", () => {
     "ioi.runtime.harness_session_binding_admission.v1",
   );
   assert.equal(
+    parsed[0]?.session_launch_recipe_admission?.schema_version,
+    "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+  );
+  assert.equal(
     parsed[0]?.harness_session_launch?.schema_version,
     "ioi.runtime.harness_session_launch.v1",
   );
@@ -479,6 +520,19 @@ test("launched session cache persists normalized projections only", () => {
     parsed[0]?.harness_session_spawn?.command_contract.process_custody,
     "client_host_pty_after_daemon_spawn_admission",
   );
+});
+
+test("launched session cache rejects loose sessions without recipe admission", () => {
+  const storage = new MemoryStorage();
+  const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
+  delete looseSession.session_launch_recipe_admission;
+  delete looseSession.session_launch_recipe_admission_ref;
+  storage.setItem(
+    HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
+    JSON.stringify([looseSession]),
+  );
+
+  assert.deepEqual(loadHypervisorLaunchedSessionProjections({ storage }), []);
 });
 
 test("launched session cache rejects loose sessions without harness admission", () => {

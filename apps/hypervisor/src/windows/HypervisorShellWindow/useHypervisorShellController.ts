@@ -46,6 +46,8 @@ import {
   buildHypervisorHarnessSessionLaunchFailure,
   buildHypervisorHarnessSessionReadinessFailure,
   buildHypervisorHarnessSessionSpawnFailure,
+  buildHypervisorSessionLaunchRecipeAdmissionFailure,
+  buildHypervisorSessionLaunchRecipeAdmissionRequest,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildCodeEditorAdapterLaunchPlan,
@@ -53,6 +55,7 @@ import {
   getCodeEditorAdapterPreferenceByRef,
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
+  requestHypervisorSessionLaunchRecipeAdmission,
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
   requestHarnessSessionReadiness,
@@ -421,7 +424,31 @@ export function useHypervisorShellController() {
             ),
             launchPlan: codeEditorAdapterLaunchPlan,
           });
+    const sessionLaunchRecipeAdmissionRequest =
+      buildHypervisorSessionLaunchRecipeAdmissionRequest({
+        recipe,
+        launchSummary: request.launch_summary,
+      });
+    const sessionLaunchRecipeAdmission =
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHypervisorSessionLaunchRecipeAdmission(
+            sessionLaunchRecipeAdmissionRequest,
+          ).catch((error: unknown) =>
+            buildHypervisorSessionLaunchRecipeAdmissionFailure({
+              request: sessionLaunchRecipeAdmissionRequest,
+              error,
+            }),
+          )
+        : buildHypervisorSessionLaunchRecipeAdmissionFailure({
+            request: sessionLaunchRecipeAdmissionRequest,
+            error: new Error(
+              "Attach a Hypervisor Daemon endpoint before requesting session launch recipe admission.",
+            ),
+          });
     const harnessSessionBindingAdmission =
+      sessionLaunchRecipeAdmission.decision === "admitted" &&
       shouldAttemptHypervisorDaemonProjectionFetch(
         HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
       )
@@ -436,7 +463,7 @@ export function useHypervisorShellController() {
         : buildHypervisorHarnessSessionBindingAdmissionFailure({
             binding: request.launch_summary.harness_session_binding,
             error: new Error(
-              "Attach a Hypervisor Daemon endpoint before requesting harness session binding admission.",
+              "Session launch recipe was not admitted for harness binding.",
             ),
           });
     const harnessSessionLaunch =
@@ -541,6 +568,7 @@ export function useHypervisorShellController() {
       recipe,
       projectLabel: project.name,
       codeEditorAdapterAdmission,
+      sessionLaunchRecipeAdmission,
       harnessSessionBindingAdmission,
       harnessSessionLaunch,
       harnessSessionSpawn,

@@ -6,6 +6,7 @@ import {
   HarnessSessionSpawnError,
   buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
+  readHypervisorHarnessPublicFixtureDaemonEndpoint,
   type HarnessCompatibilityVerdict,
   type HypervisorHarnessSessionBinding,
   type HypervisorHarnessSessionBindingAdmission,
@@ -208,6 +209,7 @@ export interface HypervisorNewSessionSetupModel {
 }
 
 export interface HypervisorSessionLaunchRecipe {
+  schema_version: "ioi.hypervisor.session_launch_recipe.v1";
   recipe_id: string;
   label: string;
   description: string;
@@ -226,6 +228,63 @@ export interface HypervisorSessionLaunchRecipe {
   authority_scope_templates: string[];
   privacy_posture_templates: string[];
 }
+
+export interface HypervisorSessionLaunchRecipeAdmissionRequest {
+  schema_version: "ioi.hypervisor.session_launch_recipe_admission_request.v1";
+  recipe: HypervisorSessionLaunchRecipe;
+  target_binding: HypervisorNewSessionTargetBinding;
+  model_route_ref: string;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_preview_ref: string;
+  expected_receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  requires_daemon_gate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HypervisorSessionLaunchRecipeAdmission {
+  schema_version: "ioi.runtime.hypervisor_session_launch_recipe_admission.v1";
+  admission_id: string;
+  decision: "admitted";
+  admission_state: "admitted_for_session_binding";
+  recipe_ref: string;
+  recipe_kind: HypervisorSessionLaunchRecipe["kind"];
+  surface_id: HypervisorSurfaceId;
+  target_binding_ref: string;
+  project_ref: string;
+  operator_intent_ref: string | null;
+  session_route_ref: string;
+  code_editor_adapter_target_ref: string | null;
+  model_route_ref: string;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_preview_ref: string;
+  expected_receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root: string | null;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  admitted_at: string;
+}
+
+export interface HypervisorSessionLaunchRecipeAdmissionFailure {
+  schema_version: "ioi.hypervisor.session_launch_recipe_admission_failure.v1";
+  admission_id: string;
+  recipe_ref: string;
+  target_binding_ref: string;
+  session_route_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorSessionLaunchRecipeAdmissionRecord =
+  | HypervisorSessionLaunchRecipeAdmission
+  | HypervisorSessionLaunchRecipeAdmissionFailure;
 
 export interface HypervisorNewSessionTargetBinding {
   schema_version: "ioi.hypervisor.new_session_target_binding.v1";
@@ -381,6 +440,31 @@ export type HypervisorHarnessSessionReadinessRecord =
   | HypervisorHarnessSessionReadiness
   | HypervisorHarnessSessionReadinessFailure;
 
+const HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_PATH =
+  "/v1/hypervisor/session-launch-recipe-admissions";
+
+export class HypervisorSessionLaunchRecipeAdmissionError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`Hypervisor session launch recipe admission failed with ${status}`);
+    this.name = "HypervisorSessionLaunchRecipeAdmissionError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
   session_ref: string;
@@ -403,6 +487,10 @@ export interface HypervisorLaunchedSessionProjection {
     | HypervisorCodeEditorAdapterLaunchAdmissionRecord
     | null;
   code_editor_adapter_admission_ref: string | null;
+  session_launch_recipe_admission:
+    | HypervisorSessionLaunchRecipeAdmissionRecord
+    | null;
+  session_launch_recipe_admission_ref: string | null;
   harness_session_binding_ref: string;
   harness_session_binding: HypervisorHarnessSessionBinding;
   harness_session_binding_admission:
@@ -425,6 +513,156 @@ function safeLaunchId(value: string | number): string {
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 96) || "launch";
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function nullableStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function stringArray(value: unknown, fallback: string[] = []): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string =>
+          typeof item === "string" && Boolean(item.trim()),
+      )
+    : fallback;
+}
+
+function normalizeSessionLaunchRecipeAdmission(
+  value: unknown,
+): HypervisorSessionLaunchRecipeAdmission {
+  const record = recordValue(value);
+  return {
+    schema_version: "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+    admission_id: stringValue(
+      record?.admission_id,
+      "hypervisor-session-launch-recipe-admission:unknown",
+    ),
+    decision: "admitted",
+    admission_state: "admitted_for_session_binding",
+    recipe_ref: stringValue(record?.recipe_ref, "unknown"),
+    recipe_kind: stringValue(
+      record?.recipe_kind,
+      "mission",
+    ) as HypervisorSessionLaunchRecipe["kind"],
+    surface_id: stringValue(
+      record?.surface_id,
+      "sessions",
+    ) as HypervisorSurfaceId,
+    target_binding_ref: stringValue(
+      record?.target_binding_ref,
+      "target-binding:unknown",
+    ),
+    project_ref: stringValue(record?.project_ref, "project:unknown"),
+    operator_intent_ref: nullableStringValue(record?.operator_intent_ref),
+    session_route_ref: stringValue(
+      record?.session_route_ref,
+      "session-route:unknown",
+    ),
+    code_editor_adapter_target_ref: nullableStringValue(
+      record?.code_editor_adapter_target_ref,
+    ),
+    model_route_ref: stringValue(
+      record?.model_route_ref,
+      "model-route:unknown",
+    ),
+    privacy_posture_ref: stringValue(
+      record?.privacy_posture_ref,
+      "privacy:unknown",
+    ),
+    authority_scope_refs: stringArray(record?.authority_scope_refs),
+    receipt_preview_ref: stringValue(
+      record?.receipt_preview_ref,
+      "receipt-preview:unknown",
+    ),
+    expected_receipt_refs: stringArray(record?.expected_receipt_refs),
+    agentgres_operation_refs: stringArray(record?.agentgres_operation_refs),
+    receipt_refs: stringArray(record?.receipt_refs),
+    state_root: nullableStringValue(record?.state_root),
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+    admitted_at: stringValue(record?.admitted_at, new Date().toISOString()),
+  };
+}
+
+export function buildHypervisorSessionLaunchRecipeAdmissionRequest({
+  recipe,
+  launchSummary,
+}: {
+  recipe: HypervisorSessionLaunchRecipe;
+  launchSummary: HypervisorNewSessionLaunchSummary;
+}): HypervisorSessionLaunchRecipeAdmissionRequest {
+  const targetBindingRef = launchSummary.target_binding.target_binding_ref;
+  const recipeSlug = safeLaunchId(targetBindingRef);
+  return {
+    schema_version:
+      "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+    recipe,
+    target_binding: launchSummary.target_binding,
+    model_route_ref: launchSummary.model_route_ref,
+    privacy_posture_ref: launchSummary.privacy_posture_ref,
+    authority_scope_refs: [...launchSummary.authority_scope_refs],
+    receipt_preview_ref: launchSummary.receipt_preview_ref,
+    expected_receipt_refs: [
+      ...launchSummary.harness_session_binding.expected_receipt_refs,
+    ],
+    agentgres_operation_refs: [
+      `agentgres://operation/hypervisor/session-launch-recipe/${recipeSlug}`,
+    ],
+    receipt_refs: [
+      `receipt://hypervisor/session-launch-recipe/${recipeSlug}`,
+    ],
+    requires_daemon_gate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export async function requestHypervisorSessionLaunchRecipeAdmission(
+  request: HypervisorSessionLaunchRecipeAdmissionRequest,
+  options: {
+    endpoint?: string;
+    fetchImpl?: typeof fetch;
+  } = {},
+): Promise<HypervisorSessionLaunchRecipeAdmission> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHarnessPublicFixtureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error(
+      "fetch unavailable for Hypervisor session launch recipe admission",
+    );
+  }
+  const url = `${endpoint.replace(
+    /\/+$/,
+    "",
+  )}${HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HypervisorSessionLaunchRecipeAdmissionError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeSessionLaunchRecipeAdmission(text ? JSON.parse(text) : {});
 }
 
 function buildHypervisorNewSessionTargetBinding({
@@ -489,6 +727,7 @@ export function buildHypervisorLaunchedSessionProjection({
   projectLabel,
   launchedAtMs = Date.now(),
   codeEditorAdapterAdmission = null,
+  sessionLaunchRecipeAdmission = null,
   harnessSessionBindingAdmission = null,
   harnessSessionLaunch = null,
   harnessSessionSpawn = null,
@@ -500,6 +739,7 @@ export function buildHypervisorLaunchedSessionProjection({
   projectLabel: string;
   launchedAtMs?: number;
   codeEditorAdapterAdmission?: HypervisorCodeEditorAdapterLaunchAdmissionRecord | null;
+  sessionLaunchRecipeAdmission?: HypervisorSessionLaunchRecipeAdmissionRecord | null;
   harnessSessionBindingAdmission?: HypervisorHarnessSessionBindingAdmissionRecord | null;
   harnessSessionLaunch?: HypervisorHarnessSessionLaunchRecord | null;
   harnessSessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
@@ -518,6 +758,7 @@ export function buildHypervisorLaunchedSessionProjection({
   ].join("/");
   const admissionDecisions = [
     codeEditorAdapterAdmission?.decision,
+    sessionLaunchRecipeAdmission?.decision,
     harnessSessionBindingAdmission?.decision,
     harnessSessionLaunch?.decision,
     harnessSessionSpawn?.decision,
@@ -550,6 +791,9 @@ export function buildHypervisorLaunchedSessionProjection({
     code_editor_adapter_admission: codeEditorAdapterAdmission,
     code_editor_adapter_admission_ref:
       codeEditorAdapterAdmission?.admission_id ?? null,
+    session_launch_recipe_admission: sessionLaunchRecipeAdmission,
+    session_launch_recipe_admission_ref:
+      sessionLaunchRecipeAdmission?.admission_id ?? null,
     harness_session_binding_ref:
       request.launch_summary.harness_session_binding_ref,
     harness_session_binding: request.launch_summary.harness_session_binding,
@@ -572,6 +816,33 @@ export function buildHypervisorLaunchedSessionProjection({
         ? harnessSessionReadiness.readiness_id
         : null,
     launch_summary: request.launch_summary,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorSessionLaunchRecipeAdmissionFailure({
+  request,
+  error,
+}: {
+  request: HypervisorSessionLaunchRecipeAdmissionRequest;
+  error: unknown;
+}): HypervisorSessionLaunchRecipeAdmissionFailure {
+  const httpStatus =
+    error instanceof HypervisorSessionLaunchRecipeAdmissionError
+      ? error.status
+      : null;
+  return {
+    schema_version: "ioi.hypervisor.session_launch_recipe_admission_failure.v1",
+    admission_id: `${request.target_binding.target_binding_ref}/recipe-admission-failure`,
+    recipe_ref: request.recipe.recipe_id,
+    target_binding_ref: request.target_binding.target_binding_ref,
+    session_route_ref: request.target_binding.session_route_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
     runtimeTruthSource: "daemon-runtime",
   };
 }
@@ -882,6 +1153,7 @@ export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel 
 export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] =
   [
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "mission.default",
       label: "Mission",
       description:
@@ -895,6 +1167,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["ctee_private_workspace", "redacted_projection"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "workbench.default",
       label: "Workbench",
       description:
@@ -914,6 +1187,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["public_trunk", "redacted_projection"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "agent.default",
       label: "Agent",
       description:
@@ -927,6 +1201,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["ctee_private_workspace", "redacted_projection"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "automation.default",
       label: "Automation",
       description:
@@ -940,6 +1215,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["public_trunk", "redacted_projection"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "foundry.eval",
       label: "Foundry Job",
       description:
@@ -953,6 +1229,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["public_trunk", "redacted_projection"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "environment.provider",
       label: "Provider / Environment Job",
       description:
@@ -966,6 +1243,7 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["redacted_projection", "ctee_private_workspace"],
     },
     {
+      schema_version: "ioi.hypervisor.session_launch_recipe.v1",
       recipe_id: "privacy.workspace",
       label: "Private Workspace",
       description:
