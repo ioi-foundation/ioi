@@ -1782,8 +1782,14 @@ Current implementation cut:
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
   contract in Chromium. The contract covers the Home prompt shell, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
-  harness allowance, Projects reference state list, direct Workbench workspace
-  session surface, the reference left rail set
+  harness allowance, and daemon-admitted Codex OSS/Qwen spawn readiness via the
+  same runtime-daemon admission/launch/spawn builders used by the public harness
+  endpoints. A launched session must expose `daemon_admitted`, a
+  `harness-session-spawn:*` ref, `ready_for_client_pty_attach`, the local Qwen
+  model name, and the resolved `codex --oss --local-provider ollama --model qwen`
+  command before the shell considers the row demonstrable. The contract also
+  covers Projects reference state list, direct Workbench workspace session
+  surface, the reference left rail set
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
   product-surface copy that keeps daemon, Agentgres, and wallet implementation
   truth out of the visible default chrome. It also verifies the Settings

@@ -8,6 +8,8 @@ import type {
 
 export const HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.modelMounts.daemonEndpoint";
+const HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY =
+  "ioi.hypervisor.daemonEndpoint";
 export const HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_MODEL_MOUNT_SNAPSHOT_PATH =
@@ -125,10 +127,16 @@ export function readHypervisorModelMountDaemonEndpoint(): string {
     if (typeof window === "undefined") {
       return HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT;
     }
+    const modelMountEndpoint = window.localStorage
+      .getItem(HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY)
+      ?.trim();
+    if (modelMountEndpoint) {
+      return modelMountEndpoint;
+    }
     return (
-      window.localStorage.getItem(
-        HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
-      ) || HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT
+      window.localStorage
+        .getItem(HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY)
+        ?.trim() || HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT
     );
   } catch {
     return HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT;

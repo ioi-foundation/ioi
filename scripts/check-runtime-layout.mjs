@@ -2349,6 +2349,10 @@ assert(
     hypervisorAppShellContractSource.includes(
       "home_reference_prompt_surface_sparse",
     ) &&
+    hypervisorAppShellContractSource.includes("createContractDaemonServer") &&
+    hypervisorAppShellContractSource.includes(
+      "/v1/hypervisor/harness-session-spawns",
+    ) &&
     hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
     ) &&
@@ -2367,6 +2371,16 @@ assert(
     hypervisorAppShellContractSource.includes(
       "agent-harness-adapter:codex_cli",
     ) &&
+    hypervisorAppShellContractSource.includes(
+      "new_session_launch_daemon_spawn_ready_for_codex_oss_qwen",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "data-launched-session-spawn-state",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "ready_for_client_pty_attach",
+    ) &&
+    hypervisorAppShellContractSource.includes("--local-provider ollama") &&
     hypervisorAppShellContractSource.includes(
       "privacy:ctee-private-workspace",
     ) &&
@@ -2419,7 +2433,7 @@ assert(
     "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
-  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, direct Workbench workspace session, Foundry harness comparison gating, and Agents product-surface copy.",
+  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, daemon-admitted Codex OSS/Qwen spawn readiness, Projects, direct Workbench workspace session, Foundry harness comparison gating, and Agents product-surface copy.",
 );
 assert(
   "hypervisor-conformance-command-contract",

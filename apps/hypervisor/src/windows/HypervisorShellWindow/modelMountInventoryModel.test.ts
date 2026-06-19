@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT,
   HYPERVISOR_MODEL_MOUNT_SNAPSHOT_PATH,
   loadHypervisorModelMountInventorySnapshot,
   normalizeHypervisorModelMountInventorySnapshot,
   readHypervisorModelMountDaemonEndpoint,
 } from "./modelMountInventoryModel.ts";
+import { HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY } from "./hypervisorDaemonEndpoint.ts";
 
 test("model mount inventory normalizer accepts raw daemon snapshot fields", () => {
   const snapshot = normalizeHypervisorModelMountInventorySnapshot(
@@ -155,4 +157,46 @@ test("model mount inventory endpoint defaults to local daemon outside browser", 
     readHypervisorModelMountDaemonEndpoint(),
     HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT,
   );
+});
+
+test("model mount inventory endpoint falls back to shared Hypervisor daemon endpoint in browser", () => {
+  const originalWindow = (
+    globalThis as typeof globalThis & { window?: unknown }
+  ).window;
+  const storage = new Map<string, string>([
+    [HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY, "http://127.0.0.1:7777"],
+  ]);
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem(key: string) {
+          return storage.get(key) ?? null;
+        },
+      },
+    },
+  });
+  try {
+    assert.equal(
+      readHypervisorModelMountDaemonEndpoint(),
+      "http://127.0.0.1:7777",
+    );
+    storage.set(
+      HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
+      "http://127.0.0.1:8888",
+    );
+    assert.equal(
+      readHypervisorModelMountDaemonEndpoint(),
+      "http://127.0.0.1:8888",
+    );
+  } finally {
+    if (typeof originalWindow === "undefined") {
+      Reflect.deleteProperty(globalThis, "window");
+    } else {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow,
+      });
+    }
+  }
 });

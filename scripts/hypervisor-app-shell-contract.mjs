@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 
+import { admitCodeEditorAdapterLaunchPlan } from "../packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs";
+import { admitHarnessSessionBinding } from "../packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs";
+import { buildHarnessSessionLaunch } from "../packages/runtime-daemon/src/runtime-harness-session-launch.mjs";
+import { buildHarnessSessionSpawn } from "../packages/runtime-daemon/src/runtime-harness-session-spawn.mjs";
+
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const distRoot = resolve(repoRoot, "apps/hypervisor/dist");
 
@@ -127,11 +132,197 @@ async function createStaticServer() {
   };
 }
 
+async function readJsonBody(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  return text ? JSON.parse(text) : {};
+}
+
+function setContractDaemonHeaders(response) {
+  response.setHeader("access-control-allow-origin", "*");
+  response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
+  response.setHeader(
+    "access-control-allow-headers",
+    "accept,content-type,authorization",
+  );
+  response.setHeader("content-type", "application/json; charset=utf-8");
+}
+
+function writeContractDaemonJson(response, value, status = 200) {
+  response.statusCode = status;
+  setContractDaemonHeaders(response);
+  response.end(JSON.stringify(value));
+}
+
+function writeContractDaemonError(response, error) {
+  writeContractDaemonJson(
+    response,
+    {
+      error: {
+        code: error?.code ?? "hypervisor_app_shell_contract_daemon_error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Hypervisor app shell contract daemon request failed.",
+        details: error?.details ?? {},
+      },
+    },
+    error?.status ?? 500,
+  );
+}
+
+async function createContractDaemonServer() {
+  const server = createServer(async (request, response) => {
+    setContractDaemonHeaders(response);
+    if (request.method === "OPTIONS") {
+      response.statusCode = 204;
+      response.end();
+      return;
+    }
+    try {
+      const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/model-mount/snapshot"
+      ) {
+        writeContractDaemonJson(response, {
+          routes: [
+            {
+              id: "model-route:hypervisor/default-local",
+              role: "default-local",
+              status: "active",
+              privacy: "local",
+            },
+          ],
+          endpoints: [
+            {
+              id: "model-endpoint:hypervisor/default-local",
+              providerId: "provider:hypervisor-local",
+              modelId: "model:local/codex-oss-qwen",
+              status: "mounted",
+              privacyClass: "local",
+            },
+          ],
+          instances: [
+            {
+              id: "model-instance:hypervisor/default-local",
+              endpointId: "model-endpoint:hypervisor/default-local",
+              providerId: "provider:hypervisor-local",
+              modelId: "model:local/codex-oss-qwen",
+              status: "loaded",
+            },
+          ],
+        });
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/code-editor-adapter-launch-plans"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          admitCodeEditorAdapterLaunchPlan({
+            ...body,
+            source:
+              body.source ??
+              "hypervisor_app_shell_contract./v1/hypervisor/code-editor-adapter-launch-plans",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-binding-admissions"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          admitHarnessSessionBinding({
+            ...body,
+            source:
+              body.source ??
+              "hypervisor_app_shell_contract./v1/hypervisor/harness-session-binding-admissions",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-launches"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          buildHarnessSessionLaunch({
+            ...body,
+            source:
+              body.source ??
+              "hypervisor_app_shell_contract./v1/hypervisor/harness-session-launches",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-spawns"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          buildHarnessSessionSpawn(
+            {
+              ...body,
+              source:
+                body.source ??
+                "hypervisor_app_shell_contract./v1/hypervisor/harness-session-spawns",
+            },
+            {
+              baseWorkspaceRoot: repoRoot,
+              defaultWorkspaceRoot: repoRoot,
+            },
+          ),
+          202,
+        );
+        return;
+      }
+      writeContractDaemonJson(
+        response,
+        {
+          error: {
+            code: "hypervisor_app_shell_contract_daemon_not_found",
+            message: "Contract daemon route not found.",
+            details: { path: url.pathname, method: request.method },
+          },
+        },
+        404,
+      );
+    } catch (error) {
+      writeContractDaemonError(response, error);
+    }
+  });
+  await new Promise((resolveListen) => {
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+  return {
+    server,
+    url: `http://127.0.0.1:${server.address().port}`,
+  };
+}
+
 async function main() {
   const evidencePath = process.argv.includes("--evidence")
     ? process.argv[process.argv.indexOf("--evidence") + 1]
     : null;
   const { server, url } = await createStaticServer();
+  const { server: contractDaemonServer, url: contractDaemonUrl } =
+    await createContractDaemonServer();
   const browser = await chromium.launch({ headless: true });
   const consoleMessages = [];
   try {
@@ -153,7 +344,6 @@ async function main() {
         text: error.message,
       });
     });
-
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
     try {
       await page.waitForSelector(
@@ -339,6 +529,9 @@ async function main() {
     }
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
+    await page.evaluate((endpoint) => {
+      window.localStorage.setItem("ioi.hypervisor.daemonEndpoint", endpoint);
+    }, contractDaemonUrl);
     await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector(
@@ -477,6 +670,47 @@ async function main() {
       ),
       "Default Home seed text should not become the launched-session rail title.",
     );
+    const launchedSessionRow = page
+      .locator(".hypervisor-activity-session-row")
+      .filter({ hasText: "Workbench for IOI Workspace" })
+      .first();
+    assert(
+      (await launchedSessionRow.getAttribute("data-launched-session-admission")) ===
+        "daemon_admitted",
+      "Launching through the contract daemon should produce a daemon-admitted session.",
+    );
+    assert(
+      ((await launchedSessionRow.getAttribute("data-launched-session-spawn")) ??
+        ""
+      ).startsWith("harness-session-spawn:"),
+      "Daemon-admitted launched session did not expose a harness session spawn ref.",
+    );
+    assert(
+      (await launchedSessionRow.getAttribute(
+        "data-launched-session-spawn-state",
+      )) === "ready_for_client_pty_attach",
+      "Daemon-admitted launched session did not expose client PTY spawn readiness.",
+    );
+    assert(
+      (await launchedSessionRow.getAttribute("data-launched-session-model-name")) ===
+        "qwen",
+      "Daemon-admitted launched session did not bind the local Qwen model mount.",
+    );
+    const spawnCommand =
+      (await launchedSessionRow.getAttribute(
+        "data-launched-session-spawn-command",
+      )) ?? "";
+    assert(
+      spawnCommand.includes("codex --oss") &&
+        spawnCommand.includes("--local-provider ollama") &&
+        spawnCommand.includes("--model qwen") &&
+        spawnCommand.includes(`--cd ${repoRoot}`),
+      `Daemon-admitted launched session did not expose the resolved Codex OSS command. command=${spawnCommand}`,
+    );
+    await page.evaluate(() => {
+      window.localStorage.removeItem("ioi.hypervisor.daemonEndpoint");
+      window.localStorage.removeItem("ioi.modelMounts.daemonEndpoint");
+    });
     await page.waitForSelector(".hypervisor-workspace-shell.is-active");
     assert(
       (await page.locator(".hypervisor-workspace-shell.is-active").count()) === 1,
@@ -958,6 +1192,7 @@ async function main() {
       schema_version: "ioi.hypervisor.app_shell_contract.v1",
       ok: true,
       url,
+      contractDaemonUrl,
       checks: [
         "home_reference_prompt_surface_rendered",
         "home_reference_prompt_surface_sparse",
@@ -973,6 +1208,7 @@ async function main() {
         "external_harness_redacted_projection_allowed",
         "new_session_recipe_selection_review_gated",
         "new_session_launch_creates_readable_session_row",
+        "new_session_launch_daemon_spawn_ready_for_codex_oss_qwen",
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
         "automations_reference_clean_empty_state_rendered",
@@ -996,6 +1232,9 @@ async function main() {
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await browser.close().catch(() => undefined);
+    await new Promise((resolveClose) =>
+      contractDaemonServer.close(resolveClose),
+    );
     await new Promise((resolveClose) => server.close(resolveClose));
   }
 }

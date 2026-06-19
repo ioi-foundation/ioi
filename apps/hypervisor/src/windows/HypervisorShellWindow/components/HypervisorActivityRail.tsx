@@ -312,6 +312,36 @@ function launchedSessionRailBadge(
   }
 }
 
+function launchedSessionSpawnRef(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const spawn = session.harness_session_spawn;
+  return spawn && "spawn_id" in spawn ? spawn.spawn_id : "";
+}
+
+function launchedSessionSpawnState(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const spawn = session.harness_session_spawn;
+  return spawn && "spawn_state" in spawn ? spawn.spawn_state : "";
+}
+
+function launchedSessionSpawnModelName(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const spawn = session.harness_session_spawn;
+  return spawn && "model_name" in spawn ? spawn.model_name : "";
+}
+
+function launchedSessionSpawnCommand(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const spawn = session.harness_session_spawn;
+  return spawn && "command_contract" in spawn
+    ? spawn.command_contract.resolved_command_line
+    : "";
+}
+
 export function HypervisorActivityRail({
   activeView,
   onViewChange,
@@ -484,6 +514,16 @@ export function HypervisorActivityRail({
                 }
                 data-launched-session-privacy={
                   session.harness_session_binding.privacy_posture_ref
+                }
+                data-launched-session-spawn={launchedSessionSpawnRef(session)}
+                data-launched-session-spawn-state={
+                  launchedSessionSpawnState(session)
+                }
+                data-launched-session-model-name={
+                  launchedSessionSpawnModelName(session)
+                }
+                data-launched-session-spawn-command={
+                  launchedSessionSpawnCommand(session)
                 }
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}
