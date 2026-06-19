@@ -103,6 +103,36 @@ function deepseekSpawnContract() {
   );
 }
 
+function claudeExampleSpawnContract() {
+  const launch = buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:claude-example-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-claude_code_cli:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:claude_code_cli",
+        harness_launch_route_ref: "harness-route:claude-code-cli/local-example",
+        agent_harness_adapter_id: "claude_code_cli",
+        receipt_policy_ref: "receipt-policy:harness-adapter/local-example",
+      }),
+      workspace_ref: "workspace:hypervisor-core",
+      terminal_session_ref: "terminal-session:hypervisor-core/claude-example",
+    },
+    { nowIso: () => "2026-06-18T12:32:00.000Z" },
+  );
+  return buildHarnessSessionSpawn(
+    {
+      session_launch: launch,
+      workspace_root: ".",
+    },
+    {
+      baseWorkspaceRoot: "/home/heathledger/Documents/ioi/repos/ioi",
+      env: {},
+      nowIso: () => "2026-06-18T12:37:00.000Z",
+    },
+  );
+}
+
 test("admits Codex OSS Qwen readiness when host commands and model are available", async () => {
   const readiness = await buildHarnessSessionReadiness(
     {
@@ -237,6 +267,55 @@ test("admits DeepSeek TUI local Qwen readiness when binary and model are availab
     "ready_for_harness_pty_attach",
   );
   assert.equal(readiness.harness_binary, "deepseek");
+  assert.equal(readiness.model_name, "qwen");
+  assert.deepEqual(
+    readiness.checks.map((check) => `${check.id}:${check.status}`),
+    [
+      "harness_binary:pass",
+      "harness_local_model_flags:pass",
+      "ollama_provider:pass",
+      "qwen_model_available:pass",
+    ],
+  );
+});
+
+test("admits Claude Code example local Qwen readiness when shim and model are available", async () => {
+  const readiness = await buildHarnessSessionReadiness(
+    {
+      session_spawn: claudeExampleSpawnContract(),
+    },
+    {
+      runCommand: async (command, args) => {
+        if (
+          command === "node" &&
+          args[0]?.endsWith("claude-code-example.mjs") &&
+          args[1] === "--help"
+        ) {
+          return {
+            status: 0,
+            stdout:
+              "Hypervisor Claude Code Example\nOptions:\n  --provider <PROVIDER>\n  --model <MODEL>\n  --cd <DIR>\n",
+            stderr: "",
+          };
+        }
+        if (command === "ollama" && args[0] === "list") {
+          return {
+            status: 0,
+            stdout: "NAME ID SIZE MODIFIED\nqwen 123 4 GB now\n",
+            stderr: "",
+          };
+        }
+        return { status: 127, stdout: "", stderr: "not found" };
+      },
+    },
+  );
+
+  assert.equal(readiness.decision, "ready");
+  assert.equal(
+    readiness.readiness_state,
+    "ready_for_harness_pty_attach",
+  );
+  assert.equal(readiness.harness_binary, "node");
   assert.equal(readiness.model_name, "qwen");
   assert.deepEqual(
     readiness.checks.map((check) => `${check.id}:${check.status}`),

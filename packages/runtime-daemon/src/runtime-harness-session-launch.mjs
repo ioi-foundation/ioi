@@ -15,6 +15,7 @@ const ADMISSION_SCHEMA_VERSION =
 
 const LOCAL_HARNESS_MODEL_ENV = "HYPERVISOR_LOCAL_HARNESS_MODEL";
 const LOCAL_HARNESS_WORKSPACE_ENV = "HYPERVISOR_SESSION_WORKSPACE";
+const LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV = "HYPERVISOR_HARNESS_EXAMPLE_SCRIPT";
 
 export function buildHarnessSessionLaunch(request = {}, deps = {}) {
   const nowIso = deps.nowIso ?? (() => new Date().toISOString());
@@ -80,6 +81,15 @@ export function buildHarnessSessionLaunch(request = {}, deps = {}) {
       command_ref: launchProfile.command_ref,
       binary_name: launchProfile.binary_name,
       argv_template: launchProfile.argv_template,
+      example_script_ref: launchProfile.example_script_ref ?? null,
+      example_script_env: launchProfile.example_script_ref
+        ? LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV
+        : null,
+      readiness_probe_argv_template:
+        launchProfile.readiness_probe_argv_template ?? [
+          launchProfile.binary_name,
+          "--help",
+        ],
       env_policy_ref: launchProfile.env_policy_ref,
       secret_release_policy: "none",
       requires_pty: true,
@@ -213,11 +223,17 @@ function launchProfileForAdmission(admission) {
   ) {
     return deepseekTuiLaunchProfile();
   }
+  if (
+    admission.harness_selection_ref === "agent-harness-adapter:claude_code_cli" ||
+    admission.agent_harness_adapter_id === "claude_code_cli"
+  ) {
+    return claudeCodeExampleLaunchProfile();
+  }
   throw launchError({
     status: 403,
     code: "harness_session_launch_harness_unsupported",
     message:
-      "Only the Codex OSS and DeepSeek TUI local-model harnesses are launch-ready in this slice.",
+      "Only the Codex OSS, DeepSeek TUI, and Claude Code example local-model harnesses are launch-ready in this slice.",
     details: {
       harness_selection_ref: admission.harness_selection_ref ?? null,
       agent_harness_adapter_id: admission.agent_harness_adapter_id ?? null,
@@ -260,6 +276,32 @@ function deepseekTuiLaunchProfile() {
       "ollama",
       "--model",
       `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
+    ],
+  };
+}
+
+function claudeCodeExampleLaunchProfile() {
+  return {
+    launch_lane: "host_dev_pty",
+    command_ref: "host-command:claude-code-example/local-ollama-qwen",
+    binary_name: "claude-code-example",
+    env_policy_ref: "env-policy:harness-session/claude-example-local-qwen",
+    example_script_ref:
+      "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
+    argv_template: [
+      "node",
+      `\${${LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV}}`,
+      "--provider",
+      "ollama",
+      "--model",
+      `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
+      "--cd",
+      `\${${LOCAL_HARNESS_WORKSPACE_ENV}}`,
+    ],
+    readiness_probe_argv_template: [
+      "node",
+      `\${${LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV}}`,
+      "--help",
     ],
   };
 }

@@ -32,6 +32,15 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
     optionalString(normalizeArray(commandContract?.resolved_argv)[0]) ??
     optionalString(commandContract?.binary_name) ??
     "codex";
+  const readinessProbeArgv = normalizeArray(
+    commandContract?.readiness_probe_argv,
+  );
+  const readinessProbeCommand =
+    optionalString(readinessProbeArgv[0]) ?? requestedHarnessBinary;
+  const readinessProbeArgs =
+    readinessProbeArgv.length > 0
+      ? readinessProbeArgv.slice(1).map((arg) => String(arg))
+      : ["--help"];
   const providerBinary =
     optionalString(request.provider_binary) ??
     optionalString(modelMountContract?.provider) ??
@@ -46,34 +55,39 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
   const harnessBinary = requestedHarnessBinary;
   const harnessBinaryName =
     optionalString(commandContract?.binary_name) ?? harnessBinary;
-  const help = await commandResult(runCommand, harnessBinary, ["--help"]);
+  const help = await commandResult(
+    runCommand,
+    readinessProbeCommand,
+    readinessProbeArgs,
+  );
+  const probeEvidenceRef = `host-command:${safeId(
+    readinessProbeCommand,
+  )}:${safeId(readinessProbeArgs.join("-") || "help")}`;
   const harnessBinaryCheck = help.ok
     ? passCheck(
         "harness_binary",
-        `Harness binary resolved through ${harnessBinary}.`,
-        [`host-command:${safeId(harnessBinary)}:--help`],
+        `Harness binary resolved through ${readinessProbeCommand}.`,
+        [probeEvidenceRef],
       )
     : failCheck(
         "harness_binary",
-        `Harness binary is not runnable through ${harnessBinary}.`,
-        [`host-command:${safeId(harnessBinary)}:--help`],
+        `Harness binary is not runnable through ${readinessProbeCommand}.`,
+        [probeEvidenceRef],
       );
   const helpText = `${help.stdout}\n${help.stderr}`;
   const requiredFlags = requiredLocalModelFlagsForBinary(harnessBinaryName);
   const localModelFlagsCheck =
     help.ok &&
-    requiredFlags.every((flag) =>
-      helpText.includes(flag),
-    )
+    requiredFlags.every((flag) => helpText.includes(flag))
       ? passCheck(
           "harness_local_model_flags",
           `${harnessBinaryName} supports the local-provider model mounting flags required by this route.`,
-          [`host-command:${safeId(harnessBinary)}:local-model-flags`],
+          [probeEvidenceRef],
         )
       : failCheck(
           "harness_local_model_flags",
           `${harnessBinaryName} does not expose the local-provider flags required by this harness route.`,
-          [`host-command:${safeId(harnessBinary)}:local-model-flags`],
+          [probeEvidenceRef],
         );
 
   const providerList = await commandResult(runCommand, providerBinary, ["list"]);
@@ -155,7 +169,7 @@ export async function buildHarnessSessionReadiness(request = {}, deps = {}) {
     requiresDaemonGate: true,
     runtimeTruthSource: "daemon-runtime",
     readiness_invariant:
-      "A spawned harness session may attach to a host PTY only after the daemon verifies the local Codex OSS binary, Ollama provider, and requested local model route are runnable on this host.",
+      "A spawned harness session may attach to a host PTY only after the daemon verifies the selected harness command, Ollama provider, and requested local model route are runnable on this host.",
   };
 }
 
@@ -189,7 +203,9 @@ function requireSpawn(value) {
     });
   }
   if (
-    !["codex", "deepseek"].includes(spawn.command_contract?.binary_name) ||
+    !["codex", "deepseek", "claude-code-example"].includes(
+      spawn.command_contract?.binary_name,
+    ) ||
     spawn.model_mount_contract?.provider !== "ollama" ||
     spawn.command_contract?.secret_release_policy !== "none"
   ) {
@@ -197,7 +213,7 @@ function requireSpawn(value) {
       status: 403,
       code: "harness_session_readiness_route_unsupported",
       message:
-        "Only secret-free Codex OSS or DeepSeek TUI over local Ollama model mounts can be readiness-checked in this slice.",
+        "Only secret-free Codex OSS, DeepSeek TUI, or Claude Code example sessions over local Ollama model mounts can be readiness-checked in this slice.",
       details: {
         binary_name: spawn.command_contract?.binary_name ?? null,
         provider: spawn.model_mount_contract?.provider ?? null,
@@ -290,6 +306,9 @@ function modelNameAvailable(availableModels, modelName) {
 function requiredLocalModelFlagsForBinary(binaryName) {
   if (binaryName === "deepseek") {
     return ["--provider", "--model"];
+  }
+  if (binaryName === "claude-code-example") {
+    return ["--provider", "--model", "--cd"];
   }
   return ["--oss", "--local-provider", "--model"];
 }

@@ -301,8 +301,11 @@ export interface HypervisorHarnessSessionLaunch {
   terminal_session_ref: string;
   command_contract: {
     command_ref: string;
-    binary_name: "codex";
+    binary_name: string;
     argv_template: string[];
+    example_script_ref?: string | null;
+    example_script_env?: string | null;
+    readiness_probe_argv_template?: string[];
     env_policy_ref: string;
     secret_release_policy: "none";
     requires_pty: true;
@@ -339,6 +342,7 @@ export interface HypervisorHarnessSessionSpawn {
   command_contract_ref: string;
   command_contract: HypervisorHarnessSessionLaunch["command_contract"] & {
     resolved_argv: string[];
+    readiness_probe_argv?: string[];
     resolved_command_line: string;
     pty_transport: "hypervisor_client_terminal_adapter";
     process_custody: "client_host_pty_after_daemon_spawn_admission";
@@ -1618,7 +1622,7 @@ function normalizeHarnessSessionLaunch(
       command_ref:
         nullableString(commandContract.command_ref) ??
         "host-command:codex-cli/local-ollama-qwen",
-      binary_name: "codex",
+      binary_name: nullableString(commandContract.binary_name) ?? "codex",
       argv_template: stringList(commandContract.argv_template, [
         "codex",
         "--oss",
@@ -1633,6 +1637,12 @@ function normalizeHarnessSessionLaunch(
         "--cd",
         "${HYPERVISOR_SESSION_WORKSPACE}",
       ]),
+      example_script_ref: nullableString(commandContract.example_script_ref),
+      example_script_env: nullableString(commandContract.example_script_env),
+      readiness_probe_argv_template: stringList(
+        commandContract.readiness_probe_argv_template,
+        [nullableString(commandContract.binary_name) ?? "codex", "--help"],
+      ),
       env_policy_ref:
         nullableString(commandContract.env_policy_ref) ??
         "env-policy:harness-session/local-ollama-qwen",
@@ -1705,7 +1715,7 @@ function normalizeHarnessSessionSpawn(
       command_ref:
         nullableString(commandContract.command_ref) ??
         "host-command:codex-cli/local-ollama-qwen",
-      binary_name: "codex",
+      binary_name: nullableString(commandContract.binary_name) ?? "codex",
       argv_template: stringList(commandContract.argv_template, [
         "codex",
         "--oss",
@@ -1720,6 +1730,12 @@ function normalizeHarnessSessionSpawn(
         "--cd",
         "${HYPERVISOR_SESSION_WORKSPACE}",
       ]),
+      example_script_ref: nullableString(commandContract.example_script_ref),
+      example_script_env: nullableString(commandContract.example_script_env),
+      readiness_probe_argv_template: stringList(
+        commandContract.readiness_probe_argv_template,
+        [nullableString(commandContract.binary_name) ?? "codex", "--help"],
+      ),
       env_policy_ref:
         nullableString(commandContract.env_policy_ref) ??
         "env-policy:harness-session/local-ollama-qwen",
@@ -1732,6 +1748,7 @@ function normalizeHarnessSessionSpawn(
         nullableString(commandContract.model_env) ??
         "HYPERVISOR_LOCAL_HARNESS_MODEL",
       resolved_argv: stringList(commandContract.resolved_argv, []),
+      readiness_probe_argv: stringList(commandContract.readiness_probe_argv, []),
       resolved_command_line:
         nullableString(commandContract.resolved_command_line) ?? "codex --oss",
       pty_transport: "hypervisor_client_terminal_adapter",

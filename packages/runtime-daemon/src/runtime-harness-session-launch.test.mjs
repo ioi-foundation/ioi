@@ -146,6 +146,61 @@ test("builds a launch-ready DeepSeek TUI contract for local Qwen model mounts", 
   assert.equal(launch.runtimeTruthSource, "daemon-runtime");
 });
 
+test("builds a launch-ready Claude Code example contract for local Qwen model mounts", () => {
+  const launch = buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:claude-example-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-claude_code_cli:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:claude_code_cli",
+        harness_launch_route_ref: "harness-route:claude-code-cli/local-example",
+        agent_harness_adapter_id: "claude_code_cli",
+        receipt_policy_ref: "receipt-policy:harness-adapter/local-example",
+      }),
+      workspace_ref: "workspace://local/ioi",
+      terminal_session_ref: "terminal-session:ioi/claude-example",
+    },
+    { nowIso: () => "2026-06-18T12:32:00.000Z" },
+  );
+
+  assert.equal(launch.schema_version, HARNESS_SESSION_LAUNCH_SCHEMA_VERSION);
+  assert.equal(launch.decision, "admitted");
+  assert.equal(launch.launch_state, "ready_to_spawn");
+  assert.equal(
+    launch.command_contract.command_ref,
+    "host-command:claude-code-example/local-ollama-qwen",
+  );
+  assert.equal(launch.command_contract.binary_name, "claude-code-example");
+  assert.equal(
+    launch.command_contract.example_script_ref,
+    "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
+  );
+  assert.deepEqual(launch.command_contract.argv_template, [
+    "node",
+    "${HYPERVISOR_HARNESS_EXAMPLE_SCRIPT}",
+    "--provider",
+    "ollama",
+    "--model",
+    "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
+    "--cd",
+    "${HYPERVISOR_SESSION_WORKSPACE}",
+  ]);
+  assert.deepEqual(launch.command_contract.readiness_probe_argv_template, [
+    "node",
+    "${HYPERVISOR_HARNESS_EXAMPLE_SCRIPT}",
+    "--help",
+  ]);
+  assert.equal(
+    launch.command_contract.env_policy_ref,
+    "env-policy:harness-session/claude-example-local-qwen",
+  );
+  assert.equal(launch.command_contract.secret_release_policy, "none");
+  assert.equal(launch.model_mount_contract.provider, "ollama");
+  assert.equal(launch.requiresDaemonGate, true);
+  assert.equal(launch.runtimeTruthSource, "daemon-runtime");
+});
+
 test("blocks provider-trust and unavailable model route launches", () => {
   assert.throws(
     () =>
@@ -183,9 +238,9 @@ test("blocks unsupported harnesses even when their binding was admitted", () => 
     () =>
       buildHarnessSessionLaunch({
         binding_admission: bindingAdmission({
-          harness_selection_ref: "agent-harness-adapter:claude_code_cli",
-          agent_harness_adapter_id: "claude_code_cli",
-          harness_launch_route_ref: "harness-route:claude-code-cli/local-example",
+          harness_selection_ref: "agent-harness-adapter:aider_cli",
+          agent_harness_adapter_id: "aider_cli",
+          harness_launch_route_ref: "harness-route:aider-cli/local-model",
         }),
       }),
     (error) => {

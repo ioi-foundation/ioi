@@ -28,12 +28,29 @@ export function buildHarnessSessionSpawn(request = {}, deps = {}) {
     modelDefault: launch.model_mount_contract.model_default,
     env: deps.env ?? process.env,
   });
+  const exampleScriptPath = resolveExampleScriptPath({
+    exampleScriptRef: optionalString(launch.command_contract.example_script_ref),
+    baseWorkspaceRoot: optionalString(deps.baseWorkspaceRoot),
+  });
   const argv = resolveArgvTemplate({
     argvTemplate: normalizeArray(launch.command_contract.argv_template),
     workspaceEnv: launch.command_contract.workspace_env,
     workspaceRoot,
     modelEnv: launch.command_contract.model_env,
     modelName,
+    exampleScriptEnv: launch.command_contract.example_script_env,
+    exampleScriptPath,
+  });
+  const readinessProbeArgv = resolveArgvTemplate({
+    argvTemplate: normalizeArray(
+      launch.command_contract.readiness_probe_argv_template,
+    ),
+    workspaceEnv: launch.command_contract.workspace_env,
+    workspaceRoot,
+    modelEnv: launch.command_contract.model_env,
+    modelName,
+    exampleScriptEnv: launch.command_contract.example_script_env,
+    exampleScriptPath,
   });
   const spawnId =
     optionalString(request.spawn_id) ??
@@ -63,6 +80,10 @@ export function buildHarnessSessionSpawn(request = {}, deps = {}) {
     command_contract: {
       ...launch.command_contract,
       resolved_argv: argv,
+      readiness_probe_argv:
+        readinessProbeArgv.length > 0
+          ? readinessProbeArgv
+          : [launch.command_contract.binary_name, "--help"],
       resolved_command_line: shellQuote(argv),
       pty_transport: "hypervisor_client_terminal_adapter",
       process_custody: "client_host_pty_after_daemon_spawn_admission",
@@ -128,7 +149,7 @@ function requireLaunch(value) {
       },
     });
   }
-  const supportedBinaryNames = ["codex", "deepseek"];
+  const supportedBinaryNames = ["codex", "deepseek", "claude-code-example"];
   if (
     launch.launch_lane !== "host_dev_pty" ||
     !supportedBinaryNames.includes(launch.command_contract?.binary_name) ||
@@ -139,7 +160,7 @@ function requireLaunch(value) {
       status: 403,
       code: "harness_session_spawn_contract_unsupported",
       message:
-        "Only secret-free Codex OSS and DeepSeek TUI host PTY launch contracts can be spawned in this slice.",
+        "Only secret-free Codex OSS, DeepSeek TUI, and Claude Code example host PTY launch contracts can be spawned in this slice.",
       details: {
         launch_lane: launch.launch_lane ?? null,
         binary_name: launch.command_contract?.binary_name ?? null,
@@ -204,6 +225,8 @@ function resolveArgvTemplate({
   workspaceRoot,
   modelEnv,
   modelName,
+  exampleScriptEnv,
+  exampleScriptPath,
 }) {
   if (argvTemplate.length === 0) {
     throw spawnError({
@@ -217,6 +240,9 @@ function resolveArgvTemplate({
     const text = String(arg);
     if (text === `\${${workspaceEnv}}`) return workspaceRoot;
     if (text === `\${${modelEnv}}`) return modelName;
+    if (exampleScriptEnv && text === `\${${exampleScriptEnv}}`) {
+      return exampleScriptPath;
+    }
     const modelDefaultPattern = new RegExp(
       `^\\$\\{${escapeRegex(modelEnv)}:-([^}]+)\\}$`,
     );
@@ -224,6 +250,22 @@ function resolveArgvTemplate({
     if (match) return modelName || match[1];
     return text;
   });
+}
+
+function resolveExampleScriptPath({ exampleScriptRef, baseWorkspaceRoot }) {
+  if (!exampleScriptRef) return "";
+  const scriptPath = path.isAbsolute(exampleScriptRef)
+    ? path.normalize(exampleScriptRef)
+    : path.resolve(baseWorkspaceRoot ?? process.cwd(), exampleScriptRef);
+  if (scriptPath === path.parse(scriptPath).root) {
+    throw spawnError({
+      status: 403,
+      code: "harness_session_spawn_example_script_forbidden",
+      message: "Harness session spawn cannot use a filesystem root as a script.",
+      details: { example_script_ref: exampleScriptRef },
+    });
+  }
+  return scriptPath;
 }
 
 function shellQuote(argv) {

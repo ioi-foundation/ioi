@@ -240,6 +240,9 @@ const runtimeHarnessSessionReadinessSource = read(
 const runtimeHarnessSessionReadinessTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
 );
+const runtimeClaudeCodeExampleShimSource = read(
+  "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1693,6 +1696,15 @@ assert(
     runtimeHarnessSessionLaunchSource.includes(
       "host-command:deepseek-tui/local-ollama-qwen",
     ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "host-command:claude-code-example/local-ollama-qwen",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "readiness_probe_argv_template",
+    ) &&
     runtimeHarnessSessionLaunchSource.includes("--oss") &&
     runtimeHarnessSessionLaunchSource.includes("--local-provider") &&
     runtimeHarnessSessionLaunchSource.includes("ollama") &&
@@ -1711,6 +1723,9 @@ assert(
     runtimeHarnessSessionLaunchTestSource.includes(
       "builds a launch-ready DeepSeek TUI contract",
     ) &&
+    runtimeHarnessSessionLaunchTestSource.includes(
+      "builds a launch-ready Claude Code example contract",
+    ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-launches",
     ) &&
@@ -1719,6 +1734,9 @@ assert(
     ) &&
     publicRuntimeRoutesTestSource.includes(
       "public runtime routes expose DeepSeek TUI local harness session spawn contracts",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose Claude Code example local harness session spawn contracts",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
       "requestHarnessSessionLaunch",
@@ -1745,7 +1763,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
-  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS over local Ollama/Qwen is the first host-dev PTY contract, while provider-trust and unsupported harness launches stay blocked.",
+  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS, DeepSeek TUI, and the Claude Code example can use local Ollama/Qwen host-dev PTY contracts, while provider-trust and unsupported harness launches stay blocked.",
 );
 assert(
   "hypervisor-harness-session-spawn-contract",
@@ -1762,11 +1780,18 @@ assert(
     runtimeHarnessSessionSpawnSource.includes(
       "client_host_pty_after_daemon_spawn_admission",
     ) &&
+    runtimeHarnessSessionSpawnSource.includes("readiness_probe_argv") &&
     runtimeHarnessSessionSpawnSource.includes(
       "harness_session_spawn_model_name_forbidden",
     ) &&
     runtimeHarnessSessionSpawnTestSource.includes(
       "builds a Codex OSS local Qwen spawn contract",
+    ) &&
+    runtimeHarnessSessionSpawnTestSource.includes(
+      "builds a DeepSeek TUI local Qwen spawn contract",
+    ) &&
+    runtimeHarnessSessionSpawnTestSource.includes(
+      "builds a Claude Code example local Qwen spawn contract",
     ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-spawns",
@@ -1805,7 +1830,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
-  "Admitted harness launches must produce a daemon spawn contract before a session becomes daemon_admitted; Codex OSS uses a daemon-resolved command and Hypervisor client PTY attach, with no secret release or provider auth.",
+  "Admitted harness launches must produce a daemon spawn contract before a session becomes daemon_admitted; local harness sessions use daemon-resolved commands, readiness probes, and Hypervisor client PTY attach, with no secret release or provider auth.",
 );
 assert(
   "hypervisor-harness-session-readiness-contract",
@@ -1819,6 +1844,7 @@ assert(
       "ready_for_harness_pty_attach",
     ) &&
     runtimeHarnessSessionReadinessSource.includes("harness_binary") &&
+    runtimeHarnessSessionReadinessSource.includes("readinessProbeArgv") &&
     runtimeHarnessSessionReadinessSource.includes(
       "harness_local_model_flags",
     ) &&
@@ -1827,6 +1853,15 @@ assert(
     runtimeHarnessSessionReadinessTestSource.includes(
       "blocks readiness when Ollama is not reachable",
     ) &&
+    runtimeHarnessSessionReadinessTestSource.includes(
+      "admits Claude Code example local Qwen readiness",
+    ) &&
+    runtimeClaudeCodeExampleShimSource.includes(
+      "Hypervisor Claude Code Example",
+    ) &&
+    runtimeClaudeCodeExampleShimSource.includes("--provider <PROVIDER>") &&
+    runtimeClaudeCodeExampleShimSource.includes("--model <MODEL>") &&
+    runtimeClaudeCodeExampleShimSource.includes("--cd <DIR>") &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-readiness",
     ) &&
@@ -1857,7 +1892,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
-  "Daemon-admitted harness sessions must prove local host readiness separately from spawn: Codex OSS flags, Ollama provider reachability, and the selected local Qwen model are checked before client PTY attach.",
+  "Daemon-admitted harness sessions must prove local host readiness separately from spawn: the selected harness command/probe, Ollama provider reachability, and the selected local Qwen model are checked before client PTY attach.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",

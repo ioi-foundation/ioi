@@ -83,6 +83,25 @@ function deepseekLaunchContract() {
   );
 }
 
+function claudeExampleLaunchContract() {
+  return buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:claude-example-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-claude_code_cli:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:claude_code_cli",
+        harness_launch_route_ref: "harness-route:claude-code-cli/local-example",
+        agent_harness_adapter_id: "claude_code_cli",
+        receipt_policy_ref: "receipt-policy:harness-adapter/local-example",
+      }),
+      workspace_ref: "workspace:hypervisor-core",
+      terminal_session_ref: "terminal-session:hypervisor-core/claude-example",
+    },
+    { nowIso: () => "2026-06-18T12:32:00.000Z" },
+  );
+}
+
 test("builds a Codex OSS local Qwen spawn contract for client PTY attach", () => {
   const spawn = buildHarnessSessionSpawn(
     {
@@ -188,6 +207,52 @@ test("builds a DeepSeek TUI local Qwen spawn contract for client PTY attach", ()
   assert.equal(
     spawn.terminal_attach_contract.command_line,
     "deepseek --provider ollama --model qwen",
+  );
+  assert.equal(spawn.requiresDaemonGate, true);
+  assert.equal(spawn.runtimeTruthSource, "daemon-runtime");
+});
+
+test("builds a Claude Code example local Qwen spawn contract for client PTY attach", () => {
+  const spawn = buildHarnessSessionSpawn(
+    {
+      session_launch: claudeExampleLaunchContract(),
+      workspace_root: ".",
+    },
+    {
+      baseWorkspaceRoot: "/home/heathledger/Documents/ioi/repos/ioi",
+      env: {},
+      nowIso: () => "2026-06-18T12:37:00.000Z",
+    },
+  );
+
+  const scriptPath =
+    "/home/heathledger/Documents/ioi/repos/ioi/packages/runtime-daemon/src/harness-shims/claude-code-example.mjs";
+  assert.equal(spawn.schema_version, HARNESS_SESSION_SPAWN_SCHEMA_VERSION);
+  assert.equal(spawn.decision, "admitted");
+  assert.equal(spawn.spawn_state, "ready_for_client_pty_attach");
+  assert.equal(spawn.agent_harness_adapter_id, "claude_code_cli");
+  assert.equal(
+    spawn.command_contract_ref,
+    "host-command:claude-code-example/local-ollama-qwen",
+  );
+  assert.deepEqual(spawn.command_contract.resolved_argv, [
+    "node",
+    scriptPath,
+    "--provider",
+    "ollama",
+    "--model",
+    "qwen",
+    "--cd",
+    "/home/heathledger/Documents/ioi/repos/ioi",
+  ]);
+  assert.deepEqual(spawn.command_contract.readiness_probe_argv, [
+    "node",
+    scriptPath,
+    "--help",
+  ]);
+  assert.equal(
+    spawn.terminal_attach_contract.command_line,
+    `node ${scriptPath} --provider ollama --model qwen --cd /home/heathledger/Documents/ioi/repos/ioi`,
   );
   assert.equal(spawn.requiresDaemonGate, true);
   assert.equal(spawn.runtimeTruthSource, "daemon-runtime");

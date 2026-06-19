@@ -2219,11 +2219,15 @@ Current implementation cut:
   the first launch-ready local harness and DeepSeek TUI is the second
   launch-ready local harness:
   `deepseek --provider ollama --model ${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}`.
-  The `examples/claude-code-main` Claude Code bring-up path remains a
-  first-session local-model candidate, but is not launch-ready until its
-  daemon-owned launch, spawn, and readiness contracts exist. Provider auth and
-  wallet capability leases are later authority paths rather than blockers for
-  the local harness bring-up. The controller seeds sessions from
+  The Claude Code-style local example is the third launch-ready local harness:
+  `node packages/runtime-daemon/src/harness-shims/claude-code-example.mjs
+  --provider ollama --model ${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}
+  --cd ${HYPERVISOR_SESSION_WORKSPACE}`. Its adapter metadata still points at
+  `examples/claude-code-main` as reference context, but runtime execution uses
+  the tracked Hypervisor-owned shim plus a daemon-resolved
+  `readiness_probe_argv`; the example source is not treated as an installable
+  runtime. Provider auth and wallet capability leases are later authority paths
+  rather than blockers for the local harness bring-up. The controller seeds sessions from
   that summary instead of reconstructing loose UI refs, and the launched-session
   cache rejects records without a matching harness session
   binding/admission/launch/spawn. `harnessAdapterModel.test.ts`,
