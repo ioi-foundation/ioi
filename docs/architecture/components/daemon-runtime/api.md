@@ -212,6 +212,64 @@ project truth remain Agentgres-admitted facts backed by daemon operations and
 receipt linkage.
 
 ```http
+POST /v1/hypervisor/project-operations
+```
+
+`POST /v1/hypervisor/project-operations` creates a daemon-authored proposal for
+project archive and restore operations. Hypervisor clients may request the
+operation from the Projects shell, but they do not execute it locally and do not
+turn encrypted archive bytes into restore truth.
+
+The route dispatches through the daemon runtime lifecycle boundary with:
+
+```text
+operation_kind = runtime.lifecycle_operation.hypervisor_project_operation_proposal
+projection_kind = hypervisor_project_operation_proposal
+```
+
+Request body:
+
+```json
+{
+  "project_id": "project-or-workspace-id",
+  "workspace_ref": "workspace://...",
+  "operation_kind": "archive | restore",
+  "agentgres_object_head_ref": "agentgres://object-head/...",
+  "state_root_ref": "agentgres://state-root/...",
+  "archive_ref": "artifact://agentgres/archive/...",
+  "restore_ref": "agentgres://restore/...",
+  "latest_receipt_refs": ["receipt://..."]
+}
+```
+
+The response is an `ioi.hypervisor.project_operation_proposal.v1` object:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.project_operation_proposal.v1",
+  "proposal_ref": "project-operation:...",
+  "source": "daemon-project-operation-proposal",
+  "project_id": "project-or-workspace-id",
+  "workspace_ref": "workspace://...",
+  "operation_kind": "restore",
+  "admission_state": "requires_wallet_lease",
+  "wallet_lease_ref": "lease:wallet/project/...",
+  "required_scope_refs": ["scope:agentgres.restore", "scope:artifact.decrypt"],
+  "agentgres_operation_ref": "agentgres://operation/project/...",
+  "receipt_ref": "receipt://project/...",
+  "state_root_ref": "agentgres://state-root/...",
+  "archive_ref": "artifact://agentgres/archive/...",
+  "restore_ref": "agentgres://restore/...",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Project operation proposals are not execution admissions. Archive/restore
+execution still requires wallet.network approval, required scopes, Agentgres
+operation refs, receipts, state roots, and the approved-operation admission
+boundary.
+
+```http
 GET /v1/hypervisor/agents
 ```
 
@@ -699,11 +757,12 @@ Request body:
 
 ```json
 {
-  "operation_family": "session | provider",
-  "proposal_ref": "session-operation:... | provider-operation:...",
+  "operation_family": "session | provider | project",
+  "proposal_ref": "session-operation:... | provider-operation:... | project-operation:...",
   "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
   "proposal_source": "daemon-session-operation-proposal",
   "project_ref": "project:...",
+  "workspace_ref": "workspace://...",
   "session_ref": "session:...",
   "environment_ref": "environment:...",
   "provider_candidate_ref": "provider:...",

@@ -62,9 +62,14 @@ import {
   type HypervisorModelWeightCustodyPolicy,
 } from "../hypervisorPrivacyPostureModel";
 import {
+  buildHypervisorProjectOperationProposal,
   HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
   loadHypervisorProjectStateProjection,
+  proposeHypervisorProjectOperation,
+  type HypervisorProjectOperationKind,
+  type HypervisorProjectOperationProposal,
+  type HypervisorProjectStateRecord,
 } from "../hypervisorProjectStateModel";
 import {
   buildHypervisorProviderOperationProposal,
@@ -1978,6 +1983,8 @@ function HypervisorProjectStateSurface({
   const [projection, setProjection] = useState(
     HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   );
+  const [operationProposal, setOperationProposal] =
+    useState<HypervisorProjectOperationProposal | null>(null);
 
   useEffect(() => {
     if (
@@ -2019,6 +2026,26 @@ function HypervisorProjectStateSurface({
   const restoreReadyCount = visibleProjects.filter(
     (project) => project.restore_state === "restore_ready",
   ).length;
+
+  async function onProjectOperation(
+    project: HypervisorProjectStateRecord,
+    operationKind: HypervisorProjectOperationKind,
+  ) {
+    try {
+      const proposal = await proposeHypervisorProjectOperation({
+        record: project,
+        operationKind,
+      });
+      setOperationProposal(proposal);
+    } catch (error) {
+      console.warn("[Hypervisor][Projects] operation proposal unavailable", error);
+      setOperationProposal(
+        buildHypervisorProjectOperationProposal(project, operationKind, {
+          source: "unverified",
+        }),
+      );
+    }
+  }
 
   return (
     <section
@@ -2152,6 +2179,49 @@ function HypervisorProjectStateSurface({
                   <dd>{selectedProject?.restore_ref ?? "unavailable"}</dd>
                 </div>
               </dl>
+              {selectedProject ? (
+                <div
+                  className="hypervisor-project-state__actions"
+                  aria-label="Project archive and restore proposals"
+                >
+                  <button
+                    type="button"
+                    data-project-operation-kind="archive"
+                    data-project-operation-project={selectedProject.project_id}
+                    onClick={() => {
+                      void onProjectOperation(selectedProject, "archive");
+                    }}
+                  >
+                    Archive
+                  </button>
+                  <button
+                    type="button"
+                    data-project-operation-kind="restore"
+                    data-project-operation-project={selectedProject.project_id}
+                    disabled={selectedProject.restore_state === "active"}
+                    onClick={() => {
+                      void onProjectOperation(selectedProject, "restore");
+                    }}
+                  >
+                    Restore
+                  </button>
+                </div>
+              ) : null}
+              {operationProposal ? (
+                <div
+                  className="hypervisor-project-state__proposal"
+                  data-project-operation-proposal={operationProposal.proposal_ref}
+                  data-project-operation-proposal-source={
+                    operationProposal.source
+                  }
+                  data-project-operation-admission-state={
+                    operationProposal.admission_state
+                  }
+                >
+                  <strong>{operationProposal.operation_kind} proposal</strong>
+                  <span>{operationProposal.receipt_ref}</span>
+                </div>
+              ) : null}
             </aside>
           </div>
         ) : (

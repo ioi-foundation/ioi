@@ -49,16 +49,41 @@ export interface HypervisorProjectStateProjection {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export type HypervisorProjectOperationKind = "archive" | "restore";
+
+export interface HypervisorProjectOperationProposal {
+  schema_version: "ioi.hypervisor.project_operation_proposal.v1";
+  proposal_ref: string;
+  source: "daemon-project-operation-proposal" | "fixture" | "unverified";
+  project_id: string;
+  workspace_ref: string;
+  operation_kind: HypervisorProjectOperationKind;
+  admission_state:
+    | "requires_wallet_lease"
+    | "ready_for_daemon_admission"
+    | "blocked";
+  wallet_lease_ref: string;
+  required_scope_refs: string[];
+  agentgres_operation_ref: string;
+  receipt_ref: string;
+  state_root_ref: string;
+  archive_ref: string;
+  restore_ref: string;
+  custody_invariant: string;
+}
+
 export const HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.hypervisor.daemonEndpoint";
 export const HYPERVISOR_PROJECT_STATE_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_PROJECT_STATE_PROJECTION_PATH =
   "/v1/hypervisor/project-state";
+export const HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH =
+  "/v1/hypervisor/project-operations";
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -74,6 +99,20 @@ interface LoadProjectStateProjectionOptions
   endpoint?: string;
   fetchImpl?: FetchLike;
   projectId?: string | null;
+}
+
+interface NormalizeProjectOperationProposalOptions {
+  record?: HypervisorProjectStateRecord;
+  operationKind?: HypervisorProjectOperationKind;
+  source?: HypervisorProjectOperationProposal["source"];
+}
+
+interface ProposeProjectOperationOptions
+  extends NormalizeProjectOperationProposalOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  record: HypervisorProjectStateRecord;
+  operationKind: HypervisorProjectOperationKind;
 }
 
 function projectRefId(project: ProjectScope): string {
@@ -183,6 +222,10 @@ function stringList(value: unknown, fallback: string[]): string[] {
     .filter((item): item is string => typeof item === "string" && !!item.trim())
     .map((item) => item.trim());
   return values.length > 0 ? values : fallback;
+}
+
+function safeId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
 function enumValue<T extends string>(
@@ -320,5 +363,134 @@ export async function loadHypervisorProjectStateProjection(
   }
   return normalizeHypervisorProjectStateProjection(value, {
     source: options.source ?? "daemon-project-state-projection",
+  });
+}
+
+export function buildHypervisorProjectOperationProposal(
+  record: HypervisorProjectStateRecord,
+  operationKind: HypervisorProjectOperationKind,
+  options: { source?: HypervisorProjectOperationProposal["source"] } = {},
+): HypervisorProjectOperationProposal {
+  const isBlocked =
+    operationKind === "restore" &&
+    !["archived", "restore_ready", "idle"].includes(record.restore_state);
+  return {
+    schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+    proposal_ref: `project-operation:${operationKind}/${record.project_id}`,
+    source: options.source ?? "fixture",
+    project_id: record.project_id,
+    workspace_ref: record.workspace_ref,
+    operation_kind: operationKind,
+    admission_state: isBlocked
+      ? "blocked"
+      : operationKind === "restore"
+        ? "requires_wallet_lease"
+        : "ready_for_daemon_admission",
+    wallet_lease_ref: `lease:wallet/project/${safeId(record.project_id)}/${operationKind}`,
+    required_scope_refs:
+      operationKind === "restore"
+        ? ["scope:agentgres.restore", "scope:artifact.decrypt"]
+        : ["scope:agentgres.archive"],
+    agentgres_operation_ref: `agentgres://operation/project/${safeId(record.project_id)}/${operationKind}`,
+    receipt_ref: `receipt://project/${safeId(record.project_id)}/${operationKind}`,
+    state_root_ref: record.state_root_ref,
+    archive_ref: record.archive_ref,
+    restore_ref: record.restore_ref,
+    custody_invariant:
+      "Project archive and restore are proposals until wallet.network authorizes required scopes and Agentgres admits archive, restore, receipt, and state-root refs.",
+  };
+}
+
+export function normalizeHypervisorProjectOperationProposal(
+  snapshot: unknown,
+  options: NormalizeProjectOperationProposalOptions = {},
+): HypervisorProjectOperationProposal {
+  const fallbackRecord =
+    options.record ?? HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records[0]!;
+  const fallback = buildHypervisorProjectOperationProposal(
+    fallbackRecord,
+    options.operationKind ?? "archive",
+    { source: options.source ?? "daemon-project-operation-proposal" },
+  );
+  const value = objectRecord(snapshot);
+  return {
+    schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+    proposal_ref: stringValue(value.proposal_ref, fallback.proposal_ref),
+    source: enumValue(value.source, fallback.source, [
+      "daemon-project-operation-proposal",
+      "fixture",
+      "unverified",
+    ]),
+    project_id: stringValue(value.project_id, fallback.project_id),
+    workspace_ref: stringValue(value.workspace_ref, fallback.workspace_ref),
+    operation_kind: enumValue(value.operation_kind, fallback.operation_kind, [
+      "archive",
+      "restore",
+    ]),
+    admission_state: enumValue(value.admission_state, fallback.admission_state, [
+      "requires_wallet_lease",
+      "ready_for_daemon_admission",
+      "blocked",
+    ]),
+    wallet_lease_ref: stringValue(value.wallet_lease_ref, fallback.wallet_lease_ref),
+    required_scope_refs: stringList(
+      value.required_scope_refs,
+      fallback.required_scope_refs,
+    ),
+    agentgres_operation_ref: stringValue(
+      value.agentgres_operation_ref,
+      fallback.agentgres_operation_ref,
+    ),
+    receipt_ref: stringValue(value.receipt_ref, fallback.receipt_ref),
+    state_root_ref: stringValue(value.state_root_ref, fallback.state_root_ref),
+    archive_ref: stringValue(value.archive_ref, fallback.archive_ref),
+    restore_ref: stringValue(value.restore_ref, fallback.restore_ref),
+    custody_invariant: stringValue(
+      value.custody_invariant,
+      fallback.custody_invariant,
+    ),
+  };
+}
+
+export async function proposeHypervisorProjectOperation(
+  options: ProposeProjectOperationOptions,
+): Promise<HypervisorProjectOperationProposal> {
+  const endpoint =
+    options.endpoint ?? readHypervisorProjectStateDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor project operation proposal");
+  }
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        project_id: options.record.project_id,
+        workspace_ref: options.record.workspace_ref,
+        operation_kind: options.operationKind,
+        agentgres_object_head_ref: options.record.agentgres_object_head_ref,
+        state_root_ref: options.record.state_root_ref,
+        archive_ref: options.record.archive_ref,
+        restore_ref: options.record.restore_ref,
+        latest_receipt_refs: options.record.latest_receipt_refs,
+      }),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Project operation proposal request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorProjectOperationProposal(value, {
+    record: options.record,
+    operationKind: options.operationKind,
+    source: options.source ?? "daemon-project-operation-proposal",
   });
 }

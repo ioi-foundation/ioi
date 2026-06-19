@@ -713,7 +713,10 @@ test("Projects surface renders the reference Projects page over hidden project t
     /HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION/,
   );
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_PATH/);
+  assert.match(projectStateModel, /HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH/);
   assert.match(projectStateModel, /loadHypervisorProjectStateProjection/);
+  assert.match(projectStateModel, /proposeHypervisorProjectOperation/);
+  assert.match(projectStateModel, /HypervisorProjectOperationProposal/);
   assert.match(projectStateModel, /normalizeHypervisorProjectStateProjection/);
   assert.match(projectStateModel, /agentgres_object_head_ref/);
   assert.match(projectStateModel, /state_root_ref/);
@@ -740,6 +743,10 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /data-project-state-root-ref/);
   assert.match(shellContent, /data-project-archive-ref/);
   assert.match(shellContent, /data-project-restore-ref/);
+  assert.match(shellContent, /data-project-operation-kind/);
+  assert.match(shellContent, /data-project-operation-proposal/);
+  assert.match(shellContent, /data-project-operation-proposal-source/);
+  assert.match(shellContent, /data-project-operation-admission-state/);
   assert.match(shellContent, /<h2>Projects<\/h2>/);
   assert.match(shellContent, /HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION/);
   assert.match(shellContent, /<h3>No projects<\/h3>/);

@@ -2356,7 +2356,16 @@ assert(
       "loadHypervisorProjectStateProjection",
     ) &&
     hypervisorProjectStateModelSource.includes(
+      "HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH",
+    ) &&
+    hypervisorProjectStateModelSource.includes(
+      "proposeHypervisorProjectOperation",
+    ) &&
+    hypervisorProjectStateModelSource.includes(
       "ioi.hypervisor.project_state_projection.v1",
+    ) &&
+    hypervisorProjectStateModelSource.includes(
+      "ioi.hypervisor.project_operation_proposal.v1",
     ) &&
     hypervisorProjectStateModelSource.includes(
       "HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION",
@@ -2370,15 +2379,30 @@ assert(
       "loadHypervisorProjectStateProjection",
     ) &&
     hypervisorShellContentSource.includes("data-project-state-source") &&
+    hypervisorShellContentSource.includes("data-project-operation-kind") &&
+    hypervisorShellContentSource.includes(
+      "data-project-operation-proposal",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-project-operation-admission-state",
+    ) &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/project-state") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/project-operations") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_project_state",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
     ) &&
     publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor project state through lifecycle projection",
     ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor project operations through lifecycle admission proposal",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/project-state") &&
+    daemonRuntimeApiDoc.includes("POST /v1/hypervisor/project-operations") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_project_state",
     ),
@@ -2388,7 +2412,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Projects should clean boot without fake rows, then hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route.",
+  "Hypervisor Projects should clean boot without fake rows, hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route, and propose archive/restore operations through daemon admission instead of fixture-local actions.",
 );
 assert(
   "hypervisor-approved-operation-admission",
@@ -2403,6 +2427,12 @@ assert(
     ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "daemon-provider-operation-proposal",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "daemon-project-operation-proposal",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "ioi.hypervisor.project_operation_proposal.v1",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "hypervisor_approved_operation_proposal_source_not_admissible",
@@ -2434,6 +2464,9 @@ assert(
       "rejects fixture or unverified proposals",
     ) &&
     runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
+      "admits daemon project operation",
+    ) &&
+    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
       "rejects approved operations without Agentgres operation, receipt, or state root",
     ) &&
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
@@ -2446,7 +2479,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Approved Hypervisor operation admission must only admit daemon-authored session/provider proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
+  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",

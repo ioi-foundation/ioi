@@ -3,11 +3,14 @@ import test from "node:test";
 
 import { PROJECT_SCOPES } from "./hypervisorShellModel.ts";
 import {
+  buildHypervisorProjectOperationProposal,
+  HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH,
   HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
   HYPERVISOR_PROJECT_STATE_PROJECTION_PATH,
   loadHypervisorProjectStateProjection,
   normalizeHypervisorProjectStateProjection,
+  proposeHypervisorProjectOperation,
 } from "./hypervisorProjectStateModel.ts";
 
 test("project state clean boot starts empty until daemon admits project truth", () => {
@@ -183,4 +186,102 @@ test("project state loader calls the daemon projection route with selected proje
   assert.deepEqual(projection.records[0]?.latest_receipt_refs, [
     "receipt://project/ioi/state",
   ]);
+});
+
+test("project operation proposal binds archive and restore to Agentgres refs", () => {
+  const active = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
+    (record) => record.restore_state === "active",
+  )!;
+  const restoreReady = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
+    (record) => record.restore_state === "restore_ready",
+  )!;
+
+  const archive = buildHypervisorProjectOperationProposal(active, "archive");
+  assert.equal(
+    archive.schema_version,
+    "ioi.hypervisor.project_operation_proposal.v1",
+  );
+  assert.equal(archive.operation_kind, "archive");
+  assert.equal(archive.admission_state, "ready_for_daemon_admission");
+  assert.deepEqual(archive.required_scope_refs, ["scope:agentgres.archive"]);
+  assert.equal(archive.state_root_ref, active.state_root_ref);
+  assert.equal(archive.archive_ref, active.archive_ref);
+  assert.equal(archive.restore_ref, active.restore_ref);
+  assert.match(archive.custody_invariant, /Agentgres admits archive/);
+
+  const restore = buildHypervisorProjectOperationProposal(restoreReady, "restore");
+  assert.equal(restore.operation_kind, "restore");
+  assert.equal(restore.admission_state, "requires_wallet_lease");
+  assert.deepEqual(restore.required_scope_refs, [
+    "scope:agentgres.restore",
+    "scope:artifact.decrypt",
+  ]);
+
+  const blockedRestore = buildHypervisorProjectOperationProposal(active, "restore");
+  assert.equal(blockedRestore.admission_state, "blocked");
+});
+
+test("project operation proposal client posts canonical request to daemon", async () => {
+  const record = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
+    (item) => item.restore_state === "restore_ready",
+  )!;
+  const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
+
+  const proposal = await proposeHypervisorProjectOperation({
+    endpoint: "http://daemon.test/",
+    record,
+    operationKind: "restore",
+    fetchImpl: async (input, init) => {
+      calls.push({
+        input,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body) : null,
+      });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+            proposal_ref: "project-operation:daemon/restore",
+            source: "daemon-project-operation-proposal",
+            project_id: record.project_id,
+            workspace_ref: record.workspace_ref,
+            operation_kind: "restore",
+            admission_state: "requires_wallet_lease",
+            wallet_lease_ref: "lease:wallet/project/restore",
+            required_scope_refs: [
+              "scope:agentgres.restore",
+              "scope:artifact.decrypt",
+            ],
+            agentgres_operation_ref: "agentgres://operation/project/restore",
+            receipt_ref: "receipt://project/restore",
+            state_root_ref: record.state_root_ref,
+            archive_ref: record.archive_ref,
+            restore_ref: record.restore_ref,
+            custody_invariant:
+              "wallet.network grants; Agentgres admits project restore truth.",
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(proposal.source, "daemon-project-operation-proposal");
+  assert.equal(proposal.operation_kind, "restore");
+  assert.equal(proposal.admission_state, "requires_wallet_lease");
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.input);
+  assert.equal(url.pathname, HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH);
+  assert.equal(calls[0]!.method, "POST");
+  assert.deepEqual(calls[0]!.body, {
+    project_id: record.project_id,
+    workspace_ref: record.workspace_ref,
+    operation_kind: "restore",
+    agentgres_object_head_ref: record.agentgres_object_head_ref,
+    state_root_ref: record.state_root_ref,
+    archive_ref: record.archive_ref,
+    restore_ref: record.restore_ref,
+    latest_receipt_refs: record.latest_receipt_refs,
+  });
 });

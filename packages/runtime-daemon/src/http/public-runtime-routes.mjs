@@ -412,6 +412,48 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/project-operations") {
+        const body = await readBody(request);
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
+        );
+        const projected = routeContextPolicyCore.projectRuntimeLifecycle({
+          operation: "hypervisor_project_operation_proposal",
+          operation_kind:
+            "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
+          projection_kind: "hypervisor_project_operation_proposal",
+          base_url: baseUrlForRequest(request),
+          workspace_root: store.defaultCwd,
+          state_dir: store.stateDir,
+          home_dir: store.homeDir,
+          runtime_schema_version: store.schemaVersion,
+          project_id: optionalString(body.project_id ?? body.project_ref),
+          workspace_ref: optionalString(body.workspace_ref),
+          requested_operation: optionalString(body.operation_kind),
+          agentgres_object_head_ref: optionalString(
+            body.agentgres_object_head_ref,
+          ),
+          state_root_ref: optionalString(body.state_root_ref),
+          archive_ref: optionalString(body.archive_ref),
+          restore_ref: optionalString(body.restore_ref),
+          latest_receipt_refs: Array.isArray(body.latest_receipt_refs)
+            ? body.latest_receipt_refs.filter(
+                (receiptRef) => typeof receiptRef === "string" && receiptRef,
+              )
+            : [],
+          source: "public_runtime_routes./v1/hypervisor/project-operations",
+        });
+        writeJsonResponse(
+          response,
+          projected.proposal ??
+            projected.record?.proposal ??
+            projected.record?.projection ??
+            projected.record ??
+            projected,
+        );
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/approved-operations") {
         const body = await readBody(request);
         writeJsonResponse(

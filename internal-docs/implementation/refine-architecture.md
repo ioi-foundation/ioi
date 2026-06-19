@@ -1214,9 +1214,14 @@ Current implementation cut:
   `ioi.hypervisor.project_state_projection.v1` loader and
   `/v1/hypervisor/project-state` public runtime route dispatching through
   `projectRuntimeLifecycle` with
-  `runtime.lifecycle_projection.hypervisor_project_state`. Remaining work is
-  deeper interactive project/session actions and broader non-fixture data
-  coverage.
+  `runtime.lifecycle_projection.hypervisor_project_state`. Projects now also
+  create daemon-authored archive/restore proposals through
+  `/v1/hypervisor/project-operations` using
+  `runtime.lifecycle_operation.hypervisor_project_operation_proposal`; approved
+  project operations are admitted only through the wallet.network lease,
+  Agentgres operation, receipt, archive, restore, and state-root gate. Remaining
+  work is paginated project receipt history and real adapter execution after
+  approved admission.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader while the

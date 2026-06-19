@@ -9,16 +9,18 @@ import {
 export const HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION =
   "ioi.runtime.hypervisor_approved_operation_admission.v1";
 
-const OPERATION_FAMILIES = new Set(["session", "provider"]);
+const OPERATION_FAMILIES = new Set(["session", "provider", "project"]);
 
 const PROPOSAL_SCHEMA_BY_FAMILY = new Map([
   ["session", "ioi.hypervisor.session_operation_proposal.v1"],
   ["provider", "ioi.hypervisor.provider_operation_proposal.v1"],
+  ["project", "ioi.hypervisor.project_operation_proposal.v1"],
 ]);
 
 const PROPOSAL_SOURCE_BY_FAMILY = new Map([
   ["session", "daemon-session-operation-proposal"],
   ["provider", "daemon-provider-operation-proposal"],
+  ["project", "daemon-project-operation-proposal"],
 ]);
 
 const RETIRED_ALIASES = [
@@ -224,6 +226,21 @@ function familyTargetRefs(operationFamily, request) {
       target_ref:
         optionalString(request.target_ref) ??
         optionalString(request.candidate_ref) ??
+        null,
+    };
+  }
+
+  if (operationFamily === "project") {
+    return {
+      session_ref: optionalString(request.session_ref) ?? null,
+      environment_ref: optionalString(request.environment_ref) ?? null,
+      provider_candidate_ref: optionalString(request.provider_candidate_ref) ?? null,
+      candidate_ref: null,
+      direct_provider_ref: null,
+      workspace_ref: requiredString(request.workspace_ref, "workspace_ref"),
+      target_ref:
+        optionalString(request.target_ref) ??
+        optionalString(request.workspace_ref) ??
         null,
     };
   }

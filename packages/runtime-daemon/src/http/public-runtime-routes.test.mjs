@@ -1178,6 +1178,91 @@ test("public runtime routes dispatch Hypervisor session operations through lifec
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor project operations through lifecycle admission proposal", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const projectOperationProposal = {
+    schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+    proposal_ref: "project-operation:daemon/restore",
+    source: "daemon-project-operation-proposal",
+    project_id: "project:ioi",
+    workspace_ref: "workspace://ioi",
+    operation_kind: "restore",
+    admission_state: "requires_wallet_lease",
+    wallet_lease_ref: "lease:wallet/project/ioi/restore",
+    required_scope_refs: ["scope:agentgres.restore", "scope:artifact.decrypt"],
+    agentgres_operation_ref: "agentgres://operation/project/ioi/restore",
+    receipt_ref: "receipt://project/ioi/restore",
+    state_root_ref: "agentgres://state-root/project:ioi",
+    archive_ref: "artifact://agentgres/archive/ioi/latest",
+    restore_ref: "agentgres://restore/ioi/latest",
+    custody_invariant:
+      "wallet.network grants; Agentgres admits project archive/restore truth.",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return { proposal: projectOperationProposal };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/project-operations",
+      body: {
+        project_id: "project:ioi",
+        workspace_ref: "workspace://ioi",
+        operation_kind: "restore",
+        agentgres_object_head_ref: "agentgres://object-head/project:ioi",
+        state_root_ref: "agentgres://state-root/project:ioi",
+        archive_ref: "artifact://agentgres/archive/ioi/latest",
+        restore_ref: "agentgres://restore/ioi/latest",
+        latest_receipt_refs: ["receipt://project/ioi/state"],
+      },
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), projectOperationProposal);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_project_operation_proposal",
+        operation_kind:
+          "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
+        projection_kind: "hypervisor_project_operation_proposal",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        workspace_ref: "workspace://ioi",
+        requested_operation: "restore",
+        agentgres_object_head_ref: "agentgres://object-head/project:ioi",
+        state_root_ref: "agentgres://state-root/project:ioi",
+        archive_ref: "artifact://agentgres/archive/ioi/latest",
+        restore_ref: "agentgres://restore/ioi/latest",
+        latest_receipt_refs: ["receipt://project/ioi/state"],
+        source: "public_runtime_routes./v1/hypervisor/project-operations",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes admit approved Hypervisor operations after wallet and Agentgres refs", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

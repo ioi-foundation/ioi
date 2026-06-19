@@ -5248,6 +5248,52 @@
   line-height: 1.45;
 }
 
+.hypervisor-project-state__inspector .hypervisor-project-state__actions {
+  display: flex;
+  gap: 8px;
+  padding: 14px 0 0;
+  border-top: 1px solid #eaecf0;
+}
+
+.hypervisor-project-state__inspector .hypervisor-project-state__actions button {
+  min-height: 32px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #101828;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.hypervisor-project-state__inspector .hypervisor-project-state__actions button:disabled {
+  background: #f2f4f7;
+  color: #98a2b3;
+}
+
+.hypervisor-project-state__inspector .hypervisor-project-state__proposal {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.hypervisor-project-state__inspector .hypervisor-project-state__proposal strong {
+  color: #101828;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.hypervisor-project-state__inspector .hypervisor-project-state__proposal span {
+  overflow-wrap: anywhere;
+  color: #475467;
+  font-family: "ABC Diatype Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+}
+
 .hypervisor-project-state__empty {
   display: flex;
   flex: 1;

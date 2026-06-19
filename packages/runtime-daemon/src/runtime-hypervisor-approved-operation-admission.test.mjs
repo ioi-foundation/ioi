@@ -48,6 +48,25 @@ const providerRequest = {
   restore_ref: "agentgres://restore/akash/latest",
 };
 
+const projectRequest = {
+  operation_family: "project",
+  proposal_ref: "project-operation:daemon/restore",
+  proposal_schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+  proposal_source: "daemon-project-operation-proposal",
+  project_ref: "project:ioi",
+  workspace_ref: "workspace://ioi",
+  operation_kind: "restore",
+  wallet_approval_ref: "approval://wallet/project/restore",
+  wallet_lease_ref: "lease:wallet/project/restore",
+  required_scope_refs: ["scope:agentgres.restore", "scope:artifact.decrypt"],
+  authority_receipt_refs: ["receipt://wallet/project/restore"],
+  agentgres_operation_ref: "agentgres://operation/project/ioi/restore",
+  receipt_ref: "receipt://project/ioi/restore",
+  state_root_ref: "agentgres://state-root/project:ioi",
+  archive_ref: "artifact://agentgres/archive/ioi/latest",
+  restore_ref: "agentgres://restore/ioi/latest",
+};
+
 test("admits daemon session operation after wallet approval and Agentgres truth refs", () => {
   const result = admitHypervisorApprovedOperation(sessionRequest, {
     nowIso: () => "2026-06-18T00:00:00.000Z",
@@ -79,6 +98,31 @@ test("admits daemon provider operation after wallet approval and Agentgres truth
   assert.equal(result.provider_candidate_ref, "provider-candidate:akash-gpu");
   assert.equal(result.archive_ref, "artifact://agentgres/archive/provider/akash/latest");
   assert.equal(result.restore_ref, "agentgres://restore/akash/latest");
+});
+
+test("admits daemon project operation after wallet approval and Agentgres archive refs", () => {
+  const result = admitHypervisorApprovedOperation(projectRequest);
+
+  assert.equal(result.operation_family, "project");
+  assert.equal(result.workspace_ref, "workspace://ioi");
+  assert.equal(result.target_ref, "workspace://ioi");
+  assert.equal(result.archive_ref, "artifact://agentgres/archive/ioi/latest");
+  assert.equal(result.restore_ref, "agentgres://restore/ioi/latest");
+  assert.deepEqual(result.agentgres_operation_refs, [
+    "agentgres://operation/project/ioi/restore",
+  ]);
+  assert.deepEqual(result.receipt_refs, ["receipt://project/ioi/restore"]);
+});
+
+test("rejects project operations from non-daemon proposal sources", () => {
+  assert.throws(
+    () =>
+      admitHypervisorApprovedOperation({
+        ...projectRequest,
+        proposal_source: "fixture",
+      }),
+    /daemon-authored proposals/,
+  );
 });
 
 test("rejects fixture or unverified proposals as execution admission sources", () => {
