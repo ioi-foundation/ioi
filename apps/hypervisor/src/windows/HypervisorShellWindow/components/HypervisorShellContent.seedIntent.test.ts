@@ -134,6 +134,12 @@ assert.match(
   "Sessions should render the reference workspace prompt while preserving lifecycle refs as metadata",
 );
 
+assert.match(
+  source,
+  /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\][\s\S]*const launchedHarnessSession[\s\S]*data-session-harness-drill-in=\{[\s\S]*data-session-harness-drill-in-spawn-state=\{[\s\S]*data-session-harness-drill-in-model-name=\{[\s\S]*data-session-harness-drill-in-pty-transport=\{[\s\S]*data-session-harness-drill-in-command=\{[\s\S]*launchedHarnessSession\.harness_session_binding[\s\S]*\.harness_label/,
+  "Sessions should render launched harness readiness from governed session projections instead of hiding Codex OSS/Qwen behind rail-only metadata",
+);
+
 assert.doesNotMatch(
   source,
   /className="hypervisor-session-operations__recent-launches"|data-launched-session-list="new-session-projection-cache"|className="hypervisor-session-operations__environment"|className="hypervisor-session-operations__startup-list"/,
@@ -255,6 +261,12 @@ assert.match(
   shellCss,
   /Phase 0A hard cut: Sessions uses the IOI reference workspace cockpit[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) clamp\(340px, 25vw, 488px\);[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__workspace\s*\{/,
   "Sessions should use the IOI-reference two-column workspace page",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__harness-drill-in\s*\{[\s\S]*width: min\(100%, 668px\);[\s\S]*border: 1px solid #d8dee6;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__harness-drill-in code\s*\{[\s\S]*font-family: "ABC Diatype Mono"/,
+  "Sessions should style launched harness readiness as a compact reference-cockpit drill-in card",
 );
 
 assert.match(

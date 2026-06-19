@@ -317,12 +317,14 @@ function assertRecipeTargetBinding(recipe, binding) {
       },
     });
   }
-  if (!binding.session_route_ref.includes(safeId(recipe.recipe_id))) {
+  const routeToken = routeSafeId(recipe.recipe_id);
+  if (!binding.session_route_ref.includes(routeToken)) {
     throw admissionError({
       code: "hypervisor_session_launch_recipe_route_unbound",
       message: "Target binding session route must bind the selected recipe.",
       details: {
         recipe_ref: recipe.recipe_id,
+        expected_route_token: routeToken,
         session_route_ref: binding.session_route_ref,
       },
     });
@@ -432,6 +434,16 @@ function enumValue(value, field, allowed) {
     });
   }
   return string;
+}
+
+function routeSafeId(value) {
+  return (
+    String(value ?? "recipe")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 96) || "recipe"
+  );
 }
 
 function admissionError({ code, message, details = {}, status = 400 }) {

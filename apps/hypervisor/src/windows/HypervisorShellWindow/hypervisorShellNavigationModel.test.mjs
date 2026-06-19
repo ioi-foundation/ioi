@@ -643,7 +643,12 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
     /workspaceActive \? \(\s*<WorkspaceShell\s+active\s+currentProject=\{currentProject\}/s,
   );
   assert.doesNotMatch(shellContent, /active=\{workspaceActive\}/);
-  assert.doesNotMatch(shellContent, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
+  assert.match(
+    shellContent,
+    /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/,
+  );
+  assert.match(shellContent, /data-session-harness-drill-in/);
+  assert.match(shellContent, /data-session-harness-drill-in-command/);
   assert.doesNotMatch(shellContent, /data-launched-session-list="new-session-projection-cache"/);
   assert.doesNotMatch(shellContent, /launchedSessionAdmissionLabel/);
   assert.doesNotMatch(shellContent, /launchedSessionAdmissionDetail/);

@@ -116,6 +116,7 @@ import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
   isHypervisorSurfaceId,
+  type HypervisorLaunchedSessionProjection,
 } from "../hypervisorShellNavigationModel";
 
 const insightsDashboardPreviewUrl = new URL(
@@ -1512,8 +1513,10 @@ function PortEmptyIcon() {
 }
 
 function HypervisorSessionOperationsCockpit({
+  launchedSessions,
   onOpenReceiptEvidence,
 }: {
+  launchedSessions: readonly HypervisorLaunchedSessionProjection[];
   onOpenReceiptEvidence: (target: HypervisorReceiptEvidenceTarget) => void;
 }) {
   const [projection, setProjection] = useState(
@@ -1580,6 +1583,29 @@ function HypervisorSessionOperationsCockpit({
   const sessionOpenSurfaceLabel = canOpenSessionSurface
     ? "Open admitted adapter"
     : "Adapter admission required";
+  const launchedHarnessSession =
+    launchedSessions.find(
+      (session) => session.admission_state === "daemon_admitted",
+    ) ??
+    launchedSessions[0] ??
+    null;
+  const launchedHarnessSpawn =
+    launchedHarnessSession?.harness_session_spawn &&
+    "command_contract" in launchedHarnessSession.harness_session_spawn
+      ? launchedHarnessSession.harness_session_spawn
+      : null;
+  const launchedHarnessReadiness =
+    launchedHarnessSession?.harness_session_readiness ?? null;
+  const launchedHarnessCommand =
+    launchedHarnessSpawn?.command_contract.resolved_command_line ?? "";
+  const launchedHarnessPtyTransport =
+    launchedHarnessSpawn?.command_contract.pty_transport ?? "";
+  const launchedHarnessReadinessState =
+    launchedHarnessReadiness?.readiness_state ?? "";
+  const launchedHarnessNextAction =
+    launchedHarnessReadiness && "operator_next_action" in launchedHarnessReadiness
+      ? launchedHarnessReadiness.operator_next_action
+      : "Attach terminal when ready.";
 
   return (
     <section
@@ -1757,6 +1783,71 @@ function HypervisorSessionOperationsCockpit({
                   </button>
                 ))}
               </div>
+              {launchedHarnessSession ? (
+                <section
+                  className="hypervisor-session-operations__harness-drill-in"
+                  aria-label="Launched harness session"
+                  data-session-harness-drill-in={
+                    launchedHarnessSession.session_ref
+                  }
+                  data-session-harness-drill-in-admission={
+                    launchedHarnessSession.admission_state
+                  }
+                  data-session-harness-drill-in-recipe-admission={
+                    launchedHarnessSession.session_launch_recipe_admission_ref ??
+                    ""
+                  }
+                  data-session-harness-drill-in-spawn={
+                    launchedHarnessSession.harness_session_spawn_ref ?? ""
+                  }
+                  data-session-harness-drill-in-spawn-state={
+                    launchedHarnessSpawn?.spawn_state ?? ""
+                  }
+                  data-session-harness-drill-in-model-name={
+                    launchedHarnessSpawn?.model_name ?? ""
+                  }
+                  data-session-harness-drill-in-readiness={
+                    launchedHarnessReadiness?.decision ?? ""
+                  }
+                  data-session-harness-drill-in-readiness-state={
+                    launchedHarnessReadinessState
+                  }
+                  data-session-harness-drill-in-pty-transport={
+                    launchedHarnessPtyTransport
+                  }
+                  data-session-harness-drill-in-command={
+                    launchedHarnessCommand
+                  }
+                >
+                  <header>
+                    <span>Harness ready</span>
+                    <strong>
+                      {
+                        launchedHarnessSession.harness_session_binding
+                          .harness_label
+                      }
+                    </strong>
+                  </header>
+                  <dl>
+                    <div>
+                      <dt>Model</dt>
+                      <dd>{launchedHarnessSpawn?.model_name ?? "pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Transport</dt>
+                      <dd>{launchedHarnessPtyTransport || "pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Readiness</dt>
+                      <dd>{launchedHarnessReadinessState || "pending"}</dd>
+                    </div>
+                  </dl>
+                  {launchedHarnessCommand ? (
+                    <code>{launchedHarnessCommand}</code>
+                  ) : null}
+                  <p>{launchedHarnessNextAction}</p>
+                </section>
+              ) : null}
             </div>
             <form
               className="hypervisor-session-operations__composer"
@@ -3639,6 +3730,9 @@ export function HypervisorShellContent({
 
                   {activeView === "sessions" ? (
                     <HypervisorSessionOperationsCockpit
+                      launchedSessions={
+                        controller.sessions.launchedSessionProjections
+                      }
                       onOpenReceiptEvidence={controller.receipts.openTarget}
                     />
                   ) : null}

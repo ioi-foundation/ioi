@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 import { admitCodeEditorAdapterLaunchPlan } from "../packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs";
+import { admitHypervisorSessionLaunchRecipe } from "../packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.mjs";
 import { admitHarnessSessionBinding } from "../packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs";
 import { buildHarnessSessionLaunch } from "../packages/runtime-daemon/src/runtime-harness-session-launch.mjs";
 import { buildHarnessSessionReadiness } from "../packages/runtime-daemon/src/runtime-harness-session-readiness.mjs";
@@ -231,6 +232,23 @@ async function createContractDaemonServer() {
             source:
               body.source ??
               "hypervisor_app_shell_contract./v1/hypervisor/code-editor-adapter-launch-plans",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/session-launch-recipe-admissions"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          admitHypervisorSessionLaunchRecipe({
+            ...body,
+            source:
+              body.source ??
+              "hypervisor_app_shell_contract./v1/hypervisor/session-launch-recipe-admissions",
           }),
           202,
         );
@@ -783,6 +801,35 @@ async function main() {
         sessionsText.includes("Boost your test coverage"),
       "Sessions did not render the IOI-reference workspace cockpit.",
     );
+    const sessionHarnessDrillIn = page
+      .locator("[data-session-harness-drill-in]")
+      .first();
+    await sessionHarnessDrillIn.waitFor({ timeout: 5_000 });
+    const drillInCommand =
+      (await sessionHarnessDrillIn.getAttribute(
+        "data-session-harness-drill-in-command",
+      )) ?? "";
+    assert(
+      (await sessionHarnessDrillIn.getAttribute(
+        "data-session-harness-drill-in-admission",
+      )) === "daemon_admitted" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-model-name",
+        )) === "qwen" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-readiness",
+        )) === "ready" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-readiness-state",
+        )) === "ready_for_harness_pty_attach" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-pty-transport",
+        )) === "hypervisor_client_terminal_adapter" &&
+        drillInCommand.includes("codex --oss") &&
+        drillInCommand.includes("--local-provider ollama") &&
+        drillInCommand.includes("--model qwen"),
+      `Sessions did not expose the launched Codex OSS/Qwen harness drill-in. command=${drillInCommand}`,
+    );
     assert(
       (await page
         .locator(
@@ -1265,6 +1312,7 @@ async function main() {
         "new_session_launch_daemon_host_readiness_ready",
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
+        "sessions_launched_harness_drill_in_rendered",
         "automations_reference_clean_empty_state_rendered",
         "projects_reference_clean_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",

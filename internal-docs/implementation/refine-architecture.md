@@ -459,7 +459,7 @@ Blocking object/API/schema gaps:
 ```text
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
-HypervisorSessionLaunchRecipe product drill-in and PTY polish
+Hypervisor host PTY attach polish and live terminal transcript
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
@@ -2245,6 +2245,12 @@ Current implementation cut:
   that summary instead of reconstructing loose UI refs, and the launched-session
   cache rejects records without a matching recipe admission, harness session
   binding admission, launch, spawn, and readiness record.
+  The Sessions cockpit now receives launched-session projections and renders a
+  compact harness drill-in from the governed recipe/binding/launch/spawn/readiness
+  chain, including the local Codex OSS / Qwen model, PTY transport, readiness
+  state, and daemon-resolved command. `check:hypervisor-app-shell` now rebuilds
+  against the current bundle and proves the visible Sessions surface exposes the
+  launched harness drill-in after a governed New Session launch.
   `harnessAdapterModel.test.ts`,
   `hypervisorLaunchedSessionPersistence.test.ts`,
   `hypervisorShellNavigationModel.test.mjs`, and `check:runtime-layout` guard

@@ -33,14 +33,14 @@ function recipe(overrides = {}) {
 function targetBinding(overrides = {}) {
   return {
     schema_version: "ioi.hypervisor.new_session_target_binding.v1",
-    target_binding_ref: "target-binding:new-session/workbench.default/ioi",
+    target_binding_ref: "target-binding:new-session/workbench-default/ioi",
     recipe_ref: "workbench.default",
     target_kind: "workbench",
     surface_id: "workbench",
     project_ref: "project:ioi",
     operator_intent_ref:
       "target-binding:new-session/workbench.default/ioi/operator-intent",
-    session_route_ref: "session-route:workbench/workbench.default/ioi",
+    session_route_ref: "session-route:workbench/workbench-default/ioi",
     code_editor_adapter_target_ref: "code-editor-target:vscode",
     automation_recipe_ref: null,
     agent_template_ref: null,

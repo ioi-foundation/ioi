@@ -2038,6 +2038,92 @@
   background: #f8fbff;
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in {
+  width: min(100%, 668px);
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px solid #d8dee6;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in header span {
+  color: #155cff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in header strong {
+  color: #171719;
+  font-size: 13px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in dl div {
+  min-width: 0;
+  border: 1px solid #ececea;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 8px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in dt {
+  color: #7a7a80;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in dd {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: #171719;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in code {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #111113;
+  color: #d9e7ff;
+  padding: 9px 10px;
+  font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in p {
+  color: #5c6370;
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__composer {
   width: min(100%, 668px);
   justify-self: center;

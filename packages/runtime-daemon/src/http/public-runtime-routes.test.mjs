@@ -2601,14 +2601,14 @@ test("public runtime routes expose Hypervisor session launch recipe admissions",
         },
         target_binding: {
           schema_version: "ioi.hypervisor.new_session_target_binding.v1",
-          target_binding_ref: "target-binding:new-session/workbench.default/ioi",
+          target_binding_ref: "target-binding:new-session/workbench-default/ioi",
           recipe_ref: "workbench.default",
           target_kind: "workbench",
           surface_id: "workbench",
           project_ref: "project:ioi",
           operator_intent_ref:
-            "target-binding:new-session/workbench.default/ioi/operator-intent",
-          session_route_ref: "session-route:workbench/workbench.default/ioi",
+            "target-binding:new-session/workbench-default/ioi/operator-intent",
+          session_route_ref: "session-route:workbench/workbench-default/ioi",
           code_editor_adapter_target_ref: "code-editor-target:vscode",
           automation_recipe_ref: null,
           agent_template_ref: null,
@@ -2647,8 +2647,14 @@ test("public runtime routes expose Hypervisor session launch recipe admissions",
   assert.equal(payload.decision, "admitted");
   assert.equal(payload.admission_state, "admitted_for_session_binding");
   assert.equal(payload.recipe_ref, "workbench.default");
-  assert.equal(payload.target_binding_ref, "target-binding:new-session/workbench.default/ioi");
-  assert.equal(payload.session_route_ref, "session-route:workbench/workbench.default/ioi");
+  assert.equal(
+    payload.target_binding_ref,
+    "target-binding:new-session/workbench-default/ioi",
+  );
+  assert.equal(
+    payload.session_route_ref,
+    "session-route:workbench/workbench-default/ioi",
+  );
   assert.equal(payload.requiresDaemonGate, true);
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
