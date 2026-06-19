@@ -44,6 +44,7 @@ import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   buildHypervisorHarnessSessionBindingAdmissionFailure,
   buildHypervisorHarnessSessionLaunchFailure,
+  buildHypervisorHarnessSessionSpawnFailure,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildCodeEditorAdapterLaunchPlan,
@@ -53,12 +54,14 @@ import {
   requestCodeEditorAdapterLaunchPlanAdmission,
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
+  requestHarnessSessionSpawn,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
+import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
 
 type ToastCandidate = Pick<
   InterventionRecord,
@@ -456,6 +459,60 @@ export function useHypervisorShellController() {
               "Harness session binding was not admitted for launch.",
             ),
           });
+    const harnessSessionSpawn =
+      harnessSessionLaunch.decision === "admitted" &&
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHarnessSessionSpawn(harnessSessionLaunch, {
+            workspaceRoot: project.rootPath,
+          }).catch((error: unknown) =>
+            buildHypervisorHarnessSessionSpawnFailure({
+              binding: request.launch_summary.harness_session_binding,
+              sessionLaunch: harnessSessionLaunch,
+              error,
+            }),
+          )
+        : buildHypervisorHarnessSessionSpawnFailure({
+            binding: request.launch_summary.harness_session_binding,
+            sessionLaunch: harnessSessionLaunch,
+            error: new Error(
+              "Harness session launch was not admitted for spawn.",
+            ),
+          });
+    if (
+      harnessSessionSpawn.decision === "admitted" &&
+      isHypervisorClientRuntime()
+    ) {
+      try {
+        const terminal = await hostWorkspaceAdapter.createTerminalSession(
+          harnessSessionSpawn.terminal_attach_contract.root,
+          harnessSessionSpawn.terminal_attach_contract.cols,
+          harnessSessionSpawn.terminal_attach_contract.rows,
+        );
+        await hostWorkspaceAdapter.writeTerminalSession(
+          terminal.sessionId,
+          `${harnessSessionSpawn.terminal_attach_contract.command_line}\n`,
+        );
+        await recordHypervisorLaunchReceipt(
+          "hypervisor_harness_session_spawn_attached",
+          {
+            spawnId: harnessSessionSpawn.spawn_id,
+            terminalId: terminal.sessionId,
+            root: harnessSessionSpawn.terminal_attach_contract.root,
+            commandRef: harnessSessionSpawn.command_contract_ref,
+          },
+        );
+      } catch (error) {
+        await recordHypervisorLaunchReceipt(
+          "hypervisor_harness_session_spawn_attach_failed",
+          {
+            spawnId: harnessSessionSpawn.spawn_id,
+            error: error instanceof Error ? error.message : String(error ?? ""),
+          },
+        );
+      }
+    }
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
@@ -463,6 +520,7 @@ export function useHypervisorShellController() {
       codeEditorAdapterAdmission,
       harnessSessionBindingAdmission,
       harnessSessionLaunch,
+      harnessSessionSpawn,
     });
 
     setCurrentProjectId(project.id);

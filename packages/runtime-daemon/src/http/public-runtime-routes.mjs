@@ -13,6 +13,7 @@ import { buildHypervisorCoreTaxonomy } from "../runtime-hypervisor-core-taxonomy
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitHarnessSessionBinding } from "../runtime-harness-session-binding-admission.mjs";
 import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs";
+import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
 import { admitModelRouteMutation } from "../runtime-model-route-mutation-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
@@ -627,6 +628,29 @@ export function createPublicRuntimeRequestHandler(deps) {
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/harness-session-launches",
           }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-spawns"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          buildHarnessSessionSpawn(
+            {
+              ...body,
+              source:
+                optionalString(body.source) ??
+                "public_runtime_routes./v1/hypervisor/harness-session-spawns",
+            },
+            {
+              baseWorkspaceRoot: store.defaultCwd,
+              defaultWorkspaceRoot: store.defaultCwd,
+            },
+          ),
           202,
         );
         return;

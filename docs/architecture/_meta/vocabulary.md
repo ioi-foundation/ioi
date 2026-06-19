@@ -556,6 +556,13 @@ compliance acronyms for hidden audit material.
   Hypervisor local OpenAI-compatible model mount. Example Claude Code and
   DeepSeek TUI may bind to the same local model configuration, but are not
   launch-ready until their own daemon-owned launch contracts exist.
+- `HarnessSessionSpawn`: daemon-authored spawn-ready contract for an admitted
+  `HarnessSessionLaunch`. It resolves argv, model name, workspace root,
+  terminal attach contract, PTY transport, process custody posture, receipt
+  refs, and Agentgres operation refs before a client terminal may attach. The
+  first spawn lane is Codex OSS over the local Ollama/Qwen mount through the
+  Hypervisor client terminal adapter; the client supplies PTY transport but
+  does not become runtime truth.
 - `HarnessAdapterReceipt`: receipt envelope for an external harness run. It
   binds selection ref, execution lane, model route ref when present, workspace
   mount policy, authority scope refs, privacy posture ref, Agentgres operation

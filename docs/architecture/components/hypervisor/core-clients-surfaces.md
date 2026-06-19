@@ -515,8 +515,8 @@ HarnessSessionBinding
 ```
 
 The binding is not sufficient by itself. Hypervisor Core must request a
-daemon-side `HarnessSessionBindingAdmission` and then a
-`HarnessSessionLaunch` before a launched session may be reported as
+daemon-side `HarnessSessionBindingAdmission`, then a `HarnessSessionLaunch`,
+then a `HarnessSessionSpawn` before a launched session may be reported as
 `daemon_admitted`. The admission is the local-first harness gate: it can admit
 Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI over the
 local OpenAI-compatible Codex OSS / Qwen model route without provider API
@@ -541,6 +541,35 @@ HarnessSessionLaunch
     api_format: openai_compatible
   secret_release_policy: none
 ```
+
+The launch contract still does not run the process. It resolves the harness,
+model mount, authority posture, workspace policy, command template, and receipt
+refs. The daemon must then emit a `HarnessSessionSpawn`:
+
+```text
+HarnessSessionSpawn
+  schema_version: ioi.runtime.harness_session_spawn.v1
+  spawn_lane: host_terminal_session
+  spawn_state: ready_for_client_pty_attach
+  command_contract:
+    resolved_argv:
+      codex --oss --local-provider ollama
+        --model qwen
+        --sandbox workspace-write
+        --ask-for-approval on-request
+        --cd <workspace_root>
+    pty_transport: hypervisor_client_terminal_adapter
+    process_custody: client_host_pty_after_daemon_spawn_admission
+  terminal_attach_contract:
+    root: <workspace_root>
+    command_line: <daemon-resolved command>
+  secret_release_policy: none
+```
+
+The native Hypervisor client may then attach a host PTY and write the
+daemon-resolved command. The client is a PTY transport, not the source of
+runtime truth. Web/headless clients may record the spawn contract without a
+local PTY until a compatible terminal transport is available.
 
 The example Claude Code path and DeepSeek TUI remain first-session candidates
 that may bind to the same local model configuration, but they are not

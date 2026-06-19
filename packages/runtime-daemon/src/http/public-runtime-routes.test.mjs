@@ -2764,6 +2764,104 @@ test("public runtime routes expose Codex OSS harness session launches", async ()
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
 
+test("public runtime routes expose Codex OSS harness session spawn contracts", async () => {
+  const { handleRequest } = routeHarness();
+  const launchResponse = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-launches",
+      body: {
+        binding_admission: {
+          schema_version: "ioi.runtime.harness_session_binding_admission.v1",
+          admission_id:
+            "harness-session-binding-admission:harness-session-binding-session-route-sessions-mission-default-project-ioi-agent-harness-adapter-codex_cli-model-config-local-codex-oss-qwen",
+          decision: "admitted",
+          admission_state: "admitted_for_harness_launch",
+          session_binding_ref:
+            "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-codex_cli:model-config-local-codex-oss-qwen",
+          session_route_ref: "session-route:sessions/mission.default/project:ioi",
+          harness_selection_ref: "agent-harness-adapter:codex_cli",
+          harness_selection_kind: "agent_harness_adapter",
+          harness_truth_boundary: "proposal_source_only",
+          harness_launch_route_ref: "harness-route:codex-cli/local-model",
+          agent_harness_adapter_id: "codex_cli",
+          harness_profile_ref: null,
+          model_configuration_ref: "model-config:local/codex-oss-qwen",
+          model_route_ref: "model-route:hypervisor/default-local",
+          model_route_policy: "hypervisor_model_mount",
+          model_route_availability_state: "daemon_verified",
+          model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+          model_route_loaded_instance_refs: [
+            "model-instance:hypervisor/default-local",
+          ],
+          workspace_mount_policy: "redacted_projection",
+          privacy_posture_ref: "privacy:redacted-projection",
+          authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+          receipt_policy_ref: "receipt-policy:harness-adapter/default",
+          receipt_preview_ref: "receipt-preview:new-session/admitted",
+          expected_receipt_refs: [
+            "receipt-preview:new-session/admitted",
+            "receipt-policy:harness-adapter/default",
+          ],
+          agentgres_operation_refs: [
+            "agentgres://operation/harness-session-binding/admit",
+          ],
+          receipt_refs: ["receipt://harness-session-binding/admit"],
+          state_root: "agentgres://state-root/harness-session-binding/admit",
+          harness_runtime_truth_claimed: false,
+          requiresDaemonGate: true,
+          runtimeTruthSource: "daemon-runtime",
+          admitted_at: "2026-06-18T12:00:00.000Z",
+        },
+        workspace_ref: "workspace://local/ioi",
+      },
+    }),
+    response: launchResponse,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  const spawnResponse = responseRecorder();
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-spawns",
+      body: {
+        session_launch: JSON.parse(launchResponse.body),
+        workspace_root: "apps/hypervisor",
+        model_name: "qwen2.5-coder:7b",
+      },
+    }),
+    response: spawnResponse,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  const payload = JSON.parse(spawnResponse.body);
+  assert.equal(spawnResponse.statusCode, 202);
+  assert.equal(payload.schema_version, "ioi.runtime.harness_session_spawn.v1");
+  assert.equal(payload.decision, "admitted");
+  assert.equal(payload.spawn_state, "ready_for_client_pty_attach");
+  assert.equal(payload.spawn_lane, "host_terminal_session");
+  assert.equal(payload.workspace_root, "/workspace/apps/hypervisor");
+  assert.equal(payload.model_name, "qwen2.5-coder:7b");
+  assert.deepEqual(payload.command_contract.resolved_argv.slice(0, 6), [
+    "codex",
+    "--oss",
+    "--local-provider",
+    "ollama",
+    "--model",
+    "qwen2.5-coder:7b",
+  ]);
+  assert.equal(
+    payload.command_contract.process_custody,
+    "client_host_pty_after_daemon_spawn_admission",
+  );
+  assert.equal(payload.terminal_attach_contract.requires_pty, true);
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
 test("public runtime harness session launch route blocks unsupported harnesses", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

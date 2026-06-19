@@ -2187,20 +2187,27 @@ Current implementation cut:
   expected receipt refs, and example root where applicable. That binding is now
   posted to `/v1/hypervisor/harness-session-binding-admissions`; the daemon
   returns `ioi.runtime.harness_session_binding_admission.v1`, then the app posts
-  that admission to `/v1/hypervisor/harness-session-launches`. A launched
+  that admission to `/v1/hypervisor/harness-session-launches`, then posts the
+  admitted launch to `/v1/hypervisor/harness-session-spawns`. A launched
   session may be `daemon_admitted` only when it also carries
-  `ioi.runtime.harness_session_launch.v1`. The first launch-ready contract is
+  `ioi.runtime.harness_session_launch.v1` and
+  `ioi.runtime.harness_session_spawn.v1`. The first launch-ready contract is
   Codex OSS over a local Ollama/Qwen-style OpenAI-compatible model mount:
   `codex --oss --local-provider ollama --model
   ${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen} --sandbox workspace-write
-  --ask-for-approval on-request --cd ${HYPERVISOR_SESSION_WORKSPACE}`. The
-  `examples/claude-code-main` Claude Code bring-up path and DeepSeek TUI remain
-  first-session local-model candidates, but are not launch-ready until their
-  daemon-owned launch contracts exist. Provider auth and wallet capability
-  leases are later authority paths rather than blockers for the Codex local
-  bring-up. The controller seeds sessions from that summary instead of
-  reconstructing loose UI refs, and the launched-session cache rejects records
-  without a matching harness session binding/admission/launch. `harnessAdapterModel.test.ts`,
+  --ask-for-approval on-request --cd ${HYPERVISOR_SESSION_WORKSPACE}`. The spawn
+  contract resolves the concrete argv, workspace root, model name, terminal
+  attach contract, PTY transport, process custody posture, receipt refs, and
+  Agentgres operation refs. The native Hypervisor client may attach the host
+  terminal and write the daemon-resolved command; the client is only the PTY
+  transport. The `examples/claude-code-main` Claude Code bring-up path and
+  DeepSeek TUI remain first-session local-model candidates, but are not
+  launch-ready until their daemon-owned launch and spawn contracts exist.
+  Provider auth and wallet capability leases are later authority paths rather
+  than blockers for the Codex local bring-up. The controller seeds sessions from
+  that summary instead of reconstructing loose UI refs, and the launched-session
+  cache rejects records without a matching harness session
+  binding/admission/launch/spawn. `harnessAdapterModel.test.ts`,
   `hypervisorLaunchedSessionPersistence.test.ts`,
   `hypervisorShellNavigationModel.test.mjs`, and `check:runtime-layout` guard
   the summary and binding path.

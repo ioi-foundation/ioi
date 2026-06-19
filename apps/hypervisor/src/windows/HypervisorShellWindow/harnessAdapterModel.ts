@@ -319,6 +319,51 @@ export interface HypervisorHarnessSessionLaunch {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HypervisorHarnessSessionSpawn {
+  schema_version: "ioi.runtime.harness_session_spawn.v1";
+  spawn_id: string;
+  decision: "admitted";
+  spawn_state: "ready_for_client_pty_attach";
+  spawn_lane: "host_terminal_session";
+  launch_id: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  agent_harness_adapter_id: AgentHarnessAdapterId | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_name: string;
+  workspace_ref: string;
+  workspace_root: string;
+  terminal_session_ref: string;
+  command_contract_ref: string;
+  command_contract: HypervisorHarnessSessionLaunch["command_contract"] & {
+    resolved_argv: string[];
+    resolved_command_line: string;
+    pty_transport: "hypervisor_client_terminal_adapter";
+    process_custody: "client_host_pty_after_daemon_spawn_admission";
+  };
+  terminal_attach_contract: {
+    root: string;
+    cols: number;
+    rows: number;
+    command_line: string;
+    requires_pty: true;
+    launch_after_attach: true;
+  };
+  model_mount_contract: HypervisorHarnessSessionLaunch["model_mount_contract"];
+  workspace_mount_policy: HarnessWorkspaceMountPolicy;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_policy_ref: string;
+  receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  state_root: string;
+  spawned_at: string;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export class HarnessSessionBindingAdmissionError extends Error {
   readonly endpoint: string;
   readonly responseBody: string;
@@ -357,6 +402,28 @@ export class HarnessSessionLaunchError extends Error {
   }) {
     super(`harness session launch failed with ${status}`);
     this.name = "HarnessSessionLaunchError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
+export class HarnessSessionSpawnError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`harness session spawn failed with ${status}`);
+    this.name = "HarnessSessionSpawnError";
     this.endpoint = endpoint;
     this.responseBody = responseBody;
     this.status = status;
@@ -413,6 +480,8 @@ export const HYPERVISOR_HARNESS_SESSION_BINDING_ADMISSION_PATH =
   "/v1/hypervisor/harness-session-binding-admissions";
 export const HYPERVISOR_HARNESS_SESSION_LAUNCH_PATH =
   "/v1/hypervisor/harness-session-launches";
+export const HYPERVISOR_HARNESS_SESSION_SPAWN_PATH =
+  "/v1/hypervisor/harness-session-spawns";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
   "/v1/hypervisor/harness-public-fixture-runs";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY =
@@ -1130,6 +1199,13 @@ interface RequestHarnessSessionLaunchOptions {
   terminalSessionRef?: string;
 }
 
+interface RequestHarnessSessionSpawnOptions {
+  endpoint?: string;
+  fetchImpl?: HarnessFetchLike;
+  workspaceRoot?: string;
+  modelName?: string;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1512,6 +1588,135 @@ function normalizeHarnessSessionLaunch(
   };
 }
 
+function normalizeHarnessSessionSpawn(
+  value: unknown,
+): HypervisorHarnessSessionSpawn {
+  const record = objectRecord(value);
+  const commandContract = objectRecord(record.command_contract);
+  const terminalAttachContract = objectRecord(record.terminal_attach_contract);
+  const modelMountContract = objectRecord(record.model_mount_contract);
+  return {
+    schema_version: "ioi.runtime.harness_session_spawn.v1",
+    spawn_id: nullableString(record.spawn_id) ?? "harness-session-spawn:unknown",
+    decision: "admitted",
+    spawn_state: "ready_for_client_pty_attach",
+    spawn_lane: "host_terminal_session",
+    launch_id:
+      nullableString(record.launch_id) ?? "harness-session-launch:unknown",
+    session_binding_ref:
+      nullableString(record.session_binding_ref) ??
+      "harness-session-binding:unknown",
+    session_route_ref:
+      nullableString(record.session_route_ref) ?? "session-route:unknown",
+    harness_selection_ref:
+      nullableString(record.harness_selection_ref) ??
+      "agent-harness-adapter:codex_cli",
+    agent_harness_adapter_id:
+      (nullableString(record.agent_harness_adapter_id) as AgentHarnessAdapterId) ??
+      "codex_cli",
+    model_configuration_ref:
+      nullableString(record.model_configuration_ref) ??
+      HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+    model_route_ref:
+      nullableString(record.model_route_ref) ??
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    model_name: nullableString(record.model_name) ?? "qwen",
+    workspace_ref: nullableString(record.workspace_ref) ?? "workspace:unknown",
+    workspace_root: nullableString(record.workspace_root) ?? ".",
+    terminal_session_ref:
+      nullableString(record.terminal_session_ref) ??
+      "terminal-session:unknown",
+    command_contract_ref:
+      nullableString(record.command_contract_ref) ??
+      "host-command:codex-cli/local-ollama-qwen",
+    command_contract: {
+      command_ref:
+        nullableString(commandContract.command_ref) ??
+        "host-command:codex-cli/local-ollama-qwen",
+      binary_name: "codex",
+      argv_template: stringList(commandContract.argv_template, [
+        "codex",
+        "--oss",
+        "--local-provider",
+        "ollama",
+        "--model",
+        "${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen}",
+        "--sandbox",
+        "workspace-write",
+        "--ask-for-approval",
+        "on-request",
+        "--cd",
+        "${HYPERVISOR_SESSION_WORKSPACE}",
+      ]),
+      env_policy_ref:
+        nullableString(commandContract.env_policy_ref) ??
+        "env-policy:harness-session/codex-oss-local-qwen",
+      secret_release_policy: "none",
+      requires_pty: true,
+      workspace_env:
+        nullableString(commandContract.workspace_env) ??
+        "HYPERVISOR_SESSION_WORKSPACE",
+      model_env:
+        nullableString(commandContract.model_env) ??
+        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+      resolved_argv: stringList(commandContract.resolved_argv, []),
+      resolved_command_line:
+        nullableString(commandContract.resolved_command_line) ?? "codex --oss",
+      pty_transport: "hypervisor_client_terminal_adapter",
+      process_custody: "client_host_pty_after_daemon_spawn_admission",
+    },
+    terminal_attach_contract: {
+      root: nullableString(terminalAttachContract.root) ?? ".",
+      cols:
+        typeof terminalAttachContract.cols === "number"
+          ? terminalAttachContract.cols
+          : 120,
+      rows:
+        typeof terminalAttachContract.rows === "number"
+          ? terminalAttachContract.rows
+          : 32,
+      command_line:
+        nullableString(terminalAttachContract.command_line) ?? "codex --oss",
+      requires_pty: true,
+      launch_after_attach: true,
+    },
+    model_mount_contract: {
+      provider:
+        nullableString(modelMountContract.provider) === "ollama"
+          ? "ollama"
+          : "ollama",
+      api_format:
+        nullableString(modelMountContract.api_format) === "openai_compatible"
+          ? "openai_compatible"
+          : "openai_compatible",
+      model_env:
+        nullableString(modelMountContract.model_env) ??
+        "HYPERVISOR_LOCAL_CODEX_OSS_MODEL",
+      model_default:
+        nullableString(modelMountContract.model_default) ?? "qwen",
+      endpoint_refs: stringList(modelMountContract.endpoint_refs, []),
+      loaded_instance_refs: stringList(modelMountContract.loaded_instance_refs, []),
+    },
+    workspace_mount_policy:
+      (nullableString(record.workspace_mount_policy) as HarnessWorkspaceMountPolicy) ??
+      "redacted_projection",
+    privacy_posture_ref:
+      nullableString(record.privacy_posture_ref) ?? "privacy:redacted-projection",
+    authority_scope_refs: stringList(record.authority_scope_refs, []),
+    receipt_policy_ref:
+      nullableString(record.receipt_policy_ref) ??
+      "receipt-policy:harness-adapter/default",
+    receipt_refs: stringList(record.receipt_refs, []),
+    agentgres_operation_refs: stringList(record.agentgres_operation_refs, []),
+    state_root:
+      nullableString(record.state_root) ??
+      "agentgres://state-root/harness-session-spawn/unknown",
+    spawned_at: nullableString(record.spawned_at) ?? new Date().toISOString(),
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 export async function requestHarnessSessionBindingAdmission(
   binding: HypervisorHarnessSessionBinding,
   options: RequestHarnessSessionBindingAdmissionOptions = {},
@@ -1576,6 +1781,42 @@ export async function requestHarnessSessionLaunch(
     });
   }
   return normalizeHarnessSessionLaunch(text ? JSON.parse(text) : {});
+}
+
+export async function requestHarnessSessionSpawn(
+  sessionLaunch: HypervisorHarnessSessionLaunch,
+  options: RequestHarnessSessionSpawnOptions = {},
+): Promise<HypervisorHarnessSessionSpawn> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHarnessPublicFixtureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for harness session spawn");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HARNESS_SESSION_SPAWN_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      session_launch: sessionLaunch,
+      ...(options.workspaceRoot
+        ? { workspace_root: options.workspaceRoot }
+        : {}),
+      ...(options.modelName ? { model_name: options.modelName } : {}),
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HarnessSessionSpawnError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeHarnessSessionSpawn(text ? JSON.parse(text) : {});
 }
 
 export async function requestHarnessPublicFixtureRun({

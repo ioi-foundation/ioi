@@ -2,12 +2,14 @@ import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
+  HarnessSessionSpawnError,
   buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
   type HarnessCompatibilityVerdict,
   type HypervisorHarnessSessionBinding,
   type HypervisorHarnessSessionBindingAdmission,
   type HypervisorHarnessSessionLaunch,
+  type HypervisorHarnessSessionSpawn,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
@@ -27,10 +29,13 @@ import {
 export {
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
+  requestHarnessSessionSpawn,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
+  HarnessSessionSpawnError,
   type HypervisorHarnessSessionBindingAdmission,
   type HypervisorHarnessSessionLaunch,
+  type HypervisorHarnessSessionSpawn,
 } from "./harnessAdapterModel.ts";
 
 export {
@@ -335,6 +340,23 @@ export type HypervisorHarnessSessionLaunchRecord =
   | HypervisorHarnessSessionLaunch
   | HypervisorHarnessSessionLaunchFailure;
 
+export interface HypervisorHarnessSessionSpawnFailure {
+  schema_version: "ioi.hypervisor.harness_session_spawn_failure.v1";
+  spawn_id: string;
+  launch_id: string | null;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorHarnessSessionSpawnRecord =
+  | HypervisorHarnessSessionSpawn
+  | HypervisorHarnessSessionSpawnFailure;
+
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
   session_ref: string;
@@ -365,6 +387,8 @@ export interface HypervisorLaunchedSessionProjection {
   harness_session_binding_admission_ref: string | null;
   harness_session_launch: HypervisorHarnessSessionLaunchRecord | null;
   harness_session_launch_ref: string | null;
+  harness_session_spawn: HypervisorHarnessSessionSpawnRecord | null;
+  harness_session_spawn_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -441,6 +465,7 @@ export function buildHypervisorLaunchedSessionProjection({
   codeEditorAdapterAdmission = null,
   harnessSessionBindingAdmission = null,
   harnessSessionLaunch = null,
+  harnessSessionSpawn = null,
   displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
@@ -450,6 +475,7 @@ export function buildHypervisorLaunchedSessionProjection({
   codeEditorAdapterAdmission?: HypervisorCodeEditorAdapterLaunchAdmissionRecord | null;
   harnessSessionBindingAdmission?: HypervisorHarnessSessionBindingAdmissionRecord | null;
   harnessSessionLaunch?: HypervisorHarnessSessionLaunchRecord | null;
+  harnessSessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
   displayMeta?: {
     branchLabel?: string | null;
     relativeTimeLabel?: string | null;
@@ -466,6 +492,7 @@ export function buildHypervisorLaunchedSessionProjection({
     codeEditorAdapterAdmission?.decision,
     harnessSessionBindingAdmission?.decision,
     harnessSessionLaunch?.decision,
+    harnessSessionSpawn?.decision,
   ];
   const admissionState =
     admissionDecisions.includes("blocked")
@@ -502,6 +529,11 @@ export function buildHypervisorLaunchedSessionProjection({
     harness_session_launch_ref:
       harnessSessionLaunch && "launch_id" in harnessSessionLaunch
         ? harnessSessionLaunch.launch_id
+        : null,
+    harness_session_spawn: harnessSessionSpawn ?? null,
+    harness_session_spawn_ref:
+      harnessSessionSpawn && "spawn_id" in harnessSessionSpawn
+        ? harnessSessionSpawn.spawn_id
         : null,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
@@ -579,6 +611,38 @@ export function buildHypervisorHarnessSessionLaunchFailure({
     session_binding_ref: binding.session_binding_ref,
     session_route_ref: binding.session_route_ref,
     binding_admission_id: bindingAdmissionId,
+    harness_selection_ref: binding.harness_selection_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorHarnessSessionSpawnFailure({
+  binding,
+  sessionLaunch,
+  error,
+}: {
+  binding: HypervisorHarnessSessionBinding;
+  sessionLaunch?: HypervisorHarnessSessionLaunchRecord | null;
+  error: unknown;
+}): HypervisorHarnessSessionSpawnFailure {
+  const httpStatus =
+    error instanceof HarnessSessionSpawnError ? error.status : null;
+  const launchId =
+    sessionLaunch && "launch_id" in sessionLaunch
+      ? sessionLaunch.launch_id
+      : null;
+  return {
+    schema_version: "ioi.hypervisor.harness_session_spawn_failure.v1",
+    spawn_id: `${binding.session_binding_ref}/spawn-failure`,
+    launch_id: launchId,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
     harness_selection_ref: binding.harness_selection_ref,
     decision:
       typeof httpStatus === "number" && httpStatus < 500

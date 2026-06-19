@@ -228,6 +228,12 @@ const runtimeHarnessSessionLaunchSource = read(
 const runtimeHarnessSessionLaunchTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-launch.test.mjs",
 );
+const runtimeHarnessSessionSpawnSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-spawn.mjs",
+);
+const runtimeHarnessSessionSpawnTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-spawn.test.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1725,6 +1731,66 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
   "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS over local Ollama/Qwen is the first host-dev PTY contract, while provider-trust and unsupported harness launches stay blocked.",
+);
+assert(
+  "hypervisor-harness-session-spawn-contract",
+  runtimeHarnessSessionSpawnSource.includes(
+    "ioi.runtime.harness_session_spawn.v1",
+  ) &&
+    runtimeHarnessSessionSpawnSource.includes("buildHarnessSessionSpawn") &&
+    runtimeHarnessSessionSpawnSource.includes(
+      "ready_for_client_pty_attach",
+    ) &&
+    runtimeHarnessSessionSpawnSource.includes(
+      "hypervisor_client_terminal_adapter",
+    ) &&
+    runtimeHarnessSessionSpawnSource.includes(
+      "client_host_pty_after_daemon_spawn_admission",
+    ) &&
+    runtimeHarnessSessionSpawnSource.includes(
+      "harness_session_spawn_model_name_forbidden",
+    ) &&
+    runtimeHarnessSessionSpawnTestSource.includes(
+      "builds a Codex OSS local Qwen spawn contract",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-session-spawns",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose Codex OSS harness session spawn contracts",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessSessionSpawn",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHarnessSessionSpawn",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "hostWorkspaceAdapter.createTerminalSession",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "hostWorkspaceAdapter.writeTerminalSession",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorHarnessSessionSpawnRecord",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionSpawn",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "harness_session_spawn_ref",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-session-spawn.mjs",
+    "packages/runtime-daemon/src/runtime-harness-session-spawn.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+  ],
+  "Admitted harness launches must produce a daemon spawn contract before a session becomes daemon_admitted; Codex OSS uses a daemon-resolved command and Hypervisor client PTY attach, with no secret release or provider auth.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",

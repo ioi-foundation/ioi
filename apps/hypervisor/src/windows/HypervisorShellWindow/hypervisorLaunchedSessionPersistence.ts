@@ -199,6 +199,46 @@ function normalizeHarnessSessionLaunch(
   return null;
 }
 
+function normalizeHarnessSessionSpawn(
+  value: unknown,
+  launch: NonNullable<HypervisorLaunchedSessionProjection["harness_session_launch"]>,
+): HypervisorLaunchedSessionProjection["harness_session_spawn"] | null {
+  const record = recordValue(value);
+  if (!record || record.runtimeTruthSource !== "daemon-runtime") {
+    return null;
+  }
+  const schemaVersion = stringValue(record.schema_version);
+  const spawnId = stringValue(record.spawn_id);
+  const launchId = stringValue(record.launch_id);
+  const sessionBindingRef = stringValue(record.session_binding_ref);
+  const decision = stringValue(record.decision);
+  const expectedLaunchId = "launch_id" in launch ? launch.launch_id : null;
+  const expectedBindingRef =
+    "session_binding_ref" in launch ? launch.session_binding_ref : null;
+  if (
+    !spawnId ||
+    launchId !== expectedLaunchId ||
+    sessionBindingRef !== expectedBindingRef ||
+    !decision
+  ) {
+    return null;
+  }
+  if (
+    schemaVersion === "ioi.runtime.harness_session_spawn.v1" &&
+    decision === "admitted" &&
+    stringValue(record.spawn_state) === "ready_for_client_pty_attach"
+  ) {
+    return record as unknown as HypervisorLaunchedSessionProjection["harness_session_spawn"];
+  }
+  if (
+    schemaVersion === "ioi.hypervisor.harness_session_spawn_failure.v1" &&
+    (decision === "blocked" || decision === "daemon_unavailable")
+  ) {
+    return record as unknown as HypervisorLaunchedSessionProjection["harness_session_spawn"];
+  }
+  return null;
+}
+
 export function normalizeHypervisorLaunchedSessionProjection(
   value: unknown,
 ): HypervisorLaunchedSessionProjection | null {
@@ -246,6 +286,15 @@ export function normalizeHypervisorLaunchedSessionProjection(
   const harnessSessionLaunchRef = nullableStringValue(
     record.harness_session_launch_ref,
   );
+  const harnessSessionSpawn = harnessSessionLaunch
+    ? normalizeHarnessSessionSpawn(
+        record.harness_session_spawn,
+        harnessSessionLaunch,
+      )
+    : null;
+  const harnessSessionSpawnRef = nullableStringValue(
+    record.harness_session_spawn_ref,
+  );
 
   if (
     !sessionRef?.startsWith("session:") ||
@@ -269,7 +318,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
     harnessSessionBindingAdmissionRef !==
       harnessSessionBindingAdmission.admission_id ||
     !harnessSessionLaunch ||
-    harnessSessionLaunchRef !== harnessSessionLaunch.launch_id
+    harnessSessionLaunchRef !== harnessSessionLaunch.launch_id ||
+    !harnessSessionSpawn ||
+    harnessSessionSpawnRef !== harnessSessionSpawn.spawn_id
   ) {
     return null;
   }
@@ -305,6 +356,8 @@ export function normalizeHypervisorLaunchedSessionProjection(
     harness_session_binding_admission_ref: harnessSessionBindingAdmission.admission_id,
     harness_session_launch: harnessSessionLaunch,
     harness_session_launch_ref: harnessSessionLaunch.launch_id,
+    harness_session_spawn: harnessSessionSpawn,
+    harness_session_spawn_ref: harnessSessionSpawn.spawn_id,
     launch_summary: launchSummary,
     runtimeTruthSource: "daemon-runtime",
   };
