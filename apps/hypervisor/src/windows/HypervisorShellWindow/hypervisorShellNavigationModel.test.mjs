@@ -26,6 +26,10 @@ const newSessionModal = readFileSync(
   new URL("./components/HypervisorNewSessionModal.tsx", import.meta.url),
   "utf8",
 );
+const harnessAdapterModel = readFileSync(
+  new URL("./harnessAdapterModel.ts", import.meta.url),
+  "utf8",
+);
 const controller = readFileSync(
   new URL("./useHypervisorShellController.ts", import.meta.url),
   "utf8",
@@ -328,9 +332,15 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /return `\$\{recipe\.label\} for \$\{projectLabel\}`;/);
   assert.match(activityBar, /launchedSessionRailTitle/);
   assert.match(activityBar, /launchedSessionRailMeta/);
-  assert.match(activityBar, /session\.branch_label/);
+  assert.match(activityBar, /session\.harness_session_binding/);
+  assert.match(activityBar, /binding\.harness_label/);
+  assert.match(activityBar, /binding\.model_configuration_label/);
   assert.match(activityBar, /session\.relative_time_label/);
   assert.match(activityBar, /session\.activity_count/);
+  assert.match(activityBar, /data-launched-session-harness/);
+  assert.match(activityBar, /data-launched-session-model-configuration/);
+  assert.match(activityBar, /data-launched-session-model-route/);
+  assert.match(activityBar, /data-launched-session-privacy/);
   assert.match(activityBar, /launchedSessionRailBadge/);
   assert.doesNotMatch(activityBar, /REFERENCE_SESSION_ROWS/);
   assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
@@ -436,6 +446,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /data-new-session-launch-summary/);
   assert.match(newSessionModal, /data-new-session-code-editor-adapter-ref/);
   assert.match(newSessionModal, /data-new-session-harness-selection-kind/);
+  assert.match(newSessionModal, /data-new-session-harness-session-binding/);
+  assert.match(newSessionModal, /data-new-session-harness-session-binding-ref/);
+  assert.match(newSessionModal, /data-new-session-model-configuration-ref/);
+  assert.match(newSessionModal, /data-new-session-harness-launch-route-ref/);
+  assert.match(newSessionModal, /data-new-session-harness-workspace-mount-policy/);
   assert.match(newSessionModal, /selectedPrivacy\.ref/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
   assert.match(
@@ -483,6 +498,8 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /buildHypervisorLaunchedSessionProjection/);
   assert.match(source, /ioi\.hypervisor\.launched_session_projection\.v1/);
   assert.match(source, /code_editor_adapter_admission/);
+  assert.match(source, /harness_session_binding/);
+  assert.match(harnessAdapterModel, /ioi\.hypervisor\.harness_session_binding\.v1/);
   assert.match(source, /code_editor_adapter_executor_lane/);
   assert.match(source, /code_editor_adapter_control_action/);
   assert.match(source, /code_editor_adapter_control_channel_ref/);

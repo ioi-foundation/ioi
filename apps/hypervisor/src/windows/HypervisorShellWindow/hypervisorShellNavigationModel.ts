@@ -1,7 +1,9 @@
 import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
   type HarnessCompatibilityVerdict,
+  type HypervisorHarnessSessionBinding,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
@@ -245,6 +247,8 @@ export interface HypervisorNewSessionLaunchSummary {
   harness_runtime_truth_source: "daemon-runtime";
   harness_truth_boundary: "daemon-owned" | "proposal_source_only";
   harness_verdict_state: HarnessCompatibilityVerdict["state"];
+  harness_session_binding_ref: string;
+  harness_session_binding: HypervisorHarnessSessionBinding;
   model_route_ref: string;
   model_route_availability_state: HypervisorModelRouteAvailability["state"];
   model_route_available: boolean;
@@ -307,6 +311,8 @@ export interface HypervisorLaunchedSessionProjection {
     | HypervisorCodeEditorAdapterLaunchAdmissionRecord
     | null;
   code_editor_adapter_admission_ref: string | null;
+  harness_session_binding_ref: string;
+  harness_session_binding: HypervisorHarnessSessionBinding;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -425,6 +431,9 @@ export function buildHypervisorLaunchedSessionProjection({
     code_editor_adapter_admission: codeEditorAdapterAdmission,
     code_editor_adapter_admission_ref:
       codeEditorAdapterAdmission?.admission_id ?? null,
+    harness_session_binding_ref:
+      request.launch_summary.harness_session_binding_ref,
+    harness_session_binding: request.launch_summary.harness_session_binding,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
   };
@@ -488,6 +497,15 @@ export function buildHypervisorNewSessionLaunchSummary({
     projectId,
     codeEditorAdapter,
   });
+  const harnessSessionBinding = buildHypervisorHarnessSessionBinding({
+    sessionRouteRef: targetBinding.session_route_ref,
+    harness,
+    modelRouteAvailability,
+    modelRouteRef,
+    privacyPostureRef,
+    authorityScopeRefs,
+    receiptPreviewRef,
+  });
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: recipe.recipe_id,
@@ -518,6 +536,8 @@ export function buildHypervisorNewSessionLaunchSummary({
         ? "daemon-owned"
         : harness.truth_boundary,
     harness_verdict_state: harnessVerdict.state,
+    harness_session_binding_ref: harnessSessionBinding.session_binding_ref,
+    harness_session_binding: harnessSessionBinding,
     model_route_ref: modelRouteRef,
     model_route_availability_state: modelRouteAvailability.state,
     model_route_available: modelRouteAvailability.available,

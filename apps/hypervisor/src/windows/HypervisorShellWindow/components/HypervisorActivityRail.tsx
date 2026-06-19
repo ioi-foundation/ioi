@@ -269,22 +269,25 @@ function launchedSessionRailTitle(
 function launchedSessionRailMeta(
   session: HypervisorLaunchedSessionProjection,
 ): string {
-  const branchLabel = session.branch_label?.trim() || "main";
+  const binding = session.harness_session_binding;
+  const harnessLabel = binding.harness_label.trim();
+  const modelLabel =
+    binding.model_configuration_label.trim() ||
+    binding.model_route_ref.replace(/^model-route:/, "");
   const relativeTimeLabel = session.relative_time_label?.trim();
   if (relativeTimeLabel) {
-    return `${branchLabel} · ${relativeTimeLabel}`;
+    return `${harnessLabel} · ${modelLabel} · ${relativeTimeLabel}`;
   }
-  const recipeKind = session.recipe_kind.replace(/_/g, " ");
   const state =
     session.admission_state === "daemon_admitted"
       ? "admitted"
       : session.admission_state === "pending_daemon_admission"
         ? "pending"
         : session.admission_state === "daemon_unavailable"
-          ? "daemon unavailable"
-          : "blocked";
+        ? "daemon unavailable"
+        : "blocked";
 
-  return `${recipeKind} · ${state}`;
+  return `${harnessLabel} · ${modelLabel} · ${state}`;
 }
 
 function launchedSessionRailBadge(
@@ -470,6 +473,18 @@ export function HypervisorActivityRail({
                 }
                 data-launched-session-ref={session.session_ref}
                 data-launched-session-admission={session.admission_state}
+                data-launched-session-harness={
+                  session.harness_session_binding.harness_selection_ref
+                }
+                data-launched-session-model-configuration={
+                  session.harness_session_binding.model_configuration_ref
+                }
+                data-launched-session-model-route={
+                  session.harness_session_binding.model_route_ref
+                }
+                data-launched-session-privacy={
+                  session.harness_session_binding.privacy_posture_ref
+                }
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}
               >

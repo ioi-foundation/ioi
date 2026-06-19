@@ -62,6 +62,7 @@ export interface HypervisorHarnessProfileOption {
     HarnessWorkspaceMountPolicy,
     "public_trunk" | "redacted_projection" | "ctee_private_workspace"
   >;
+  launch_route_ref: string;
 }
 
 export interface AgentHarnessAdapterProfile {
@@ -75,6 +76,8 @@ export interface AgentHarnessAdapterProfile {
   workspace_mount_policy: HarnessWorkspaceMountPolicy;
   required_authority_scopes: string[];
   receipt_policy_ref: string;
+  launch_route_ref: string;
+  example_root_ref?: string;
   runtimeTruthSource: "daemon-runtime";
   truth_boundary: "proposal_source_only";
 }
@@ -178,6 +181,58 @@ export interface HypervisorModelRouteAvailability {
   requiresDaemonInventory: true;
 }
 
+export type HypervisorSessionModelRouteKind =
+  | "local_openai_compatible"
+  | "adapter_native"
+  | "deterministic_none";
+
+export interface HypervisorSessionModelConfiguration {
+  schema_version: "ioi.hypervisor.session_model_configuration.v1";
+  model_configuration_ref: string;
+  label: string;
+  description: string;
+  model_route_ref: string;
+  route_kind: HypervisorSessionModelRouteKind;
+  provider_ref: string | null;
+  model_ref: string | null;
+  endpoint_refs: string[];
+  loaded_instance_refs: string[];
+  custody_posture:
+    | "local_model_mount"
+    | "adapter_provider_trust"
+    | "deterministic_no_model";
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HypervisorHarnessSessionBinding {
+  schema_version: "ioi.hypervisor.harness_session_binding.v1";
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
+  harness_label: string;
+  harness_truth_boundary: "daemon-owned" | "proposal_source_only";
+  harness_launch_route_ref: string;
+  agent_harness_adapter_id?: AgentHarnessAdapterId;
+  harness_profile_ref?: HypervisorHarnessProfileOption["profile_ref"];
+  model_configuration_ref: string;
+  model_configuration_label: string;
+  model_route_ref: string;
+  model_route_policy: HarnessModelRoutePolicy;
+  model_route_availability_state: HypervisorModelRouteAvailability["state"];
+  model_route_endpoint_refs: string[];
+  model_route_loaded_instance_refs: string[];
+  workspace_mount_policy: HarnessWorkspaceMountPolicy;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_policy_ref: string;
+  receipt_preview_ref: string;
+  expected_receipt_refs: string[];
+  example_root_ref: string | null;
+  requires_daemon_gate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface HarnessAdapterTestbedFixture {
   schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
   fixture_id: string;
@@ -220,6 +275,8 @@ export interface HarnessCompatibilityVerdict {
 
 export const HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF =
   "model-route:hypervisor/default-local";
+export const HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF =
+  "model-config:local/codex-oss-qwen";
 export const HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF =
   "privacy:ctee-private-workspace";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
@@ -246,7 +303,7 @@ export const HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE: HypervisorMod
       {
         id: "model-endpoint:hypervisor/default-local",
         providerId: "provider:hypervisor-local",
-        modelId: "model:local/default",
+        modelId: "model:local/codex-oss-qwen",
         status: "mounted",
         privacyClass: "local",
       },
@@ -256,10 +313,28 @@ export const HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE: HypervisorMod
         id: "model-instance:hypervisor/default-local",
         endpointId: "model-endpoint:hypervisor/default-local",
         providerId: "provider:hypervisor-local",
-        modelId: "model:local/default",
+        modelId: "model:local/codex-oss-qwen",
         status: "loaded",
       },
     ],
+  };
+
+export const HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION: HypervisorSessionModelConfiguration =
+  {
+    schema_version: "ioi.hypervisor.session_model_configuration.v1",
+    model_configuration_ref:
+      HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+    label: "Local Codex OSS / Qwen route",
+    description:
+      "Local OpenAI-compatible model route for Codex OSS, Claude Code example, and DeepSeek TUI session bring-up.",
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    route_kind: "local_openai_compatible",
+    provider_ref: "provider:hypervisor-local",
+    model_ref: "model:local/codex-oss-qwen",
+    endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+    loaded_instance_refs: ["model-instance:hypervisor/default-local"],
+    custody_posture: "local_model_mount",
+    runtimeTruthSource: "daemon-runtime",
   };
 
 export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
@@ -272,7 +347,11 @@ export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
   role: "reference_scaffold_fallback",
   default_model_route_policy: "hypervisor_model_mount",
   default_workspace_mount_policy: "ctee_private_workspace",
+  launch_route_ref: "harness-route:default-harness-profile/local-model",
 };
+
+export const HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS: AgentHarnessAdapterId[] =
+  ["codex_cli", "claude_code_cli", "deepseek_tui"];
 
 export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfile[] =
   [
@@ -281,13 +360,14 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "codex_cli",
       label: "Codex CLI",
       description:
-        "Codex-style command harness mediated as a proposal source.",
+        "Codex OSS command harness mediated as a proposal source over a local OpenAI-compatible model route.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
-      model_route_policy: "adapter_builtin",
+      model_route_policy: "hypervisor_model_mount",
       workspace_mount_policy: "redacted_projection",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      launch_route_ref: "harness-route:codex-cli/local-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -303,6 +383,8 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read"],
       receipt_policy_ref: "receipt-policy:harness-adapter/desktop-example",
+      launch_route_ref: "harness-route:codex-desktop-linux/example",
+      example_root_ref: "examples/codex-desktop-linux",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -311,13 +393,15 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "claude_code_cli",
       label: "Claude Code CLI",
       description:
-        "Claude Code-style external CLI harness; provider-native paths remain provider-trust lanes unless proven otherwise.",
+        "Claude Code-style example harness route backed by examples/claude-code-main and a local OpenAI-compatible model route until provider auth is leased.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
-      model_route_policy: "provider_trust",
+      model_route_policy: "hypervisor_model_mount",
       workspace_mount_policy: "redacted_projection",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
-      receipt_policy_ref: "receipt-policy:harness-adapter/provider-trust",
+      receipt_policy_ref: "receipt-policy:harness-adapter/local-example",
+      launch_route_ref: "harness-route:claude-code-cli/local-example",
+      example_root_ref: "examples/claude-code-main",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -333,6 +417,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "redacted_projection",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/provider-trust",
+      launch_route_ref: "harness-route:grok-build-cli/provider-trust",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -348,6 +433,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/container",
+      launch_route_ref: "harness-route:deepseek-tui/local-model-container",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -363,6 +449,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "redacted_projection",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/default",
+      launch_route_ref: "harness-route:aider-cli/local-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -378,6 +465,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/provider-trust",
+      launch_route_ref: "harness-route:openhands/provider-trust",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -393,6 +481,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read"],
       receipt_policy_ref: "receipt-policy:harness-adapter/shell-tmux",
+      launch_route_ref: "harness-route:shell-tmux/no-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -408,6 +497,7 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read"],
       receipt_policy_ref: "receipt-policy:harness-adapter/generic-cli",
+      launch_route_ref: "harness-route:generic-cli/no-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },
@@ -541,6 +631,150 @@ export function modelRouteSupportsHypervisorMountFromInventory(
     endpoint_refs: mountedEndpoints.map((endpoint) => endpoint.id),
     loaded_instance_refs: loadedInstances.map((instance) => instance.id),
     requiresDaemonInventory: true,
+  };
+}
+
+function safeHarnessBindingId(value: string | number): string {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96) || "binding";
+}
+
+export function modelConfigurationForRouteRef(
+  modelRouteRef: string,
+  availability: HypervisorModelRouteAvailability,
+): HypervisorSessionModelConfiguration {
+  if (modelRouteRef === HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF) {
+    return {
+      ...HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION,
+      endpoint_refs:
+        availability.endpoint_refs.length > 0
+          ? availability.endpoint_refs
+          : HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION.endpoint_refs,
+      loaded_instance_refs:
+        availability.loaded_instance_refs.length > 0
+          ? availability.loaded_instance_refs
+          : HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION.loaded_instance_refs,
+    };
+  }
+
+  if (modelRouteRef === "model-route:adapter-native") {
+    return {
+      schema_version: "ioi.hypervisor.session_model_configuration.v1",
+      model_configuration_ref: "model-config:adapter-native/provider-trust",
+      label: "Adapter-native provider route",
+      description:
+        "Harness-native provider model path; requires provider-trust disclosure and capability leases before protected data is routed.",
+      model_route_ref: modelRouteRef,
+      route_kind: "adapter_native",
+      provider_ref: "provider:adapter-native",
+      model_ref: null,
+      endpoint_refs: [],
+      loaded_instance_refs: [],
+      custody_posture: "adapter_provider_trust",
+      runtimeTruthSource: "daemon-runtime",
+    };
+  }
+
+  return {
+    schema_version: "ioi.hypervisor.session_model_configuration.v1",
+    model_configuration_ref: "model-config:none/deterministic",
+    label: "No model route",
+    description:
+      "Deterministic, infrastructure, or inspection-only session with no model route.",
+    model_route_ref: modelRouteRef,
+    route_kind: "deterministic_none",
+    provider_ref: null,
+    model_ref: null,
+    endpoint_refs: [],
+    loaded_instance_refs: [],
+    custody_posture: "deterministic_no_model",
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorHarnessSessionBinding({
+  sessionRouteRef,
+  harness,
+  modelRouteAvailability,
+  modelRouteRef,
+  privacyPostureRef,
+  authorityScopeRefs,
+  receiptPreviewRef,
+}: {
+  sessionRouteRef: string;
+  harness: HypervisorHarnessSelectionOption;
+  modelRouteAvailability: HypervisorModelRouteAvailability;
+  modelRouteRef: string;
+  privacyPostureRef: string;
+  authorityScopeRefs: string[];
+  receiptPreviewRef: string;
+}): HypervisorHarnessSessionBinding {
+  const selectionRef = getHarnessSelectionRef(harness);
+  const modelConfiguration = modelConfigurationForRouteRef(
+    modelRouteRef,
+    modelRouteAvailability,
+  );
+  const sessionBindingRef = [
+    "harness-session-binding",
+    safeHarnessBindingId(sessionRouteRef),
+    safeHarnessBindingId(selectionRef),
+    safeHarnessBindingId(modelConfiguration.model_configuration_ref),
+  ].join(":");
+
+  const modelRoutePolicy =
+    harness.selection_kind === "harness_profile"
+      ? harness.default_model_route_policy
+      : harness.model_route_policy;
+  const workspaceMountPolicy =
+    harness.selection_kind === "harness_profile"
+      ? harness.default_workspace_mount_policy
+      : harness.workspace_mount_policy;
+
+  return {
+    schema_version: "ioi.hypervisor.harness_session_binding.v1",
+    session_binding_ref: sessionBindingRef,
+    session_route_ref: sessionRouteRef,
+    harness_selection_ref: selectionRef,
+    harness_selection_kind: harness.selection_kind,
+    harness_label: harness.label,
+    harness_truth_boundary:
+      harness.selection_kind === "harness_profile"
+        ? "daemon-owned"
+        : harness.truth_boundary,
+    harness_launch_route_ref: harness.launch_route_ref,
+    ...(harness.selection_kind === "agent_harness_adapter"
+      ? { agent_harness_adapter_id: harness.adapter_id }
+      : { harness_profile_ref: harness.profile_ref }),
+    model_configuration_ref: modelConfiguration.model_configuration_ref,
+    model_configuration_label: modelConfiguration.label,
+    model_route_ref: modelRouteRef,
+    model_route_policy: modelRoutePolicy,
+    model_route_availability_state: modelRouteAvailability.state,
+    model_route_endpoint_refs: modelConfiguration.endpoint_refs,
+    model_route_loaded_instance_refs: modelConfiguration.loaded_instance_refs,
+    workspace_mount_policy: workspaceMountPolicy,
+    privacy_posture_ref: privacyPostureRef,
+    authority_scope_refs: [...authorityScopeRefs],
+    receipt_policy_ref:
+      harness.selection_kind === "harness_profile"
+        ? "receipt-policy:harness-profile/default"
+        : harness.receipt_policy_ref,
+    receipt_preview_ref: receiptPreviewRef,
+    expected_receipt_refs: [
+      receiptPreviewRef,
+      harness.selection_kind === "harness_profile"
+        ? "receipt-policy:harness-profile/default"
+        : harness.receipt_policy_ref,
+    ],
+    example_root_ref:
+      harness.selection_kind === "agent_harness_adapter"
+        ? harness.example_root_ref ?? null
+        : null,
+    requires_daemon_gate: true,
+    runtimeTruthSource: "daemon-runtime",
   };
 }
 

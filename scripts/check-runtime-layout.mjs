@@ -1556,6 +1556,25 @@ assert(
       "HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "ioi.hypervisor.harness_session_binding.v1",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "buildHypervisorHarnessSessionBinding",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes("examples/claude-code-main") &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "harness-route:codex-cli/local-model",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "harness-route:deepseek-tui/local-model-container",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
       'workspace_mount_policy: "public_trunk"',
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
@@ -1569,9 +1588,9 @@ assert(
     ) &&
     !/Codex = Default Harness|Claude Code = Default Harness|external harness.*runtime truth/i.test(
       hypervisorHarnessAdapterModelSource,
-    ),
+  ),
   ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
-  "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with public testbed custody, comparison receipts, and no runtime-truth shortcut.",
+  "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with first-session local-model bindings, public testbed custody, comparison receipts, and no runtime-truth shortcut.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",
@@ -2037,6 +2056,32 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-code-editor-adapter-ref",
     ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-session-binding",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-session-binding-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-model-configuration-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-launch-route-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-workspace-mount-policy",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionBinding",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "ioi.hypervisor.harness_session_binding.v1",
+    ) &&
+    hypervisorActivityBarSource.includes("data-launched-session-harness") &&
+    hypervisorActivityBarSource.includes(
+      "data-launched-session-model-configuration",
+    ) &&
+    hypervisorActivityBarSource.includes("data-launched-session-model-route") &&
     hypervisorNewSessionModalSource.includes("data-new-session-project-ref") &&
     hypervisorNewSessionModalSource.includes("setProjectId") &&
     hypervisorNewSessionModalSource.includes("<span>Project</span>") &&
@@ -2081,10 +2126,12 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
-  "New Session must emit a typed launch summary, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
+  "New Session must emit a typed launch summary plus harness session binding, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
 );
 assert(
   "hypervisor-app-shell-contract",

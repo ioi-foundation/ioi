@@ -5,6 +5,7 @@ import type {
   HypervisorLaunchedSessionProjection,
   HypervisorNewSessionLaunchSummary,
 } from "./hypervisorShellNavigationModel.ts";
+import type { HypervisorHarnessSessionBinding } from "./harnessAdapterModel.ts";
 import {
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_LIMIT,
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
@@ -25,7 +26,41 @@ class MemoryStorage {
   }
 }
 
+function harnessSessionBinding(id: string): HypervisorHarnessSessionBinding {
+  return {
+    schema_version: "ioi.hypervisor.harness_session_binding.v1",
+    session_binding_ref: `harness-session-binding:${id}`,
+    session_route_ref: `session-route:sessions/${id}`,
+    harness_selection_ref: "harness-profile:default_harness_profile",
+    harness_selection_kind: "harness_profile",
+    harness_label: "Default Harness Profile",
+    harness_truth_boundary: "daemon-owned",
+    harness_launch_route_ref: "harness-route:default-harness-profile/local-model",
+    harness_profile_ref: "default_harness_profile",
+    model_configuration_ref: "model-config:local/codex-oss-qwen",
+    model_configuration_label: "Local Codex OSS / Qwen route",
+    model_route_ref: "model-route:hypervisor/default-local",
+    model_route_policy: "hypervisor_model_mount",
+    model_route_availability_state: "daemon_verified",
+    model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+    model_route_loaded_instance_refs: ["model-instance:hypervisor/default-local"],
+    workspace_mount_policy: "ctee_private_workspace",
+    privacy_posture_ref: "privacy:ctee-private-workspace",
+    authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+    receipt_policy_ref: "receipt-policy:harness-profile/default",
+    receipt_preview_ref: `receipt-preview:new-session/${id}`,
+    expected_receipt_refs: [
+      `receipt-preview:new-session/${id}`,
+      "receipt-policy:harness-profile/default",
+    ],
+    example_root_ref: null,
+    requires_daemon_gate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
+  const binding = harnessSessionBinding(id);
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: "mission.default",
@@ -67,6 +102,8 @@ function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
     harness_runtime_truth_source: "daemon-runtime",
     harness_truth_boundary: "daemon-owned",
     harness_verdict_state: "compatible",
+    harness_session_binding_ref: binding.session_binding_ref,
+    harness_session_binding: binding,
     model_route_ref: "model-route:hypervisor/default-local",
     model_route_availability_state: "daemon_verified",
     model_route_available: true,
@@ -83,6 +120,7 @@ function launchedSession(
   id: string,
   launchedAtMs = 1_718_000,
 ): HypervisorLaunchedSessionProjection {
+  const binding = harnessSessionBinding(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${id}`,
@@ -96,6 +134,8 @@ function launchedSession(
     admission_state: "daemon_admitted",
     code_editor_adapter_admission: null,
     code_editor_adapter_admission_ref: null,
+    harness_session_binding_ref: binding.session_binding_ref,
+    harness_session_binding: binding,
     launch_summary: launchSummary(id),
     runtimeTruthSource: "daemon-runtime",
   };
@@ -161,6 +201,26 @@ test("launched session cache persists normalized projections only", () => {
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0]?.session_ref, "session:launch/persisted");
   assert.equal(parsed[0]?.launch_summary.requires_daemon_gate, true);
+  assert.equal(
+    parsed[0]?.harness_session_binding.model_configuration_ref,
+    "model-config:local/codex-oss-qwen",
+  );
+});
+
+test("launched session cache rejects loose sessions without harness binding", () => {
+  const storage = new MemoryStorage();
+  const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
+  delete looseSession.harness_session_binding;
+  delete looseSession.harness_session_binding_ref;
+  const looseSummary = looseSession.launch_summary as Record<string, unknown>;
+  delete looseSummary.harness_session_binding;
+  delete looseSummary.harness_session_binding_ref;
+  storage.setItem(
+    HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
+    JSON.stringify([looseSession]),
+  );
+
+  assert.deepEqual(loadHypervisorLaunchedSessionProjections({ storage }), []);
 });
 
 test("fresh launched session projection cache starts empty without local restore truth", () => {

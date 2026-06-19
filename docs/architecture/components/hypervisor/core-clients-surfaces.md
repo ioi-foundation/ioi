@@ -494,6 +494,31 @@ harnesses must not silently fall back from a local/private model route to a
 provider-trust model route; provider-trust or adapter-native routes are explicit
 privacy posture states.
 
+The launch result must include a `HarnessSessionBinding`:
+
+```text
+HarnessSessionBinding
+  session_route_ref
+  harness_selection_ref
+  harness_launch_route_ref
+  model_configuration_ref
+  model_route_ref
+  model_route_policy
+  model_route_availability_state
+  workspace_mount_policy
+  privacy_posture_ref
+  authority_scope_refs
+  receipt_policy_ref
+  expected_receipt_refs
+  example_root_ref, when applicable
+  requires_daemon_gate: true
+```
+
+For the first local bring-up lane, Codex OSS, an example Claude Code harness,
+and DeepSeek TUI may all bind to a local OpenAI-compatible model configuration
+instead of requiring provider API authentication. This is a launchable
+configuration path, not proof that those external harnesses own runtime truth.
+
 Every external harness run should produce a `HarnessAdapterReceipt` binding the
 selection ref, execution lane, model route ref, workspace mount policy,
 authority scope refs, privacy posture ref, Agentgres operation refs, and

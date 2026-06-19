@@ -6,11 +6,14 @@ import {
   DEFAULT_HARNESS_PROFILE_OPTION,
   HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES,
   HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS,
   HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE,
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH,
+  HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  buildHypervisorHarnessSessionBinding,
   buildHarnessAdapterReceiptDraft,
   buildHarnessCompatibilityVerdict,
   buildHarnessPublicFixtureRunRequest,
@@ -81,6 +84,9 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
   const claude = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
     (profile) => profile.adapter_id === "claude_code_cli",
   );
+  const grok = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+    (profile) => profile.adapter_id === "grok_build_cli",
+  );
   const deepseek = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
     (profile) => profile.adapter_id === "deepseek_tui",
   );
@@ -91,29 +97,38 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
     (profile) => profile.adapter_id === "shell_tmux_agent",
   );
   assert.ok(claude);
+  assert.ok(grok);
   assert.ok(deepseek);
   assert.ok(codex);
   assert.ok(shellTmux);
 
-  assert.deepEqual(
-    buildHarnessCompatibilityVerdict(claude, true),
-    {
-      selection_ref: "agent-harness-adapter:claude_code_cli",
-      state: "provider_trust",
-      summary:
-        "Adapter-native model execution is a provider-trust lane and must be disclosed before launch.",
-      requiresDaemonGate: true,
-      privacyWarning:
-        "Do not route protected workspace state into this adapter without a redacted projection or explicit unsafe-mount approval.",
-    },
-  );
+  for (const adapterId of HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS) {
+    const profile = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+      (candidate) => candidate.adapter_id === adapterId,
+    );
+    assert.ok(profile);
+    assert.equal(profile.model_route_policy, "hypervisor_model_mount");
+    assert.equal(
+      buildHarnessCompatibilityVerdict(profile, true).state,
+      "compatible",
+    );
+  }
+  assert.deepEqual(buildHarnessCompatibilityVerdict(grok, true), {
+    selection_ref: "agent-harness-adapter:grok_build_cli",
+    state: "provider_trust",
+    summary:
+      "Adapter-native model execution is a provider-trust lane and must be disclosed before launch.",
+    requiresDaemonGate: true,
+    privacyWarning:
+      "Do not route protected workspace state into this adapter without a redacted projection or explicit unsafe-mount approval.",
+  });
   assert.equal(
     buildHarnessCompatibilityVerdict(deepseek, false).state,
     "local_route_unavailable",
   );
   assert.equal(
     buildHarnessCompatibilityVerdict(codex, true).state,
-    "adapter_native_only",
+    "compatible",
   );
   assert.equal(
     buildHarnessCompatibilityVerdict(shellTmux, true).state,
@@ -143,6 +158,46 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
     ).state,
     "compatible",
   );
+});
+
+test("first session harnesses bind local model configuration before external auth", () => {
+  const availability = modelRouteSupportsHypervisorMountFromInventory(
+    HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  );
+
+  const bindings = HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS.map((adapterId) => {
+    const harness = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+      (profile) => profile.adapter_id === adapterId,
+    );
+    assert.ok(harness);
+    return buildHypervisorHarnessSessionBinding({
+      sessionRouteRef: `session-route:sessions/${adapterId}`,
+      harness,
+      modelRouteAvailability: availability,
+      modelRouteRef: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      privacyPostureRef: "privacy:redacted-projection",
+      authorityScopeRefs: harness.required_authority_scopes,
+      receiptPreviewRef: `receipt-preview:new-session/${adapterId}`,
+    });
+  });
+
+  assert.deepEqual(
+    bindings.map((binding) => binding.agent_harness_adapter_id),
+    ["codex_cli", "claude_code_cli", "deepseek_tui"],
+  );
+  assert.ok(
+    bindings.every(
+      (binding) =>
+        binding.model_configuration_ref ===
+          HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF &&
+        binding.model_route_policy === "hypervisor_model_mount" &&
+        binding.requires_daemon_gate === true &&
+        binding.runtimeTruthSource === "daemon-runtime",
+    ),
+  );
+  assert.equal(bindings[1]?.example_root_ref, "examples/claude-code-main");
+  assert.equal(bindings[2]?.workspace_mount_policy, "public_trunk");
 });
 
 test("model route availability comes from model-mount inventory, not route labels", () => {
@@ -388,7 +443,9 @@ test("new session launch summary binds harness, model route, adapter target, pri
     receiptPreviewRef: "receipt-preview:new-session/test",
   });
 
-  assert.deepEqual(summary, {
+  assert.deepEqual(
+    { ...summary, harness_session_binding: undefined },
+    {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: "mission.default",
     seed_intent: "Fix flaky receipts",
@@ -443,6 +500,9 @@ test("new session launch summary binds harness, model route, adapter target, pri
     harness_runtime_truth_source: "daemon-runtime",
     harness_truth_boundary: "proposal_source_only",
     harness_verdict_state: "compatible",
+    harness_session_binding_ref:
+      "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-deepseek_tui:model-config-local-codex-oss-qwen",
+    harness_session_binding: undefined,
     model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
     model_route_availability_state: "daemon_verified",
     model_route_available: true,
@@ -452,7 +512,20 @@ test("new session launch summary binds harness, model route, adapter target, pri
     receipt_preview_ref: "receipt-preview:new-session/test",
     requires_daemon_gate: true,
     runtimeTruthSource: "daemon-runtime",
-  });
+    },
+  );
+  assert.equal(
+    summary.harness_session_binding.schema_version,
+    "ioi.hypervisor.harness_session_binding.v1",
+  );
+  assert.equal(
+    summary.harness_session_binding.model_configuration_ref,
+    HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+  );
+  assert.equal(
+    summary.harness_session_binding.harness_launch_route_ref,
+    "harness-route:deepseek-tui/local-model-container",
+  );
 
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
@@ -484,6 +557,14 @@ test("new session launch summary binds harness, model route, adapter target, pri
   assert.equal(launchedSession.admission_state, "pending_daemon_admission");
   assert.equal(launchedSession.code_editor_adapter_admission, null);
   assert.equal(launchedSession.code_editor_adapter_admission_ref, null);
+  assert.equal(
+    launchedSession.harness_session_binding_ref,
+    summary.harness_session_binding_ref,
+  );
+  assert.equal(
+    launchedSession.harness_session_binding,
+    summary.harness_session_binding,
+  );
   assert.equal(launchedSession.launch_summary, summary);
   assert.equal(launchedSession.runtimeTruthSource, "daemon-runtime");
 });

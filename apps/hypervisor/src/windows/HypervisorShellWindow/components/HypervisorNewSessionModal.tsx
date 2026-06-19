@@ -13,6 +13,8 @@ import {
   type HypervisorSessionLaunchRecipe,
 } from "../hypervisorShellNavigationModel";
 import {
+  HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION,
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
@@ -42,9 +44,9 @@ interface HypervisorNewSessionModalProps {
 
 const MODEL_ROUTE_OPTIONS = [
   {
-    ref: "model-route:hypervisor/default-local",
-    label: "Hypervisor model mount",
-    detail: "Managed local or configured model route.",
+    ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    label: HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION.label,
+    detail: HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION.description,
   },
   {
     ref: "model-route:adapter-native",
@@ -349,6 +351,21 @@ export function HypervisorNewSessionModal({
             }
             data-new-session-target-session-route={
               launchSummary.target_binding.session_route_ref
+            }
+            data-new-session-harness-session-binding={
+              launchSummary.harness_session_binding.schema_version
+            }
+            data-new-session-harness-session-binding-ref={
+              launchSummary.harness_session_binding_ref
+            }
+            data-new-session-model-configuration-ref={
+              launchSummary.harness_session_binding.model_configuration_ref
+            }
+            data-new-session-harness-launch-route-ref={
+              launchSummary.harness_session_binding.harness_launch_route_ref
+            }
+            data-new-session-harness-workspace-mount-policy={
+              launchSummary.harness_session_binding.workspace_mount_policy
             }
             data-new-session-code-editor-adapter-ref={
               launchSummary.code_editor_adapter_ref

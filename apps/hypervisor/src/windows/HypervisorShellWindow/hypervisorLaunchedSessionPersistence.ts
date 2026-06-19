@@ -4,6 +4,7 @@ import {
   type HypervisorSessionLaunchRecipe,
   type HypervisorSurfaceId,
 } from "./hypervisorShellNavigationModel.ts";
+import type { HypervisorHarnessSessionBinding } from "./harnessAdapterModel.ts";
 
 export const HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY =
   "ioi.hypervisor.launched_session_projections.v1";
@@ -82,7 +83,54 @@ function normalizeLaunchSummary(
     return null;
   }
 
-  return record as unknown as HypervisorNewSessionLaunchSummary;
+  const binding = normalizeHarnessSessionBinding(
+    record.harness_session_binding,
+  );
+  const bindingRef = stringValue(record.harness_session_binding_ref);
+  if (!binding || bindingRef !== binding.session_binding_ref) {
+    return null;
+  }
+
+  return {
+    ...(record as unknown as HypervisorNewSessionLaunchSummary),
+    harness_session_binding_ref: binding.session_binding_ref,
+    harness_session_binding: binding,
+  };
+}
+
+function normalizeHarnessSessionBinding(
+  value: unknown,
+): HypervisorHarnessSessionBinding | null {
+  const record = recordValue(value);
+  if (
+    !record ||
+    record.schema_version !== "ioi.hypervisor.harness_session_binding.v1" ||
+    record.runtimeTruthSource !== "daemon-runtime" ||
+    record.requires_daemon_gate !== true
+  ) {
+    return null;
+  }
+
+  const sessionBindingRef = stringValue(record.session_binding_ref);
+  const sessionRouteRef = stringValue(record.session_route_ref);
+  const harnessSelectionRef = stringValue(record.harness_selection_ref);
+  const modelConfigurationRef = stringValue(record.model_configuration_ref);
+  const modelRouteRef = stringValue(record.model_route_ref);
+  const privacyPostureRef = stringValue(record.privacy_posture_ref);
+  const receiptPreviewRef = stringValue(record.receipt_preview_ref);
+  if (
+    !sessionBindingRef?.startsWith("harness-session-binding:") ||
+    !sessionRouteRef?.startsWith("session-route:") ||
+    !harnessSelectionRef ||
+    !modelConfigurationRef?.startsWith("model-config:") ||
+    !modelRouteRef?.startsWith("model-route:") ||
+    !privacyPostureRef?.startsWith("privacy:") ||
+    !receiptPreviewRef?.startsWith("receipt-preview:")
+  ) {
+    return null;
+  }
+
+  return record as unknown as HypervisorHarnessSessionBinding;
 }
 
 export function normalizeHypervisorLaunchedSessionProjection(
@@ -110,6 +158,10 @@ export function normalizeHypervisorLaunchedSessionProjection(
   const recipeKind = stringValue(record.recipe_kind);
   const surfaceId = stringValue(record.surface_id);
   const launchSummary = normalizeLaunchSummary(record.launch_summary);
+  const harnessSessionBinding = normalizeHarnessSessionBinding(
+    record.harness_session_binding,
+  );
+  const harnessSessionBindingRef = stringValue(record.harness_session_binding_ref);
 
   if (
     !sessionRef?.startsWith("session:") ||
@@ -126,7 +178,9 @@ export function normalizeHypervisorLaunchedSessionProjection(
     !RECIPE_KINDS.has(recipeKind as HypervisorSessionLaunchRecipe["kind"]) ||
     !surfaceId ||
     !SURFACE_IDS.has(surfaceId as HypervisorSurfaceId) ||
-    !launchSummary
+    !launchSummary ||
+    !harnessSessionBinding ||
+    harnessSessionBindingRef !== harnessSessionBinding.session_binding_ref
   ) {
     return null;
   }
@@ -156,6 +210,8 @@ export function normalizeHypervisorLaunchedSessionProjection(
     code_editor_adapter_admission_ref: nullableStringValue(
       record.code_editor_adapter_admission_ref,
     ),
+    harness_session_binding_ref: harnessSessionBinding.session_binding_ref,
+    harness_session_binding: harnessSessionBinding,
     launch_summary: launchSummary,
     runtimeTruthSource: "daemon-runtime",
   };

@@ -2180,10 +2180,21 @@ Current implementation cut:
   `ioi.hypervisor.new_session_launch_summary.v1` object binding recipe,
   project, code editor adapter target/custody, harness selection/kind/truth
   boundary, harness verdict, model-route availability, privacy posture,
-  authority scopes, receipt preview, and daemon-gate requirement. The
-  controller seeds sessions from that summary instead of reconstructing loose UI
-  refs. `harnessAdapterModel.test.ts`, `hypervisorShellNavigationModel.test.mjs`,
-  and `check:runtime-layout` guard the summary path.
+  authority scopes, receipt preview, and daemon-gate requirement. It now also
+  emits `ioi.hypervisor.harness_session_binding.v1`, which binds session route,
+  selected harness, harness launch route, model configuration, route policy,
+  workspace mount policy, privacy posture, authority scopes, receipt policy,
+  expected receipt refs, and example root where applicable. Codex CLI, the
+  `examples/claude-code-main` Claude Code bring-up path, and DeepSeek TUI are
+  first-session local-model candidates over the local Codex OSS / Qwen-style
+  OpenAI-compatible model configuration; provider auth and wallet capability
+  leases are later authority paths rather than blockers for getting sessions
+  working. The controller seeds sessions from that summary instead of
+  reconstructing loose UI refs, and the launched-session cache rejects records
+  without a matching harness session binding. `harnessAdapterModel.test.ts`,
+  `hypervisorLaunchedSessionPersistence.test.ts`,
+  `hypervisorShellNavigationModel.test.mjs`, and `check:runtime-layout` guard
+  the summary and binding path.
 ```
 
 First implementation slice:
@@ -2195,7 +2206,8 @@ First implementation slice:
 2. Add adapter choices to New Session:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
-   CLI. Done for shell/New Session selection.
+   CLI. Done for shell/New Session selection and first-session local-model
+   binding for Codex CLI, Claude Code example bring-up, and DeepSeek TUI.
 3. Add model route choices from the daemon model-mount inventory. Done for the
    shell HTTP boundary: New Session has route options and an inventory-based
    compatibility contract; route labels alone no longer satisfy local

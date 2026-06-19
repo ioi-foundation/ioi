@@ -534,6 +534,16 @@ compliance acronyms for hidden audit material.
   app/API-facing object that keeps Default Harness Profile as IOI's reference
   scaffold/fallback while exposing external harnesses as daemon-mediated
   proposal sources.
+- `HypervisorSessionModelConfiguration`: model configuration selected for a
+  Hypervisor Session. It may point at a local OpenAI-compatible model mount,
+  an adapter/provider-trust path, or a deterministic no-model path. The default
+  first-session local route can be used by Codex OSS, example Claude Code
+  harness bring-up, and DeepSeek TUI without requiring provider API auth.
+- `HarnessSessionBinding`: launch-time object that binds the selected harness,
+  model configuration, model route policy, workspace mount policy, privacy
+  posture, authority scopes, receipt policy, example root when applicable, and
+  daemon-gate requirement to a `HypervisorSession`. A launched session without
+  this binding is an invalid loose UI projection.
 - `HarnessAdapterReceipt`: receipt envelope for an external harness run. It
   binds selection ref, execution lane, model route ref when present, workspace
   mount policy, authority scope refs, privacy posture ref, Agentgres operation
