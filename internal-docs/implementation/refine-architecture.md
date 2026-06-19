@@ -2184,14 +2184,18 @@ Current implementation cut:
   emits `ioi.hypervisor.harness_session_binding.v1`, which binds session route,
   selected harness, harness launch route, model configuration, route policy,
   workspace mount policy, privacy posture, authority scopes, receipt policy,
-  expected receipt refs, and example root where applicable. Codex CLI, the
+  expected receipt refs, and example root where applicable. That binding is now
+  posted to `/v1/hypervisor/harness-session-binding-admissions`; the daemon
+  returns `ioi.runtime.harness_session_binding_admission.v1` before a launched
+  session may be `daemon_admitted`, and the cache rejects sessions that only
+  have a loose UI binding without admission. Codex CLI, the
   `examples/claude-code-main` Claude Code bring-up path, and DeepSeek TUI are
   first-session local-model candidates over the local Codex OSS / Qwen-style
   OpenAI-compatible model configuration; provider auth and wallet capability
   leases are later authority paths rather than blockers for getting sessions
   working. The controller seeds sessions from that summary instead of
   reconstructing loose UI refs, and the launched-session cache rejects records
-  without a matching harness session binding. `harnessAdapterModel.test.ts`,
+  without a matching harness session binding/admission. `harnessAdapterModel.test.ts`,
   `hypervisorLaunchedSessionPersistence.test.ts`,
   `hypervisorShellNavigationModel.test.mjs`, and `check:runtime-layout` guard
   the summary and binding path.

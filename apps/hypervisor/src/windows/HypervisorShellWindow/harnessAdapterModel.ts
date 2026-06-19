@@ -233,6 +233,62 @@ export interface HypervisorHarnessSessionBinding {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HypervisorHarnessSessionBindingAdmission {
+  schema_version: "ioi.runtime.harness_session_binding_admission.v1";
+  admission_id: string;
+  decision: "admitted";
+  admission_state: "admitted_for_harness_launch";
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
+  harness_truth_boundary: "daemon-owned" | "proposal_source_only";
+  harness_launch_route_ref: string;
+  agent_harness_adapter_id: AgentHarnessAdapterId | null;
+  harness_profile_ref: string | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_route_policy: HarnessModelRoutePolicy;
+  model_route_availability_state: HypervisorModelRouteAvailability["state"];
+  model_route_endpoint_refs: string[];
+  model_route_loaded_instance_refs: string[];
+  workspace_mount_policy: HarnessWorkspaceMountPolicy;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_policy_ref: string;
+  receipt_preview_ref: string;
+  expected_receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root: string | null;
+  harness_runtime_truth_claimed: false;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  admitted_at: string;
+}
+
+export class HarnessSessionBindingAdmissionError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`harness session binding admission failed with ${status}`);
+    this.name = "HarnessSessionBindingAdmissionError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
 export interface HarnessAdapterTestbedFixture {
   schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
   fixture_id: string;
@@ -279,6 +335,8 @@ export const HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF =
   "model-config:local/codex-oss-qwen";
 export const HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF =
   "privacy:ctee-private-workspace";
+export const HYPERVISOR_HARNESS_SESSION_BINDING_ADMISSION_PATH =
+  "/v1/hypervisor/harness-session-binding-admissions";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
   "/v1/hypervisor/harness-public-fixture-runs";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY =
@@ -984,6 +1042,11 @@ interface RequestHarnessPublicFixtureRunOptions {
   request?: HarnessPublicFixtureRunRequest;
 }
 
+interface RequestHarnessSessionBindingAdmissionOptions {
+  endpoint?: string;
+  fetchImpl?: HarnessFetchLike;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1013,6 +1076,10 @@ function stringList(value: unknown, fallback: string[]): string[] {
     )
     .map((item) => item.trim());
   return values.length > 0 ? values : fallback;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function enumValue<T extends string>(
@@ -1162,6 +1229,108 @@ export function readHypervisorHarnessPublicFixtureDaemonEndpoint(): string {
   } catch {
     return HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT;
   }
+}
+
+function normalizeHarnessSessionBindingAdmission(
+  value: unknown,
+): HypervisorHarnessSessionBindingAdmission {
+  const record = objectRecord(value);
+  return {
+    schema_version: "ioi.runtime.harness_session_binding_admission.v1",
+    admission_id:
+      nullableString(record.admission_id) ??
+      "harness-session-binding-admission:unknown",
+    decision: "admitted",
+    admission_state: "admitted_for_harness_launch",
+    session_binding_ref:
+      nullableString(record.session_binding_ref) ??
+      "harness-session-binding:unknown",
+    session_route_ref:
+      nullableString(record.session_route_ref) ?? "session-route:unknown",
+    harness_selection_ref:
+      nullableString(record.harness_selection_ref) ??
+      "harness-profile:unknown",
+    harness_selection_kind:
+      (nullableString(
+        record.harness_selection_kind,
+      ) as HypervisorHarnessSelectionOption["selection_kind"]) ??
+      "harness_profile",
+    harness_truth_boundary:
+      (nullableString(record.harness_truth_boundary) as
+        | "daemon-owned"
+        | "proposal_source_only") ?? "proposal_source_only",
+    harness_launch_route_ref:
+      nullableString(record.harness_launch_route_ref) ??
+      "harness-route:unknown",
+    agent_harness_adapter_id:
+      (nullableString(record.agent_harness_adapter_id) as AgentHarnessAdapterId) ??
+      null,
+    harness_profile_ref: nullableString(record.harness_profile_ref),
+    model_configuration_ref:
+      nullableString(record.model_configuration_ref) ?? "model-config:unknown",
+    model_route_ref:
+      nullableString(record.model_route_ref) ?? "model-route:unknown",
+    model_route_policy:
+      (nullableString(record.model_route_policy) as HarnessModelRoutePolicy) ??
+      "forbidden",
+    model_route_availability_state:
+      (nullableString(
+        record.model_route_availability_state,
+      ) as HypervisorModelRouteAvailability["state"]) ?? "unavailable",
+    model_route_endpoint_refs: stringList(record.model_route_endpoint_refs, []),
+    model_route_loaded_instance_refs: stringList(
+      record.model_route_loaded_instance_refs,
+      [],
+    ),
+    workspace_mount_policy:
+      (nullableString(record.workspace_mount_policy) as HarnessWorkspaceMountPolicy) ??
+      "public_trunk",
+    privacy_posture_ref:
+      nullableString(record.privacy_posture_ref) ?? "privacy:unknown",
+    authority_scope_refs: stringList(record.authority_scope_refs, []),
+    receipt_policy_ref:
+      nullableString(record.receipt_policy_ref) ?? "receipt-policy:unknown",
+    receipt_preview_ref:
+      nullableString(record.receipt_preview_ref) ?? "receipt-preview:unknown",
+    expected_receipt_refs: stringList(record.expected_receipt_refs, []),
+    agentgres_operation_refs: stringList(record.agentgres_operation_refs, []),
+    receipt_refs: stringList(record.receipt_refs, []),
+    state_root: nullableString(record.state_root),
+    harness_runtime_truth_claimed: false,
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+    admitted_at: nullableString(record.admitted_at) ?? new Date().toISOString(),
+  };
+}
+
+export async function requestHarnessSessionBindingAdmission(
+  binding: HypervisorHarnessSessionBinding,
+  options: RequestHarnessSessionBindingAdmissionOptions = {},
+): Promise<HypervisorHarnessSessionBindingAdmission> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHarnessPublicFixtureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for harness session binding admission");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HARNESS_SESSION_BINDING_ADMISSION_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(binding),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HarnessSessionBindingAdmissionError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeHarnessSessionBindingAdmission(text ? JSON.parse(text) : {});
 }
 
 export async function requestHarnessPublicFixtureRun({

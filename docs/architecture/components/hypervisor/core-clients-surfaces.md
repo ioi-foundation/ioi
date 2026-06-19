@@ -514,6 +514,15 @@ HarnessSessionBinding
   requires_daemon_gate: true
 ```
 
+The binding is not sufficient by itself. Hypervisor Core must request a
+daemon-side `HarnessSessionBindingAdmission` before a launched session may be
+reported as `daemon_admitted`. This admission is the local-first harness gate:
+it can admit Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI
+over the local OpenAI-compatible Codex OSS / Qwen model route without provider
+API authentication, while blocking provider-trust shortcuts, external harness
+cTEE custody claims, missing local model endpoints/instances, and any harness
+runtime-truth claim.
+
 For the first local bring-up lane, Codex OSS, an example Claude Code harness,
 and DeepSeek TUI may all bind to a local OpenAI-compatible model configuration
 instead of requiring provider API authentication. This is a launchable

@@ -216,6 +216,12 @@ const runtimeHarnessContainerLaneSource = read(
 const runtimeCodeEditorAdapterLaunchPlanAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",
 );
+const runtimeHarnessSessionBindingAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs",
+);
+const runtimeHarnessSessionBindingAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1565,6 +1571,15 @@ assert(
       "ioi.hypervisor.harness_session_binding.v1",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
+      "ioi.runtime.harness_session_binding_admission.v1",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessSessionBindingAdmission",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HarnessSessionBindingAdmissionError",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
       "buildHypervisorHarnessSessionBinding",
     ) &&
     hypervisorHarnessAdapterModelSource.includes("examples/claude-code-main") &&
@@ -1591,6 +1606,62 @@ assert(
   ),
   ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
   "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with first-session local-model bindings, public testbed custody, comparison receipts, and no runtime-truth shortcut.",
+);
+assert(
+  "hypervisor-harness-session-binding-admission",
+  runtimeHarnessSessionBindingAdmissionSource.includes(
+    "ioi.runtime.harness_session_binding_admission.v1",
+  ) &&
+    runtimeHarnessSessionBindingAdmissionSource.includes(
+      "admitHarnessSessionBinding",
+    ) &&
+    runtimeHarnessSessionBindingAdmissionSource.includes(
+      "harness_session_binding_external_ctee_custody_blocked",
+    ) &&
+    runtimeHarnessSessionBindingAdmissionSource.includes(
+      "harness_session_binding_provider_trust_requires_future_lease",
+    ) &&
+    runtimeHarnessSessionBindingAdmissionSource.includes(
+      "harness_session_binding_runtime_truth_claim_blocked",
+    ) &&
+    runtimeHarnessSessionBindingAdmissionSource.includes(
+      "model-config:local/",
+    ) &&
+    runtimeHarnessSessionBindingAdmissionTestSource.includes(
+      "admits proposal-source Codex OSS bindings over local model mount",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-session-binding-admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose harness session binding admissions",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHarnessSessionBindingAdmission",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "buildHypervisorHarnessSessionBindingAdmissionFailure",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorHarnessSessionBindingAdmissionRecord",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionBindingAdmission",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "harness_session_binding_admission_ref",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs",
+    "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+  ],
+  "Harness session bindings must be daemon-admitted before New Session launch can become daemon_admitted; local Codex/Qwen bindings are admitted, provider-trust and external cTEE custody shortcuts are blocked.",
 );
 assert(
   "hypervisor-harness-container-lane-contract",

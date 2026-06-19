@@ -1,9 +1,11 @@
 import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  HarnessSessionBindingAdmissionError,
   buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
   type HarnessCompatibilityVerdict,
   type HypervisorHarnessSessionBinding,
+  type HypervisorHarnessSessionBindingAdmission,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
@@ -19,6 +21,12 @@ import {
   type CodeEditorAdapterLaunchPlan,
   type CodeEditorAdapterPreference,
 } from "./codeEditorAdapterPreferences.ts";
+
+export {
+  requestHarnessSessionBindingAdmission,
+  HarnessSessionBindingAdmissionError,
+  type HypervisorHarnessSessionBindingAdmission,
+} from "./harnessAdapterModel.ts";
 
 export {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
@@ -289,6 +297,22 @@ export type HypervisorCodeEditorAdapterLaunchAdmissionRecord =
   | CodeEditorAdapterLaunchAdmission
   | HypervisorCodeEditorAdapterLaunchAdmissionFailure;
 
+export interface HypervisorHarnessSessionBindingAdmissionFailure {
+  schema_version: "ioi.hypervisor.harness_session_binding_admission_failure.v1";
+  admission_id: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorHarnessSessionBindingAdmissionRecord =
+  | HypervisorHarnessSessionBindingAdmission
+  | HypervisorHarnessSessionBindingAdmissionFailure;
+
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
   session_ref: string;
@@ -313,6 +337,10 @@ export interface HypervisorLaunchedSessionProjection {
   code_editor_adapter_admission_ref: string | null;
   harness_session_binding_ref: string;
   harness_session_binding: HypervisorHarnessSessionBinding;
+  harness_session_binding_admission:
+    | HypervisorHarnessSessionBindingAdmissionRecord
+    | null;
+  harness_session_binding_admission_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -387,6 +415,7 @@ export function buildHypervisorLaunchedSessionProjection({
   projectLabel,
   launchedAtMs = Date.now(),
   codeEditorAdapterAdmission = null,
+  harnessSessionBindingAdmission = null,
   displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
@@ -394,6 +423,7 @@ export function buildHypervisorLaunchedSessionProjection({
   projectLabel: string;
   launchedAtMs?: number;
   codeEditorAdapterAdmission?: HypervisorCodeEditorAdapterLaunchAdmissionRecord | null;
+  harnessSessionBindingAdmission?: HypervisorHarnessSessionBindingAdmissionRecord | null;
   displayMeta?: {
     branchLabel?: string | null;
     relativeTimeLabel?: string | null;
@@ -406,13 +436,17 @@ export function buildHypervisorLaunchedSessionProjection({
     safeLaunchId(request.recipe_id),
     safeLaunchId(launchedAtMs),
   ].join("/");
+  const admissionDecisions = [
+    codeEditorAdapterAdmission?.decision,
+    harnessSessionBindingAdmission?.decision,
+  ];
   const admissionState =
-    codeEditorAdapterAdmission?.decision === "admitted"
-      ? "daemon_admitted"
-      : codeEditorAdapterAdmission?.decision === "blocked"
-        ? "daemon_blocked"
-        : codeEditorAdapterAdmission?.decision === "daemon_unavailable"
-          ? "daemon_unavailable"
+    admissionDecisions.includes("blocked")
+      ? "daemon_blocked"
+      : admissionDecisions.includes("daemon_unavailable")
+        ? "daemon_unavailable"
+        : admissionDecisions.every((decision) => decision === "admitted")
+          ? "daemon_admitted"
           : "pending_daemon_admission";
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
@@ -434,6 +468,9 @@ export function buildHypervisorLaunchedSessionProjection({
     harness_session_binding_ref:
       request.launch_summary.harness_session_binding_ref,
     harness_session_binding: request.launch_summary.harness_session_binding,
+    harness_session_binding_admission: harnessSessionBindingAdmission,
+    harness_session_binding_admission_ref:
+      harnessSessionBindingAdmission?.admission_id ?? null,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
   };
@@ -454,6 +491,31 @@ export function buildHypervisorCodeEditorAdapterAdmissionFailure({
     launch_plan_ref: launchPlan.launch_plan_ref,
     adapter_ref: launchPlan.adapter_ref,
     target_ref: launchPlan.target_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorHarnessSessionBindingAdmissionFailure({
+  binding,
+  error,
+}: {
+  binding: HypervisorHarnessSessionBinding;
+  error: unknown;
+}): HypervisorHarnessSessionBindingAdmissionFailure {
+  const httpStatus =
+    error instanceof HarnessSessionBindingAdmissionError ? error.status : null;
+  return {
+    schema_version: "ioi.hypervisor.harness_session_binding_admission_failure.v1",
+    admission_id: `${binding.session_binding_ref}/admission-failure`,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
     decision:
       typeof httpStatus === "number" && httpStatus < 500
         ? "blocked"

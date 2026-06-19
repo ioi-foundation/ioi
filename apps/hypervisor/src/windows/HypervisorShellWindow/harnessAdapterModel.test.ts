@@ -18,14 +18,17 @@ import {
   buildHarnessCompatibilityVerdict,
   buildHarnessPublicFixtureRunRequest,
   getHarnessSelectionRef,
+  HarnessSessionBindingAdmissionError,
   isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
   normalizeHarnessComparisonRunFromPublicFixtureRun,
+  requestHarnessSessionBindingAdmission,
   requestHarnessPublicFixtureRun,
 } from "./harnessAdapterModel.ts";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
+  buildHypervisorHarnessSessionBindingAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildHypervisorNewSessionLaunchSummary,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
@@ -557,6 +560,8 @@ test("new session launch summary binds harness, model route, adapter target, pri
   assert.equal(launchedSession.admission_state, "pending_daemon_admission");
   assert.equal(launchedSession.code_editor_adapter_admission, null);
   assert.equal(launchedSession.code_editor_adapter_admission_ref, null);
+  assert.equal(launchedSession.harness_session_binding_admission, null);
+  assert.equal(launchedSession.harness_session_binding_admission_ref, null);
   assert.equal(
     launchedSession.harness_session_binding_ref,
     summary.harness_session_binding_ref,
@@ -758,6 +763,100 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     authorityScopeRefs: recipe.authority_scope_templates,
     receiptPreviewRef: "receipt-preview:new-session/admitted",
   });
+  const harnessAdmission = await requestHarnessSessionBindingAdmission(
+    summary.harness_session_binding,
+    {
+      endpoint: "http://daemon.local",
+      fetchImpl: async (input, init) => {
+        assert.equal(
+          input,
+          "http://daemon.local/v1/hypervisor/harness-session-binding-admissions",
+        );
+        assert.equal(init?.method, "POST");
+        assert.equal(init?.headers?.["content-type"], "application/json");
+        const request = JSON.parse(init?.body ?? "{}");
+        assert.equal(
+          request.session_binding_ref,
+          summary.harness_session_binding_ref,
+        );
+        assert.equal(
+          request.model_configuration_ref,
+          HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+        );
+        assert.equal(request.requires_daemon_gate, true);
+        assert.equal(request.runtimeTruthSource, "daemon-runtime");
+        return {
+          ok: true,
+          status: 202,
+          text: async () =>
+            JSON.stringify({
+              schema_version:
+                "ioi.runtime.harness_session_binding_admission.v1",
+              admission_id: "harness-session-binding-admission:local-codex",
+              decision: "admitted",
+              admission_state: "admitted_for_harness_launch",
+              session_binding_ref:
+                summary.harness_session_binding.session_binding_ref,
+              session_route_ref:
+                summary.harness_session_binding.session_route_ref,
+              harness_selection_ref:
+                summary.harness_session_binding.harness_selection_ref,
+              harness_selection_kind:
+                summary.harness_session_binding.harness_selection_kind,
+              harness_truth_boundary:
+                summary.harness_session_binding.harness_truth_boundary,
+              harness_launch_route_ref:
+                summary.harness_session_binding.harness_launch_route_ref,
+              agent_harness_adapter_id: null,
+              harness_profile_ref: "default_harness_profile",
+              model_configuration_ref:
+                summary.harness_session_binding.model_configuration_ref,
+              model_route_ref: summary.harness_session_binding.model_route_ref,
+              model_route_policy:
+                summary.harness_session_binding.model_route_policy,
+              model_route_availability_state:
+                summary.harness_session_binding.model_route_availability_state,
+              model_route_endpoint_refs:
+                summary.harness_session_binding.model_route_endpoint_refs,
+              model_route_loaded_instance_refs:
+                summary.harness_session_binding
+                  .model_route_loaded_instance_refs,
+              workspace_mount_policy:
+                summary.harness_session_binding.workspace_mount_policy,
+              privacy_posture_ref:
+                summary.harness_session_binding.privacy_posture_ref,
+              authority_scope_refs:
+                summary.harness_session_binding.authority_scope_refs,
+              receipt_policy_ref:
+                summary.harness_session_binding.receipt_policy_ref,
+              receipt_preview_ref:
+                summary.harness_session_binding.receipt_preview_ref,
+              expected_receipt_refs:
+                summary.harness_session_binding.expected_receipt_refs,
+              agentgres_operation_refs: [
+                "agentgres://operation/harness-session-binding",
+              ],
+              receipt_refs: ["receipt://harness-session-binding/admitted"],
+              state_root: "agentgres://state-root/harness-session-binding",
+              harness_runtime_truth_claimed: false,
+              requiresDaemonGate: true,
+              runtimeTruthSource: "daemon-runtime",
+              admitted_at: "2026-06-18T12:00:00.000Z",
+            }),
+        };
+      },
+    },
+  );
+
+  assert.equal(
+    harnessAdmission.schema_version,
+    "ioi.runtime.harness_session_binding_admission.v1",
+  );
+  assert.equal(harnessAdmission.decision, "admitted");
+  assert.equal(
+    harnessAdmission.model_configuration_ref,
+    HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+  );
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
       recipe_id: recipe.recipe_id,
@@ -775,6 +874,7 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     projectLabel: "IOI",
     launchedAtMs: 1_718_001,
     codeEditorAdapterAdmission: admission,
+    harnessSessionBindingAdmission: harnessAdmission,
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
@@ -783,6 +883,61 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     "code-editor-adapter-launch:embedded-host",
   );
   assert.equal(launchedSession.code_editor_adapter_admission, admission);
+  assert.equal(
+    launchedSession.harness_session_binding_admission_ref,
+    "harness-session-binding-admission:local-codex",
+  );
+  assert.equal(
+    launchedSession.harness_session_binding_admission,
+    harnessAdmission,
+  );
+});
+
+test("harness session binding admission failures are explicit session state", async () => {
+  const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+  const preference = HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES[0]!;
+  const summary = buildHypervisorNewSessionLaunchSummary({
+    recipe,
+    projectId: "project:ioi",
+    codeEditorAdapter: preference,
+    harness: DEFAULT_HARNESS_PROFILE_OPTION,
+    harnessVerdict: buildHarnessCompatibilityVerdict(
+      DEFAULT_HARNESS_PROFILE_OPTION,
+      true,
+    ),
+    modelRouteAvailability: modelRouteSupportsHypervisorMountFromInventory(
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+    ),
+    modelRouteRef: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    privacyPostureRef: "privacy:ctee-private-workspace",
+    authorityScopeRefs: recipe.authority_scope_templates,
+    receiptPreviewRef: "receipt-preview:new-session/admitted",
+  });
+  let error: unknown = null;
+  try {
+    await requestHarnessSessionBindingAdmission(summary.harness_session_binding, {
+      endpoint: "http://daemon.local",
+      fetchImpl: async () => ({
+        ok: false,
+        status: 403,
+        text: async () =>
+          JSON.stringify({
+            code: "harness_session_binding_external_ctee_custody_blocked",
+          }),
+      }),
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error instanceof HarnessSessionBindingAdmissionError);
+  const failure = buildHypervisorHarnessSessionBindingAdmissionFailure({
+    binding: summary.harness_session_binding,
+    error,
+  });
+  assert.equal(failure.decision, "blocked");
+  assert.equal(failure.http_status, 403);
+  assert.equal(failure.runtimeTruthSource, "daemon-runtime");
 });
 
 test("code editor adapter launch admission failures are explicit session state", async () => {

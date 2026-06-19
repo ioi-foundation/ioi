@@ -42,6 +42,7 @@ import {
 } from "./hypervisorLaunchedSessionPersistence";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  buildHypervisorHarnessSessionBindingAdmissionFailure,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
   buildCodeEditorAdapterLaunchPlan,
@@ -49,6 +50,7 @@ import {
   getCodeEditorAdapterPreferenceByRef,
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
+  requestHarnessSessionBindingAdmission,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
@@ -412,11 +414,30 @@ export function useHypervisorShellController() {
             ),
             launchPlan: codeEditorAdapterLaunchPlan,
           });
+    const harnessSessionBindingAdmission =
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHarnessSessionBindingAdmission(
+            request.launch_summary.harness_session_binding,
+          ).catch((error: unknown) =>
+            buildHypervisorHarnessSessionBindingAdmissionFailure({
+              binding: request.launch_summary.harness_session_binding,
+              error,
+            }),
+          )
+        : buildHypervisorHarnessSessionBindingAdmissionFailure({
+            binding: request.launch_summary.harness_session_binding,
+            error: new Error(
+              "Attach a Hypervisor Daemon endpoint before requesting harness session binding admission.",
+            ),
+          });
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
       projectLabel: project.name,
       codeEditorAdapterAdmission,
+      harnessSessionBindingAdmission,
     });
 
     setCurrentProjectId(project.id);

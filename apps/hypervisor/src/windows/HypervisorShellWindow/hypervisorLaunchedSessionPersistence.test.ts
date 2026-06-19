@@ -59,6 +59,45 @@ function harnessSessionBinding(id: string): HypervisorHarnessSessionBinding {
   };
 }
 
+function harnessSessionBindingAdmission(id: string) {
+  const binding = harnessSessionBinding(id);
+  return {
+    schema_version: "ioi.runtime.harness_session_binding_admission.v1" as const,
+    admission_id: `harness-session-binding-admission:${id}`,
+    decision: "admitted" as const,
+    admission_state: "admitted_for_harness_launch" as const,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
+    harness_selection_kind: binding.harness_selection_kind,
+    harness_truth_boundary: binding.harness_truth_boundary,
+    harness_launch_route_ref: binding.harness_launch_route_ref,
+    agent_harness_adapter_id: null,
+    harness_profile_ref: binding.harness_profile_ref ?? null,
+    model_configuration_ref: binding.model_configuration_ref,
+    model_route_ref: binding.model_route_ref,
+    model_route_policy: binding.model_route_policy,
+    model_route_availability_state: binding.model_route_availability_state,
+    model_route_endpoint_refs: binding.model_route_endpoint_refs,
+    model_route_loaded_instance_refs: binding.model_route_loaded_instance_refs,
+    workspace_mount_policy: binding.workspace_mount_policy,
+    privacy_posture_ref: binding.privacy_posture_ref,
+    authority_scope_refs: binding.authority_scope_refs,
+    receipt_policy_ref: binding.receipt_policy_ref,
+    receipt_preview_ref: binding.receipt_preview_ref,
+    expected_receipt_refs: binding.expected_receipt_refs,
+    agentgres_operation_refs: [
+      `agentgres://operation/harness-session-binding/${id}`,
+    ],
+    receipt_refs: [`receipt://harness-session-binding/${id}`],
+    state_root: `agentgres://state-root/harness-session-binding/${id}`,
+    harness_runtime_truth_claimed: false as const,
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+    admitted_at: "2026-06-18T12:00:00.000Z",
+  };
+}
+
 function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
   const binding = harnessSessionBinding(id);
   return {
@@ -121,6 +160,7 @@ function launchedSession(
   launchedAtMs = 1_718_000,
 ): HypervisorLaunchedSessionProjection {
   const binding = harnessSessionBinding(id);
+  const bindingAdmission = harnessSessionBindingAdmission(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${id}`,
@@ -136,6 +176,8 @@ function launchedSession(
     code_editor_adapter_admission_ref: null,
     harness_session_binding_ref: binding.session_binding_ref,
     harness_session_binding: binding,
+    harness_session_binding_admission: bindingAdmission,
+    harness_session_binding_admission_ref: bindingAdmission.admission_id,
     launch_summary: launchSummary(id),
     runtimeTruthSource: "daemon-runtime",
   };
@@ -205,6 +247,23 @@ test("launched session cache persists normalized projections only", () => {
     parsed[0]?.harness_session_binding.model_configuration_ref,
     "model-config:local/codex-oss-qwen",
   );
+  assert.equal(
+    parsed[0]?.harness_session_binding_admission?.schema_version,
+    "ioi.runtime.harness_session_binding_admission.v1",
+  );
+});
+
+test("launched session cache rejects loose sessions without harness admission", () => {
+  const storage = new MemoryStorage();
+  const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
+  delete looseSession.harness_session_binding_admission;
+  delete looseSession.harness_session_binding_admission_ref;
+  storage.setItem(
+    HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
+    JSON.stringify([looseSession]),
+  );
+
+  assert.deepEqual(loadHypervisorLaunchedSessionProjections({ storage }), []);
 });
 
 test("launched session cache rejects loose sessions without harness binding", () => {

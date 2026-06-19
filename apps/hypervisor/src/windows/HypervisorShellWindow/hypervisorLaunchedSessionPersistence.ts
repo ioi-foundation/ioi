@@ -133,6 +133,41 @@ function normalizeHarnessSessionBinding(
   return record as unknown as HypervisorHarnessSessionBinding;
 }
 
+function normalizeHarnessSessionBindingAdmission(
+  value: unknown,
+  binding: HypervisorHarnessSessionBinding,
+): HypervisorLaunchedSessionProjection["harness_session_binding_admission"] | null {
+  const record = recordValue(value);
+  if (!record || record.runtimeTruthSource !== "daemon-runtime") {
+    return null;
+  }
+  const schemaVersion = stringValue(record.schema_version);
+  const admissionId = stringValue(record.admission_id);
+  const sessionBindingRef = stringValue(record.session_binding_ref);
+  const decision = stringValue(record.decision);
+  if (
+    !admissionId ||
+    sessionBindingRef !== binding.session_binding_ref ||
+    !decision
+  ) {
+    return null;
+  }
+  if (
+    schemaVersion === "ioi.runtime.harness_session_binding_admission.v1" &&
+    decision === "admitted"
+  ) {
+    return record as unknown as HypervisorLaunchedSessionProjection["harness_session_binding_admission"];
+  }
+  if (
+    schemaVersion ===
+      "ioi.hypervisor.harness_session_binding_admission_failure.v1" &&
+    (decision === "blocked" || decision === "daemon_unavailable")
+  ) {
+    return record as unknown as HypervisorLaunchedSessionProjection["harness_session_binding_admission"];
+  }
+  return null;
+}
+
 export function normalizeHypervisorLaunchedSessionProjection(
   value: unknown,
 ): HypervisorLaunchedSessionProjection | null {
@@ -162,6 +197,15 @@ export function normalizeHypervisorLaunchedSessionProjection(
     record.harness_session_binding,
   );
   const harnessSessionBindingRef = stringValue(record.harness_session_binding_ref);
+  const harnessSessionBindingAdmission = harnessSessionBinding
+    ? normalizeHarnessSessionBindingAdmission(
+        record.harness_session_binding_admission,
+        harnessSessionBinding,
+      )
+    : null;
+  const harnessSessionBindingAdmissionRef = nullableStringValue(
+    record.harness_session_binding_admission_ref,
+  );
 
   if (
     !sessionRef?.startsWith("session:") ||
@@ -180,7 +224,10 @@ export function normalizeHypervisorLaunchedSessionProjection(
     !SURFACE_IDS.has(surfaceId as HypervisorSurfaceId) ||
     !launchSummary ||
     !harnessSessionBinding ||
-    harnessSessionBindingRef !== harnessSessionBinding.session_binding_ref
+    harnessSessionBindingRef !== harnessSessionBinding.session_binding_ref ||
+    !harnessSessionBindingAdmission ||
+    harnessSessionBindingAdmissionRef !==
+      harnessSessionBindingAdmission.admission_id
   ) {
     return null;
   }
@@ -212,6 +259,8 @@ export function normalizeHypervisorLaunchedSessionProjection(
     ),
     harness_session_binding_ref: harnessSessionBinding.session_binding_ref,
     harness_session_binding: harnessSessionBinding,
+    harness_session_binding_admission: harnessSessionBindingAdmission,
+    harness_session_binding_admission_ref: harnessSessionBindingAdmission.admission_id,
     launch_summary: launchSummary,
     runtimeTruthSource: "daemon-runtime",
   };

@@ -544,6 +544,11 @@ compliance acronyms for hidden audit material.
   posture, authority scopes, receipt policy, example root when applicable, and
   daemon-gate requirement to a `HypervisorSession`. A launched session without
   this binding is an invalid loose UI projection.
+- `HarnessSessionBindingAdmission`: daemon-admitted launch gate for a
+  `HarnessSessionBinding`. It makes a local-first harness/model binding
+  launchable, blocks external harness cTEE custody and provider-trust shortcuts
+  until explicit leases exist, and prevents Codex/Claude/DeepSeek-style adapters
+  from claiming runtime truth.
 - `HarnessAdapterReceipt`: receipt envelope for an external harness run. It
   binds selection ref, execution lane, model route ref when present, workspace
   mount policy, authority scope refs, privacy posture ref, Agentgres operation
