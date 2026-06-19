@@ -459,8 +459,8 @@ Blocking object/API/schema gaps:
 ```text
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
-Continuous terminal transcript polling/sealing after the first admitted client
-  PTY read observation
+Durable Agentgres replay hydration for closed harness terminal transcript
+  projections
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
@@ -1559,7 +1559,8 @@ Current implementation cut:
   absence of the Sessions-local launch strip, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
 
-0A.8C first admitted harness terminal transcript observation is implemented:
+0A.8C admitted harness terminal transcript observation and polling is
+implemented:
   after recipe admission, harness binding admission, launch, spawn, readiness,
   and terminal attach admission, the native Hypervisor client creates the host
   PTY, writes the daemon-resolved initial command, performs the first
@@ -1568,9 +1569,13 @@ Current implementation cut:
   `ioi.runtime.harness_terminal_transcript_projection.v1` projection. The
   Activity rail and Sessions drill-in now expose transcript state, cursor, and
   line count so a launched session is not merely admitted on paper; it has an
-  observable PTY stream ref. This remains a transport observation, not client
-  runtime truth. Remaining work is continuous transcript polling, transcript
-  sealing/closure receipts, and durable replay hydration from Agentgres.
+  observable PTY stream ref. The controller now continues polling the admitted
+  PTY in the background, updates the same launched-session projection through a
+  normalized terminal-attach update helper, records observed-chunk receipts,
+  and records a closed transcript receipt with cursor and exit code when the
+  PTY closes. This remains a transport observation, not client runtime truth.
+  Remaining work is durable replay hydration from Agentgres after restart or
+  restore.
 
 0A.9 first provider/environment surface cut is implemented:
   `hypervisorProviderPlacementModel.ts` defines

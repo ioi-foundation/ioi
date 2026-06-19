@@ -39,6 +39,7 @@ import {
   loadHypervisorLaunchedSessionProjections,
   mergeHypervisorLaunchedSessionProjection,
   persistHypervisorLaunchedSessionProjections,
+  updateHypervisorLaunchedSessionTerminalAttach,
 } from "./hypervisorLaunchedSessionPersistence";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
@@ -69,7 +70,10 @@ import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemon
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
-import { observeHarnessTerminalTranscriptRead } from "./harnessAdapterModel";
+import {
+  observeHarnessTerminalTranscriptRead,
+  type HypervisorHarnessSessionTerminalAttach,
+} from "./harnessAdapterModel";
 
 type ToastCandidate = Pick<
   InterventionRecord,
@@ -97,6 +101,16 @@ export interface HypervisorReceiptEvidenceTarget {
   receiptRef?: string | null;
 }
 const appliedHypervisorLaunchIds = new Set<string>();
+const HYPERVISOR_HARNESS_TERMINAL_TRANSCRIPT_POLL_INTERVAL_MS = 120;
+
+function waitForHarnessTerminalTranscriptPoll(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      HYPERVISOR_HARNESS_TERMINAL_TRANSCRIPT_POLL_INTERVAL_MS,
+    );
+  });
+}
 
 const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
   "home",
@@ -333,6 +347,8 @@ export function useHypervisorShellController() {
   );
   const hypervisorLaunchHydrationInFlightRef = useRef(false);
   const lastAppliedHypervisorLaunchIdRef = useRef<string | null>(null);
+  const hypervisorHarnessTerminalPollingRef = useRef<Set<string>>(new Set());
+  const hypervisorHarnessTerminalPollingCancelledRef = useRef(false);
 
   const currentProject =
     PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
@@ -394,6 +410,111 @@ export function useHypervisorShellController() {
     setNewSessionRecipeId("mission.default");
     setNewSessionModalOpen(true);
     setActiveView("sessions");
+  };
+
+  const persistHarnessTerminalTranscriptProjection = (
+    sessionRef: string,
+    terminalAttach: HypervisorHarnessSessionTerminalAttach,
+  ) => {
+    setLaunchedSessionProjections((current) => {
+      const next = updateHypervisorLaunchedSessionTerminalAttach(
+        current,
+        sessionRef,
+        terminalAttach,
+      );
+      persistHypervisorLaunchedSessionProjections({
+        storage: hypervisorBrowserStorage(),
+        projections: next,
+      });
+      return next;
+    });
+  };
+
+  const pollHarnessSessionTerminalTranscript = async ({
+    sessionRef,
+    terminalSessionId,
+    terminalAttach: initialTerminalAttach,
+  }: {
+    sessionRef: string;
+    terminalSessionId: string;
+    terminalAttach: HypervisorHarnessSessionTerminalAttach;
+  }) => {
+    const pollKey = `${sessionRef}:${terminalSessionId}`;
+    if (hypervisorHarnessTerminalPollingRef.current.has(pollKey)) {
+      return;
+    }
+    hypervisorHarnessTerminalPollingRef.current.add(pollKey);
+    let terminalAttach = initialTerminalAttach;
+    let cursor = terminalAttach.terminal_transcript_projection.cursor;
+    try {
+      while (
+        !hypervisorHarnessTerminalPollingCancelledRef.current &&
+        terminalAttach.terminal_transcript_projection.transcript_state !==
+          "closed"
+      ) {
+        await waitForHarnessTerminalTranscriptPoll();
+        if (hypervisorHarnessTerminalPollingCancelledRef.current) {
+          break;
+        }
+        const transcriptReadResult =
+          await hostWorkspaceAdapter.readTerminalSession(
+            terminalSessionId,
+            cursor,
+          );
+        terminalAttach = observeHarnessTerminalTranscriptRead(
+          terminalAttach,
+          transcriptReadResult,
+        );
+        cursor = terminalAttach.terminal_transcript_projection.cursor;
+        persistHarnessTerminalTranscriptProjection(sessionRef, terminalAttach);
+        if (transcriptReadResult.chunks.length > 0) {
+          await recordHypervisorLaunchReceipt(
+            "hypervisor_harness_terminal_transcript_observed",
+            {
+              sessionRef,
+              attachId: terminalAttach.attach_id,
+              terminalId: terminalSessionId,
+              transcriptStreamRef:
+                terminalAttach.client_attach_contract.transcript_stream_ref,
+              cursor,
+              transcriptState:
+                terminalAttach.terminal_transcript_projection.transcript_state,
+              transcriptChunkCount: transcriptReadResult.chunks.length,
+            },
+          );
+        }
+        if (!transcriptReadResult.running) {
+          await recordHypervisorLaunchReceipt(
+            "hypervisor_harness_terminal_transcript_closed",
+            {
+              sessionRef,
+              attachId: terminalAttach.attach_id,
+              terminalId: terminalSessionId,
+              transcriptStreamRef:
+                terminalAttach.client_attach_contract.transcript_stream_ref,
+              cursor,
+              exitCode: transcriptReadResult.exitCode,
+            },
+          );
+          break;
+        }
+      }
+    } catch (error) {
+      await recordHypervisorLaunchReceipt(
+        "hypervisor_harness_terminal_transcript_poll_failed",
+        {
+          sessionRef,
+          attachId: terminalAttach.attach_id,
+          terminalId: terminalSessionId,
+          transcriptStreamRef:
+            terminalAttach.client_attach_contract.transcript_stream_ref,
+          cursor,
+          error: error instanceof Error ? error.message : String(error ?? ""),
+        },
+      );
+    } finally {
+      hypervisorHarnessTerminalPollingRef.current.delete(pollKey);
+    }
   };
 
   const launchNewSession = async (request: HypervisorNewSessionLaunchRequest) => {
@@ -557,6 +678,10 @@ export function useHypervisorShellController() {
               "Harness session readiness was not admitted for terminal attach.",
             ),
           });
+    let harnessTerminalPollingSeed: {
+      terminalSessionId: string;
+      terminalAttach: HypervisorHarnessSessionTerminalAttach;
+    } | null = null;
     if (
       harnessSessionSpawn.decision === "admitted" &&
       harnessSessionReadiness.decision === "ready" &&
@@ -628,6 +753,10 @@ export function useHypervisorShellController() {
             transcriptChunkCount,
           },
         );
+        harnessTerminalPollingSeed = {
+          terminalSessionId: terminal.sessionId,
+          terminalAttach: harnessSessionTerminalAttach,
+        };
       } catch (error) {
         await recordHypervisorLaunchReceipt(
           "hypervisor_harness_session_terminal_attach_failed",
@@ -670,6 +799,18 @@ export function useHypervisorShellController() {
       });
       return next;
     });
+    if (
+      harnessTerminalPollingSeed &&
+      launchedSession.admission_state === "daemon_admitted" &&
+      harnessTerminalPollingSeed.terminalAttach.terminal_transcript_projection
+        .transcript_state !== "closed"
+    ) {
+      void pollHarnessSessionTerminalTranscript({
+        sessionRef: launchedSession.session_ref,
+        terminalSessionId: harnessTerminalPollingSeed.terminalSessionId,
+        terminalAttach: harnessTerminalPollingSeed.terminalAttach,
+      });
+    }
 
     setActiveView(recipe.surface_id);
   };
@@ -881,6 +1022,14 @@ export function useHypervisorShellController() {
       hypervisorLaunchHydrationInFlightRef.current = false;
     }
   };
+
+  useEffect(() => {
+    hypervisorHarnessTerminalPollingCancelledRef.current = false;
+    return () => {
+      hypervisorHarnessTerminalPollingCancelledRef.current = true;
+      hypervisorHarnessTerminalPollingRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;

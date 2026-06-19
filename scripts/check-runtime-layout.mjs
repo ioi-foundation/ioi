@@ -2038,6 +2038,15 @@ assert(
       "observeHarnessTerminalTranscriptRead",
     ) &&
     hypervisorShellControllerSource.includes(
+      "pollHarnessSessionTerminalTranscript",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "hypervisor_harness_terminal_transcript_closed",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "updateHypervisorLaunchedSessionTerminalAttach",
+    ) &&
+    hypervisorShellControllerSource.includes(
       "hostWorkspaceAdapter.readTerminalSession",
     ) &&
     hypervisorShellNavigationSource.includes(
@@ -2051,6 +2060,9 @@ assert(
     ) &&
     hypervisorLaunchedSessionPersistenceSource.includes(
       "harness_session_terminal_attach_ref",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "updateHypervisorLaunchedSessionTerminalAttach",
     ) &&
     hypervisorActivityRailSource.includes(
       "data-launched-session-terminal-attach",

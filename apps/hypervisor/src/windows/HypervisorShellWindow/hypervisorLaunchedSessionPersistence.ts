@@ -5,7 +5,10 @@ import {
   type HypervisorSessionLaunchRecipe,
   type HypervisorSurfaceId,
 } from "./hypervisorShellNavigationModel.ts";
-import type { HypervisorHarnessSessionBinding } from "./harnessAdapterModel.ts";
+import type {
+  HypervisorHarnessSessionBinding,
+  HypervisorHarnessSessionTerminalAttach,
+} from "./harnessAdapterModel.ts";
 
 export const HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY =
   "ioi.hypervisor.launched_session_projections.v1";
@@ -541,6 +544,32 @@ export function mergeHypervisorLaunchedSessionProjection(
       )
       .filter((projection) => projection.session_ref !== launchedSession.session_ref),
   ].slice(0, HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_LIMIT);
+}
+
+export function updateHypervisorLaunchedSessionTerminalAttach(
+  current: readonly HypervisorLaunchedSessionProjection[],
+  sessionRef: string,
+  terminalAttach: HypervisorHarnessSessionTerminalAttach,
+): HypervisorLaunchedSessionProjection[] {
+  return current
+    .map(normalizeHypervisorLaunchedSessionProjection)
+    .filter((projection): projection is HypervisorLaunchedSessionProjection =>
+      Boolean(projection),
+    )
+    .map((projection) =>
+      projection.session_ref === sessionRef
+        ? {
+            ...projection,
+            harness_session_terminal_attach: terminalAttach,
+            harness_session_terminal_attach_ref: terminalAttach.attach_id,
+          }
+        : projection,
+    )
+    .map(normalizeHypervisorLaunchedSessionProjection)
+    .filter((projection): projection is HypervisorLaunchedSessionProjection =>
+      Boolean(projection),
+    )
+    .slice(0, HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_LIMIT);
 }
 
 export function loadHypervisorLaunchedSessionProjections({

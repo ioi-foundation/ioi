@@ -531,6 +531,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /requestHarnessSessionSpawn/);
   assert.match(controller, /requestHarnessSessionTerminalAttach/);
   assert.match(controller, /observeHarnessTerminalTranscriptRead/);
+  assert.match(controller, /pollHarnessSessionTerminalTranscript/);
+  assert.match(controller, /hypervisor_harness_terminal_transcript_closed/);
+  assert.match(controller, /updateHypervisorLaunchedSessionTerminalAttach/);
   assert.match(controller, /hostWorkspaceAdapter\.createTerminalSession/);
   assert.match(controller, /hostWorkspaceAdapter\.writeTerminalSession/);
   assert.match(controller, /hostWorkspaceAdapter\.readTerminalSession/);

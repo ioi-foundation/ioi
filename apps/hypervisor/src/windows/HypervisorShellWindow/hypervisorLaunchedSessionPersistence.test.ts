@@ -12,6 +12,7 @@ import {
   loadHypervisorLaunchedSessionProjections,
   mergeHypervisorLaunchedSessionProjection,
   persistHypervisorLaunchedSessionProjections,
+  updateHypervisorLaunchedSessionTerminalAttach,
 } from "./hypervisorLaunchedSessionPersistence.ts";
 
 class MemoryStorage {
@@ -608,6 +609,61 @@ test("launched session cache persists normalized projections only", () => {
       .process_custody,
     "client_host_pty_after_daemon_attach_admission",
   );
+});
+
+test("launched session terminal attach updates preserve normalized daemon projection truth", () => {
+  const current = [launchedSession("active"), launchedSession("other")];
+  const active = current[0]!;
+  const terminalAttach = active.harness_session_terminal_attach!;
+  assert.equal(terminalAttach.decision, "admitted");
+  if (terminalAttach.decision !== "admitted") {
+    throw new Error("expected admitted terminal attach fixture");
+  }
+  const updatedAttach = {
+    ...terminalAttach,
+    terminal_transcript_projection: {
+      ...terminalAttach.terminal_transcript_projection,
+      transcript_state: "streaming" as const,
+      cursor: 42,
+      lines: [
+        ...terminalAttach.terminal_transcript_projection.lines,
+        {
+          stream: "stdout" as const,
+          text: "Harness booted\n",
+          sequence: 7,
+          terminal_session_ref: "terminal-session:active",
+        },
+      ],
+    },
+  };
+
+  const updated = updateHypervisorLaunchedSessionTerminalAttach(
+    current,
+    active.session_ref,
+    updatedAttach,
+  );
+
+  assert.equal(updated.length, 2);
+  assert.equal(updated[0]?.session_ref, active.session_ref);
+  const updatedActiveAttach = updated[0]?.harness_session_terminal_attach;
+  assert.equal(updatedActiveAttach?.decision, "admitted");
+  if (!updatedActiveAttach || updatedActiveAttach.decision !== "admitted") {
+    throw new Error("expected admitted terminal attach update");
+  }
+  assert.equal(
+    updatedActiveAttach.terminal_transcript_projection.transcript_state,
+    "streaming",
+  );
+  assert.equal(
+    updatedActiveAttach.terminal_transcript_projection.cursor,
+    42,
+  );
+  assert.equal(
+    updatedActiveAttach.terminal_transcript_projection.lines.at(-1)
+      ?.terminal_session_ref,
+    "terminal-session:active",
+  );
+  assert.equal(updated[1]?.session_ref, "session:launch/other");
 });
 
 test("launched session cache rejects loose sessions without recipe admission", () => {
