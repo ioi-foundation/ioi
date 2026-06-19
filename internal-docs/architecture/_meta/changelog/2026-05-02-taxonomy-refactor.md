@@ -23,7 +23,7 @@ docs/architecture/
   protocols/
 
 docs/implementation/
-  roadmap-and-dependencies.md
+  refine-architecture.md
   low-level-implementation-milestones.md
   runtime-module-map.md
   runtime-package-boundaries.md
@@ -37,6 +37,10 @@ internal-docs/formal/aft/
   traces/
   states/
 ```
+
+Note: the legacy `roadmap-and-dependencies.md` sequencing document was later
+retired into `internal-docs/implementation/refine-architecture.md` so the
+Hypervisor implementation roadmap has one active owner.
 
 ## Boundary Decisions
 

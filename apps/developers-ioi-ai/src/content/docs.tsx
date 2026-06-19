@@ -1422,7 +1422,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['worker-training', 'mow', 'worker-training-mow', 'autopilot-foundry'],
     lastVerified: LAST_VERIFIED,
     keywords: ['worker training', 'MoW', 'Autopilot Foundry', 'data recipes', 'evaluation'],
-    sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'internal-docs/implementation/roadmap-and-dependencies.md'],
+    sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'internal-docs/implementation/refine-architecture.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'aiagent.xyz', href: '#aiagent-xyz', description: 'See the worker discovery preview.' },
