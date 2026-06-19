@@ -687,11 +687,34 @@ assert(
   "refine-architecture-ioi-reference-target",
   refineArchitectureGuide.includes("internal-docs/reverse-engineering/ioi") &&
     refineArchitectureGuide.includes("Primary IOI reference mirror") &&
+    refineArchitectureGuide.includes(
+      "working reference package in internal-docs/reverse-engineering/ioi",
+    ) &&
+    refineArchitectureGuide.includes(
+      "functional verifier evidence from internal-docs/reverse-engineering/ioi/verify.js",
+    ) &&
+    refineArchitectureGuide.includes("canon architecture docs") &&
+    refineArchitectureGuide.includes("npm run check:ioi-reference") &&
     !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(
       refineArchitectureGuide,
     ),
   ["internal-docs/implementation/refine-architecture.md"],
   "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
+);
+assert(
+  "ioi-reference-primary-authority-package",
+  packageJson.scripts?.["check:ioi-reference"] ===
+    "node internal-docs/reverse-engineering/ioi/verify.js" &&
+    refineArchitectureGuide.includes(
+      "architecture docs are secondary authority for this lane",
+    ) &&
+    refineArchitectureGuide.includes("they translate") &&
+    refineArchitectureGuide.includes("do not override it"),
+  [
+    "package.json",
+    "internal-docs/implementation/refine-architecture.md",
+  ],
+  "IOI reference verifier must be a root script, and refine-architecture must explicitly keep docs secondary to the working IOI reference package.",
 );
 assert(
   "refine-architecture-hard-cut-editor-surface-drift",

@@ -544,6 +544,15 @@ Retired screenshot:
 Primary IOI reference mirror:
   internal-docs/reverse-engineering/ioi
   local static server: internal-docs/reverse-engineering/ioi/server.js
+  authority order:
+    1. working reference package in internal-docs/reverse-engineering/ioi
+    2. functional verifier evidence from internal-docs/reverse-engineering/ioi/verify.js
+    3. this Hypervisor implementation ledger
+    4. canon architecture docs
+  rule: architecture docs are secondary authority for this lane; they translate
+        and constrain the working reference but do not override it.
+  verifier:
+    npm run check:ioi-reference
   observed from local screenshots and mirror assets:
     Home: New Session, Home, Projects, Automations, Insights, Sessions,
           prompt composer, project selector, model control, recent sessions

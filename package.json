@@ -8,6 +8,7 @@
   "scripts": {
     "install:all": "npm install",
     "inspect:traineddata": "node ./scripts/inspect-traineddata.mjs",
+    "check:ioi-reference": "node internal-docs/reverse-engineering/ioi/verify.js",
     "dev:hypervisor-app": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:hypervisor-code-editor-adapter-host": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs",
     "dev:hypervisor-code-editor-adapter-host:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland",
