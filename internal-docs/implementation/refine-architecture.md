@@ -1158,9 +1158,17 @@ Current implementation cut:
   workflow output-writer checkpoint identities now use
   `hypervisor.workflow_output_writer_transcript_staging.v1` and are guarded
   against retired `autopilot.workflow_*` checkpoint names.
+  The retired `ChatShellWindow` and artifact-hub shell tree is deleted from the
+  active app, along with its shell navigation, artifact navigation, pending
+  launch state, and slash-menu contract test. Product launches now flow through
+  `hypervisorLaunchState` into canonical Hypervisor shell surfaces: Sessions
+  for session targets, Authority for capability/policy targets, Receipts for
+  artifact review targets, and Home/Settings/Agents for direct shell routes.
+  This is a hard cut, not a hidden bridge surface; future chat/composer
+  affordances must live inside the Home/Sessions/Projects shell and
+  code-editor adapter targets, not as another product window.
   active client-owned namespaces now use Hypervisor terms:
-  shell storage keys, chat launch keys, chat Vim-mode events, trace/share
-  export prefixes, editor theme IDs, command-center route markers, boot
+  shell storage keys, Hypervisor launch keys, editor theme IDs, boot
   fallback DOM hooks, capability custom-connection storage keys,
   Workbench local-first model route ids, and the
   `styles/hypervisor-shell/` directory are guarded by `check:runtime-layout`.

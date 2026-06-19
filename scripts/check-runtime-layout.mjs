@@ -298,9 +298,6 @@ const authorityCenterTestSource = read(
   "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
 );
 const activeHypervisorFixtureSources = [
-  "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
-  "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
-  "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
   "packages/agent-sdk/test/computer-use.test.mjs",
   "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
 ]
@@ -324,9 +321,6 @@ const agentModelMatrixScopeSources = [
   .map(read)
   .join("\n");
 const hypervisorVisibleSurfaceSources = [
-  "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
-  "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
-  "apps/hypervisor/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx",
   "apps/hypervisor/src/surfaces/Models/ModelMountsSurfaceView.tsx",
   "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
   "packages/workspace-substrate/src/notebook.ts",
@@ -354,10 +348,7 @@ const hypervisorSettingsSurfaceSources = [
 const hypervisorClientNamespaceSources = [
   "apps/hypervisor/index.html",
   "apps/hypervisor/src/services/workspaceShellState.ts",
-  "apps/hypervisor/src/services/chatLaunchState.ts",
-  "apps/hypervisor/src/services/chatShellLaunchState.ts",
-  "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
-  "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
+  "apps/hypervisor/src/services/hypervisorLaunchState.ts",
   "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
@@ -377,9 +368,6 @@ const hypervisorClientRuntimeSource = read(
 );
 const companionShellNavigationSource = read(
   "apps/hypervisor/src/services/companionShellNavigation.ts",
-);
-const chatSessionHookSource = read(
-  "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
 );
 const hypervisorTypeWrapperSources = [
   "apps/hypervisor/src/types/generated.ts",
@@ -606,7 +594,7 @@ assert(
 assert(
   "hypervisor-dev-start-probe-no-dual-product-log-prefix",
   hypervisorDevStartIntentProbe.includes("^\\[Hypervisor\\] Block #") &&
-    hypervisorDevStartIntentProbe.includes("\\[Hypervisor\\]\\[ChatLaunch\\]") &&
+    hypervisorDevStartIntentProbe.includes("\\[Hypervisor\\]\\[HypervisorLaunch\\]") &&
     !/\(\?:Autopilot\|Hypervisor\)|\[Autopilot\]/.test(
       hypervisorDevStartIntentProbe,
     ),
@@ -615,17 +603,36 @@ assert(
 );
 assert(
   "hypervisor-shell-hypervisor-route-names",
-  companionShellNavigationSource.includes('window.location.assign("/home")') &&
-    companionShellNavigationSource.includes('window.location.assign("/authority")') &&
-    chatSessionHookSource.includes('await openChat("process")') &&
-    !/openChatShellView\("autopilot"\)|openChat\("autopilot"\)/.test(
-      `${companionShellNavigationSource}\n${chatSessionHookSource}`,
+  companionShellNavigationSource.includes('openHypervisorSurface("/home")') &&
+    companionShellNavigationSource.includes('openHypervisorSurface("/authority")') &&
+    companionShellNavigationSource.includes('openHypervisorSurface("/sessions")') &&
+    !/openChatShellView|openChat\(|chatShellNavigation|chatSessionNavigation/.test(
+      companionShellNavigationSource,
     ),
   [
     "apps/hypervisor/src/services/companionShellNavigation.ts",
-    "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
   ],
-  "Companion shell entry points must route Hypervisor shortcuts to canonical Hypervisor surfaces and block the retired autopilot view id.",
+  "Companion shell entry points must route Hypervisor shortcuts to canonical Hypervisor surfaces without reviving the retired chat shell.",
+);
+assert(
+  "hypervisor-app-no-retired-chat-shell-window",
+  !exists("apps/hypervisor/src/windows/ChatShellWindow") &&
+    !exists("apps/hypervisor/src/services/chatShellNavigation.ts") &&
+    !exists("apps/hypervisor/src/services/chatSessionNavigation.ts") &&
+    !exists("apps/hypervisor/src/services/artifactHubNavigation.ts") &&
+    !exists("apps/hypervisor/src/services/artifactNavigation.ts") &&
+    !exists("apps/hypervisor/src/services/chatShellLaunchState.ts") &&
+    !exists("apps/hypervisor/src/services/chatShellPendingLaunchNavigation.ts"),
+  [
+    "apps/hypervisor/src/windows/ChatShellWindow",
+    "apps/hypervisor/src/services/chatShellNavigation.ts",
+    "apps/hypervisor/src/services/chatSessionNavigation.ts",
+    "apps/hypervisor/src/services/artifactHubNavigation.ts",
+    "apps/hypervisor/src/services/artifactNavigation.ts",
+    "apps/hypervisor/src/services/chatShellLaunchState.ts",
+    "apps/hypervisor/src/services/chatShellPendingLaunchNavigation.ts",
+  ],
+  "Hypervisor App must not retain the retired alternate chat/artifact shell; Home, Sessions, Projects, Receipts, and Authority own those routes.",
 );
 assert(
   "hypervisor-generated-contract-path",
@@ -1050,9 +1057,6 @@ assert(
     ) &&
     hypervisorVisibleSurfaceSources.includes("inside Hypervisor"),
   [
-    "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
-    "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
-    "apps/hypervisor/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx",
     "apps/hypervisor/src/surfaces/Models/ModelMountsSurfaceView.tsx",
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "packages/workspace-substrate/src/notebook.ts",
@@ -1085,26 +1089,19 @@ assert(
 );
 assert(
   "active-test-fixtures-hypervisor-named",
-  activeHypervisorFixtureSources.includes("Hypervisor validation run") &&
-    activeHypervisorFixtureSources.includes("install hypervisor") &&
-    activeHypervisorFixtureSources.includes(
-      '"captureAppName"] = "Hypervisor"',
-    ) &&
+  activeHypervisorFixtureSources.includes('"captureAppName"] = "Hypervisor"') &&
     activeHypervisorFixtureSources.includes('appName: "Hypervisor"') &&
     activeHypervisorFixtureSources.includes(
-      "internal-docs/implementation/refine-architecture.md:50",
+      'captureAppName: "Hypervisor"',
     ) &&
     !/Autopilot validation run|install autopilot|(?:appName|captureAppName)["'\]]*\s*[:=]\s*["']Autopilot|autopilot-chat-agent-ux/.test(
       activeHypervisorFixtureSources,
     ),
   [
-    "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
-    "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
-    "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
     "packages/agent-sdk/test/computer-use.test.mjs",
     "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
   ],
-  "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
+  "Active workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
 );
 assert(
   "workspace-session-direct-code-editor-only",
@@ -1138,14 +1135,9 @@ assert(
   "active-client-namespaces-hypervisor-named",
   [
     "hypervisor.workspace-shell.v1",
-    "hypervisor.pending_chat_launch.v1",
-    "hypervisor.chat_launch_receipts.v1",
-    "hypervisor.pending_chat_shell_launch.v1",
-    "hypervisor.chat_session.vim_mode.v1",
-    "hypervisor:chat-session-vim-mode-updated",
+    "hypervisor.pending_hypervisor_launch.v1",
+    "hypervisor.hypervisor_launch_receipts.v1",
     "data-hypervisor-quick-switcher-anchor",
-    "hypervisor-share",
-    "hypervisor-trace",
     "hypervisor-dark",
     "hypervisor-light",
     ".hypervisor",
@@ -1166,8 +1158,6 @@ assert(
     "apps/hypervisor/index.html",
     "apps/hypervisor/src/services/*LaunchState.ts",
     "apps/hypervisor/src/services/workspaceShellState.ts",
-    "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
-    "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell",
     "packages/workspace-substrate/src/codeOss.ts",

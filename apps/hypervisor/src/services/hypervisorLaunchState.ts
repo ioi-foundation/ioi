@@ -5,11 +5,11 @@ import type {
 } from "@ioi/hypervisor-workbench";
 import type { ChatCapabilityDetailSection } from "../types";
 
-const STORAGE_KEY = "hypervisor.pending_chat_launch.v1";
-const RECEIPTS_STORAGE_KEY = "hypervisor.chat_launch_receipts.v1";
+const STORAGE_KEY = "hypervisor.pending_hypervisor_launch.v1";
+const RECEIPTS_STORAGE_KEY = "hypervisor.hypervisor_launch_receipts.v1";
 const MAX_RECEIPTS = 64;
 
-export type PendingChatLaunchRequest =
+export type PendingHypervisorLaunchRequest =
   | {
       kind: "view";
       view: ChatViewTarget;
@@ -17,6 +17,10 @@ export type PendingChatLaunchRequest =
   | {
       kind: "session-target";
       sessionId: string;
+    }
+  | {
+      kind: "artifact";
+      artifactId: string;
     }
   | {
       kind: "capability";
@@ -37,12 +41,12 @@ export type PendingChatLaunchRequest =
       session: AssistantWorkbenchSession;
     };
 
-export type PendingChatLaunchEnvelope = {
+export type PendingHypervisorLaunchEnvelope = {
   launchId: string;
-  request: PendingChatLaunchRequest;
+  request: PendingHypervisorLaunchRequest;
 };
 
-export type ChatLaunchReceipt = {
+export type HypervisorLaunchReceipt = {
   timestampMs: number;
   stage: string;
   detail: unknown;
@@ -82,8 +86,8 @@ export function summarizeAssistantWorkbenchSession(
   }
 }
 
-export function summarizePendingChatLaunchRequest(
-  request: PendingChatLaunchRequest,
+export function summarizePendingHypervisorLaunchRequest(
+  request: PendingHypervisorLaunchRequest,
 ) {
   switch (request.kind) {
     case "view":
@@ -95,6 +99,11 @@ export function summarizePendingChatLaunchRequest(
       return {
         kind: request.kind,
         sessionId: request.sessionId,
+      };
+    case "artifact":
+      return {
+        kind: request.kind,
+        artifactId: request.artifactId,
       };
     case "capability":
       return {
@@ -125,26 +134,26 @@ export function summarizePendingChatLaunchRequest(
   }
 }
 
-function createChatLaunchId() {
+function createHypervisorLaunchId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
 
-  return `chat-launch-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  return `hypervisor-launch-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
-function createPendingChatLaunchEnvelope(
-  request: PendingChatLaunchRequest,
-): PendingChatLaunchEnvelope {
+function createPendingHypervisorLaunchEnvelope(
+  request: PendingHypervisorLaunchRequest,
+): PendingHypervisorLaunchEnvelope {
   return {
-    launchId: createChatLaunchId(),
+    launchId: createHypervisorLaunchId(),
     request,
   };
 }
 
-function normalizePendingChatLaunchEnvelope(
+function normalizePendingHypervisorLaunchEnvelope(
   value: unknown,
-): PendingChatLaunchEnvelope | null {
+): PendingHypervisorLaunchEnvelope | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -162,20 +171,20 @@ function normalizePendingChatLaunchEnvelope(
   ) {
     return {
       launchId: candidate.launchId,
-      request: candidate.request as PendingChatLaunchRequest,
+      request: candidate.request as PendingHypervisorLaunchRequest,
     };
   }
 
   if (typeof candidate.kind === "string") {
-    return createPendingChatLaunchEnvelope(
-      candidate as PendingChatLaunchRequest,
+    return createPendingHypervisorLaunchEnvelope(
+      candidate as PendingHypervisorLaunchRequest,
     );
   }
 
   return null;
 }
 
-function readPendingChatLaunchEnvelope(): PendingChatLaunchEnvelope | null {
+function readPendingHypervisorLaunchEnvelope(): PendingHypervisorLaunchEnvelope | null {
   if (!canUseStorage()) {
     return null;
   }
@@ -186,15 +195,15 @@ function readPendingChatLaunchEnvelope(): PendingChatLaunchEnvelope | null {
   }
 
   try {
-    return normalizePendingChatLaunchEnvelope(JSON.parse(raw));
+    return normalizePendingHypervisorLaunchEnvelope(JSON.parse(raw));
   } catch (error) {
-    console.warn("Failed to parse pending Chat launch request:", error);
+    console.warn("Failed to parse pending Hypervisor launch request:", error);
     window.localStorage.removeItem(STORAGE_KEY);
     return null;
   }
 }
 
-function readChatLaunchReceipts(): ChatLaunchReceipt[] {
+function readHypervisorLaunchReceipts(): HypervisorLaunchReceipt[] {
   if (!canUseStorage()) {
     return [];
   }
@@ -206,32 +215,32 @@ function readChatLaunchReceipts(): ChatLaunchReceipt[] {
 
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ChatLaunchReceipt[]) : [];
+    return Array.isArray(parsed) ? (parsed as HypervisorLaunchReceipt[]) : [];
   } catch (error) {
-    console.warn("Failed to parse Chat launch receipts:", error);
+    console.warn("Failed to parse Hypervisor launch receipts:", error);
     window.localStorage.removeItem(RECEIPTS_STORAGE_KEY);
     return [];
   }
 }
 
-function appendChatLaunchReceipt(stage: string, detail: unknown) {
+function appendHypervisorLaunchReceipt(stage: string, detail: unknown) {
   if (!canUseStorage()) {
     return;
   }
 
   const nextReceipts = [
-    ...readChatLaunchReceipts(),
+    ...readHypervisorLaunchReceipts(),
     {
       timestampMs: Date.now(),
       stage,
       detail,
-    } satisfies ChatLaunchReceipt,
+    } satisfies HypervisorLaunchReceipt,
   ].slice(-MAX_RECEIPTS);
   window.localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(nextReceipts));
 }
 
-export function setPendingChatLaunchRequest(
-  request: PendingChatLaunchRequest | null,
+export function setPendingHypervisorLaunchRequest(
+  request: PendingHypervisorLaunchRequest | null,
 ): Promise<void> {
   if (!canUseStorage()) {
     return Promise.resolve();
@@ -239,10 +248,10 @@ export function setPendingChatLaunchRequest(
 
   if (canUseHostBridge()) {
     if (!request) {
-      return clearPendingChatLaunchRequest();
+      return clearPendingHypervisorLaunchRequest();
     }
-    return invoke<void>("set_pending_chat_launch", { request }).catch(() => {
-      const envelope = createPendingChatLaunchEnvelope(request);
+    return invoke<void>("set_pending_hypervisor_launch", { request }).catch(() => {
+      const envelope = createPendingHypervisorLaunchEnvelope(request);
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
     });
   }
@@ -252,31 +261,31 @@ export function setPendingChatLaunchRequest(
     return Promise.resolve();
   }
 
-  const envelope = createPendingChatLaunchEnvelope(request);
+  const envelope = createPendingHypervisorLaunchEnvelope(request);
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
   return Promise.resolve();
 }
 
-export function showChatWithLaunchRequest(
-  request: PendingChatLaunchRequest,
+export function showHypervisorWithLaunchRequest(
+  request: PendingHypervisorLaunchRequest,
 ): Promise<void> {
   if (canUseHostBridge()) {
-    return invoke<void>("show_chat_with_target", { request }).catch(async () => {
-      await setPendingChatLaunchRequest(request);
-      await invoke<void>("show_chat").catch(() => undefined);
+    return invoke<void>("show_hypervisor_with_target", { request }).catch(async () => {
+      await setPendingHypervisorLaunchRequest(request);
+      await invoke<void>("show_hypervisor").catch(() => undefined);
     });
   }
 
-  return setPendingChatLaunchRequest(request);
+  return setPendingHypervisorLaunchRequest(request);
 }
 
-export function clearPendingChatLaunchRequest() {
+export function clearPendingHypervisorLaunchRequest() {
   if (!canUseStorage()) {
     return Promise.resolve();
   }
 
   if (canUseHostBridge()) {
-    return invoke<void>("clear_pending_chat_launch").catch(() => {
+    return invoke<void>("clear_pending_hypervisor_launch").catch(() => {
       window.localStorage.removeItem(STORAGE_KEY);
     });
   }
@@ -285,28 +294,28 @@ export function clearPendingChatLaunchRequest() {
   return Promise.resolve();
 }
 
-export function peekPendingChatLaunchRequest(): Promise<PendingChatLaunchEnvelope | null> {
+export function peekPendingHypervisorLaunchRequest(): Promise<PendingHypervisorLaunchEnvelope | null> {
   if (!canUseStorage()) {
     return Promise.resolve(null);
   }
 
   if (canUseHostBridge()) {
-    return invoke<PendingChatLaunchEnvelope | null>(
-      "peek_pending_chat_launch",
-    ).catch(() => readPendingChatLaunchEnvelope());
+    return invoke<PendingHypervisorLaunchEnvelope | null>(
+      "peek_pending_hypervisor_launch",
+    ).catch(() => readPendingHypervisorLaunchEnvelope());
   }
 
-  return Promise.resolve(readPendingChatLaunchEnvelope());
+  return Promise.resolve(readPendingHypervisorLaunchEnvelope());
 }
 
-export function ackPendingChatLaunchRequest(launchId: string): Promise<boolean> {
+export function ackPendingHypervisorLaunchRequest(launchId: string): Promise<boolean> {
   if (!canUseStorage()) {
     return Promise.resolve(false);
   }
 
   if (canUseHostBridge()) {
-    return invoke<boolean>("ack_pending_chat_launch", { launchId }).catch(() => {
-      const pendingLaunch = readPendingChatLaunchEnvelope();
+    return invoke<boolean>("ack_pending_hypervisor_launch", { launchId }).catch(() => {
+      const pendingLaunch = readPendingHypervisorLaunchEnvelope();
       if (pendingLaunch?.launchId === launchId) {
         window.localStorage.removeItem(STORAGE_KEY);
         return true;
@@ -315,7 +324,7 @@ export function ackPendingChatLaunchRequest(launchId: string): Promise<boolean> 
     });
   }
 
-  const pendingLaunch = readPendingChatLaunchEnvelope();
+  const pendingLaunch = readPendingHypervisorLaunchEnvelope();
   if (pendingLaunch?.launchId === launchId) {
     window.localStorage.removeItem(STORAGE_KEY);
     return Promise.resolve(true);
@@ -323,34 +332,34 @@ export function ackPendingChatLaunchRequest(launchId: string): Promise<boolean> 
   return Promise.resolve(false);
 }
 
-export function recordChatLaunchReceipt(stage: string, detail: unknown = {}) {
+export function recordHypervisorLaunchReceipt(stage: string, detail: unknown = {}) {
   if (!canUseStorage()) {
     return Promise.resolve();
   }
 
   if (canUseHostBridge()) {
-    return invoke("record_chat_launch_receipt", {
+    return invoke("record_hypervisor_launch_receipt", {
       stage,
       detail,
     }).catch(() => {
-      appendChatLaunchReceipt(stage, detail);
+      appendHypervisorLaunchReceipt(stage, detail);
     });
   }
 
-  appendChatLaunchReceipt(stage, detail);
+  appendHypervisorLaunchReceipt(stage, detail);
   return Promise.resolve();
 }
 
-export function getChatLaunchReceipts(): Promise<ChatLaunchReceipt[]> {
+export function getHypervisorLaunchReceipts(): Promise<HypervisorLaunchReceipt[]> {
   if (!canUseStorage()) {
     return Promise.resolve([]);
   }
 
   if (canUseHostBridge()) {
-    return invoke<ChatLaunchReceipt[]>("get_chat_launch_receipts").catch(
-      () => readChatLaunchReceipts(),
+    return invoke<HypervisorLaunchReceipt[]>("get_hypervisor_launch_receipts").catch(
+      () => readHypervisorLaunchReceipts(),
     );
   }
 
-  return Promise.resolve(readChatLaunchReceipts());
+  return Promise.resolve(readHypervisorLaunchReceipts());
 }

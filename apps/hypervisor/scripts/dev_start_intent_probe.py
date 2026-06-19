@@ -51,7 +51,7 @@ HEARTBEAT_LOG_RE = re.compile(
     r"^\[Hypervisor\] Block #\d+ committed \(Tx: 0\)$"
 )
 CHAT_LAUNCH_STAGE_RE = re.compile(
-    r"\[Hypervisor\]\[ChatLaunch\] stage=([^\s]+)"
+    r"\[Hypervisor\]\[HypervisorLaunch\] stage=([^\s]+)"
 )
 THOUGHTS_DRAWER_FALLBACK_POINT = (670, 82)
 

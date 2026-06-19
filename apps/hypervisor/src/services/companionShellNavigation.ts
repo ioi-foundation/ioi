@@ -1,63 +1,81 @@
-import {
-  openChatHypervisorIntent,
-  openChatCapabilities,
-  openChatCapabilityActions,
-  openChatCapabilitySetup,
-  openChatCapabilityTarget,
-  openChatNotifications,
-  openChatPolicyTarget,
-  openChatSettings,
-} from "./chatShellNavigation";
+import { showHypervisorWithLaunchRequest } from "./hypervisorLaunchState";
+
+function openHypervisorSurface(path: string) {
+  window.location.assign(path);
+}
 
 export async function openCompanionChat() {
-  window.location.assign("/sessions");
+  openHypervisorSurface("/sessions");
 }
 
 export async function openCompanionGate() {
-  window.location.assign("/authority");
+  openHypervisorSurface("/authority");
 }
 
 export async function openCompanionNotifications() {
-  await openChatNotifications();
+  openHypervisorSurface("/authority");
 }
 
 export async function openCompanionHypervisor() {
-  window.location.assign("/home");
+  openHypervisorSurface("/home");
 }
 
 export async function openCompanionSettings() {
-  await openChatSettings();
+  openHypervisorSurface("/settings");
 }
 
 export async function openCompanionCapabilities() {
-  await openChatCapabilities();
+  openHypervisorSurface("/agents");
 }
 
 export async function openCompanionCapabilitySetup(
   connectorId?: string | null,
 ) {
-  await openChatCapabilitySetup(connectorId);
+  await showHypervisorWithLaunchRequest({
+    kind: "capability",
+    connectorId: connectorId ?? null,
+    detailSection: connectorId ? "setup" : null,
+  });
+  openHypervisorSurface("/agents");
 }
 
 export async function openCompanionCapabilityActions(
   connectorId?: string | null,
 ) {
-  await openChatCapabilityActions(connectorId);
+  await showHypervisorWithLaunchRequest({
+    kind: "capability",
+    connectorId: connectorId ?? null,
+    detailSection: "actions",
+  });
+  openHypervisorSurface("/agents");
 }
 
 export async function openCompanionCapabilityTarget(
   connectorId?: string | null,
   detailSection?: "setup" | "policy" | null,
 ) {
-  await openChatCapabilityTarget(connectorId, detailSection ?? undefined);
+  await showHypervisorWithLaunchRequest({
+    kind: "capability",
+    connectorId: connectorId ?? null,
+    detailSection: detailSection ?? null,
+  });
+  openHypervisorSurface("/agents");
 }
 
 export async function openCompanionPolicyTarget(
   connectorId?: string | null,
 ) {
-  await openChatPolicyTarget(connectorId);
+  await showHypervisorWithLaunchRequest({
+    kind: "policy",
+    connectorId: connectorId ?? null,
+  });
+  openHypervisorSurface("/authority");
 }
 
 export async function openCompanionHypervisorIntent(intent: string) {
-  await openChatHypervisorIntent(intent);
+  await showHypervisorWithLaunchRequest({
+    kind: "hypervisor-intent",
+    intent,
+  });
+  openHypervisorSurface("/sessions");
 }

@@ -1,42 +1,54 @@
-import {
-  openChatAssistantWorkbench,
-  openChatCapabilities,
-  openChatConnectorPolicy,
-  openChatEvidenceSession,
-  openChatPolicyView,
-  openChatSettings,
-  type ChatAssistantWorkbenchSession,
-} from "./chatShellNavigation";
-import { openArtifactTarget } from "./artifactNavigation";
+import type { AssistantWorkbenchSession } from "@ioi/hypervisor-workbench";
+import { showHypervisorWithLaunchRequest } from "./hypervisorLaunchState";
+
+function openHypervisorSurface(path: string) {
+  window.location.assign(path);
+}
 
 export async function openArtifactReviewTarget(artifactId: string) {
-  await openArtifactTarget(artifactId);
+  await showHypervisorWithLaunchRequest({
+    kind: "artifact",
+    artifactId,
+  });
+  openHypervisorSurface("/receipts");
 }
 
 export async function openEvidenceReviewSession(sessionId: string) {
-  await openChatEvidenceSession(sessionId);
+  await showHypervisorWithLaunchRequest({
+    kind: "session-target",
+    sessionId,
+  });
+  openHypervisorSurface("/sessions");
 }
 
 export async function openAssistantWorkbenchReview(
-  session: ChatAssistantWorkbenchSession,
+  session: AssistantWorkbenchSession,
 ) {
-  await openChatAssistantWorkbench(session);
+  await showHypervisorWithLaunchRequest({
+    kind: "assistant-workbench",
+    session,
+  });
+  openHypervisorSurface("/missions");
 }
 
 export async function openReviewCapabilities() {
-  await openChatCapabilities();
+  openHypervisorSurface("/agents");
 }
 
 export async function openReviewPolicyCenter() {
-  await openChatPolicyView();
+  openHypervisorSurface("/authority");
 }
 
 export async function openReviewConnectorPolicy(
   connectorId?: string | null,
 ) {
-  await openChatConnectorPolicy(connectorId);
+  await showHypervisorWithLaunchRequest({
+    kind: "policy",
+    connectorId: connectorId ?? null,
+  });
+  openHypervisorSurface("/authority");
 }
 
 export async function openReviewSettings() {
-  await openChatSettings();
+  openHypervisorSurface("/settings");
 }

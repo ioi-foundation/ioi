@@ -92,30 +92,10 @@ assert.doesNotMatch(
   "Capabilities should not keep the Chat-named left sidebar seam",
 );
 
-const chatConversationSurfaceSource = fs.readFileSync(
-  new URL(
-    "../../ChatShellWindow/components/ChatConversationSurface.tsx",
-    import.meta.url,
-  ),
-  "utf8",
-);
-
-assert.match(
-  chatConversationSurfaceSource,
-  /primaryActions=\{primaryActions\}[\s\S]*secondaryActions=\{secondaryActions\}[\s\S]*trailingControls=\{paneTrailingAction\}/,
-  "pane chrome controls should stay on the shared operator chat topbar",
-);
-
-assert.match(
-  chatConversationSurfaceSource,
-  /id: "more"[\s\S]*label: "Views and More Actions\.\.\."[\s\S]*onClick: onOpenCommandPalette/,
-  "sidebar chat should expose command actions through the substrate-style overflow control rather than a second search button",
-);
-
-assert.doesNotMatch(
-  chatConversationSurfaceSource,
-  /id: "search"/,
-  "sidebar chat should not add a separate search control that competes with the Hypervisor quick switcher",
+assert.equal(
+  fs.existsSync(new URL("../../ChatShellWindow", import.meta.url)),
+  false,
+  "Hypervisor shell should not retain the retired alternate ChatShellWindow UI tree",
 );
 
 assert.match(

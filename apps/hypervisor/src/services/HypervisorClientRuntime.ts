@@ -113,10 +113,10 @@ import type {
   ChatCapabilityDetailSection,
 } from "../types";
 import {
-  recordChatLaunchReceipt,
+  recordHypervisorLaunchReceipt,
   summarizeAssistantWorkbenchSession,
-  showChatWithLaunchRequest,
-} from "./chatLaunchState";
+  showHypervisorWithLaunchRequest,
+} from "./hypervisorLaunchState";
 
 const LOCAL_ENGINE_ZONE_ID = "local-engine";
 const ORCHESTRATION_ZONE_ID = "orchestration";
@@ -724,40 +724,37 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         if (!isHypervisorClientRuntime()) {
           return;
         }
-        await invoke("show_chat_session");
+        await invoke("show_hypervisor");
     }
 
     async hideChatSessionShell(): Promise<void> {
-        if (!isHypervisorClientRuntime()) {
-          return;
-        }
-        await invoke("hide_chat_session");
+        return;
     }
 
     async showChatShell(): Promise<void> {
-        await recordChatLaunchReceipt("runtime_show_chat_requested", {});
+        await recordHypervisorLaunchReceipt("runtime_show_hypervisor_requested", {});
         if (!isHypervisorClientRuntime()) {
-          await recordChatLaunchReceipt("runtime_show_chat_completed", {
+          await recordHypervisorLaunchReceipt("runtime_show_hypervisor_completed", {
             shell: "browser",
           });
           return;
         }
-        await invoke("show_chat");
-        await recordChatLaunchReceipt("runtime_show_chat_completed", {});
+        await invoke("show_hypervisor");
+        await recordHypervisorLaunchReceipt("runtime_show_hypervisor_completed", {});
     }
 
-    private async showChatShellWithTarget(
-      request: Parameters<typeof showChatWithLaunchRequest>[0],
+    private async showHypervisorShellWithTarget(
+      request: Parameters<typeof showHypervisorWithLaunchRequest>[0],
       stage: string,
       detail: Record<string, unknown>,
     ): Promise<void> {
-        await recordChatLaunchReceipt(stage, detail);
-        await showChatWithLaunchRequest(request);
-        await recordChatLaunchReceipt(`${stage}_completed`, detail);
+        await recordHypervisorLaunchReceipt(stage, detail);
+        await showHypervisorWithLaunchRequest(request);
+        await recordHypervisorLaunchReceipt(`${stage}_completed`, detail);
     }
 
     async openChatView(view: ChatViewTarget): Promise<void> {
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "view",
             view,
@@ -770,12 +767,12 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
     }
 
     async openChatSessionTarget(sessionId: string): Promise<void> {
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "session-target",
             sessionId,
           },
-          "runtime_open_session_requested",
+          "runtime_open_hypervisor_session_requested",
           {
             sessionId,
           },
@@ -786,13 +783,13 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
       connectorId?: string | null,
       detailSection?: ChatCapabilityDetailSection | null,
     ): Promise<void> {
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "capability",
             connectorId: connectorId ?? null,
             detailSection: detailSection ?? null,
           },
-          "runtime_open_capability_requested",
+          "runtime_open_hypervisor_capability_requested",
           {
             connectorId: connectorId ?? null,
             detailSection: detailSection ?? null,
@@ -801,12 +798,12 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
     }
 
     async openChatPolicyTarget(connectorId?: string | null): Promise<void> {
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "policy",
             connectorId: connectorId ?? null,
           },
-          "runtime_open_policy_requested",
+          "runtime_open_hypervisor_policy_requested",
           {
             connectorId: connectorId ?? null,
           },
@@ -817,7 +814,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
       session: AssistantWorkbenchSession,
     ): Promise<void> {
         await this.activateAssistantWorkbenchSession(session);
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "assistant-workbench",
             session,
@@ -856,7 +853,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
     }
 
     async openChatHypervisorIntent(intent: string): Promise<void> {
-        await this.showChatShellWithTarget(
+        await this.showHypervisorShellWithTarget(
           {
             kind: "hypervisor-intent",
             intent,

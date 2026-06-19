@@ -14,20 +14,20 @@ const mainSource = readFileSync(
 );
 assert.match(
   source,
-  /const claimedLaunch = await ackPendingChatLaunchRequest\(launchId\);[\s\S]*if \(!claimedLaunch\) \{[\s\S]*reason: "launch_already_claimed"/,
-  "chat launch controller should claim the pending launch before applying it",
+  /const claimedLaunch = await ackPendingHypervisorLaunchRequest\(launchId\);[\s\S]*if \(!claimedLaunch\) \{[\s\S]*reason: "launch_already_claimed"/,
+  "Hypervisor launch controller should claim the pending launch before applying it",
 );
 
 assert.doesNotMatch(
   source,
-  /case "hypervisor-intent":[\s\S]*openHypervisorSessionWithIntent[\s\S]*await ackPendingChatLaunchRequest\(launchId\);/,
+  /case "hypervisor-intent":[\s\S]*openHypervisorSessionWithIntent[\s\S]*await ackPendingHypervisorLaunchRequest\(launchId\);/,
   "hypervisor-intent branch should not ack after applying; the claim should happen up front",
 );
 
 assert.match(
   source,
-  /function waitForChatHypervisorSurfaceFrame\(\): Promise<void> \{[\s\S]*const timeoutId = window\.setTimeout\(finish, 48\);[\s\S]*window\.requestAnimationFrame\(\(\) => \{[\s\S]*window\.clearTimeout\(timeoutId\);[\s\S]*finish\(\);[\s\S]*\}\);[\s\S]*\}/,
-  "chat launch controller should wait for a frame when available but fail open quickly if the webview does not paint before replaying a retained follow-up intent",
+  /function waitForHypervisorSurfaceFrame\(\): Promise<void> \{[\s\S]*const timeoutId = window\.setTimeout\(finish, 48\);[\s\S]*window\.requestAnimationFrame\(\(\) => \{[\s\S]*window\.clearTimeout\(timeoutId\);[\s\S]*finish\(\);[\s\S]*\}\);[\s\S]*\}/,
+  "Hypervisor launch controller should wait for a frame when available but fail open quickly if the webview does not paint before replaying a retained follow-up intent",
 );
 
 assert.match(
@@ -68,7 +68,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /case "hypervisor-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapHypervisorSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("sessions"\);[\s\S]*await waitForChatHypervisorSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openHypervisorSessionWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
+  /case "hypervisor-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapHypervisorSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("sessions"\);[\s\S]*await waitForHypervisorSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openHypervisorSessionWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
   "hypervisor-intent launch requests should submit retained follow-ups directly before reopening the UI session, while fresh launches still flow through the seed-intent path",
 );
 
@@ -87,7 +87,7 @@ assert.doesNotMatch(
 assert.match(
   source,
   /candidate\.source\?\.serviceName === "Hypervisor" &&[\s\S]*candidate\.source\.workflowName === "workflow" &&[\s\S]*\(candidate\.sessionId \|\| candidate\.threadId\)[\s\S]*return;/,
-  "chat-bound Hypervisor workflow notifications should stay in the Chat UX instead of opening separate pill/native notification surfaces",
+  "Hypervisor workflow notifications should stay in the shell instead of opening separate pill/native notification surfaces",
 );
 
 console.log("useHypervisorShellController.seedIntent.test.ts: ok");

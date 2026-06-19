@@ -11,12 +11,12 @@ import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../ses
 import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
 import { safelyDisposeHostListener } from "../../services/hostListeners";
 import {
-  ackPendingChatLaunchRequest,
-  peekPendingChatLaunchRequest,
-  type PendingChatLaunchEnvelope,
-  recordChatLaunchReceipt,
-  summarizePendingChatLaunchRequest,
-} from "../../services/chatLaunchState";
+  ackPendingHypervisorLaunchRequest,
+  peekPendingHypervisorLaunchRequest,
+  type PendingHypervisorLaunchEnvelope,
+  recordHypervisorLaunchReceipt,
+  summarizePendingHypervisorLaunchRequest,
+} from "../../services/hypervisorLaunchState";
 import type {
   AssistantNotificationRecord,
   AssistantUserProfile,
@@ -75,7 +75,7 @@ type NewSessionModalSeed =
     }
   | null
   | undefined;
-const appliedChatLaunchIds = new Set<string>();
+const appliedHypervisorLaunchIds = new Set<string>();
 
 const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
   "home",
@@ -193,7 +193,7 @@ function resolveInitialPrimaryView(): PrimaryView {
   return "home";
 }
 
-function waitForChatHypervisorSurfaceFrame(): Promise<void> {
+function waitForHypervisorSurfaceFrame(): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.resolve();
   }
@@ -308,8 +308,8 @@ export function useHypervisorShellController() {
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
   );
-  const chatLaunchHydrationInFlightRef = useRef(false);
-  const lastAppliedChatLaunchIdRef = useRef<string | null>(null);
+  const hypervisorLaunchHydrationInFlightRef = useRef(false);
+  const lastAppliedHypervisorLaunchIdRef = useRef<string | null>(null);
 
   const currentProject =
     PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
@@ -430,8 +430,8 @@ export function useHypervisorShellController() {
     setActiveView(recipe.surface_id);
   };
 
-  const applyPendingChatLaunchRequest = async (
-    pendingLaunch: PendingChatLaunchEnvelope | null,
+  const applyPendingHypervisorLaunchRequest = async (
+    pendingLaunch: PendingHypervisorLaunchEnvelope | null,
     source: string,
   ) => {
     if (!pendingLaunch) {
@@ -439,53 +439,53 @@ export function useHypervisorShellController() {
     }
 
     const { launchId, request: pendingRequest } = pendingLaunch;
-    if (appliedChatLaunchIds.has(launchId)) {
-      await recordChatLaunchReceipt("chat_pending_launch_duplicate", {
+    if (appliedHypervisorLaunchIds.has(launchId)) {
+      await recordHypervisorLaunchReceipt("hypervisor_pending_launch_duplicate", {
         source,
         launchId,
         kind: pendingRequest.kind,
-        request: summarizePendingChatLaunchRequest(pendingRequest),
+        request: summarizePendingHypervisorLaunchRequest(pendingRequest),
       });
-      await ackPendingChatLaunchRequest(launchId);
+      await ackPendingHypervisorLaunchRequest(launchId);
       return;
     }
-    if (lastAppliedChatLaunchIdRef.current === launchId) {
-      await recordChatLaunchReceipt("chat_pending_launch_duplicate", {
+    if (lastAppliedHypervisorLaunchIdRef.current === launchId) {
+      await recordHypervisorLaunchReceipt("hypervisor_pending_launch_duplicate", {
         source,
         launchId,
         kind: pendingRequest.kind,
-        request: summarizePendingChatLaunchRequest(pendingRequest),
+        request: summarizePendingHypervisorLaunchRequest(pendingRequest),
       });
-      await ackPendingChatLaunchRequest(launchId);
+      await ackPendingHypervisorLaunchRequest(launchId);
       return;
     }
 
-    const claimedLaunch = await ackPendingChatLaunchRequest(launchId);
+    const claimedLaunch = await ackPendingHypervisorLaunchRequest(launchId);
     if (!claimedLaunch) {
-      await recordChatLaunchReceipt("chat_pending_launch_duplicate", {
+      await recordHypervisorLaunchReceipt("hypervisor_pending_launch_duplicate", {
         source,
         launchId,
         kind: pendingRequest.kind,
-        request: summarizePendingChatLaunchRequest(pendingRequest),
+        request: summarizePendingHypervisorLaunchRequest(pendingRequest),
         reason: "launch_already_claimed",
       });
       return;
     }
 
-    appliedChatLaunchIds.add(launchId);
-    lastAppliedChatLaunchIdRef.current = launchId;
-    await recordChatLaunchReceipt("chat_pending_launch_applying", {
+    appliedHypervisorLaunchIds.add(launchId);
+    lastAppliedHypervisorLaunchIdRef.current = launchId;
+    await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applying", {
       source,
       launchId,
       kind: pendingRequest.kind,
-      request: summarizePendingChatLaunchRequest(pendingRequest),
+      request: summarizePendingHypervisorLaunchRequest(pendingRequest),
     });
 
     try {
       switch (pendingRequest.kind) {
         case "view":
           openRequestedSurface(pendingRequest.view);
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
@@ -494,11 +494,21 @@ export function useHypervisorShellController() {
           return;
         case "session-target":
           await openSessionTarget(pendingRequest.sessionId);
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
             sessionId: pendingRequest.sessionId,
+          });
+          return;
+        case "artifact":
+          setActiveView("receipts");
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
+            source,
+            launchId,
+            kind: pendingRequest.kind,
+            artifactId: pendingRequest.artifactId,
+            target: "receipts",
           });
           return;
         case "capability":
@@ -506,7 +516,7 @@ export function useHypervisorShellController() {
             pendingRequest.connectorId ?? null,
             pendingRequest.detailSection ?? null,
           );
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
@@ -516,7 +526,7 @@ export function useHypervisorShellController() {
           return;
         case "policy":
           openPolicyCenter(pendingRequest.connectorId ?? null);
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
@@ -529,9 +539,9 @@ export function useHypervisorShellController() {
               refreshCurrentTask: false,
             });
             setActiveView("sessions");
-            await waitForChatHypervisorSurfaceFrame();
-            await recordChatLaunchReceipt(
-              "chat_session_followup_submit_dispatching",
+            await waitForHypervisorSurfaceFrame();
+            await recordHypervisorLaunchReceipt(
+              "hypervisor_session_followup_submit_dispatching",
               {
                 source,
                 launchId,
@@ -545,12 +555,12 @@ export function useHypervisorShellController() {
             });
             void openSessionTarget(pendingRequest.sessionId).catch((error) => {
               console.error(
-                "[Chat][Launch] retained session reopen after direct follow-up submit failed",
+                "[Hypervisor][Launch] retained session reopen after direct follow-up submit failed",
                 error,
               );
             });
-            await recordChatLaunchReceipt(
-              "chat_session_followup_submit_resolved",
+            await recordHypervisorLaunchReceipt(
+              "hypervisor_session_followup_submit_resolved",
               {
                 source,
                 launchId,
@@ -558,7 +568,7 @@ export function useHypervisorShellController() {
                 intentLength: pendingRequest.intent.length,
               },
             );
-            await recordChatLaunchReceipt("chat_pending_launch_applied", {
+            await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
               source,
               launchId,
               kind: pendingRequest.kind,
@@ -569,7 +579,7 @@ export function useHypervisorShellController() {
             return;
           }
           openHypervisorSessionWithIntent(pendingRequest.intent);
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
@@ -580,7 +590,7 @@ export function useHypervisorShellController() {
           return;
         case "assistant-workbench":
           setActiveView("missions");
-          await recordChatLaunchReceipt("chat_pending_launch_applied", {
+          await recordHypervisorLaunchReceipt("hypervisor_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
@@ -592,51 +602,51 @@ export function useHypervisorShellController() {
           return;
       }
     } catch (error) {
-      appliedChatLaunchIds.delete(launchId);
-      lastAppliedChatLaunchIdRef.current = null;
-      await recordChatLaunchReceipt("chat_pending_launch_failed", {
+      appliedHypervisorLaunchIds.delete(launchId);
+      lastAppliedHypervisorLaunchIdRef.current = null;
+      await recordHypervisorLaunchReceipt("hypervisor_pending_launch_failed", {
         source,
         launchId,
         kind: pendingRequest.kind,
-        request: summarizePendingChatLaunchRequest(pendingRequest),
+        request: summarizePendingHypervisorLaunchRequest(pendingRequest),
         error: error instanceof Error ? error.message : String(error ?? ""),
       });
     }
   };
 
-  const hydratePendingChatLaunchRequestIfPresent = async (source: string) => {
-    if (chatLaunchHydrationInFlightRef.current) {
+  const hydratePendingHypervisorLaunchRequestIfPresent = async (source: string) => {
+    if (hypervisorLaunchHydrationInFlightRef.current) {
       return;
     }
-    chatLaunchHydrationInFlightRef.current = true;
+    hypervisorLaunchHydrationInFlightRef.current = true;
 
     try {
-      const pendingLaunch = await peekPendingChatLaunchRequest();
+      const pendingLaunch = await peekPendingHypervisorLaunchRequest();
       if (!pendingLaunch) {
-        await recordChatLaunchReceipt("chat_pending_launch_empty", {
+        await recordHypervisorLaunchReceipt("hypervisor_pending_launch_empty", {
           source,
         });
         return;
       }
-      await applyPendingChatLaunchRequest(pendingLaunch, source);
+      await applyPendingHypervisorLaunchRequest(pendingLaunch, source);
     } finally {
-      chatLaunchHydrationInFlightRef.current = false;
+      hypervisorLaunchHydrationInFlightRef.current = false;
     }
   };
 
   useEffect(() => {
     let active = true;
     const unlistenPromise = isHypervisorClientRuntime()
-      ? listen<PendingChatLaunchEnvelope>("request-chat-launch", (event) => {
+      ? listen<PendingHypervisorLaunchEnvelope>("request-hypervisor-launch", (event) => {
           if (!active) {
             return;
           }
-          void recordChatLaunchReceipt("chat_launch_event_received", {
+          void recordHypervisorLaunchReceipt("hypervisor_launch_event_received", {
             launchId: event.payload.launchId,
             kind: event.payload.request.kind,
-            request: summarizePendingChatLaunchRequest(event.payload.request),
+            request: summarizePendingHypervisorLaunchRequest(event.payload.request),
           });
-          void applyPendingChatLaunchRequest(event.payload, "event");
+          void applyPendingHypervisorLaunchRequest(event.payload, "event");
         })
       : null;
 
@@ -849,7 +859,7 @@ export function useHypervisorShellController() {
   useEffect(() => {
     let cancelled = false;
 
-    void hydratePendingChatLaunchRequestIfPresent("mount").then(() => {
+    void hydratePendingHypervisorLaunchRequestIfPresent("mount").then(() => {
       if (cancelled) {
         return;
       }

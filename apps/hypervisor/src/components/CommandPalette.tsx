@@ -9,11 +9,6 @@ import {
   openCompanionCapabilityActions,
   openCompanionGate,
 } from "../services/companionShellNavigation";
-import {
-  openChatShellSession,
-  openCurrentChatShellSession,
-  openNewChatShellSession,
-} from "../services/chatSessionNavigation";
 import { getSessionFileContext } from "../services/sessionFileContext";
 import {
   useCallback,
@@ -336,7 +331,7 @@ export function CommandPalette({
     (action: () => void | Promise<void>) => {
       onClose();
       void Promise.resolve(action()).catch((error) => {
-        console.error("Failed to execute Chat command palette action:", error);
+        console.error("Failed to execute Hypervisor command palette action:", error);
       });
     },
     [onClose],
@@ -377,7 +372,7 @@ export function CommandPalette({
         setSkillsStatus("ready");
       })
       .catch((error) => {
-        console.error("Failed to load Chat command palette skills:", error);
+        console.error("Failed to load Hypervisor command palette skills:", error);
         if (!cancelled) {
           setSkillsStatus("error");
         }
@@ -420,7 +415,7 @@ export function CommandPalette({
               }));
             } catch (error) {
               console.error(
-                `Failed to load connector actions for Chat command palette: ${connector.id}`,
+                `Failed to load connector actions for Hypervisor command palette: ${connector.id}`,
                 error,
               );
               return [];
@@ -446,7 +441,7 @@ export function CommandPalette({
         setLiveToolsStatus("ready");
       })
       .catch((error) => {
-        console.error("Failed to load Chat live tools:", error);
+        console.error("Failed to load Hypervisor live tools:", error);
         if (!cancelled) {
           setLiveToolsStatus("error");
         }
@@ -513,9 +508,9 @@ export function CommandPalette({
         onSelect: () => setQuery("%"),
       },
       {
-        id: "quick-open-chat",
-        title: "Open Quick Chat",
-        description: "Jump to the agent conversation surface.",
+        id: "quick-open-sessions",
+        title: "Open Sessions",
+        description: "Jump to governed session operations.",
         shortcut: ["Ctrl", "Shift", "Alt", "L"],
         icon: icons.sparkles,
         onSelect: () =>
@@ -569,9 +564,9 @@ export function CommandPalette({
           }),
       },
       {
-        id: "open-chat-copilot",
+        id: "open-sessions-cockpit",
         title: "Open Sessions",
-        description: "Jump back to the Chat workbench and operator surface.",
+        description: "Jump back to governed sessions and operator work.",
         meta: "Sessions",
         icon: icons.sparkles,
         active: activeView === "sessions",
@@ -665,25 +660,25 @@ export function CommandPalette({
           }),
       },
       {
-        id: "open-chat-shell",
+        id: "open-sessions",
         title: "Open Sessions",
         description: "Bring the governed session surface to the front.",
         meta: "Sessions",
         icon: icons.search,
         onSelect: () =>
-          runAction(async () => {
-            await openCurrentChatShellSession();
+          runAction(() => {
+            onOpenPrimaryView("sessions");
           }),
       },
       {
-        id: "new-chat-session",
+        id: "start-session-from-shell",
         title: "New Session",
-        description: "Reset the shared session controller and open a fresh thread.",
+        description: "Open the governed session launcher.",
         meta: "Sessions",
         icon: icons.plus,
         onSelect: () =>
-          runAction(async () => {
-            await openNewChatShellSession();
+          runAction(() => {
+            onOpenPrimaryView("sessions");
           }),
       },
       {
@@ -703,7 +698,7 @@ export function CommandPalette({
         item.title,
         item.description,
         item.meta,
-        "chat queue workers approvals catalog inbox capabilities settings primary shell session",
+        "queue workers approvals catalog inbox capabilities settings primary shell session",
       ),
     );
     const automationJumpItems = commandItems.filter((item) =>
@@ -743,7 +738,7 @@ export function CommandPalette({
                   session.resume_hint,
                   session.workspace_root,
                   formatSessionTimeAgo(session.timestamp),
-                  "recent session resume chat thread history",
+                  "recent session resume thread history",
                 ),
               )
               .slice(0, 8)
@@ -753,13 +748,13 @@ export function CommandPalette({
                   id: `session-${session.session_id}`,
                   title: sessionLabel(session),
                   description: sessionContext
-                    ? `Resume ${sessionContext} in Chat.`
-                    : `Resume session ${session.session_id.slice(0, 8)} in Chat.`,
+                    ? `Open ${sessionContext} in Sessions.`
+                    : `Open session ${session.session_id.slice(0, 8)} in Sessions.`,
                   meta: formatSessionTimeAgo(session.timestamp),
                   icon: icons.history,
                   onSelect: () =>
-                    runAction(async () => {
-                      await openChatShellSession(session.session_id);
+                    runAction(() => {
+                      onOpenPrimaryView("sessions");
                     }),
                 };
               });
@@ -942,7 +937,7 @@ export function CommandPalette({
                 description:
                   skill.description ||
                   skill.definition?.description ||
-                  "Seed this skill into the Chat workbench.",
+                  "Seed this skill into a governed Hypervisor session.",
                 meta: sourceLabelForSkill(skill),
                 icon: icons.sparkles,
                 onSelect: () =>

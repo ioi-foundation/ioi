@@ -146,7 +146,7 @@ export function buildSessionContinuityOverview(
       currentSessionId: activeTarget?.sessionId ?? currentSessionId ?? null,
       statusLabel: label,
       detail:
-        "Recent canonical sessions still carry workspace roots, so the shared bridge can resume them in Chat or attach a REPL lens on demand.",
+        "Recent canonical sessions still carry workspace roots, so Hypervisor can resume them in Sessions or attach a REPL lens on demand.",
     };
   }
 

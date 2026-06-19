@@ -123,29 +123,17 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
 });
 
-test("operator chat chrome remains in chat shell, outside code-editor workspace substrate", () => {
+test("operator composer chrome stays in workspace substrate without alternate chat shell", () => {
   const operatorChatPane = readFileSync(
     "packages/workspace-substrate/src/components/OperatorChatPane.tsx",
     "utf8",
   );
-  const chatConversationSurface = readFileSync(
-    "apps/hypervisor/src/windows/ChatShellWindow/components/ChatConversationSurface.tsx",
-    "utf8",
-  );
-  const chatShellWindow = readFileSync(
-    "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
-    "utf8",
-  );
-  const chatInputSection = readFileSync(
-    "apps/hypervisor/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
-    "utf8",
-  );
-  const chatInputControls = readFileSync(
-    "apps/hypervisor/src/windows/ChatShellWindow/components/ChatInputControls.tsx",
-    "utf8",
-  );
   const commandMenus = readFileSync(
     "apps/hypervisor/src/components/ui/CommandMenus.css",
+    "utf8",
+  );
+  const commandPalette = readFileSync(
+    "apps/hypervisor/src/components/CommandPalette.tsx",
     "utf8",
   );
   const codicon = readFileSync(
@@ -162,71 +150,17 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
     operatorChatPane,
     /data-inspection-target="workspace-chat-composer"/,
   );
-  assert.match(chatConversationSurface, /<OperatorChatPane/);
-  assert.match(chatConversationSurface, /id: "new-options"/);
-  assert.match(chatConversationSurface, /New Chat \(Ctrl\+N\)/);
-  assert.match(chatConversationSurface, /Configure Chat/);
-  assert.match(chatConversationSurface, /Views and More Actions\.\.\./);
-  assert.match(chatConversationSurface, /Maximize Secondary Side Bar Size/);
-  assert.match(chatConversationSurface, /emptyState=\{emptyState\}/);
-  assert.match(
-    chatConversationSurface,
-    /suggestedActions=\{suggestedActions\}/,
+  assert.equal(
+    existsSync("apps/hypervisor/src/windows/ChatShellWindow"),
+    false,
+    "the app should not retain the retired alternate ChatShellWindow UI tree",
   );
-  assert.match(chatConversationSurface, /composer=\{composer\}/);
-  assert.match(chatShellWindow, /sharedChatEmptyState/);
-  assert.match(chatShellWindow, /Build Workspace/);
-  assert.match(chatShellWindow, /Show Config/);
-  assert.match(chatShellWindow, /Generate Agent Instructions/);
-  assert.match(chatShellWindow, /icons\.chatSparkle/);
-  assert.match(chatShellWindow, /operator-chat-pane__inline-link/);
-  assert.doesNotMatch(chatShellWindow, /<ChatConversationWelcome/);
   assert.match(operatorChatPane, /operator-chat-pane__empty-main/);
   assert.match(operatorChatPane, /operator-chat-pane__suggestions/);
-  assert.match(chatShellWindow, /Describe what to build next/);
-  assert.doesNotMatch(chatShellWindow, /What do you want to materialize/);
   assert.match(
-    chatConversationSurface,
-    /dataInspectionTarget="operator-chat-pane"/,
-  );
-  assert.match(
-    chatInputSection,
-    /data-inspection-target="operator-chat-composer"/,
-  );
-  assert.match(chatInputControls, /name="device-desktop"/);
-  assert.match(chatInputControls, /name="symbol-operator"/);
-  assert.match(chatInputControls, /name="tools"/);
-  assert.match(chatInputControls, /aria-label="Select tools"/);
-  assert.match(chatInputControls, /onClick=\{onTriggerTools\}/);
-  assert.doesNotMatch(chatInputControls, /onClick=\{onToggleAutoContext\}/);
-  assert.match(chatInputSection, /activeDropdown === "tools"/);
-  assert.match(
-    chatInputSection,
-    /const toolPaletteMode = commandSurfaceMode === "tools"/,
-  );
-  assert.match(
-    chatInputSection,
+    commandPalette,
     /QUICK_SWITCHER_ANCHOR_SELECTOR =\s*'\[data-hypervisor-quick-switcher-anchor="true"\]'/,
   );
-  assert.match(chatInputSection, /useLayoutEffect\(\(\) => \{/);
-  assert.match(chatInputSection, /createPortal\(/);
-  assert.match(
-    chatInputSection,
-    /data-inspection-target="operator-quick-switcher-menu"/,
-  );
-  assert.match(
-    chatInputSection,
-    /placement=\{searchablePaletteMode \? "quick-switcher" : "composer"\}/,
-  );
-  assert.match(
-    chatInputSection,
-    /searchPlaceholder=\{[\s\S]*\? "Select a tool"/,
-  );
-  assert.match(
-    chatInputSection,
-    /ariaLabel=\{toolPaletteMode \? "Tool picker"/,
-  );
-  assert.match(chatInputSection, /id: "tool-manage-capabilities"/);
   assert.match(
     commandMenus,
     /\.spot-slash-menu--palette \.spot-slash-menu-search/,
@@ -237,11 +171,8 @@ test("operator chat chrome remains in chat shell, outside code-editor workspace 
   assert.match(commandMenus, /border-radius: 6px/);
   assert.match(commandMenus, /background: #242424/);
   assert.match(commandMenus, /background: #075486/);
-  assert.match(chatInputControls, /name="send"/);
-  assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
   assert.match(codicon, /codicon-\$\{name\}/);
   assert.match(codicon, /"auxiliarybar-maximize": "screen-full"/);
-  assert.doesNotMatch(chatConversationSurface, /spot-workbench-chat-topbar/);
 });
 
 test("workspace adapter commands defer global search to Hypervisor chrome", () => {

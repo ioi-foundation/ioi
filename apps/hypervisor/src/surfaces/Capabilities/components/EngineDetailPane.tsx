@@ -387,8 +387,8 @@ export function EngineDetailPane({
                   </span>
                 </div>
                 <p>
-                  Startup, updates, and shell posture now live in Chat rather
-                  than a detached launcher window.
+                  Startup, updates, and shell posture now live in Hypervisor
+                  Sessions rather than a detached launcher window.
                 </p>
                 <div className="capabilities-chip-row">
                   <span className="capabilities-chip">
