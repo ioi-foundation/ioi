@@ -190,7 +190,7 @@ test("first session harnesses bind local model configuration before external aut
 
   assert.deepEqual(
     bindings.map((binding) => binding.agent_harness_adapter_id),
-    ["codex_cli", "claude_code_cli", "deepseek_tui"],
+    ["codex_cli", "claude_code_cli", "deepseek_tui", "generic_cli"],
   );
   assert.ok(
     bindings.every(
@@ -204,6 +204,10 @@ test("first session harnesses bind local model configuration before external aut
   );
   assert.equal(bindings[1]?.example_root_ref, "examples/claude-code-main");
   assert.equal(bindings[2]?.workspace_mount_policy, "public_trunk");
+  assert.equal(
+    bindings[3]?.receipt_policy_ref,
+    "receipt-policy:harness-adapter/generic-cli",
+  );
 });
 
 test("model route availability comes from model-mount inventory, not route labels", () => {

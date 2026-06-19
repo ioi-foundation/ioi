@@ -243,6 +243,9 @@ const runtimeHarnessSessionReadinessTestSource = read(
 const runtimeClaudeCodeExampleShimSource = read(
   "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
 );
+const runtimeGenericCliLocalShimSource = read(
+  "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1700,7 +1703,13 @@ assert(
       "host-command:claude-code-example/local-ollama-qwen",
     ) &&
     runtimeHarnessSessionLaunchSource.includes(
+      "host-command:generic-cli/local-ollama-qwen",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
       "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
+    ) &&
+    runtimeHarnessSessionLaunchSource.includes(
+      "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
     ) &&
     runtimeHarnessSessionLaunchSource.includes(
       "readiness_probe_argv_template",
@@ -1726,6 +1735,9 @@ assert(
     runtimeHarnessSessionLaunchTestSource.includes(
       "builds a launch-ready Claude Code example contract",
     ) &&
+    runtimeHarnessSessionLaunchTestSource.includes(
+      "builds a launch-ready generic CLI contract",
+    ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-launches",
     ) &&
@@ -1737,6 +1749,9 @@ assert(
     ) &&
     publicRuntimeRoutesTestSource.includes(
       "public runtime routes expose Claude Code example local harness session spawn contracts",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose generic CLI local harness session spawn contracts",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
       "requestHarnessSessionLaunch",
@@ -1763,7 +1778,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
-  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS, DeepSeek TUI, and the Claude Code example can use local Ollama/Qwen host-dev PTY contracts, while provider-trust and unsupported harness launches stay blocked.",
+  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS, DeepSeek TUI, the Claude Code example, and Generic CLI can use local Ollama/Qwen host-dev PTY contracts, while provider-trust and unsupported harness launches stay blocked.",
 );
 assert(
   "hypervisor-harness-session-spawn-contract",
@@ -1793,11 +1808,23 @@ assert(
     runtimeHarnessSessionSpawnTestSource.includes(
       "builds a Claude Code example local Qwen spawn contract",
     ) &&
+    runtimeHarnessSessionSpawnTestSource.includes(
+      "builds a generic CLI local Qwen spawn contract",
+    ) &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-spawns",
     ) &&
     publicRuntimeRoutesTestSource.includes(
       "public runtime routes expose Codex OSS harness session spawn contracts",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose DeepSeek TUI local harness session spawn contracts",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose Claude Code example local harness session spawn contracts",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose generic CLI local harness session spawn contracts",
     ) &&
     hypervisorHarnessAdapterModelSource.includes(
       "requestHarnessSessionSpawn",
@@ -1856,12 +1883,22 @@ assert(
     runtimeHarnessSessionReadinessTestSource.includes(
       "admits Claude Code example local Qwen readiness",
     ) &&
+    runtimeHarnessSessionReadinessTestSource.includes(
+      "admits generic CLI local Qwen readiness",
+    ) &&
     runtimeClaudeCodeExampleShimSource.includes(
       "Hypervisor Claude Code Example",
     ) &&
     runtimeClaudeCodeExampleShimSource.includes("--provider <PROVIDER>") &&
     runtimeClaudeCodeExampleShimSource.includes("--model <MODEL>") &&
     runtimeClaudeCodeExampleShimSource.includes("--cd <DIR>") &&
+    runtimeGenericCliLocalShimSource.includes(
+      "Hypervisor Generic CLI Local Harness",
+    ) &&
+    runtimeGenericCliLocalShimSource.includes("--provider <PROVIDER>") &&
+    runtimeGenericCliLocalShimSource.includes("--model <MODEL>") &&
+    runtimeGenericCliLocalShimSource.includes("--cd <DIR>") &&
+    runtimeGenericCliLocalShimSource.includes("--harness-label <LABEL>") &&
     publicRuntimeRoutesSource.includes(
       "/v1/hypervisor/harness-session-readiness",
     ) &&

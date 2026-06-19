@@ -2226,8 +2226,14 @@ Current implementation cut:
   `examples/claude-code-main` as reference context, but runtime execution uses
   the tracked Hypervisor-owned shim plus a daemon-resolved
   `readiness_probe_argv`; the example source is not treated as an installable
-  runtime. Provider auth and wallet capability leases are later authority paths
-  rather than blockers for the local harness bring-up. The controller seeds sessions from
+  runtime. Generic CLI is the fourth launch-ready local harness:
+  `node packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs
+  --provider ollama --model ${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}
+  --cd ${HYPERVISOR_SESSION_WORKSPACE} --harness-label "Generic CLI Harness"`.
+  It is a Hypervisor-owned shim for proving configured CLI session mechanics;
+  arbitrary command adapters still require later policy/argv grants. Provider
+  auth and wallet capability leases are later authority paths rather than
+  blockers for the local harness bring-up. The controller seeds sessions from
   that summary instead of reconstructing loose UI refs, and the launched-session
   cache rejects records without a matching harness session
   binding/admission/launch/spawn. `harnessAdapterModel.test.ts`,
@@ -2246,7 +2252,8 @@ First implementation slice:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
    CLI. Done for shell/New Session selection and first-session local-model
-   binding for Codex CLI, Claude Code example bring-up, and DeepSeek TUI.
+   binding for Codex CLI, Claude Code example bring-up, DeepSeek TUI, and
+   Generic CLI.
 3. Add model route choices from the daemon model-mount inventory. Done for the
    shell HTTP boundary: New Session has route options and an inventory-based
    compatibility contract; route labels alone no longer satisfy local

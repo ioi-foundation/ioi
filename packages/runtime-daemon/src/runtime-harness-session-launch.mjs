@@ -229,11 +229,17 @@ function launchProfileForAdmission(admission) {
   ) {
     return claudeCodeExampleLaunchProfile();
   }
+  if (
+    admission.harness_selection_ref === "agent-harness-adapter:generic_cli" ||
+    admission.agent_harness_adapter_id === "generic_cli"
+  ) {
+    return genericCliLocalLaunchProfile();
+  }
   throw launchError({
     status: 403,
     code: "harness_session_launch_harness_unsupported",
     message:
-      "Only the Codex OSS, DeepSeek TUI, and Claude Code example local-model harnesses are launch-ready in this slice.",
+      "Only the Codex OSS, DeepSeek TUI, Claude Code example, and generic CLI local-model harnesses are launch-ready in this slice.",
     details: {
       harness_selection_ref: admission.harness_selection_ref ?? null,
       agent_harness_adapter_id: admission.agent_harness_adapter_id ?? null,
@@ -297,6 +303,34 @@ function claudeCodeExampleLaunchProfile() {
       `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
       "--cd",
       `\${${LOCAL_HARNESS_WORKSPACE_ENV}}`,
+    ],
+    readiness_probe_argv_template: [
+      "node",
+      `\${${LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV}}`,
+      "--help",
+    ],
+  };
+}
+
+function genericCliLocalLaunchProfile() {
+  return {
+    launch_lane: "host_dev_pty",
+    command_ref: "host-command:generic-cli/local-ollama-qwen",
+    binary_name: "generic-cli-local",
+    env_policy_ref: "env-policy:harness-session/generic-cli-local-qwen",
+    example_script_ref:
+      "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
+    argv_template: [
+      "node",
+      `\${${LOCAL_HARNESS_EXAMPLE_SCRIPT_ENV}}`,
+      "--provider",
+      "ollama",
+      "--model",
+      `\${${LOCAL_HARNESS_MODEL_ENV}:-qwen}`,
+      "--cd",
+      `\${${LOCAL_HARNESS_WORKSPACE_ENV}}`,
+      "--harness-label",
+      "Generic CLI Harness",
     ],
     readiness_probe_argv_template: [
       "node",

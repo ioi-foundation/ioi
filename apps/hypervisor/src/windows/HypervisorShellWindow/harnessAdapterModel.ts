@@ -599,7 +599,7 @@ export const HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION: HypervisorSess
       HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
     label: "Local Codex OSS / Qwen route",
     description:
-      "Local OpenAI-compatible model route for Codex OSS, Claude Code example, and DeepSeek TUI session bring-up.",
+      "Local OpenAI-compatible model route for Codex OSS, Claude Code example, DeepSeek TUI, and Generic CLI session bring-up.",
     model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
     route_kind: "local_openai_compatible",
     provider_ref: "provider:hypervisor-local",
@@ -624,7 +624,7 @@ export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
 };
 
 export const HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS: AgentHarnessAdapterId[] =
-  ["codex_cli", "claude_code_cli", "deepseek_tui"];
+  ["codex_cli", "claude_code_cli", "deepseek_tui", "generic_cli"];
 
 export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfile[] =
   [
@@ -763,14 +763,14 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       adapter_id: "generic_cli",
       label: "Generic CLI Harness",
       description:
-        "Explicitly configured command harness adapter with governed argv, mounts, network, and receipts.",
+        "Hypervisor-owned generic CLI harness for local model-mount session bring-up before custom command adapters are granted.",
       adapter_kind: "cli",
-      execution_lane: "docker_container",
-      model_route_policy: "forbidden",
-      workspace_mount_policy: "public_trunk",
-      required_authority_scopes: ["scope:workspace.read"],
+      execution_lane: "host_dev",
+      model_route_policy: "hypervisor_model_mount",
+      workspace_mount_policy: "redacted_projection",
+      required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/generic-cli",
-      launch_route_ref: "harness-route:generic-cli/no-model",
+      launch_route_ref: "harness-route:generic-cli/local-model",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },

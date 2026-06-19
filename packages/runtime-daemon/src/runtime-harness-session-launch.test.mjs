@@ -201,6 +201,63 @@ test("builds a launch-ready Claude Code example contract for local Qwen model mo
   assert.equal(launch.runtimeTruthSource, "daemon-runtime");
 });
 
+test("builds a launch-ready generic CLI contract for local Qwen model mounts", () => {
+  const launch = buildHarnessSessionLaunch(
+    {
+      binding_admission: bindingAdmission({
+        admission_id: "harness-session-binding-admission:generic-cli-local",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-generic_cli:model-config-local-codex-oss-qwen",
+        harness_selection_ref: "agent-harness-adapter:generic_cli",
+        harness_launch_route_ref: "harness-route:generic-cli/local-model",
+        agent_harness_adapter_id: "generic_cli",
+        receipt_policy_ref: "receipt-policy:harness-adapter/generic-cli",
+      }),
+      workspace_ref: "workspace://local/ioi",
+      terminal_session_ref: "terminal-session:ioi/generic-cli",
+    },
+    { nowIso: () => "2026-06-18T12:33:00.000Z" },
+  );
+
+  assert.equal(launch.schema_version, HARNESS_SESSION_LAUNCH_SCHEMA_VERSION);
+  assert.equal(launch.decision, "admitted");
+  assert.equal(launch.launch_state, "ready_to_spawn");
+  assert.equal(
+    launch.command_contract.command_ref,
+    "host-command:generic-cli/local-ollama-qwen",
+  );
+  assert.equal(launch.command_contract.binary_name, "generic-cli-local");
+  assert.equal(
+    launch.command_contract.example_script_ref,
+    "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
+  );
+  assert.deepEqual(launch.command_contract.argv_template, [
+    "node",
+    "${HYPERVISOR_HARNESS_EXAMPLE_SCRIPT}",
+    "--provider",
+    "ollama",
+    "--model",
+    "${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}",
+    "--cd",
+    "${HYPERVISOR_SESSION_WORKSPACE}",
+    "--harness-label",
+    "Generic CLI Harness",
+  ]);
+  assert.deepEqual(launch.command_contract.readiness_probe_argv_template, [
+    "node",
+    "${HYPERVISOR_HARNESS_EXAMPLE_SCRIPT}",
+    "--help",
+  ]);
+  assert.equal(
+    launch.command_contract.env_policy_ref,
+    "env-policy:harness-session/generic-cli-local-qwen",
+  );
+  assert.equal(launch.command_contract.secret_release_policy, "none");
+  assert.equal(launch.model_mount_contract.provider, "ollama");
+  assert.equal(launch.requiresDaemonGate, true);
+  assert.equal(launch.runtimeTruthSource, "daemon-runtime");
+});
+
 test("blocks provider-trust and unavailable model route launches", () => {
   assert.throws(
     () =>

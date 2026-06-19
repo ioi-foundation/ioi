@@ -203,7 +203,7 @@ function requireSpawn(value) {
     });
   }
   if (
-    !["codex", "deepseek", "claude-code-example"].includes(
+    !["codex", "deepseek", "claude-code-example", "generic-cli-local"].includes(
       spawn.command_contract?.binary_name,
     ) ||
     spawn.model_mount_contract?.provider !== "ollama" ||
@@ -213,7 +213,7 @@ function requireSpawn(value) {
       status: 403,
       code: "harness_session_readiness_route_unsupported",
       message:
-        "Only secret-free Codex OSS, DeepSeek TUI, or Claude Code example sessions over local Ollama model mounts can be readiness-checked in this slice.",
+        "Only secret-free Codex OSS, DeepSeek TUI, Claude Code example, or generic CLI sessions over local Ollama model mounts can be readiness-checked in this slice.",
       details: {
         binary_name: spawn.command_contract?.binary_name ?? null,
         provider: spawn.model_mount_contract?.provider ?? null,
@@ -309,6 +309,9 @@ function requiredLocalModelFlagsForBinary(binaryName) {
   }
   if (binaryName === "claude-code-example") {
     return ["--provider", "--model", "--cd"];
+  }
+  if (binaryName === "generic-cli-local") {
+    return ["--provider", "--model", "--cd", "--harness-label"];
   }
   return ["--oss", "--local-provider", "--model"];
 }

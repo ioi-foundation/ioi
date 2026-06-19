@@ -149,7 +149,12 @@ function requireLaunch(value) {
       },
     });
   }
-  const supportedBinaryNames = ["codex", "deepseek", "claude-code-example"];
+  const supportedBinaryNames = [
+    "codex",
+    "deepseek",
+    "claude-code-example",
+    "generic-cli-local",
+  ];
   if (
     launch.launch_lane !== "host_dev_pty" ||
     !supportedBinaryNames.includes(launch.command_contract?.binary_name) ||
@@ -160,7 +165,7 @@ function requireLaunch(value) {
       status: 403,
       code: "harness_session_spawn_contract_unsupported",
       message:
-        "Only secret-free Codex OSS, DeepSeek TUI, and Claude Code example host PTY launch contracts can be spawned in this slice.",
+        "Only secret-free Codex OSS, DeepSeek TUI, Claude Code example, and generic CLI host PTY launch contracts can be spawned in this slice.",
       details: {
         launch_lane: launch.launch_lane ?? null,
         binary_name: launch.command_contract?.binary_name ?? null,
