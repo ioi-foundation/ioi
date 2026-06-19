@@ -2749,6 +2749,15 @@ assert(
       "loadHypervisorPrivacyPostureProjection",
     ) &&
     hypervisorPrivacyPostureModelSource.includes(
+      "requestHypervisorModelWeightCustodyAdmission",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "modelWeightCustodyAdmissionAction",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
+      "HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH",
+    ) &&
+    hypervisorPrivacyPostureModelSource.includes(
       "ioi.hypervisor.execution_privacy_posture_projection.v1",
     ) &&
     hypervisorPrivacyPostureModelSource.includes(
@@ -2760,8 +2769,23 @@ assert(
     hypervisorShellContentSource.includes(
       "loadHypervisorPrivacyPostureProjection",
     ) &&
+    hypervisorShellContentSource.includes(
+      "requestHypervisorModelWeightCustodyAdmission",
+    ) &&
     hypervisorShellContentSource.includes("data-privacy-posture-source") &&
+    hypervisorShellContentSource.includes(
+      "data-model-weight-custody-admission-action",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-model-weight-custody-admission-request",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-model-weight-custody-admission-runtime-truth",
+    ) &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/privacy-posture") &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/model-weight-custody-admissions",
+    ) &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_privacy_posture",
     ) &&
@@ -2780,7 +2804,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Privacy/cTEE should hydrate workspace custody, model-weight custody, provider posture, admission controls, and receipt refs through the daemon/public runtime route instead of staying fixture-only.",
+  "Hypervisor Privacy/cTEE should hydrate workspace custody, model-weight custody, provider posture, admission controls, and receipt refs through the daemon/public runtime route, and route model-weight custody changes through daemon admissions instead of local UI truth.",
 );
 assert(
   "hypervisor-receipt-evidence-live-projection",

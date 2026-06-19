@@ -4930,7 +4930,7 @@
 
 .hypervisor-privacy-posture__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(108px, 0.45fr) minmax(122px, 0.65fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(108px, 0.45fr) minmax(122px, 0.65fr) minmax(128px, max-content);
   gap: 10px;
   align-items: center;
   border: 0;
@@ -4962,6 +4962,42 @@
   line-height: 1.4;
 }
 
+.hypervisor-privacy-posture__row button {
+  justify-self: end;
+  min-height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #f8fafc;
+  color: #111827;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+.hypervisor-privacy-posture__row button:disabled {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.hypervisor-privacy-posture__admission {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #dbe3ef;
+  background: #f8fafc;
+  color: #111827;
+  padding: 12px 14px;
+}
+
+.hypervisor-privacy-posture__admission strong {
+  font-size: 0.82rem;
+}
+
+.hypervisor-privacy-posture__admission span {
+  color: #475569;
+  font-size: 0.76rem;
+}
+
 @media (max-width: 980px) {
   .hypervisor-privacy-posture {
     width: calc(100vw - 32px);
@@ -4974,6 +5010,10 @@
 
   .hypervisor-privacy-posture__row {
     grid-template-columns: 1fr;
+  }
+
+  .hypervisor-privacy-posture__row button {
+    justify-self: start;
   }
 }
 

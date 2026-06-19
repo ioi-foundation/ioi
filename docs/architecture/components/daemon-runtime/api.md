@@ -463,9 +463,11 @@ projection:
 Privacy posture projections power the Hypervisor Privacy/cTEE surface and
 session setup warnings. They distinguish workspace plaintext custody,
 declassification gates, model-input/output posture, provider-root exposure, and
-model-weight custody. The client renders and reviews the posture, but unsafe
-mount blocking, model-weight custody admission, wallet declassification policy,
-and Agentgres privacy receipts remain daemon-mediated.
+model-weight custody. The client renders and reviews the posture. Safe
+model-weight route changes are submitted back through
+`POST /v1/hypervisor/model-weight-custody-admissions`; provider-trust mounts,
+forbidden plaintext mounts, unsafe workspace mounts, wallet declassification
+policy, and Agentgres privacy receipts remain daemon/wallet/Agentgres-mediated.
 
 ```http
 GET /v1/hypervisor/provider-placement

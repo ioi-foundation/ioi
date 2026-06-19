@@ -1140,6 +1140,12 @@ test("Privacy surface renders cTEE and model-weight custody admission posture", 
   assert.match(privacyPostureModel, /forbidden_plaintext_mount/);
   assert.match(privacyPostureModel, /remote_api_capability/);
   assert.match(privacyPostureModel, /tee_or_customer_cloud_mount/);
+  assert.match(privacyPostureModel, /modelWeightCustodyAdmissionAction/);
+  assert.match(
+    privacyPostureModel,
+    /requestHypervisorModelWeightCustodyAdmission/,
+  );
+  assert.match(privacyPostureModel, /HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH/);
   assert.match(privacyPostureModel, /ctee_split/);
   assert.match(privacyPostureModel, /encrypted_storage_only/);
   assert.match(privacyPostureModel, /wallet_network/);
@@ -1149,6 +1155,9 @@ test("Privacy surface renders cTEE and model-weight custody admission posture", 
   assert.match(shellContent, /data-hypervisor-privacy-posture/);
   assert.match(shellContent, /data-privacy-workspace-segment/);
   assert.match(shellContent, /data-model-weight-custody-lane/);
+  assert.match(shellContent, /data-model-weight-custody-admission-action/);
+  assert.match(shellContent, /data-model-weight-custody-admission-request/);
+  assert.match(shellContent, /data-model-weight-custody-admission-runtime-truth/);
   assert.match(shellContent, /data-provider-privacy-candidate/);
   assert.match(shellContent, /data-privacy-admission-control/);
   assert.doesNotMatch(shellContent, /projection\.invariant/);

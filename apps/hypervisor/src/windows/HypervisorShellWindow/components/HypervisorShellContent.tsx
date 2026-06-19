@@ -56,6 +56,10 @@ import {
   HYPERVISOR_PRIVACY_POSTURE_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
   loadHypervisorPrivacyPostureProjection,
+  modelWeightCustodyAdmissionAction,
+  requestHypervisorModelWeightCustodyAdmission,
+  type HypervisorModelWeightCustodyAdmission,
+  type HypervisorModelWeightCustodyPolicy,
 } from "../hypervisorPrivacyPostureModel";
 import {
   HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
@@ -2915,6 +2919,10 @@ function HypervisorPrivacyPostureSurface({
   const [projection, setProjection] = useState(
     HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
   );
+  const [modelWeightAdmission, setModelWeightAdmission] =
+    useState<HypervisorModelWeightCustodyAdmission | null>(null);
+  const [modelWeightAdmissionError, setModelWeightAdmissionError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (
@@ -2941,6 +2949,24 @@ function HypervisorPrivacyPostureSurface({
       cancelled = true;
     };
   }, [currentProjectId, projection.selected_session_ref]);
+
+  async function onRequestModelWeightAdmission(
+    policy: HypervisorModelWeightCustodyPolicy,
+  ) {
+    setModelWeightAdmissionError(null);
+    try {
+      const admission = await requestHypervisorModelWeightCustodyAdmission(
+        projection,
+        policy,
+      );
+      setModelWeightAdmission(admission);
+    } catch (error) {
+      setModelWeightAdmission(null);
+      setModelWeightAdmissionError(
+        error instanceof Error ? error.message : "Model-weight admission failed",
+      );
+    }
+  }
 
   return (
     <section
@@ -2999,23 +3025,38 @@ function HypervisorPrivacyPostureSurface({
 
         <section aria-label="Model-weight custody policies">
           <h3>Model Custody</h3>
-          {projection.model_weight_policies.map((policy) => (
-            <article
-              key={policy.lane}
-              className="hypervisor-privacy-posture__row"
-              data-model-weight-custody-lane={policy.lane}
-              data-protects-model-weights={String(
-                policy.protects_model_weights_from_provider_root,
-              )}
-            >
-              <div>
-                <strong>{policy.label}</strong>
-                <span>{policy.admission_summary}</span>
-              </div>
-              <em>{formatModelWeightProtection(policy)}</em>
-              <small>{policy.authority_scope_refs.map(formatCapabilityRef).join(", ")}</small>
-            </article>
-          ))}
+          {projection.model_weight_policies.map((policy) => {
+            const action = modelWeightCustodyAdmissionAction(policy);
+            return (
+              <article
+                key={policy.lane}
+                className="hypervisor-privacy-posture__row"
+                data-model-weight-custody-lane={policy.lane}
+                data-model-weight-custody-admission-action={action.state}
+                data-protects-model-weights={String(
+                  policy.protects_model_weights_from_provider_root,
+                )}
+              >
+                <div>
+                  <strong>{policy.label}</strong>
+                  <span>{policy.admission_summary}</span>
+                </div>
+                <em>{formatModelWeightProtection(policy)}</em>
+                <small>{policy.authority_scope_refs.map(formatCapabilityRef).join(", ")}</small>
+                <button
+                  type="button"
+                  data-model-weight-custody-admission-request={policy.lane}
+                  disabled={action.state !== "daemon_admissible"}
+                  title={action.disabled_reason ?? action.label}
+                  onClick={() => {
+                    void onRequestModelWeightAdmission(policy);
+                  }}
+                >
+                  {action.label}
+                </button>
+              </article>
+            );
+          })}
         </section>
 
         <section aria-label="Provider privacy candidates">
@@ -3062,6 +3103,29 @@ function HypervisorPrivacyPostureSurface({
           ))}
         </section>
       </div>
+      {(modelWeightAdmission || modelWeightAdmissionError) && (
+        <div
+          className="hypervisor-privacy-posture__admission"
+          data-model-weight-custody-admission={
+            modelWeightAdmission?.admission_id ?? "error"
+          }
+          data-model-weight-custody-admission-runtime-truth={
+            modelWeightAdmission?.runtimeTruthSource ?? "daemon-runtime"
+          }
+        >
+          {modelWeightAdmission ? (
+            <>
+              <strong>Daemon admission recorded</strong>
+              <span>{modelWeightAdmission.receipt_ref}</span>
+            </>
+          ) : (
+            <>
+              <strong>Daemon admission blocked</strong>
+              <span>{modelWeightAdmissionError}</span>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

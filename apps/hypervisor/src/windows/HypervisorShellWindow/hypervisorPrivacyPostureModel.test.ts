@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildHypervisorModelWeightCustodyAdmissionRequest,
+  HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH,
   HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH,
   HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
   loadHypervisorPrivacyPostureProjection,
+  modelWeightCustodyAdmissionAction,
   normalizeHypervisorPrivacyPostureProjection,
+  requestHypervisorModelWeightCustodyAdmission,
 } from "./hypervisorPrivacyPostureModel.ts";
 
 test("privacy posture projection separates workspace custody from model-weight custody", () => {
@@ -196,4 +200,147 @@ test("privacy posture loader calls the daemon projection route", async () => {
   assert.equal(url.searchParams.get("project_id"), "project:ioi");
   assert.equal(url.searchParams.get("session_ref"), "session:ioi");
   assert.equal(calls[0]!.method, "GET");
+});
+
+test("model-weight custody admission builder maps safe lanes to daemon requests", () => {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  const remoteApi = projection.model_weight_policies.find(
+    (policy) => policy.lane === "remote_api_capability",
+  )!;
+  const local = projection.model_weight_policies.find(
+    (policy) => policy.lane === "open_or_local_weights",
+  )!;
+
+  assert.equal(modelWeightCustodyAdmissionAction(remoteApi).state, "daemon_admissible");
+  assert.equal(modelWeightCustodyAdmissionAction(local).state, "daemon_admissible");
+
+  const remoteRequest = buildHypervisorModelWeightCustodyAdmissionRequest(
+    projection,
+    remoteApi,
+  );
+  assert.equal(remoteRequest.weight_class, "remote_api_private_weight");
+  assert.equal(remoteRequest.mount_target, "provider_api");
+  assert.equal(remoteRequest.execution_privacy_posture, "remote_api_provider_trust");
+  assert.equal(remoteRequest.remote_provider_can_read_weights, false);
+  assert.deepEqual(remoteRequest.required_controls, [
+    "wallet_authorized_api_capability",
+  ]);
+  assert.deepEqual(remoteRequest.authority_scope_refs, [
+    "scope:model.invoke_remote",
+  ]);
+
+  const localRequest = buildHypervisorModelWeightCustodyAdmissionRequest(
+    projection,
+    local,
+  );
+  assert.equal(localRequest.weight_class, "user_local_private_weight");
+  assert.equal(localRequest.mount_target, "local_device");
+  assert.equal(localRequest.execution_privacy_posture, "private_native");
+  assert.deepEqual(localRequest.required_controls, ["local_only"]);
+});
+
+test("model-weight custody admission action blocks unsafe lanes in the client", async () => {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  const providerTrust = projection.model_weight_policies.find(
+    (policy) => policy.lane === "provider_trust_mount",
+  )!;
+  const tee = projection.model_weight_policies.find(
+    (policy) => policy.lane === "tee_or_customer_cloud_mount",
+  )!;
+  const forbidden = projection.model_weight_policies.find(
+    (policy) => policy.lane === "forbidden_plaintext_mount",
+  )!;
+
+  assert.equal(
+    modelWeightCustodyAdmissionAction(providerTrust).state,
+    "wallet_step_up_required",
+  );
+  assert.equal(modelWeightCustodyAdmissionAction(tee).state, "attestation_required");
+  assert.equal(modelWeightCustodyAdmissionAction(forbidden).state, "blocked");
+
+  await assert.rejects(
+    () =>
+      requestHypervisorModelWeightCustodyAdmission(projection, providerTrust, {
+        endpoint: "http://daemon.test",
+        fetchImpl: async () => {
+          throw new Error("fetch should not be called");
+        },
+      }),
+    /Provider-trust mounts require wallet disclosure/,
+  );
+});
+
+test("model-weight custody admission client posts canonical request to daemon", async () => {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  const remoteApi = projection.model_weight_policies.find(
+    (policy) => policy.lane === "remote_api_capability",
+  )!;
+  const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
+
+  const admission = await requestHypervisorModelWeightCustodyAdmission(
+    projection,
+    remoteApi,
+    {
+      endpoint: "http://daemon.test/",
+      fetchImpl: async (input, init) => {
+        calls.push({
+          input,
+          method: init?.method,
+          body: init?.body ? JSON.parse(init.body) : null,
+        });
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({
+              schema_version: "ioi.runtime.model_weight_custody_admission.v1",
+              admission_id: "model-weight-custody-admission:remote-api",
+              route_ref: "model-route:hypervisor/default-local",
+              model_ref: "model:hypervisor/default-local",
+              provider_ref: "provider:remote-api",
+              decision: "admitted",
+              weight_class: "remote_api_private_weight",
+              mount_target: "provider_api",
+              execution_privacy_posture: "remote_api_provider_trust",
+              remote_provider_can_read_weights: false,
+              protects_model_weights_from_provider_root: true,
+              protects_workspace_state: false,
+              required_controls: ["wallet_authorized_api_capability"],
+              authority_scope_refs: ["scope:model.invoke_remote"],
+              agentgres_operation_refs: ["agentgres://operation/privacy-posture/test"],
+              artifact_refs: ["artifact://privacy-posture/test"],
+              receipt_ref: "receipt://model-weight-custody/remote-api",
+              admitted_at: "2026-06-19T00:00:00.000Z",
+              runtimeTruthSource: "daemon-runtime",
+            });
+          },
+        };
+      },
+    },
+  );
+
+  assert.equal(admission.admission_id, "model-weight-custody-admission:remote-api");
+  assert.equal(admission.weight_class, "remote_api_private_weight");
+  assert.equal(admission.runtimeTruthSource, "daemon-runtime");
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.input);
+  assert.equal(url.pathname, HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH);
+  assert.equal(calls[0]!.method, "POST");
+  assert.deepEqual(calls[0]!.body, {
+    route_ref: "model-route:hypervisor/default-local",
+    model_ref: "model:hypervisor/default-local",
+    provider_ref: "provider:remote-api",
+    weight_class: "remote_api_private_weight",
+    mount_target: "provider_api",
+    execution_privacy_posture: "remote_api_provider_trust",
+    remote_provider_can_read_weights: false,
+    required_controls: ["wallet_authorized_api_capability"],
+    authority_scope_refs: ["scope:model.invoke_remote"],
+    agentgres_operation_refs: [
+      "agentgres://operation/privacy-posture/privacy-posture_hypervisor-core_default",
+    ],
+    artifact_refs: [
+      "artifact://privacy-posture/privacy-posture_hypervisor-core_default",
+    ],
+  });
 });

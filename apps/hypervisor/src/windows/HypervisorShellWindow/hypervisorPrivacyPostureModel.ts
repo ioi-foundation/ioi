@@ -94,10 +94,81 @@ export const HYPERVISOR_PRIVACY_POSTURE_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_PRIVACY_POSTURE_PROJECTION_PATH =
   "/v1/hypervisor/privacy-posture";
+export const HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH =
+  "/v1/hypervisor/model-weight-custody-admissions";
+
+export type HypervisorModelWeightCustodyAdmissionActionState =
+  | "daemon_admissible"
+  | "wallet_step_up_required"
+  | "attestation_required"
+  | "blocked";
+
+export interface HypervisorModelWeightCustodyAdmissionAction {
+  state: HypervisorModelWeightCustodyAdmissionActionState;
+  label: string;
+  disabled_reason: string | null;
+}
+
+export interface HypervisorModelWeightCustodyAdmissionRequest {
+  route_ref: string;
+  model_ref: string;
+  provider_ref: string;
+  weight_class:
+    | "public_open_weight"
+    | "user_local_private_weight"
+    | "remote_api_private_weight"
+    | "provider_trust_remote_mount"
+    | "tee_or_customer_cloud_mount"
+    | "forbidden_plaintext_mount";
+  mount_target:
+    | "local_device"
+    | "user_owned_node"
+    | "rented_gpu"
+    | "customer_cloud"
+    | "provider_api"
+    | "tee_session"
+    | "none";
+  execution_privacy_posture: HypervisorExecutionPrivacyPosture;
+  remote_provider_can_read_weights: boolean;
+  required_controls: string[];
+  authority_scope_refs: string[];
+  user_disclosure_ref?: string;
+  provider_trust_acceptance_ref?: string;
+  tee_attestation_ref?: string;
+  customer_boundary_ref?: string;
+  agentgres_operation_refs: string[];
+  artifact_refs: string[];
+}
+
+export interface HypervisorModelWeightCustodyAdmission {
+  schema_version: "ioi.runtime.model_weight_custody_admission.v1";
+  admission_id: string;
+  route_ref: string;
+  model_ref: string;
+  provider_ref: string;
+  decision: "admitted" | "admitted_provider_trust";
+  weight_class: HypervisorModelWeightCustodyAdmissionRequest["weight_class"];
+  mount_target: HypervisorModelWeightCustodyAdmissionRequest["mount_target"];
+  execution_privacy_posture: HypervisorExecutionPrivacyPosture;
+  remote_provider_can_read_weights: boolean;
+  protects_model_weights_from_provider_root: boolean;
+  protects_workspace_state: boolean;
+  required_controls: string[];
+  authority_scope_refs: string[];
+  user_disclosure_ref: string | null;
+  provider_trust_acceptance_ref: string | null;
+  tee_attestation_ref: string | null;
+  customer_boundary_ref: string | null;
+  agentgres_operation_refs: string[];
+  artifact_refs: string[];
+  receipt_ref: string;
+  admitted_at: string;
+  runtimeTruthSource: "daemon-runtime";
+}
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -114,6 +185,21 @@ interface LoadPrivacyPostureProjectionOptions
   fetchImpl?: FetchLike;
   projectId?: string | null;
   sessionRef?: string | null;
+}
+
+interface BuildModelWeightCustodyAdmissionRequestOptions {
+  providerRef?: string;
+  modelRef?: string;
+  teeAttestationRef?: string;
+  customerBoundaryRef?: string;
+  userDisclosureRef?: string;
+  providerTrustAcceptanceRef?: string;
+}
+
+interface RequestModelWeightCustodyAdmissionOptions
+  extends BuildModelWeightCustodyAdmissionRequestOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
 }
 
 function postureForProviderPrivacy(
@@ -165,6 +251,39 @@ function rootRiskForPosture(
     return "forbidden";
   }
   return "expected";
+}
+
+export function modelWeightCustodyAdmissionAction(
+  policy: Pick<HypervisorModelWeightCustodyPolicy, "lane">,
+): HypervisorModelWeightCustodyAdmissionAction {
+  if (policy.lane === "forbidden_plaintext_mount") {
+    return {
+      state: "blocked",
+      label: "Blocked",
+      disabled_reason: "Forbidden plaintext mounts are blocked by daemon policy.",
+    };
+  }
+  if (policy.lane === "provider_trust_mount") {
+    return {
+      state: "wallet_step_up_required",
+      label: "Step-up required",
+      disabled_reason:
+        "Provider-trust mounts require wallet disclosure and explicit acceptance.",
+    };
+  }
+  if (policy.lane === "tee_or_customer_cloud_mount") {
+    return {
+      state: "attestation_required",
+      label: "Requires attestation",
+      disabled_reason:
+        "TEE/customer-cloud mounts require attestation or a customer-boundary ref before daemon admission.",
+    };
+  }
+  return {
+    state: "daemon_admissible",
+    label: "Request admission",
+    disabled_reason: null,
+  };
 }
 
 export const HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE: HypervisorPrivacyPostureProjection =
@@ -350,6 +469,10 @@ function stringList(value: unknown, fallback: string[]): string[] {
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function safeId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
 function enumValue<T extends string>(
@@ -570,6 +693,227 @@ export function normalizeHypervisorPrivacyPostureProjection(
     ),
     runtimeTruthSource: "daemon-runtime",
   };
+}
+
+export function buildHypervisorModelWeightCustodyAdmissionRequest(
+  projection: HypervisorPrivacyPostureProjection,
+  policy: HypervisorModelWeightCustodyPolicy,
+  options: BuildModelWeightCustodyAdmissionRequestOptions = {},
+): HypervisorModelWeightCustodyAdmissionRequest {
+  const routeRef = projection.default_model_route_ref;
+  const modelRef =
+    options.modelRef ??
+    routeRef.replace(/^model-route:/, "model:") ??
+    "model:hypervisor/default";
+  const common = {
+    route_ref: routeRef,
+    model_ref: modelRef,
+    provider_ref: options.providerRef ?? "provider:hypervisor-core",
+    authority_scope_refs: policy.authority_scope_refs,
+    agentgres_operation_refs: [
+      `agentgres://operation/privacy-posture/${safeId(projection.projection_id)}`,
+    ],
+    artifact_refs: [
+      `artifact://privacy-posture/${safeId(projection.projection_id)}`,
+    ],
+  };
+
+  if (policy.lane === "open_or_local_weights") {
+    return {
+      ...common,
+      weight_class: "user_local_private_weight",
+      mount_target: "local_device",
+      execution_privacy_posture: "private_native",
+      remote_provider_can_read_weights: false,
+      required_controls: ["local_only"],
+    };
+  }
+
+  if (policy.lane === "remote_api_capability") {
+    return {
+      ...common,
+      provider_ref: options.providerRef ?? "provider:remote-api",
+      weight_class: "remote_api_private_weight",
+      mount_target: "provider_api",
+      execution_privacy_posture: "remote_api_provider_trust",
+      remote_provider_can_read_weights: false,
+      required_controls: ["wallet_authorized_api_capability"],
+    };
+  }
+
+  if (policy.lane === "tee_or_customer_cloud_mount") {
+    return {
+      ...common,
+      provider_ref: options.providerRef ?? "provider:customer-cloud",
+      weight_class: "tee_or_customer_cloud_mount",
+      mount_target: options.customerBoundaryRef ? "customer_cloud" : "tee_session",
+      execution_privacy_posture: "confidential_compute",
+      remote_provider_can_read_weights: false,
+      required_controls: options.customerBoundaryRef
+        ? ["customer_account_boundary"]
+        : ["tee_attestation"],
+      tee_attestation_ref: options.teeAttestationRef,
+      customer_boundary_ref: options.customerBoundaryRef,
+    };
+  }
+
+  if (policy.lane === "provider_trust_mount") {
+    return {
+      ...common,
+      provider_ref: options.providerRef ?? "provider:rented-gpu",
+      weight_class: "provider_trust_remote_mount",
+      mount_target: "rented_gpu",
+      execution_privacy_posture: "unsafe_plaintext_mount",
+      remote_provider_can_read_weights: true,
+      required_controls: ["explicit_provider_trust_acceptance"],
+      user_disclosure_ref: options.userDisclosureRef,
+      provider_trust_acceptance_ref: options.providerTrustAcceptanceRef,
+    };
+  }
+
+  return {
+    ...common,
+    provider_ref: options.providerRef ?? "provider:rented-gpu",
+    weight_class: "forbidden_plaintext_mount",
+    mount_target: "rented_gpu",
+    execution_privacy_posture: "unsafe_plaintext_mount",
+    remote_provider_can_read_weights: true,
+    required_controls: ["no_remote_plaintext_mount"],
+  };
+}
+
+export function normalizeHypervisorModelWeightCustodyAdmission(
+  snapshot: unknown,
+): HypervisorModelWeightCustodyAdmission {
+  const value = objectRecord(snapshot);
+  const requestFallback = buildHypervisorModelWeightCustodyAdmissionRequest(
+    HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE,
+    HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE.model_weight_policies[0]!,
+  );
+  return {
+    schema_version: "ioi.runtime.model_weight_custody_admission.v1",
+    admission_id: stringValue(
+      value.admission_id,
+      `model-weight-custody-admission:${safeId(requestFallback.route_ref)}`,
+    ),
+    route_ref: stringValue(value.route_ref, requestFallback.route_ref),
+    model_ref: stringValue(value.model_ref, requestFallback.model_ref),
+    provider_ref: stringValue(value.provider_ref, requestFallback.provider_ref),
+    decision: enumValue(value.decision, "admitted", [
+      "admitted",
+      "admitted_provider_trust",
+    ]),
+    weight_class: enumValue(value.weight_class, requestFallback.weight_class, [
+      "public_open_weight",
+      "user_local_private_weight",
+      "remote_api_private_weight",
+      "provider_trust_remote_mount",
+      "tee_or_customer_cloud_mount",
+      "forbidden_plaintext_mount",
+    ]),
+    mount_target: enumValue(value.mount_target, requestFallback.mount_target, [
+      "local_device",
+      "user_owned_node",
+      "rented_gpu",
+      "customer_cloud",
+      "provider_api",
+      "tee_session",
+      "none",
+    ]),
+    execution_privacy_posture: enumValue(
+      value.execution_privacy_posture,
+      requestFallback.execution_privacy_posture,
+      [
+        "private_native",
+        "ctee_split",
+        "encrypted_storage_only",
+        "confidential_compute",
+        "remote_api_provider_trust",
+        "unsafe_plaintext_mount",
+      ],
+    ),
+    remote_provider_can_read_weights: booleanValue(
+      value.remote_provider_can_read_weights,
+      requestFallback.remote_provider_can_read_weights,
+    ),
+    protects_model_weights_from_provider_root: booleanValue(
+      value.protects_model_weights_from_provider_root,
+      true,
+    ),
+    protects_workspace_state: booleanValue(value.protects_workspace_state, true),
+    required_controls: stringList(
+      value.required_controls,
+      requestFallback.required_controls,
+    ),
+    authority_scope_refs: stringList(
+      value.authority_scope_refs,
+      requestFallback.authority_scope_refs,
+    ),
+    user_disclosure_ref:
+      typeof value.user_disclosure_ref === "string" ? value.user_disclosure_ref : null,
+    provider_trust_acceptance_ref:
+      typeof value.provider_trust_acceptance_ref === "string"
+        ? value.provider_trust_acceptance_ref
+        : null,
+    tee_attestation_ref:
+      typeof value.tee_attestation_ref === "string" ? value.tee_attestation_ref : null,
+    customer_boundary_ref:
+      typeof value.customer_boundary_ref === "string"
+        ? value.customer_boundary_ref
+        : null,
+    agentgres_operation_refs: stringList(
+      value.agentgres_operation_refs,
+      requestFallback.agentgres_operation_refs,
+    ),
+    artifact_refs: stringList(value.artifact_refs, requestFallback.artifact_refs),
+    receipt_ref: stringValue(
+      value.receipt_ref,
+      `receipt://model-weight-custody/${safeId(requestFallback.route_ref)}/${safeId(requestFallback.weight_class)}`,
+    ),
+    admitted_at: stringValue(value.admitted_at, new Date(0).toISOString()),
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export async function requestHypervisorModelWeightCustodyAdmission(
+  projection: HypervisorPrivacyPostureProjection,
+  policy: HypervisorModelWeightCustodyPolicy,
+  options: RequestModelWeightCustodyAdmissionOptions = {},
+): Promise<HypervisorModelWeightCustodyAdmission> {
+  const action = modelWeightCustodyAdmissionAction(policy);
+  if (action.state !== "daemon_admissible") {
+    throw new Error(action.disabled_reason ?? "Model-weight custody admission is disabled");
+  }
+  const endpoint =
+    options.endpoint ?? readHypervisorPrivacyPostureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor model-weight custody admission");
+  }
+  const request = buildHypervisorModelWeightCustodyAdmissionRequest(
+    projection,
+    policy,
+    options,
+  );
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_MODEL_WEIGHT_CUSTODY_ADMISSION_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Model-weight custody admission request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorModelWeightCustodyAdmission(value);
 }
 
 export async function loadHypervisorPrivacyPostureProjection(
