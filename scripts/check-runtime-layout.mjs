@@ -273,6 +273,12 @@ const runtimeHypervisorApprovedOperationDispatchSource = read(
 const runtimeHypervisorApprovedOperationDispatchTestSource = read(
   "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
 );
+const runtimeHypervisorApprovedOperationExecutorsSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.mjs",
+);
+const runtimeHypervisorApprovedOperationExecutorsTestSource = read(
+  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.test.mjs",
+);
 const runtimeHypervisorCoreTaxonomySource = read(
   "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
 );
@@ -2597,6 +2603,27 @@ assert(
   runtimeHypervisorApprovedOperationDispatchSource.includes(
     "ioi.runtime.hypervisor_approved_operation_dispatch.v1",
   ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_executor_registry.v1",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "createHypervisorApprovedOperationExecutorRegistry",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "executor://hypervisor/session/lifecycle-adapter",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "executor://hypervisor/provider/lifecycle-adapter",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "executor://hypervisor/project/lifecycle-adapter",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "executor://hypervisor/automation/workflow-compositor-runner",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsSource.includes(
+      "hypervisor_approved_operation_executor_ref_not_mounted",
+    ) &&
     runtimeHypervisorApprovedOperationDispatchSource.includes(
       "dispatchHypervisorApprovedOperationPlan",
     ) &&
@@ -2631,6 +2658,9 @@ assert(
       "dispatch approved Hypervisor operation plans through mounted executors",
     ) &&
     publicRuntimeRoutesTestSource.includes(
+      "dispatch through the default approved-operation executor registry",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
       "fail approved-operation dispatch without mounted executor",
     ) &&
     runtimeHypervisorApprovedOperationDispatchTestSource.includes(
@@ -2642,6 +2672,21 @@ assert(
     runtimeHypervisorApprovedOperationDispatchTestSource.includes(
       "rejects non-daemon plans",
     ) &&
+    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
+      "default executor registry dispatches admitted session lifecycle plans",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
+      "dispatches provider, project, and automation families",
+    ) &&
+    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
+      "rejects unmounted executor refs and unknown executor kinds",
+    ) &&
+    daemonSource.includes(
+      "createHypervisorApprovedOperationExecutorRegistry",
+    ) &&
+    daemonSource.includes(
+      "hypervisorApprovedOperationExecutorRegistry.executeApprovedOperationPlan",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "POST /v1/hypervisor/approved-operation-dispatches",
     ) &&
@@ -2652,10 +2697,12 @@ assert(
   [
     "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.mjs",
     "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.mjs",
+    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.test.mjs",
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Approved Hypervisor operation dispatch must consume daemon-owned execution plans through mounted executors only, fail closed without an executor, and return execution receipts plus state-root refs instead of allowing client-local side effects.",
+  "Approved Hypervisor operation dispatch must consume daemon-owned execution plans through mounted executors only, mount the default daemon executor registry, fail closed without the mounted executor ref, and return execution receipts plus state-root refs instead of allowing client-local side effects.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",

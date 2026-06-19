@@ -1240,8 +1240,12 @@ Current implementation cut:
   through a mounted executor and returning
   `ioi.runtime.hypervisor_approved_operation_dispatch.v1` records with execution
   receipts, state-root refs, artifact refs, trace refs, and daemon-runtime truth.
-  Remaining work is concrete session/provider/project/automation executor
-  adapters behind that dispatch seam.
+  A default daemon approved-operation executor registry now mounts first local
+  lifecycle adapters for session, provider, project, and workflow-compositor
+  plans, using fixed `executor://hypervisor/...` refs and emitting execution
+  receipts, Agentgres operation refs, trace refs, artifact refs, and next
+  state-root refs. Remaining work is provider-specific/cloud-specific/editor-
+  specific adapters behind the same registry seam.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader while the
@@ -1279,8 +1283,8 @@ Current implementation cut:
   daemon-authored session/provider/project/automation proposals after wallet
   approval, wallet lease, Agentgres operation refs, receipts, state-root refs,
   and required archive/restore refs are bound. Broader non-fixture
-  project/session data coverage and concrete executor integrations remain
-  follow-up work.
+  project/session data coverage and provider-specific executor integrations
+  remain follow-up work.
 
 0A.5 Workbench direct workspace session is implemented through the primary shell:
   `WorkspaceShell` now mounts the current project directly into the governed
@@ -1419,7 +1423,11 @@ Current implementation cut:
   IOI-reference empty state with suggested templates. Approved automation runs
   are admitted through the shared approved-operation gate after wallet.network
   approval and Agentgres operation/receipt/state-root refs.
-  `check:runtime-layout`, focused app model tests, and public runtime route
+  The default daemon approved-operation executor registry now gives admitted
+  automation plans a mounted workflow-compositor runner that returns execution
+  receipts and state roots; concrete recipe execution against Rust/WASM step
+  backends remains the next backend slice. `check:runtime-layout`, focused app
+  model tests, and public runtime route
   tests guard the schema, loader, source marker, daemon route, API docs, and
   Agentgres/receipt/state-root boundary. Remaining work is executing admitted
   recipe runs against real step/module backends, schedule mutation, and package
@@ -1532,9 +1540,12 @@ Current implementation cut:
   actions therefore remain proposals until wallet.network grants a scoped lease
   and Agentgres admits lifecycle truth.
   Approved provider operations now have the shared approved-operation dispatch
-  seam, so real provider adapters must consume daemon-owned execution plans and
-  return execution receipts instead of mutating provider state directly from
-  the client. Remaining work is concrete provider adapters behind that seam.
+  seam and the default daemon executor registry mounts a provider lifecycle
+  adapter that consumes daemon-owned execution plans and returns execution
+  receipts instead of mutating provider state directly from the client.
+  Remaining work is provider-specific adapters for concrete clouds, DePIN
+  providers, HypervisorOS nodes, and customer-controlled clusters behind that
+  seam.
 
 0A.8/0A.10 first receipt evidence surface is implemented:
   `hypervisorReceiptEvidenceModel.ts` defines

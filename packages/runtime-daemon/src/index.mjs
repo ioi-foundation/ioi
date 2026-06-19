@@ -78,6 +78,9 @@ import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
 import { createRuntimeGovernedImprovementApi } from "./runtime-governed-improvement-api.mjs";
 import { createRuntimeWorkerServicePackageApi } from "./runtime-worker-service-package-api.mjs";
 import { createRuntimeCteePrivateWorkspaceApi } from "./runtime-ctee-private-workspace-api.mjs";
+import {
+  createHypervisorApprovedOperationExecutorRegistry,
+} from "./runtime-hypervisor-approved-operation-executors.mjs";
 import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 import { createRuntimeThreadControlApi } from "./runtime-thread-control-api.mjs";
 import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
@@ -485,10 +488,15 @@ const {
   writeSse,
 });
 
+const hypervisorApprovedOperationExecutorRegistry =
+  createHypervisorApprovedOperationExecutorRegistry();
+
 const handleRequest = createPublicRuntimeRequestHandler({
   RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
   baseUrlForRequest,
   ensureProviderAvailable,
+  executeApprovedOperationPlan:
+    hypervisorApprovedOperationExecutorRegistry.executeApprovedOperationPlan,
   eventStreamIdForThread,
   handleAgentRoute,
   handleModelMountingNativeRoute,

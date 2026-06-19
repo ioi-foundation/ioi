@@ -3,6 +3,10 @@ import test from "node:test";
 
 import { createPublicRuntimeRequestHandler } from "./public-runtime-routes.mjs";
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
+import {
+  createHypervisorApprovedOperationExecutorRegistry,
+  expectedExecutorRefForPlan,
+} from "../runtime-hypervisor-approved-operation-executors.mjs";
 
 function responseRecorder() {
   return {
@@ -1567,6 +1571,74 @@ test("public runtime routes dispatch approved Hypervisor operation plans through
   assert.equal(result.runtimeTruthSource, "daemon-runtime");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].plan.execution_plan_ref, admitted.execution_plan_ref);
+});
+
+test("public runtime routes dispatch through the default approved-operation executor registry", async () => {
+  const admitted = admitHypervisorApprovedOperation({
+    operation_family: "project",
+    proposal_ref: "project-operation:daemon/restore",
+    proposal_schema_version: "ioi.hypervisor.project_operation_proposal.v1",
+    proposal_source: "daemon-project-operation-proposal",
+    project_ref: "project:ioi",
+    workspace_ref: "workspace://ioi",
+    operation_kind: "restore",
+    wallet_approval_ref: "approval://wallet/project/restore",
+    wallet_lease_ref: "lease:wallet/project/restore",
+    required_scope_refs: ["scope:agentgres.restore", "scope:artifact.decrypt"],
+    authority_receipt_refs: ["receipt://wallet/project/restore"],
+    agentgres_operation_ref: "agentgres://operation/project/ioi/restore",
+    receipt_ref: "receipt://project/ioi/restore",
+    state_root_ref: "agentgres://state-root/project/ioi",
+    archive_ref: "artifact://agentgres/archive/ioi/latest",
+    restore_ref: "agentgres://restore/ioi/latest",
+  });
+  const registry = createHypervisorApprovedOperationExecutorRegistry({
+    nowIso: () => "2026-06-18T00:03:00.000Z",
+  });
+  const { handleRequest } = routeHarness({
+    executeApprovedOperationPlan: registry.executeApprovedOperationPlan,
+  });
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/approved-operation-dispatches",
+      body: {
+        execution_plan: admitted.execution_plan,
+        executor_ref: expectedExecutorRefForPlan(admitted.execution_plan),
+      },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 202);
+  const result = JSON.parse(response.body);
+  assert.equal(result.operation_family, "project");
+  assert.equal(result.dispatch_status, "executed");
+  assert.equal(
+    result.executor_ref,
+    "executor://hypervisor/project/lifecycle-adapter",
+  );
+  assert.ok(
+    result.receipt_refs.some((ref) =>
+      ref.startsWith("receipt://hypervisor/project-lifecycle/"),
+    ),
+  );
+  assert.ok(
+    result.next_state_root_ref.startsWith(
+      "agentgres://state-root/hypervisor/project-lifecycle/",
+    ),
+  );
+  assert.equal(result.runtimeTruthSource, "daemon-runtime");
 });
 
 test("public runtime routes fail approved-operation dispatch without mounted executor", async () => {

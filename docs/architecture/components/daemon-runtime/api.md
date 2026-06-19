@@ -988,6 +988,27 @@ operation and does not create a plan. It consumes the exact
 approved-operation admission and requires a mounted executor for the plan's
 `executor_kind`.
 
+The live daemon mounts a default approved-operation executor registry for the
+first local lifecycle adapters:
+
+```text
+session_lifecycle_adapter
+  executor://hypervisor/session/lifecycle-adapter
+
+provider_lifecycle_adapter
+  executor://hypervisor/provider/lifecycle-adapter
+
+project_lifecycle_adapter
+  executor://hypervisor/project/lifecycle-adapter
+
+workflow_compositor_runner
+  executor://hypervisor/automation/workflow-compositor-runner
+```
+
+Provider-specific, cloud-specific, editor-specific, and workflow-specific
+adapters may replace these registry entries later, but they still consume the
+same daemon-owned execution plan and return receipt/state-root evidence.
+
 Request body:
 
 ```json
