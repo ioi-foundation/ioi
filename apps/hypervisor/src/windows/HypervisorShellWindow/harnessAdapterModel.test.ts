@@ -24,6 +24,7 @@ import {
   normalizeHarnessComparisonRunFromPublicFixtureRun,
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
+  requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
   requestHarnessPublicFixtureRun,
 } from "./harnessAdapterModel.ts";
@@ -1049,6 +1050,89 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
   assert.equal(harnessSpawn.decision, "admitted");
   assert.equal(harnessSpawn.spawn_state, "ready_for_client_pty_attach");
   assert.equal(harnessSpawn.model_name, "qwen2.5-coder:7b");
+  const harnessReadiness = await requestHarnessSessionReadiness(harnessSpawn, {
+    endpoint: "http://daemon.local",
+    fetchImpl: async (input, init) => {
+      assert.equal(
+        input,
+        "http://daemon.local/v1/hypervisor/harness-session-readiness",
+      );
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.headers?.["content-type"], "application/json");
+      const request = JSON.parse(init?.body ?? "{}");
+      assert.equal(request.session_spawn.spawn_id, harnessSpawn.spawn_id);
+      return {
+        ok: true,
+        status: 202,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "ioi.runtime.harness_session_readiness.v1",
+            readiness_id: "harness-session-readiness:local-codex",
+            decision: "ready",
+            readiness_state: "ready_for_harness_pty_attach",
+            spawn_id: harnessSpawn.spawn_id,
+            launch_id: harnessSpawn.launch_id,
+            session_binding_ref: harnessSpawn.session_binding_ref,
+            session_route_ref: harnessSpawn.session_route_ref,
+            harness_selection_ref: harnessSpawn.harness_selection_ref,
+            agent_harness_adapter_id: harnessSpawn.agent_harness_adapter_id,
+            model_configuration_ref: harnessSpawn.model_configuration_ref,
+            model_route_ref: harnessSpawn.model_route_ref,
+            model_name: "qwen2.5-coder:7b",
+            provider: "ollama",
+            codex_binary: "codex",
+            provider_binary: "ollama",
+            available_model_names: ["qwen2.5-coder:7b"],
+            checks: [
+              {
+                id: "codex_binary",
+                status: "pass",
+                required: true,
+                summary: "Codex binary resolved.",
+                evidence_refs: ["host-command:codex:--help"],
+              },
+              {
+                id: "codex_oss_flags",
+                status: "pass",
+                required: true,
+                summary: "Codex OSS flags resolved.",
+                evidence_refs: ["host-command:codex:oss-flags"],
+              },
+              {
+                id: "ollama_provider",
+                status: "pass",
+                required: true,
+                summary: "Ollama provider answered.",
+                evidence_refs: ["host-command:ollama:list"],
+              },
+              {
+                id: "qwen_model_available",
+                status: "pass",
+                required: true,
+                summary: "Qwen model is available.",
+                evidence_refs: ["model:qwen2.5-coder:7b"],
+              },
+            ],
+            operator_next_action:
+              "Attach the client PTY using the daemon-resolved command contract.",
+            receipt_refs: ["receipt://harness-session-readiness/local-codex"],
+            agentgres_operation_refs: [
+              "agentgres://operation/harness-session-readiness/local-codex",
+            ],
+            state_root:
+              "agentgres://state-root/harness-session-readiness/local-codex",
+            checked_at: "2026-06-18T12:40:00.000Z",
+            requiresDaemonGate: true,
+            runtimeTruthSource: "daemon-runtime",
+          }),
+      };
+    },
+  });
+  assert.equal(harnessReadiness.decision, "ready");
+  assert.equal(
+    harnessReadiness.readiness_state,
+    "ready_for_harness_pty_attach",
+  );
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
       recipe_id: recipe.recipe_id,
@@ -1069,6 +1153,7 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     harnessSessionBindingAdmission: harnessAdmission,
     harnessSessionLaunch: harnessLaunch,
     harnessSessionSpawn: harnessSpawn,
+    harnessSessionReadiness: harnessReadiness,
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
@@ -1095,6 +1180,11 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     "harness-session-spawn:local-codex",
   );
   assert.equal(launchedSession.harness_session_spawn, harnessSpawn);
+  assert.equal(
+    launchedSession.harness_session_readiness_ref,
+    "harness-session-readiness:local-codex",
+  );
+  assert.equal(launchedSession.harness_session_readiness, harnessReadiness);
 });
 
 test("harness session binding admission failures are explicit session state", async () => {

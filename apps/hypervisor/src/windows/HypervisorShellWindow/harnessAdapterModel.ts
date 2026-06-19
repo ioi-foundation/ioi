@@ -364,6 +364,48 @@ export interface HypervisorHarnessSessionSpawn {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HypervisorHarnessSessionReadinessCheck {
+  id: string;
+  status: "pass" | "fail";
+  required: true;
+  summary: string;
+  evidence_refs: string[];
+}
+
+export interface HypervisorHarnessSessionReadiness {
+  schema_version: "ioi.runtime.harness_session_readiness.v1";
+  readiness_id: string;
+  decision: "ready" | "blocked";
+  readiness_state:
+    | "ready_for_harness_pty_attach"
+    | "codex_binary_unavailable"
+    | "codex_oss_flags_unavailable"
+    | "ollama_provider_unavailable"
+    | "qwen_model_unavailable"
+    | "host_readiness_blocked";
+  spawn_id: string;
+  launch_id: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  agent_harness_adapter_id: AgentHarnessAdapterId | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_name: string;
+  provider: "ollama";
+  codex_binary: string;
+  provider_binary: string;
+  available_model_names: string[];
+  checks: HypervisorHarnessSessionReadinessCheck[];
+  operator_next_action: string;
+  receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  state_root: string;
+  checked_at: string;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export class HarnessSessionBindingAdmissionError extends Error {
   readonly endpoint: string;
   readonly responseBody: string;
@@ -430,6 +472,28 @@ export class HarnessSessionSpawnError extends Error {
   }
 }
 
+export class HarnessSessionReadinessError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`harness session readiness failed with ${status}`);
+    this.name = "HarnessSessionReadinessError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
 export interface HarnessAdapterTestbedFixture {
   schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
   fixture_id: string;
@@ -482,6 +546,8 @@ export const HYPERVISOR_HARNESS_SESSION_LAUNCH_PATH =
   "/v1/hypervisor/harness-session-launches";
 export const HYPERVISOR_HARNESS_SESSION_SPAWN_PATH =
   "/v1/hypervisor/harness-session-spawns";
+export const HYPERVISOR_HARNESS_SESSION_READINESS_PATH =
+  "/v1/hypervisor/harness-session-readiness";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
   "/v1/hypervisor/harness-public-fixture-runs";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY =
@@ -1206,6 +1272,12 @@ interface RequestHarnessSessionSpawnOptions {
   modelName?: string;
 }
 
+interface RequestHarnessSessionReadinessOptions {
+  endpoint?: string;
+  fetchImpl?: HarnessFetchLike;
+  modelName?: string;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1717,6 +1789,65 @@ function normalizeHarnessSessionSpawn(
   };
 }
 
+function normalizeHarnessSessionReadiness(
+  value: unknown,
+): HypervisorHarnessSessionReadiness {
+  const record = objectRecord(value);
+  return {
+    schema_version: "ioi.runtime.harness_session_readiness.v1",
+    readiness_id:
+      nullableString(record.readiness_id) ??
+      "harness-session-readiness:unknown",
+    decision: record.decision === "ready" ? "ready" : "blocked",
+    readiness_state:
+      (nullableString(record.readiness_state) as HypervisorHarnessSessionReadiness["readiness_state"]) ??
+      "host_readiness_blocked",
+    spawn_id: nullableString(record.spawn_id) ?? "harness-session-spawn:unknown",
+    launch_id:
+      nullableString(record.launch_id) ?? "harness-session-launch:unknown",
+    session_binding_ref:
+      nullableString(record.session_binding_ref) ??
+      "harness-session-binding:unknown",
+    session_route_ref:
+      nullableString(record.session_route_ref) ?? "session-route:unknown",
+    harness_selection_ref:
+      nullableString(record.harness_selection_ref) ??
+      "agent-harness-adapter:codex_cli",
+    agent_harness_adapter_id:
+      (nullableString(record.agent_harness_adapter_id) as AgentHarnessAdapterId) ??
+      "codex_cli",
+    model_configuration_ref:
+      nullableString(record.model_configuration_ref) ??
+      HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+    model_route_ref:
+      nullableString(record.model_route_ref) ??
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    model_name: nullableString(record.model_name) ?? "qwen",
+    provider: nullableString(record.provider) === "ollama" ? "ollama" : "ollama",
+    codex_binary: nullableString(record.codex_binary) ?? "codex",
+    provider_binary: nullableString(record.provider_binary) ?? "ollama",
+    available_model_names: stringList(record.available_model_names, []),
+    checks: arrayRecords(record.checks).map((check) => ({
+      id: nullableString(check.id) ?? "unknown",
+      status: check.status === "pass" ? "pass" : "fail",
+      required: true,
+      summary: nullableString(check.summary) ?? "",
+      evidence_refs: stringList(check.evidence_refs, []),
+    })),
+    operator_next_action:
+      nullableString(record.operator_next_action) ??
+      "Resolve host readiness before attaching this harness session.",
+    receipt_refs: stringList(record.receipt_refs, []),
+    agentgres_operation_refs: stringList(record.agentgres_operation_refs, []),
+    state_root:
+      nullableString(record.state_root) ??
+      "agentgres://state-root/harness-session-readiness/unknown",
+    checked_at: nullableString(record.checked_at) ?? new Date().toISOString(),
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 export async function requestHarnessSessionBindingAdmission(
   binding: HypervisorHarnessSessionBinding,
   options: RequestHarnessSessionBindingAdmissionOptions = {},
@@ -1817,6 +1948,39 @@ export async function requestHarnessSessionSpawn(
     });
   }
   return normalizeHarnessSessionSpawn(text ? JSON.parse(text) : {});
+}
+
+export async function requestHarnessSessionReadiness(
+  sessionSpawn: HypervisorHarnessSessionSpawn,
+  options: RequestHarnessSessionReadinessOptions = {},
+): Promise<HypervisorHarnessSessionReadiness> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHarnessPublicFixtureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for harness session readiness");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HARNESS_SESSION_READINESS_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      session_spawn: sessionSpawn,
+      ...(options.modelName ? { model_name: options.modelName } : {}),
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HarnessSessionReadinessError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeHarnessSessionReadiness(text ? JSON.parse(text) : {});
 }
 
 export async function requestHarnessPublicFixtureRun({

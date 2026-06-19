@@ -236,6 +236,71 @@ function harnessSessionSpawn(id: string) {
   };
 }
 
+function harnessSessionReadiness(id: string) {
+  const binding = harnessSessionBinding(id);
+  const launch = harnessSessionLaunch(id);
+  const spawn = harnessSessionSpawn(id);
+  return {
+    schema_version: "ioi.runtime.harness_session_readiness.v1" as const,
+    readiness_id: `harness-session-readiness:${id}`,
+    decision: "ready" as const,
+    readiness_state: "ready_for_harness_pty_attach" as const,
+    spawn_id: spawn.spawn_id,
+    launch_id: launch.launch_id,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
+    agent_harness_adapter_id: null,
+    model_configuration_ref: binding.model_configuration_ref,
+    model_route_ref: binding.model_route_ref,
+    model_name: "qwen",
+    provider: "ollama" as const,
+    codex_binary: "codex",
+    provider_binary: "ollama",
+    available_model_names: ["qwen"],
+    checks: [
+      {
+        id: "codex_binary",
+        status: "pass" as const,
+        required: true as const,
+        summary: "Codex binary resolved.",
+        evidence_refs: ["host-command:codex:--help"],
+      },
+      {
+        id: "codex_oss_flags",
+        status: "pass" as const,
+        required: true as const,
+        summary: "Codex OSS flags resolved.",
+        evidence_refs: ["host-command:codex:oss-flags"],
+      },
+      {
+        id: "ollama_provider",
+        status: "pass" as const,
+        required: true as const,
+        summary: "Ollama provider answered.",
+        evidence_refs: ["host-command:ollama:list"],
+      },
+      {
+        id: "qwen_model_available",
+        status: "pass" as const,
+        required: true as const,
+        summary: "Qwen model is available.",
+        evidence_refs: ["model:qwen"],
+      },
+    ],
+    operator_next_action:
+      "Attach the client PTY using the daemon-resolved command contract.",
+    receipt_refs: [`receipt://harness-session-readiness/${id}`],
+    agentgres_operation_refs: [
+      `agentgres://operation/harness-session-readiness/${id}`,
+    ],
+    state_root: `agentgres://state-root/harness-session-readiness/${id}`,
+    checked_at: "2026-06-18T12:40:00.000Z",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+  };
+}
+
 function launchSummary(id: string): HypervisorNewSessionLaunchSummary {
   const binding = harnessSessionBinding(id);
   return {
@@ -301,6 +366,7 @@ function launchedSession(
   const bindingAdmission = harnessSessionBindingAdmission(id);
   const bindingLaunch = harnessSessionLaunch(id);
   const bindingSpawn = harnessSessionSpawn(id);
+  const bindingReadiness = harnessSessionReadiness(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${id}`,
@@ -322,6 +388,8 @@ function launchedSession(
     harness_session_launch_ref: bindingLaunch.launch_id,
     harness_session_spawn: bindingSpawn,
     harness_session_spawn_ref: bindingSpawn.spawn_id,
+    harness_session_readiness: bindingReadiness,
+    harness_session_readiness_ref: bindingReadiness.readiness_id,
     launch_summary: launchSummary(id),
     runtimeTruthSource: "daemon-runtime",
   };

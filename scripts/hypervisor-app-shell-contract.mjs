@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import { admitCodeEditorAdapterLaunchPlan } from "../packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs";
 import { admitHarnessSessionBinding } from "../packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs";
 import { buildHarnessSessionLaunch } from "../packages/runtime-daemon/src/runtime-harness-session-launch.mjs";
+import { buildHarnessSessionReadiness } from "../packages/runtime-daemon/src/runtime-harness-session-readiness.mjs";
 import { buildHarnessSessionSpawn } from "../packages/runtime-daemon/src/runtime-harness-session-spawn.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -286,6 +287,46 @@ async function createContractDaemonServer() {
             {
               baseWorkspaceRoot: repoRoot,
               defaultWorkspaceRoot: repoRoot,
+            },
+          ),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-readiness"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          await buildHarnessSessionReadiness(
+            {
+              ...body,
+              source:
+                body.source ??
+                "hypervisor_app_shell_contract./v1/hypervisor/harness-session-readiness",
+            },
+            {
+              nowIso: () => "2026-06-18T12:40:00.000Z",
+              runCommand: async (command, args) => {
+                if (command === "codex" && args[0] === "--help") {
+                  return {
+                    status: 0,
+                    stdout:
+                      "Codex CLI\nOptions:\n  --oss\n  --local-provider <OSS_PROVIDER>\n  --model <MODEL>\n  --cd <DIR>\n",
+                    stderr: "",
+                  };
+                }
+                if (command === "ollama" && args[0] === "list") {
+                  return {
+                    status: 0,
+                    stdout: "NAME ID SIZE MODIFIED\nqwen 123 4 GB now\n",
+                    stderr: "",
+                  };
+                }
+                return { status: 127, stdout: "", stderr: "not found" };
+              },
             },
           ),
           202,
@@ -706,6 +747,18 @@ async function main() {
         spawnCommand.includes("--model qwen") &&
         spawnCommand.includes(`--cd ${repoRoot}`),
       `Daemon-admitted launched session did not expose the resolved Codex OSS command. command=${spawnCommand}`,
+    );
+    assert(
+      (await launchedSessionRow.getAttribute(
+        "data-launched-session-readiness",
+      )) === "ready",
+      "Daemon-admitted launched session did not expose host readiness.",
+    );
+    assert(
+      (await launchedSessionRow.getAttribute(
+        "data-launched-session-readiness-state",
+      )) === "ready_for_harness_pty_attach",
+      "Daemon-admitted launched session did not expose PTY attach readiness.",
     );
     await page.evaluate(() => {
       window.localStorage.removeItem("ioi.hypervisor.daemonEndpoint");
@@ -1209,6 +1262,7 @@ async function main() {
         "new_session_recipe_selection_review_gated",
         "new_session_launch_creates_readable_session_row",
         "new_session_launch_daemon_spawn_ready_for_codex_oss_qwen",
+        "new_session_launch_daemon_host_readiness_ready",
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
         "automations_reference_clean_empty_state_rendered",

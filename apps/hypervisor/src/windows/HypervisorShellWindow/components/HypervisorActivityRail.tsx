@@ -342,6 +342,27 @@ function launchedSessionSpawnCommand(
     : "";
 }
 
+function launchedSessionReadinessDecision(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  return session.harness_session_readiness?.decision ?? "";
+}
+
+function launchedSessionReadinessState(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  return session.harness_session_readiness?.readiness_state ?? "";
+}
+
+function launchedSessionReadinessNextAction(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const readiness = session.harness_session_readiness;
+  return readiness && "operator_next_action" in readiness
+    ? readiness.operator_next_action
+    : "";
+}
+
 export function HypervisorActivityRail({
   activeView,
   onViewChange,
@@ -524,6 +545,15 @@ export function HypervisorActivityRail({
                 }
                 data-launched-session-spawn-command={
                   launchedSessionSpawnCommand(session)
+                }
+                data-launched-session-readiness={
+                  launchedSessionReadinessDecision(session)
+                }
+                data-launched-session-readiness-state={
+                  launchedSessionReadinessState(session)
+                }
+                data-launched-session-readiness-next-action={
+                  launchedSessionReadinessNextAction(session)
                 }
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}

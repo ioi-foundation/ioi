@@ -234,6 +234,12 @@ const runtimeHarnessSessionSpawnSource = read(
 const runtimeHarnessSessionSpawnTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-spawn.test.mjs",
 );
+const runtimeHarnessSessionReadinessSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-readiness.mjs",
+);
+const runtimeHarnessSessionReadinessTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -1793,6 +1799,55 @@ assert(
   "Admitted harness launches must produce a daemon spawn contract before a session becomes daemon_admitted; Codex OSS uses a daemon-resolved command and Hypervisor client PTY attach, with no secret release or provider auth.",
 );
 assert(
+  "hypervisor-harness-session-readiness-contract",
+  runtimeHarnessSessionReadinessSource.includes(
+    "ioi.runtime.harness_session_readiness.v1",
+  ) &&
+    runtimeHarnessSessionReadinessSource.includes(
+      "buildHarnessSessionReadiness",
+    ) &&
+    runtimeHarnessSessionReadinessSource.includes(
+      "ready_for_harness_pty_attach",
+    ) &&
+    runtimeHarnessSessionReadinessSource.includes("codex_oss_flags") &&
+    runtimeHarnessSessionReadinessSource.includes("ollama_provider") &&
+    runtimeHarnessSessionReadinessSource.includes("qwen_model_available") &&
+    runtimeHarnessSessionReadinessTestSource.includes(
+      "blocks readiness when Ollama is not reachable",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-session-readiness",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessSessionReadiness",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHarnessSessionReadiness",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "harnessSessionReadiness.decision === \"ready\"",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorHarnessSessionReadinessRecord",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionReadiness",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "harness_session_readiness_ref",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-session-readiness.mjs",
+    "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+  ],
+  "Daemon-admitted harness sessions must prove local host readiness separately from spawn: Codex OSS flags, Ollama provider reachability, and the selected local Qwen model are checked before client PTY attach.",
+);
+assert(
   "hypervisor-harness-container-lane-contract",
   runtimeHarnessContainerLaneSource.includes(
     "ioi.hypervisor.harness_container_lane_plan.v1",
@@ -2354,6 +2409,9 @@ assert(
       "/v1/hypervisor/harness-session-spawns",
     ) &&
     hypervisorAppShellContractSource.includes(
+      "/v1/hypervisor/harness-session-readiness",
+    ) &&
+    hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
     ) &&
     hypervisorAppShellContractSource.includes(
@@ -2375,10 +2433,16 @@ assert(
       "new_session_launch_daemon_spawn_ready_for_codex_oss_qwen",
     ) &&
     hypervisorAppShellContractSource.includes(
+      "new_session_launch_daemon_host_readiness_ready",
+    ) &&
+    hypervisorAppShellContractSource.includes(
       "data-launched-session-spawn-state",
     ) &&
     hypervisorAppShellContractSource.includes(
       "ready_for_client_pty_attach",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "ready_for_harness_pty_attach",
     ) &&
     hypervisorAppShellContractSource.includes("--local-provider ollama") &&
     hypervisorAppShellContractSource.includes(

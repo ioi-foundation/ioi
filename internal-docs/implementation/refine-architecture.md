@@ -1782,12 +1782,17 @@ Current implementation cut:
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
   contract in Chromium. The contract covers the Home prompt shell, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
-  harness allowance, and daemon-admitted Codex OSS/Qwen spawn readiness via the
-  same runtime-daemon admission/launch/spawn builders used by the public harness
-  endpoints. A launched session must expose `daemon_admitted`, a
-  `harness-session-spawn:*` ref, `ready_for_client_pty_attach`, the local Qwen
-  model name, and the resolved `codex --oss --local-provider ollama --model qwen`
-  command before the shell considers the row demonstrable. The contract also
+  harness allowance, and daemon-admitted Codex OSS/Qwen spawn plus host
+  readiness via the same runtime-daemon admission/launch/spawn/readiness
+  builders used by the public harness endpoints. A launched session must expose
+  `daemon_admitted`, a `harness-session-spawn:*` ref,
+  `ready_for_client_pty_attach`, a `harness-session-readiness:*` ref,
+  `ready_for_harness_pty_attach`, the local Qwen model name, and the resolved
+  `codex --oss --local-provider ollama --model qwen` command before the shell
+  considers the row demonstrable. The readiness contract checks the Codex OSS
+  flags, Ollama provider reachability, and selected local model availability
+  separately from command resolution so the app cannot treat a spawn contract as
+  proof that the provider/model is live. The contract also
   covers Projects reference state list, direct Workbench workspace session
   surface, the reference left rail set
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
@@ -2194,19 +2199,24 @@ Current implementation cut:
   posted to `/v1/hypervisor/harness-session-binding-admissions`; the daemon
   returns `ioi.runtime.harness_session_binding_admission.v1`, then the app posts
   that admission to `/v1/hypervisor/harness-session-launches`, then posts the
-  admitted launch to `/v1/hypervisor/harness-session-spawns`. A launched
+  admitted launch to `/v1/hypervisor/harness-session-spawns`, then posts the
+  admitted spawn to `/v1/hypervisor/harness-session-readiness`. A launched
   session may be `daemon_admitted` only when it also carries
-  `ioi.runtime.harness_session_launch.v1` and
-  `ioi.runtime.harness_session_spawn.v1`. The first launch-ready contract is
+  `ioi.runtime.harness_session_launch.v1`,
+  `ioi.runtime.harness_session_spawn.v1`, and
+  `ioi.runtime.harness_session_readiness.v1` with `decision: ready`. The first
+  launch-ready contract is
   Codex OSS over a local Ollama/Qwen-style OpenAI-compatible model mount:
   `codex --oss --local-provider ollama --model
   ${HYPERVISOR_LOCAL_CODEX_OSS_MODEL:-qwen} --sandbox workspace-write
   --ask-for-approval on-request --cd ${HYPERVISOR_SESSION_WORKSPACE}`. The spawn
   contract resolves the concrete argv, workspace root, model name, terminal
   attach contract, PTY transport, process custody posture, receipt refs, and
-  Agentgres operation refs. The native Hypervisor client may attach the host
-  terminal and write the daemon-resolved command; the client is only the PTY
-  transport. The `examples/claude-code-main` Claude Code bring-up path and
+  Agentgres operation refs. The readiness contract verifies the host can run
+  the resolved Codex OSS route against the local Ollama/Qwen provider before
+  the native Hypervisor client may attach the host terminal and write the
+  daemon-resolved command; the client is only the PTY transport. The
+  `examples/claude-code-main` Claude Code bring-up path and
   DeepSeek TUI remain first-session local-model candidates, but are not
   launch-ready until their daemon-owned launch and spawn contracts exist.
   Provider auth and wallet capability leases are later authority paths rather

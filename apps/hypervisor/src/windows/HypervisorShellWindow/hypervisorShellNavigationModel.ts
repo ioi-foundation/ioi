@@ -2,6 +2,7 @@ import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
+  HarnessSessionReadinessError,
   HarnessSessionSpawnError,
   buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
@@ -9,6 +10,7 @@ import {
   type HypervisorHarnessSessionBinding,
   type HypervisorHarnessSessionBindingAdmission,
   type HypervisorHarnessSessionLaunch,
+  type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
@@ -29,12 +31,15 @@ import {
 export {
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
+  requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
+  HarnessSessionReadinessError,
   HarnessSessionSpawnError,
   type HypervisorHarnessSessionBindingAdmission,
   type HypervisorHarnessSessionLaunch,
+  type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
 } from "./harnessAdapterModel.ts";
 
@@ -357,6 +362,25 @@ export type HypervisorHarnessSessionSpawnRecord =
   | HypervisorHarnessSessionSpawn
   | HypervisorHarnessSessionSpawnFailure;
 
+export interface HypervisorHarnessSessionReadinessFailure {
+  schema_version: "ioi.hypervisor.harness_session_readiness_failure.v1";
+  readiness_id: string;
+  spawn_id: string | null;
+  launch_id: string | null;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  readiness_state: "daemon_unavailable" | "host_readiness_blocked";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorHarnessSessionReadinessRecord =
+  | HypervisorHarnessSessionReadiness
+  | HypervisorHarnessSessionReadinessFailure;
+
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
   session_ref: string;
@@ -389,6 +413,8 @@ export interface HypervisorLaunchedSessionProjection {
   harness_session_launch_ref: string | null;
   harness_session_spawn: HypervisorHarnessSessionSpawnRecord | null;
   harness_session_spawn_ref: string | null;
+  harness_session_readiness: HypervisorHarnessSessionReadinessRecord | null;
+  harness_session_readiness_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -466,6 +492,7 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionBindingAdmission = null,
   harnessSessionLaunch = null,
   harnessSessionSpawn = null,
+  harnessSessionReadiness = null,
   displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
@@ -476,6 +503,7 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionBindingAdmission?: HypervisorHarnessSessionBindingAdmissionRecord | null;
   harnessSessionLaunch?: HypervisorHarnessSessionLaunchRecord | null;
   harnessSessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
+  harnessSessionReadiness?: HypervisorHarnessSessionReadinessRecord | null;
   displayMeta?: {
     branchLabel?: string | null;
     relativeTimeLabel?: string | null;
@@ -493,13 +521,16 @@ export function buildHypervisorLaunchedSessionProjection({
     harnessSessionBindingAdmission?.decision,
     harnessSessionLaunch?.decision,
     harnessSessionSpawn?.decision,
+    harnessSessionReadiness?.decision,
   ];
   const admissionState =
     admissionDecisions.includes("blocked")
       ? "daemon_blocked"
       : admissionDecisions.includes("daemon_unavailable")
         ? "daemon_unavailable"
-        : admissionDecisions.every((decision) => decision === "admitted")
+        : admissionDecisions.every(
+              (decision) => decision === "admitted" || decision === "ready",
+            ) && harnessSessionReadiness?.decision === "ready"
           ? "daemon_admitted"
           : "pending_daemon_admission";
   return {
@@ -534,6 +565,11 @@ export function buildHypervisorLaunchedSessionProjection({
     harness_session_spawn_ref:
       harnessSessionSpawn && "spawn_id" in harnessSessionSpawn
         ? harnessSessionSpawn.spawn_id
+        : null,
+    harness_session_readiness: harnessSessionReadiness ?? null,
+    harness_session_readiness_ref:
+      harnessSessionReadiness && "readiness_id" in harnessSessionReadiness
+        ? harnessSessionReadiness.readiness_id
         : null,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
@@ -647,6 +683,43 @@ export function buildHypervisorHarnessSessionSpawnFailure({
     decision:
       typeof httpStatus === "number" && httpStatus < 500
         ? "blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorHarnessSessionReadinessFailure({
+  binding,
+  sessionSpawn,
+  error,
+}: {
+  binding: HypervisorHarnessSessionBinding;
+  sessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
+  error: unknown;
+}): HypervisorHarnessSessionReadinessFailure {
+  const httpStatus =
+    error instanceof HarnessSessionReadinessError ? error.status : null;
+  const spawnId =
+    sessionSpawn && "spawn_id" in sessionSpawn ? sessionSpawn.spawn_id : null;
+  const launchId =
+    sessionSpawn && "launch_id" in sessionSpawn ? sessionSpawn.launch_id : null;
+  return {
+    schema_version: "ioi.hypervisor.harness_session_readiness_failure.v1",
+    readiness_id: `${binding.session_binding_ref}/readiness-failure`,
+    spawn_id: spawnId,
+    launch_id: launchId,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    readiness_state:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "host_readiness_blocked"
         : "daemon_unavailable",
     error_message: error instanceof Error ? error.message : String(error),
     http_status: httpStatus,

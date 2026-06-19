@@ -44,6 +44,7 @@ import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   buildHypervisorHarnessSessionBindingAdmissionFailure,
   buildHypervisorHarnessSessionLaunchFailure,
+  buildHypervisorHarnessSessionReadinessFailure,
   buildHypervisorHarnessSessionSpawnFailure,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
@@ -54,6 +55,7 @@ import {
   requestCodeEditorAdapterLaunchPlanAdmission,
   requestHarnessSessionBindingAdmission,
   requestHarnessSessionLaunch,
+  requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
@@ -480,8 +482,29 @@ export function useHypervisorShellController() {
               "Harness session launch was not admitted for spawn.",
             ),
           });
+    const harnessSessionReadiness =
+      harnessSessionSpawn.decision === "admitted" &&
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHarnessSessionReadiness(harnessSessionSpawn).catch(
+            (error: unknown) =>
+              buildHypervisorHarnessSessionReadinessFailure({
+                binding: request.launch_summary.harness_session_binding,
+                sessionSpawn: harnessSessionSpawn,
+                error,
+              }),
+          )
+        : buildHypervisorHarnessSessionReadinessFailure({
+            binding: request.launch_summary.harness_session_binding,
+            sessionSpawn: harnessSessionSpawn,
+            error: new Error(
+              "Harness session spawn was not ready for host readiness verification.",
+            ),
+          });
     if (
       harnessSessionSpawn.decision === "admitted" &&
+      harnessSessionReadiness.decision === "ready" &&
       isHypervisorClientRuntime()
     ) {
       try {
@@ -521,6 +544,7 @@ export function useHypervisorShellController() {
       harnessSessionBindingAdmission,
       harnessSessionLaunch,
       harnessSessionSpawn,
+      harnessSessionReadiness,
     });
 
     setCurrentProjectId(project.id);
