@@ -272,7 +272,7 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   );
   assert.match(
     source,
-    /"agent"[\s\S]*"workbench"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/,
+    /"agent"[\s\S]*"code"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/,
   );
   assert.match(source, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
   assert.match(source, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
@@ -666,6 +666,11 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   );
   assert.match(shellContent, /data-session-changed-file/);
   assert.match(shellContent, /data-session-detail-tab-list/);
+  assert.match(shellContent, /data-session-detail-tab="agent"[\s\S]*<strong>Agent<\/strong>/);
+  assert.match(
+    shellContent,
+    /data-session-detail-tab="environment"[\s\S]*<strong>Environment<\/strong>/,
+  );
   assert.match(shellContent, /data-session-lifecycle-state/);
   assert.doesNotMatch(shellContent, /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/);
   assert.doesNotMatch(shellContent, /data-session-detail-tab=\{tab\.tab_id\}/);

@@ -84,7 +84,7 @@ export type HypervisorSurfaceKind =
 
 export type HypervisorSessionDetailTab =
   | "agent"
-  | "workbench"
+  | "code"
   | "environment"
   | "changes"
   | "receipts"
@@ -739,7 +739,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
       "Code and systems surface; embedded, desktop, and browser code editors are adapter targets.",
     kind: "application",
     railGroup: "applications",
-    defaultSessionTab: "workbench",
+    defaultSessionTab: "code",
     inspectorPanels: ["changes", "ports_services", "terminal", "model_harness_provider"],
     adapterTargets: HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES.map(
       (preference) => preference.label,
@@ -845,7 +845,7 @@ export const HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL = [
 
 export const HYPERVISOR_SESSION_DETAIL_TABS: HypervisorSessionDetailTab[] = [
   "agent",
-  "workbench",
+  "code",
   "environment",
   "changes",
   "receipts",

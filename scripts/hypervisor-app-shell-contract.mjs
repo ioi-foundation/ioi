@@ -286,7 +286,8 @@ async function main() {
       );
       assert(
         workspaceText.includes("Code") &&
-          workspaceText.includes("Conversation") &&
+          workspaceText.includes("Agent") &&
+          workspaceText.includes("Environment") &&
           workspaceText.includes("Changes") &&
           workspaceText.includes("All Files") &&
           workspaceText.includes("Comments") &&
@@ -314,10 +315,11 @@ async function main() {
         "/details/:sessionId/logs should cold boot into the retained Sessions cockpit.",
       );
       assert(
-        detailsText.includes("Conversation") &&
+        detailsText.includes("Agent") &&
+          detailsText.includes("Environment") &&
           detailsText.includes("All Files") &&
           detailsText.includes("Comments"),
-        "/details/:sessionId/logs should retain the visible conversation and change-inspector tabs.",
+        "/details/:sessionId/logs should retain the visible agent, environment, and change-inspector tabs.",
       );
       await deepLinkPage.goto(new URL("ai?user-settings=profile", url).toString(), {
         waitUntil: "domcontentloaded",

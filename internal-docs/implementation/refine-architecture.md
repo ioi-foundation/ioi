@@ -571,7 +571,7 @@ Current code anchors:
   apps/hypervisor/src/windows/HypervisorShellWindow/*
   apps/hypervisor/src/surfaces/Home/*
   apps/hypervisor/src/surfaces/Workspace/*
-  apps/hypervisor/src/surfaces/{Home,Automations,Models,Authority,Insights,Conversation,Workspace}/*
+  apps/hypervisor/src/surfaces/{Home,Automations,Models,Authority,Insights,Workspace}/*
   apps/hypervisor/src/surfaces/Policy/*
   apps/hypervisor/src/surfaces/Settings/*
   apps/hypervisor/src/surfaces/Capabilities/*
@@ -1421,7 +1421,7 @@ Current implementation cut:
   environment lifecycle evidence steps, and changed-file groups with receipt
   refs.
   `HypervisorShellContent` renders that projection in the Sessions surface as
-  the IOI-reference session detail view: branch bar, Code/Conversation tabs,
+  the IOI-reference session detail view: branch bar, Code/Agent/Environment tabs,
   a centered task prompt, suggestion chips, composer, full-height Changes
   inspector, and the ports/services/tasks/terminal dock. The extra
   Sessions-local Recent Launches strip and the environment-first center pane

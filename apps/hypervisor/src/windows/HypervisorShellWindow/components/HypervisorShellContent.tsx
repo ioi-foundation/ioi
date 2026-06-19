@@ -1563,7 +1563,19 @@ function HypervisorSessionOperationsCockpit() {
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
               <SessionOctagonIcon />
             </span>
-            <strong>Conversation</strong>
+            <strong>Agent</strong>
+          </button>
+          <button
+            type="button"
+            className="hypervisor-session-operations__session-title"
+            data-session-detail-tab="environment"
+            data-session-ref={projection.environment_ref}
+            aria-selected="false"
+          >
+            <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
+              <SessionOctagonIcon />
+            </span>
+            <strong>Environment</strong>
           </button>
           <span
             hidden
