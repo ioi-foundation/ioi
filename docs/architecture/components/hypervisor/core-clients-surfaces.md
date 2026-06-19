@@ -8,7 +8,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-06-16.
+Last alignment pass: 2026-06-19.
 
 ## Canonical Definition
 
@@ -523,13 +523,14 @@ HarnessSessionBinding
 The binding is not sufficient by itself. Hypervisor Core must first request a
 daemon-side `HypervisorSessionLaunchRecipeAdmission`, then a
 `HarnessSessionBindingAdmission`, then a `HarnessSessionLaunch`, then a
-`HarnessSessionSpawn` before a launched session may be reported as
-`daemon_admitted`. The admission chain is the local-first harness gate: it can
-admit Codex OSS, the example Claude Code bring-up path, and DeepSeek TUI over
-the local OpenAI-compatible Codex OSS / Qwen model route without provider API
-authentication, while blocking provider-trust shortcuts, external harness cTEE
-custody claims, missing local model endpoints/instances, and any harness
-runtime-truth claim.
+`HarnessSessionSpawn`, then a `HarnessSessionReadiness`, then a
+`HarnessSessionTerminalAttach` before a host-terminal launched session may be
+reported as `daemon_admitted`. The admission chain is the local-first harness
+gate: it can admit Codex OSS, the example Claude Code bring-up path, and
+DeepSeek TUI over the local OpenAI-compatible Codex OSS / Qwen model route
+without provider API authentication, while blocking provider-trust shortcuts,
+external harness cTEE custody claims, missing local model endpoints/instances,
+and any harness runtime-truth claim.
 
 The first launch-ready host-dev contract is Codex OSS over local Ollama/Qwen:
 
@@ -573,10 +574,33 @@ HarnessSessionSpawn
   secret_release_policy: none
 ```
 
-The native Hypervisor client may then attach a host PTY and write the
-daemon-resolved command. The client is a PTY transport, not the source of
-runtime truth. Web/headless clients may record the spawn contract without a
-local PTY until a compatible terminal transport is available.
+Spawn readiness is still not terminal execution authority. The daemon must
+admit a `HarnessSessionReadiness` record proving the local harness route is
+usable, then admit a `HarnessSessionTerminalAttach` record:
+
+```text
+HarnessSessionTerminalAttach
+  schema_version: ioi.runtime.harness_session_terminal_attach.v1
+  attach_lane: hypervisor_client_terminal_adapter
+  attach_state: client_pty_attach_admitted
+  client_attach_contract:
+    root: <workspace_root>
+    command_line: <daemon-resolved command>
+    initial_write: <daemon-resolved command + newline>
+    pty_transport: hypervisor_client_terminal_adapter
+    process_custody: client_host_pty_after_daemon_attach_admission
+    transcript_stream_ref: agentgres://trace/harness-terminal-transcript/<id>
+  terminal_transcript_projection:
+    schema_version: ioi.runtime.harness_terminal_transcript_projection.v1
+    transcript_state: awaiting_client_stream
+```
+
+The native Hypervisor client may attach a host PTY only after the attach
+admission exists, then write the daemon-resolved `initial_write` and stream
+terminal output into the transcript projection. The client is a PTY transport,
+not the source of runtime truth. Web/headless clients may record spawn,
+readiness, attach, and transcript projection contracts without a local PTY until
+a compatible terminal transport is available.
 
 The example Claude Code path and DeepSeek TUI remain first-session candidates
 that may bind to the same local model configuration, but they are not

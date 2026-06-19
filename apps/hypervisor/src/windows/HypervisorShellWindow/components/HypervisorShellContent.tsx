@@ -1596,14 +1596,34 @@ function HypervisorSessionOperationsCockpit({
       : null;
   const launchedHarnessReadiness =
     launchedHarnessSession?.harness_session_readiness ?? null;
+  const launchedHarnessTerminalAttach =
+    launchedHarnessSession?.harness_session_terminal_attach &&
+    "client_attach_contract" in
+      launchedHarnessSession.harness_session_terminal_attach
+      ? launchedHarnessSession.harness_session_terminal_attach
+      : null;
   const launchedHarnessCommand =
-    launchedHarnessSpawn?.command_contract.resolved_command_line ?? "";
+    launchedHarnessTerminalAttach?.client_attach_contract.command_line ??
+    launchedHarnessSpawn?.command_contract.resolved_command_line ??
+    "";
   const launchedHarnessPtyTransport =
-    launchedHarnessSpawn?.command_contract.pty_transport ?? "";
+    launchedHarnessTerminalAttach?.client_attach_contract.pty_transport ??
+    launchedHarnessSpawn?.command_contract.pty_transport ??
+    "";
+  const launchedHarnessAttachState =
+    launchedHarnessTerminalAttach?.attach_state ?? "";
+  const launchedHarnessTranscriptState =
+    launchedHarnessTerminalAttach?.terminal_transcript_projection
+      .transcript_state ?? "";
+  const launchedHarnessTranscriptRef =
+    launchedHarnessTerminalAttach?.client_attach_contract
+      .transcript_stream_ref ?? "";
   const launchedHarnessReadinessState =
     launchedHarnessReadiness?.readiness_state ?? "";
   const launchedHarnessNextAction =
-    launchedHarnessReadiness && "operator_next_action" in launchedHarnessReadiness
+    launchedHarnessTerminalAttach
+      ? "Client PTY attach is admitted; stream transcript through the Hypervisor terminal adapter."
+      : launchedHarnessReadiness && "operator_next_action" in launchedHarnessReadiness
       ? launchedHarnessReadiness.operator_next_action
       : "Attach terminal when ready.";
 
@@ -1815,6 +1835,18 @@ function HypervisorSessionOperationsCockpit({
                   data-session-harness-drill-in-pty-transport={
                     launchedHarnessPtyTransport
                   }
+                  data-session-harness-drill-in-terminal-attach={
+                    launchedHarnessTerminalAttach?.attach_id ?? ""
+                  }
+                  data-session-harness-drill-in-terminal-attach-state={
+                    launchedHarnessAttachState
+                  }
+                  data-session-harness-drill-in-terminal-transcript={
+                    launchedHarnessTranscriptRef
+                  }
+                  data-session-harness-drill-in-terminal-transcript-state={
+                    launchedHarnessTranscriptState
+                  }
                   data-session-harness-drill-in-command={
                     launchedHarnessCommand
                   }
@@ -1838,12 +1870,19 @@ function HypervisorSessionOperationsCockpit({
                       <dd>{launchedHarnessPtyTransport || "pending"}</dd>
                     </div>
                     <div>
+                      <dt>Attach</dt>
+                      <dd>{launchedHarnessAttachState || "pending"}</dd>
+                    </div>
+                    <div>
                       <dt>Readiness</dt>
                       <dd>{launchedHarnessReadinessState || "pending"}</dd>
                     </div>
                   </dl>
                   {launchedHarnessCommand ? (
                     <code>{launchedHarnessCommand}</code>
+                  ) : null}
+                  {launchedHarnessTranscriptRef ? (
+                    <small>{launchedHarnessTranscriptRef}</small>
                   ) : null}
                   <p>{launchedHarnessNextAction}</p>
                 </section>

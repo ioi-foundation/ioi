@@ -2073,7 +2073,7 @@
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
@@ -2114,6 +2114,16 @@
   font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__harness-drill-in small {
+  display: block;
+  overflow: hidden;
+  color: #7a7a80;
+  font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

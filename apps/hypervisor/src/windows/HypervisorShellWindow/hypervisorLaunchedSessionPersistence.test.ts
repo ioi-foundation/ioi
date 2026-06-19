@@ -301,6 +301,82 @@ function harnessSessionReadiness(id: string) {
   };
 }
 
+function harnessSessionTerminalAttach(id: string) {
+  const binding = harnessSessionBinding(id);
+  const launch = harnessSessionLaunch(id);
+  const spawn = harnessSessionSpawn(id);
+  const readiness = harnessSessionReadiness(id);
+  return {
+    schema_version: "ioi.runtime.harness_session_terminal_attach.v1" as const,
+    attach_id: `harness-session-terminal-attach:${id}`,
+    decision: "admitted" as const,
+    attach_state: "client_pty_attach_admitted" as const,
+    attach_lane: "hypervisor_client_terminal_adapter" as const,
+    spawn_id: spawn.spawn_id,
+    readiness_id: readiness.readiness_id,
+    launch_id: launch.launch_id,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
+    agent_harness_adapter_id: null,
+    model_configuration_ref: binding.model_configuration_ref,
+    model_route_ref: binding.model_route_ref,
+    model_name: "qwen",
+    workspace_ref: `workspace:${id}`,
+    workspace_root: "/repo",
+    terminal_session_ref: `terminal-session:${id}`,
+    command_contract_ref: launch.command_contract.command_ref,
+    command_contract: {
+      ...spawn.command_contract,
+      process_custody:
+        "client_host_pty_after_daemon_spawn_admission" as const,
+    },
+    client_attach_contract: {
+      ...spawn.terminal_attach_contract,
+      initial_write: `${spawn.terminal_attach_contract.command_line}\n`,
+      transcript_stream_ref:
+        `agentgres://trace/harness-terminal-transcript/${id}`,
+      pty_transport: "hypervisor_client_terminal_adapter" as const,
+      process_custody:
+        "client_host_pty_after_daemon_attach_admission" as const,
+    },
+    terminal_transcript_projection: {
+      schema_version:
+        "ioi.runtime.harness_terminal_transcript_projection.v1" as const,
+      transcript_id: `harness-terminal-transcript:${id}`,
+      transcript_state: "awaiting_client_stream" as const,
+      transcript_stream_ref:
+        `agentgres://trace/harness-terminal-transcript/${id}`,
+      cursor: 0,
+      lines: [
+        {
+          stream: "system" as const,
+          text:
+            "Daemon admitted client PTY attach after harness spawn and host readiness checks.",
+        },
+        {
+          stream: "stdin" as const,
+          text: spawn.terminal_attach_contract.command_line,
+        },
+      ],
+      runtimeTruthSource: "daemon-runtime" as const,
+    },
+    workspace_mount_policy: binding.workspace_mount_policy,
+    privacy_posture_ref: binding.privacy_posture_ref,
+    authority_scope_refs: binding.authority_scope_refs,
+    receipt_policy_ref: binding.receipt_policy_ref,
+    receipt_refs: [`receipt://harness-session-terminal-attach/${id}`],
+    agentgres_operation_refs: [
+      `agentgres://operation/harness-session-terminal-attach/${id}`,
+    ],
+    state_root:
+      `agentgres://state-root/harness-session-terminal-attach/${id}`,
+    attached_at: "2026-06-18T12:41:00.000Z",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+  };
+}
+
 function sessionLaunchRecipeAdmission(id: string) {
   return {
     schema_version:
@@ -401,6 +477,7 @@ function launchedSession(
   const bindingLaunch = harnessSessionLaunch(id);
   const bindingSpawn = harnessSessionSpawn(id);
   const bindingReadiness = harnessSessionReadiness(id);
+  const terminalAttach = harnessSessionTerminalAttach(id);
   const recipeAdmission = sessionLaunchRecipeAdmission(id);
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
@@ -427,6 +504,8 @@ function launchedSession(
     harness_session_spawn_ref: bindingSpawn.spawn_id,
     harness_session_readiness: bindingReadiness,
     harness_session_readiness_ref: bindingReadiness.readiness_id,
+    harness_session_terminal_attach: terminalAttach,
+    harness_session_terminal_attach_ref: terminalAttach.attach_id,
     launch_summary: launchSummary(id),
     runtimeTruthSource: "daemon-runtime",
   };
@@ -520,6 +599,15 @@ test("launched session cache persists normalized projections only", () => {
     parsed[0]?.harness_session_spawn?.command_contract.process_custody,
     "client_host_pty_after_daemon_spawn_admission",
   );
+  assert.equal(
+    parsed[0]?.harness_session_terminal_attach?.schema_version,
+    "ioi.runtime.harness_session_terminal_attach.v1",
+  );
+  assert.equal(
+    parsed[0]?.harness_session_terminal_attach?.client_attach_contract
+      .process_custody,
+    "client_host_pty_after_daemon_attach_admission",
+  );
 });
 
 test("launched session cache rejects loose sessions without recipe admission", () => {
@@ -566,6 +654,19 @@ test("launched session cache rejects loose sessions without harness spawn", () =
   const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
   delete looseSession.harness_session_spawn;
   delete looseSession.harness_session_spawn_ref;
+  storage.setItem(
+    HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
+    JSON.stringify([looseSession]),
+  );
+
+  assert.deepEqual(loadHypervisorLaunchedSessionProjections({ storage }), []);
+});
+
+test("launched session cache rejects loose sessions without terminal attach", () => {
+  const storage = new MemoryStorage();
+  const looseSession = launchedSession("loose") as unknown as Record<string, unknown>;
+  delete looseSession.harness_session_terminal_attach;
+  delete looseSession.harness_session_terminal_attach_ref;
   storage.setItem(
     HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,
     JSON.stringify([looseSession]),

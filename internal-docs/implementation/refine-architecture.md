@@ -4,7 +4,7 @@ Status: internal implementation master guide.
 Owner: implementation/canon hardening workstream.
 Primary authority: `internal-docs/reverse-engineering/ioi` product/UX reference.
 Secondary authority: `docs/architecture` canon translation.
-Last reviewed against current canon: 2026-06-18.
+Last reviewed against current canon: 2026-06-19.
 
 ## Purpose
 
@@ -459,7 +459,7 @@ Blocking object/API/schema gaps:
 ```text
 Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
 Hypervisor row-level drill-in inside destination surfaces
-Hypervisor host PTY attach polish and live terminal transcript
+Live terminal transcript streaming from admitted client PTY attach projections
 CodeEditorAdapterPreference external editor/browser/VM control wiring
 wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
 Rust-derived wallet schema generation
@@ -784,6 +784,44 @@ interface HypervisorSessionLaunchRecipe {
   harness_profile_policy: "default" | "select" | "external_adapter";
   authority_scope_templates: string[];
   privacy_posture_templates: string[];
+}
+
+interface HypervisorHarnessSessionReadiness {
+  schema_version: "ioi.runtime.harness_session_readiness.v1";
+  readiness_state: "ready_for_harness_pty_attach" | "blocked";
+  spawn_ref: string;
+  launch_ref: string;
+  harness_binding_admission_ref: string;
+  receipt_refs: string[];
+  agentgres_operation_refs: string[];
+}
+
+interface HypervisorHarnessSessionTerminalAttach {
+  schema_version: "ioi.runtime.harness_session_terminal_attach.v1";
+  attach_state: "client_pty_attach_admitted" | "blocked";
+  attach_lane: "hypervisor_client_terminal_adapter";
+  spawn_ref: string;
+  readiness_ref: string;
+  client_attach_contract: {
+    root: string;
+    command_line: string;
+    initial_write: string;
+    pty_transport: "hypervisor_client_terminal_adapter";
+    process_custody: "client_host_pty_after_daemon_attach_admission";
+    transcript_stream_ref: string;
+  };
+  terminal_transcript_projection_ref: string;
+  receipt_refs: string[];
+  agentgres_operation_refs: string[];
+}
+
+interface HypervisorTerminalTranscriptProjection {
+  schema_version: "ioi.runtime.harness_terminal_transcript_projection.v1";
+  transcript_state: "awaiting_client_stream" | "streaming" | "sealed" | "failed";
+  transcript_stream_ref: string;
+  cursor: number;
+  line_count: number;
+  receipt_refs: string[];
 }
 
 type HypervisorEnvironmentLifecycleState =
@@ -2207,12 +2245,16 @@ Current implementation cut:
   returns `ioi.runtime.harness_session_binding_admission.v1`, then the app posts
   that admission to `/v1/hypervisor/harness-session-launches`, then posts the
   admitted launch to `/v1/hypervisor/harness-session-spawns`, then posts the
-  admitted spawn to `/v1/hypervisor/harness-session-readiness`. A launched
-  session may be `daemon_admitted` only when it also carries
+  admitted spawn to `/v1/hypervisor/harness-session-readiness`, then posts the
+  admitted spawn plus ready readiness record to
+  `/v1/hypervisor/harness-session-terminal-attachments`. A launched
+  host-terminal session may be `daemon_admitted` only when it also carries
   `ioi.runtime.hypervisor_session_launch_recipe_admission.v1`,
   `ioi.runtime.harness_session_launch.v1`,
-  `ioi.runtime.harness_session_spawn.v1`, and
-  `ioi.runtime.harness_session_readiness.v1` with `decision: ready`. The first
+  `ioi.runtime.harness_session_spawn.v1`,
+  `ioi.runtime.harness_session_readiness.v1` with `decision: ready`, and
+  `ioi.runtime.harness_session_terminal_attach.v1` with
+  `attach_state: client_pty_attach_admitted`. The first
   launch-ready contract is
   Codex OSS over a local Ollama/Qwen-style OpenAI-compatible model mount:
   `codex --oss --local-provider ollama --model
@@ -2222,8 +2264,12 @@ Current implementation cut:
   attach contract, PTY transport, process custody posture, receipt refs, and
   Agentgres operation refs. The readiness contract verifies the host can run
   the resolved harness route against the local Ollama/Qwen provider before
-  the native Hypervisor client may attach the host terminal and write the
-  daemon-resolved command; the client is only the PTY transport. Codex OSS is
+  a terminal attach can be admitted. The terminal attach contract binds the
+  daemon-resolved command, initial PTY write, client PTY transport, process
+  custody posture, transcript stream ref, transcript projection, receipt refs,
+  and Agentgres operation refs before the native Hypervisor client may attach
+  the host terminal and write the daemon-resolved command; the client is only
+  the PTY transport. Codex OSS is
   the first launch-ready local harness and DeepSeek TUI is the second
   launch-ready local harness:
   `deepseek --provider ollama --model ${HYPERVISOR_LOCAL_HARNESS_MODEL:-qwen}`.
@@ -2244,11 +2290,12 @@ Current implementation cut:
   blockers for the local harness bring-up. The controller seeds sessions from
   that summary instead of reconstructing loose UI refs, and the launched-session
   cache rejects records without a matching recipe admission, harness session
-  binding admission, launch, spawn, and readiness record.
+  binding admission, launch, spawn, readiness, and terminal attach record.
   The Sessions cockpit now receives launched-session projections and renders a
-  compact harness drill-in from the governed recipe/binding/launch/spawn/readiness
-  chain, including the local Codex OSS / Qwen model, PTY transport, readiness
-  state, and daemon-resolved command. `check:hypervisor-app-shell` now rebuilds
+  compact harness drill-in from the governed
+  recipe/binding/launch/spawn/readiness/attach chain, including the local Codex
+  OSS / Qwen model, PTY transport, readiness state, terminal attach state,
+  transcript ref, and daemon-resolved command. `check:hypervisor-app-shell` now rebuilds
   against the current bundle and proves the visible Sessions surface exposes the
   launched harness drill-in after a governed New Session launch.
   `harnessAdapterModel.test.ts`,

@@ -12,6 +12,7 @@ import { admitHarnessSessionBinding } from "../packages/runtime-daemon/src/runti
 import { buildHarnessSessionLaunch } from "../packages/runtime-daemon/src/runtime-harness-session-launch.mjs";
 import { buildHarnessSessionReadiness } from "../packages/runtime-daemon/src/runtime-harness-session-readiness.mjs";
 import { buildHarnessSessionSpawn } from "../packages/runtime-daemon/src/runtime-harness-session-spawn.mjs";
+import { admitHarnessSessionTerminalAttach } from "../packages/runtime-daemon/src/runtime-harness-session-terminal-attach.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const distRoot = resolve(repoRoot, "apps/hypervisor/dist");
@@ -345,6 +346,28 @@ async function createContractDaemonServer() {
                 }
                 return { status: 127, stdout: "", stderr: "not found" };
               },
+            },
+          ),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-session-terminal-attachments"
+      ) {
+        const body = await readJsonBody(request);
+        writeContractDaemonJson(
+          response,
+          admitHarnessSessionTerminalAttach(
+            {
+              ...body,
+              source:
+                body.source ??
+                "hypervisor_app_shell_contract./v1/hypervisor/harness-session-terminal-attachments",
+            },
+            {
+              nowIso: () => "2026-06-18T12:41:00.000Z",
             },
           ),
           202,
@@ -778,6 +801,20 @@ async function main() {
       )) === "ready_for_harness_pty_attach",
       "Daemon-admitted launched session did not expose PTY attach readiness.",
     );
+    assert(
+      ((await launchedSessionRow.getAttribute(
+        "data-launched-session-terminal-attach",
+      )) ?? ""
+      ).startsWith("harness-session-terminal-attach:") &&
+        (await launchedSessionRow.getAttribute(
+          "data-launched-session-terminal-attach-state",
+        )) === "client_pty_attach_admitted" &&
+        ((await launchedSessionRow.getAttribute(
+          "data-launched-session-terminal-transcript",
+        )) ?? ""
+        ).startsWith("agentgres://trace/harness-terminal-transcript/"),
+      "Daemon-admitted launched session did not expose terminal attach and transcript refs.",
+    );
     await page.evaluate(() => {
       window.localStorage.removeItem("ioi.hypervisor.daemonEndpoint");
       window.localStorage.removeItem("ioi.modelMounts.daemonEndpoint");
@@ -825,6 +862,16 @@ async function main() {
         (await sessionHarnessDrillIn.getAttribute(
           "data-session-harness-drill-in-pty-transport",
         )) === "hypervisor_client_terminal_adapter" &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-terminal-attach-state",
+        )) === "client_pty_attach_admitted" &&
+        ((await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-terminal-transcript",
+        )) ?? ""
+        ).startsWith("agentgres://trace/harness-terminal-transcript/") &&
+        (await sessionHarnessDrillIn.getAttribute(
+          "data-session-harness-drill-in-terminal-transcript-state",
+        )) === "awaiting_client_stream" &&
         drillInCommand.includes("codex --oss") &&
         drillInCommand.includes("--local-provider ollama") &&
         drillInCommand.includes("--model qwen"),

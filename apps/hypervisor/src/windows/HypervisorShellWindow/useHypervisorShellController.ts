@@ -46,6 +46,7 @@ import {
   buildHypervisorHarnessSessionLaunchFailure,
   buildHypervisorHarnessSessionReadinessFailure,
   buildHypervisorHarnessSessionSpawnFailure,
+  buildHypervisorHarnessSessionTerminalAttachFailure,
   buildHypervisorSessionLaunchRecipeAdmissionFailure,
   buildHypervisorSessionLaunchRecipeAdmissionRequest,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
@@ -60,6 +61,7 @@ import {
   requestHarnessSessionLaunch,
   requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
+  requestHarnessSessionTerminalAttach,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
@@ -529,35 +531,69 @@ export function useHypervisorShellController() {
               "Harness session spawn was not ready for host readiness verification.",
             ),
           });
+    const harnessSessionTerminalAttach =
+      harnessSessionSpawn.decision === "admitted" &&
+      harnessSessionReadiness.decision === "ready" &&
+      shouldAttemptHypervisorDaemonProjectionFetch(
+        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      )
+        ? await requestHarnessSessionTerminalAttach(
+            harnessSessionSpawn,
+            harnessSessionReadiness,
+          ).catch((error: unknown) =>
+            buildHypervisorHarnessSessionTerminalAttachFailure({
+              binding: request.launch_summary.harness_session_binding,
+              sessionSpawn: harnessSessionSpawn,
+              sessionReadiness: harnessSessionReadiness,
+              error,
+            }),
+          )
+        : buildHypervisorHarnessSessionTerminalAttachFailure({
+            binding: request.launch_summary.harness_session_binding,
+            sessionSpawn: harnessSessionSpawn,
+            sessionReadiness: harnessSessionReadiness,
+            error: new Error(
+              "Harness session readiness was not admitted for terminal attach.",
+            ),
+          });
     if (
       harnessSessionSpawn.decision === "admitted" &&
       harnessSessionReadiness.decision === "ready" &&
+      harnessSessionTerminalAttach.decision === "admitted" &&
       isHypervisorClientRuntime()
     ) {
       try {
         const terminal = await hostWorkspaceAdapter.createTerminalSession(
-          harnessSessionSpawn.terminal_attach_contract.root,
-          harnessSessionSpawn.terminal_attach_contract.cols,
-          harnessSessionSpawn.terminal_attach_contract.rows,
+          harnessSessionTerminalAttach.client_attach_contract.root,
+          harnessSessionTerminalAttach.client_attach_contract.cols,
+          harnessSessionTerminalAttach.client_attach_contract.rows,
         );
         await hostWorkspaceAdapter.writeTerminalSession(
           terminal.sessionId,
-          `${harnessSessionSpawn.terminal_attach_contract.command_line}\n`,
+          harnessSessionTerminalAttach.client_attach_contract.initial_write,
         );
         await recordHypervisorLaunchReceipt(
-          "hypervisor_harness_session_spawn_attached",
+          "hypervisor_harness_session_terminal_attach_admitted",
           {
             spawnId: harnessSessionSpawn.spawn_id,
+            attachId: harnessSessionTerminalAttach.attach_id,
             terminalId: terminal.sessionId,
-            root: harnessSessionSpawn.terminal_attach_contract.root,
-            commandRef: harnessSessionSpawn.command_contract_ref,
+            root: harnessSessionTerminalAttach.client_attach_contract.root,
+            commandRef: harnessSessionTerminalAttach.command_contract_ref,
+            transcriptStreamRef:
+              harnessSessionTerminalAttach.client_attach_contract
+                .transcript_stream_ref,
           },
         );
       } catch (error) {
         await recordHypervisorLaunchReceipt(
-          "hypervisor_harness_session_spawn_attach_failed",
+          "hypervisor_harness_session_terminal_attach_failed",
           {
             spawnId: harnessSessionSpawn.spawn_id,
+            attachId:
+              harnessSessionTerminalAttach.decision === "admitted"
+                ? harnessSessionTerminalAttach.attach_id
+                : null,
             error: error instanceof Error ? error.message : String(error ?? ""),
           },
         );
@@ -573,6 +609,7 @@ export function useHypervisorShellController() {
       harnessSessionLaunch,
       harnessSessionSpawn,
       harnessSessionReadiness,
+      harnessSessionTerminalAttach,
     });
 
     setCurrentProjectId(project.id);

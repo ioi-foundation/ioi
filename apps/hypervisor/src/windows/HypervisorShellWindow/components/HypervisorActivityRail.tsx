@@ -363,6 +363,31 @@ function launchedSessionReadinessNextAction(
     : "";
 }
 
+function launchedSessionTerminalAttachRef(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach && "attach_id" in attach ? attach.attach_id : "";
+}
+
+function launchedSessionTerminalAttachState(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach && "attach_state" in attach ? attach.attach_state : "";
+}
+
+function launchedSessionTerminalTranscriptRef(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const attach = session.harness_session_terminal_attach;
+  return attach &&
+    "client_attach_contract" in attach &&
+    attach.client_attach_contract.transcript_stream_ref
+    ? attach.client_attach_contract.transcript_stream_ref
+    : "";
+}
+
 export function HypervisorActivityRail({
   activeView,
   onViewChange,
@@ -554,6 +579,15 @@ export function HypervisorActivityRail({
                 }
                 data-launched-session-readiness-next-action={
                   launchedSessionReadinessNextAction(session)
+                }
+                data-launched-session-terminal-attach={
+                  launchedSessionTerminalAttachRef(session)
+                }
+                data-launched-session-terminal-attach-state={
+                  launchedSessionTerminalAttachState(session)
+                }
+                data-launched-session-terminal-transcript={
+                  launchedSessionTerminalTranscriptRef(session)
                 }
                 title={launchedSessionRailTitle(session)}
                 onClick={() => onViewChange("sessions")}

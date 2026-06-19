@@ -246,6 +246,12 @@ const runtimeHarnessSessionReadinessSource = read(
 const runtimeHarnessSessionReadinessTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
 );
+const runtimeHarnessSessionTerminalAttachSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.mjs",
+);
+const runtimeHarnessSessionTerminalAttachTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.test.mjs",
+);
 const runtimeClaudeCodeExampleShimSource = read(
   "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
 );
@@ -339,6 +345,7 @@ const runtimeWorkerPackageInstallAdmissionTestSource = read(
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
 );
+const hypervisorActivityRailSource = hypervisorActivityBarSource;
 const hypervisorActivityBarIconsSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRailIcons.tsx",
 );
@@ -1990,6 +1997,77 @@ assert(
   "Daemon-admitted harness sessions must prove local host readiness separately from spawn: the selected harness command/probe, Ollama provider reachability, and the selected local Qwen model are checked before client PTY attach.",
 );
 assert(
+  "hypervisor-harness-session-terminal-attach-contract",
+  runtimeHarnessSessionTerminalAttachSource.includes(
+    "ioi.runtime.harness_session_terminal_attach.v1",
+  ) &&
+    runtimeHarnessSessionTerminalAttachSource.includes(
+      "admitHarnessSessionTerminalAttach",
+    ) &&
+    runtimeHarnessSessionTerminalAttachSource.includes(
+      "client_pty_attach_admitted",
+    ) &&
+    runtimeHarnessSessionTerminalAttachSource.includes(
+      "ioi.runtime.harness_terminal_transcript_projection.v1",
+    ) &&
+    runtimeHarnessSessionTerminalAttachSource.includes(
+      "client_host_pty_after_daemon_attach_admission",
+    ) &&
+    runtimeHarnessSessionTerminalAttachTestSource.includes(
+      "admits Codex OSS Qwen terminal attach",
+    ) &&
+    runtimeHarnessSessionTerminalAttachTestSource.includes(
+      "rejects terminal attach when readiness is blocked",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-session-terminal-attachments",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose harness session terminal attach contracts",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessSessionTerminalAttach",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "requestHarnessSessionTerminalAttach",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "client_attach_contract.initial_write",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "HypervisorHarnessSessionTerminalAttachRecord",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "normalizeHarnessSessionTerminalAttach",
+    ) &&
+    hypervisorLaunchedSessionPersistenceSource.includes(
+      "harness_session_terminal_attach_ref",
+    ) &&
+    hypervisorActivityRailSource.includes(
+      "data-launched-session-terminal-attach",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-session-harness-drill-in-terminal-transcript",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "data-launched-session-terminal-transcript",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.mjs",
+    "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.test.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "scripts/hypervisor-app-shell-contract.mjs",
+  ],
+  "Daemon-admitted harness sessions must not stop at readiness: terminal attach is a daemon-admitted client-PTY contract with transcript refs before the host adapter writes the command.",
+);
+assert(
   "hypervisor-harness-container-lane-contract",
   runtimeHarnessContainerLaneSource.includes(
     "ioi.hypervisor.harness_container_lane_plan.v1",
@@ -2591,6 +2669,18 @@ assert(
     ) &&
     hypervisorAppShellContractSource.includes(
       "ready_for_harness_pty_attach",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "data-launched-session-terminal-attach-state",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "client_pty_attach_admitted",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "data-session-harness-drill-in-terminal-transcript-state",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "awaiting_client_stream",
     ) &&
     hypervisorAppShellContractSource.includes("--local-provider ollama") &&
     hypervisorAppShellContractSource.includes(

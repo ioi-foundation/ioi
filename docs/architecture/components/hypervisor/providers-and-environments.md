@@ -7,7 +7,7 @@ and provider integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 separate application surface.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-19.
 
 ## Canonical Definition
 
@@ -235,6 +235,72 @@ operator opens Hypervisor
   -> storage backends persist encrypted payload/archive bytes
   -> session becomes active, idle, archived, restore_available, or deleted
 ```
+
+Session lifecycle logs should be projected in human-readable phases similar to
+provider environment consoles, but the canonical object names remain
+Hypervisor/Agentgres objects:
+
+```text
+Booting Hypervisor node
+  provider VM, local machine, HypervisorOS node, or customer cluster starts
+
+Preparing provider or local environment
+  disk, network, builder/cache, image, volume, GPU, and trace setup
+
+Restoring workspace and archive material
+  encrypted payloads, artifact refs, archive refs, repo refs, and cache refs
+  hydrate the workspace from storage backends
+
+Reconciling container or dev environment
+  devcontainer, container, microVM, WASM workload, package, or host lane is
+  created, updated, or reused
+
+Starting access services
+  SSH, browser, editor, terminal, port, log, and support access surfaces bind to
+  session leases
+
+Mounting model, harness, and privacy posture
+  model route, harness selection, cTEE/private workspace posture, and authority
+  scopes are bound under daemon gates
+
+Admitting session execution
+  recipe admission -> harness binding admission -> launch -> spawn ->
+  readiness -> terminal attach, with Agentgres refs, receipts, and state roots
+
+Attaching adapters
+  editor, terminal, browser, OS, VM, node, and hosted-worker adapters attach as
+  transports or projections, not runtime truth
+
+Running and monitoring
+  file watchers, SCM status, services, tasks, ports, logs, model/harness
+  transcripts, periodic consistency checks, receipts, and activity signals
+  stream into projections
+
+Archiving or zero-to-idle
+  session pauses, seals outputs, updates archive refs, writes restore receipts,
+  and releases provider resources according to policy
+
+Restoring or reinitializing
+  Hypervisor replays Agentgres truth, validates restore receipts and state
+  roots, resolves archive/payload refs, rehydrates provider material, then
+  re-admits access and execution contracts
+
+Shutting down
+  leases are revoked or expired, ports close, transcripts seal, receipts commit,
+  and provider resources stop or delete by policy
+```
+
+Provider logs, container IDs, SSH readiness, devcontainer output, file watcher
+events, and resource usage are evidence. They help explain the lifecycle and
+debug incidents, but they do not replace Agentgres operation admission, object
+heads, state roots, receipt refs, archive refs, and restore receipts.
+
+Encrypted blobs, Filecoin payloads, S3 objects, local cache directories, and
+container volumes may be continuously updated restore material, similar to
+pushing workspace state to a durable remote. They become valid restore inputs
+only when Agentgres records the operation that created or adopted them, the
+state root or object heads they bind, the policy/authority context, and the
+restore/import receipt chain.
 
 ## Conformance Checks
 

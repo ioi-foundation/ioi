@@ -136,8 +136,8 @@ assert.match(
 
 assert.match(
   source,
-  /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\][\s\S]*const launchedHarnessSession[\s\S]*data-session-harness-drill-in=\{[\s\S]*data-session-harness-drill-in-spawn-state=\{[\s\S]*data-session-harness-drill-in-model-name=\{[\s\S]*data-session-harness-drill-in-pty-transport=\{[\s\S]*data-session-harness-drill-in-command=\{[\s\S]*launchedHarnessSession\.harness_session_binding[\s\S]*\.harness_label/,
-  "Sessions should render launched harness readiness from governed session projections instead of hiding Codex OSS/Qwen behind rail-only metadata",
+  /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\][\s\S]*const launchedHarnessSession[\s\S]*data-session-harness-drill-in=\{[\s\S]*data-session-harness-drill-in-spawn-state=\{[\s\S]*data-session-harness-drill-in-model-name=\{[\s\S]*data-session-harness-drill-in-pty-transport=\{[\s\S]*data-session-harness-drill-in-terminal-attach=\{[\s\S]*data-session-harness-drill-in-terminal-transcript=\{[\s\S]*data-session-harness-drill-in-command=\{[\s\S]*launchedHarnessSession\.harness_session_binding[\s\S]*\.harness_label/,
+  "Sessions should render launched harness readiness, attach, and transcript state from governed session projections instead of hiding Codex OSS/Qwen behind rail-only metadata",
 );
 
 assert.doesNotMatch(

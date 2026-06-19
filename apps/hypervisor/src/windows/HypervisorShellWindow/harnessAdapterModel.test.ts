@@ -26,6 +26,7 @@ import {
   requestHarnessSessionLaunch,
   requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
+  requestHarnessSessionTerminalAttach,
   requestHarnessPublicFixtureRun,
 } from "./harnessAdapterModel.ts";
 import {
@@ -772,6 +773,39 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     authorityScopeRefs: recipe.authority_scope_templates,
     receiptPreviewRef: "receipt-preview:new-session/admitted",
   });
+  const sessionLaunchRecipeAdmission = {
+    schema_version:
+      "ioi.runtime.hypervisor_session_launch_recipe_admission.v1" as const,
+    admission_id: "hypervisor-session-launch-recipe-admission:local-codex",
+    decision: "admitted" as const,
+    admission_state: "admitted_for_session_binding" as const,
+    recipe_ref: recipe.recipe_id,
+    recipe_kind: recipe.kind,
+    surface_id: recipe.surface_id,
+    target_binding_ref: summary.target_binding_ref,
+    project_ref: "project:ioi",
+    operator_intent_ref: summary.target_binding.operator_intent_ref,
+    session_route_ref: summary.target_binding.session_route_ref,
+    code_editor_adapter_target_ref:
+      summary.target_binding.code_editor_adapter_target_ref,
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    privacy_posture_ref: "privacy:ctee-private-workspace",
+    authority_scope_refs: recipe.authority_scope_templates,
+    receipt_preview_ref: "receipt-preview:new-session/admitted",
+    expected_receipt_refs:
+      summary.harness_session_binding.expected_receipt_refs,
+    agentgres_operation_refs: [
+      "agentgres://operation/hypervisor-session-launch-recipe-admission/local-codex",
+    ],
+    receipt_refs: [
+      "receipt://hypervisor-session-launch-recipe-admission/local-codex",
+    ],
+    state_root:
+      "agentgres://state-root/hypervisor-session-launch-recipe-admission/local-codex",
+    requiresDaemonGate: true as const,
+    runtimeTruthSource: "daemon-runtime" as const,
+    admitted_at: "2026-06-18T12:36:00.000Z",
+  };
   const harnessAdmission = await requestHarnessSessionBindingAdmission(
     summary.harness_session_binding,
     {
@@ -1137,6 +1171,107 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     harnessReadiness.readiness_state,
     "ready_for_harness_pty_attach",
   );
+  const harnessTerminalAttach = await requestHarnessSessionTerminalAttach(
+    harnessSpawn,
+    harnessReadiness,
+    {
+      endpoint: "http://daemon.local",
+      fetchImpl: async (input, init) => {
+        assert.equal(
+          input,
+          "http://daemon.local/v1/hypervisor/harness-session-terminal-attachments",
+        );
+        assert.equal(init?.method, "POST");
+        assert.equal(init?.headers?.["content-type"], "application/json");
+        const request = JSON.parse(init?.body ?? "{}");
+        assert.equal(request.session_spawn.spawn_id, harnessSpawn.spawn_id);
+        assert.equal(
+          request.session_readiness.readiness_id,
+          harnessReadiness.readiness_id,
+        );
+        return {
+          ok: true,
+          status: 202,
+          text: async () =>
+            JSON.stringify({
+              schema_version:
+                "ioi.runtime.harness_session_terminal_attach.v1",
+              attach_id: "harness-session-terminal-attach:local-codex",
+              decision: "admitted",
+              attach_state: "client_pty_attach_admitted",
+              attach_lane: "hypervisor_client_terminal_adapter",
+              spawn_id: harnessSpawn.spawn_id,
+              readiness_id: harnessReadiness.readiness_id,
+              launch_id: harnessSpawn.launch_id,
+              session_binding_ref: harnessSpawn.session_binding_ref,
+              session_route_ref: harnessSpawn.session_route_ref,
+              harness_selection_ref: harnessSpawn.harness_selection_ref,
+              agent_harness_adapter_id:
+                harnessSpawn.agent_harness_adapter_id,
+              model_configuration_ref: harnessSpawn.model_configuration_ref,
+              model_route_ref: harnessSpawn.model_route_ref,
+              model_name: "qwen2.5-coder:7b",
+              workspace_ref: harnessSpawn.workspace_ref,
+              workspace_root: harnessSpawn.workspace_root,
+              terminal_session_ref: harnessSpawn.terminal_session_ref,
+              command_contract_ref: harnessSpawn.command_contract_ref,
+              command_contract: harnessSpawn.command_contract,
+              client_attach_contract: {
+                ...harnessSpawn.terminal_attach_contract,
+                initial_write:
+                  `${harnessSpawn.terminal_attach_contract.command_line}\n`,
+                transcript_stream_ref:
+                  "agentgres://trace/harness-terminal-transcript/local-codex",
+                pty_transport: "hypervisor_client_terminal_adapter",
+                process_custody:
+                  "client_host_pty_after_daemon_attach_admission",
+              },
+              terminal_transcript_projection: {
+                schema_version:
+                  "ioi.runtime.harness_terminal_transcript_projection.v1",
+                transcript_id: "harness-terminal-transcript:local-codex",
+                transcript_state: "awaiting_client_stream",
+                transcript_stream_ref:
+                  "agentgres://trace/harness-terminal-transcript/local-codex",
+                cursor: 0,
+                lines: [
+                  {
+                    stream: "system",
+                    text:
+                      "Daemon admitted client PTY attach after harness spawn and host readiness checks.",
+                  },
+                  {
+                    stream: "stdin",
+                    text: harnessSpawn.terminal_attach_contract.command_line,
+                  },
+                ],
+                runtimeTruthSource: "daemon-runtime",
+              },
+              workspace_mount_policy: harnessSpawn.workspace_mount_policy,
+              privacy_posture_ref: harnessSpawn.privacy_posture_ref,
+              authority_scope_refs: harnessSpawn.authority_scope_refs,
+              receipt_policy_ref: harnessSpawn.receipt_policy_ref,
+              receipt_refs: [
+                "receipt://harness-session-terminal-attach/local-codex",
+              ],
+              agentgres_operation_refs: [
+                "agentgres://operation/harness-session-terminal-attach/local-codex",
+              ],
+              state_root:
+                "agentgres://state-root/harness-session-terminal-attach/local-codex",
+              attached_at: "2026-06-18T12:41:00.000Z",
+              requiresDaemonGate: true,
+              runtimeTruthSource: "daemon-runtime",
+            }),
+        };
+      },
+    },
+  );
+  assert.equal(harnessTerminalAttach.decision, "admitted");
+  assert.equal(
+    harnessTerminalAttach.attach_state,
+    "client_pty_attach_admitted",
+  );
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
       recipe_id: recipe.recipe_id,
@@ -1154,10 +1289,12 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     projectLabel: "IOI",
     launchedAtMs: 1_718_001,
     codeEditorAdapterAdmission: admission,
+    sessionLaunchRecipeAdmission,
     harnessSessionBindingAdmission: harnessAdmission,
     harnessSessionLaunch: harnessLaunch,
     harnessSessionSpawn: harnessSpawn,
     harnessSessionReadiness: harnessReadiness,
+    harnessSessionTerminalAttach: harnessTerminalAttach,
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
@@ -1189,6 +1326,14 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     "harness-session-readiness:local-codex",
   );
   assert.equal(launchedSession.harness_session_readiness, harnessReadiness);
+  assert.equal(
+    launchedSession.harness_session_terminal_attach_ref,
+    "harness-session-terminal-attach:local-codex",
+  );
+  assert.equal(
+    launchedSession.harness_session_terminal_attach,
+    harnessTerminalAttach,
+  );
 });
 
 test("harness session binding admission failures are explicit session state", async () => {

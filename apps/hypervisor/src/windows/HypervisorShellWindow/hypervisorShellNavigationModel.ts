@@ -4,6 +4,7 @@ import {
   HarnessSessionLaunchError,
   HarnessSessionReadinessError,
   HarnessSessionSpawnError,
+  HarnessSessionTerminalAttachError,
   buildHypervisorHarnessSessionBinding,
   getHarnessSelectionRef,
   readHypervisorHarnessPublicFixtureDaemonEndpoint,
@@ -13,6 +14,7 @@ import {
   type HypervisorHarnessSessionLaunch,
   type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
+  type HypervisorHarnessSessionTerminalAttach,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
@@ -34,14 +36,17 @@ export {
   requestHarnessSessionLaunch,
   requestHarnessSessionReadiness,
   requestHarnessSessionSpawn,
+  requestHarnessSessionTerminalAttach,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
   HarnessSessionReadinessError,
   HarnessSessionSpawnError,
+  HarnessSessionTerminalAttachError,
   type HypervisorHarnessSessionBindingAdmission,
   type HypervisorHarnessSessionLaunch,
   type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
+  type HypervisorHarnessSessionTerminalAttach,
 } from "./harnessAdapterModel.ts";
 
 export {
@@ -440,6 +445,26 @@ export type HypervisorHarnessSessionReadinessRecord =
   | HypervisorHarnessSessionReadiness
   | HypervisorHarnessSessionReadinessFailure;
 
+export interface HypervisorHarnessSessionTerminalAttachFailure {
+  schema_version: "ioi.hypervisor.harness_session_terminal_attach_failure.v1";
+  attach_id: string;
+  spawn_id: string | null;
+  readiness_id: string | null;
+  launch_id: string | null;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  attach_state: "daemon_unavailable" | "attach_blocked";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorHarnessSessionTerminalAttachRecord =
+  | HypervisorHarnessSessionTerminalAttach
+  | HypervisorHarnessSessionTerminalAttachFailure;
+
 const HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_PATH =
   "/v1/hypervisor/session-launch-recipe-admissions";
 
@@ -503,6 +528,10 @@ export interface HypervisorLaunchedSessionProjection {
   harness_session_spawn_ref: string | null;
   harness_session_readiness: HypervisorHarnessSessionReadinessRecord | null;
   harness_session_readiness_ref: string | null;
+  harness_session_terminal_attach:
+    | HypervisorHarnessSessionTerminalAttachRecord
+    | null;
+  harness_session_terminal_attach_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -732,6 +761,7 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionLaunch = null,
   harnessSessionSpawn = null,
   harnessSessionReadiness = null,
+  harnessSessionTerminalAttach = null,
   displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
@@ -744,6 +774,9 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionLaunch?: HypervisorHarnessSessionLaunchRecord | null;
   harnessSessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
   harnessSessionReadiness?: HypervisorHarnessSessionReadinessRecord | null;
+  harnessSessionTerminalAttach?:
+    | HypervisorHarnessSessionTerminalAttachRecord
+    | null;
   displayMeta?: {
     branchLabel?: string | null;
     relativeTimeLabel?: string | null;
@@ -763,6 +796,7 @@ export function buildHypervisorLaunchedSessionProjection({
     harnessSessionLaunch?.decision,
     harnessSessionSpawn?.decision,
     harnessSessionReadiness?.decision,
+    harnessSessionTerminalAttach?.decision,
   ];
   const admissionState =
     admissionDecisions.includes("blocked")
@@ -772,6 +806,7 @@ export function buildHypervisorLaunchedSessionProjection({
         : admissionDecisions.every(
               (decision) => decision === "admitted" || decision === "ready",
             ) && harnessSessionReadiness?.decision === "ready"
+              && harnessSessionTerminalAttach?.decision === "admitted"
           ? "daemon_admitted"
           : "pending_daemon_admission";
   return {
@@ -814,6 +849,11 @@ export function buildHypervisorLaunchedSessionProjection({
     harness_session_readiness_ref:
       harnessSessionReadiness && "readiness_id" in harnessSessionReadiness
         ? harnessSessionReadiness.readiness_id
+        : null,
+    harness_session_terminal_attach: harnessSessionTerminalAttach ?? null,
+    harness_session_terminal_attach_ref:
+      harnessSessionTerminalAttach && "attach_id" in harnessSessionTerminalAttach
+        ? harnessSessionTerminalAttach.attach_id
         : null,
     launch_summary: request.launch_summary,
     runtimeTruthSource: "daemon-runtime",
@@ -991,6 +1031,51 @@ export function buildHypervisorHarnessSessionReadinessFailure({
     readiness_state:
       typeof httpStatus === "number" && httpStatus < 500
         ? "host_readiness_blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorHarnessSessionTerminalAttachFailure({
+  binding,
+  sessionSpawn,
+  sessionReadiness,
+  error,
+}: {
+  binding: HypervisorHarnessSessionBinding;
+  sessionSpawn?: HypervisorHarnessSessionSpawnRecord | null;
+  sessionReadiness?: HypervisorHarnessSessionReadinessRecord | null;
+  error: unknown;
+}): HypervisorHarnessSessionTerminalAttachFailure {
+  const httpStatus =
+    error instanceof HarnessSessionTerminalAttachError ? error.status : null;
+  const spawnId =
+    sessionSpawn && "spawn_id" in sessionSpawn ? sessionSpawn.spawn_id : null;
+  const launchId =
+    sessionSpawn && "launch_id" in sessionSpawn ? sessionSpawn.launch_id : null;
+  const readinessId =
+    sessionReadiness && "readiness_id" in sessionReadiness
+      ? sessionReadiness.readiness_id
+      : null;
+  return {
+    schema_version:
+      "ioi.hypervisor.harness_session_terminal_attach_failure.v1",
+    attach_id: `${binding.session_binding_ref}/terminal-attach-failure`,
+    spawn_id: spawnId,
+    readiness_id: readinessId,
+    launch_id: launchId,
+    session_binding_ref: binding.session_binding_ref,
+    session_route_ref: binding.session_route_ref,
+    harness_selection_ref: binding.harness_selection_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    attach_state:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "attach_blocked"
         : "daemon_unavailable",
     error_message: error instanceof Error ? error.message : String(error),
     http_status: httpStatus,

@@ -410,6 +410,59 @@ export interface HypervisorHarnessSessionReadiness {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HypervisorHarnessTerminalTranscriptLine {
+  stream: "system" | "stdin" | "stdout" | "stderr";
+  text: string;
+}
+
+export interface HypervisorHarnessSessionTerminalAttach {
+  schema_version: "ioi.runtime.harness_session_terminal_attach.v1";
+  attach_id: string;
+  decision: "admitted";
+  attach_state: "client_pty_attach_admitted";
+  attach_lane: "hypervisor_client_terminal_adapter";
+  spawn_id: string;
+  readiness_id: string;
+  launch_id: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  agent_harness_adapter_id: AgentHarnessAdapterId | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_name: string;
+  workspace_ref: string;
+  workspace_root: string;
+  terminal_session_ref: string;
+  command_contract_ref: string;
+  command_contract: HypervisorHarnessSessionSpawn["command_contract"];
+  client_attach_contract: HypervisorHarnessSessionSpawn["terminal_attach_contract"] & {
+    initial_write: string;
+    transcript_stream_ref: string;
+    pty_transport: "hypervisor_client_terminal_adapter";
+    process_custody: "client_host_pty_after_daemon_attach_admission";
+  };
+  terminal_transcript_projection: {
+    schema_version: "ioi.runtime.harness_terminal_transcript_projection.v1";
+    transcript_id: string;
+    transcript_state: "awaiting_client_stream" | "streaming" | "closed";
+    transcript_stream_ref: string;
+    cursor: number;
+    lines: HypervisorHarnessTerminalTranscriptLine[];
+    runtimeTruthSource: "daemon-runtime";
+  };
+  workspace_mount_policy: HarnessWorkspaceMountPolicy;
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_policy_ref: string;
+  receipt_refs: string[];
+  agentgres_operation_refs: string[];
+  state_root: string;
+  attached_at: string;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export class HarnessSessionBindingAdmissionError extends Error {
   readonly endpoint: string;
   readonly responseBody: string;
@@ -498,6 +551,28 @@ export class HarnessSessionReadinessError extends Error {
   }
 }
 
+export class HarnessSessionTerminalAttachError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`harness session terminal attach failed with ${status}`);
+    this.name = "HarnessSessionTerminalAttachError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
 export interface HarnessAdapterTestbedFixture {
   schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
   fixture_id: string;
@@ -552,6 +627,8 @@ export const HYPERVISOR_HARNESS_SESSION_SPAWN_PATH =
   "/v1/hypervisor/harness-session-spawns";
 export const HYPERVISOR_HARNESS_SESSION_READINESS_PATH =
   "/v1/hypervisor/harness-session-readiness";
+export const HYPERVISOR_HARNESS_SESSION_TERMINAL_ATTACH_PATH =
+  "/v1/hypervisor/harness-session-terminal-attachments";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
   "/v1/hypervisor/harness-public-fixture-runs";
 export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY =
@@ -1282,6 +1359,11 @@ interface RequestHarnessSessionReadinessOptions {
   modelName?: string;
 }
 
+interface RequestHarnessSessionTerminalAttachOptions {
+  endpoint?: string;
+  fetchImpl?: HarnessFetchLike;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1865,6 +1947,154 @@ function normalizeHarnessSessionReadiness(
   };
 }
 
+function normalizeHarnessSessionTerminalAttach(
+  value: unknown,
+): HypervisorHarnessSessionTerminalAttach {
+  const record = objectRecord(value);
+  const commandContract = objectRecord(record.command_contract);
+  const clientAttachContract = objectRecord(record.client_attach_contract);
+  const transcript = objectRecord(record.terminal_transcript_projection);
+  return {
+    schema_version: "ioi.runtime.harness_session_terminal_attach.v1",
+    attach_id:
+      nullableString(record.attach_id) ??
+      "harness-session-terminal-attach:unknown",
+    decision: "admitted",
+    attach_state: "client_pty_attach_admitted",
+    attach_lane: "hypervisor_client_terminal_adapter",
+    spawn_id: nullableString(record.spawn_id) ?? "harness-session-spawn:unknown",
+    readiness_id:
+      nullableString(record.readiness_id) ??
+      "harness-session-readiness:unknown",
+    launch_id:
+      nullableString(record.launch_id) ?? "harness-session-launch:unknown",
+    session_binding_ref:
+      nullableString(record.session_binding_ref) ??
+      "harness-session-binding:unknown",
+    session_route_ref:
+      nullableString(record.session_route_ref) ?? "session-route:unknown",
+    harness_selection_ref:
+      nullableString(record.harness_selection_ref) ??
+      "agent-harness-adapter:codex_cli",
+    agent_harness_adapter_id:
+      (nullableString(record.agent_harness_adapter_id) as AgentHarnessAdapterId) ??
+      "codex_cli",
+    model_configuration_ref:
+      nullableString(record.model_configuration_ref) ??
+      HYPERVISOR_LOCAL_CODEX_OSS_QWEN_MODEL_CONFIGURATION_REF,
+    model_route_ref:
+      nullableString(record.model_route_ref) ??
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    model_name: nullableString(record.model_name) ?? "qwen",
+    workspace_ref: nullableString(record.workspace_ref) ?? "workspace:unknown",
+    workspace_root: nullableString(record.workspace_root) ?? ".",
+    terminal_session_ref:
+      nullableString(record.terminal_session_ref) ??
+      "terminal-session:unknown",
+    command_contract_ref:
+      nullableString(record.command_contract_ref) ??
+      "host-command:codex-cli/local-ollama-qwen",
+    command_contract: {
+      command_ref:
+        nullableString(commandContract.command_ref) ??
+        "host-command:codex-cli/local-ollama-qwen",
+      binary_name: nullableString(commandContract.binary_name) ?? "codex",
+      argv_template: stringList(commandContract.argv_template, []),
+      example_script_ref: nullableString(commandContract.example_script_ref),
+      example_script_env: nullableString(commandContract.example_script_env),
+      readiness_probe_argv_template: stringList(
+        commandContract.readiness_probe_argv_template,
+        [],
+      ),
+      env_policy_ref:
+        nullableString(commandContract.env_policy_ref) ??
+        "env-policy:harness-session/local-ollama-qwen",
+      secret_release_policy: "none",
+      requires_pty: true,
+      workspace_env:
+        nullableString(commandContract.workspace_env) ??
+        "HYPERVISOR_SESSION_WORKSPACE",
+      model_env:
+        nullableString(commandContract.model_env) ??
+        "HYPERVISOR_LOCAL_HARNESS_MODEL",
+      resolved_argv: stringList(commandContract.resolved_argv, []),
+      readiness_probe_argv: stringList(commandContract.readiness_probe_argv, []),
+      resolved_command_line:
+        nullableString(commandContract.resolved_command_line) ?? "codex --oss",
+      pty_transport: "hypervisor_client_terminal_adapter",
+      process_custody:
+        nullableString(commandContract.process_custody) ===
+        "client_host_pty_after_daemon_attach_admission"
+          ? "client_host_pty_after_daemon_spawn_admission"
+          : "client_host_pty_after_daemon_spawn_admission",
+    },
+    client_attach_contract: {
+      root: nullableString(clientAttachContract.root) ?? ".",
+      cols:
+        typeof clientAttachContract.cols === "number"
+          ? clientAttachContract.cols
+          : 120,
+      rows:
+        typeof clientAttachContract.rows === "number"
+          ? clientAttachContract.rows
+          : 32,
+      command_line:
+        nullableString(clientAttachContract.command_line) ?? "codex --oss",
+      requires_pty: true,
+      launch_after_attach: true,
+      initial_write:
+        nullableString(clientAttachContract.initial_write) ?? "codex --oss\n",
+      transcript_stream_ref:
+        nullableString(clientAttachContract.transcript_stream_ref) ??
+        "agentgres://trace/harness-terminal-transcript/unknown",
+      pty_transport: "hypervisor_client_terminal_adapter",
+      process_custody: "client_host_pty_after_daemon_attach_admission",
+    },
+    terminal_transcript_projection: {
+      schema_version: "ioi.runtime.harness_terminal_transcript_projection.v1",
+      transcript_id:
+        nullableString(transcript.transcript_id) ??
+        "harness-terminal-transcript:unknown",
+      transcript_state:
+        (nullableString(
+          transcript.transcript_state,
+        ) as HypervisorHarnessSessionTerminalAttach["terminal_transcript_projection"]["transcript_state"]) ??
+        "awaiting_client_stream",
+      transcript_stream_ref:
+        nullableString(transcript.transcript_stream_ref) ??
+        "agentgres://trace/harness-terminal-transcript/unknown",
+      cursor:
+        typeof transcript.cursor === "number" && Number.isFinite(transcript.cursor)
+          ? transcript.cursor
+          : 0,
+      lines: arrayRecords(transcript.lines).map((line) => ({
+        stream:
+          (nullableString(line.stream) as HypervisorHarnessTerminalTranscriptLine["stream"]) ??
+          "system",
+        text: nullableString(line.text) ?? "",
+      })),
+      runtimeTruthSource: "daemon-runtime",
+    },
+    workspace_mount_policy:
+      (nullableString(record.workspace_mount_policy) as HarnessWorkspaceMountPolicy) ??
+      "redacted_projection",
+    privacy_posture_ref:
+      nullableString(record.privacy_posture_ref) ?? "privacy:redacted-projection",
+    authority_scope_refs: stringList(record.authority_scope_refs, []),
+    receipt_policy_ref:
+      nullableString(record.receipt_policy_ref) ??
+      "receipt-policy:harness-adapter/default",
+    receipt_refs: stringList(record.receipt_refs, []),
+    agentgres_operation_refs: stringList(record.agentgres_operation_refs, []),
+    state_root:
+      nullableString(record.state_root) ??
+      "agentgres://state-root/harness-session-terminal-attach/unknown",
+    attached_at: nullableString(record.attached_at) ?? new Date().toISOString(),
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 export async function requestHarnessSessionBindingAdmission(
   binding: HypervisorHarnessSessionBinding,
   options: RequestHarnessSessionBindingAdmissionOptions = {},
@@ -1998,6 +2228,40 @@ export async function requestHarnessSessionReadiness(
     });
   }
   return normalizeHarnessSessionReadiness(text ? JSON.parse(text) : {});
+}
+
+export async function requestHarnessSessionTerminalAttach(
+  sessionSpawn: HypervisorHarnessSessionSpawn,
+  sessionReadiness: HypervisorHarnessSessionReadiness,
+  options: RequestHarnessSessionTerminalAttachOptions = {},
+): Promise<HypervisorHarnessSessionTerminalAttach> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHarnessPublicFixtureDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for harness session terminal attach");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HARNESS_SESSION_TERMINAL_ATTACH_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      session_spawn: sessionSpawn,
+      session_readiness: sessionReadiness,
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HarnessSessionTerminalAttachError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeHarnessSessionTerminalAttach(text ? JSON.parse(text) : {});
 }
 
 export async function requestHarnessPublicFixtureRun({
