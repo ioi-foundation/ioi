@@ -137,6 +137,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
+        .route("/v1/responses", post(handle_responses))
+        .route("/v1/messages", post(handle_messages))
+        .route("/v1/embeddings", post(handle_embeddings))
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
         .with_state(state);
 
@@ -206,6 +209,26 @@ fn flatten_messages(body: &Value) -> String {
             out.push('\n');
         }
         return out;
+    }
+    if let Some(content) = body
+        .get("input")
+        .and_then(|input| match input {
+            Value::String(text) => Some(text.clone()),
+            Value::Array(parts) => Some(
+                parts
+                    .iter()
+                    .filter_map(|part| {
+                        part.as_str()
+                            .map(str::to_string)
+                            .or_else(|| part.get("text").and_then(|t| t.as_str()).map(str::to_string))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            ),
+            _ => None,
+        })
+    {
+        return content;
     }
     body.get("prompt")
         .or_else(|| body.get("seed_intent"))
@@ -1444,15 +1467,214 @@ async fn handle_read_projection(
     })))
 }
 
-/// OpenAI-compatible chat completion via the real inference runtime. Honest
-/// error (BAD_GATEWAY) when no model route answers — never a faked completion.
+// ---- Phase 5c.4b: native-local inference edge (chat/responses/messages/embeddings) ----
+
+/// The route -> endpoint -> provider -> backend binding for an inference call,
+/// resolved from the mounted endpoint whose model_id matches the request.
+struct RouteResolution {
+    route_id: String,
+    model: String,
+    endpoint_id: String,
+    provider_id: String,
+    backend_id: String,
+    is_native_local: bool,
+}
+
+fn endpoint_for_model(st: &DaemonState, model: &str) -> Option<Value> {
+    let projection = project_kind(st, "endpoints").ok()?.0;
+    projection
+        .as_array()?
+        .iter()
+        .find(|record| record.get("model_id").and_then(|v| v.as_str()) == Some(model))
+        .cloned()
+}
+
+fn resolve_route(st: &DaemonState, body: &Value) -> RouteResolution {
+    let model = body
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&st.model_name)
+        .to_string();
+    let route_id = body
+        .get("route_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("route.native-local")
+        .to_string();
+    let endpoint = endpoint_for_model(st, &model);
+    let value_of = |field: &str| {
+        endpoint
+            .as_ref()
+            .and_then(|ep| ep.get(field))
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let endpoint_id = endpoint
+        .as_ref()
+        .and_then(|ep| ep.get("id").or_else(|| ep.get("endpoint_id")))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let provider_id = value_of("provider_id");
+    let backend_id = value_of("backend_id");
+    let is_native_local = backend_id == "backend.hypervisor.native-local.fixture"
+        || route_id.starts_with("route.native-local");
+    RouteResolution {
+        route_id,
+        model,
+        endpoint_id,
+        provider_id,
+        backend_id,
+        is_native_local,
+    }
+}
+
+/// Persist a `model_invocation` receipt (camelCase details) for an inference
+/// call so /receipts and projection.invocationReceipts replay it.
+fn persist_invocation_receipt(
+    st: &DaemonState,
+    route: &RouteResolution,
+    result: &Value,
+    seed: &str,
+    extra: Value,
+) -> String {
+    let receipt_id = format!("receipt_model_invocation_{}", short_hash(seed));
+    let mut details = json!({
+        "routeId": route.route_id,
+        "selectedModel": route.model,
+        "endpointId": route.endpoint_id,
+        "providerId": route.provider_id,
+        "backendId": route.backend_id,
+        "selectedBackend": route.backend_id,
+        "providerResponseKind": result.get("provider_response_kind"),
+        "invocationHash": result.get("invocation_hash"),
+        "tokenCount": result.get("token_count"),
+        "backendEvidenceRefs": result.get("backend_evidence_refs"),
+    });
+    if let (Some(target), Some(source)) = (details.as_object_mut(), extra.as_object()) {
+        for (key, value) in source {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "model_invocation",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": details,
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    receipt_id
+}
+
+fn sanitize_segment(input: &str) -> String {
+    input.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+}
+
+fn store_conversation(st: &DaemonState, response_id: &str, state: &Value) {
+    let _ = persist_record(&st.data_dir, "model-conversations", response_id, state);
+}
+
+fn load_conversation(st: &DaemonState, response_id: &str) -> Option<Value> {
+    let path = std::path::Path::new(&st.data_dir)
+        .join("model-conversations")
+        .join(format!("{}.json", sanitize_segment(response_id)));
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+}
+
+/// Continuation safety: matched iff previous_response_id resolves to a stored
+/// conversation state with the same route/endpoint/model (ported JS rule).
+fn continuation_for(st: &DaemonState, body: &Value, route: &RouteResolution) -> (Option<String>, Value) {
+    let Some(prev_id) = body.get("previous_response_id").and_then(|v| v.as_str()) else {
+        return (
+            None,
+            json!({ "mode": "new", "previousResponseId": Value::Null, "fallbackAllowed": false, "mismatchFields": [] }),
+        );
+    };
+    let prior = load_conversation(st, prev_id);
+    let mut mismatch: Vec<&str> = Vec::new();
+    if let Some(prior) = &prior {
+        if prior.get("route_id").and_then(|v| v.as_str()) != Some(route.route_id.as_str()) {
+            mismatch.push("route");
+        }
+        if prior.get("endpoint_id").and_then(|v| v.as_str()) != Some(route.endpoint_id.as_str()) {
+            mismatch.push("endpoint");
+        }
+        if prior.get("selected_model").and_then(|v| v.as_str()) != Some(route.model.as_str()) {
+            mismatch.push("model");
+        }
+    }
+    let mode = match (&prior, mismatch.is_empty()) {
+        (Some(_), true) => "matched",
+        (Some(_), false) => "fallback_allowed",
+        (None, _) => "new",
+    };
+    (
+        Some(prev_id.to_string()),
+        json!({
+            "mode": mode,
+            "previousResponseId": prev_id,
+            "fallbackAllowed": !mismatch.is_empty(),
+            "mismatchFields": mismatch,
+        }),
+    )
+}
+
+fn deterministic_embedding(input: &str) -> Vec<f64> {
+    let hash = sha256_hex_str(input);
+    hash.as_bytes()
+        .chunks(2)
+        .take(16)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair).unwrap_or("00");
+            (u8::from_str_radix(text, 16).unwrap_or(0) as f64) / 255.0
+        })
+        .collect()
+}
+
+/// OpenAI-compatible chat completion. Native-local routes run the deterministic
+/// offline kernel inference; other routes fall through to the upstream runtime
+/// (honest BAD_GATEWAY when no model answers — never a faked completion).
 async fn handle_chat_completions(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "model.chat:*")?;
+    let route = resolve_route(&st, &body);
     let prompt = flatten_messages(&body);
+    if route.is_native_local {
+        let result = invoke_native_local(&prompt, &route.model)
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
+        let text = result
+            .get("output_text")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let receipt_id = persist_invocation_receipt(
+            &st,
+            &route,
+            &result,
+            &format!("chat:{}:{}", route.route_id, short_hash(&prompt)),
+            json!({ "capability": "chat", "invocationKind": "chat.completions" }),
+        );
+        return Ok(Json(json!({
+            "id": format!("chatcmpl-{}", short_hash(&prompt)),
+            "object": "chat.completion",
+            "model": route.model,
+            "route_id": route.route_id,
+            "output_text": text,
+            "receipt_id": receipt_id,
+            "choices": [{
+                "index": 0,
+                "message": { "role": "assistant", "content": text },
+                "finish_reason": "stop",
+            }],
+            "usage": result.get("token_count"),
+        })));
+    }
     let options = InferenceOptions {
         max_tokens: 2048,
         ..Default::default()
@@ -1477,6 +1699,148 @@ async fn handle_chat_completions(
             "message": { "role": "assistant", "content": text },
             "finish_reason": "stop",
         }],
+    })))
+}
+
+/// OpenAI Responses API over the native-local kernel, with conversation-state
+/// continuation (previous_response_id -> continuation.mode "matched").
+async fn handle_responses(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.responses:*")?;
+    let route = resolve_route(&st, &body);
+    let prompt = flatten_messages(&body);
+    let result = invoke_native_local(&prompt, &route.model)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
+    let text = result
+        .get("output_text")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let (previous_response_id, continuation) = continuation_for(&st, &body, &route);
+    let response_id = format!(
+        "resp_{}",
+        short_hash(&format!(
+            "{}:{}:{}",
+            route.route_id,
+            short_hash(&prompt),
+            previous_response_id.as_deref().unwrap_or("root")
+        ))
+    );
+    store_conversation(
+        &st,
+        &response_id,
+        &json!({
+            "response_id": response_id,
+            "route_id": route.route_id,
+            "endpoint_id": route.endpoint_id,
+            "selected_model": route.model,
+            "previous_response_id": previous_response_id,
+        }),
+    );
+    let receipt_id = persist_invocation_receipt(
+        &st,
+        &route,
+        &result,
+        &response_id,
+        json!({
+            "capability": "responses",
+            "invocationKind": "responses",
+            "responseId": response_id,
+            "previousResponseId": previous_response_id,
+            "continuation": continuation,
+        }),
+    );
+    Ok(Json(json!({
+        "id": response_id,
+        "response_id": response_id,
+        "object": "response",
+        "model": route.model,
+        "route_id": route.route_id,
+        "output_text": text,
+        "receipt_id": receipt_id,
+        "previous_response_id": previous_response_id,
+    })))
+}
+
+/// Anthropic-compatible Messages API over the native-local kernel.
+async fn handle_messages(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.chat:*")?;
+    let route = resolve_route(&st, &body);
+    let prompt = flatten_messages(&body);
+    let result = invoke_native_local(&prompt, &route.model)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
+    let text = result
+        .get("output_text")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let receipt_id = persist_invocation_receipt(
+        &st,
+        &route,
+        &result,
+        &format!("messages:{}:{}", route.route_id, short_hash(&prompt)),
+        json!({ "capability": "messages", "invocationKind": "messages" }),
+    );
+    Ok(Json(json!({
+        "id": format!("msg_{}", short_hash(&prompt)),
+        "type": "message",
+        "role": "assistant",
+        "model": route.model,
+        "route_id": route.route_id,
+        "receipt_id": receipt_id,
+        "content": [{ "type": "text", "text": text }],
+        "stop_reason": "end_turn",
+        "usage": result.get("token_count"),
+    })))
+}
+
+/// Deterministic embeddings over the native-local edge (one vector per input).
+async fn handle_embeddings(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.embeddings:*")?;
+    let route = resolve_route(&st, &body);
+    let inputs: Vec<String> = match body.get("input") {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| item.as_str().map(str::to_string))
+            .collect(),
+        Some(Value::String(text)) => vec![text.clone()],
+        _ => Vec::new(),
+    };
+    let data: Vec<Value> = inputs
+        .iter()
+        .enumerate()
+        .map(|(index, input)| {
+            json!({
+                "object": "embedding",
+                "index": index,
+                "embedding": deterministic_embedding(input),
+            })
+        })
+        .collect();
+    let receipt_id = persist_invocation_receipt(
+        &st,
+        &route,
+        &json!({ "provider_response_kind": "native_local.embeddings" }),
+        &format!("embeddings:{}:{}", route.route_id, short_hash(&inputs.join("|"))),
+        json!({ "capability": "embeddings", "invocationKind": "embeddings" }),
+    );
+    Ok(Json(json!({
+        "object": "list",
+        "model": route.model,
+        "data": data,
+        "receipt_id": receipt_id,
+        "usage": { "prompt_tokens": inputs.len(), "total_tokens": inputs.len() },
     })))
 }
 
