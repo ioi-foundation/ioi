@@ -40,30 +40,52 @@ default), so the very first step (`GET /v1/model-mount/server/status` →
 `model_mount_core_direct_model_mount_api_unconfigured`. (Reads otherwise throw 501
 `model_mount_read_projection_rust_core_required`.)
 
-**The pivotal insight:** the work to make the e2e green is *not* "rewrite 80
-routes in Rust." It is "wire the 49-method `daemonCoreModelMountApi` seam to the
-real Rust `ModelMountCore`." The JS state/shape/auth/receipt/redaction logic is
-reused as-is; only the kernel calls move to Rust — which is exactly what
-`ModelMountCore` (a stateless unit struct, all methods `&self, &Request ->
-Result<Plan, Error>`) is for.
+**The architectural fork.** Because the JS facade delegates *only* kernel
+computation to that 49-method seam, the contract splits cleanly into two layers:
+the **kernel** (`ModelMountCore` — stateless unit struct, all methods `&self,
+&Request -> Result<Plan, Error>`; **already done and proven** via the shipped
+native-local chain) and the **daemon-owned state + shapes** (token store, receipts,
+seeded catalog, redaction, restart-survival, camelCase response shaping — the bulk
+of the 6,326 JS lines). The fork: bolt the JS facade onto the Rust kernel via that
+seam (cheap, but throwaway and keeps the split-brain), **or** rebuild the
+state+shape layer in Rust so the Rust daemon owns the whole substrate. §1 chooses
+the latter.
 
 ## 1. The strategy decision (explicit)
 
-Three ways to satisfy the e2e; this plan sequences B1 → A.
+**Decision: go straight to Strategy A — the unified Rust substrate.** The Rust
+daemon serves the full `/v1/model-mount/*` + OpenAI-compat surface directly,
+owning state + truth + shapes and calling `ModelMountCore` in-process; the e2e is
+repointed at the Rust binary; the JS `model-mounting.mjs` facade is retired. This
+is the canonical end-state (consolidation plan §2.5: one Rust true-north daemon,
+JS retired), and it is all permanent work.
 
-| | Strategy | What it is | Cost | When |
-| - | -------- | ---------- | ---- | ---- |
-| **B1** | **`daemonCoreModelMountApi` HTTP bridge** | Rust daemon exposes 49 thin method-RPC endpoints; JS `daemonCoreModelMountApi` is an HTTP client forwarding each method; injected into `startRuntimeDaemonService`. JS keeps owning shapes/state. | **Low** — each Rust endpoint is ~3 lines (like the existing snapshot handler); no shape rewrite. | **Phase 5c.1 — do first; fastest green; proves kernel parity.** |
-| **B2** | `daemonCoreModelMountApi` in-process (napi) | A napi-rs binding exposes the 49 methods in-process to JS. | Medium — needs napi build infra (none today). | Optional hardening of B1 (no second process). |
-| **A** | **Full Rust route surface** | Port `ModelMountingState`'s state + shapes (token store, receipts, redaction, projections) into the Rust daemon so it serves all ~80 routes directly; repoint the e2e at the Rust binary; retire `model-mounting.mjs`. | **High** — reproduces 6,326 lines of shape/state logic in Rust. | **Phase 5c.3 — the consolidation end-state; incremental.** |
+| | Strategy | What it is | Verdict |
+| - | -------- | ---------- | ------- |
+| **A** | **Full Rust route surface (CHOSEN)** | Rust daemon owns the stateful layer (token store, receipt log, seeded catalog, redaction, restart-survival) + exact shapes, calling `ModelMountCore` in-process; e2e spawns the Rust binary; JS facade deleted. | **The substrate end-state. Build this.** |
+| ~~B1~~ | ~~`daemonCoreModelMountApi` HTTP bridge~~ | ~~Rust exposes 49 `/core/:method` endpoints; JS bridge forwards; JS keeps owning shapes.~~ | **Rejected — mostly throwaway** (JS bridge deleted by A; the `/core/:method` endpoints are dead once A calls the kernel in-process; keeps the 6,326-line facade A removes). |
+| ~~B2~~ | ~~in-process napi bridge~~ | ~~napi binding exposes the 49 methods to JS.~~ | Rejected — same JS-facade dependency; needs napi infra. |
 
-The consolidation plan (§2.5) marks a *permanent* HTTP bridge a non-goal — its
-end-state is A (Rust owns the daemon, JS retired). This plan honors that: **B1 is
-the interim that turns the e2e green and proves the Rust kernel satisfies the full
-contract (the master guide's "split-brain facade is gone" — the facade now
-delegates to Rust, not 502); A is the retirement that removes the JS facade.**
-Doing B1 first de-risks A: every route family is validated against the real kernel
-before it is reimplemented in Rust.
+Why A directly (not B1-then-A). The only thing the bridge would validate is "the
+kernel produces e2e-acceptable plans" — **already proven** by the shipped
+native-local chain (`admit_provider_execution → invoke_provider` returns a
+complete real `ModelMountProviderInvocationResult`). So the parity risk that would
+justify a bridge is retired; the bridge would be ~2 sub-phases of throwaway.
+
+**What A actually entails.** Not "port the kernel" (it is done) — but **build the
+Rust daemon's stateful layer the kernel deliberately does not own**: the
+capability-token store (sha256-keyed; never store raw tokens), the receipt log,
+the seeded provider catalog (9 kinds + 7 backends), redaction, restart-survival /
+per-`bootId` stale recovery, and the exact camelCase response shapes. That is the
+bulk of the 6,326 JS lines, and it is the *right* bulk to move: a unified
+substrate means Rust owns state + truth, not just compute.
+
+**De-risking without a bridge — the e2e as a ratchet.** A one-time harness edit
+makes `validate-model-mounting-e2e.mjs` spawn the Rust binary; it then fails at the
+*first* unimplemented route. Each route family built in Rust moves the ratchet
+forward — incremental green, all permanent. (Escape hatch: B1 is only worth
+revisiting under a hard near-term schedule gate that needs the app on Rust Core
+before A is complete; absent that, do A.)
 
 ## 2. The binding spec (what GREEN requires)
 
@@ -114,51 +136,88 @@ profile defaults, not request-derived).
 **Redaction.** logs/receipts JSON must NOT contain `~/.lmstudio/bin/lms`,
 `~/.local/bin/lm-studio`, the grant `token`, or other secret needles.
 
-## 3. Phase 5c — implementation
+## 3. Phase 5c — implementation (Strategy A, e2e-ratcheted)
 
-### Phase 5c.1 — Wire `daemonCoreModelMountApi` to Rust Core (e2e GREEN)
+Build the Rust daemon's stateful layer family by family; each sub-phase advances
+the e2e ratchet (it fails at the first unported route). Suggested Rust layout:
+`crates/node/src/bin/hypervisor-daemon.rs` (router + main) delegating to a new
+`crates/node/src/hypervisor_daemon/` module tree (`state.rs` token+receipt+catalog
+stores, `model_mount_routes.rs`, `inference_routes.rs`, `session_routes.rs`) — or a
+small `ioi-hypervisor-daemon` crate if the bin grows large. The kernel
+(`ModelMountCore`) is called in-process; the daemon owns all state.
 
-| Field | Detail |
-| ----- | ------ |
-| Goal | `validate-model-mounting-e2e.mjs` green with the Rust kernel as the engine; no 502/501. |
-| Work A (Rust) | In `hypervisor-daemon.rs` add a `POST /v1/model-mount/core/:method` family — one handler per the 49 `ModelMountCore` methods, each: `Json(req)` → `ModelMountCore.<method>(&req)` → `Json({ ok: true, result: plan })` (or `Json({ ok:false, error:{ code, message }})` on `ModelMountError`). All request/plan types are `Serialize/Deserialize`, so each handler is ~3 lines (mirror the existing native-local chain). `state_dir`-reading methods (`plan_read_projection`, `plan_provider_lifecycle`, `plan_instance_lifecycle`) receive the JS-built `state` + `state_dir` in the request body — no daemon-side state needed. |
-| Work B (JS bridge) | New `packages/runtime-daemon/src/model-mounting/rust-core-bridge.mjs`: `createRustCoreModelMountApi({ endpoint })` returns an object with the **49 wire method names** (Appendix A), each `async (request) => httpPostJson(endpoint + "/v1/model-mount/core/<method>", request)` returning the `{ ok, result, error }` envelope `invokeModelMountApi` already expects (`model-mount-core.mjs:327-336`). `bindInvocationReceipt` rebuilds `{ invocation, result, accepted_receipt_transition, receipt_ref }` (it already does, JS-side). |
-| Work C (wiring) | Thread `daemonCoreModelMountApi` into the e2e: spawn the Rust daemon (or reuse a running one), build `createRustCoreModelMountApi({ endpoint: rustDaemonEndpoint })`, and pass it as `startRuntimeDaemonService({ cwd, stateDir, daemonCoreModelMountApi })`. The option already flows: `index.mjs:571 → ModelMountingState{ daemonCoreModelMountApi }`. |
-| Files | `crates/node/src/bin/hypervisor-daemon.rs` (49 core routes); new `packages/runtime-daemon/src/model-mounting/rust-core-bridge.mjs`; `scripts/validate-model-mounting-e2e.mjs` (mint the bridge, pass the option; spawn/await the Rust daemon for the core endpoints — keep every assertion identical). |
-| Verify | `cargo build -p ioi-node --bin hypervisor-daemon`; `node scripts/validate-model-mounting-e2e.mjs` GREEN; the existing `scripts/validate-hypervisor-daemon-e2e.mjs` stays green. |
-| Commit boundary | The JS facade delegates every kernel call to Rust Core; the e2e is green; no 502/501 in the model-mount path. |
-
-Risk to retire here: `modelMountApi(value)` coerces non-object/array/function to
-`null` — the bridge MUST be a plain method-bearing object. Each JS wrapper
-post-validates via `normalize*ApiResult`; the Rust plan field names must match the
-JS expectations (they already do — same kernel types). If a method's plan misses a
-field, the JS normalizer throws `model_mount_*_plan_invalid` (502) — fix by
-returning the full kernel plan (don't trim fields).
-
-### Phase 5c.2 — `ioi.model_mount.v1` proto
+### Phase 5c.0 — Point the e2e at the Rust daemon (the ratchet)
 
 | Field | Detail |
 | ----- | ------ |
-| Goal | A typed RPC surface for the 49 kernel methods (the canonical transport the bridge/daemon can adopt). |
-| Work | Add `crates/ipc/proto/model_mount/v1/model_mount.proto`: `syntax = "proto3"; package ioi.model_mount.v1;` (underscore — matches the kernel schema-version strings `ioi.model_mount.provider_execution.v1` etc.; NOT the hyphenated `ioi.model-mounting.runtime.v1` evidence version). `service ModelMount { rpc PlanReadProjection(...); rpc AdmitProviderExecution(...); rpc InvokeProvider(...); rpc InvokeProviderStream(...) returns (stream ...); rpc PlanInstanceLifecycle(...); rpc PlanRuntimeEngine(...); rpc PlanCapabilityTokenControl(...); rpc BindInvocationReceipt(...); ... }` mirroring Appendix A. Use `bytes`/JSON-string payloads to avoid re-modeling 40 structs in proto, OR generate messages 1:1. No `option java_package`/`go_package` (workspace convention — zero option lines). |
-| Build | Register in `crates/ipc/build.rs` — append `"proto/model_mount/v1/model_mount.proto"` to the `tonic_build::configure().compile([...], ["proto"])` list. |
-| Files | new proto; `crates/ipc/build.rs`. |
-| Verify | `cargo build -p ioi-ipc`; the generated `ioi.model_mount.v1` module is importable. |
-| Commit boundary | Typed proto compiles; available for a tonic transport in 5c.3. |
+| Goal | `validate-model-mounting-e2e.mjs` drives the Rust binary, failing at the first unimplemented route (the progress marker for 5c.1–5c.5). |
+| Work | Replace the harness's daemon abstraction: instead of `startRuntimeDaemonService`, spawn `target/debug/hypervisor-daemon` (build first; bind an ephemeral port via `IOI_HYPERVISOR_DAEMON_ADDR=127.0.0.1:0` reading the chosen port from a startup log line, or pass a fixed test port; fresh `IOI_HYPERVISOR_DATA_DIR=stateDir`), wait for `/healthz`, and return `{ endpoint, stateDir, close: () => kill }`. The restart step re-spawns against the same `stateDir`. Keep EVERY assertion byte-identical. |
+| Files | `scripts/validate-model-mounting-e2e.mjs` (daemon abstraction only). |
+| Verify | The script runs and fails on the first unported model-mount route (expected); `node scripts/validate-hypervisor-daemon-e2e.mjs` stays green. |
+| Commit boundary | The binding spec now measures the Rust daemon. |
 
-### Phase 5c.3 — Retire the JS facade (the consolidation end-state)
-
-Large; do it per route family, keeping the e2e green at each step (the e2e is the
-regression guard). Strategy A: move state + shapes into Rust, repoint the e2e at
-the Rust binary, reduce JS to a thin client.
+### Phase 5c.1 — Capability-token store + server control + receipt log + redaction
 
 | Field | Detail |
 | ----- | ------ |
-| Goal | The Rust daemon serves the full `/v1/model-mount/*` + OpenAI-compat surface directly; `model-mounting.mjs` is a thin client shim; the dev-replay model-mount is a thin proxy. |
-| Work | Per family (server-control, tokens, snapshot/catalog seed, runtime-engines, inference+streaming+receipts, artifacts/endpoints/instances/downloads, mcp/routes/workflows/vault/tokenize/context-fit, projection): implement the daemon-owned state in Rust (capability-token store keyed by sha256 of the token — never store raw; receipt log; per-`bootId` stale recovery) + the exact camelCase response shapes, calling `ModelMountCore` for kernel work. Seed the provider catalog (9 kinds) + 7 backends into `state_dir` on startup (reuse the `lifecycle.rs` seed-record shape) so `snapshot` lists them. Set runtime-engine operator-profile defaults `contextLength 3584 / parallel 3`. Then change `validate-model-mounting-e2e.mjs`'s daemon abstraction to **spawn `target/debug/hypervisor-daemon`** (endpoint `http://127.0.0.1:8765`, readiness wait, returning `{endpoint, stateDir, close}`), keeping every assertion. Reduce `model-mounting.mjs` + `model-mounting/**` + `openai-compat-routes.mjs` to thin shims (or delete), and collapse the dev-replay model-mount routes to a thin proxy (keep the Phase-0 deterministic turn behind `IOI_HYPERVISOR_REPLAY_MODE`). |
-| Files | `crates/node/src/bin/hypervisor-daemon.rs` (+ Rust state modules); `scripts/validate-model-mounting-e2e.mjs` (spawn Rust bin); retire `packages/runtime-daemon/src/model-mounting.mjs` + `model-mounting/**` + `openai-compat-routes.mjs` + model-mount route handlers in `public-runtime-routes.mjs`; thin `scripts/hypervisor-app-dev-replay-server.mjs` model-mount routes. |
-| Verify | `node scripts/validate-model-mounting-e2e.mjs` green against the Rust binary; `node scripts/check-runtime-layout.mjs` (see §5 identity-token note); `node scripts/hypervisor-app-shell-contract.mjs`; `cargo test`. |
-| Commit boundary | One Rust true-north daemon serves model-mount; the JS facade is gone; the app (default `:8765`) talks to Rust unchanged. |
+| Goal | Pass e2e steps 1–3 (fail-closed auth, server status/stop/restart/logs/events). |
+| Work | Daemon state in Rust: a capability-token store (mint `POST /tokens` → `{id, token}`; store **sha256(token)** + allowed/denied/expiresAt/revoked — never the raw token; revoke `DELETE /tokens/:id`); `authorize(bearer, scope)` glob-matching `model.chat:*` → **401** (no/empty bearer), **403** (denied/expired/revoked). `GET /server/status` → `{schemaVersion:"ioi.model-mounting.runtime.v1", openAiCompatibleBaseUrl, controlStatus:"running"}`. `server/stop`→`"stopped"`, `restart`→`"running"`, `logs?limit`→`{redaction:"redacted", records:[…server_restart…]}`, `events?limit`. A receipt log (in-memory + persisted under `state_dir`) keyed by generated `receipt_id`, served at `GET /receipts` + `/receipts/:id`. A redaction pass over all log/receipt output (drop secret needles + raw tokens). |
+| Verify | e2e advances past the token + server-control steps. |
+| Commit boundary | Fail-closed auth + server control + receipts are real and persisted. |
+
+### Phase 5c.2 — Seeded provider catalog + snapshot/projection family
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | `GET /snapshot` lists the 9 provider kinds + 7 backends; the read-projection family answers. |
+| Work | On startup seed Agentgres-shaped JSON records under `state_dir` (reuse the `lifecycle.rs` seed shape) for the 9 provider kinds (`local_folder, ioi_native_local, lm_studio, ollama, llama_cpp, vllm, openai_compatible, custom_http, depin_tee`) + 7 backends (`backend.fixture, backend.hypervisor.native-local.fixture, backend.llama-cpp, backend.ollama, backend.vllm, backend.lmstudio, backend.openai-compatible`). Route `GET /snapshot|/projection|/providers|/endpoints|/instances|/backends|/routes|/authority|/downloads` → `ModelMountCore.plan_read_projection({projection_kind, state, state_dir})` (Appendix B). `POST /instances/load|unload` → `plan_instance_lifecycle`. |
+| Verify | e2e "discover providers and backends" + instance steps pass. |
+| Commit boundary | The real kernel projects the seeded catalog over HTTP. |
+
+### Phase 5c.3 — Runtime engines + survey + select + PATCH
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | Runtime-engine family with operator-profile defaults. |
+| Work | `GET /runtime/engines` (one `backend.hypervisor.native-local.fixture`); `POST /runtime/survey` → `{receiptId:/^receipt_runtime_survey_/, schemaVersion:"ioi.model-mounting.runtime.v1", hardware.totalMemoryBytes:<number>, engines:[…]}` (+ a `runtime_survey` receipt; redact `~/.lmstudio/bin/lms` etc.); `POST /runtime/select {engine_id}` echoes `selectedEngineId`; `GET|PATCH /runtime/engines/:id` persisting operator-profile defaults **`contextLength: 3584, parallel: 3`** via `plan_runtime_engine`. |
+| Verify | e2e runtime-engine + survey + select + PATCH steps pass. |
+| Commit boundary | Runtime engine controls + 3584/parallel-3 defaults are served. |
+
+### Phase 5c.4 — Inference: chat / responses / messages / embeddings / rerank + streaming
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | The OpenAI-compat surface with the native-local kernel path + real receipts. |
+| Work | `POST /v1/chat/completions|/responses|/messages|/embeddings|/rerank|/completions` (Bearer + scope check). For `route.native-local`, reuse the SHIPPED admission→invoke chain (`provider.hypervisor.local`, `backend.hypervisor.native-local.fixture`, `output_text` "Hypervisor native local model response", `invocation_hash` sha256). Non-stream → OpenAI/Anthropic envelope from `ModelMountProviderInvocationResult.output_text` + `token_count`; `stream:true` → `invoke_provider_stream` → `chat.completion.chunk` SSE + `[DONE]`, recording a `model_invocation` receipt (`details.routeId`, `previousResponseId`, `continuation.mode`) and a `stream_canceled` receipt on client disconnect (`reason:"client_disconnect"`); `pidHash` `/^[a-f0-9]{16}$/`. Hosted providers (real Ollama/OpenAI) route through the kernel hosted path or `HttpInferenceRuntime`. |
+| Verify | e2e inference + streaming + abort + receipt-shape steps pass. |
+| Commit boundary | Real model-mount inference + streaming + receipts over the OpenAI-compat surface. |
+
+### Phase 5c.5 — The remaining families
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | Everything the e2e still drives. |
+| Work | `artifacts/import`, `endpoints`, `downloads/:id/{status,cancel}`, `mcp/{import,invoke}`, `routes`, `catalog/import-url`, `workflows/{nodes/execute,receipt-gate}` (412 on gate mismatch), `vault/{refs,status,health}` (hashed refs), `tokens/{tokenize,count}`, `context/fit`, `GET /v1/models`. Each → the matching `ModelMountCore.plan_*`/`admit_*` method + the daemon shape. Verify the Rust **CLI** (`ioi-cli`) cross-check steps pass against the Rust daemon endpoint. |
+| Verify | `node scripts/validate-model-mounting-e2e.mjs` **fully GREEN** against the Rust binary. |
+| Commit boundary | The Rust daemon satisfies the entire binding spec. |
+
+### Phase 5c.6 — Retire the JS facade
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | One Rust true-north daemon; the parallel JS engine is gone. |
+| Work | Delete / reduce to a thin shim: `packages/runtime-daemon/src/model-mounting.mjs` + `model-mounting/**` + `openai-compat-routes.mjs` + the model-mount route handlers in `public-runtime-routes.mjs` + the model-mounting `*.test.mjs` suite. Collapse the dev-replay model-mount routes to a thin proxy; **keep** the Phase-0 deterministic turn behind `IOI_HYPERVISOR_REPLAY_MODE` for offline UI tests. **Before deleting `model-mounting.mjs`, migrate any identity token only present there into the Rust kernel sources** (see §5) so `check-runtime-layout` survives. App default stays `:8765` → no app change. |
+| Verify | e2e still green; `check-runtime-layout`; `hypervisor-app-shell-contract`; `npm run build`; `cargo test`. |
+| Commit boundary | The split-brain facade is gone; Rust owns state + truth + compute. |
+
+### Phase 5c.7 — `ioi.model_mount.v1` proto
+
+| Field | Detail |
+| ----- | ------ |
+| Goal | A typed RPC surface for the kernel (the canonical transport for non-HTTP callers). |
+| Work | Add `crates/ipc/proto/model_mount/v1/model_mount.proto`: `syntax = "proto3"; package ioi.model_mount.v1;` (underscore — matches `ioi.model_mount.provider_execution.v1` etc.; NOT the hyphenated `ioi.model-mounting.runtime.v1` evidence version). `service ModelMount { rpc PlanReadProjection(...); rpc AdmitProviderExecution(...); rpc Invoke(...); rpc Stream(...) returns (stream ...); rpc PlanInstanceLifecycle(...); rpc PlanRuntimeEngine(...); rpc PlanCapabilityTokenControl(...); rpc BindInvocationReceipt(...); ... }` mirroring Appendix A. JSON-string/`bytes` payloads avoid re-modeling 40 structs; no `option java_package`/`go_package` (workspace convention). Register in `crates/ipc/build.rs` (append to the `tonic_build::configure().compile([...], ["proto"])` list). |
+| Verify | `cargo build -p ioi-ipc`; `ioi.model_mount.v1` importable. |
+| Commit boundary | Typed proto compiles. |
 
 ## 4. Phase 6 — the live PQC-website loop
 
@@ -199,7 +258,7 @@ back to the honest `no_model_route` error (Phase 0), never fake prose.
 
 ```bash
 cargo build -p ioi-node --bin hypervisor-daemon
-cargo build -p ioi-ipc                                  # 5c.2 proto
+cargo build -p ioi-ipc                                  # 5c.7 proto
 node scripts/validate-hypervisor-daemon-e2e.mjs         # offline daemon proof (stays green)
 node scripts/validate-model-mounting-e2e.mjs            # THE binding spec (target: green)
 node scripts/check-runtime-layout.mjs                   # see identity-token note below
@@ -227,14 +286,15 @@ these tokens may live there — but verify the assert's file list before deletin
 
 ## 6. Risks & sequencing
 
-1. **The e2e is wired to the JS daemon, not `:8765`.** Making it green requires
-   editing its daemon abstraction (5c.1 injects the bridge into
-   `startRuntimeDaemonService`; 5c.3 spawns the Rust binary). State which in the PR.
-2. **B1 keeps the JS daemon.** It is the interim parity validator, not the
-   end-state. Don't let it ossify — 5c.3 is the retirement.
-3. **Coercion + normalization.** The bridge must be a plain object (else
-   `modelMountApi` nulls it); each method's plan must carry every field the JS
-   `normalize*ApiResult` checks (return the full kernel plan).
+1. **The e2e is wired to the JS daemon, not the Rust binary.** Making it green
+   requires editing its daemon abstraction to spawn `hypervisor-daemon` (Phase
+   5c.0) — the one-time change that turns the e2e into the ratchet. State it in the PR.
+2. **Build the stateful layer, not the kernel.** The bulk of A is daemon-owned
+   state (tokens, receipts, catalog, redaction, restart-survival) — the kernel is
+   done. Structure it as its own Rust module(s), not inline in the bin.
+3. **Shape exactness.** the e2e asserts strict camelCase shapes against the JS
+   `ModelMountingState` output; the Rust daemon must reproduce them field-for-field
+   (snake_case kernel plans need explicit camelCase projection at the route edge).
 4. **Redaction.** never persist raw tokens (store sha256); keep secret needles out
    of logs/receipts — the e2e fails on any leak.
 5. **Restart survival.** the e2e restarts the daemon against the same `stateDir`
