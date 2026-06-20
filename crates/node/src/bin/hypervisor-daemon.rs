@@ -112,6 +112,12 @@ async fn main() -> anyhow::Result<()> {
             post(handle_token_create),
         )
         .route(
+            "/v1/model-mount/tokens/tokenize",
+            post(handle_tokenize),
+        )
+        .route("/v1/model-mount/tokens/count", post(handle_token_count))
+        .route("/v1/model-mount/context/fit", post(handle_context_fit))
+        .route(
             "/v1/model-mount/tokens/:id",
             delete(handle_token_revoke),
         )
@@ -1841,6 +1847,115 @@ async fn handle_embeddings(
         "data": data,
         "receipt_id": receipt_id,
         "usage": { "prompt_tokens": inputs.len(), "total_tokens": inputs.len() },
+    })))
+}
+
+// ---- Phase 5c.4b: tokenize / count / context-fit (deterministic edge) ----
+
+/// Persist a `model_tokenization` / `model_context_fit` operation receipt.
+fn persist_operation_receipt(
+    st: &DaemonState,
+    route: &RouteResolution,
+    kind: &str,
+    operation: &str,
+    seed: &str,
+) -> String {
+    let receipt_id = format!("receipt_{kind}_{}", short_hash(seed));
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": kind,
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": {
+            "operation": operation,
+            "routeId": route.route_id,
+            "selectedModel": route.model,
+            "endpointId": route.endpoint_id,
+            "providerId": route.provider_id,
+            "backendId": route.backend_id,
+        },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    receipt_id
+}
+
+async fn handle_tokenize(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.tokenize:*")?;
+    let route = resolve_route(&st, &body);
+    let input = flatten_messages(&body);
+    let tokens: Vec<&str> = input.split_whitespace().collect();
+    let token_count = tokens.len();
+    let receipt_id = persist_operation_receipt(
+        &st,
+        &route,
+        "model_tokenization",
+        "tokenize",
+        &format!("tokenize:{}:{}", route.route_id, short_hash(&input)),
+    );
+    Ok(Json(json!({
+        "route_id": route.route_id,
+        "model": route.model,
+        "tokens": tokens,
+        "token_count": token_count,
+        "usage": { "prompt_tokens": token_count },
+        "input_hash": sha256_hex_str(&input),
+        "receipt_id": receipt_id,
+    })))
+}
+
+async fn handle_token_count(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.tokenize:*")?;
+    let route = resolve_route(&st, &body);
+    let input = flatten_messages(&body);
+    let token_count = input.split_whitespace().count();
+    Ok(Json(json!({
+        "route_id": route.route_id,
+        "model": route.model,
+        "token_count": token_count,
+        "input_hash": sha256_hex_str(&input),
+    })))
+}
+
+async fn handle_context_fit(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.context:*")?;
+    let route = resolve_route(&st, &body);
+    let input = flatten_messages(&body);
+    let prompt_tokens = input.split_whitespace().count() as u64;
+    let context_window = body.get("context_length").and_then(Value::as_u64).unwrap_or(0);
+    let max_output_tokens = body.get("max_output_tokens").and_then(Value::as_u64).unwrap_or(0);
+    let available = context_window.saturating_sub(max_output_tokens);
+    let fits = prompt_tokens.saturating_add(max_output_tokens) <= context_window;
+    let truncation_applied = prompt_tokens > available;
+    let receipt_id = persist_operation_receipt(
+        &st,
+        &route,
+        "model_context_fit",
+        "context_fit",
+        &format!("context_fit:{}:{}", route.route_id, short_hash(&input)),
+    );
+    Ok(Json(json!({
+        "route_id": route.route_id,
+        "model": route.model,
+        "context_window": context_window,
+        "prompt_tokens": prompt_tokens,
+        "fits": fits,
+        "truncation": {
+            "applied": truncation_applied,
+            "retained_tokens": available.min(prompt_tokens),
+        },
+        "receipt_id": receipt_id,
     })))
 }
 
