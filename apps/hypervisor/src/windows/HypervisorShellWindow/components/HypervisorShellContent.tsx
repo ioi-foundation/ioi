@@ -50,9 +50,15 @@ import {
 } from "../hypervisorAutomationCompositorModel";
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT,
   HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+  buildHypervisorAgentSelectorOptions,
+  buildHypervisorModelOptions,
   requestHarnessPublicFixtureRun,
+  type HypervisorAgentSelectorOption,
+  type HypervisorModelOption,
 } from "../harnessAdapterModel";
+import { AgentModelSelector, ModelRouteSelector } from "./AgentModelSelector";
 import {
   HYPERVISOR_MODEL_INFRASTRUCTURE_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
@@ -81,8 +87,10 @@ import {
   HYPERVISOR_PROJECT_STATE_DAEMON_ENDPOINT_STORAGE_KEY,
   loadHypervisorProjectStateProjection,
   proposeHypervisorProjectOperation,
+  requestHypervisorProjectCreate,
   type HypervisorProjectOperationKind,
   type HypervisorProjectOperationProposal,
+  type HypervisorProjectStateProjection,
   type HypervisorProjectStateRecord,
 } from "../hypervisorProjectStateModel";
 import {
@@ -105,6 +113,8 @@ import {
 } from "../hypervisorReceiptEvidenceModel";
 import {
   buildHypervisorSessionOperationProposal,
+  HYPERVISOR_ENVIRONMENT_COMPONENT_LABELS,
+  HYPERVISOR_ENVIRONMENT_COMPONENT_ORDER,
   HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   loadHypervisorSessionOperationsProjection,
@@ -115,8 +125,10 @@ import {
 import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
+  buildHypervisorNewSessionLaunchRequest,
   isHypervisorSurfaceId,
   type HypervisorLaunchedSessionProjection,
+  type HypervisorNewSessionLaunchRequest,
 } from "../hypervisorShellNavigationModel";
 
 const insightsDashboardPreviewUrl = new URL(
@@ -129,20 +141,230 @@ interface HypervisorShellContentProps {
   runtime: HypervisorClientRuntime;
 }
 
+interface HypervisorApplicationCatalogRecord {
+  application_id: string;
+  label: string;
+  category: string;
+  pinned: boolean;
+  route_ref: string;
+  status: string;
+}
+
+interface HypervisorApplicationsCatalog {
+  schema_version?: string;
+  applications: HypervisorApplicationCatalogRecord[];
+}
+
+const HYPERVISOR_PROJECT_ENVIRONMENT_CLASS_OPTIONS = [
+  {
+    ref: "environment-class:ona-cloud-us01-small",
+    label: "Small Ona Cloud (US01)",
+    details: "2 vCPU / 8 GiB / 50 GiB disk",
+  },
+  {
+    ref: "environment-class:ona-cloud-us01-regular",
+    label: "Regular Ona Cloud (US01)",
+    details: "4 vCPU / 16 GiB / 80 GiB disk",
+  },
+  {
+    ref: "environment-class:ona-cloud-us01-large",
+    label: "Large Ona Cloud (US01)",
+    details: "8 vCPU / 32 GiB / 100 GiB disk",
+  },
+  {
+    ref: "environment-class:local-dev-replay",
+    label: "Local dev replay",
+    details: "No provider auth required",
+  },
+] as const;
+
+function isGitRepositoryUrl(value: string): boolean {
+  return /^https?:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+/i.test(value.trim());
+}
+
+function projectNameFromRepositoryUrl(value: string): string {
+  const normalized = value.trim().replace(/\/+$/, "");
+  return (
+    normalized
+      .split("/")
+      .pop()
+      ?.replace(/\.git$/i, "")
+      .trim() || ""
+  );
+}
+
+function readHypervisorApplicationsDaemonEndpoint(): string {
+  if (typeof window === "undefined") {
+    return HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT;
+  }
+
+  const stored = window.localStorage
+    .getItem(HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY)
+    ?.trim();
+  return stored || HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT;
+}
+
+function normalizeApplicationsCatalog(value: unknown): HypervisorApplicationsCatalog {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const applications = Array.isArray(record.applications)
+    ? record.applications.map((item, index): HypervisorApplicationCatalogRecord => {
+        const candidate =
+          item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        const fallbackId = `application:${index + 1}`;
+        return {
+          application_id:
+            typeof candidate.application_id === "string"
+              ? candidate.application_id
+              : fallbackId,
+          label:
+            typeof candidate.label === "string" ? candidate.label : fallbackId,
+          category:
+            typeof candidate.category === "string"
+              ? candidate.category
+              : "platform",
+          pinned: candidate.pinned === true,
+          route_ref:
+            typeof candidate.route_ref === "string"
+              ? candidate.route_ref
+              : `surface:${fallbackId}`,
+          status:
+            typeof candidate.status === "string" ? candidate.status : "available",
+        };
+      })
+    : [];
+
+  return {
+    schema_version:
+      typeof record.schema_version === "string" ? record.schema_version : undefined,
+    applications,
+  };
+}
+
+function HypervisorApplicationsCatalogSurface() {
+  const [catalog, setCatalog] = useState<HypervisorApplicationsCatalog>({
+    applications: [],
+  });
+  const [loadState, setLoadState] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
+  const [message, setMessage] = useState("Loading applications from replay route.");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCatalog() {
+      try {
+        const endpoint = readHypervisorApplicationsDaemonEndpoint();
+        const response = await fetch(
+          `${endpoint.replace(/\/+$/, "")}/v1/hypervisor/applications`,
+          { headers: { accept: "application/json" } },
+        );
+        if (!response.ok) {
+          throw new Error(`Applications catalog request failed with ${response.status}`);
+        }
+        const nextCatalog = normalizeApplicationsCatalog(await response.json());
+        if (cancelled) return;
+        setCatalog(nextCatalog);
+        setLoadState("ready");
+        setMessage(
+          `Loaded ${nextCatalog.applications.length} pinned application surfaces from the daemon-shaped replay route.`,
+        );
+      } catch (error) {
+        if (cancelled) return;
+        setLoadState("unavailable");
+        setMessage(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    void loadCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pinnedApplications = catalog.applications.filter(
+    (application) => application.pinned,
+  );
+  const availableApplications = catalog.applications.filter(
+    (application) => application.status === "available",
+  );
+
+  return (
+    <section
+      className="hypervisor-applications-catalog"
+      aria-label="Applications catalog"
+      data-hypervisor-applications-state={loadState}
+      data-hypervisor-applications-count={catalog.applications.length}
+    >
+      <div className="hypervisor-applications-catalog__header">
+        <div>
+          <span>Applications</span>
+          <h2>Hypervisor application catalog</h2>
+          <p>
+            Pinned operational applications hydrate from the local daemon-shaped
+            replay route. Foundry, Models, Workers, Connectors, Policies,
+            Receipts, and Monitoring stay app surfaces over Core instead of
+            becoming separate runtimes.
+          </p>
+        </div>
+        <p data-hypervisor-applications-load-state={loadState}>{message}</p>
+      </div>
+
+      <div className="hypervisor-applications-catalog__summary" aria-label="Application summary">
+        <div>
+          <span>Pinned</span>
+          <strong>{pinnedApplications.length}</strong>
+        </div>
+        <div>
+          <span>Available</span>
+          <strong>{availableApplications.length}</strong>
+        </div>
+        <div>
+          <span>Route source</span>
+          <strong>/v1/hypervisor/applications</strong>
+        </div>
+      </div>
+
+      <div className="hypervisor-applications-catalog__grid">
+        {catalog.applications.map((application) => (
+          <article
+            key={application.application_id}
+            className="hypervisor-applications-catalog__item"
+            data-hypervisor-application-id={application.application_id}
+            data-hypervisor-application-route={application.route_ref}
+          >
+            <div>
+              <span>{application.category}</span>
+              <h3>{application.label}</h3>
+            </div>
+            <p>{application.route_ref}</p>
+            <footer>
+              <strong>{application.status}</strong>
+              {application.pinned ? <span>Pinned</span> : <span>Catalog</span>}
+            </footer>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HypervisorHarnessComparisonDashboard() {
   const [comparison, setComparison] = useState(
     HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   );
   const [runState, setRunState] = useState<
-    "fixture" | "requesting" | "admitted" | "unavailable"
-  >("fixture");
+    "loading" | "requesting" | "admitted" | "unavailable"
+  >("loading");
   const [runMessage, setRunMessage] = useState(
-    "Fixture projection is loaded until a governed run is requested.",
+    "Loading governed replay comparison from the local daemon-shaped route.",
   );
 
-  async function handleFixtureRun() {
+  async function requestComparisonRun() {
     setRunState("requesting");
-    setRunMessage("Requesting governed public fixture run...");
+    setRunMessage("Requesting governed comparison run...");
     if (
       !shouldAttemptHypervisorDaemonProjectionFetch(
         HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
@@ -150,7 +372,7 @@ function HypervisorHarnessComparisonDashboard() {
     ) {
       setRunState("unavailable");
       setRunMessage(
-        "Attach a Hypervisor Daemon endpoint before requesting a governed public fixture run.",
+        "Attach a Hypervisor Daemon endpoint before refreshing the governed comparison route.",
       );
       return;
     }
@@ -166,10 +388,52 @@ function HypervisorHarnessComparisonDashboard() {
       setRunMessage(
         error instanceof Error
           ? error.message
-          : "Harness public fixture run could not reach the governed route.",
+          : "Harness comparison could not reach the governed route.",
       );
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInitialComparison() {
+      if (
+        !shouldAttemptHypervisorDaemonProjectionFetch(
+          HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+        )
+      ) {
+        setRunState("unavailable");
+        setRunMessage(
+          "Attach a Hypervisor Daemon endpoint before refreshing the governed comparison route.",
+        );
+        return;
+      }
+
+      try {
+        const nextComparison = await requestHarnessPublicFixtureRun();
+        if (cancelled) return;
+        setComparison(nextComparison);
+        setRunState("admitted");
+        setRunMessage(
+          `Route-backed comparison loaded ${nextComparison.candidate_reports.length} harness candidates with ${nextComparison.receipt_refs.length} receipt refs.`,
+        );
+      } catch (error) {
+        if (cancelled) return;
+        setRunState("unavailable");
+        setRunMessage(
+          error instanceof Error
+            ? error.message
+            : "Harness comparison could not reach the governed route.",
+        );
+      }
+    }
+
+    void loadInitialComparison();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section
@@ -191,10 +455,12 @@ function HypervisorHarnessComparisonDashboard() {
         <button
           type="button"
           data-harness-comparison-action="request-run"
-          disabled={runState === "requesting"}
-          onClick={handleFixtureRun}
+          disabled={runState === "requesting" || runState === "loading"}
+          onClick={requestComparisonRun}
         >
-          {runState === "requesting" ? "Requesting..." : "Run fixture"}
+          {runState === "requesting" || runState === "loading"
+            ? "Requesting..."
+            : "Refresh comparison"}
         </button>
       </div>
       <p
@@ -206,7 +472,7 @@ function HypervisorHarnessComparisonDashboard() {
 
       <div className="hypervisor-harness-comparison__summary" aria-label="Comparison summary">
         <div>
-          <span>Fixture</span>
+          <span>Task</span>
           <strong>{comparison.task_ref}</strong>
         </div>
         <div>
@@ -1046,6 +1312,14 @@ function HypervisorAutomationCompositorSurface({
       });
   };
 
+  const onProposeSuggestedTemplate = (index: number) => {
+    const row = automationRows[index] ?? automationRows[0];
+    if (!row) {
+      return;
+    }
+    onRunAutomation(row.template, row.recipe, row.graph);
+  };
+
   return (
     <section
       className="hypervisor-automation-compositor hypervisor-automation-compositor--ioi-reference"
@@ -1187,13 +1461,20 @@ function HypervisorAutomationCompositorSurface({
             <h3>Suggested templates</h3>
             <p>Try these automations for common engineering workflows.</p>
           </div>
-          {referenceTemplates.map((template) => (
+          {referenceTemplates.map((template, index) => (
             <button
               type="button"
               key={template.label}
               className="hypervisor-automation-compositor__suggested-card"
               data-workflow-template-suggestion={template.label}
+              data-automation-run-proposal-template={
+                automationRows[index]?.template.template_ref ??
+                automationRows[0]?.template.template_ref ??
+                ""
+              }
               data-template-tone={template.tone}
+              disabled={automationRows.length === 0}
+              onClick={() => onProposeSuggestedTemplate(index)}
             >
               <span className="hypervisor-automation-compositor__suggested-icon">
                 {template.icon}
@@ -1512,11 +1793,38 @@ function PortEmptyIcon() {
   );
 }
 
+const HYPERVISOR_SESSION_AGENT_SELECTOR_OPTIONS =
+  buildHypervisorAgentSelectorOptions();
+
+// The session init panel is driven by the daemon-projected
+// HypervisorEnvironmentStatus (component sub-phases), not a hardcoded timed
+// animation. Component order + labels live in hypervisorSessionOperationsModel.
+
 function HypervisorSessionOperationsCockpit({
   launchedSessions,
+  currentProject,
+  agentOptions,
+  agentSelectionRef,
+  onSelectAgent,
+  modelOptions,
+  modelSelectionRef,
+  onSelectModel,
+  onLaunchSession,
+  onConfigureLaunch,
   onOpenReceiptEvidence,
 }: {
   launchedSessions: readonly HypervisorLaunchedSessionProjection[];
+  currentProject: { id: string; name: string; rootPath: string };
+  agentOptions: readonly HypervisorAgentSelectorOption[];
+  agentSelectionRef: string;
+  onSelectAgent: (selectionRef: string) => void;
+  modelOptions: readonly HypervisorModelOption[];
+  modelSelectionRef: string;
+  onSelectModel: (modelRef: string) => void;
+  onLaunchSession: (
+    request: HypervisorNewSessionLaunchRequest,
+  ) => Promise<unknown> | unknown;
+  onConfigureLaunch: (seedIntent: string | null) => void;
   onOpenReceiptEvidence: (target: HypervisorReceiptEvidenceTarget) => void;
 }) {
   const [projection, setProjection] = useState(
@@ -1524,6 +1832,37 @@ function HypervisorSessionOperationsCockpit({
   );
   const [operationProposal, setOperationProposal] =
     useState<HypervisorSessionOperationProposal | null>(null);
+  const [composerText, setComposerText] = useState("");
+  const [submittedIntents, setSubmittedIntents] = useState<
+    Array<{
+      intent_ref: string;
+      text: string;
+      receipt_ref: string;
+      session_ref: string;
+    }>
+  >([]);
+  const [conversation, setConversation] = useState<
+    Array<{
+      id: string;
+      role: "user" | "assistant";
+      text: string;
+      streaming?: boolean;
+      source?: string;
+      receipt_ref?: string;
+    }>
+  >([]);
+  const conversationSessionRef = useRef<string | null>(null);
+  const autoTurnStartedRef = useRef<string | null>(null);
+  const turnInFlightRef = useRef(false);
+  const [turnStreaming, setTurnStreaming] = useState(false);
+  const selectedModel =
+    modelOptions.find((option) => option.model_ref === modelSelectionRef) ??
+    modelOptions[0] ??
+    null;
+  const selectedModelName = selectedModel?.model_name ?? "qwen";
+  const selectedHarnessLabel =
+    agentOptions.find((option) => option.selection_ref === agentSelectionRef)
+      ?.label ?? "Agent";
 
   useEffect(() => {
     if (
@@ -1589,6 +1928,16 @@ function HypervisorSessionOperationsCockpit({
     ) ??
     launchedSessions[0] ??
     null;
+  const activeSessionRef =
+    launchedHarnessSession?.session_ref ?? projection.selected_session_ref;
+  const activeBranchLabel =
+    launchedHarnessSession?.branch_label ?? projection.branch_label;
+  const activeProjectLabel =
+    launchedHarnessSession?.project_label ||
+    projection.project_ref.replace(/^project:/, "");
+  const activeSessionContextLabel = launchedHarnessSession
+    ? `${activeProjectLabel} / ${activeBranchLabel}`
+    : activeBranchLabel;
   const launchedHarnessSpawn =
     launchedHarnessSession?.harness_session_spawn &&
     "command_contract" in launchedHarnessSession.harness_session_spawn
@@ -1632,6 +1981,292 @@ function HypervisorSessionOperationsCockpit({
       ? launchedHarnessReadiness.operator_next_action
       : "Attach terminal when ready.";
 
+  // Reference-parity inline initialization: when a session is launched the init
+  // panel reflects the daemon-projected HypervisorEnvironmentStatus component
+  // sub-phases (provisioner -> workspace_content -> sandbox -> secrets ->
+  // automations -> model_mount -> harness) instead of a timed animation. The
+  // session is "initializing" until the aggregate environment phase is running.
+  const environmentStatus = projection.environment_status;
+  const environmentComponents = HYPERVISOR_ENVIRONMENT_COMPONENT_ORDER.map(
+    (key) => {
+      const component = environmentStatus.components[key];
+      return {
+        key,
+        label: HYPERVISOR_ENVIRONMENT_COMPONENT_LABELS[key] ?? key,
+        phase: component?.phase ?? "pending",
+        evidence_ref: component?.evidence_ref ?? "",
+      };
+    },
+  );
+  const environmentReady = environmentStatus.phase === "running";
+  const environmentFailed = environmentStatus.phase === "failed";
+  const readyEnvironmentComponentCount = environmentComponents.filter(
+    (component) => component.phase === "ready",
+  ).length;
+  const activeEnvironmentComponent =
+    environmentComponents.find(
+      (component) =>
+        component.phase !== "ready" &&
+        component.phase !== "degraded" &&
+        component.phase !== "failed",
+    ) ?? environmentComponents[environmentComponents.length - 1];
+  const sessionInitializing =
+    Boolean(launchedHarnessSession) && !environmentReady;
+
+  // Mirror the conversation in a ref so streamed turns read prior context
+  // without stale closures.
+  const conversationStateRef = useRef(conversation);
+  useEffect(() => {
+    conversationStateRef.current = conversation;
+  }, [conversation]);
+
+  // Seed the conversation from the launched session's task, once per session.
+  useEffect(() => {
+    if (!launchedHarnessSession) {
+      return;
+    }
+    if (conversationSessionRef.current === launchedHarnessSession.session_ref) {
+      return;
+    }
+    conversationSessionRef.current = launchedHarnessSession.session_ref;
+    autoTurnStartedRef.current = null;
+    const seed = launchedHarnessSession.launch_summary?.seed_intent ?? "";
+    setConversation(
+      seed
+        ? [
+            {
+              id: `user:seed:${launchedHarnessSession.session_ref}`,
+              role: "user",
+              text: seed,
+            },
+          ]
+        : [],
+    );
+  }, [launchedHarnessSession]);
+
+  async function streamTurn(
+    text: string,
+    options?: { skipUserMessage?: boolean },
+  ) {
+    if (turnInFlightRef.current) {
+      return;
+    }
+    const daemonEndpoint =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("ioi.hypervisor.daemonEndpoint")
+        : null;
+    // Without a configured daemon/replay endpoint there is no model route to
+    // stream from; skip the turn instead of emitting failed requests.
+    if (!daemonEndpoint) {
+      return;
+    }
+    turnInFlightRef.current = true;
+    setTurnStreaming(true);
+    const assistantId = `assistant:${Date.now()}`;
+    const priorMessages = conversationStateRef.current
+      .filter((message) => message.text.trim().length > 0)
+      .map((message) => ({ role: message.role, content: message.text }));
+    const messages = options?.skipUserMessage
+      ? priorMessages
+      : [...priorMessages, { role: "user", content: text }];
+    setConversation((current) => [
+      ...current,
+      ...(options?.skipUserMessage
+        ? []
+        : [{ id: `user:${Date.now()}`, role: "user" as const, text }]),
+      { id: assistantId, role: "assistant" as const, text: "", streaming: true },
+    ]);
+    try {
+      const response = await fetch(
+        `${daemonEndpoint.replace(/\/+$/, "")}/v1/hypervisor/session-turns`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "text/event-stream",
+          },
+          body: JSON.stringify({
+            session_ref: activeSessionRef,
+            harness_selection_ref: agentSelectionRef,
+            model_name: selectedModelName,
+            messages: messages.length
+              ? messages
+              : [{ role: "user", content: text }],
+          }),
+        },
+      );
+      if (!response.ok || !response.body) {
+        throw new Error(`session turn responded ${response.status}`);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streaming = true;
+      while (streaming) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() ?? "";
+        for (const block of blocks) {
+          const lines = block.split("\n");
+          const event =
+            lines.find((line) => line.startsWith("event: "))?.slice(7) ??
+            "message";
+          const dataLine = lines
+            .find((line) => line.startsWith("data: "))
+            ?.slice(6);
+          if (!dataLine) continue;
+          let data: {
+            text?: string;
+            source?: string;
+            receipt_ref?: string;
+            message?: string;
+            code?: string;
+          };
+          try {
+            data = JSON.parse(dataLine);
+          } catch {
+            continue;
+          }
+          if (event === "token" && data.text) {
+            const delta = data.text;
+            setConversation((current) =>
+              current.map((message) =>
+                message.id === assistantId
+                  ? { ...message, text: message.text + delta }
+                  : message,
+              ),
+            );
+          } else if (event === "error") {
+            // The daemon reports no reachable model route (and replay mode is
+            // off). Render the actionable message instead of an empty bubble.
+            const noticeText =
+              data.message ||
+              "The model route did not respond. Start a local model (Ollama with a Qwen model on :11434) or set IOI_HYPERVISOR_MODEL_UPSTREAM to stream real completions.";
+            setConversation((current) =>
+              current.map((message) =>
+                message.id === assistantId
+                  ? {
+                      ...message,
+                      streaming: false,
+                      source: data.code ?? "no_model_route",
+                      text: noticeText,
+                    }
+                  : message,
+              ),
+            );
+          } else if (event === "done") {
+            setConversation((current) =>
+              current.map((message) =>
+                message.id === assistantId
+                  ? {
+                      ...message,
+                      streaming: false,
+                      source: data.source,
+                      receipt_ref: data.receipt_ref,
+                    }
+                  : message,
+              ),
+            );
+            streaming = false;
+          }
+        }
+      }
+      setConversation((current) =>
+        current.map((message) =>
+          message.id === assistantId && message.streaming
+            ? { ...message, streaming: false }
+            : message,
+        ),
+      );
+    } catch {
+      setConversation((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                streaming: false,
+                text:
+                  message.text ||
+                  "The model route did not respond. Start a local model (Ollama with a Qwen model on :11434) or set IOI_HYPERVISOR_MODEL_UPSTREAM to stream real completions.",
+              }
+            : message,
+        ),
+      );
+    } finally {
+      turnInFlightRef.current = false;
+      setTurnStreaming(false);
+    }
+  }
+
+  // Once the daemon reports the environment ready (workspace/model/harness
+  // provisioned), the harness answers the task.
+  useEffect(() => {
+    if (!launchedHarnessSession || !environmentReady) {
+      return;
+    }
+    const seed = launchedHarnessSession.launch_summary?.seed_intent ?? "";
+    if (!seed) {
+      return;
+    }
+    if (autoTurnStartedRef.current === launchedHarnessSession.session_ref) {
+      return;
+    }
+    autoTurnStartedRef.current = launchedHarnessSession.session_ref;
+    void streamTurn(seed, { skipUserMessage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [launchedHarnessSession, environmentReady]);
+
+  const hasConversation = conversation.length > 0;
+
+  function submitComposerIntent() {
+    const text = composerText.trim();
+    if (!text) {
+      return;
+    }
+    setComposerText("");
+    // First task on an empty Sessions surface launches a governed session inline;
+    // the harness then answers automatically once the environment is ready.
+    if (!launchedHarnessSession) {
+      const modelOption =
+        modelOptions.find((option) => option.model_ref === modelSelectionRef) ??
+        modelOptions[0];
+      const request = buildHypervisorNewSessionLaunchRequest({
+        seedIntent: text,
+        project: {
+          id: currentProject.id,
+          name: currentProject.name,
+          rootPath: currentProject.rootPath,
+        },
+        harnessSelectionRef: agentSelectionRef,
+        modelRouteRef: modelOption?.model_route_ref,
+        modelName: modelOption?.model_name,
+      });
+      void onLaunchSession(request);
+      return;
+    }
+    // Follow-up tasks stream a governed model turn into the conversation.
+    const intentRef = `session-intent:${activeSessionRef.replace(
+      /[^a-z0-9_-]+/gi,
+      "-",
+    )}/${Date.now()}`;
+    setSubmittedIntents((current) => [
+      {
+        intent_ref: intentRef,
+        text,
+        receipt_ref: `receipt://hypervisor/session-intent/${intentRef.replace(
+          /[^a-z0-9_-]+/gi,
+          "-",
+        )}`,
+        session_ref: activeSessionRef,
+      },
+      ...current,
+    ]);
+    handleSessionOperation("propose_terminal_command", intentRef);
+    void streamTurn(text);
+  }
+
   return (
     <section
       className="hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"
@@ -1649,11 +2284,13 @@ function HypervisorSessionOperationsCockpit({
         <header className="hypervisor-session-operations__session-topbar">
           <button
             type="button"
-            className="hypervisor-session-operations__branch-picker"
-            data-session-branch={projection.branch_label}
-          >
-            <span className="hypervisor-session-operations__status-dot" />
-            <strong>{projection.branch_label}</strong>
+	            className="hypervisor-session-operations__branch-picker"
+	            data-session-branch={activeBranchLabel}
+	            data-session-project-label={activeProjectLabel}
+	            data-session-context-label={activeSessionContextLabel}
+	          >
+	            <span className="hypervisor-session-operations__status-dot" />
+	            <strong>{activeSessionContextLabel}</strong>
             <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
               <ChevronDownIcon />
             </span>
@@ -1733,7 +2370,7 @@ function HypervisorSessionOperationsCockpit({
             type="button"
             className="hypervisor-session-operations__session-title"
             data-session-detail-tab="agent"
-            data-session-ref={projection.selected_session_ref}
+	            data-session-ref={activeSessionRef}
             aria-selected="true"
           >
             <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
@@ -1774,41 +2411,172 @@ function HypervisorSessionOperationsCockpit({
           <main
             className="hypervisor-session-operations__workspace"
             aria-label="Session workspace cockpit"
-            data-session-workspace-cockpit={projection.selected_session_ref}
+	            data-session-workspace-cockpit={activeSessionRef}
             data-session-environment-lifecycle-state={projection.lifecycle_state}
           >
-            <div className="hypervisor-session-operations__workspace-center">
-              <div
-                className="hypervisor-session-operations__workspace-mark"
-                aria-hidden="true"
-              >
-                <span />
-                <span className="hypervisor-session-operations__workspace-mark-symbol" />
-                <span />
-              </div>
-              <h2>What do you want to get done today?</h2>
-              <p>Here are some suggestions to get you started</p>
-              <div className="hypervisor-session-operations__workspace-suggestions">
-                {[
-                  { label: "Automate env setup", tone: "blue" },
-                  { label: "Fix a bug", tone: "red" },
-                  { label: "Boost your test coverage", tone: "purple" },
-                ].map((suggestion) => (
-                  <button
-                    type="button"
-                    key={suggestion.label}
-                    data-session-suggestion={suggestion.label
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, "-")
-                      .replace(/^-+|-+$/g, "")}
-                    data-session-suggestion-tone={suggestion.tone}
+            <div
+              className="hypervisor-session-operations__workspace-center"
+              data-session-has-conversation={hasConversation ? "true" : "false"}
+            >
+              {!hasConversation ? (
+                <>
+                  <div
+                    className="hypervisor-session-operations__workspace-mark"
+                    aria-hidden="true"
                   >
-                    <span aria-hidden="true" />
-                    {suggestion.label}
-                  </button>
-                ))}
-              </div>
-              {launchedHarnessSession ? (
+                    <span />
+                    <span className="hypervisor-session-operations__workspace-mark-symbol" />
+                    <span />
+                  </div>
+                  <h2>What do you want to get done today?</h2>
+                  <p>Here are some suggestions to get you started</p>
+                  <div className="hypervisor-session-operations__workspace-suggestions">
+                    {[
+                      { label: "Automate env setup", tone: "blue" },
+                      { label: "Fix a bug", tone: "red" },
+                      { label: "Boost your test coverage", tone: "purple" },
+                    ].map((suggestion) => (
+                      <button
+                        type="button"
+                        key={suggestion.label}
+                        data-session-suggestion={suggestion.label
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/^-+|-+$/g, "")}
+                        data-session-suggestion-tone={suggestion.tone}
+                        onClick={() => onLaunchSession(
+                          buildHypervisorNewSessionLaunchRequest({
+                            seedIntent: suggestion.label,
+                            project: {
+                              id: currentProject.id,
+                              name: currentProject.name,
+                              rootPath: currentProject.rootPath,
+                            },
+                            harnessSelectionRef: agentSelectionRef,
+                            modelRouteRef: selectedModel?.model_route_ref,
+                            modelName: selectedModel?.model_name,
+                          }),
+                        )}
+                      >
+                        <span aria-hidden="true" />
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {hasConversation ? (
+                <div
+                  className="hypervisor-session-operations__conversation"
+                  aria-label="Session conversation"
+                  data-session-conversation-count={conversation.length}
+                >
+                  {conversation.map((message) => (
+                    <article
+                      key={message.id}
+                      className={`hypervisor-session-operations__message hypervisor-session-operations__message--${message.role}`}
+                      data-session-message-role={message.role}
+                      data-session-message-streaming={
+                        message.streaming ? "true" : "false"
+                      }
+                      data-session-message-source={message.source ?? ""}
+                    >
+                      <span className="hypervisor-session-operations__message-role">
+                        {message.role === "user" ? "You" : selectedHarnessLabel}
+                      </span>
+                      <div className="hypervisor-session-operations__message-text">
+                        {message.text}
+                        {message.streaming ? (
+                          <span
+                            className="hypervisor-session-operations__cursor"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </div>
+                      {message.receipt_ref ? (
+                        <small>{message.receipt_ref}</small>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+              {sessionInitializing ? (
+                <section
+                  className="hypervisor-session-operations__init"
+                  aria-label="Session initialization"
+                  data-session-init-sequence={
+                    launchedHarnessSession?.session_ref ?? ""
+                  }
+                  data-session-init-step={activeEnvironmentComponent?.key ?? ""}
+                  data-session-init-step-index={readyEnvironmentComponentCount}
+                  data-session-environment-phase={environmentStatus.phase}
+                >
+                  <header className="hypervisor-session-operations__init-head">
+                    <span
+                      className="hypervisor-session-operations__init-spinner"
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <strong>
+                        Step {readyEnvironmentComponentCount + 1} of{" "}
+                        {environmentComponents.length}
+                      </strong>
+                      <p>
+                        {activeEnvironmentComponent?.label ??
+                          "Preparing environment"}
+                        …
+                      </p>
+                      <small>
+                        {environmentFailed
+                          ? (environmentStatus.failure_message ??
+                            "Environment provisioning failed")
+                          : `Custody: ${
+                              environmentStatus.components.workspace_content
+                                .custody_posture ?? "public_trunk"
+                            }`}
+                      </small>
+                    </div>
+                  </header>
+                  <ol className="hypervisor-session-operations__init-steps">
+                    {environmentComponents.map((component) => (
+                      <li
+                        key={component.key}
+                        data-session-init-step-ref={component.key}
+                        data-session-init-step-phase={component.phase}
+                        data-session-init-step-state={
+                          component.phase === "ready"
+                            ? "completed"
+                            : component.phase === "failed" ||
+                                component.phase === "degraded"
+                              ? "blocked"
+                              : component.phase === "pending"
+                                ? "waiting"
+                                : "running"
+                        }
+                      >
+                        <span aria-hidden="true" />
+                        {component.label}
+                      </li>
+                    ))}
+                  </ol>
+                  <div
+                    className="hypervisor-session-operations__init-logs"
+                    role="log"
+                    aria-label="Environment status evidence"
+                  >
+                    <span className="hypervisor-session-operations__init-logs-title">
+                      === Environment status ===
+                    </span>
+                    {environmentComponents.map((component) => (
+                      <code key={`evidence-${component.key}`}>
+                        {component.key}: {component.phase} —{" "}
+                        {component.evidence_ref}
+                      </code>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+              {launchedHarnessSession && !sessionInitializing ? (
                 <section
                   className="hypervisor-session-operations__harness-drill-in"
                   aria-label="Launched harness session"
@@ -1899,21 +2667,74 @@ function HypervisorSessionOperationsCockpit({
                       {launchedHarnessTranscriptLineCount} lines
                     </small>
                   ) : null}
-                  <p>{launchedHarnessNextAction}</p>
-                </section>
-              ) : null}
+	                  <p>{launchedHarnessNextAction}</p>
+	                  {submittedIntents.length > 0 ? (
+	                    <div
+	                      className="hypervisor-session-operations__submitted-intents"
+	                      data-session-composer-submission-count={
+	                        submittedIntents.length
+	                      }
+	                    >
+	                      {submittedIntents.map((intent) => (
+	                        <article
+	                          key={intent.intent_ref}
+	                          data-session-composer-submission={intent.intent_ref}
+	                          data-session-composer-submission-receipt={
+	                            intent.receipt_ref
+	                          }
+	                        >
+	                          <strong>
+	                            Queued for{" "}
+	                            {launchedHarnessSession?.harness_session_binding
+	                              .harness_label ?? "selected agent"}
+	                          </strong>
+	                          <p>{intent.text}</p>
+	                          <small>{intent.receipt_ref}</small>
+	                        </article>
+	                      ))}
+	                    </div>
+	                  ) : null}
+	                </section>
+	              ) : null}
             </div>
-            <form
-              className="hypervisor-session-operations__composer"
-              aria-label="Describe session task"
-            >
-              <textarea
-                rows={3}
-                placeholder="Describe your task or type / for commands"
-              />
-              <div>
-                <button type="button" aria-label="Attach context">
+	            <form
+	              className="hypervisor-session-operations__composer"
+	              aria-label="Describe session task"
+	              data-session-composer-session={activeSessionRef}
+	              onSubmit={(event) => {
+	                event.preventDefault();
+	                submitComposerIntent();
+	              }}
+	            >
+	              <textarea
+	                rows={3}
+	                value={composerText}
+	                onChange={(event) => setComposerText(event.currentTarget.value)}
+	                onKeyDown={(event) => {
+	                  if (event.key === "Enter" && !event.shiftKey) {
+	                    event.preventDefault();
+	                    submitComposerIntent();
+	                  }
+	                }}
+	                placeholder="Describe your task or type / for commands"
+	              />
+              <div className="hypervisor-session-operations__composer-controls">
+                <button
+                  type="button"
+                  className="hypervisor-session-operations__composer-attach"
+                  aria-label="Attach context"
+                >
                   +
+                </button>
+                <button
+                  type="button"
+                  className="hypervisor-session-operations__composer-configure"
+                  data-session-new-session-configure="true"
+                  aria-label="Configure launch (advanced)"
+                  title="Configure harness, model route, privacy posture, and authority"
+                  onClick={() => onConfigureLaunch(composerText.trim() || null)}
+                >
+                  Configure
                 </button>
                 <span
                   hidden
@@ -1921,16 +2742,25 @@ function HypervisorSessionOperationsCockpit({
                     .map((step) => step.step_ref)
                     .join(" ")}
                 />
-                <button
-                  type="button"
-                  className="hypervisor-session-operations__composer-model"
-                >
-                  5.5 Medium
-                  <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
-                    <ChevronDownIcon />
-                  </span>
-                </button>
-                <button type="submit" aria-label="Send task">
+                <AgentModelSelector
+                  options={agentOptions}
+                  selectedRef={agentSelectionRef}
+                  onSelect={onSelectAgent}
+                  surface="session"
+                  align="right"
+                />
+                <ModelRouteSelector
+                  options={modelOptions}
+                  selectedRef={modelSelectionRef}
+                  onSelect={onSelectModel}
+                  surface="session"
+                  align="right"
+                />
+	                <button
+	                  type="submit"
+	                  aria-label="Send task"
+	                  disabled={!composerText.trim() || turnStreaming}
+	                >
                   ↑
                 </button>
               </div>
@@ -2236,15 +3066,33 @@ function HypervisorSessionOperationsCockpit({
 function HypervisorProjectStateSurface({
   selectedProjectId,
   onOpenReceiptEvidence,
+  onProjectStateProjection,
+  onLaunchProjectSession,
 }: {
   selectedProjectId: string;
   onOpenReceiptEvidence: (target: HypervisorReceiptEvidenceTarget) => void;
+  onProjectStateProjection: (projection: HypervisorProjectStateProjection) => void;
+  onLaunchProjectSession: (
+    record: HypervisorProjectStateRecord,
+  ) => Promise<HypervisorLaunchedSessionProjection | null>;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   );
   const [operationProposal, setOperationProposal] =
     useState<HypervisorProjectOperationProposal | null>(null);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [repositorySource, setRepositorySource] = useState<
+    "manual_url" | "repository_picker"
+  >("manual_url");
+  const [repositoryUrl, setRepositoryUrl] = useState(
+    "https://github.com/ioi-foundation/ioi",
+  );
+  const [projectName, setProjectName] = useState("");
+  const [environmentClassRef, setEnvironmentClassRef] = useState("");
+  const [projectCreateError, setProjectCreateError] = useState("");
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [projectCreateNotice, setProjectCreateNotice] = useState("");
 
   useEffect(() => {
     if (
@@ -2255,12 +3103,13 @@ function HypervisorProjectStateSurface({
       return;
     }
     let cancelled = false;
-    loadHypervisorProjectStateProjection({ projectId: selectedProjectId })
-      .then((nextProjection) => {
-        if (!cancelled) {
-          setProjection(nextProjection);
-        }
-      })
+	    loadHypervisorProjectStateProjection({ projectId: selectedProjectId })
+	      .then((nextProjection) => {
+	        if (!cancelled) {
+	          setProjection(nextProjection);
+	          onProjectStateProjection(nextProjection);
+	        }
+	      })
       .catch((error) => {
         console.warn(
           "[Hypervisor][Projects] state projection unavailable",
@@ -2270,7 +3119,7 @@ function HypervisorProjectStateSurface({
     return () => {
       cancelled = true;
     };
-  }, [selectedProjectId]);
+	  }, [onProjectStateProjection, selectedProjectId]);
 
   const selectedProject =
     projection.records.find(
@@ -2286,6 +3135,9 @@ function HypervisorProjectStateSurface({
   const restoreReadyCount = visibleProjects.filter(
     (project) => project.restore_state === "restore_ready",
   ).length;
+  const suggestedProjectName = projectNameFromRepositoryUrl(repositoryUrl);
+  const resolvedProjectName = projectName.trim() || suggestedProjectName;
+  const repositoryUrlIsValid = isGitRepositoryUrl(repositoryUrl);
 
   async function onProjectOperation(
     project: HypervisorProjectStateRecord,
@@ -2307,7 +3159,90 @@ function HypervisorProjectStateSurface({
     }
   }
 
-  return (
+  async function onCreateProject() {
+    setProjectCreateError("");
+    setProjectCreateNotice("");
+    if (!repositoryUrlIsValid) {
+      setProjectCreateError("The URL must point to a Git repository.");
+      return;
+    }
+    if (!resolvedProjectName) {
+      setProjectCreateError("Project name is required.");
+      return;
+    }
+
+    setIsCreatingProject(true);
+    try {
+      const nextProjection = await requestHypervisorProjectCreate({
+        request: {
+          repository_url: repositoryUrl.trim(),
+          project_name: resolvedProjectName,
+          source: repositorySource,
+          environment_class_refs: environmentClassRef
+            ? [environmentClassRef]
+            : [],
+        },
+	      });
+	      setProjection(nextProjection);
+	      onProjectStateProjection(nextProjection);
+	      setOperationProposal(null);
+	      setIsCreateProjectOpen(false);
+      setProjectName("");
+      setProjectCreateNotice(`Project "${resolvedProjectName}" created.`);
+    } catch (error) {
+      setProjectCreateError(
+        error instanceof Error
+          ? error.message
+          : "Project could not be created through the daemon route.",
+      );
+    } finally {
+      setIsCreatingProject(false);
+    }
+	  }
+
+	  async function onOpenProjectSession(project: HypervisorProjectStateRecord) {
+	    try {
+	      const launchedSession = await onLaunchProjectSession(project);
+      if (!launchedSession) {
+        // Launch stepped up into Configure/Advanced; no inline session created.
+        return;
+      }
+	      setProjection((current) => {
+	        const nextProjection: HypervisorProjectStateProjection = {
+	          ...current,
+	          selected_project_id: project.project_id,
+	          records: current.records.map((record) =>
+	            record.project_id === project.project_id
+	              ? {
+	                  ...record,
+	                  restore_state: "active",
+	                  environment: record.environment || "Local dev replay",
+	                  current_session_ref: launchedSession.session_ref,
+	                  latest_receipt_refs: [
+	                    launchedSession.launch_receipt_ref,
+	                    ...record.latest_receipt_refs.filter(
+	                      (receiptRef) =>
+	                        receiptRef !== launchedSession.launch_receipt_ref,
+	                    ),
+	                  ],
+	                }
+	              : record,
+	          ),
+	        };
+	        onProjectStateProjection(nextProjection);
+	        return nextProjection;
+	      });
+	    } catch (error) {
+	      setProjectCreateNotice("");
+	      setProjectCreateError(
+	        error instanceof Error
+	          ? error.message
+	          : "Project session could not be launched.",
+	      );
+	    }
+	  }
+
+	  return (
     <section
       className="hypervisor-project-state"
       aria-label="Project state surface"
@@ -2322,13 +3257,21 @@ function HypervisorProjectStateSurface({
             <h2>Projects</h2>
             {visibleProjects.length > 0 ? (
               <p>
-                Workspaces, sessions, adapter targets, archives, and restore refs
-                admitted through Hypervisor Core.
+                Repository workspaces, environment classes, sessions, archives,
+                and receipts admitted by the Hypervisor Daemon.
               </p>
             ) : null}
           </div>
           {visibleProjects.length > 0 ? (
-            <button type="button" className="hypervisor-project-state__new">
+            <button
+              type="button"
+              className="hypervisor-project-state__new"
+              onClick={() => {
+                setIsCreateProjectOpen(true);
+                setProjectCreateError("");
+                setProjectCreateNotice("");
+              }}
+            >
               New project
             </button>
           ) : null}
@@ -2378,28 +3321,34 @@ function HypervisorProjectStateSurface({
                 const isSelected =
                   selectedProject?.project_id === project.project_id;
                 return (
-                  <article
-                    key={project.project_id}
-                    className={clsx("hypervisor-project-state__record", {
-                      "is-selected": isSelected,
-                    })}
-                    data-project-state-record={project.project_id}
-                    data-project-restore-state={project.restore_state}
-                    data-project-custody-posture={project.custody_posture}
+	                  <button
+	                    type="button"
+	                    key={project.project_id}
+	                    className={clsx("hypervisor-project-state__record", {
+	                      "is-selected": isSelected,
+	                    })}
+	                    aria-label={`Open ${project.name} session`}
+	                    data-project-state-record={project.project_id}
+	                    data-project-restore-state={project.restore_state}
+	                    data-project-custody-posture={project.custody_posture}
                     data-project-workspace-ref={project.workspace_ref}
                     data-project-object-head-ref={project.agentgres_object_head_ref}
-                    data-project-state-root-ref={project.state_root_ref}
-                    data-project-archive-ref={project.archive_ref}
-                    data-project-restore-ref={project.restore_ref}
-                  >
-                    <div>
-                      <strong>{project.name}</strong>
-                      <span>{project.description}</span>
+	                    data-project-state-root-ref={project.state_root_ref}
+	                    data-project-archive-ref={project.archive_ref}
+	                    data-project-restore-ref={project.restore_ref}
+	                    data-project-session-launch="local-qwen"
+	                    onClick={() => {
+	                      void onOpenProjectSession(project);
+	                    }}
+	                  >
+	                    <div>
+	                      <strong>{project.name}</strong>
+                      <span>{project.repository_url ?? project.description}</span>
                     </div>
-                    <span>{project.environment}</span>
-                    <span>{project.restore_state.split("_").join(" ")}</span>
-                    <span>{project.custody_posture.split("_").join(" ")}</span>
-                  </article>
+	                    <span>{project.environment}</span>
+	                    <span>{project.restore_state.split("_").join(" ")}</span>
+	                    <span>{project.custody_posture.split("_").join(" ")}</span>
+	                  </button>
                 );
               })}
             </section>
@@ -2414,6 +3363,14 @@ function HypervisorProjectStateSurface({
                 encrypted archive and payload bytes referenced here.
               </p>
               <dl>
+                <div>
+                  <dt>Repository</dt>
+                  <dd>{selectedProject?.repository_url ?? "unlinked"}</dd>
+                </div>
+                <div>
+                  <dt>Branch</dt>
+                  <dd>{selectedProject?.repository_branch ?? "unconfigured"}</dd>
+                </div>
                 <div>
                   <dt>Workspace</dt>
                   <dd>{selectedProject?.workspace_ref ?? "unavailable"}</dd>
@@ -2530,12 +3487,149 @@ function HypervisorProjectStateSurface({
             <a href="/projects" aria-label="Learn more about projects in IOI">
               Learn more about projects in IOI.
             </a>
-            <button type="button" className="hypervisor-project-state__new">
+            <button
+              type="button"
+              className="hypervisor-project-state__new"
+              onClick={() => {
+                setIsCreateProjectOpen(true);
+                setProjectCreateError("");
+                setProjectCreateNotice("");
+              }}
+            >
               New project
             </button>
           </section>
         )}
+        {projectCreateNotice ? (
+          <p className="hypervisor-project-state__notice" role="status">
+            {projectCreateNotice}
+          </p>
+        ) : null}
       </div>
+      {isCreateProjectOpen ? (
+        <div
+          className="hypervisor-project-create"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hypervisor-project-create-title"
+        >
+          <div className="hypervisor-project-create__backdrop" />
+          <form
+            className="hypervisor-project-create__panel"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onCreateProject();
+            }}
+          >
+            <header>
+              <div>
+                <h3 id="hypervisor-project-create-title">New Project</h3>
+                <p>
+                  Link a Git repository so Hypervisor can launch sessions,
+                  configure environments, and attach receipts to repo work.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close new project"
+                onClick={() => setIsCreateProjectOpen(false)}
+              >
+                x
+              </button>
+            </header>
+            <fieldset className="hypervisor-project-create__source">
+              <legend>Repository source</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="hypervisor-project-source"
+                  checked={repositorySource === "repository_picker"}
+                  onChange={() => setRepositorySource("repository_picker")}
+                />
+                <span>Select a repository</span>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="hypervisor-project-source"
+                  checked={repositorySource === "manual_url"}
+                  onChange={() => setRepositorySource("manual_url")}
+                />
+                <span>Enter URL manually</span>
+              </label>
+            </fieldset>
+            {repositorySource === "repository_picker" ? (
+              <div className="hypervisor-project-create__picker">
+                <span>Connect to GitHub to browse repositories</span>
+                <button type="button">Connect to GitHub</button>
+                <small>
+                  Dev replay keeps this as a proposal; wallet.network will own
+                  real source-control authorization.
+                </small>
+              </div>
+            ) : null}
+            <label className="hypervisor-project-create__field">
+              <span>Repository URL</span>
+              <input
+                value={repositoryUrl}
+                onChange={(event) => {
+                  setRepositoryUrl(event.target.value);
+                  setProjectCreateError("");
+                }}
+                placeholder="https://github.com/org/repo"
+              />
+            </label>
+            {!repositoryUrlIsValid && repositoryUrl.trim() ? (
+              <p className="hypervisor-project-create__error">
+                The URL must point to a Git repository.
+              </p>
+            ) : null}
+            <label className="hypervisor-project-create__field">
+              <span>Project name</span>
+              <input
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder={suggestedProjectName || "My Project"}
+              />
+            </label>
+            <label className="hypervisor-project-create__field">
+              <span>Environment Classes</span>
+              <select
+                value={environmentClassRef}
+                onChange={(event) => setEnvironmentClassRef(event.target.value)}
+              >
+                <option value="">Add environment class</option>
+                {HYPERVISOR_PROJECT_ENVIRONMENT_CLASS_OPTIONS.map((option) => (
+                  <option key={option.ref} value={option.ref}>
+                    {option.label} - {option.details}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {projectCreateError ? (
+              <p className="hypervisor-project-create__error" role="alert">
+                {projectCreateError}
+              </p>
+            ) : null}
+            <footer>
+              <button
+                type="button"
+                onClick={() => setIsCreateProjectOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  isCreatingProject || !repositoryUrlIsValid || !resolvedProjectName
+                }
+              >
+                {isCreatingProject ? "Creating..." : "Create"}
+              </button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -3655,7 +4749,13 @@ export function HypervisorShellContent({
   controller,
   runtime,
 }: HypervisorShellContentProps) {
-  const { activeView, currentProject, projects, notificationBadgeCount } =
+  const {
+    activeView,
+    currentProjectId,
+    currentProject,
+    projects,
+    notificationBadgeCount,
+  } =
     controller;
   const workspaceHost = getDefaultWorkspaceSessionHost();
   const workspaceActive = activeView === "workbench";
@@ -3758,7 +4858,9 @@ export function HypervisorShellContent({
                       onOpenWorkspace={() =>
                         controller.changePrimaryView("workbench")
                       }
-                      onOpenRuns={() => controller.changePrimaryView("insights")}
+                      onOpenRuns={() =>
+                        controller.changePrimaryView("applications")
+                      }
                       onOpenModels={() =>
                         controller.changePrimaryView("models")
                       }
@@ -3787,15 +4889,40 @@ export function HypervisorShellContent({
                       launchedSessions={
                         controller.sessions.launchedSessionProjections
                       }
+                      currentProject={{
+                        id: currentProject.id,
+                        name: currentProject.name,
+                        rootPath: currentProject.rootPath,
+                      }}
+                      agentOptions={HYPERVISOR_SESSION_AGENT_SELECTOR_OPTIONS}
+                      agentSelectionRef={controller.sessions.selectedAgentRef}
+                      onSelectAgent={controller.sessions.selectAgent}
+                      modelOptions={buildHypervisorModelOptions(
+                        controller.sessions.selectedAgentRef,
+                      )}
+                      modelSelectionRef={controller.sessions.selectedModelRef}
+                      onSelectModel={controller.sessions.selectModel}
+                      onLaunchSession={controller.modals.launchNewSession}
+                      onConfigureLaunch={(seed) =>
+                        controller.modals.openNewSessionModalAdvanced(
+                          seed ?? undefined,
+                        )
+                      }
                       onOpenReceiptEvidence={controller.receipts.openTarget}
                     />
                   ) : null}
 
                   {activeView === "projects" ? (
-                    <HypervisorProjectStateSurface
-                      selectedProjectId={currentProject.id}
-                      onOpenReceiptEvidence={controller.receipts.openTarget}
-                    />
+	                    <HypervisorProjectStateSurface
+	                      selectedProjectId={currentProjectId}
+	                      onOpenReceiptEvidence={controller.receipts.openTarget}
+	                      onProjectStateProjection={
+	                        controller.projectState.registerProjection
+	                      }
+	                      onLaunchProjectSession={
+	                        controller.projectState.launchProjectSession
+	                      }
+	                    />
                   ) : null}
 
                   {activeView === "automations" ? (
@@ -3813,6 +4940,10 @@ export function HypervisorShellContent({
                         }
                       />
                     </HypervisorAutomationCompositorSurface>
+                  ) : null}
+
+                  {activeView === "applications" ? (
+                    <HypervisorApplicationsCatalogSurface />
                   ) : null}
 
                   {activeView === "insights" ? (

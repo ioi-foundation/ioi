@@ -414,27 +414,32 @@ export function useWorkspaceSession({
         return;
       }
 
-      setDocuments((current) => [
-        ...current,
-        {
-          id: existingId,
-          kind: "file",
-          name: request.path.split("/").pop() || request.path,
-          path: request.path,
-          absolutePath: "",
-          languageHint: null,
-          content: "",
-          savedContent: "",
-          sizeBytes: 0,
-          modifiedAtMs: null,
-          isBinary: false,
-          isTooLarge: false,
-          readOnly: false,
-          loading: true,
-          saving: false,
-          error: null,
-        },
-      ]);
+      setDocuments((current) => {
+        if (current.some((tab) => tab.id === existingId)) {
+          return current;
+        }
+        return [
+          ...current,
+          {
+            id: existingId,
+            kind: "file",
+            name: request.path.split("/").pop() || request.path,
+            path: request.path,
+            absolutePath: "",
+            languageHint: null,
+            content: "",
+            savedContent: "",
+            sizeBytes: 0,
+            modifiedAtMs: null,
+            isBinary: false,
+            isTooLarge: false,
+            readOnly: false,
+            loading: true,
+            saving: false,
+            error: null,
+          },
+        ];
+      });
       setActiveDocumentId(existingId);
 
       try {

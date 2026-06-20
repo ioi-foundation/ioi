@@ -84,6 +84,123 @@ export interface HypervisorEnvironmentLifecycleStepProjection {
   evidence_ref: string;
 }
 
+// Canonical environment status object (see
+// docs/architecture/components/hypervisor/providers-and-environments.md ->
+// Environment Status Object). The daemon projects this from real provisioning
+// transitions; it is the structured replacement for the flat lifecycle steps,
+// added alongside them. Per-component sub-phases share one taxonomy.
+export type HypervisorEnvironmentComponentPhase =
+  | "pending"
+  | "creating"
+  | "initializing"
+  | "ready"
+  | "degraded"
+  | "failed";
+
+export type HypervisorEnvironmentPhase =
+  | "creating"
+  | "starting"
+  | "running"
+  | "updating"
+  | "stopping"
+  | "stopped"
+  | "archived"
+  | "failed";
+
+export type HypervisorWorkspaceCustodyPosture =
+  | "public_trunk"
+  | "redacted_projection"
+  | "plain_workspace"
+  | "ctee_private_workspace";
+
+export interface HypervisorEnvironmentComponentStatus {
+  phase: HypervisorEnvironmentComponentPhase;
+  evidence_ref: string;
+  initializer_ref?: string | null;
+  custody_posture?: HypervisorWorkspaceCustodyPosture | string | null;
+  workspace_root?: string | null;
+  capability_lease_refs?: string[];
+  model_route_ref?: string | null;
+  harness_session_ref?: string | null;
+}
+
+export interface HypervisorEnvironmentPort {
+  port: number | null;
+  protocol: string;
+  access_policy: "private" | "session_lease" | "shared";
+  capability_lease_ref: string | null;
+  url: string | null;
+  exposure_state: "closed" | "lease_required" | "open";
+}
+
+export interface HypervisorEnvironmentStatus {
+  schema_version: "ioi.hypervisor.environment_status.v1";
+  environment_ref: string;
+  provider_placement_ref: string | null;
+  phase: HypervisorEnvironmentPhase;
+  components: {
+    provisioner: HypervisorEnvironmentComponentStatus;
+    workspace_content: HypervisorEnvironmentComponentStatus;
+    sandbox: HypervisorEnvironmentComponentStatus;
+    secrets: HypervisorEnvironmentComponentStatus;
+    automations: HypervisorEnvironmentComponentStatus;
+    model_mount: HypervisorEnvironmentComponentStatus;
+    harness: HypervisorEnvironmentComponentStatus;
+  };
+  ports: HypervisorEnvironmentPort[];
+  failure_message: string | null;
+  warning_message: string | null;
+  state_root_ref: string;
+  workspace_artifact_ref: string | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HypervisorWorkspaceInitializerGitSpec {
+  remote_uri: string;
+  clone_target: string;
+  target_mode: string;
+}
+
+export interface HypervisorWorkspaceInitializerSpec {
+  context_url?: string;
+  git?: HypervisorWorkspaceInitializerGitSpec;
+}
+
+export interface HypervisorWorkspaceInitializer {
+  schema_version: "ioi.hypervisor.workspace_initializer.v1";
+  initializer_ref: string;
+  specs: HypervisorWorkspaceInitializerSpec[];
+  custody_posture: HypervisorWorkspaceCustodyPosture | string;
+  authority_scope_refs: string[];
+}
+
+// Ordered component sub-phases for the session init panel render. Labels are
+// display copy for the cockpit; the daemon owns the phases.
+export const HYPERVISOR_ENVIRONMENT_COMPONENT_ORDER = [
+  "provisioner",
+  "workspace_content",
+  "sandbox",
+  "secrets",
+  "automations",
+  "model_mount",
+  "harness",
+] as const;
+
+export const HYPERVISOR_ENVIRONMENT_COMPONENT_LABELS: Record<string, string> = {
+  provisioner: "Provisioning machine",
+  workspace_content: "Initializing workspace",
+  sandbox: "Preparing sandbox",
+  secrets: "Loading secrets",
+  automations: "Preparing automations",
+  model_mount: "Mounting model",
+  harness: "Spawning harness",
+};
+
+// A component phase is terminal (no longer transitioning) when ready/degraded/
+// failed; the init panel hides once the aggregate environment phase is terminal.
+export const HYPERVISOR_ENVIRONMENT_TERMINAL_PHASES: ReadonlySet<HypervisorEnvironmentPhase> =
+  new Set(["running", "stopped", "archived", "failed"]);
+
 export interface HypervisorChangedFileProjection {
   file_ref: string;
   name: string;
@@ -135,6 +252,9 @@ export interface HypervisorSessionOperationsProjection {
   activity_signals: HypervisorSessionActivitySignalProjection[];
   access_log_leases: HypervisorSessionLeaseProjection[];
   environment_lifecycle_steps: HypervisorEnvironmentLifecycleStepProjection[];
+  environment_status: HypervisorEnvironmentStatus;
+  workspace_initializer: HypervisorWorkspaceInitializer;
+  environment_ports: HypervisorEnvironmentPort[];
   changed_file_groups: HypervisorChangedFileGroupProjection[];
   latest_receipt_refs: string[];
   runtimeTruthSource: "daemon-runtime";
@@ -426,6 +546,72 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE: HypervisorSession
         evidence_ref: "receipt://environment/devcontainer/started",
       },
     ],
+    environment_status: {
+      schema_version: "ioi.hypervisor.environment_status.v1",
+      environment_ref: "environment:hypervisor-session",
+      provider_placement_ref: "provider-placement:hypervisor-cloud-us01",
+      phase: "running",
+      components: {
+        provisioner: {
+          phase: "ready",
+          evidence_ref: "receipt://environment/remote-vm/started",
+        },
+        workspace_content: {
+          phase: "ready",
+          initializer_ref: "workspace-initializer:public_trunk-1",
+          custody_posture: "public_trunk",
+          workspace_root: "/workspace/ioi",
+          evidence_ref: "agentgres://projection/repository/ioi",
+        },
+        sandbox: {
+          phase: "ready",
+          evidence_ref: "receipt://environment/devcontainer/started",
+        },
+        secrets: {
+          phase: "ready",
+          capability_lease_refs: ["receipt://wallet/secret-lease/workspace"],
+          evidence_ref: "receipt://wallet/secret-lease/workspace",
+        },
+        automations: {
+          phase: "ready",
+          evidence_ref: "receipt://workflow-compositor/templates/loaded",
+        },
+        model_mount: {
+          phase: "ready",
+          model_route_ref: "model-route:hypervisor/default-local",
+          evidence_ref: "receipt://model-mount/qwen/ready",
+        },
+        harness: {
+          phase: "ready",
+          harness_session_ref: "harness-session-spawn:dev-replay",
+          evidence_ref: "receipt://harness/session/ready",
+        },
+      },
+      ports: [],
+      failure_message: null,
+      warning_message: null,
+      state_root_ref:
+        "agentgres://state-root/environment-status/hypervisor-session",
+      workspace_artifact_ref:
+        "agentgres://artifact/workspace/hypervisor-session",
+      runtimeTruthSource: "daemon-runtime",
+    },
+    workspace_initializer: {
+      schema_version: "ioi.hypervisor.workspace_initializer.v1",
+      initializer_ref: "workspace-initializer:public_trunk-1",
+      specs: [
+        {
+          git: {
+            remote_uri: "https://github.com/teamioitest/ioi",
+            clone_target: ".",
+            target_mode: "remote_branch",
+          },
+        },
+      ],
+      custody_posture: "public_trunk",
+      authority_scope_refs: ["wallet-capability:workspace-write"],
+    },
+    environment_ports: [],
     changed_file_groups: [
       {
         group_ref: "changed-group:devcontainer",
@@ -792,6 +978,187 @@ function normalizeChangedFileGroupProjection(
   };
 }
 
+function normalizeEnvironmentComponentStatus(
+  item: Record<string, unknown>,
+  fallback: HypervisorEnvironmentComponentStatus,
+): HypervisorEnvironmentComponentStatus {
+  return {
+    phase: enumValue(item.phase, fallback.phase, [
+      "pending",
+      "creating",
+      "initializing",
+      "ready",
+      "degraded",
+      "failed",
+    ]),
+    evidence_ref: stringValue(item.evidence_ref, fallback.evidence_ref),
+    initializer_ref:
+      typeof item.initializer_ref === "string"
+        ? item.initializer_ref
+        : (fallback.initializer_ref ?? null),
+    custody_posture:
+      typeof item.custody_posture === "string"
+        ? item.custody_posture
+        : (fallback.custody_posture ?? null),
+    workspace_root:
+      typeof item.workspace_root === "string"
+        ? item.workspace_root
+        : (fallback.workspace_root ?? null),
+    capability_lease_refs: stringList(
+      item.capability_lease_refs,
+      fallback.capability_lease_refs ?? [],
+    ),
+    model_route_ref:
+      typeof item.model_route_ref === "string"
+        ? item.model_route_ref
+        : (fallback.model_route_ref ?? null),
+    harness_session_ref:
+      typeof item.harness_session_ref === "string"
+        ? item.harness_session_ref
+        : (fallback.harness_session_ref ?? null),
+  };
+}
+
+function normalizeEnvironmentPortProjection(
+  item: Record<string, unknown>,
+  fallback: HypervisorEnvironmentPort | null,
+): HypervisorEnvironmentPort {
+  return {
+    port: typeof item.port === "number" ? item.port : (fallback?.port ?? null),
+    protocol: stringValue(item.protocol, fallback?.protocol ?? "http"),
+    access_policy: enumValue(
+      item.access_policy,
+      fallback?.access_policy ?? "session_lease",
+      ["private", "session_lease", "shared"],
+    ),
+    capability_lease_ref:
+      typeof item.capability_lease_ref === "string"
+        ? item.capability_lease_ref
+        : (fallback?.capability_lease_ref ?? null),
+    url: typeof item.url === "string" ? item.url : (fallback?.url ?? null),
+    exposure_state: enumValue(
+      item.exposure_state,
+      fallback?.exposure_state ?? "lease_required",
+      ["closed", "lease_required", "open"],
+    ),
+  };
+}
+
+// environment_status is an OBJECT, not an array: distinguish absent (use the
+// fixture skeleton wholesale) from present (normalize deeply against it).
+function normalizeEnvironmentStatusProjection(
+  value: unknown,
+  fallback: HypervisorEnvironmentStatus,
+): HypervisorEnvironmentStatus {
+  const record = objectRecord(value);
+  if (Object.keys(record).length === 0) {
+    return fallback;
+  }
+  const components = objectRecord(record.components);
+  const componentFor = (
+    key: keyof HypervisorEnvironmentStatus["components"],
+  ): HypervisorEnvironmentComponentStatus =>
+    normalizeEnvironmentComponentStatus(
+      objectRecord(components[key]),
+      fallback.components[key],
+    );
+  return {
+    schema_version: "ioi.hypervisor.environment_status.v1",
+    environment_ref: stringValue(
+      record.environment_ref,
+      fallback.environment_ref,
+    ),
+    provider_placement_ref:
+      typeof record.provider_placement_ref === "string"
+        ? record.provider_placement_ref
+        : fallback.provider_placement_ref,
+    phase: enumValue(record.phase, fallback.phase, [
+      "creating",
+      "starting",
+      "running",
+      "updating",
+      "stopping",
+      "stopped",
+      "archived",
+      "failed",
+    ]),
+    components: {
+      provisioner: componentFor("provisioner"),
+      workspace_content: componentFor("workspace_content"),
+      sandbox: componentFor("sandbox"),
+      secrets: componentFor("secrets"),
+      automations: componentFor("automations"),
+      model_mount: componentFor("model_mount"),
+      harness: componentFor("harness"),
+    },
+    ports: arrayOf(record.ports).map((port, index) =>
+      normalizeEnvironmentPortProjection(port, fallback.ports[index] ?? null),
+    ),
+    failure_message:
+      typeof record.failure_message === "string"
+        ? record.failure_message
+        : null,
+    warning_message:
+      typeof record.warning_message === "string"
+        ? record.warning_message
+        : null,
+    state_root_ref: stringValue(record.state_root_ref, fallback.state_root_ref),
+    workspace_artifact_ref:
+      typeof record.workspace_artifact_ref === "string"
+        ? record.workspace_artifact_ref
+        : fallback.workspace_artifact_ref,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+function normalizeWorkspaceInitializer(
+  value: unknown,
+  fallback: HypervisorWorkspaceInitializer,
+): HypervisorWorkspaceInitializer {
+  const record = objectRecord(value);
+  if (Object.keys(record).length === 0) {
+    return fallback;
+  }
+  const specs = arrayOf(record.specs)
+    .map((spec): HypervisorWorkspaceInitializerSpec | null => {
+      const git = objectRecord(spec.git);
+      if (typeof git.remote_uri === "string" && git.remote_uri.trim()) {
+        return {
+          git: {
+            remote_uri: git.remote_uri,
+            clone_target:
+              typeof git.clone_target === "string" ? git.clone_target : ".",
+            target_mode:
+              typeof git.target_mode === "string"
+                ? git.target_mode
+                : "remote_branch",
+          },
+        };
+      }
+      if (typeof spec.context_url === "string" && spec.context_url.trim()) {
+        return { context_url: spec.context_url };
+      }
+      return null;
+    })
+    .filter((spec): spec is HypervisorWorkspaceInitializerSpec => spec !== null);
+  return {
+    schema_version: "ioi.hypervisor.workspace_initializer.v1",
+    initializer_ref: stringValue(
+      record.initializer_ref,
+      fallback.initializer_ref,
+    ),
+    specs,
+    custody_posture: stringValue(
+      record.custody_posture,
+      fallback.custody_posture,
+    ),
+    authority_scope_refs: stringList(
+      record.authority_scope_refs,
+      fallback.authority_scope_refs,
+    ),
+  };
+}
+
 export function readHypervisorSessionOperationsDaemonEndpoint(): string {
   try {
     if (typeof window === "undefined") {
@@ -839,6 +1206,20 @@ export function normalizeHypervisorSessionOperationsProjection(
   );
   const changedFileGroups = arrayOf(value.changed_file_groups).map(
     normalizeChangedFileGroupProjection,
+  );
+  const environmentStatus = normalizeEnvironmentStatusProjection(
+    value.environment_status,
+    fallback.environment_status,
+  );
+  const workspaceInitializer = normalizeWorkspaceInitializer(
+    value.workspace_initializer,
+    fallback.workspace_initializer,
+  );
+  const environmentPorts = arrayOf(value.environment_ports).map((port, index) =>
+    normalizeEnvironmentPortProjection(
+      port,
+      fallback.environment_ports[index] ?? null,
+    ),
   );
   return {
     schema_version: "ioi.hypervisor.session_operations_projection.v1",
@@ -919,6 +1300,12 @@ export function normalizeHypervisorSessionOperationsProjection(
       environmentLifecycleSteps.length > 0
         ? environmentLifecycleSteps
         : fallback.environment_lifecycle_steps,
+    environment_status: environmentStatus,
+    workspace_initializer: workspaceInitializer,
+    environment_ports:
+      environmentPorts.length > 0
+        ? environmentPorts
+        : fallback.environment_ports,
     changed_file_groups:
       changedFileGroups.length > 0
         ? changedFileGroups

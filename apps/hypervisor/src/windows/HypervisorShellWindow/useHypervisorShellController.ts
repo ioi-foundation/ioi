@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "../../services/hypervisorHostBridge";
 import { listen } from "../../services/hypervisorHostBridge";
 import {
@@ -34,6 +34,7 @@ import {
   DEFAULT_PROFILE,
   PROJECT_SCOPES,
   type PrimaryView,
+  type ProjectScope,
 } from "./hypervisorShellModel";
 import {
   loadHypervisorLaunchedSessionProjections,
@@ -42,7 +43,15 @@ import {
   updateHypervisorLaunchedSessionTerminalAttach,
 } from "./hypervisorLaunchedSessionPersistence";
 import {
+  HYPERVISOR_DEFAULT_AGENT_SELECTION_REF,
+  defaultHypervisorModelRefForHarness,
+  getHypervisorModelOption,
+} from "./harnessAdapterModel";
+import {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  buildHypervisorNewSessionLaunchRequest,
+  buildHypervisorNewSessionLaunchSummary,
   buildHypervisorHarnessSessionBindingAdmissionFailure,
   buildHypervisorHarnessSessionLaunchFailure,
   buildHypervisorHarnessSessionReadinessFailure,
@@ -55,6 +64,7 @@ import {
   buildCodeEditorAdapterLaunchPlan,
   HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
   getCodeEditorAdapterPreferenceByRef,
+  getCodeEditorAdapterPreferenceRef,
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
   requestHypervisorSessionLaunchRecipeAdmission,
@@ -71,9 +81,20 @@ import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
 import {
+  HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS,
+  HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  buildHarnessCompatibilityVerdict,
+  getHarnessSelectionOption,
+  getHarnessSelectionRef,
+  modelRouteSupportsHypervisorMountFromInventory,
   observeHarnessTerminalTranscriptRead,
   type HypervisorHarnessSessionTerminalAttach,
 } from "./harnessAdapterModel";
+import type {
+  HypervisorProjectStateProjection,
+  HypervisorProjectStateRecord,
+} from "./hypervisorProjectStateModel";
 
 type ToastCandidate = Pick<
   InterventionRecord,
@@ -102,6 +123,13 @@ export interface HypervisorReceiptEvidenceTarget {
 }
 const appliedHypervisorLaunchIds = new Set<string>();
 const HYPERVISOR_HARNESS_TERMINAL_TRANSCRIPT_POLL_INTERVAL_MS = 120;
+const SCRATCH_PROJECT_SCOPE: ProjectScope = {
+  id: "scratch:local",
+  name: "From scratch",
+  description: "Unscoped local session until a repository project is selected.",
+  environment: "Local replay",
+  rootPath: ".",
+};
 
 function waitForHarnessTerminalTranscriptPoll(): Promise<void> {
   return new Promise((resolve) => {
@@ -112,10 +140,37 @@ function waitForHarnessTerminalTranscriptPoll(): Promise<void> {
   });
 }
 
+function projectScopeFromProjectStateRecord(
+  record: HypervisorProjectStateRecord,
+): ProjectScope {
+  return {
+    id: record.project_id,
+    name: record.name,
+    description:
+      record.repository_url ??
+      record.description ??
+      "Repository-backed Hypervisor project.",
+    environment: record.environment,
+    rootPath: record.root_path || ".",
+  };
+}
+
+function projectNameFromLaunchRequest(request: HypervisorNewSessionLaunchRequest): string {
+  if (request.project_id.startsWith("url:")) {
+    const leaf = request.project_id.split("-").filter(Boolean).at(-1);
+    return leaf ? leaf.replace(/_/g, " ") : "URL session";
+  }
+  if (request.project_id.startsWith("scratch:")) {
+    return "From scratch";
+  }
+  return request.project_id.replace(/^project:/, "").replace(/[-_]+/g, " ");
+}
+
 const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
   "home",
   "sessions",
   "projects",
+  "applications",
   "missions",
   "workbench",
   "automations",
@@ -308,9 +363,10 @@ export function useHypervisorShellController() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [shieldPolicyHydrated, setShieldPolicyHydrated] = useState(false);
-  const [currentProjectId, setCurrentProjectId] = useState(
-    PROJECT_SCOPES[0]?.id ?? "hypervisor-core",
-  );
+  const [currentProjectId, setCurrentProjectId] = useState("");
+  const [repositoryProjectScopes, setRepositoryProjectScopes] = useState<
+    ProjectScope[]
+  >([]);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteMode, setCommandPaletteMode] =
     useState<"default" | "tools">("default");
@@ -322,6 +378,21 @@ export function useHypervisorShellController() {
   const [newSessionRecipeId, setNewSessionRecipeId] = useState<string | null>(
     null,
   );
+  const [selectedAgentSelectionRef, setSelectedAgentSelectionRef] = useState(
+    HYPERVISOR_DEFAULT_AGENT_SELECTION_REF,
+  );
+  const [selectedModelRef, setSelectedModelRef] = useState(() =>
+    defaultHypervisorModelRefForHarness(HYPERVISOR_DEFAULT_AGENT_SELECTION_REF),
+  );
+
+  // Harness and model are orthogonal selections; changing the harness resets the
+  // model to that harness's default lane (its model options are harness-scoped).
+  const selectAgentHarness = (harnessSelectionRef: string) => {
+    setSelectedAgentSelectionRef(harnessSelectionRef);
+    setSelectedModelRef(
+      defaultHypervisorModelRefForHarness(harnessSelectionRef),
+    );
+  };
   const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
     HypervisorLaunchedSessionProjection[]
   >(() => {
@@ -351,8 +422,9 @@ export function useHypervisorShellController() {
   const hypervisorHarnessTerminalPollingCancelledRef = useRef(false);
 
   const currentProject =
-    PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
-    PROJECT_SCOPES[0];
+    repositoryProjectScopes.find((project) => project.id === currentProjectId) ??
+    repositoryProjectScopes[0] ??
+    SCRATCH_PROJECT_SCOPE;
 
   const openRequestedSurface = (view: string) => {
     if (isHypervisorSurfaceId(view)) {
@@ -411,6 +483,21 @@ export function useHypervisorShellController() {
     setNewSessionModalOpen(true);
     setActiveView("sessions");
   };
+
+  const registerProjectStateProjection = useCallback((
+    projection: HypervisorProjectStateProjection,
+  ) => {
+    const nextProjectScopes = projection.records.map(
+      projectScopeFromProjectStateRecord,
+    );
+    setRepositoryProjectScopes(nextProjectScopes);
+    setCurrentProjectId((current) => {
+      if (current && nextProjectScopes.some((project) => project.id === current)) {
+        return current;
+      }
+      return projection.selected_project_id || nextProjectScopes[0]?.id || "";
+    });
+  }, []);
 
   const persistHarnessTerminalTranscriptProjection = (
     sessionRef: string,
@@ -517,14 +604,51 @@ export function useHypervisorShellController() {
     }
   };
 
-  const launchNewSession = async (request: HypervisorNewSessionLaunchRequest) => {
+  const launchNewSession = async (
+    request: HypervisorNewSessionLaunchRequest,
+  ): Promise<HypervisorLaunchedSessionProjection | null> => {
+    // Inline-first launches use policy-safe defaults, but governance still gates:
+    // if the requested harness/model/privacy combination is not a safe admitted
+    // route, step up into the Configure/Advanced surface with the reason surfaced
+    // instead of silently launching or silently downgrading the posture.
+    const inlineVerdictState = request.launch_summary.harness_verdict_state;
+    if (
+      inlineVerdictState === "blocked" ||
+      inlineVerdictState === "local_route_unavailable"
+    ) {
+      setNewSessionSeedIntent(request.seed_intent);
+      setNewSessionRecipeId(request.recipe_id);
+      setNewSessionModalOpen(true);
+      setActiveView("sessions");
+      await recordHypervisorLaunchReceipt(
+        "hypervisor_inline_launch_stepped_up_to_advanced",
+        {
+          harnessVerdict: inlineVerdictState,
+          harnessSelectionRef: request.harness_selection_ref,
+          modelRouteRef: request.model_route_ref,
+          privacyPostureRef: request.privacy_posture_ref,
+        },
+      );
+      return null;
+    }
     const recipe =
       HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
         (candidate) => candidate.recipe_id === request.recipe_id,
       ) ?? HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
     const project =
-      PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ??
-      PROJECT_SCOPES[0]!;
+      repositoryProjectScopes.find(
+        (candidate) => candidate.id === request.project_id,
+      ) ??
+      PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ?? {
+        ...SCRATCH_PROJECT_SCOPE,
+        id: request.project_id,
+        name:
+          request.project_context?.project_label ??
+          projectNameFromLaunchRequest(request),
+        rootPath: request.project_context?.root_path || ".",
+      };
+    const selectedModelName =
+      request.model_garden_configuration?.model_name.trim() || "qwen";
     const codeEditorAdapter = getCodeEditorAdapterPreferenceByRef(
       request.adapter_preference_ref,
     );
@@ -619,6 +743,7 @@ export function useHypervisorShellController() {
       )
         ? await requestHarnessSessionSpawn(harnessSessionLaunch, {
             workspaceRoot: project.rootPath,
+            modelName: selectedModelName,
           }).catch((error: unknown) =>
             buildHypervisorHarnessSessionSpawnFailure({
               binding: request.launch_summary.harness_session_binding,
@@ -638,7 +763,9 @@ export function useHypervisorShellController() {
       shouldAttemptHypervisorDaemonProjectionFetch(
         HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
       )
-        ? await requestHarnessSessionReadiness(harnessSessionSpawn).catch(
+        ? await requestHarnessSessionReadiness(harnessSessionSpawn, {
+            modelName: selectedModelName,
+          }).catch(
             (error: unknown) =>
               buildHypervisorHarnessSessionReadinessFailure({
                 binding: request.launch_summary.harness_session_binding,
@@ -782,6 +909,11 @@ export function useHypervisorShellController() {
       harnessSessionSpawn,
       harnessSessionReadiness,
       harnessSessionTerminalAttach,
+      displayMeta: {
+        branchLabel: "master",
+        relativeTimeLabel: "Starting...",
+        activityCount: 0,
+      },
     });
 
     setCurrentProjectId(project.id);
@@ -813,6 +945,128 @@ export function useHypervisorShellController() {
     }
 
     setActiveView(recipe.surface_id);
+    return launchedSession;
+  };
+
+  const startInlineSession = (
+    seedIntent: string | null,
+    options?: { harnessSelectionRef?: string; recipeId?: string | null },
+  ): Promise<HypervisorLaunchedSessionProjection | null> => {
+    const project = currentProject;
+    const recipeId =
+      options?.recipeId && options.recipeId !== "ioi-reference-home"
+        ? options.recipeId
+        : undefined;
+    const harnessSelectionRef =
+      options?.harnessSelectionRef ?? selectedAgentSelectionRef;
+    const modelOption = getHypervisorModelOption(
+      harnessSelectionRef,
+      selectedModelRef,
+    );
+    const request = buildHypervisorNewSessionLaunchRequest({
+      seedIntent,
+      recipeId,
+      project: {
+        id: project.id,
+        name: project.name,
+        rootPath: project.rootPath,
+      },
+      harnessSelectionRef,
+      modelRouteRef: modelOption.model_route_ref,
+      modelName: modelOption.model_name,
+    });
+    setActiveView("sessions");
+    return launchNewSession(request);
+  };
+
+  const launchProjectSession = async (
+    projectRecord: HypervisorProjectStateRecord,
+  ): Promise<HypervisorLaunchedSessionProjection | null> => {
+    const projectScope = projectScopeFromProjectStateRecord(projectRecord);
+    setRepositoryProjectScopes((current) => {
+      const withoutProject = current.filter(
+        (project) => project.id !== projectScope.id,
+      );
+      return [projectScope, ...withoutProject];
+    });
+    const recipe =
+      HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+        (candidate) => candidate.recipe_id === "mission.default",
+      ) ?? HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+    const harnessAdapterId =
+      HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS[0] ?? "codex_cli";
+    const harnessSelectionRef = `agent-harness-adapter:${harnessAdapterId}`;
+    const selectedHarness = getHarnessSelectionOption(harnessSelectionRef);
+    const selectedAdapterPreference = getCodeEditorAdapterPreferenceByRef(
+      projectRecord.adapter_preference_ref || DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+    );
+    const modelRouteRef = HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF;
+    const privacyPostureRef = "privacy:redacted-projection";
+    const modelRouteAvailability =
+      modelRouteSupportsHypervisorMountFromInventory(
+        modelRouteRef,
+        HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+      );
+    const harnessVerdict = buildHarnessCompatibilityVerdict(
+      selectedHarness,
+      modelRouteAvailability.available,
+      privacyPostureRef,
+    );
+    const seedIntent = `Start ${projectRecord.repository_branch ?? "master"} in ${projectRecord.name}`;
+    const receiptPreviewRef = [
+      "receipt-preview:new-session",
+      recipe.recipe_id,
+      projectRecord.project_id,
+      "project-click",
+      DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+      getHarnessSelectionRef(selectedHarness),
+    ].join("/");
+    const launchSummary = buildHypervisorNewSessionLaunchSummary({
+      recipe,
+      seedIntent,
+      projectId: projectRecord.project_id,
+      codeEditorAdapter: selectedAdapterPreference,
+      harness: selectedHarness,
+      harnessVerdict,
+      modelRouteAvailability,
+      modelRouteRef,
+      privacyPostureRef,
+      authorityScopeRefs: recipe.authority_scope_templates,
+      receiptPreviewRef,
+    });
+
+    return launchNewSession({
+      recipe_id: recipe.recipe_id,
+      seed_intent: seedIntent,
+      project_id: projectRecord.project_id,
+      adapter_preference_ref: getCodeEditorAdapterPreferenceRef(
+        selectedAdapterPreference,
+      ),
+      harness_selection_ref: harnessSelectionRef,
+      model_route_ref: modelRouteRef,
+      privacy_posture_ref: privacyPostureRef,
+      authority_scope_refs: recipe.authority_scope_templates,
+      receipt_preview_ref: receiptPreviewRef,
+      launch_summary: launchSummary,
+      project_context: {
+        schema_version: "ioi.hypervisor.new_session_project_context.v1",
+        project_label: projectRecord.name,
+        root_path: projectRecord.root_path || ".",
+        repository_url: projectRecord.repository_url ?? null,
+        repository_branch: projectRecord.repository_branch ?? "master",
+        runtimeTruthSource: "daemon-runtime",
+      },
+      model_garden_configuration: {
+        schema_version: "ioi.hypervisor.session_model_garden_configuration.v1",
+        configuration_ref: `model-garden:${harnessAdapterId}/qwen`,
+        model_name: "qwen",
+        model_route_ref: modelRouteRef,
+        endpoint_ref: "model-endpoint:hypervisor/default-local",
+        provider_ref: "provider:hypervisor-local",
+        custody_posture: "local_model_mount",
+        runtimeTruthSource: "daemon-runtime",
+      },
+    });
   };
 
   const applyPendingHypervisorLaunchRequest = async (
@@ -1319,8 +1573,13 @@ export function useHypervisorShellController() {
   return {
     activeView,
     notificationBadgeCount,
+    currentProjectId,
     currentProject,
-    projects: PROJECT_SCOPES,
+    projects: repositoryProjectScopes,
+    projectState: {
+      registerProjection: registerProjectStateProjection,
+      launchProjectSession,
+    },
     changePrimaryView,
     workflow: {
       openPreflight: openWorkflowPreflight,
@@ -1330,6 +1589,11 @@ export function useHypervisorShellController() {
     },
     sessions: {
       launchedSessionProjections,
+      selectedAgentRef: selectedAgentSelectionRef,
+      selectAgent: selectAgentHarness,
+      selectedModelRef,
+      selectModel: setSelectedModelRef,
+      startInlineSession,
     },
     receipts: {
       target: receiptEvidenceTarget,
@@ -1388,6 +1652,23 @@ export function useHypervisorShellController() {
       newSessionSeedIntent,
       newSessionRecipeId,
       openNewSessionModal: (seed?: NewSessionModalSeed) => {
+        const seedIntent =
+          typeof seed === "string" ? seed : seed?.seedIntent ?? null;
+        const recipeId = typeof seed === "object" ? seed?.recipeId ?? null : null;
+        const normalizedSeed =
+          typeof seedIntent === "string" && seedIntent.trim()
+            ? seedIntent.trim()
+            : null;
+        // Reference parity: starting a session no longer pops a separate
+        // configuration window. A seeded intent launches inline on the Sessions
+        // surface; an empty New Session just focuses the inline composer.
+        if (normalizedSeed) {
+          void startInlineSession(normalizedSeed, { recipeId });
+          return;
+        }
+        setActiveView("sessions");
+      },
+      openNewSessionModalAdvanced: (seed?: NewSessionModalSeed) => {
         const seedIntent =
           typeof seed === "string" ? seed : seed?.seedIntent ?? null;
         const recipeId = typeof seed === "object" ? seed?.recipeId ?? null : null;

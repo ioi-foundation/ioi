@@ -530,13 +530,13 @@ export function CommandPalette({
       },
       {
         id: "quick-run-task",
-        title: "Run Task",
-        description: "Open execution supervision.",
+        title: "Applications",
+        description: "Open pinned Hypervisor applications.",
         icon: icons.history,
-        active: activeView === "insights",
+        active: activeView === "applications",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("insights");
+            onOpenPrimaryView("applications");
           }),
       },
       {
@@ -588,15 +588,15 @@ export function CommandPalette({
           }),
       },
       {
-        id: "open-runs",
-        title: "Open Insights",
-        description: "Inspect environment estate and execution supervision surfaces.",
-        meta: "Insights",
+        id: "open-applications",
+        title: "Open Applications",
+        description: "Inspect pinned apps, packages, policies, receipts, and monitoring.",
+        meta: "Applications",
         icon: icons.history,
-        active: activeView === "insights",
+        active: activeView === "applications",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("insights");
+            onOpenPrimaryView("applications");
           }),
       },
       {

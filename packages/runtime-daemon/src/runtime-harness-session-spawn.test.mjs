@@ -350,3 +350,70 @@ test("blocks invalid launch contracts and filesystem root workspaces", () => {
     },
   );
 });
+
+test("projects a ready environment status by default (no provision injected)", () => {
+  const spawn = buildHarnessSessionSpawn(
+    { session_launch: launchContract(), workspace_root: "." },
+    { baseWorkspaceRoot: "/home/heathledger/Documents/ioi/repos/ioi", env: {} },
+  );
+  assert.equal(
+    spawn.environment_status.schema_version,
+    "ioi.hypervisor.environment_status.v1",
+  );
+  assert.equal(spawn.environment_status.phase, "running");
+  assert.equal(spawn.environment_status.components.provisioner.phase, "ready");
+  assert.equal(spawn.environment_status.components.harness.phase, "ready");
+  assert.equal(
+    spawn.environment_status.components.model_mount.model_route_ref,
+    "model-route:hypervisor/default-local",
+  );
+  assert.match(
+    spawn.workspace_artifact_ref,
+    /^agentgres:\/\/artifact\/workspace\//,
+  );
+  assert.equal(
+    spawn.workspace_initializer.schema_version,
+    "ioi.hypervisor.workspace_initializer.v1",
+  );
+  assert.equal(
+    spawn.workspace_initializer.custody_posture,
+    "redacted_projection",
+  );
+});
+
+test("carries a real workspace provision into the spawn environment status", () => {
+  const provision = {
+    provisioned: true,
+    workspace_root: "/tmp/ioi-hypervisor-sessions/session-xyz-abc",
+    workspace_artifact_ref: "agentgres://artifact/workspace/deadbeefdeadbeef",
+    custody_posture: "redacted_projection",
+    initializer: {
+      schema_version: "ioi.hypervisor.workspace_initializer.v1",
+      initializer_ref: "workspace-initializer:redacted_projection-1",
+      specs: [{ git: { remote_uri: "https://example.com/repo.git" } }],
+      custody_posture: "redacted_projection",
+      authority_scope_refs: ["scope:workspace.patch"],
+    },
+    components: { provisioner: "ready", workspace_content: "initializing" },
+  };
+  const spawn = buildHarnessSessionSpawn(
+    {
+      session_launch: launchContract(),
+      workspace_root: provision.workspace_root,
+      workspace_provision: provision,
+    },
+    { baseWorkspaceRoot: "/", env: {} },
+  );
+  assert.equal(spawn.workspace_root, provision.workspace_root);
+  assert.equal(spawn.workspace_artifact_ref, provision.workspace_artifact_ref);
+  // A still-initializing component drives the aggregate to "starting".
+  assert.equal(
+    spawn.environment_status.components.workspace_content.phase,
+    "initializing",
+  );
+  assert.equal(spawn.environment_status.phase, "starting");
+  assert.equal(
+    spawn.workspace_initializer.specs[0].git.remote_uri,
+    "https://example.com/repo.git",
+  );
+});

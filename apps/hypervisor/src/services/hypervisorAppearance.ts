@@ -161,16 +161,3 @@ export function subscribeHypervisorAppearance(
     window.removeEventListener("storage", handler);
   };
 }
-
-export function buildHypervisorAppearanceBridgeState() {
-  const appearance = loadHypervisorAppearance();
-  const theme = getHypervisorThemeOption(appearance.themeId);
-  return {
-    themeId: appearance.themeId,
-    themeLabel: theme.label,
-    density: appearance.density,
-    openVsCodeColorTheme: theme.openVsCodeColorTheme,
-    source: "hypervisor-home-onboarding",
-    updatedAtMs: appearance.updatedAtMs,
-  };
-}

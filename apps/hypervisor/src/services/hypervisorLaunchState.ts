@@ -151,34 +151,55 @@ function createPendingHypervisorLaunchEnvelope(
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isPendingHypervisorLaunchRequest(
+  value: unknown,
+): value is PendingHypervisorLaunchRequest {
+  if (!isRecord(value) || typeof value.kind !== "string") {
+    return false;
+  }
+
+  switch (value.kind) {
+    case "view":
+      return typeof value.view === "string";
+    case "session-target":
+      return typeof value.sessionId === "string";
+    case "artifact":
+      return typeof value.artifactId === "string";
+    case "capability":
+    case "policy":
+      return true;
+    case "hypervisor-intent":
+      return typeof value.intent === "string";
+    case "assistant-workbench":
+      return isRecord(value.session);
+    default:
+      return false;
+  }
+}
+
 function normalizePendingHypervisorLaunchEnvelope(
   value: unknown,
 ): PendingHypervisorLaunchEnvelope | null {
-  if (!value || typeof value !== "object") {
+  if (!isRecord(value)) {
     return null;
   }
 
-  const candidate = value as {
-    launchId?: unknown;
-    request?: unknown;
-    kind?: unknown;
-  };
-
   if (
-    typeof candidate.launchId === "string" &&
-    candidate.request &&
-    typeof candidate.request === "object"
+    typeof value.launchId === "string" &&
+    isPendingHypervisorLaunchRequest(value.request)
   ) {
     return {
-      launchId: candidate.launchId,
-      request: candidate.request as PendingHypervisorLaunchRequest,
+      launchId: value.launchId,
+      request: value.request,
     };
   }
 
-  if (typeof candidate.kind === "string") {
-    return createPendingHypervisorLaunchEnvelope(
-      candidate as PendingHypervisorLaunchRequest,
-    );
+  if (isPendingHypervisorLaunchRequest(value)) {
+    return createPendingHypervisorLaunchEnvelope(value);
   }
 
   return null;

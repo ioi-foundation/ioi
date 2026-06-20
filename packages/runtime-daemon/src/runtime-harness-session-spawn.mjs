@@ -8,6 +8,10 @@ import {
   safeId,
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
+import {
+  buildHypervisorEnvironmentStatus,
+  deriveWorkspaceInitializer,
+} from "./runtime-environment-status-projection.mjs";
 
 export const HARNESS_SESSION_SPAWN_SCHEMA_VERSION =
   "ioi.runtime.harness_session_spawn.v1";
@@ -59,6 +63,33 @@ export function buildHarnessSessionSpawn(request = {}, deps = {}) {
     optionalString(request.spawn_receipt_ref) ??
     `receipt://harness-session-spawn/${safeId(spawnId)}`;
 
+  // Phase 1: project the canonical environment status object. When the route
+  // injected a real workspace provision, its transitions + artifact ref drive
+  // the status; otherwise a ready snapshot is derived from the resolved
+  // workspace root and custody posture. The flat environment_lifecycle_steps
+  // remain in the session-operations projection; this is the structured object.
+  const provision = objectRecord(request.workspace_provision);
+  const workspaceInitializer =
+    objectRecord(provision?.initializer) ??
+    deriveWorkspaceInitializer({
+      workspaceMountPolicy: launch.workspace_mount_policy,
+      authorityScopeRefs: launch.authority_scope_refs,
+    });
+  const workspaceArtifactRef =
+    optionalString(provision?.workspace_artifact_ref) ??
+    `agentgres://artifact/workspace/${safeId(spawnId)}`;
+  const environmentStatus = buildHypervisorEnvironmentStatus({
+    environmentRef: `environment:${safeId(launch.session_route_ref)}`,
+    workspaceRoot,
+    workspaceMountPolicy: launch.workspace_mount_policy,
+    initializerRef: workspaceInitializer.initializer_ref,
+    modelRouteRef: launch.model_route_ref,
+    harnessSessionRef: spawnId,
+    stateRootRef: `agentgres://state-root/environment-status/${safeId(spawnId)}`,
+    workspaceArtifactRef,
+    componentPhases: objectRecord(provision?.components),
+  });
+
   return {
     schema_version: HARNESS_SESSION_SPAWN_SCHEMA_VERSION,
     spawn_id: spawnId,
@@ -75,6 +106,9 @@ export function buildHarnessSessionSpawn(request = {}, deps = {}) {
     model_name: modelName,
     workspace_ref: launch.workspace_ref,
     workspace_root: workspaceRoot,
+    workspace_initializer: workspaceInitializer,
+    workspace_artifact_ref: workspaceArtifactRef,
+    environment_status: environmentStatus,
     terminal_session_ref: launch.terminal_session_ref,
     command_contract_ref: launch.command_contract.command_ref,
     command_contract: {

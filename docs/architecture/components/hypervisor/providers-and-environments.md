@@ -152,6 +152,9 @@ Canonical environment ops objects:
 HypervisorEnvironmentClass
 HypervisorEnvironmentOpsProfile
 HypervisorEnvironmentLifecycleState
+HypervisorEnvironmentStatus
+HypervisorEnvironmentComponentStatus
+HypervisorWorkspaceInitializer
 HypervisorEnvironmentActivitySignal
 HypervisorSessionAccessLease
 HypervisorEnvironmentService
@@ -186,6 +189,99 @@ activity signals, and provider evidence.
 Storage backends hold encrypted payload/archive bytes.
 Providers expose native state as evidence, not canonical restore truth.
 ```
+
+## Environment Status Object
+
+The environment lifecycle projects through a structured status object with
+component sub-phases, so sessions render real provisioning instead of a flat step
+list or a timed animation. The object follows established remote-development
+environment status conventions and is fully IOI-native: the truth is Agentgres,
+the authority is wallet.network, and the state bytes are encrypted-blob storage.
+Provider/container/PTY/file-watcher output remains evidence, not truth.
+
+```text
+HypervisorEnvironmentStatus
+  schema_version: ioi.hypervisor.environment_status.v1
+  environment_ref
+  provider_placement_ref
+  phase: creating | starting | running | updating | stopping | stopped |
+         archived | failed
+  components:
+    provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
+    workspace_content { phase, initializer_ref, custody_posture, evidence_ref }
+    sandbox           { phase, container_ref, evidence_ref }     # devcontainer/microVM/host lane
+    secrets           { phase, capability_lease_refs, evidence_ref }
+    automations       { phase, evidence_ref }
+    model_mount       { phase, model_route_ref, evidence_ref }   # IOI-native
+    harness           { phase, harness_session_ref, evidence_ref } # IOI-native
+  ports: [ HypervisorEnvironmentPort ]
+  failure_message? / warning_message?
+  state_root_ref
+  workspace_artifact_ref
+  runtimeTruthSource: daemon-runtime
+```
+
+Each component carries one phase from a shared taxonomy:
+
+```text
+pending | creating | initializing | ready | degraded | failed
+```
+
+The workspace is hydrated by a typed initializer (a context URL or a git spec),
+carrying its custody posture and authority scopes rather than an owner token:
+
+```text
+HypervisorWorkspaceInitializer
+  schema_version
+  specs: [ { context_url } | { git { remote_uri, clone_target, target_mode } } ]
+  custody_posture: public_trunk | redacted_projection | ctee_private_workspace
+  authority_scope_refs
+```
+
+Ports are structured and wallet-gated, not owner-token shared:
+
+```text
+HypervisorEnvironmentPort
+  port, protocol
+  access_policy: private | session_lease | shared
+  capability_lease_ref
+  url
+  exposure_state: closed | lease_required | open
+```
+
+The status object streams to clients as session events, not a one-shot poll:
+
+```text
+GET /v1/hypervisor/sessions/:session_id/events  (text/event-stream)
+  event: environment_status   # full or delta HypervisorEnvironmentStatus
+  event: terminal_chunk
+  event: workspace_change
+  event: receipt_projection
+  event: readiness
+```
+
+Shape mapping (conventional remote-environment status shapes map into IOI-native
+objects; truth, authority, and state are IOI-native):
+
+```text
+Conventional remote-environment shape     ->  IOI-native
+top-level environment phase               ->  HypervisorEnvironmentStatus.phase
+per-component sub-status                   ->  components.{provisioner,workspace_content,
+  (machine/content/devcontainer/               sandbox,secrets,automations} + model_mount + harness
+   secrets/automations)
+component phase enum                       ->  shared component phase taxonomy
+workspace initializer (context url / git)  ->  HypervisorWorkspaceInitializer + custody_posture
+port admission + owner token               ->  HypervisorEnvironmentPort + access_policy + wallet lease
+runner / executor phase                    ->  provider_placement readiness
+environment status stream                  ->  session events SSE environment_status event
+control-plane DB (authoritative state)     ->  Agentgres admitted truth (projection) +
+                                               encrypted-blob workspace state
+owner-token authority                      ->  wallet.network capability leases / approvals
+```
+
+The status object is a projection of Agentgres-admitted truth: component phases,
+ports, and initializer state are not authoritative until the daemon records the
+operation, state root, authority context, and receipt that produced them.
 
 ## Session UX Doctrine
 
@@ -309,6 +405,10 @@ restore/import receipt chain.
 - Provider and infrastructure posture belongs to Hypervisor sessions,
   environment views, provider views, and daemon APIs.
 - Provider state must be evidence, not Agentgres truth.
+- The environment status object, its component phases, ports, and initializer
+  must be projections of Agentgres-admitted operations, not authoritative state;
+  port exposure and secret injection must be wallet capability-gated, not
+  owner-token shared.
 - Encrypted blobs may be restore material, but restore validity must be
   operation-backed through Agentgres.
 - Access, logs, support, ports, SCM auth, archive, restore, service, and task

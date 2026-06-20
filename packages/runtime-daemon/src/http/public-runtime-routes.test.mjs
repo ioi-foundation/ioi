@@ -5359,3 +5359,61 @@ test("public runtime MCP serve route rejects query or raw JSON-RPC compatibility
     assert.equal(response.error.code, code);
   }
 });
+
+test("harness session turn lane route runs the injected spawn executor", async () => {
+  const laneCalls = [];
+  const { handleRequest } = routeHarness({
+    executeHarnessSpawnLane: async (input) => {
+      laneCalls.push(input);
+      return {
+        schema_version: "ioi.hypervisor.harness_spawn_lane_result.v1",
+        exit_status: "success",
+        files_written: ["index.html"],
+        runtimeTruthSource: "daemon-runtime",
+      };
+    },
+  });
+  const response = responseRecorder();
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-turn-lanes",
+      body: {
+        spawn: { schema_version: "ioi.runtime.harness_session_spawn.v1" },
+        intent: "create a website that explains post-quantum computers",
+        model_endpoint: "http://127.0.0.1:11434/v1",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace" },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body).files_written, ["index.html"]);
+  assert.equal(laneCalls.length, 1);
+  assert.equal(
+    laneCalls[0].intent,
+    "create a website that explains post-quantum computers",
+  );
+  assert.equal(laneCalls[0].model_endpoint, "http://127.0.0.1:11434/v1");
+});
+
+test("harness session turn lane route reports 501 when no executor is configured", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-turn-lanes",
+      body: { spawn: {}, intent: "do work" },
+    }),
+    response,
+    store: { defaultCwd: "/workspace" },
+  });
+
+  assert.equal(response.statusCode, 501);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "harness_spawn_lane_executor_unconfigured",
+  );
+});

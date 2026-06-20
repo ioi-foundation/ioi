@@ -130,8 +130,26 @@ assert.match(
 
 assert.match(
   source,
-  /data-session-workspace-cockpit=\{projection\.selected_session_ref\}[\s\S]*What do you want to get done today\?[\s\S]*label: "Automate env setup", tone: "blue"[\s\S]*label: "Fix a bug", tone: "red"[\s\S]*label: "Boost your test coverage", tone: "purple"[\s\S]*data-session-suggestion-tone=\{suggestion\.tone\}[\s\S]*Describe your task or type \/ for commands[\s\S]*data-session-environment-steps=\{projection\.environment_lifecycle_steps/,
+  /data-session-workspace-cockpit=\{activeSessionRef\}[\s\S]*What do you want to get done today\?[\s\S]*label: "Automate env setup", tone: "blue"[\s\S]*label: "Fix a bug", tone: "red"[\s\S]*label: "Boost your test coverage", tone: "purple"[\s\S]*data-session-suggestion-tone=\{suggestion\.tone\}[\s\S]*Describe your task or type \/ for commands[\s\S]*data-session-environment-steps=\{projection\.environment_lifecycle_steps/,
   "Sessions should render the reference workspace prompt while preserving lifecycle refs as metadata",
+);
+
+assert.match(
+  source,
+  /<AgentModelSelector[\s\S]*options=\{agentOptions\}[\s\S]*selectedRef=\{agentSelectionRef\}[\s\S]*onSelect=\{onSelectAgent\}/,
+  "Sessions composer should expose a working agent/model selector instead of a dead 5.5 Medium toggle",
+);
+
+assert.match(
+  source,
+  /sessionInitializing \?[\s\S]*hypervisor-session-operations__init"[\s\S]*Step \{initStepIndex \+ 1\} of[\s\S]*HYPERVISOR_SESSION_STARTUP_STEPS\.length[\s\S]*=== System logs ===/,
+  "Sessions should initialize inline with a Step N of 5 build sequence and system logs instead of opening a separate window",
+);
+
+assert.match(
+  source,
+  /if \(!launchedHarnessSession\) \{[\s\S]*buildHypervisorNewSessionLaunchRequest\(\{[\s\S]*onLaunchSession\(request\)/,
+  "Sessions composer submit should launch a governed session inline from the typed task",
 );
 
 assert.match(

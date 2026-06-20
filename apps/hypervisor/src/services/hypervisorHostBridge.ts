@@ -17,7 +17,7 @@ type HostWindow = {
 
 type HostWindowBridge = Partial<HostWindow>;
 
-type HypervisorHostBridge = {
+export type HypervisorHostBridge = {
   core?: {
     invoke?: <T>(command: string, args?: unknown) => Promise<T>;
   };

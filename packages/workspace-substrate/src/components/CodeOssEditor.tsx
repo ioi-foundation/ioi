@@ -62,6 +62,14 @@ function toDisposer(
   return undefined;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function readOnlyFromOptions(options: Record<string, unknown> | undefined): boolean {
+  return options?.readOnly === true;
+}
+
 async function loadCodeOssRuntime(): Promise<CodeOssRuntime> {
   const runtime = await import("../codeOss");
   await runtime.ensureCodeOssReady();
@@ -88,6 +96,7 @@ export function CodeOssEditor({
   const modelRef = useRef<any>(null);
   const runtimeRef = useRef<CodeOssRuntime | null>(null);
   const [ready, setReady] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const changeGuardRef = useRef(false);
   const serializedOptions = useMemo(
     () => JSON.stringify(options ?? {}),
@@ -101,14 +110,14 @@ export function CodeOssEditor({
       .then((runtime) => {
         if (!cancelled) {
           runtimeRef.current = runtime;
+          setRuntimeError(null);
           setReady(true);
         }
       })
       .catch((error) => {
-        console.error(
-          "[WorkspaceSubstrate] Failed to load Code OSS editor runtime",
-          error,
-        );
+        if (!cancelled) {
+          setRuntimeError(errorMessage(error));
+        }
       });
 
     return () => {
@@ -206,6 +215,27 @@ export function CodeOssEditor({
     editor.updateOptions(JSON.parse(serializedOptions));
   }, [serializedOptions]);
 
+  if (runtimeError) {
+    return (
+      <div
+        className={className}
+        style={style}
+        data-editor-runtime="textarea-fallback"
+        data-editor-ready="true"
+        data-editor-fallback-reason={runtimeError}
+      >
+        <textarea
+          className="workspace-code-oss-fallback"
+          value={value}
+          readOnly={readOnlyFromOptions(options)}
+          spellCheck={false}
+          aria-label={`${path} editor`}
+          onChange={(event) => onChange?.(event.currentTarget.value)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={className}
@@ -237,6 +267,7 @@ export function CodeOssDiffEditor({
 }: CodeOssDiffEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const diffEditorRef = useRef<any>(null);
   const originalModelRef = useRef<any>(null);
   const modifiedModelRef = useRef<any>(null);
@@ -253,14 +284,14 @@ export function CodeOssDiffEditor({
       .then((runtime) => {
         if (!cancelled) {
           runtimeRef.current = runtime;
+          setRuntimeError(null);
           setReady(true);
         }
       })
       .catch((error) => {
-        console.error(
-          "[WorkspaceSubstrate] Failed to load Code OSS diff runtime",
-          error,
-        );
+        if (!cancelled) {
+          setRuntimeError(errorMessage(error));
+        }
       });
 
     return () => {
@@ -357,6 +388,23 @@ export function CodeOssDiffEditor({
     }
     diffEditor.updateOptions(JSON.parse(serializedOptions));
   }, [serializedOptions]);
+
+  if (runtimeError) {
+    return (
+      <div
+        className={className}
+        style={style}
+        data-editor-runtime="textarea-diff-fallback"
+        data-editor-ready="true"
+        data-editor-fallback-reason={runtimeError}
+      >
+        <div className="workspace-code-oss-diff-fallback" aria-label={`${path} diff`}>
+          <pre>{original}</pre>
+          <pre>{modified}</pre>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

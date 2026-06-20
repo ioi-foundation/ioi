@@ -170,6 +170,8 @@ import {
   isOpenAiCompatibilityRoute,
 } from "./openai-compat-routes.mjs";
 import { createPublicRuntimeRequestHandler } from "./http/public-runtime-routes.mjs";
+import { provisionSessionWorkspace } from "./runtime-workspace-provisioner.mjs";
+import { executeHarnessSpawnLane } from "./runtime-harness-spawn-executor.mjs";
 import {
   baseUrlForRequest,
   runtimeEventCursorFromRequest,
@@ -506,9 +508,11 @@ const handleRequest = createPublicRuntimeRequestHandler({
   initialThreadRuntimeControls,
   isOpenAiCompatibilityRoute,
   mcpRegistryForWorkspace,
+  executeHarnessSpawnLane,
   normalizeBooleanOption,
   notFound,
   optionalString,
+  provisionSessionWorkspace,
   readBody,
   runtimeError,
   runtimeModeForOptions,

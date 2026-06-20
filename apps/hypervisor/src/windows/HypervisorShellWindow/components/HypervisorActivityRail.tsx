@@ -61,6 +61,14 @@ interface ReferenceRailButtonProps {
   onClick: () => void;
 }
 
+interface PinnedApplicationRailItem {
+  id: string;
+  label: string;
+  view: PrimaryView;
+  icon: ReactNode;
+  description: string;
+}
+
 const GENERIC_HOME_NEW_SESSION_INTENT =
   "Open a governed Hypervisor session for this workspace.";
 
@@ -71,6 +79,7 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,
   sessions: <SparklesIcon />,
   projects: <ProjectsIcon />,
+  applications: <IntegrationsIcon />,
   missions: <NotificationsIcon />,
   workbench: <WorkspaceIcon />,
   automations: <ComposeIcon />,
@@ -85,6 +94,58 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   receipts: <NotificationsIcon />,
   settings: <SettingsIcon />,
 };
+
+const PINNED_APPLICATION_RAIL_ITEMS: readonly PinnedApplicationRailItem[] = [
+  {
+    id: "foundry",
+    label: "Foundry",
+    view: "foundry",
+    icon: <ComposeIcon />,
+    description: "Open Foundry jobs, evals, packages, and harness comparisons.",
+  },
+  {
+    id: "models",
+    label: "Models",
+    view: "models",
+    icon: <MountsIcon />,
+    description: "Open model routes, mounts, local engines, and model custody.",
+  },
+  {
+    id: "workers",
+    label: "Workers",
+    view: "agents",
+    icon: <IntegrationsIcon />,
+    description: "Open agent and worker package projections.",
+  },
+  {
+    id: "connectors",
+    label: "Connectors",
+    view: "applications",
+    icon: <WorkspaceIcon />,
+    description: "Open connector catalog entries inside Applications.",
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    view: "authority",
+    icon: <ShieldIcon />,
+    description: "Open wallet.network policy and approval projections.",
+  },
+  {
+    id: "receipts",
+    label: "Receipts",
+    view: "receipts",
+    icon: <NotificationsIcon />,
+    description: "Open Agentgres receipt and replay evidence.",
+  },
+  {
+    id: "monitoring",
+    label: "Monitoring",
+    view: "insights",
+    icon: <EnvironmentIcon />,
+    description: "Open monitoring and runtime insight projections.",
+  },
+];
 
 function SidebarControlIcon() {
   return (
@@ -249,6 +310,10 @@ function resolveProfileInitials(profile: AssistantUserProfile): string {
 function launchedSessionRailTitle(
   session: HypervisorLaunchedSessionProjection,
 ): string {
+  const branchLabel = session.branch_label?.trim();
+  if (branchLabel) {
+    return branchLabel;
+  }
   const seedIntent = session.launch_summary.seed_intent?.trim();
   if (seedIntent && seedIntent !== GENERIC_HOME_NEW_SESSION_INTENT) {
     return seedIntent;
@@ -463,6 +528,8 @@ export function HypervisorActivityRail({
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
   const workspaceLabel = WORKSPACE_NAME;
   const activeHypervisorSurfaceId = getHypervisorSurfaceIdForPrimaryView(activeView);
+  const launchedSessionProjectLabel =
+    launchedSessions[0]?.project_label?.trim() || "Sessions";
   const activateRoute = (route: OperatorSurfaceRoute) => {
     if (isPrimaryViewRoute(route)) {
       onViewChange(route.view);
@@ -558,10 +625,10 @@ export function HypervisorActivityRail({
 
       {launchedSessions.length > 0 ? (
         <div className="hypervisor-activity-projects" aria-label="Session shortcuts">
-          <div className="hypervisor-activity-project-label">
-            <span aria-hidden="true">⌄</span>
-            <span>From scratch</span>
-          </div>
+	          <div className="hypervisor-activity-project-label">
+	            <span aria-hidden="true">⌄</span>
+	            <span>{launchedSessionProjectLabel}</span>
+	          </div>
           <div
             className="hypervisor-activity-session-list"
             data-ioi-reference-session-list="from-launched-sessions"
@@ -641,6 +708,35 @@ export function HypervisorActivityRail({
           </div>
         </div>
       ) : null}
+
+      <div
+        className="hypervisor-activity-group hypervisor-activity-group--pinned-apps"
+        aria-label="Pinned Applications"
+        data-pinned-applications-rail="true"
+      >
+        <div className="hypervisor-activity-section-label">Pinned Applications</div>
+        {PINNED_APPLICATION_RAIL_ITEMS.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className={`hypervisor-activity-button hypervisor-activity-button--pinned-app ${
+              activeView === item.view ? "is-active" : ""
+            }`}
+            data-pinned-application-id={item.id}
+            data-pinned-application-route={`surface:${item.id}`}
+            data-window-surface={item.view}
+            onClick={() => onViewChange(item.view)}
+            aria-current={activeView === item.view ? "page" : undefined}
+            aria-label={item.label}
+            title={item.description}
+          >
+            <span className="hypervisor-activity-button-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className="hypervisor-activity-button-label">{item.label}</span>
+          </button>
+        ))}
+      </div>
 
       <div className="hypervisor-activity-spacer" />
 

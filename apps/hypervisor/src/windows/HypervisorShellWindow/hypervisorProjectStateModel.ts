@@ -1,9 +1,4 @@
-import { PROJECT_SCOPES, type ProjectScope } from "./hypervisorShellModel.ts";
 import { DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF } from "./hypervisorShellNavigationModel.ts";
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "./hypervisorPrivacyPostureModel.ts";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel.ts";
-import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "./hypervisorReceiptEvidenceModel.ts";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
 
 export type HypervisorProjectRestoreState =
   | "active"
@@ -22,6 +17,12 @@ export interface HypervisorProjectStateRecord {
   project_id: string;
   name: string;
   description: string;
+  repository_url?: string | null;
+  repository_ref?: string | null;
+  repository_branch?: string | null;
+  created_at?: string | null;
+  environment_class_refs?: string[];
+  prebuilds_enabled?: boolean;
   environment: string;
   root_path: string;
   workspace_ref: string;
@@ -51,6 +52,13 @@ export interface HypervisorProjectStateProjection {
 
 export type HypervisorProjectOperationKind = "archive" | "restore";
 
+export interface HypervisorProjectCreateRequest {
+  repository_url: string;
+  project_name: string;
+  source: "manual_url" | "repository_picker";
+  environment_class_refs: string[];
+}
+
 export interface HypervisorProjectOperationProposal {
   schema_version: "ioi.hypervisor.project_operation_proposal.v1";
   proposal_ref: string;
@@ -78,6 +86,7 @@ export const HYPERVISOR_PROJECT_STATE_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_PROJECT_STATE_PROJECTION_PATH =
   "/v1/hypervisor/project-state";
+export const HYPERVISOR_PROJECT_CREATE_PATH = "/v1/hypervisor/projects";
 export const HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH =
   "/v1/hypervisor/project-operations";
 
@@ -115,70 +124,50 @@ interface ProposeProjectOperationOptions
   operationKind: HypervisorProjectOperationKind;
 }
 
-function projectRefId(project: ProjectScope): string {
-  return `project:${project.id}`;
+interface RequestProjectCreateOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  request: HypervisorProjectCreateRequest;
 }
 
-function projectRecord(
-  project: ProjectScope,
-  index: number,
-): HypervisorProjectStateRecord {
-  const isSelected = project.id === "hypervisor-core";
-  const projectRef = projectRefId(project);
-  const slug = project.id.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
-  return {
-    project_id: project.id,
-    name: project.name,
-    description: project.description,
-    environment: project.environment,
-    root_path: project.rootPath,
-    workspace_ref: `workspace://${slug}`,
-    current_session_ref: isSelected
-      ? HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.selected_session_ref
-      : null,
-    environment_ref: isSelected
-      ? HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.environment_ref
-      : `environment:project/${slug}`,
-    provider_candidate_ref: isSelected
-      ? HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[0]
-          ?.candidate_ref ?? null
-      : null,
-    adapter_preference_ref: DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
-    custody_posture:
-      index === 0 ? "local_private" : index === 1 ? "encrypted_archive" : "redacted_remote",
-    restore_state:
-      index === 0 ? "active" : index === 1 ? "restore_ready" : "needs_authority",
-    agentgres_object_head_ref: `agentgres://object-head/${projectRef}`,
-    state_root_ref: `agentgres://state-root/${projectRef}`,
-    artifact_refs: [
-      `artifact://project/${slug}/workspace-summary`,
-      HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE.workspace_segments[
-        Math.min(index, HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE.workspace_segments.length - 1)
-      ]?.evidence_refs[0] ?? `artifact://project/${slug}/encrypted-ref`,
-    ],
-    archive_ref: isSelected
-      ? HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.archive_ref
-      : `artifact://agentgres/archive/${slug}/latest`,
-    restore_ref: isSelected
-      ? HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.restore_ref
-      : `agentgres://restore/${slug}/latest`,
-    latest_receipt_refs: isSelected
-      ? HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE.records
-          .slice(0, 3)
-          .map((record) => record.receipt_ref)
-      : [`receipt://project/${slug}/state`],
-  };
-}
+const PROJECT_BOUNDARY_INVARIANT =
+  "Projects are repository-backed work containers. Hypervisor clients inspect project state; Hypervisor Core is runtime/control substrate, not a project; Agentgres admits project truth and storage backends only hold bytes.";
+
+const HYPERVISOR_PROJECT_STATE_RECORD_FALLBACK: HypervisorProjectStateRecord = {
+  project_id: "project:repository",
+  name: "Repository project",
+  description: "Repository-backed project admitted by Hypervisor Daemon replay.",
+  repository_url: null,
+  repository_ref: null,
+  repository_branch: "main",
+  created_at: null,
+  environment_class_refs: [],
+  prebuilds_enabled: false,
+  environment: "No environment yet",
+  root_path: "/workspace/repository",
+  workspace_ref: "workspace://repo/repository",
+  current_session_ref: null,
+  environment_ref: null,
+  provider_candidate_ref: null,
+  adapter_preference_ref: DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+  custody_posture: "local_private",
+  restore_state: "idle",
+  agentgres_object_head_ref: "agentgres://object-head/project:repository",
+  state_root_ref: "agentgres://state-root/project:repository",
+  artifact_refs: ["artifact://project/repository/workspace-summary"],
+  archive_ref: "artifact://agentgres/archive/repository/latest",
+  restore_ref: "agentgres://restore/repository/latest",
+  latest_receipt_refs: ["receipt://project/repository/state"],
+};
 
 export const HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE: HypervisorProjectStateProjection =
   {
     schema_version: "ioi.hypervisor.project_state_projection.v1",
-    projection_id: "project-state:hypervisor-core/default",
+    projection_id: "project-state:fixture/empty",
     source: "fixture",
-    selected_project_id: "hypervisor-core",
-    records: PROJECT_SCOPES.map(projectRecord),
-    project_boundary_invariant:
-      "Projects group workspace refs, sessions, adapter preferences, artifact refs, archive refs, restore refs, state roots, and receipts. Hypervisor clients inspect project state; Agentgres admits project truth and storage backends only hold bytes.",
+    selected_project_id: "",
+    records: [],
+    project_boundary_invariant: PROJECT_BOUNDARY_INVARIANT,
     runtimeTruthSource: "daemon-runtime",
   };
 
@@ -189,8 +178,7 @@ export const HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION: HypervisorProjectSt
     source: "fixture",
     selected_project_id: "",
     records: [],
-    project_boundary_invariant:
-      HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.project_boundary_invariant,
+    project_boundary_invariant: PROJECT_BOUNDARY_INVARIANT,
     runtimeTruthSource: "daemon-runtime",
   };
 
@@ -240,15 +228,34 @@ function enumValue<T extends string>(
 
 function normalizeProjectStateRecord(
   item: Record<string, unknown>,
-  index: number,
+  _index: number,
 ): HypervisorProjectStateRecord {
-  const fallback =
-    HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records[index] ??
-    HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records[0]!;
+  const fallback = HYPERVISOR_PROJECT_STATE_RECORD_FALLBACK;
   return {
     project_id: stringValue(item.project_id, fallback.project_id),
     name: stringValue(item.name, fallback.name),
     description: stringValue(item.description, fallback.description),
+    repository_url: nullableStringValue(
+      item.repository_url,
+      fallback.repository_url ?? null,
+    ),
+    repository_ref: nullableStringValue(
+      item.repository_ref,
+      fallback.repository_ref ?? null,
+    ),
+    repository_branch: nullableStringValue(
+      item.repository_branch,
+      fallback.repository_branch ?? null,
+    ),
+    created_at: nullableStringValue(item.created_at, fallback.created_at ?? null),
+    environment_class_refs: stringList(
+      item.environment_class_refs,
+      fallback.environment_class_refs ?? [],
+    ),
+    prebuilds_enabled:
+      typeof item.prebuilds_enabled === "boolean"
+        ? item.prebuilds_enabled
+        : fallback.prebuilds_enabled ?? false,
     environment: stringValue(item.environment, fallback.environment),
     root_path: stringValue(item.root_path, fallback.root_path),
     workspace_ref: stringValue(item.workspace_ref, fallback.workspace_ref),
@@ -296,6 +303,32 @@ function normalizeProjectStateRecord(
   };
 }
 
+export async function requestHypervisorProjectCreate({
+  endpoint = readHypervisorProjectStateDaemonEndpoint(),
+  fetchImpl = fetch,
+  request,
+}: RequestProjectCreateOptions): Promise<HypervisorProjectStateProjection> {
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_PROJECT_CREATE_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(`Project create request failed with ${response.status}`);
+  }
+  return normalizeHypervisorProjectStateProjection(value, {
+    source: "daemon-project-state-projection",
+  });
+}
+
 export function readHypervisorProjectStateDaemonEndpoint(): string {
   try {
     if (typeof window === "undefined") {
@@ -319,14 +352,15 @@ export function normalizeHypervisorProjectStateProjection(
   const fallback = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
   const hasRecordArray = Array.isArray(value.records);
   const records = arrayOf(value.records).map(normalizeProjectStateRecord);
+  const selectedProjectId =
+    typeof value.selected_project_id === "string"
+      ? value.selected_project_id.trim()
+      : fallback.selected_project_id;
   return {
     schema_version: "ioi.hypervisor.project_state_projection.v1",
     projection_id: stringValue(value.projection_id, fallback.projection_id),
     source: options.source ?? "daemon-project-state-projection",
-    selected_project_id: stringValue(
-      value.selected_project_id,
-      fallback.selected_project_id,
-    ),
+    selected_project_id: selectedProjectId,
     records: hasRecordArray ? records : fallback.records,
     project_boundary_invariant: stringValue(
       value.project_boundary_invariant,
@@ -406,7 +440,7 @@ export function normalizeHypervisorProjectOperationProposal(
   options: NormalizeProjectOperationProposalOptions = {},
 ): HypervisorProjectOperationProposal {
   const fallbackRecord =
-    options.record ?? HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records[0]!;
+    options.record ?? HYPERVISOR_PROJECT_STATE_RECORD_FALLBACK;
   const fallback = buildHypervisorProjectOperationProposal(
     fallbackRecord,
     options.operationKind ?? "archive",

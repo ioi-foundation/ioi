@@ -707,16 +707,16 @@ export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
 };
 
 export const HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS: AgentHarnessAdapterId[] =
-  ["codex_cli", "claude_code_cli", "deepseek_tui", "generic_cli"];
+  ["codex_cli", "deepseek_tui", "claude_code_cli", "generic_cli"];
 
 export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfile[] =
   [
     {
       selection_kind: "agent_harness_adapter",
       adapter_id: "codex_cli",
-      label: "Codex CLI",
+      label: "Codex OSS / Qwen",
       description:
-        "Codex OSS command harness mediated as a proposal source over a local OpenAI-compatible model route.",
+        "Codex OSS command harness mediated as a proposal source over the local Qwen model mount.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "hypervisor_model_mount",
@@ -747,9 +747,9 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
     {
       selection_kind: "agent_harness_adapter",
       adapter_id: "claude_code_cli",
-      label: "Claude Code CLI",
+      label: "Claude Code example / Qwen",
       description:
-        "Claude Code-style example harness route backed by examples/claude-code-main and a local OpenAI-compatible model route until provider auth is leased.",
+        "Claude Code-style example harness backed by examples/claude-code-main and the local Qwen model mount until provider auth is leased.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "hypervisor_model_mount",
@@ -780,9 +780,9 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
     {
       selection_kind: "agent_harness_adapter",
       adapter_id: "deepseek_tui",
-      label: "DeepSeek TUI",
+      label: "DeepSeek TUI / Qwen",
       description:
-        "Terminal harness candidate that may use OpenAI-compatible model routes when compatibility is proven.",
+        "Terminal harness candidate wired through the local Qwen OpenAI-compatible model route.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "hypervisor_model_mount",
@@ -844,9 +844,9 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
     {
       selection_kind: "agent_harness_adapter",
       adapter_id: "generic_cli",
-      label: "Generic CLI Harness",
+      label: "Generic CLI / Qwen",
       description:
-        "Hypervisor-owned generic CLI harness for local model-mount session bring-up before custom command adapters are granted.",
+        "Hypervisor-owned generic CLI harness for local Qwen model-mount session bring-up before custom command adapters are granted.",
       adapter_kind: "cli",
       execution_lane: "host_dev",
       model_route_policy: "hypervisor_model_mount",
@@ -877,6 +877,165 @@ export function isAgentHarnessAdapterOption(
   option: HypervisorHarnessSelectionOption,
 ): option is AgentHarnessAdapterProfile {
   return option.selection_kind === "agent_harness_adapter";
+}
+
+export interface HypervisorAgentSelectorOption {
+  selection_ref: string;
+  adapter_id: AgentHarnessAdapterId;
+  label: string;
+  model_label: string;
+  description: string;
+  model_route_policy: AgentHarnessAdapterProfile["model_route_policy"];
+}
+
+export function agentSelectorModelLabel(
+  policy: AgentHarnessAdapterProfile["model_route_policy"],
+): string {
+  switch (policy) {
+    case "hypervisor_model_mount":
+      return "Qwen · local route";
+    case "adapter_builtin":
+      return "Adapter-native";
+    case "provider_trust":
+      return "Provider-trust";
+    case "forbidden":
+    default:
+      return "No model route";
+  }
+}
+
+/**
+ * Render-agnostic agent options for the composer model/agent toggle. By default
+ * this returns the first-session adapters (Codex OSS/Qwen, DeepSeek TUI/Qwen,
+ * Claude Code example/Qwen, Generic CLI/Qwen) in their canonical order.
+ */
+export function buildHypervisorAgentSelectorOptions(
+  includeAllAdapters = false,
+): HypervisorAgentSelectorOption[] {
+  const profiles = includeAllAdapters
+    ? HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES
+    : HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS.map((adapterId) =>
+        HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+          (profile) => profile.adapter_id === adapterId,
+        ),
+      ).filter((profile): profile is AgentHarnessAdapterProfile =>
+        Boolean(profile),
+      );
+  return profiles.map((profile) => ({
+    selection_ref: getHarnessSelectionRef(profile),
+    adapter_id: profile.adapter_id,
+    label: profile.label,
+    model_label: agentSelectorModelLabel(profile.model_route_policy),
+    description: profile.description,
+    model_route_policy: profile.model_route_policy,
+  }));
+}
+
+export const HYPERVISOR_DEFAULT_AGENT_SELECTION_REF = `agent-harness-adapter:${
+  HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS[0] ?? "codex_cli"
+}`;
+
+export interface HypervisorModelOption {
+  model_ref: string;
+  model_name: string;
+  label: string;
+  detail: string;
+  model_route_ref: string;
+}
+
+const HYPERVISOR_LOCAL_QWEN_MODEL_OPTIONS: HypervisorModelOption[] = [
+  {
+    model_ref: "model:local/qwen",
+    model_name: "qwen",
+    label: "Qwen",
+    detail: "Local OSS · default",
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  },
+  {
+    model_ref: "model:local/qwen2.5-coder",
+    model_name: "qwen2.5-coder",
+    label: "Qwen2.5 Coder",
+    detail: "Local OSS · coding",
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  },
+  {
+    model_ref: "model:local/qwen3",
+    model_name: "qwen3",
+    label: "Qwen3",
+    detail: "Local OSS · latest",
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  },
+];
+
+/**
+ * Model options for the composer's model toggle, scoped to the selected
+ * harness. A harness on the local Hypervisor model mount exposes local Qwen
+ * variants; provider-trust/adapter-builtin harnesses expose their own lane.
+ * This is what lets the operator pick, e.g., Codex with different local models.
+ */
+export function buildHypervisorModelOptions(
+  harnessSelectionRef: string,
+): HypervisorModelOption[] {
+  let policy: AgentHarnessAdapterProfile["model_route_policy"] =
+    "hypervisor_model_mount";
+  try {
+    const option = getHarnessSelectionOption(harnessSelectionRef);
+    policy =
+      option.selection_kind === "agent_harness_adapter"
+        ? option.model_route_policy
+        : option.default_model_route_policy;
+  } catch {
+    policy = "hypervisor_model_mount";
+  }
+  switch (policy) {
+    case "adapter_builtin":
+      return [
+        {
+          model_ref: "model:adapter-native/default",
+          model_name: "adapter-native",
+          label: "Adapter-native",
+          detail: "Harness built-in model",
+          model_route_ref: "model-route:adapter-native",
+        },
+      ];
+    case "provider_trust":
+      return [
+        {
+          model_ref: "model:provider/default",
+          model_name: "provider-default",
+          label: "Provider model",
+          detail: "Provider-trust lane",
+          model_route_ref: "model-route:provider/default",
+        },
+      ];
+    case "forbidden":
+      return [
+        {
+          model_ref: "model:none",
+          model_name: "none",
+          label: "No model",
+          detail: "Deterministic / infra only",
+          model_route_ref: "model-route:none",
+        },
+      ];
+    case "hypervisor_model_mount":
+    default:
+      return HYPERVISOR_LOCAL_QWEN_MODEL_OPTIONS;
+  }
+}
+
+export function getHypervisorModelOption(
+  harnessSelectionRef: string,
+  modelRef: string,
+): HypervisorModelOption {
+  const options = buildHypervisorModelOptions(harnessSelectionRef);
+  return options.find((option) => option.model_ref === modelRef) ?? options[0]!;
+}
+
+export function defaultHypervisorModelRefForHarness(
+  harnessSelectionRef: string,
+): string {
+  return buildHypervisorModelOptions(harnessSelectionRef)[0]?.model_ref ?? "";
 }
 
 function routeMatchesDefaultLocalModelMount(
@@ -1514,13 +1673,55 @@ function harnessComparisonCandidateReportFromAttempt(
   };
 }
 
+function harnessComparisonCandidateReportFromReport(
+  report: Record<string, unknown>,
+  index: number,
+): HarnessComparisonCandidateReport {
+  const fallback =
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[index] ??
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[0]!;
+  const selectionRef = stringValue(
+    report.selection_ref,
+    fallback.selection_ref,
+  );
+  const receiptRef = stringValue(report.receipt_ref, fallback.receipt_ref);
+  return {
+    selection_ref: selectionRef,
+    label: stringValue(report.label, fallback.label),
+    execution_lane: enumValue(report.execution_lane, fallback.execution_lane, [
+      "host_dev",
+      "docker_container",
+      "podman_container",
+      "microvm_later",
+      "desktop_linux_example",
+      "remote_api",
+    ]),
+    output_summary: stringValue(report.output_summary, fallback.output_summary),
+    estimated_cost_usd: numberValue(
+      report.estimated_cost_usd,
+      fallback.estimated_cost_usd,
+    ),
+    verification_status: enumValue(
+      report.verification_status,
+      fallback.verification_status,
+      ["passed", "requires_review", "blocked"],
+    ),
+    receipt_ref: receiptRef,
+    evidence_refs: stringList(report.evidence_refs, [receiptRef]),
+  };
+}
+
 export function normalizeHarnessComparisonRunFromPublicFixtureRun(
   response: unknown,
 ): HarnessComparisonRun {
   const value = objectRecord(response);
   const fallback = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
   const attempts = arrayRecords(value.attempts);
-  const candidateReports = attempts.map(harnessComparisonCandidateReportFromAttempt);
+  const directReports = arrayRecords(value.candidate_reports);
+  const candidateReports =
+    directReports.length > 0
+      ? directReports.map(harnessComparisonCandidateReportFromReport)
+      : attempts.map(harnessComparisonCandidateReportFromAttempt);
   return {
     schema_version: "ioi.hypervisor.harness_comparison_run.v1",
     run_id: stringValue(value.run_id, fallback.run_id),

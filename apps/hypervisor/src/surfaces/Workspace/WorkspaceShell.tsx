@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { workflowRuntimeUnavailableCopy } from "@ioi/hypervisor-workbench";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   WorkspaceHost,
   type WorkspacePersistedState,
@@ -27,15 +27,31 @@ interface WorkspaceShellProps {
   fullBleed?: boolean;
 }
 
+const DEFAULT_WORKBENCH_OPEN_PATH =
+  "ioi/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md";
+
 function defaultWorkspaceShellState(): WorkspacePersistedState {
   return {
     activePane: "files",
-    activeBottomPanel: "output",
-    bottomPanelOpen: false,
-    expandedPaths: {},
-    documents: [],
-    activeDocumentPath: null,
+    activeBottomPanel: "terminal",
+    bottomPanelOpen: true,
+    expandedPaths: {
+      ioi: true,
+      "ioi/internal-docs": true,
+      "ioi/internal-docs/implementation": true,
+    },
+    documents: [{ kind: "file", path: DEFAULT_WORKBENCH_OPEN_PATH }],
+    activeDocumentPath: DEFAULT_WORKBENCH_OPEN_PATH,
   };
+}
+
+function shellStateWithDefaultDocument(
+  state: WorkspacePersistedState | null | undefined,
+): WorkspacePersistedState {
+  if (!state || state.documents.length === 0) {
+    return defaultWorkspaceShellState();
+  }
+  return state;
 }
 
 export function WorkspaceShell({
@@ -75,10 +91,13 @@ export function WorkspaceShell({
   }, [surface?.key]);
 
   const initialWorkspaceState = useMemo<WorkspacePersistedState | null>(
-    () => persistedState?.shellState ?? defaultWorkspaceShellState(),
+    () => shellStateWithDefaultDocument(persistedState?.shellState),
     [persistedState],
   );
   const initialWorkspaceSnapshot = persistedState?.snapshot ?? null;
+  const persistedShellStateRef = useRef<WorkspacePersistedState | null>(
+    initialWorkspaceState,
+  );
 
   const surfaceKind = surface?.kind ?? null;
   const substratePreviewSurfaceVisible = surfaceKind === "substrate-preview";
@@ -119,13 +138,29 @@ export function WorkspaceShell({
     currentProject.rootPath,
   ]);
 
-  const persistShellState = (
-    nextShellState: WorkspacePersistedState | null,
-    nextActivePath?: string | null,
-  ) => {
+  useEffect(() => {
+    persistedShellStateRef.current = persistedState?.shellState ?? initialWorkspaceState;
+  }, [initialWorkspaceState, persistedState?.shellState]);
+
+  const requestedOpenPath =
+    persistedState?.lastActivePath ??
+    initialWorkspaceState?.activeDocumentPath ??
+    DEFAULT_WORKBENCH_OPEN_PATH;
+  const requestedOpen = useMemo(
+    () => ({ path: requestedOpenPath }),
+    [requestedOpenPath],
+  );
+
+  const persistShellState = useCallback(
+    (
+      nextShellState: WorkspacePersistedState | null,
+      nextActivePath?: string | null,
+    ) => {
     setPersistedState((current) => {
       const nextState = {
-        shellState: nextShellState,
+        shellState: nextShellState
+          ? shellStateWithDefaultDocument(nextShellState)
+          : nextShellState,
         lastActivePath:
           nextActivePath === undefined
             ? (current?.lastActivePath ?? null)
@@ -135,19 +170,31 @@ export function WorkspaceShell({
       persistWorkspaceShellState(currentProject.rootPath, nextState);
       return nextState;
     });
-  };
+    },
+    [currentProject.rootPath],
+  );
 
-  const persistSnapshot = (nextSnapshot: WorkspaceSnapshot | null) => {
+  const persistSnapshot = useCallback((nextSnapshot: WorkspaceSnapshot | null) => {
     setPersistedState((current) => {
       const nextState = {
-        shellState: current?.shellState ?? initialWorkspaceState,
+        shellState: current?.shellState ?? defaultWorkspaceShellState(),
         lastActivePath: current?.lastActivePath ?? null,
         snapshot: nextSnapshot,
       };
       persistWorkspaceShellState(currentProject.rootPath, nextState);
       return nextState;
     });
-  };
+  }, [currentProject.rootPath]);
+
+  const persistActivePath = useCallback(
+    (path: string | null) => {
+      persistShellState(
+        persistedShellStateRef.current ?? defaultWorkspaceShellState(),
+        path,
+      );
+    },
+    [persistShellState],
+  );
 
   return (
     <section
@@ -182,20 +229,14 @@ export function WorkspaceShell({
                 title={surface.title}
                 showHeader={surface.showHeader}
                 showBottomPanel={surface.showBottomPanel}
+                requestedOpen={requestedOpen}
                 initialSnapshot={
                   surface.initialSnapshot ?? initialWorkspaceSnapshot
                 }
                 initialState={initialWorkspaceState}
-                onStateChange={(nextState) => {
-                  persistShellState(nextState);
-                }}
+                onStateChange={persistShellState}
                 onSnapshotChange={persistSnapshot}
-                onActivePathChange={(path) => {
-                  persistShellState(
-                    persistedState?.shellState ?? initialWorkspaceState,
-                    path,
-                  );
-                }}
+                onActivePathChange={persistActivePath}
               />
             ) : null}
 

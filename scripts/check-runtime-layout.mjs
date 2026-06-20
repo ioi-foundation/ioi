@@ -2525,7 +2525,7 @@ assert(
     ) &&
     hypervisorNewSessionModalSource.includes("launchBlockedByHarnessVerdict") &&
     hypervisorNewSessionModalSource.includes(
-      "disabled={launchBlockedByHarnessVerdict}",
+      "disabled={launchBlockedByHarnessVerdict || launchBlockedByProject}",
     ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-verdict",
@@ -2596,15 +2596,15 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "HYPERVISOR_SESSION_LAUNCH_RECIPES.map",
     ) &&
-    hypervisorNewSessionModalSource.includes("launchRecipeTone") &&
     hypervisorNewSessionModalSource.includes(
-      "data-new-session-recipe-count",
+      "setRecipeId(event.currentTarget.value)",
     ) &&
+    hypervisorNewSessionModalSource.includes("value={recipe.recipe_id}") &&
     hypervisorNewSessionModalSource.includes("<span>Launch type</span>") &&
-    hypervisorNewSessionModalSource.includes("data-new-session-recipe") &&
     hypervisorNewSessionModalSource.includes(
-      "setRecipeId(launchRecipe.recipe_id)",
+      "value={launchRecipe.recipe_id}",
     ) &&
+    hypervisorNewSessionModalSource.includes("launchRecipe.label") &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-start-selected",
     ) &&
@@ -2665,19 +2665,19 @@ assert(
       "/v1/hypervisor/harness-session-readiness",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "[data-new-session-seed-intent]",
+      "data-session-new-session-configure",
     ) &&
     hypervisorAppShellContractSource.includes(
       '[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      "[data-new-session-target-binding-ref]",
+      "hypervisor-new-session-modal__configure",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "[data-new-session-target-session-route]",
+      "sessions_configure_advanced_step_up_gate",
     ) &&
     hypervisorAppShellContractSource.includes(
-      'label:has-text("Harness") select',
+      ".hypervisor-new-session-modal__configure select",
     ) &&
     hypervisorAppShellContractSource.includes(
       "agent-harness-adapter:codex_cli",
@@ -2732,7 +2732,10 @@ assert(
       '[data-harness-comparison-action="request-run"]',
     ) &&
     hypervisorAppShellContractSource.includes(
-      "foundry_harness_fixture_route_gated",
+      "foundry_harness_comparison_rendered",
+    ) &&
+    hypervisorAppShellContractSource.includes(
+      "foundry_harness_route_backed_qwen_adapters",
     ) &&
     hypervisorAppShellContractSource.includes("?view=agents") &&
     hypervisorAppShellContractSource.includes(
@@ -2756,13 +2759,17 @@ assert(
     ) &&
     hypervisorAppShellContractSource.includes(
       "apps/hypervisor/dist/index.html is missing",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "hypervisor_inline_launch_stepped_up_to_advanced",
     ),
   [
     "package.json",
     "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
   ],
-  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, daemon-admitted Codex OSS/Qwen spawn readiness, Projects, direct Workbench workspace session, Foundry harness comparison gating, and Agents product-surface copy.",
+  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home with inline-first launch on policy-safe admitted defaults, an optional Configure/Advanced governed launch (harness/model/privacy gating) with an enforced step-up when a posture exceeds a safe admitted route, daemon-admitted Codex OSS/Qwen spawn readiness, Projects, direct Workbench workspace session, Foundry harness comparison gating, and Agents product-surface copy.",
 );
 assert(
   "hypervisor-conformance-command-contract",

@@ -1,17 +1,63 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PROJECT_SCOPES } from "./hypervisorShellModel.ts";
 import {
   buildHypervisorProjectOperationProposal,
+  HYPERVISOR_PROJECT_CREATE_PATH,
   HYPERVISOR_PROJECT_OPERATION_PROPOSAL_PATH,
   HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION,
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
   HYPERVISOR_PROJECT_STATE_PROJECTION_PATH,
+  requestHypervisorProjectCreate,
   loadHypervisorProjectStateProjection,
   normalizeHypervisorProjectStateProjection,
   proposeHypervisorProjectOperation,
+  type HypervisorProjectStateRecord,
 } from "./hypervisorProjectStateModel.ts";
+
+function sampleProjectRecord(
+  overrides: Partial<HypervisorProjectStateRecord> = {},
+): HypervisorProjectStateRecord {
+  const projectId = overrides.project_id ?? "project:ioi";
+  const slug = projectId.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+/, "");
+  return {
+    project_id: projectId,
+    name: overrides.name ?? "ioi",
+    description:
+      overrides.description ?? "Repository-backed project admitted by daemon replay.",
+    repository_url: overrides.repository_url ?? "https://github.com/teamioitest/ioi",
+    repository_ref: overrides.repository_ref ?? "git://github.com/teamioitest/ioi",
+    repository_branch: overrides.repository_branch ?? "master",
+    created_at: overrides.created_at ?? "2026-06-19T17:00:00.000Z",
+    environment_class_refs:
+      overrides.environment_class_refs ?? ["environment-class:local-dev-replay"],
+    prebuilds_enabled: overrides.prebuilds_enabled ?? false,
+    environment: overrides.environment ?? "No environment yet",
+    root_path: overrides.root_path ?? `/workspace/${slug}`,
+    workspace_ref: overrides.workspace_ref ?? `workspace://repo/${slug}`,
+    current_session_ref: overrides.current_session_ref ?? null,
+    environment_ref: overrides.environment_ref ?? null,
+    provider_candidate_ref: overrides.provider_candidate_ref ?? null,
+    adapter_preference_ref:
+      overrides.adapter_preference_ref ??
+      "code-editor-adapter:embedded_code_editor",
+    custody_posture: overrides.custody_posture ?? "local_private",
+    restore_state: overrides.restore_state ?? "idle",
+    agentgres_object_head_ref:
+      overrides.agentgres_object_head_ref ??
+      `agentgres://object-head/${projectId}`,
+    state_root_ref:
+      overrides.state_root_ref ?? `agentgres://state-root/${projectId}`,
+    artifact_refs: overrides.artifact_refs ?? [
+      `artifact://project/${slug}/workspace-summary`,
+    ],
+    archive_ref:
+      overrides.archive_ref ?? `artifact://agentgres/archive/${slug}/latest`,
+    restore_ref: overrides.restore_ref ?? `agentgres://restore/${slug}/latest`,
+    latest_receipt_refs:
+      overrides.latest_receipt_refs ?? [`receipt://project/${slug}/state`],
+  };
+}
 
 test("project state clean boot starts empty until daemon admits project truth", () => {
   const projection = HYPERVISOR_PROJECT_STATE_CLEAN_BOOT_PROJECTION;
@@ -28,7 +74,7 @@ test("project state clean boot starts empty until daemon admits project truth", 
   assert.match(projection.project_boundary_invariant, /Agentgres admits project truth/);
 });
 
-test("project state projection binds each project to Agentgres restore truth", () => {
+test("project state fixture does not seed shell scopes as user projects", () => {
   const projection = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
 
   assert.equal(
@@ -37,45 +83,12 @@ test("project state projection binds each project to Agentgres restore truth", (
   );
   assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
-  assert.equal(projection.records.length, PROJECT_SCOPES.length);
+  assert.equal(projection.projection_id, "project-state:fixture/empty");
+  assert.equal(projection.selected_project_id, "");
+  assert.equal(projection.records.length, 0);
   assert.match(projection.project_boundary_invariant, /Agentgres admits project truth/);
+  assert.match(projection.project_boundary_invariant, /Core is runtime\/control substrate, not a project/);
   assert.match(projection.project_boundary_invariant, /storage backends only hold bytes/);
-
-  for (const project of projection.records) {
-    assert.ok(project.workspace_ref.startsWith("workspace://"));
-    assert.ok(project.agentgres_object_head_ref.startsWith("agentgres://object-head/"));
-    assert.ok(project.state_root_ref.startsWith("agentgres://state-root/"));
-    assert.ok(project.archive_ref.startsWith("artifact://agentgres/archive/"));
-    assert.ok(project.restore_ref.startsWith("agentgres://restore/"));
-    assert.ok(project.artifact_refs.length >= 2);
-    assert.ok(project.latest_receipt_refs.length >= 1);
-    assert.equal(project.adapter_preference_ref, "code-editor-adapter:embedded_code_editor");
-  }
-});
-
-test("selected project exposes session, environment, provider, receipts, and local custody", () => {
-  const projection = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
-  const selected = projection.records.find(
-    (record) => record.project_id === projection.selected_project_id,
-  );
-
-  assert.equal(selected?.project_id, "hypervisor-core");
-  assert.equal(selected?.custody_posture, "local_private");
-  assert.equal(selected?.restore_state, "active");
-  assert.match(selected?.current_session_ref ?? "", /^session:/);
-  assert.match(selected?.environment_ref ?? "", /^environment:/);
-  assert.match(selected?.provider_candidate_ref ?? "", /^provider-candidate:/);
-  assert.ok(
-    selected?.latest_receipt_refs.some((receiptRef) =>
-      receiptRef.startsWith("receipt://authority/"),
-    ),
-  );
-
-  const restoreReady = projection.records.find(
-    (record) => record.restore_state === "restore_ready",
-  );
-  assert.equal(restoreReady?.custody_posture, "encrypted_archive");
-  assert.equal(restoreReady?.current_session_ref, null);
 });
 
 test("project state normalization preserves Agentgres truth refs from daemon projections", () => {
@@ -142,7 +155,53 @@ test("project state normalization preserves explicit empty daemon records", () =
 
   assert.equal(projection.projection_id, "project-state:daemon/empty");
   assert.equal(projection.source, "daemon-project-state-projection");
+  assert.equal(projection.selected_project_id, "");
   assert.equal(projection.records.length, 0);
+});
+
+test("project create client posts repo-backed creation request to daemon", async () => {
+  const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
+  const projection = await requestHypervisorProjectCreate({
+    endpoint: "http://daemon.test/",
+    request: {
+      repository_url: "https://github.com/teamioitest/ioi",
+      project_name: "ioi",
+      source: "manual_url",
+      environment_class_refs: ["environment-class:local-dev-replay"],
+    },
+    fetchImpl: async (input, init) => {
+      calls.push({
+        input,
+        method: init?.method,
+        body: init?.body ? JSON.parse(init.body) : null,
+      });
+      return {
+        ok: true,
+        status: 201,
+        async text() {
+          return JSON.stringify({
+            projection_id: "project-state:daemon/repo-created",
+            selected_project_id: "project:ioi",
+            records: [sampleProjectRecord()],
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.input);
+  assert.equal(url.pathname, HYPERVISOR_PROJECT_CREATE_PATH);
+  assert.equal(calls[0]!.method, "POST");
+  assert.deepEqual(calls[0]!.body, {
+    repository_url: "https://github.com/teamioitest/ioi",
+    project_name: "ioi",
+    source: "manual_url",
+    environment_class_refs: ["environment-class:local-dev-replay"],
+  });
+  assert.equal(projection.source, "daemon-project-state-projection");
+  assert.equal(projection.selected_project_id, "project:ioi");
+  assert.equal(projection.records[0]?.repository_url, "https://github.com/teamioitest/ioi");
 });
 
 test("project state loader calls the daemon projection route with selected project ref", async () => {
@@ -189,12 +248,16 @@ test("project state loader calls the daemon projection route with selected proje
 });
 
 test("project operation proposal binds archive and restore to Agentgres refs", () => {
-  const active = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
-    (record) => record.restore_state === "active",
-  )!;
-  const restoreReady = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
-    (record) => record.restore_state === "restore_ready",
-  )!;
+  const active = sampleProjectRecord({
+    project_id: "project:active",
+    restore_state: "active",
+    current_session_ref: "session:active/master",
+  });
+  const restoreReady = sampleProjectRecord({
+    project_id: "project:restore-ready",
+    restore_state: "restore_ready",
+    custody_posture: "encrypted_archive",
+  });
 
   const archive = buildHypervisorProjectOperationProposal(active, "archive");
   assert.equal(
@@ -222,9 +285,11 @@ test("project operation proposal binds archive and restore to Agentgres refs", (
 });
 
 test("project operation proposal client posts canonical request to daemon", async () => {
-  const record = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.records.find(
-    (item) => item.restore_state === "restore_ready",
-  )!;
+  const record = sampleProjectRecord({
+    project_id: "project:restore-ready",
+    restore_state: "restore_ready",
+    custody_posture: "encrypted_archive",
+  });
   const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
 
   const proposal = await proposeHypervisorProjectOperation({

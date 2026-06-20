@@ -192,7 +192,7 @@ test("first session harnesses bind local model configuration before external aut
 
   assert.deepEqual(
     bindings.map((binding) => binding.agent_harness_adapter_id),
-    ["codex_cli", "claude_code_cli", "deepseek_tui", "generic_cli"],
+    ["codex_cli", "deepseek_tui", "claude_code_cli", "generic_cli"],
   );
   assert.ok(
     bindings.every(
@@ -204,8 +204,8 @@ test("first session harnesses bind local model configuration before external aut
         binding.runtimeTruthSource === "daemon-runtime",
     ),
   );
-  assert.equal(bindings[1]?.example_root_ref, "examples/claude-code-main");
-  assert.equal(bindings[2]?.workspace_mount_policy, "public_trunk");
+  assert.equal(bindings[2]?.example_root_ref, "examples/claude-code-main");
+  assert.equal(bindings[1]?.workspace_mount_policy, "public_trunk");
   assert.equal(
     bindings[3]?.receipt_policy_ref,
     "receipt-policy:harness-adapter/generic-cli",
@@ -508,7 +508,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
     ],
     harness_selection_ref: "agent-harness-adapter:deepseek_tui",
     harness_selection_kind: "agent_harness_adapter",
-    harness_label: "DeepSeek TUI",
+    harness_label: "DeepSeek TUI / Qwen",
     harness_runtime_truth_source: "daemon-runtime",
     harness_truth_boundary: "proposal_source_only",
     harness_verdict_state: "compatible",

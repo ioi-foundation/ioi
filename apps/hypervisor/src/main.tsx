@@ -15,6 +15,7 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
+import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -39,6 +40,7 @@ const HYPERVISOR_PRIMARY_ROUTES = [
   "/details/:sessionId",
   "/details/:sessionId/logs",
   "/projects",
+  "/applications",
   "/missions",
   "/workbench",
   "/automations",
@@ -54,17 +56,21 @@ const HYPERVISOR_PRIMARY_ROUTES = [
   "/settings",
 ];
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AppMetricsBeacon />
-      <Routes>
-        <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-        {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
-          <Route key={path} path={path} element={<HypervisorShellWindow />} />
-        ))}
-        <Route path="*" element={<HypervisorShellWindow />} />
-      </Routes>
-    </BrowserRouter>
-  </React.StrictMode>
-);
+function renderHypervisorApp() {
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <AppMetricsBeacon />
+        <Routes>
+          <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
+          {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
+            <Route key={path} path={path} element={<HypervisorShellWindow />} />
+          ))}
+          <Route path="*" element={<HypervisorShellWindow />} />
+        </Routes>
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}
+
+void bootstrapHypervisorDevReplayClient().finally(renderHypervisorApp);

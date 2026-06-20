@@ -1,12 +1,17 @@
 import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   HarnessSessionBindingAdmissionError,
   HarnessSessionLaunchError,
   HarnessSessionReadinessError,
   HarnessSessionSpawnError,
   HarnessSessionTerminalAttachError,
   buildHypervisorHarnessSessionBinding,
+  buildHarnessCompatibilityVerdict,
+  getHarnessSelectionOption,
   getHarnessSelectionRef,
+  modelRouteSupportsHypervisorMountFromInventory,
   readHypervisorHarnessPublicFixtureDaemonEndpoint,
   type HarnessCompatibilityVerdict,
   type HypervisorHarnessSessionBinding,
@@ -15,13 +20,16 @@ import {
   type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
   type HypervisorHarnessSessionTerminalAttach,
+  type HypervisorModelMountInventorySnapshot,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
 import {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
   CodeEditorAdapterLaunchAdmissionError,
   buildCodeEditorAdapterLaunchPlan,
+  getCodeEditorAdapterPreferenceByRef,
   getCodeEditorAdapterPreferenceRef,
   type HypervisorCodeEditorAdapterControlAction,
   type HypervisorCodeEditorAdapterCustodyPosture,
@@ -80,6 +88,7 @@ export type HypervisorSurfaceId =
   | "home"
   | "sessions"
   | "projects"
+  | "applications"
   | "missions"
   | "workbench"
   | "automations"
@@ -347,6 +356,26 @@ export interface HypervisorNewSessionLaunchSummary {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HypervisorSessionModelGardenConfiguration {
+  schema_version: "ioi.hypervisor.session_model_garden_configuration.v1";
+  configuration_ref: string;
+  model_name: string;
+  model_route_ref: string;
+  endpoint_ref: string;
+  provider_ref: string;
+  custody_posture: "local_model_mount";
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HypervisorNewSessionProjectContext {
+  schema_version: "ioi.hypervisor.new_session_project_context.v1";
+  project_label: string;
+  root_path: string;
+  repository_url?: string | null;
+  repository_branch?: string | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface HypervisorNewSessionLaunchRequest {
   recipe_id: string;
   seed_intent: string | null;
@@ -358,6 +387,8 @@ export interface HypervisorNewSessionLaunchRequest {
   authority_scope_refs: string[];
   receipt_preview_ref: string;
   launch_summary: HypervisorNewSessionLaunchSummary;
+  model_garden_configuration?: HypervisorSessionModelGardenConfiguration;
+  project_context?: HypervisorNewSessionProjectContext;
 }
 
 export interface HypervisorCodeEditorAdapterLaunchAdmissionFailure {
@@ -1169,6 +1200,130 @@ export function buildHypervisorNewSessionLaunchSummary({
   };
 }
 
+export interface HypervisorInlineLaunchInput {
+  recipeId?: string;
+  seedIntent: string | null;
+  project: {
+    id: string;
+    name: string;
+    rootPath: string;
+    repositoryUrl?: string | null;
+  };
+  harnessSelectionRef: string;
+  modelRouteRef?: string;
+  modelName?: string;
+  privacyPostureRef?: string;
+  adapterPreferenceRef?: string;
+  modelMountInventory?: HypervisorModelMountInventorySnapshot;
+}
+
+function safeLaunchFragment(value: string): string {
+  return value.trim().replace(/[^a-z0-9_-]+/gi, "-").slice(0, 48) || "session";
+}
+
+/**
+ * Build a full governed New Session launch request from a minimal composer
+ * input. Shared by the New Session modal and the inline composer flow so both
+ * paths produce identical daemon-shaped launch summaries, harness bindings, and
+ * model-garden configuration.
+ */
+export function buildHypervisorNewSessionLaunchRequest(
+  input: HypervisorInlineLaunchInput,
+): HypervisorNewSessionLaunchRequest {
+  const recipe =
+    HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+      (candidate) => candidate.recipe_id === (input.recipeId ?? "mission.default"),
+    ) ??
+    HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+      (candidate) => candidate.recipe_id === "mission.default",
+    ) ??
+    HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+  const adapterPreferenceRef =
+    input.adapterPreferenceRef ?? DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+  const codeEditorAdapter =
+    getCodeEditorAdapterPreferenceByRef(adapterPreferenceRef);
+  const modelRouteRef =
+    input.modelRouteRef ?? HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF;
+  const privacyPostureRef =
+    input.privacyPostureRef ?? "privacy:redacted-projection";
+  const modelName = input.modelName?.trim() || "qwen";
+  const inventory =
+    input.modelMountInventory ?? HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE;
+  let harness: HypervisorHarnessSelectionOption;
+  try {
+    harness = getHarnessSelectionOption(input.harnessSelectionRef);
+  } catch {
+    harness =
+      HYPERVISOR_HARNESS_SELECTION_OPTIONS.find((option) =>
+        getHarnessSelectionRef(option).startsWith("agent-harness-adapter:"),
+      ) ?? HYPERVISOR_HARNESS_SELECTION_OPTIONS[0]!;
+  }
+  const harnessSelectionRef = getHarnessSelectionRef(harness);
+  const modelRouteAvailability = modelRouteSupportsHypervisorMountFromInventory(
+    modelRouteRef,
+    inventory,
+  );
+  const harnessVerdict = buildHarnessCompatibilityVerdict(
+    harness,
+    modelRouteAvailability.available,
+    privacyPostureRef,
+  );
+  const seedIntent = input.seedIntent?.trim() || null;
+  const receiptPreviewRef = [
+    "receipt-preview:new-session",
+    recipe.recipe_id,
+    input.project.id,
+    safeLaunchFragment(seedIntent ?? recipe.recipe_id),
+    adapterPreferenceRef.replace(/[^a-z0-9_-]+/gi, "-"),
+    harnessSelectionRef.replace(/[^a-z0-9_-]+/gi, "-"),
+  ].join("/");
+  const launchSummary = buildHypervisorNewSessionLaunchSummary({
+    recipe,
+    seedIntent,
+    projectId: input.project.id,
+    codeEditorAdapter,
+    harness,
+    harnessVerdict,
+    modelRouteAvailability,
+    modelRouteRef,
+    privacyPostureRef,
+    authorityScopeRefs: recipe.authority_scope_templates,
+    receiptPreviewRef,
+  });
+  return {
+    recipe_id: recipe.recipe_id,
+    seed_intent: seedIntent,
+    project_id: input.project.id,
+    adapter_preference_ref: adapterPreferenceRef,
+    harness_selection_ref: harnessSelectionRef,
+    model_route_ref: modelRouteRef,
+    privacy_posture_ref: privacyPostureRef,
+    authority_scope_refs: recipe.authority_scope_templates,
+    receipt_preview_ref: receiptPreviewRef,
+    launch_summary: launchSummary,
+    project_context: {
+      schema_version: "ioi.hypervisor.new_session_project_context.v1",
+      project_label: input.project.name,
+      root_path: input.project.rootPath || ".",
+      repository_url: input.project.repositoryUrl ?? null,
+      repository_branch: "master",
+      runtimeTruthSource: "daemon-runtime",
+    },
+    model_garden_configuration: {
+      schema_version: "ioi.hypervisor.session_model_garden_configuration.v1",
+      configuration_ref: `model-garden:${safeLaunchFragment(
+        harnessSelectionRef,
+      )}/${safeLaunchFragment(modelName)}`,
+      model_name: modelName,
+      model_route_ref: modelRouteRef,
+      endpoint_ref: "model-endpoint:hypervisor/default-local",
+      provider_ref: "provider:hypervisor-local",
+      custody_posture: "local_model_mount",
+      runtimeTruthSource: "daemon-runtime",
+    },
+  };
+}
+
 export const HYPERVISOR_PRIMARY_ACTION: HypervisorShellAction = {
   id: "new_session",
   label: "New Session",
@@ -1400,6 +1555,14 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
     inspectorPanels: ["tasks", "logs", "receipts"],
   },
   {
+    id: "applications",
+    label: "Applications",
+    description: "Pinned Hypervisor applications, packages, workers, policies, and monitoring.",
+    kind: "application",
+    railGroup: "applications",
+    inspectorPanels: ["logs", "receipts"],
+  },
+  {
     id: "insights",
     label: "Insights",
     description: "Application surfaces, run history, traces, receipts, and improvement signals.",
@@ -1551,7 +1714,7 @@ export const HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = [
   "home",
   "projects",
   "automations",
-  "insights",
+  "applications",
   "sessions",
 ] as const satisfies readonly HypervisorSurfaceId[];
 
@@ -1574,6 +1737,7 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
       "home",
       "sessions",
       "projects",
+      "applications",
       "missions",
       "workbench",
       "automations",

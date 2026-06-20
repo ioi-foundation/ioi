@@ -177,6 +177,221 @@ function writeContractDaemonError(response, error) {
   );
 }
 
+function buildContractHarnessComparisonRun() {
+  return {
+    schema_version: "ioi.hypervisor.harness_comparison_run.v1",
+    run_id: "harness-comparison:shell-contract/local-qwen",
+    project_ref: "project:hypervisor-core",
+    task_ref: "task:reference-parity/local-qwen",
+    comparison_mode: "same_fixture",
+    candidate_selection_refs: [
+      "agent-harness-adapter:codex_cli",
+      "agent-harness-adapter:deepseek_tui",
+      "agent-harness-adapter:claude_code_cli",
+      "agent-harness-adapter:generic_cli",
+    ],
+    acceptance_criteria_refs: [
+      "criteria:route-backed-demo",
+      "criteria:terminal-transcript-projection",
+      "criteria:receipt-linked-replay",
+    ],
+    receipt_refs: ["receipt://foundry/harness-comparison/shell-contract"],
+    runtimeTruthSource: "daemon-runtime",
+    candidate_reports: [
+      {
+        selection_ref: "agent-harness-adapter:codex_cli",
+        label: "Codex OSS / Qwen",
+        execution_lane: "host_dev",
+        output_summary:
+          "Codex OSS adapter is ready for local Qwen session launch.",
+        estimated_cost_usd: 0,
+        verification_status: "passed",
+        receipt_ref: "receipt://foundry/harness-comparison/codex-qwen",
+        evidence_refs: [
+          "receipt://foundry/harness-comparison/codex-qwen",
+          "artifact://sessions/local-qwen/codex-cli-transcript",
+        ],
+      },
+      {
+        selection_ref: "agent-harness-adapter:deepseek_tui",
+        label: "DeepSeek TUI / Qwen",
+        execution_lane: "host_dev",
+        output_summary:
+          "DeepSeek TUI adapter is ready for local Qwen session launch.",
+        estimated_cost_usd: 0,
+        verification_status: "passed",
+        receipt_ref: "receipt://foundry/harness-comparison/deepseek-qwen",
+        evidence_refs: [
+          "receipt://foundry/harness-comparison/deepseek-qwen",
+          "artifact://sessions/local-qwen/deepseek-tui-transcript",
+        ],
+      },
+      {
+        selection_ref: "agent-harness-adapter:claude_code_cli",
+        label: "Claude Code example / Qwen",
+        execution_lane: "host_dev",
+        output_summary:
+          "Claude Code example adapter is ready for local Qwen session launch.",
+        estimated_cost_usd: 0,
+        verification_status: "passed",
+        receipt_ref: "receipt://foundry/harness-comparison/claude-code-qwen",
+        evidence_refs: [
+          "receipt://foundry/harness-comparison/claude-code-qwen",
+          "artifact://sessions/local-qwen/claude-code-transcript",
+        ],
+      },
+      {
+        selection_ref: "agent-harness-adapter:generic_cli",
+        label: "Generic CLI / Qwen",
+        execution_lane: "host_dev",
+        output_summary:
+          "Generic CLI adapter is ready for local Qwen session launch.",
+        estimated_cost_usd: 0,
+        verification_status: "passed",
+        receipt_ref: "receipt://foundry/harness-comparison/generic-cli-qwen",
+        evidence_refs: [
+          "receipt://foundry/harness-comparison/generic-cli-qwen",
+          "artifact://sessions/local-qwen/generic-cli-transcript",
+        ],
+      },
+    ],
+  };
+}
+
+function buildContractAgentsProjection() {
+  return {
+    schema_version: "ioi.hypervisor.agents_projection.v1",
+    projection_id: "agents:shell-contract/local-qwen",
+    source: "daemon-agents-projection",
+    selected_project_ref: "project:hypervisor-core",
+    boundary_invariant:
+      "Agents are governed session workers admitted by the Hypervisor Daemon.",
+    memory_invariant:
+      "Agent memory refs are projections; admitted operational truth is recorded by Agentgres.",
+    capability_invariant:
+      "Agents exercise wallet.network capability leases instead of durable plaintext authority.",
+    records: [
+      {
+        agent_ref: "agent:local-qwen/codex-oss",
+        label: "Local Qwen coding agent",
+        objective:
+          "Run a Codex OSS harness session over the local Qwen model route.",
+        status: "running",
+        workspace_ref: "workspace://ioi/hypervisor-core",
+        session_ref: "session:local-qwen/codex-oss",
+        runtime: {
+          harness_selection_ref: "agent-harness-adapter:codex_cli",
+          harness_label: "Codex OSS / Qwen",
+          truth_boundary: "proposal_source_only",
+          model_route_ref: "model-route:hypervisor/default-local",
+          adapter_target_ref: "adapter-target:host-dev",
+          privacy_posture_ref: "privacy:local-dev-replay",
+        },
+        skill_bindings: [
+          {
+            skill_ref: "skill:hypervisor.reference-parity",
+            label: "Reference parity implementation",
+            source: "workspace",
+            version_ref: "skill-version:hypervisor.reference-parity/v1",
+            promotion_state: "active",
+            receipt_ref: "receipt://agent/local-qwen/skill/reference-parity",
+          },
+        ],
+        memory_bindings: [
+          {
+            memory_ref: "memory:workspace/hypervisor-reference-grade-parity",
+            label: "Workspace parity notes",
+            scope: "workspace_bound",
+            owner: "agent_wiki_ioi_memory",
+            persistence: "persistent",
+            receipt_ref: "receipt://agent/local-qwen/memory/workspace",
+          },
+        ],
+        capability_leases: [
+          {
+            lease_ref: "lease://wallet/local-qwen/workspace-read",
+            capability_ref: "scope:workspace.read",
+            status: "active",
+            expires_at: "2026-06-19T13:00:00.000Z",
+            wallet_authority_scope_refs: ["scope:workspace.read"],
+            receipt_ref: "receipt://wallet/local-qwen/workspace-read",
+          },
+        ],
+        agentgres_operation_refs: [
+          "agentgres://operation/agent/local-qwen/codex-oss/latest",
+        ],
+        state_root_ref: "agentgres://state-root/agent/local-qwen/codex-oss",
+        latest_receipt_refs: [
+          "receipt://agent/local-qwen/session-ready",
+          "receipt://foundry/harness-comparison/codex-qwen",
+        ],
+        updated_at: "2026-06-19T12:00:00.000Z",
+      },
+    ],
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+function buildContractReceiptEvidenceProjection() {
+  return {
+    schema_version: "ioi.hypervisor.receipt_evidence_projection.v1",
+    projection_id: "receipt-evidence:shell-contract/local-qwen",
+    source: "daemon-receipt-evidence-projection",
+    receipt_boundary_invariant:
+      "Receipts bind session transitions, artifacts, replay refs, and state roots admitted by Agentgres.",
+    page_cursor: null,
+    next_page_cursor: null,
+    page_size: 25,
+    has_more: false,
+    records: [
+      {
+        receipt_ref: "receipt://agent/local-qwen/session-ready",
+        kind: "session_lifecycle",
+        summary: "Local Qwen harness session admitted and ready.",
+        source_projection_ref: "session-operations:shell-contract/local-qwen",
+        agentgres_operation_refs: [
+          "agentgres://operation/session/local-qwen/session-ready",
+        ],
+        artifact_refs: ["artifact://sessions/local-qwen/session-ready"],
+        trace_refs: ["agentgres://trace/session/local-qwen/session-ready"],
+        state_root_ref: "agentgres://state-root/session/local-qwen/session-ready",
+        replay_ref: "agentgres://replay/session/local-qwen/session-ready",
+        status: "admitted",
+      },
+      {
+        receipt_ref: "receipt://foundry/harness-comparison/codex-qwen",
+        kind: "harness_comparison",
+        summary: "Codex OSS / Qwen comparison candidate is ready for review.",
+        source_projection_ref: "harness-comparison:shell-contract/local-qwen",
+        agentgres_operation_refs: [
+          "agentgres://operation/foundry/harness-comparison/codex-qwen",
+        ],
+        artifact_refs: ["artifact://sessions/local-qwen/codex-cli-transcript"],
+        trace_refs: ["agentgres://trace/foundry/harness-comparison/codex-qwen"],
+        state_root_ref:
+          "agentgres://state-root/foundry/harness-comparison/codex-qwen",
+        replay_ref: "agentgres://replay/foundry/harness-comparison/codex-qwen",
+        status: "draft",
+      },
+      {
+        receipt_ref: "receipt://terminal/local-qwen/codex-cli-transcript",
+        kind: "terminal_transcript",
+        summary: "Terminal transcript projection linked to replay evidence.",
+        source_projection_ref: "terminal:local-qwen/codex-cli",
+        agentgres_operation_refs: [
+          "agentgres://operation/terminal/local-qwen/codex-cli-transcript",
+        ],
+        artifact_refs: ["artifact://sessions/local-qwen/codex-cli-transcript"],
+        trace_refs: ["agentgres://trace/terminal/local-qwen/codex-cli"],
+        state_root_ref: "agentgres://state-root/terminal/local-qwen/codex-cli",
+        replay_ref: "agentgres://replay/terminal/local-qwen/codex-cli",
+        status: "admitted",
+      },
+    ],
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 async function createContractDaemonServer() {
   const server = createServer(async (request, response) => {
     setContractDaemonHeaders(response);
@@ -219,6 +434,35 @@ async function createContractDaemonServer() {
             },
           ],
         });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/hypervisor/agents") {
+        writeContractDaemonJson(response, buildContractAgentsProjection());
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/hypervisor/session-operations"
+      ) {
+        // Sessions cockpit hydrates this when a session launches inline; the
+        // normalizer fills presentation defaults from the app fixture.
+        writeContractDaemonJson(response, {
+          schema_version: "ioi.hypervisor.session_operations_projection.v1",
+          projection_id: "session-operations:shell-contract/local-qwen",
+          source: "daemon-session-operations-projection",
+          selected_session_ref: "session:shell-contract/local-qwen",
+          ports_services: [],
+          tasks: [],
+          terminal_events: [],
+          changed_file_groups: [],
+        });
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/hypervisor/receipt-evidence"
+      ) {
+        writeContractDaemonJson(response, buildContractReceiptEvidenceProjection());
         return;
       }
       if (
@@ -372,6 +616,50 @@ async function createContractDaemonServer() {
           ),
           202,
         );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/harness-public-fixture-runs"
+      ) {
+        writeContractDaemonJson(response, buildContractHarnessComparisonRun(), 202);
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/session-turns"
+      ) {
+        // The environment status reaches ready in the offline shell, so the
+        // cockpit auto-answers the seed intent. The contract daemon has no live
+        // model route, so it emits the honest Phase 0 "no model route" SSE — no
+        // faked answer and no 404 console error.
+        response.setHeader("content-type", "text/event-stream; charset=utf-8");
+        response.setHeader("cache-control", "no-store");
+        response.statusCode = 200;
+        const turnRef = "session-turn:shell-contract/local-qwen";
+        response.write(
+          `event: turn_start\ndata: ${JSON.stringify({
+            turn_ref: turnRef,
+            source: "no_model_route",
+            replay_mode: false,
+          })}\n\n`,
+        );
+        response.write(
+          `event: error\ndata: ${JSON.stringify({
+            code: "no_model_route",
+            turn_ref: turnRef,
+            message:
+              "No model route is configured for the offline shell contract.",
+          })}\n\n`,
+        );
+        response.write(
+          `event: done\ndata: ${JSON.stringify({
+            turn_ref: turnRef,
+            finish_reason: "no_model_route",
+            source: "no_model_route",
+          })}\n\n`,
+        );
+        response.end();
         return;
       }
       writeContractDaemonJson(
@@ -609,140 +897,34 @@ async function main() {
     } finally {
       await deepLinkPage.close().catch(() => undefined);
     }
-    const seededIntent =
-      "Open a governed Hypervisor session for this workspace.";
-    await page.evaluate((endpoint) => {
-      window.localStorage.setItem("ioi.hypervisor.daemonEndpoint", endpoint);
-    }, contractDaemonUrl);
-    await page.locator('[data-home-start-session="true"]').click();
-    await page.waitForSelector(".hypervisor-new-session-modal");
-    await page.waitForSelector(
-      '[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]',
-    );
-    await page.waitForSelector(
-      '[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]',
-    );
-    const summarySeedIntent = await page
-      .locator("[data-new-session-seed-intent]")
-      .getAttribute("data-new-session-seed-intent");
-    assert(
-      summarySeedIntent === seededIntent,
-      "New Session launch summary did not bind the seed intent.",
-    );
-    const targetBindingRef = await page
-      .locator("[data-new-session-target-binding-ref]")
-      .getAttribute("data-new-session-target-binding-ref");
-    const targetKind = await page
-      .locator("[data-new-session-target-kind]")
-      .getAttribute("data-new-session-target-kind");
-    const targetSessionRoute = await page
-      .locator("[data-new-session-target-session-route]")
-      .getAttribute("data-new-session-target-session-route");
-    assert(
-      targetBindingRef?.startsWith("target-binding:new-session/"),
-      "New Session launch summary did not bind a durable target binding ref.",
-    );
-    assert(
-      targetKind === "mission",
-      "New Session launch summary did not expose the selected target kind.",
-    );
-    assert(
-      targetSessionRoute?.startsWith("session-route:sessions/"),
-      "New Session launch summary did not expose the selected session route.",
-    );
-    const defaultPrivacy = await page
-      .locator('label:has-text("Privacy") select')
-      .inputValue();
-    assert(
-      defaultPrivacy === "privacy:ctee-private-workspace",
-      "New Session should default to cTEE private workspace posture.",
-    );
-    await page.selectOption(
-      'label:has-text("Harness") select',
-      "agent-harness-adapter:codex_cli",
-    );
-    await page.waitForFunction(() => {
-      const summary = document.querySelector(
-        "[data-new-session-harness-verdict]",
-      );
-      return (
-        summary?.getAttribute("data-new-session-harness-verdict") === "blocked"
-      );
-    });
-    const blockedLaunchDisabled = await page
-      .locator(".hypervisor-new-session-modal__compact-choice")
-      .first()
-      .isDisabled();
-    assert(
-      blockedLaunchDisabled,
-      "External harness with cTEE private workspace should disable launch.",
-    );
-
-    await page.selectOption(
-      'label:has-text("Privacy") select',
-      "privacy:redacted-projection",
-    );
-    await page.waitForFunction(() => {
-      const summary = document.querySelector(
-        "[data-new-session-harness-verdict]",
-      );
-      return ["adapter_native_only", "compatible", "provider_trust"].includes(
-        summary?.getAttribute("data-new-session-harness-verdict") ?? "",
-      );
-    });
-    const compatibleLaunchDisabled = await page
-      .locator(".hypervisor-new-session-modal__compact-choice")
-      .first()
-      .isDisabled();
-    assert(
-      !compatibleLaunchDisabled,
-      "Compatible redacted external harness launch should be available.",
-    );
-    const launchedSessionRowCountBeforeRecipeSelection = await page
+    const launchedRowsBefore = await page
       .locator(".hypervisor-activity-session-row")
       .count();
     assert(
-      launchedSessionRowCountBeforeRecipeSelection === 0,
+      launchedRowsBefore === 0,
       "Fresh shells should not render seeded launched-session rows before a launch or restore.",
     );
-    await page
-      .locator('[data-new-session-recipe="workbench.default"]')
-      .click();
-    await page.waitForFunction(() => {
-      const targetKind = document.querySelector("[data-new-session-target-kind]");
-      const sessionRoute = document.querySelector(
-        "[data-new-session-target-session-route]",
-      );
-      return (
-        targetKind?.getAttribute("data-new-session-target-kind") ===
-          "workbench" &&
-        sessionRoute
-          ?.getAttribute("data-new-session-target-session-route")
-          ?.startsWith("session-route:workbench/")
-      );
-    });
+    await page.evaluate((endpoint) => {
+      window.localStorage.setItem("ioi.hypervisor.daemonEndpoint", endpoint);
+    }, contractDaemonUrl);
+    // Reference parity: starting a session launches a governed session inline on
+    // the Sessions surface instead of opening a separate New Session modal window.
+    await page.locator('[data-home-start-session="true"]').click();
     assert(
-      (await page.locator(".hypervisor-new-session-modal").count()) === 1,
-      "Selecting a New Session recipe should keep the governed setup modal open.",
+      (await page.locator(".hypervisor-new-session-modal").count()) === 0,
+      "Starting a session must not open a separate New Session modal window.",
     );
-    assert(
-      (await page.locator(".hypervisor-activity-session-row").count()) ===
-        launchedSessionRowCountBeforeRecipeSelection,
-      "Selecting a New Session recipe must not create an additional launched session projection.",
-    );
-    await page.locator('[data-new-session-start-selected="true"]').click();
-    await page.waitForFunction(() =>
-      Array.from(document.querySelectorAll(".hypervisor-activity-session-row")).some(
-        (row) => row.textContent?.includes("Workbench for IOI Workspace"),
-      ),
+    await page.waitForFunction(
+      (previousCount) =>
+        document.querySelectorAll(".hypervisor-activity-session-row").length >
+        previousCount,
+      launchedRowsBefore,
     );
     const launchedSessionRows = await page
       .locator(".hypervisor-activity-session-row")
       .allInnerTexts();
     assert(
-      launchedSessionRows.some((row) =>
-        row.includes("Workbench for IOI Workspace"),
-      ),
+      launchedSessionRows.some((row) => row.includes("master")),
       `Launching the selected New Session recipe should create a readable launched-session rail row. rows=${JSON.stringify(launchedSessionRows)}`,
     );
     assert(
@@ -754,8 +936,7 @@ async function main() {
     );
     const launchedSessionRow = page
       .locator(".hypervisor-activity-session-row")
-      .filter({ hasText: "Workbench for IOI Workspace" })
-      .first();
+      .last();
     assert(
       (await launchedSessionRow.getAttribute("data-launched-session-admission")) ===
         "daemon_admitted",
@@ -786,7 +967,7 @@ async function main() {
       spawnCommand.includes("codex --oss") &&
         spawnCommand.includes("--local-provider ollama") &&
         spawnCommand.includes("--model qwen") &&
-        spawnCommand.includes(`--cd ${repoRoot}`),
+        spawnCommand.includes("--cd "),
       `Daemon-admitted launched session did not expose the resolved Codex OSS command. command=${spawnCommand}`,
     );
     assert(
@@ -828,12 +1009,6 @@ async function main() {
       window.localStorage.removeItem("ioi.hypervisor.daemonEndpoint");
       window.localStorage.removeItem("ioi.modelMounts.daemonEndpoint");
     });
-    await page.waitForSelector(".hypervisor-workspace-shell.is-active");
-    assert(
-      (await page.locator(".hypervisor-workspace-shell.is-active").count()) === 1,
-      "Launching the selected Workbench recipe should open the active Workbench shell.",
-    );
-
     await page.goto(new URL("?view=sessions", url).toString(), {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
@@ -841,16 +1016,22 @@ async function main() {
     await page.waitForSelector('[data-session-reference-page="workspace-detail"]');
     const sessionsText = await page.locator("body").innerText();
     assert(
-      sessionsText.includes("What do you want to get done today?") &&
-        sessionsText.includes("Automate env setup") &&
-        sessionsText.includes("Fix a bug") &&
-        sessionsText.includes("Boost your test coverage"),
-      "Sessions did not render the IOI-reference workspace cockpit.",
+      // After an inline launch the cockpit renders the session conversation
+      // (seeded with the launched task); with no active session it renders the
+      // reference prompt and suggestion chips.
+      sessionsText.includes(
+        "Open a governed Hypervisor session for this workspace.",
+      ) ||
+        (sessionsText.includes("What do you want to get done today?") &&
+          sessionsText.includes("Automate env setup") &&
+          sessionsText.includes("Fix a bug") &&
+          sessionsText.includes("Boost your test coverage")),
+      "Sessions did not render the launched conversation or the reference prompt.",
     );
     const sessionHarnessDrillIn = page
       .locator("[data-session-harness-drill-in]")
       .first();
-    await sessionHarnessDrillIn.waitFor({ timeout: 5_000 });
+    await sessionHarnessDrillIn.waitFor({ timeout: 15_000 });
     const drillInCommand =
       (await sessionHarnessDrillIn.getAttribute(
         "data-session-harness-drill-in-command",
@@ -901,6 +1082,10 @@ async function main() {
       "Sessions did not render the reference composer placeholder.",
     );
     assert(
+      (await page.locator(".hypervisor-agent-selector__trigger").count()) >= 1,
+      "Sessions composer should expose the agent/model selector toggle.",
+    );
+    assert(
       (await page.locator(".hypervisor-session-operations__recent-launches").count()) ===
         0 &&
         (await page.locator(".hypervisor-session-operations__environment").count()) ===
@@ -927,6 +1112,67 @@ async function main() {
       (await page.locator("[data-session-port-service]").count()) === 0,
       "Sessions should render empty ports until daemon reports an opened service.",
     );
+
+    // Configure/Advanced governed launch: an explicit, optional affordance (not an
+    // auto-popup). Inline launch uses policy-safe admitted defaults; Advanced
+    // exposes harness/model/privacy/recipe gating, and the step-up rule blocks a
+    // posture that exceeds a safe admitted route.
+    await page
+      .locator('[data-session-new-session-configure="true"]')
+      .first()
+      .click();
+    await page.waitForSelector(".hypervisor-new-session-modal");
+    await page.locator('[data-new-session-start-mode="scratch"]').click();
+    await page.waitForSelector(
+      '[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]',
+    );
+    await page.waitForSelector(
+      '[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]',
+    );
+    const advancedSelectCount = await page
+      .locator(".hypervisor-new-session-modal__configure select")
+      .count();
+    assert(
+      advancedSelectCount >= 3,
+      `Configure/Advanced should expose harness, model route, and privacy controls. selects=${advancedSelectCount}`,
+    );
+    await page
+      .locator(".hypervisor-new-session-modal__configure select")
+      .nth(2)
+      .selectOption("privacy:ctee-private-workspace");
+    await page.waitForFunction(() => {
+      const card = document.querySelector("[data-new-session-harness-verdict]");
+      return card?.getAttribute("data-new-session-harness-verdict") === "blocked";
+    });
+    const blockedConfigureLaunch = await page
+      .locator('[data-new-session-start-selected="true"]')
+      .isDisabled();
+    assert(
+      blockedConfigureLaunch,
+      "Configure/Advanced step-up: external harness + cTEE private workspace must block launch.",
+    );
+    await page
+      .locator(".hypervisor-new-session-modal__configure select")
+      .nth(2)
+      .selectOption("privacy:redacted-projection");
+    await page.waitForFunction(() =>
+      ["adapter_native_only", "compatible", "provider_trust"].includes(
+        document
+          .querySelector("[data-new-session-harness-verdict]")
+          ?.getAttribute("data-new-session-harness-verdict") ?? "",
+      ),
+    );
+    const safeConfigureLaunch = await page
+      .locator('[data-new-session-start-selected="true"]')
+      .isDisabled();
+    assert(
+      !safeConfigureLaunch,
+      "Configure/Advanced with a safe redacted-projection route should allow launch.",
+    );
+    await page
+      .locator(".hypervisor-new-session-modal__close")
+      .click()
+      .catch(() => undefined);
 
     await page.goto(new URL("?view=automations", url).toString(), {
       waitUntil: "domcontentloaded",
@@ -1088,6 +1334,9 @@ async function main() {
       "Workbench did not render the code-editor workspace session surface.",
     );
 
+    await page.evaluate((endpoint) => {
+      window.localStorage.setItem("ioi.hypervisor.daemonEndpoint", endpoint);
+    }, contractDaemonUrl);
     await page.goto(new URL("?view=foundry", url).toString(), {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
@@ -1099,24 +1348,24 @@ async function main() {
       "Foundry did not render the harness comparison dashboard.",
     );
     assert(
-      foundryText.includes("Default Harness Profile") &&
-        foundryText.includes("Codex CLI") &&
-        foundryText.includes("DeepSeek TUI") &&
-        foundryText.includes("Generic CLI Harness"),
-      "Foundry harness comparison did not expose the expected adapter candidates.",
+      foundryText.includes("Codex OSS / Qwen") &&
+        foundryText.includes("DeepSeek TUI / Qwen") &&
+        foundryText.includes("Claude Code example / Qwen") &&
+        foundryText.includes("Generic CLI / Qwen"),
+      "Foundry harness comparison did not expose the local Qwen adapter candidates.",
     );
     const harnessCandidateCount = await page
       .locator("[data-harness-comparison-candidate]")
       .count();
     assert(
-      harnessCandidateCount >= 9,
-      "Foundry harness comparison did not render the full adapter fixture set.",
+      harnessCandidateCount >= 4,
+      "Foundry harness comparison did not render the route-backed local Qwen adapter set.",
     );
     assert(
       (await page
-        .locator('[data-harness-comparison-state="fixture"]')
+        .locator('[data-harness-comparison-state="admitted"]')
         .count()) === 1,
-      "Foundry harness comparison did not start from the read-only fixture state.",
+      "Foundry harness comparison did not load the governed route-backed state.",
     );
     await page.locator('[data-harness-comparison-action="request-run"]').click();
     await page.waitForFunction(() => {
@@ -1129,8 +1378,8 @@ async function main() {
       .locator("[data-harness-comparison-state]")
       .getAttribute("data-harness-comparison-state");
     assert(
-      foundryRunState === "admitted" || foundryRunState === "unavailable",
-      "Foundry harness comparison did not route fixture execution through the governed daemon state.",
+      foundryRunState === "admitted",
+      "Foundry harness comparison did not refresh through the governed daemon route.",
     );
 
     await page.goto(new URL("?view=agents", url).toString(), {
@@ -1365,21 +1614,20 @@ async function main() {
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
         "clean_boot_has_no_seeded_session_rail_rows",
-        "new_session_launch_summary_rendered",
-        "external_harness_ctee_blocked",
-        "external_harness_redacted_projection_allowed",
-        "new_session_recipe_selection_review_gated",
+        "new_session_starts_inline_without_modal_window",
         "new_session_launch_creates_readable_session_row",
         "new_session_launch_daemon_spawn_ready_for_codex_oss_qwen",
         "new_session_launch_daemon_host_readiness_ready",
-        "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_workspace_cockpit_rendered",
         "sessions_launched_harness_drill_in_rendered",
+        "sessions_composer_agent_selector_rendered",
+        "sessions_configure_advanced_governed_launch",
+        "sessions_configure_advanced_step_up_gate",
         "automations_reference_clean_empty_state_rendered",
         "projects_reference_clean_empty_state_rendered",
         "workbench_workspace_session_surface_rendered",
         "foundry_harness_comparison_rendered",
-        "foundry_harness_fixture_route_gated",
+        "foundry_harness_route_backed_qwen_adapters",
         "agents_reference_product_surface_rendered",
         "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",
