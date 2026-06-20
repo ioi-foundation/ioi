@@ -24,6 +24,11 @@
 //!   - "Hypervisor received the catalog OAuth callback."
 //!   - "governed Hypervisor model mounting path"
 
+// Runtime lifecycle route family (thread/agent/run/turn/control/events/MCP) lives in a
+// subdirectory submodule so cargo autobin does not treat it as its own binary target.
+#[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
+mod lifecycle_routes;
+
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -60,10 +65,10 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
 };
 use ioi_types::app::agentic::InferenceOptions;
 
-struct DaemonState {
+pub(crate) struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
-    data_dir: String,
+    pub(crate) data_dir: String,
     base_url: String,
     // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
     token_expiry: Mutex<HashMap<String, i64>>,
@@ -244,6 +249,27 @@ async fn main() -> anyhow::Result<()> {
             post(handle_receipt_gate),
         )
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
+        // Runtime lifecycle family (thread/agent/run/turn/control/events/MCP) — the
+        // unified-Rust-daemon migration. Handlers live in a subdir submodule (autobin-safe)
+        // and call the RuntimeKernelService planners directly.
+        .route(
+            "/v1/threads",
+            get(lifecycle_routes::handle_threads_list).post(lifecycle_routes::handle_thread_create),
+        )
+        .route("/v1/threads/:id", get(lifecycle_routes::handle_thread_get))
+        .route(
+            "/v1/threads/:id/turns",
+            post(lifecycle_routes::handle_turn_create),
+        )
+        .route(
+            "/v1/threads/:id/events",
+            get(lifecycle_routes::handle_thread_events),
+        )
+        .route(
+            "/v1/threads/:id/events/stream",
+            get(lifecycle_routes::handle_thread_events),
+        )
+        .route("/v1/runs/:id/events", get(lifecycle_routes::handle_run_events))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -283,11 +309,11 @@ fn resolve_inference() -> (String, String, String) {
     )
 }
 
-fn debug_string<E: std::fmt::Debug>(error: E) -> String {
+pub(crate) fn debug_string<E: std::fmt::Debug>(error: E) -> String {
     format!("{error:?}")
 }
 
-fn short_hash(input: &str) -> String {
+pub(crate) fn short_hash(input: &str) -> String {
     // Cheap stable id without pulling a hasher into scope.
     let mut acc: u64 = 1469598103934665603;
     for byte in input.bytes() {
@@ -431,7 +457,7 @@ fn parse_expiry_secs(value: &str) -> Option<i64> {
 /// Persist a kernel-authored Agentgres record so the read projections replay it.
 /// The kernel record carries its own admission evidence; the daemon only writes
 /// it to the canonical record dir under state_dir.
-fn persist_record(
+pub(crate) fn persist_record(
     data_dir: &str,
     record_dir: &str,
     record_id: &str,
@@ -663,7 +689,7 @@ const BACKEND_CATALOG: &[(&str, &str)] = &[
     ("backend.openai-compatible", "openai_compatible"),
 ];
 
-fn iso_now() -> String {
+pub(crate) fn iso_now() -> String {
     use time::format_description::well_known::Rfc3339;
     time::OffsetDateTime::now_utc()
         .format(&Rfc3339)
@@ -2332,7 +2358,7 @@ async fn handle_mcp_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!(read_record_dir(&st.data_dir, "model-mcp-servers")))
 }
 
-fn read_record_dir(data_dir: &str, record_dir: &str) -> Vec<Value> {
+pub(crate) fn read_record_dir(data_dir: &str, record_dir: &str) -> Vec<Value> {
     let dir = std::path::Path::new(data_dir).join(record_dir);
     let mut out = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -2389,7 +2415,7 @@ fn resolve_route_endpoint(st: &DaemonState, route_id: &str) -> (String, String, 
     )
 }
 
-fn route_selection(st: &DaemonState, route_id: &str) -> Value {
+pub(crate) fn route_selection(st: &DaemonState, route_id: &str) -> Value {
     let (endpoint_id, provider_id, backend_id, model_id) = resolve_route_endpoint(st, route_id);
     json!({
         "route": { "id": route_id },
@@ -2428,15 +2454,155 @@ async fn handle_routes_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!(read_record_dir(&st.data_dir, "model-routes")))
 }
 
-/// POST /v1/model-mount/routes/:id/test — resolve a route to a selection.
+/// Insert a decision field under both its snake_case and camelCase key so a
+/// single Rust-authored object serves the run-event projection (snake_case, the
+/// SDK ModelRouteDecision type) and the thread/turn records + receipts
+/// (camelCase). Keeps decision authorship in the Rust true-north daemon.
+fn put_dual(map: &mut serde_json::Map<String, Value>, snake: &str, camel: &str, value: Value) {
+    map.insert(snake.to_string(), value.clone());
+    if camel != snake {
+        map.insert(camel.to_string(), value);
+    }
+}
+
+/// Build a faithful, dual-cased `model_route_decision` for a resolved route.
+/// The native-local provider resolves an `auto` request to the seeded native
+/// fixture model and never sends `auto` upstream; explicit requests pass through.
+pub(crate) fn build_route_decision(route_id: &str, body: &Value, selection: &Value) -> Value {
+    let provider_id = selection
+        .get("provider")
+        .and_then(|p| p.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("provider.hypervisor.local")
+        .to_string();
+    let endpoint_id = selection
+        .get("endpoint")
+        .and_then(|e| e.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("endpoint.e2e.native-local")
+        .to_string();
+    let resolved_model = selection
+        .get("model")
+        .and_then(|m| m.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("native:e2e")
+        .to_string();
+
+    let requested_model = body
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("auto")
+        .to_string();
+    let capability = body
+        .get("capability")
+        .and_then(|v| v.as_str())
+        .unwrap_or("chat")
+        .to_string();
+    let model_policy = body.get("model_policy").cloned().unwrap_or(Value::Null);
+    let reasoning_effort = model_policy
+        .get("reasoning_effort")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let privacy = model_policy
+        .get("privacy")
+        .and_then(|v| v.as_str())
+        .unwrap_or("local_only")
+        .to_string();
+    let workflow_node_id = body
+        .get("workflow_node_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("runtime.model-router")
+        .to_string();
+    let workflow_graph_id = body
+        .get("workflow_graph_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let workflow_node_type = body
+        .get("workflow_node_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Model Router")
+        .to_string();
+
+    let is_auto = requested_model.eq_ignore_ascii_case("auto");
+    let is_native_local = provider_id == "provider.hypervisor.local";
+    let (selected_model, requested_model_mode, auto_resolved) = if is_auto && is_native_local {
+        ("hypervisor:native-fixture".to_string(), "auto", true)
+    } else if is_auto {
+        (resolved_model, "auto", true)
+    } else {
+        (requested_model.clone(), "explicit", false)
+    };
+    let provider_kind = if is_native_local {
+        "ioi_native_local"
+    } else {
+        "unknown"
+    };
+    let policy_hash = format!("sha256:{}", sha256_hex_str(&model_policy.to_string()));
+    let decision_id = format!(
+        "model_route_decision_{}",
+        short_hash(&format!("{route_id}:{selected_model}:{}", iso_now()))
+    );
+
+    let mut map = serde_json::Map::new();
+    put_dual(&mut map, "schema_version", "schemaVersion", json!("ioi.model-route-decision.v1"));
+    map.insert("object".to_string(), json!("ioi.model_route_decision"));
+    put_dual(&mut map, "event_kind", "eventKind", json!("ModelRouteDecision"));
+    put_dual(&mut map, "decision_id", "decisionId", json!(decision_id));
+    put_dual(&mut map, "route_id", "routeId", json!(route_id));
+    put_dual(&mut map, "capability", "capability", json!(capability));
+    put_dual(&mut map, "requested_model", "requestedModel", json!(requested_model));
+    put_dual(&mut map, "requested_model_mode", "requestedModelMode", json!(requested_model_mode));
+    put_dual(&mut map, "auto_resolved", "autoResolved", json!(auto_resolved));
+    put_dual(&mut map, "selected_model", "selectedModel", json!(selected_model.clone()));
+    put_dual(&mut map, "upstream_model", "upstreamModel", json!(selected_model));
+    put_dual(&mut map, "never_send_auto_upstream", "neverSendAutoUpstream", json!(true));
+    put_dual(&mut map, "endpoint_id", "endpointId", json!(endpoint_id));
+    put_dual(&mut map, "provider_id", "providerId", json!(provider_id));
+    put_dual(&mut map, "provider_kind", "providerKind", json!(provider_kind));
+    put_dual(&mut map, "reasoning_effort", "reasoningEffort", json!(reasoning_effort));
+    put_dual(&mut map, "local_remote_placement", "localRemotePlacement", json!("local"));
+    put_dual(&mut map, "privacy_posture", "privacyPosture", json!(privacy));
+    put_dual(&mut map, "policy_hash", "policyHash", json!(policy_hash));
+    put_dual(&mut map, "workflow_graph_id", "workflowGraphId", json!(workflow_graph_id));
+    put_dual(&mut map, "workflow_node_id", "workflowNodeId", json!(workflow_node_id));
+    put_dual(&mut map, "workflow_node_type", "workflowNodeType", json!(workflow_node_type));
+    put_dual(&mut map, "fallback_triggered", "fallbackTriggered", json!(false));
+    put_dual(&mut map, "rejected_candidates", "rejectedCandidates", json!([]));
+    map.insert("rust_core_boundary".to_string(), json!("model_mount.route_control"));
+    Value::Object(map)
+}
+
+/// POST /v1/model-mount/routes/:id/test — resolve a route to a selection plus a
+/// faithful model_route_decision. The handler owns the request body, so the
+/// decision is authored here; route_selection stays body-less for its other
+/// callers (handle_workflow_node).
 async fn handle_route_test(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     AxumPath(route_id): AxumPath<String>,
-    Json(_body): Json<Value>,
+    Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "route.use:*")?;
-    Ok(Json(json!({ "selection": route_selection(&st, &route_id) })))
+    let mut selection = route_selection(&st, &route_id);
+    let decision = build_route_decision(&route_id, &body, &selection);
+    if let Some(obj) = selection.as_object_mut() {
+        // Reflect the chosen model into the selection so the JS client's
+        // endpoint.model_id fallback agrees with the decision's selected_model.
+        if let Some(selected) = decision
+            .get("selected_model")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+        {
+            if let Some(ep) = obj.get_mut("endpoint").and_then(|e| e.as_object_mut()) {
+                ep.insert("modelId".to_string(), json!(selected));
+            }
+            if let Some(model) = obj.get_mut("model").and_then(|m| m.as_object_mut()) {
+                model.insert("id".to_string(), json!(selected));
+            }
+        }
+        obj.insert("route_decision".to_string(), decision);
+    }
+    Ok(Json(json!({ "selection": selection })))
 }
 
 /// POST /v1/model-mount/workflows/nodes/execute — run a workflow node.
