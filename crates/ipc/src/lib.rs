@@ -34,6 +34,15 @@ pub mod public {
     pub use v1::*;
 }
 
+// Model-mount IPC contract (ioi.model_mount.v1) — the Rust true-north
+// hypervisor-daemon model-mount surface.
+pub mod model_mount {
+    pub mod v1 {
+        tonic::include_proto!("ioi.model_mount.v1");
+    }
+    pub use v1::*;
+}
+
 // Use the top-level re-export for AlignedVec
 use rkyv::validation::validators::DefaultValidator;
 use rkyv::AlignedVec;

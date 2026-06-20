@@ -1,0 +1,279 @@
+// Path: crates/ipc/proto/model_mount/v1/model_mount.proto
+syntax = "proto3";
+package ioi.model_mount.v1;
+
+// Model-mount IPC contract (ioi.model_mount.v1). Mirrors the Rust true-north
+// hypervisor-daemon model-mount surface (ModelMountCore + the daemon HTTP edge):
+// capability tokens, server control, the provider/backend catalog, artifact
+// import + endpoint mount, instance lifecycle (estimate/load), runtime
+// survey/engines, route control, inference (incl. streaming), and the
+// receipt/projection replay continuity.
+//
+// Authority/truth/execution split: wallet.network grants authority, Agentgres is
+// canonical operational truth, the daemon executes. Flexible record bodies
+// travel as canonical JSON strings; identity + envelope fields are typed.
+service ModelMountService {
+  // Read projections (providers/backends/endpoints/instances/receipts/...).
+  rpc ReadProjection(ReadProjectionRequest) returns (ProjectionResponse);
+  rpc Snapshot(SnapshotRequest) returns (ProjectionResponse);
+  rpc Projection(SnapshotRequest) returns (ProjectionResponse);
+
+  // Wallet-rooted capability tokens (token_hash persisted; raw returned once).
+  rpc CreateCapabilityToken(CapabilityTokenRequest) returns (ControlResponse);
+  rpc RevokeCapabilityToken(CapabilityTokenRevokeRequest) returns (ControlResponse);
+
+  // Server + catalog control.
+  rpc ServerControl(ServerControlRequest) returns (ControlResponse);
+  rpc ProviderControl(ProviderControlRequest) returns (ControlResponse);
+  rpc BackendLifecycle(BackendLifecycleRequest) returns (ControlResponse);
+
+  // Artifacts + endpoints.
+  rpc ImportArtifact(ArtifactImportRequest) returns (ControlResponse);
+  rpc MountEndpoint(EndpointMountRequest) returns (ControlResponse);
+
+  // Instance lifecycle (estimate + load via materialize->supervise->load).
+  rpc InstanceLifecycle(InstanceLifecycleRequest) returns (InstanceLifecycleResponse);
+
+  // Runtime hardware survey + engine selection.
+  rpc RuntimeSurvey(RuntimeSurveyRequest) returns (ControlResponse);
+  rpc SelectRuntimeEngine(RuntimeEngineRequest) returns (ControlResponse);
+
+  // Route control / selection (the route-control client boundary).
+  rpc TestRoute(RouteTestRequest) returns (RouteSelectionResponse);
+
+  // Inference edge (native-local + provider). Streaming yields chunked deltas.
+  rpc Invoke(InvocationRequest) returns (InvocationResponse);
+  rpc InvokeStream(InvocationRequest) returns (stream InvocationChunk);
+
+  // Receipts: governed evidence log + canonical replay.
+  rpc GetReceipt(ReceiptRequest) returns (ReceiptResponse);
+  rpc ReplayReceipt(ReceiptRequest) returns (ReceiptReplayResponse);
+}
+
+// ---- envelope ----
+
+// Authority/truth/execution provenance carried on control responses.
+message ControlEnvelope {
+  string schema_version = 1;
+  string rust_core_boundary = 2;
+  string record_dir = 3;
+  string record_id = 4;
+  repeated string receipt_refs = 5;
+  repeated string evidence_refs = 6;
+  string control_hash = 7;
+  string authority_hash = 8;
+}
+
+// Generic control response: provenance envelope + the public response as JSON.
+message ControlResponse {
+  ControlEnvelope envelope = 1;
+  string public_response_json = 2;
+  string receipt_id = 3;
+}
+
+// ---- read projections ----
+
+message ReadProjectionRequest {
+  string projection_kind = 1;
+  string schema_version = 2;
+  string state_dir = 3;
+  string base_url = 4;
+  string engine_id = 5;
+  string provider_id = 6;
+  string receipt_id = 7;
+  string download_id = 8;
+  // Optional projection state/filter as canonical JSON.
+  string state_json = 9;
+}
+
+message SnapshotRequest {
+  string state_dir = 1;
+  string base_url = 2;
+}
+
+message ProjectionResponse {
+  string projection_kind = 1;
+  // The projection payload as canonical JSON.
+  string projection_json = 2;
+  repeated string evidence_refs = 3;
+}
+
+// ---- capability tokens ----
+
+message CapabilityTokenRequest {
+  string state_dir = 1;
+  string audience = 2;
+  repeated string allowed = 3;
+  repeated string denied = 4;
+  string expires_at = 5;
+  repeated string authority_grant_refs = 6;
+}
+
+message CapabilityTokenRevokeRequest {
+  string state_dir = 1;
+  string token_id = 2;
+}
+
+// ---- control operations (typed envelope + JSON body) ----
+
+message ServerControlRequest {
+  string operation_kind = 1; // model_mount.server_control.{stop,restart}
+  string base_url = 2;
+  string state_dir = 3;
+}
+
+message ProviderControlRequest {
+  string operation_kind = 1;
+  string provider_id = 2;
+  string state_dir = 3;
+  string body_json = 4;
+  repeated string authority_grant_refs = 5;
+}
+
+message BackendLifecycleRequest {
+  string operation_kind = 1; // model_mount.backend.{health,start,stop}
+  string backend_id = 2;
+  string backend_kind = 3;
+  string state_dir = 4;
+  string body_json = 5;
+}
+
+message ArtifactImportRequest {
+  string state_dir = 1;
+  string model_id = 2;
+  string provider_id = 3;
+  string source_path = 4;
+  string import_mode = 5; // reference|dry_run|copy
+  repeated string capabilities = 6;
+}
+
+message EndpointMountRequest {
+  string state_dir = 1;
+  string endpoint_id = 2;
+  string model_id = 3;
+  string provider_id = 4;
+}
+
+// ---- instance lifecycle ----
+
+message LoadOptions {
+  uint64 context_length = 1;
+  uint64 parallel = 2;
+  uint64 ttl_seconds = 3;
+  string gpu = 4;
+  string identifier = 5;
+  bool estimate_only = 6;
+}
+
+message InstanceLifecycleRequest {
+  string state_dir = 1;
+  string action = 2; // estimate|load|unload|evict
+  string endpoint_id = 3;
+  string model_id = 4;
+  string runtime_engine_id = 5;
+  LoadOptions load_options = 6;
+}
+
+message BackendProcess {
+  string id = 1;
+  string backend_id = 2;
+  string backend_kind = 3;
+  string status = 4;
+  string pid_hash = 5;
+  repeated string args_redacted = 6;
+  string started_at = 7;
+}
+
+message InstanceLifecycleResponse {
+  string id = 1;
+  string status = 2; // loaded|estimate_only|...
+  string backend_id = 3;
+  string runtime_engine_id = 4;
+  string identifier = 5;
+  uint64 context_length = 6;
+  BackendProcess backend_process = 7;
+  string load_estimate_json = 8;
+  string receipt_id = 9;
+}
+
+// ---- runtime survey / engines ----
+
+message RuntimeSurveyRequest {
+  string state_dir = 1;
+}
+
+message RuntimeEngineRequest {
+  string operation_kind = 1;
+  string engine_id = 2;
+  string state_dir = 3;
+  LoadOptions default_load_options = 4;
+}
+
+// ---- route control ----
+
+message RouteTestRequest {
+  string state_dir = 1;
+  string route_id = 2;
+  string model = 3;
+  string capability = 4;
+  string model_policy_json = 5;
+}
+
+message RouteSelection {
+  string route_id = 1;
+  string endpoint_id = 2;
+  string model_id = 3;
+  string provider_id = 4;
+  string backend_id = 5;
+}
+
+message RouteSelectionResponse {
+  RouteSelection selection = 1;
+}
+
+// ---- inference ----
+
+message InvocationRequest {
+  string state_dir = 1;
+  string route_id = 2;
+  string model = 3;
+  string capability = 4; // chat|responses|messages|embeddings
+  string invocation_kind = 5;
+  string input = 6;
+  string previous_response_id = 7;
+  bool stream = 8;
+}
+
+message InvocationResponse {
+  string output_text = 1;
+  string response_id = 2;
+  string receipt_id = 3;
+  uint64 prompt_tokens = 4;
+  uint64 completion_tokens = 5;
+  string continuation_mode = 6;
+}
+
+message InvocationChunk {
+  string delta = 1;
+  bool done = 2;
+  string receipt_id = 3;
+  string stream_receipt_id = 4;
+}
+
+// ---- receipts ----
+
+message ReceiptRequest {
+  string state_dir = 1;
+  string receipt_id = 2;
+}
+
+message ReceiptResponse {
+  string receipt_json = 1;
+}
+
+message ReceiptReplayResponse {
+  string receipt_json = 1;
+  RouteSelection route = 2;
+  string endpoint_id = 3;
+  string provider_id = 4;
+}
