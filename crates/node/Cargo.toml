@@ -247,3 +247,9 @@ required-features = ["bridge-mode"]
 name = "ioi-agent"
 path = "src/bin/ioi-agent.rs"
 required-features = ["local-mode"]
+
+# Hypervisor true-north HTTP daemon (model-mount kernel + inference edge).
+# No required-features: builds on default deps (axum + ioi-services + ioi-api).
+[[bin]]
+name = "hypervisor-daemon"
+path = "src/bin/hypervisor-daemon.rs"
