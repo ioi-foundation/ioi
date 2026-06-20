@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createPublicRuntimeRequestHandler } from "./public-runtime-routes.mjs";
+import { createAgentgresAdmissionClient } from "../runtime-agentgres-admission-client.mjs";
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
 import {
   createHypervisorApprovedOperationExecutorRegistry,
@@ -5416,4 +5417,74 @@ test("harness session turn lane route reports 501 when no executor is configured
     JSON.parse(response.body).error.code,
     "harness_spawn_lane_executor_unconfigured",
   );
+});
+
+test("harness lane route gates on the wallet lease and admits writes (Phase 4)", async () => {
+  const { handleRequest } = routeHarness({
+    executeHarnessSpawnLane: async () => ({
+      schema_version: "ioi.hypervisor.harness_spawn_lane_result.v1",
+      exit_status: "success",
+      workspace_root: "/tmp/ws",
+      files_written: ["index.html"],
+      runtimeTruthSource: "daemon-runtime",
+    }),
+    agentgresAdmissionClient: createAgentgresAdmissionClient({
+      nowIso: () => "2026-06-19T00:00:00.000Z",
+    }),
+  });
+  const response = responseRecorder();
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-turn-lanes",
+      body: {
+        spawn: {
+          schema_version: "ioi.runtime.harness_session_spawn.v1",
+          session_route_ref: "session-route:demo",
+          authority_scope_refs: ["scope:workspace.patch"],
+        },
+        intent: "create a website",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace" },
+  });
+
+  assert.equal(response.statusCode, 200);
+  const result = JSON.parse(response.body);
+  assert.equal(result.governance.operations.length, 1);
+  assert.equal(result.governance.operations[0].operation_kind, "workspace_write");
+  assert.match(result.governance.latest_receipt_refs[0], /^receipt:\/\/agentgres\//);
+});
+
+test("harness lane route blocks (403 step-up) when the workspace lease is missing (Phase 4)", async () => {
+  let laneCalled = false;
+  const { handleRequest } = routeHarness({
+    executeHarnessSpawnLane: async () => {
+      laneCalled = true;
+      return { exit_status: "success", files_written: [] };
+    },
+    agentgresAdmissionClient: createAgentgresAdmissionClient(),
+  });
+  const response = responseRecorder();
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-session-turn-lanes",
+      body: {
+        spawn: {
+          schema_version: "ioi.runtime.harness_session_spawn.v1",
+          session_route_ref: "session-route:demo",
+          authority_scope_refs: [],
+        },
+        intent: "create a website",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.error.code, "harness_operation_capability_lease_required");
+  assert.equal(laneCalled, false);
 });

@@ -172,6 +172,9 @@ import {
 import { createPublicRuntimeRequestHandler } from "./http/public-runtime-routes.mjs";
 import { provisionSessionWorkspace } from "./runtime-workspace-provisioner.mjs";
 import { executeHarnessSpawnLane } from "./runtime-harness-spawn-executor.mjs";
+import { createAgentgresAdmissionClient } from "./runtime-agentgres-admission-client.mjs";
+
+const agentgresAdmissionClient = createAgentgresAdmissionClient();
 import {
   baseUrlForRequest,
   runtimeEventCursorFromRequest,
@@ -495,6 +498,7 @@ const hypervisorApprovedOperationExecutorRegistry =
 
 const handleRequest = createPublicRuntimeRequestHandler({
   RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+  agentgresAdmissionClient,
   baseUrlForRequest,
   ensureProviderAvailable,
   executeApprovedOperationPlan:

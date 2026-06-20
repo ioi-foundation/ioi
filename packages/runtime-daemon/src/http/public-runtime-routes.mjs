@@ -16,6 +16,7 @@ import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs
 import { buildHarnessSessionReadiness } from "../runtime-harness-session-readiness.mjs";
 import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
 import { deriveWorkspaceInitializer } from "../runtime-environment-status-projection.mjs";
+import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 import { admitHypervisorSessionLaunchRecipe } from "../runtime-hypervisor-session-launch-recipe-admission.mjs";
 import { admitModelRouteMutation } from "../runtime-model-route-mutation-admission.mjs";
@@ -29,6 +30,7 @@ import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter
 export function createPublicRuntimeRequestHandler(deps) {
   const {
     RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+    agentgresAdmissionClient = null,
     baseUrlForRequest,
     createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
     createLifecycleThread: createLifecycleThreadDep = createLifecycleThread,
@@ -752,6 +754,19 @@ export function createPublicRuntimeRequestHandler(deps) {
           );
           return;
         }
+        const spawnContract =
+          body && typeof body.spawn === "object" && body.spawn
+            ? body.spawn
+            : {};
+        // Phase 4: gate the workspace-mutating lane on the wallet capability
+        // lease the spawn carries BEFORE running — a missing lease is a 403
+        // step-up, not a silent proceed.
+        if (agentgresAdmissionClient) {
+          agentgresAdmissionClient.assertCapabilityLease({
+            operationKind: "workspace_write",
+            authorityScopeRefs: spawnContract.authority_scope_refs,
+          });
+        }
         // Phase 2: run one real execution lane — spawn the admitted harness in
         // the provisioned workspace, feed the task intent, and report the files
         // it wrote. The harness drives the model; the daemon owns the spawn.
@@ -761,6 +776,28 @@ export function createPublicRuntimeRequestHandler(deps) {
             optionalString(body.intent) ?? optionalString(body.seed_intent),
           model_endpoint: optionalString(body.model_endpoint),
         });
+        // Phase 4: admit each consequential write as Agentgres truth and emit
+        // real receipts for the Receipts/Replay surface.
+        if (
+          agentgresAdmissionClient &&
+          laneResult.exit_status === "success" &&
+          Array.isArray(laneResult.files_written)
+        ) {
+          const receiptSink = createHarnessReceiptSink(
+            spawnContract.session_route_ref,
+          );
+          for (const file of laneResult.files_written) {
+            receiptSink.record(
+              await agentgresAdmissionClient.admitOperation({
+                operation_kind: "workspace_write",
+                session_ref: spawnContract.session_route_ref,
+                authority_scope_refs: spawnContract.authority_scope_refs,
+                payload: { workspace_root: laneResult.workspace_root, file },
+              }),
+            );
+          }
+          laneResult.governance = receiptSink.projection();
+        }
         writeJsonResponse(response, laneResult, 200);
         return;
       }
