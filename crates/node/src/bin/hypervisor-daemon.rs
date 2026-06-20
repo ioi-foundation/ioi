@@ -18,7 +18,7 @@ use axum::{
     extract::{Path as AxumPath, State},
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use serde_json::{json, Value};
@@ -29,9 +29,11 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountBackendLifecycleRequest, ModelMountCapabilityTokenControlRequest, ModelMountCore,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountReadProjectionRequest,
+    ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyRequest,
     ModelMountServerControlRequest, MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION,
     MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
 };
 use ioi_types::app::agentic::InferenceOptions;
@@ -112,6 +114,15 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/model-mount/backends", get(handle_backends))
         .route("/v1/model-mount/endpoints", get(handle_endpoints))
         .route("/v1/model-mount/instances", get(handle_instances))
+        .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
+        .route(
+            "/v1/model-mount/runtime/engines/:id",
+            get(handle_runtime_engine_detail).patch(handle_runtime_engine_patch),
+        )
+        .route("/v1/model-mount/runtime/select", post(handle_runtime_select))
+        .route("/v1/model-mount/runtime/survey", post(handle_runtime_survey))
+        .route("/v1/model-mount/receipts", get(handle_receipts_list))
+        .route("/v1/model-mount/receipts/:id", get(handle_receipt_by_id))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
@@ -572,6 +583,208 @@ fn seed_catalog(st: &DaemonState) {
             }
         }
     }
+    // Surface the native-local engine in the runtime-engine projection without a
+    // competing profile record (a preference selecting it). The e2e's own PATCH
+    // then owns the engine's profile (default_load_options).
+    if let Ok(req) = serde_json::from_value::<ModelMountRuntimeEngineRequest>(json!({
+        "schema_version": MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
+        "operation_kind": "model_mount.runtime_preference.write",
+        "engine_id": "backend.hypervisor.native-local.fixture",
+        "source": "hypervisor-daemon-catalog-seed",
+        "generated_at": generated_at,
+    })) {
+        if let Ok(plan) = ModelMountCore.plan_runtime_engine(&req) {
+            let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+        }
+    }
+}
+
+fn read_receipts(data_dir: &str) -> Vec<Value> {
+    let dir = std::path::Path::new(data_dir).join("receipts");
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if entry.path().extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            if let Ok(bytes) = std::fs::read(entry.path()) {
+                if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
+                    let has_id = value.get("id").and_then(|v| v.as_str()).is_some();
+                    let has_kind = value.get("kind").and_then(|v| v.as_str()).is_some();
+                    if has_id && has_kind {
+                        out.push(value);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+// ---- Phase 5c.3: runtime engines + survey + select + PATCH + receipts ----
+
+fn project_kind_engine(
+    st: &DaemonState,
+    kind: &str,
+    engine_id: &str,
+) -> Result<Value, AppError> {
+    let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
+        "projection_kind": kind,
+        "schema_version": "ioi.model-mounting.runtime.v1",
+        "base_url": st.base_url,
+        "state_dir": st.data_dir,
+        "engine_id": engine_id,
+        "state": {},
+    }))
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_read_projection(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    Ok(plan.projection)
+}
+
+async fn handle_runtime_engines(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    project_kind(&st, "runtime_engines")
+}
+
+async fn handle_runtime_engine_detail(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(engine_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let detail = project_kind_engine(&st, "runtime_engine_detail", &engine_id)?;
+    let load_options = detail
+        .get("default_load_options")
+        .cloned()
+        .unwrap_or(Value::Null);
+    Ok(Json(json!({
+        "engine": detail,
+        "profile": { "defaultLoadOptions": load_options },
+    })))
+}
+
+async fn handle_runtime_select(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let engine_id = body
+        .get("engine_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "engine_id required".to_string()))?;
+    let req: ModelMountRuntimeEngineRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
+        "operation_kind": "model_mount.runtime_preference.write",
+        "engine_id": engine_id,
+        "source": "hypervisor-daemon",
+        "generated_at": iso_now(),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_runtime_engine(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+    let selected = plan
+        .public_response
+        .get("selected_engine_id")
+        .cloned()
+        .unwrap_or_else(|| json!(engine_id));
+    Ok(Json(json!({ "selectedEngineId": selected })))
+}
+
+async fn handle_runtime_engine_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(engine_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    // Map the e2e's camelCase PATCH body onto the kernel control body.
+    let mut control_body = json!({ "engine_id": engine_id });
+    if let Some(opts) = body.get("defaultLoadOptions").cloned() {
+        control_body["default_load_options"] = opts;
+    }
+    if let Some(label) = body.get("label").cloned() {
+        control_body["operator_label"] = label;
+    }
+    let req: ModelMountRuntimeEngineRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
+        "operation_kind": "model_mount.runtime_engine_profile.write",
+        "engine_id": engine_id,
+        "source": "hypervisor-daemon",
+        "generated_at": iso_now(),
+        "body": control_body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_runtime_engine(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+    let load_options = plan
+        .public_response
+        .get("default_load_options")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let receipt_id = plan
+        .receipt_refs
+        .first()
+        .cloned()
+        .unwrap_or_else(|| plan.control_hash.clone());
+    Ok(Json(json!({
+        "engine": { "operatorProfile": { "defaultLoadOptions": load_options } },
+        "profile": { "defaultLoadOptions": load_options },
+        "receiptId": receipt_id,
+    })))
+}
+
+async fn handle_runtime_survey(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    let req: ModelMountRuntimeSurveyRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION,
+        "operation_kind": "model_mount.runtime_survey.capture",
+        "source": "hypervisor-daemon",
+        "generated_at": iso_now(),
+        "state_dir": st.data_dir,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_runtime_survey(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    // Persist the survey receipt so /receipts/:id replays it; ensure
+    // details.engineCount (camelCase) matches public_response.engineCount.
+    let mut receipt = plan.receipt.clone();
+    let engine_count = plan
+        .public_response
+        .get("engineCount")
+        .cloned()
+        .unwrap_or(json!(0));
+    if let Some(details) = receipt.get_mut("details").and_then(|d| d.as_object_mut()) {
+        details.insert("engineCount".to_string(), engine_count);
+    } else if let Some(object) = receipt.as_object_mut() {
+        object.insert("details".to_string(), json!({ "engineCount": engine_count }));
+    }
+    if let Some(receipt_id) = receipt.get("id").and_then(|v| v.as_str()) {
+        let _ = persist_record(&st.data_dir, "receipts", receipt_id, &receipt);
+    }
+    Ok(Json(plan.public_response))
+}
+
+async fn handle_receipts_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(json!(read_receipts(&st.data_dir))))
+}
+
+async fn handle_receipt_by_id(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(receipt_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    read_receipts(&st.data_dir)
+        .into_iter()
+        .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id.as_str()))
+        .map(Json)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))
 }
 
 /// Generic read-projection route (providers/backends/endpoints/instances/...).
