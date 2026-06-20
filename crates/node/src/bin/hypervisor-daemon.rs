@@ -171,6 +171,19 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/model-mount/mcp/import", post(handle_mcp_import))
         .route("/v1/model-mount/mcp/invoke", post(handle_mcp_invoke))
+        .route(
+            "/v1/model-mount/routes",
+            get(handle_routes_list).post(handle_routes_create),
+        )
+        .route("/v1/model-mount/routes/:id/test", post(handle_route_test))
+        .route(
+            "/v1/model-mount/workflows/nodes/execute",
+            post(handle_workflow_node),
+        )
+        .route(
+            "/v1/model-mount/workflows/receipt-gate",
+            post(handle_receipt_gate),
+        )
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
         .with_state(state);
 
@@ -1999,8 +2012,12 @@ async fn handle_mcp_invoke(
 
 /// GET /v1/model-mount/mcp — list registered MCP servers.
 async fn handle_mcp_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let dir = std::path::Path::new(&st.data_dir).join("model-mcp-servers");
-    let mut servers = Vec::new();
+    Json(json!(read_record_dir(&st.data_dir, "model-mcp-servers")))
+}
+
+fn read_record_dir(data_dir: &str, record_dir: &str) -> Vec<Value> {
+    let dir = std::path::Path::new(data_dir).join(record_dir);
+    let mut out = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             if entry.path().extension().and_then(|e| e.to_str()) != Some("json") {
@@ -2008,12 +2025,176 @@ async fn handle_mcp_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
             }
             if let Ok(bytes) = std::fs::read(entry.path()) {
                 if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
-                    servers.push(value);
+                    out.push(value);
                 }
             }
         }
     }
-    Json(json!(servers))
+    out
+}
+
+// ---- Phase 5c.5: routes + workflow nodes + receipt gate ----
+
+fn load_route(st: &DaemonState, route_id: &str) -> Option<Value> {
+    let path = std::path::Path::new(&st.data_dir)
+        .join("model-routes")
+        .join(format!("{}.json", sanitize_segment(route_id)));
+    std::fs::read(path).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok())
+}
+
+/// Resolve a route's selection target: its first fallback endpoint, else the
+/// mounted native-local endpoint. Returns (endpoint_id, provider_id, backend_id, model_id).
+fn resolve_route_endpoint(st: &DaemonState, route_id: &str) -> (String, String, String, String) {
+    let endpoint_id = load_route(st, route_id)
+        .and_then(|route| {
+            route
+                .get("fallback")
+                .and_then(|f| f.as_array())
+                .and_then(|a| a.first())
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| "endpoint.e2e.native-local".to_string());
+    let endpoint = read_projection_record(st, "endpoints", &endpoint_id);
+    let field = |name: &str, default: &str| {
+        endpoint
+            .as_ref()
+            .and_then(|ep| ep.get(name))
+            .and_then(|v| v.as_str())
+            .unwrap_or(default)
+            .to_string()
+    };
+    (
+        endpoint_id,
+        field("provider_id", "provider.hypervisor.local"),
+        field("backend_id", "backend.hypervisor.native-local.fixture"),
+        field("model_id", "native:e2e"),
+    )
+}
+
+fn route_selection(st: &DaemonState, route_id: &str) -> Value {
+    let (endpoint_id, provider_id, backend_id, model_id) = resolve_route_endpoint(st, route_id);
+    json!({
+        "route": { "id": route_id },
+        "endpoint": { "id": endpoint_id, "modelId": model_id },
+        "model": { "id": model_id },
+        "provider": { "id": provider_id },
+        "backend": { "id": backend_id },
+    })
+}
+
+/// POST /v1/model-mount/routes — author a route policy record.
+async fn handle_routes_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "route.write:*")?;
+    let route_id = body
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "id required".to_string()))?
+        .to_string();
+    let mut record = body.clone();
+    if let Some(object) = record.as_object_mut() {
+        object.insert("object".to_string(), json!("ioi.model_mount_route"));
+        object.insert("status".to_string(), json!("configured"));
+        object.insert("rust_core_boundary".to_string(), json!("model_mount.route_control"));
+    }
+    persist_record(&st.data_dir, "model-routes", &route_id, &record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(record))
+}
+
+/// GET /v1/model-mount/routes — list route policy records.
+async fn handle_routes_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!(read_record_dir(&st.data_dir, "model-routes")))
+}
+
+/// POST /v1/model-mount/routes/:id/test — resolve a route to a selection.
+async fn handle_route_test(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(route_id): AxumPath<String>,
+    Json(_body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "route.use:*")?;
+    Ok(Json(json!({ "selection": route_selection(&st, &route_id) })))
+}
+
+/// POST /v1/model-mount/workflows/nodes/execute — run a workflow node.
+async fn handle_workflow_node(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "route.use:*")?;
+    let node = body.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let route_id = body.get("route_id").and_then(|v| v.as_str()).unwrap_or("route.native-local").to_string();
+    let receipt_id = format!(
+        "receipt_workflow_node_{}",
+        short_hash(&format!("{node}:{route_id}:{}", iso_now()))
+    );
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "model_workflow_node",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": { "node": node, "routeId": route_id },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    if node == "Model Router" {
+        return Ok(Json(json!({
+            "node": node,
+            "status": "selected",
+            "selection": route_selection(&st, &route_id),
+            "receipt": receipt,
+        })));
+    }
+    Ok(Json(json!({
+        "node": node,
+        "status": "executed",
+        "selection": route_selection(&st, &route_id),
+        "receipt": receipt,
+    })))
+}
+
+/// POST /v1/model-mount/workflows/receipt-gate — gate a downstream step on a
+/// prior receipt's route binding (412 on route mismatch).
+async fn handle_receipt_gate(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let receipt_id = body
+        .get("receipt_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "receipt_id required".to_string()))?;
+    let gate_route = body.get("route_id").and_then(|v| v.as_str()).unwrap_or_default();
+    let receipt = read_receipts(&st.data_dir)
+        .into_iter()
+        .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id))
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))?;
+    let receipt_route = receipt
+        .get("details")
+        .and_then(|d| d.get("routeId"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    if receipt_route != gate_route {
+        return Err(AppError(
+            StatusCode::PRECONDITION_FAILED,
+            format!("route mismatch: receipt {receipt_route} != gate {gate_route}"),
+        ));
+    }
+    let gate_receipt_id = format!("receipt_workflow_gate_{}", short_hash(&format!("{receipt_id}:{gate_route}")));
+    let gate_receipt = json!({
+        "id": gate_receipt_id,
+        "kind": "model_workflow_receipt_gate",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": { "gatedReceiptId": receipt_id, "routeId": gate_route, "status": "passed" },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &gate_receipt_id, &gate_receipt);
+    Ok(Json(json!({ "status": "passed", "gateReceipt": gate_receipt })))
 }
 
 /// Anthropic-compatible Messages API over the native-local kernel.
