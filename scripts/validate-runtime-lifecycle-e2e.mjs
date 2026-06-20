@@ -297,6 +297,22 @@ async function main() {
       assert.equal(remove.body.operation_kind, "thread.mcp_remove");
     });
 
+    // Step 5c: tasks / jobs read (materialized into the run records by run-create).
+    await runStep("GET /v1/tasks + /v1/jobs project the materialized task/job records", async () => {
+      const tasks = await fetchJson(`${rust.endpoint}/v1/tasks`);
+      assert.equal(tasks.status, 200);
+      assert.ok(Array.isArray(tasks.body) && tasks.body.length === 1, "one task");
+      assert.equal(tasks.body[0].taskId, `task_${turnRequestId}`);
+      assert.equal(tasks.body[0].status, "completed");
+      const taskGet = await fetchJson(`${rust.endpoint}/v1/tasks/task_${encodeURIComponent(turnRequestId)}`);
+      assert.equal(taskGet.status, 200);
+      assert.equal(taskGet.body.taskId, `task_${turnRequestId}`);
+      const jobs = await fetchJson(`${rust.endpoint}/v1/jobs`);
+      assert.equal(jobs.status, 200);
+      assert.ok(Array.isArray(jobs.body) && jobs.body.length === 1, "one job");
+      assert.equal(jobs.body[0].jobId, `job_${turnRequestId}`);
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(

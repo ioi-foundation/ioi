@@ -293,6 +293,10 @@ async fn main() -> anyhow::Result<()> {
             "/v1/threads/:id/events/stream",
             get(lifecycle_routes::handle_thread_events),
         )
+        .route("/v1/tasks", get(lifecycle_routes::handle_tasks_list))
+        .route("/v1/tasks/:id", get(lifecycle_routes::handle_task_get))
+        .route("/v1/jobs", get(lifecycle_routes::handle_jobs_list))
+        .route("/v1/jobs/:id", get(lifecycle_routes::handle_job_get))
         .route("/v1/runs", get(lifecycle_routes::handle_runs_list))
         .route("/v1/runs/:id", get(lifecycle_routes::handle_run_get))
         .route("/v1/runs/:id/cancel", post(lifecycle_routes::handle_run_cancel))

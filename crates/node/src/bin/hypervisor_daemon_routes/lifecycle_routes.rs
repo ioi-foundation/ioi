@@ -535,6 +535,62 @@ pub(crate) async fn handle_run_events(
     sse_events_response(events, &params, &headers)
 }
 
+/// GET /v1/tasks — list runtime task records (embedded in run records by the
+/// run-create materializer). Optional ?agent_id= / ?status= filters.
+pub(crate) async fn handle_tasks_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let tasks: Vec<Value> = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .filter_map(|run| run.get("runtimeTask").cloned().filter(Value::is_object))
+        .filter(|task| match params.get("status") {
+            Some(status) => task.get("status").and_then(|v| v.as_str()) == Some(status.as_str()),
+            None => true,
+        })
+        .filter(|task| match params.get("agent_id") {
+            Some(agent_id) => task.get("agentId").and_then(|v| v.as_str()) == Some(agent_id.as_str()),
+            None => true,
+        })
+        .collect();
+    Json(json!(tasks))
+}
+
+/// GET /v1/tasks/:id — return one runtime task record (by taskId).
+pub(crate) async fn handle_task_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(task_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .filter_map(|run| run.get("runtimeTask").cloned().filter(Value::is_object))
+        .find(|task| task.get("taskId").and_then(|v| v.as_str()) == Some(task_id.as_str()))
+        .map(Json)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("task not found: {task_id}")))
+}
+
+/// GET /v1/jobs — list runtime job records (embedded in run records).
+pub(crate) async fn handle_jobs_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let jobs: Vec<Value> = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .filter_map(|run| run.get("runtimeJob").cloned().filter(Value::is_object))
+        .collect();
+    Json(json!(jobs))
+}
+
+/// GET /v1/jobs/:id — return one runtime job record (by jobId).
+pub(crate) async fn handle_job_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(job_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .filter_map(|run| run.get("runtimeJob").cloned().filter(Value::is_object))
+        .find(|job| job.get("jobId").and_then(|v| v.as_str()) == Some(job_id.as_str()))
+        .map(Json)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("job not found: {job_id}")))
+}
+
 /// GET /v1/runs/:id — return the persisted run record.
 pub(crate) async fn handle_run_get(
     State(st): State<Arc<DaemonState>>,
