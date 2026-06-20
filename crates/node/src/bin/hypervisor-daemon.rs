@@ -272,6 +272,14 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_thread_thinking),
         )
         .route(
+            "/v1/threads/:id/subagents",
+            get(lifecycle_routes::handle_subagents_list).post(lifecycle_routes::handle_subagent_spawn),
+        )
+        .route(
+            "/v1/threads/:id/subagents/:subagent_id/result",
+            get(lifecycle_routes::handle_subagent_result),
+        )
+        .route(
             "/v1/threads/:id/mcp/tools/search",
             get(lifecycle_routes::handle_mcp_tool_search),
         )

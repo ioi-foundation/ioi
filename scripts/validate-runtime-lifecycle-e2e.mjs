@@ -331,6 +331,34 @@ async function main() {
       );
     });
 
+    // Step 5e: subagents — spawn builds a child agent + run + subagent record (after the
+    // run/task count assertions, since the child run materializes its own task).
+    await runStep("POST /v1/threads/:id/subagents spawns a subagent", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const spawn = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents`, {
+        method: "POST",
+        body: JSON.stringify({ prompt: "implement the PQC explainer", role: "implementer" }),
+      });
+      assert.equal(spawn.status, 201);
+      assert.match(spawn.body.subagent_id, /^agent_/);
+      assert.equal(spawn.body.role, "implementer");
+      assert.equal(spawn.body.status, "completed");
+      assert.equal(spawn.body.parent_thread_id, createdThread.thread_id);
+      assert.match(spawn.body.run_id, /^run_/);
+
+      const list = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents`);
+      assert.equal(list.status, 200);
+      assert.ok(
+        Array.isArray(list.body) && list.body.some((s) => s.subagent_id === spawn.body.subagent_id),
+        "subagents list should include the spawned subagent",
+      );
+      const result = await fetchJson(
+        `${rust.endpoint}/v1/threads/${tid}/subagents/${encodeURIComponent(spawn.body.subagent_id)}/result`,
+      );
+      assert.equal(result.status, 200);
+      assert.equal(result.body.subagent_id, spawn.body.subagent_id);
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(

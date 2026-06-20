@@ -25,8 +25,10 @@ use serde_json::{json, Value};
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateRequest, McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
     RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
-    ThreadCreateStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    SubagentRecordStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -354,6 +356,67 @@ fn project_turn_record(st: &DaemonState, thread_id: &str, run_id: &str) -> Resul
     Ok(projected.get("record").cloned().unwrap_or(Value::Null))
 }
 
+/// Build a deterministic, dual-cased run candidate for an agent. The kernel
+/// plan_run_create_state_update validates camelCase (id/agentId/status/mode/
+/// createdAt/updatedAt + usage objects); the turn projection reads snake_case
+/// (created_at, status, result, trace.stop_condition.reason, quality_ledger). The
+/// run events map to runtime turn events (run_started->turn.started, completed->
+/// turn.completed); run_thread_event reads event.data + requires receipt_refs.
+/// Shared by turn-create and subagent runs.
+fn build_run_candidate(agent: &Value, run_id: &str, mode: &str, prompt: &str, now: &str) -> Value {
+    let agent_id = agent.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let decision = agent.get("model_route_decision").cloned().unwrap_or(Value::Null);
+    let decision_id = decision
+        .get("decision_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let receipt_id = agent
+        .get("model_route_receipt_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("receipt_{run_id}_model_route"));
+    let ledger_id = format!("ledger_{run_id}");
+    let result_text = "Runtime turn completed via the Rust true-north daemon.".to_string();
+    let run_events = json!([
+        { "type": "run_started", "receipt_refs": [receipt_id.clone()], "data": { "prompt": prompt } },
+        {
+            "type": "model_route_decision",
+            "receipt_refs": [receipt_id.clone()],
+            "data": { "model_route_decision": decision.clone() },
+        },
+        { "type": "completed", "receipt_refs": [receipt_id.clone()], "data": { "result": result_text.clone() } },
+    ]);
+    json!({
+        "id": run_id,
+        "agentId": agent_id.clone(),
+        "agent_id": agent_id,
+        "status": "completed",
+        "mode": mode,
+        "objective": prompt,
+        "createdAt": now,
+        "updatedAt": now,
+        "created_at": now,
+        "updated_at": now,
+        "usage": json!({}),
+        "usage_telemetry": json!({}),
+        "result": result_text.clone(),
+        "output": result_text,
+        "conversation": json!([]),
+        "modelRouteDecision": decision.clone(),
+        "model_route_decision": decision,
+        "model_route_decision_id": decision_id,
+        "modelRouteReceiptId": receipt_id.clone(),
+        "model_route_receipt_id": receipt_id,
+        "events": run_events,
+        "trace": {
+            "usage_telemetry": json!({}),
+            "stop_condition": { "reason": "evidence_sufficient", "satisfied": true },
+            "quality_ledger": { "ledger_id": ledger_id },
+        },
+    })
+}
+
 /// POST /v1/threads/:id/turns — submit a turn (create a run).
 ///
 /// Builds a deterministic run candidate from the thread's agent, validates/stamps
@@ -371,70 +434,11 @@ pub(crate) async fn handle_turn_create(
             format!("thread not found: {thread_id}"),
         ));
     };
-    let agent_id = agent_id_for_thread(&thread_id);
     let now = iso_now();
     let run_id = format!("run_{}", uuid::Uuid::new_v4());
     let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send").to_string();
     let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
-
-    let decision = agent.get("model_route_decision").cloned().unwrap_or(Value::Null);
-    let decision_id = decision
-        .get("decision_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let receipt_id = agent
-        .get("model_route_receipt_id")
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("receipt_{run_id}_model_route"));
-    let ledger_id = format!("ledger_{run_id}");
-    let result_text = "Runtime turn completed via the Rust true-north daemon.".to_string();
-    // Run events the projection maps to runtime turn events (run_started -> turn.started,
-    // model_route_decision, completed -> turn.completed). Each carries receipt_refs so the
-    // projection's event admission accepts it. run_thread_event reads event.data, not payload.
-    let run_events = json!([
-        { "type": "run_started", "receipt_refs": [receipt_id.clone()], "data": { "prompt": prompt.clone() } },
-        {
-            "type": "model_route_decision",
-            "receipt_refs": [receipt_id.clone()],
-            "data": { "model_route_decision": decision.clone() },
-        },
-        { "type": "completed", "receipt_refs": [receipt_id.clone()], "data": { "result": result_text.clone() } },
-    ]);
-
-    // The run record is dual-cased: plan_run_create_state_update validates camelCase
-    // (id/agentId/status/mode/createdAt/updatedAt + usage/usage_telemetry/trace.usage_telemetry
-    // objects); the kernel turn projection reads snake_case (created_at, status, result,
-    // model_route_decision_id, trace.stop_condition.reason, trace.quality_ledger.ledger_id).
-    let run = json!({
-        "id": run_id.clone(),
-        "agentId": agent_id.clone(),
-        "agent_id": agent_id,
-        "status": "completed",
-        "mode": mode,
-        "objective": prompt.clone(),
-        "createdAt": now.clone(),
-        "updatedAt": now.clone(),
-        "created_at": now.clone(),
-        "updated_at": now.clone(),
-        "usage": json!({}),
-        "usage_telemetry": json!({}),
-        "result": result_text.clone(),
-        "output": result_text.clone(),
-        "conversation": json!([]),
-        "modelRouteDecision": decision.clone(),
-        "model_route_decision": decision.clone(),
-        "model_route_decision_id": decision_id,
-        "modelRouteReceiptId": receipt_id.clone(),
-        "model_route_receipt_id": receipt_id,
-        "events": run_events,
-        "trace": {
-            "usage_telemetry": json!({}),
-            "stop_condition": { "reason": "evidence_sufficient", "satisfied": true },
-            "quality_ledger": { "ledger_id": ledger_id },
-        },
-    });
+    let run = build_run_candidate(&agent, &run_id, &mode, &prompt, &now);
 
     let plan_request: RunCreateStateUpdateRequest = serde_json::from_value(json!({
         "schema_version": RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -752,6 +756,139 @@ pub(crate) async fn handle_mcp_disable(
         "mcp_disable",
         json!({ "server_id": server_id, "enabled": false }),
     )
+}
+
+/// POST /v1/threads/:id/subagents — spawn a subagent (child agent + run + record).
+///
+/// Builds a child agent (build_agent_candidate) + a child run (build_run_candidate),
+/// then stamps the subagent record via plan_subagent_record_state_update and persists
+/// all three. The subagent_id is the child agent id.
+pub(crate) async fn handle_subagent_spawn(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), AppError> {
+    let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
+    if prompt.is_empty() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "subagent spawn requires a prompt".to_string(),
+        ));
+    }
+    let Some(parent_agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let role = body.get("role").and_then(|v| v.as_str()).unwrap_or("worker").to_string();
+    let model_route_id = body
+        .get("model_route_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .or_else(|| coalesce_value(&parent_agent, &["model_route_id", "modelRouteId"]).as_str().map(str::to_string))
+        .unwrap_or_else(|| "route.local-first".to_string());
+    let cwd = coalesce_value(&parent_agent, &["cwd"]);
+
+    // --- child agent ---
+    let child_options = json!({ "local": { "cwd": cwd }, "model": { "route_id": model_route_id } });
+    let child_agent = build_agent_candidate(&st, &child_options);
+    let child_agent_id = child_agent
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let plan_agent: AgentCreateStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "agent": child_agent,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned_agent = RuntimeKernelService::new()
+        .plan_agent_create_state_update(&plan_agent)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "agents", &child_agent_id, &planned_agent.agent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- child run ---
+    let now = iso_now();
+    let run_id = format!("run_{}", uuid::Uuid::new_v4());
+    let run = build_run_candidate(&planned_agent.agent, &run_id, "send", prompt, &now);
+    let plan_run: RunCreateStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "run": run,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned_run = RuntimeKernelService::new()
+        .plan_run_create_state_update(&plan_run)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "runs", &run_id, &planned_run.run)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- subagent record ---
+    let child_thread_id = thread_id_for_agent(&child_agent_id);
+    let subagent = json!({
+        "schema_version": "ioi.runtime.subagent.v1",
+        "object": "ioi.runtime_subagent",
+        "subagent_id": child_agent_id,
+        "agent_id": child_agent_id,
+        "child_thread_id": child_thread_id,
+        "run_id": run_id,
+        "parent_thread_id": thread_id,
+        "parent_agent_id": coalesce_value(&parent_agent, &["id"]),
+        "role": role,
+        "model_route_id": model_route_id,
+        "lifecycle_status": "completed",
+        "status": "completed",
+        "restart_status": "not_restarted",
+        "restart_count": 0,
+        "fork_context": false,
+        "context_mode": "forked",
+        "output_contract": Value::Null,
+        "output_contract_status": "satisfied",
+        "merge_policy": "manual",
+        "created_at": now,
+        "updated_at": now,
+    });
+    let plan_subagent: SubagentRecordStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "operation_kind": "subagent.spawn",
+        "thread_id": thread_id,
+        "subagent": subagent,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned_subagent = RuntimeKernelService::new()
+        .plan_subagent_record_state_update(&plan_subagent)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "subagents", &child_agent_id, &planned_subagent.subagent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    Ok((StatusCode::CREATED, Json(planned_subagent.subagent)))
+}
+
+/// GET /v1/threads/:id/subagents — list the thread's subagent records.
+pub(crate) async fn handle_subagents_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let subagents: Vec<Value> = read_record_dir(&st.data_dir, "subagents")
+        .into_iter()
+        .filter(|sub| sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str()))
+        .filter(|sub| match params.get("role") {
+            Some(role) => sub.get("role").and_then(|v| v.as_str()) == Some(role.as_str()),
+            None => true,
+        })
+        .collect();
+    Json(json!(subagents))
+}
+
+/// GET /v1/threads/:id/subagents/:subagent_id/result — return a subagent record.
+pub(crate) async fn handle_subagent_result(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((_thread_id, subagent_id)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    read_record_dir(&st.data_dir, "subagents")
+        .into_iter()
+        .find(|sub| sub.get("subagent_id").and_then(|v| v.as_str()) == Some(subagent_id.as_str()))
+        .map(Json)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")))
 }
 
 /// GET /v1/threads/:id/mcp/tools/search — project the thread's MCP tool catalog.
