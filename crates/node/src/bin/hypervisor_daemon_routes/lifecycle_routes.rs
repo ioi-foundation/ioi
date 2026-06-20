@@ -23,8 +23,9 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    McpToolSearchProjectionRequest, RunCancelStateUpdateRequest, RunCreateStateUpdateRequest,
-    ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest, RunCancelStateUpdateRequest,
+    RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -544,6 +545,107 @@ pub(crate) async fn handle_run_get(
         .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
         .map(Json)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")))
+}
+
+/// Apply a non-live MCP control mutation (import/add/remove/enable/disable) via the
+/// kernel plan_mcp_control_agent_state_update planner, then dual-case + persist the
+/// updated agent (the MCP registry lives on the agent record).
+fn apply_mcp_control(
+    st: &DaemonState,
+    thread_id: &str,
+    control_kind: &str,
+    payload: Value,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(st, thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let agent_id = agent_id_for_thread(thread_id);
+    let now = iso_now();
+    let event_id = format!("mcp_control_{thread_id}_{control_kind}_{}", short_hash(&now));
+    // The MCP planner reads the agent from state_dir via agent_id; the inline `agent`
+    // transport is retired (passing an object errors AgentCandidateTransportRetired).
+    let request: McpControlAgentStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "state_dir": st.data_dir,
+        "agent": Value::Null,
+        "control_kind": control_kind,
+        "event_id": event_id,
+        "created_at": now,
+        "request": payload,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_mcp_control_agent_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let mut updated_agent = record.agent.clone();
+    if let Some(map) = updated_agent.as_object_mut() {
+        dual_case_agent(map);
+    }
+    persist_record(st.data_dir.as_str(), "agents", &agent_id, &updated_agent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let mut response = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(map) = response.as_object_mut() {
+        map.insert("commit".to_string(), json!({ "persisted": true }));
+        map.insert("source".to_string(), json!("rust_mcp_control"));
+        map.insert("backend".to_string(), json!("rust_policy"));
+    }
+    Ok(Json(response))
+}
+
+/// POST /v1/threads/:id/mcp/import — import an MCP server set.
+pub(crate) async fn handle_mcp_import(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let servers = body.get("servers").cloned().unwrap_or_else(|| json!([]));
+    apply_mcp_control(&st, &thread_id, "mcp_import", json!({ "servers": servers }))
+}
+
+/// POST /v1/threads/:id/mcp/servers — add a single MCP server.
+pub(crate) async fn handle_mcp_add(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": body }))
+}
+
+/// DELETE /v1/threads/:id/mcp/servers/:server_id — remove an MCP server.
+pub(crate) async fn handle_mcp_remove(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    apply_mcp_control(&st, &thread_id, "mcp_remove", json!({ "server_id": server_id }))
+}
+
+/// POST /v1/threads/:id/mcp/servers/:server_id/enable — enable an MCP server.
+pub(crate) async fn handle_mcp_enable(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    apply_mcp_control(
+        &st,
+        &thread_id,
+        "mcp_enable",
+        json!({ "server_id": server_id, "enabled": true }),
+    )
+}
+
+/// POST /v1/threads/:id/mcp/servers/:server_id/disable — disable an MCP server.
+pub(crate) async fn handle_mcp_disable(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    apply_mcp_control(
+        &st,
+        &thread_id,
+        "mcp_disable",
+        json!({ "server_id": server_id, "enabled": false }),
+    )
 }
 
 /// GET /v1/threads/:id/mcp/tools/search — project the thread's MCP tool catalog.

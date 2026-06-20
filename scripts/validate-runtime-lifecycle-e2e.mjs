@@ -264,6 +264,39 @@ async function main() {
       assert.equal(body.tool_count, 0, "no MCP servers mounted -> empty catalog");
     });
 
+    // Step 5b: MCP control mutations (import/add/enable/disable/remove) via the kernel
+    // plan_mcp_control_agent_state_update — the registry lives on the agent record.
+    await runStep("MCP control mutations are owned by the Rust daemon", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const imp = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/import`, {
+        method: "POST",
+        body: JSON.stringify({ servers: [{ id: "fs", label: "fs", transport: "stdio", command: "echo", allowed_tools: ["read"] }] }),
+      });
+      assert.equal(imp.status, 200);
+      assert.equal(imp.body.operation_kind, "thread.mcp_import");
+      assert.equal(imp.body.status, "planned");
+
+      const add = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/servers`, {
+        method: "POST",
+        body: JSON.stringify({ id: "git", label: "git", transport: "stdio", command: "git" }),
+      });
+      assert.equal(add.status, 200);
+      assert.equal(add.body.operation_kind, "thread.mcp_add");
+
+      const disable = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/servers/git/disable`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(disable.status, 200);
+      assert.equal(disable.body.operation_kind, "thread.mcp_disable");
+
+      const remove = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/servers/git`, {
+        method: "DELETE",
+      });
+      assert.equal(remove.status, 200);
+      assert.equal(remove.body.operation_kind, "thread.mcp_remove");
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(

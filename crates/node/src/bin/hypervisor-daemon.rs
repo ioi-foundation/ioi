@@ -271,6 +271,20 @@ async fn main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/tools/search",
             get(lifecycle_routes::handle_mcp_tool_search),
         )
+        .route("/v1/threads/:id/mcp/import", post(lifecycle_routes::handle_mcp_import))
+        .route("/v1/threads/:id/mcp/servers", post(lifecycle_routes::handle_mcp_add))
+        .route(
+            "/v1/threads/:id/mcp/servers/:server_id",
+            delete(lifecycle_routes::handle_mcp_remove),
+        )
+        .route(
+            "/v1/threads/:id/mcp/servers/:server_id/enable",
+            post(lifecycle_routes::handle_mcp_enable),
+        )
+        .route(
+            "/v1/threads/:id/mcp/servers/:server_id/disable",
+            post(lifecycle_routes::handle_mcp_disable),
+        )
         .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
