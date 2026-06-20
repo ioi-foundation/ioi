@@ -23,6 +23,7 @@ export async function startRuntimeDaemonServiceWithStore({
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
     vaultSecrets: options.vaultSecrets,
+    routeControlClient: options.routeControlClient,
     contextPolicyCore: options.contextPolicyCore,
     codingToolApprovalCore: options.codingToolApprovalCore,
     modelMountCore: options.modelMountCore,
