@@ -42,6 +42,7 @@ cfg-if = "1.0"
 env_logger = { workspace = true, optional = true }
 futures = { workspace = true }
 hex = { workspace = true }
+sha2 = "0.10"
 libp2p = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
@@ -50,7 +51,7 @@ tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = ["ring"] }
 rcgen = { workspace = true }
-time = { workspace = true, features = ["formatting"] }
+time = { workspace = true, features = ["formatting", "parsing"] }
 serde_json = { workspace = true }
 bs58 = "0.4"
 async-trait = { workspace = true }

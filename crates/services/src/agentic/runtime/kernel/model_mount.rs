@@ -268,6 +268,13 @@ impl ModelMountCore {
         storage_control::plan_storage_control(request)
     }
 
+    pub fn plan_server_control(
+        &self,
+        request: &ModelMountServerControlRequest,
+    ) -> Result<ModelMountServerControlPlan, ModelMountError> {
+        server_control::plan_server_control(request)
+    }
+
     pub fn plan_mcp_workflow(
         &self,
         request: &ModelMountMcpWorkflowRequest,

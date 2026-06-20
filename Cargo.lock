@@ -6899,6 +6899,7 @@ dependencies = [
  "serde",
  "serde_jcs",
  "serde_json",
+ "sha2 0.10.9",
  "tempfile",
  "time 0.3.37",
  "tokio",

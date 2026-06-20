@@ -10,23 +10,27 @@
 //! Binds 127.0.0.1:8765 by default (the app + dev-replay endpoint) so no app
 //! change is required to point at it.
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::{
-    extract::State,
-    http::{header, StatusCode},
+    extract::{Path as AxumPath, State},
+    http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountCore, ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
-    ModelMountReadProjectionRequest, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    ModelMountCapabilityTokenControlRequest, ModelMountCore, ModelMountProviderExecutionRequest,
+    ModelMountProviderInvocationRequest, ModelMountReadProjectionRequest,
+    ModelMountServerControlRequest, MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
 };
 use ioi_types::app::agentic::InferenceOptions;
 
@@ -35,6 +39,20 @@ struct DaemonState {
     model_name: String,
     data_dir: String,
     base_url: String,
+    // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
+    token_expiry: Mutex<HashMap<String, i64>>,
+}
+
+// Error responses render as JSON so OpenAI-compatible/model-mount clients (and
+// the e2e, which JSON.parses every body) can read them.
+struct AppError(StatusCode, String);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        let status = self.0;
+        let message = self.1;
+        (status, Json(json!({ "error": { "message": message } }))).into_response()
+    }
 }
 
 #[tokio::main]
@@ -59,6 +77,7 @@ async fn main() -> anyhow::Result<()> {
         model_name,
         data_dir,
         base_url: format!("http://{addr}"),
+        token_expiry: Mutex::new(HashMap::new()),
     });
 
     let app = Router::new()
@@ -70,6 +89,18 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/models", get(handle_models))
         .route("/v1/model-mount/server/status", get(handle_server_status))
+        .route("/v1/model-mount/server/stop", post(handle_server_stop))
+        .route("/v1/model-mount/server/restart", post(handle_server_restart))
+        .route("/v1/model-mount/server/logs", get(handle_server_logs))
+        .route("/v1/model-mount/server/events", get(handle_server_events))
+        .route(
+            "/v1/model-mount/tokens",
+            post(handle_token_create),
+        )
+        .route(
+            "/v1/model-mount/tokens/:id",
+            delete(handle_token_revoke),
+        )
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
@@ -179,7 +210,7 @@ async fn handle_models(State(st): State<Arc<DaemonState>>) -> Json<Value> {
 /// runtime envelope version the e2e asserts). Phase 5c.1.
 async fn handle_server_status(
     State(st): State<Arc<DaemonState>>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": "server_status",
         "schema_version": "ioi.model-mounting.runtime.v1",
@@ -187,27 +218,262 @@ async fn handle_server_status(
         "state_dir": st.data_dir,
         "state": {},
     }))
-    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let plan = ModelMountCore
         .plan_read_projection(&req)
-        .map_err(|error| (StatusCode::BAD_REQUEST, debug_string(error)))?;
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
     Ok(Json(plan.projection))
+}
+
+// ---- Phase 5c.1: capability tokens + server control + the auth gate ----
+// Truth/authority invariant: the kernel + a wallet.network grant DECIDE; the
+// daemon ENFORCES and PROJECTS over Agentgres-admitted records under state_dir.
+
+fn sha256_hex_str(input: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn now_unix_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn parse_expiry_secs(value: &str) -> Option<i64> {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::parse(value, &Rfc3339)
+        .ok()
+        .map(|dt| dt.unix_timestamp())
+}
+
+/// Persist a kernel-authored Agentgres record so the read projections replay it.
+/// The kernel record carries its own admission evidence; the daemon only writes
+/// it to the canonical record dir under state_dir.
+fn persist_record(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    let dir = std::path::Path::new(data_dir).join(record_dir);
+    std::fs::create_dir_all(&dir)?;
+    let safe = record_id
+        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    std::fs::write(
+        dir.join(format!("{safe}.json")),
+        serde_json::to_vec_pretty(record).unwrap_or_default(),
+    )
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// Wallet-rooted capability gate. 401 if no bearer; 403 if the scope is
+/// denied/expired/revoked. The kernel authorizes the scope against the admitted
+/// grant; the daemon additionally enforces expiry (execution semantics).
+fn authorize(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    required_scope: &str,
+) -> Result<(), AppError> {
+    let Some(token) = bearer_token(headers) else {
+        return Err(AppError(
+            StatusCode::UNAUTHORIZED,
+            "missing capability token".to_string(),
+        ));
+    };
+    let token_hash = sha256_hex_str(&token);
+    if let Some(expiry) = st
+        .token_expiry
+        .lock()
+        .ok()
+        .and_then(|map| map.get(&token_hash).copied())
+    {
+        if expiry != 0 && expiry <= now_unix_secs() {
+            return Err(AppError(StatusCode::FORBIDDEN, "capability token expired".to_string()));
+        }
+    }
+    let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.authorize",
+        "state_dir": st.data_dir,
+        "token_hash": token_hash,
+        "required_scope": required_scope,
+    }))
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    ModelMountCore
+        .plan_capability_token_control(&req)
+        .map(|_| ())
+        .map_err(|error| AppError(StatusCode::FORBIDDEN, debug_string(error)))
+}
+
+/// POST /v1/model-mount/tokens — mint a wallet-rooted capability token via the
+/// kernel; persist the redacted Agentgres record (token_hash only); return the
+/// raw token once. Unauthenticated (the grant body carries the authority).
+async fn handle_token_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.create",
+        "state_dir": st.data_dir,
+        "body": body,
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_capability_token_control(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(token_hash) = plan.public_response.get("token_hash").and_then(|v| v.as_str()) {
+        let expiry = body
+            .get("expiresAt")
+            .and_then(|v| v.as_str())
+            .and_then(parse_expiry_secs)
+            .unwrap_or(0);
+        if let Ok(mut map) = st.token_expiry.lock() {
+            map.insert(token_hash.to_string(), expiry);
+        }
+    }
+    // The e2e uses both `token` (bearer) and `id` (revocation); map token_id -> id.
+    let mut response = plan.public_response.clone();
+    if let (Some(object), Some(token_id)) = (
+        response.as_object_mut(),
+        plan.public_response.get("token_id").cloned(),
+    ) {
+        object.insert("id".to_string(), token_id);
+    }
+    Ok(Json(response))
+}
+
+/// DELETE /v1/model-mount/tokens/:id — revoke via the kernel + persist the
+/// revocation record (read by the authorize replay).
+async fn handle_token_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(token_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.capability_token.revoke",
+        "state_dir": st.data_dir,
+        "token_id": token_id,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_capability_token_control(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(plan.public_response))
+}
+
+/// Server control via the kernel. stop -> controlStatus "stopped";
+/// restart -> "running". The kernel emits a "*_planned" server_status; the
+/// daemon maps it to the e2e controlStatus and adds a receiptId.
+async fn run_server_control(
+    st: Arc<DaemonState>,
+    headers: HeaderMap,
+    operation: &str,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, &format!("server.control:{operation}"))?;
+    let req: ModelMountServerControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
+        "operation_kind": format!("model_mount.server_control.{operation}"),
+        "body": { "base_url": st.base_url },
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_server_control(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let control_status = if operation == "stop" { "stopped" } else { "running" };
+    let receipt_id = plan
+        .receipt_refs
+        .first()
+        .cloned()
+        .unwrap_or_else(|| plan.control_hash.clone());
+    let mut response = plan.public_response.clone();
+    if let Some(object) = response.as_object_mut() {
+        object.insert("controlStatus".to_string(), json!(control_status));
+        object.insert("receiptId".to_string(), json!(receipt_id));
+    }
+    Ok(Json(response))
+}
+
+async fn handle_server_stop(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    run_server_control(st, headers, "stop").await
+}
+
+async fn handle_server_restart(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    run_server_control(st, headers, "restart").await
+}
+
+fn server_control_projection(
+    st: &DaemonState,
+    kind: &str,
+) -> Result<Json<Value>, AppError> {
+    let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
+        "projection_kind": kind,
+        "schema_version": "ioi.model-mounting.runtime.v1",
+        "base_url": st.base_url,
+        "state_dir": st.data_dir,
+        "state": { "limit": 20 },
+    }))
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_read_projection(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    Ok(Json(plan.projection))
+}
+
+async fn handle_server_logs(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "server.logs:read")?;
+    server_control_projection(&st, "server_logs")
+}
+
+async fn handle_server_events(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "server.logs:read")?;
+    server_control_projection(&st, "server_events")
 }
 
 /// Real model-mount kernel projection over HTTP. The truth is Agentgres; this
 /// is the daemon-projected snapshot.
 async fn handle_snapshot(
     State(st): State<Arc<DaemonState>>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": "snapshot",
         "state_dir": st.data_dir,
         "state": {},
     }))
-    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let plan = ModelMountCore
         .plan_read_projection(&req)
-        .map_err(|error| (StatusCode::BAD_REQUEST, debug_string(error)))?;
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
     Ok(Json(plan.projection))
 }
 
@@ -278,7 +544,7 @@ fn invoke_native_local(prompt: &str, model: &str) -> Result<Value, String> {
 async fn handle_native_local(
     State(_st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
     let prompt = flatten_messages(&body);
     let model = body
         .get("model")
@@ -286,17 +552,17 @@ async fn handle_native_local(
         .unwrap_or("qwen2.5-coder")
         .to_string();
     let result = invoke_native_local(&prompt, &model)
-        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error))?;
     Ok(Json(result))
 }
 
 async fn handle_read_projection(
     State(_st): State<Arc<DaemonState>>,
     Json(req): Json<ModelMountReadProjectionRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
     let plan = ModelMountCore
         .plan_read_projection(&req)
-        .map_err(|error| (StatusCode::BAD_REQUEST, debug_string(error)))?;
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
     Ok(Json(json!({
         "projection_kind": plan.projection_kind,
         "projection": plan.projection,
@@ -308,8 +574,10 @@ async fn handle_read_projection(
 /// error (BAD_GATEWAY) when no model route answers — never a faked completion.
 async fn handle_chat_completions(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.chat:*")?;
     let prompt = flatten_messages(&body);
     let options = InferenceOptions {
         max_tokens: 2048,
@@ -320,7 +588,7 @@ async fn handle_chat_completions(
         .execute_inference([0u8; 32], prompt.as_bytes(), options)
         .await
         .map_err(|error| {
-            (
+            AppError(
                 StatusCode::BAD_GATEWAY,
                 format!("no_model_route: {}", debug_string(error)),
             )
