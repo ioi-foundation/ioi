@@ -26,9 +26,11 @@ use sha2::{Digest, Sha256};
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountCapabilityTokenControlRequest, ModelMountCore, ModelMountProviderExecutionRequest,
+    ModelMountBackendLifecycleRequest, ModelMountCapabilityTokenControlRequest, ModelMountCore,
+    ModelMountProviderControlRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountReadProjectionRequest,
-    ModelMountServerControlRequest, MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+    ModelMountServerControlRequest, MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
 };
@@ -80,6 +82,10 @@ async fn main() -> anyhow::Result<()> {
         token_expiry: Mutex::new(HashMap::new()),
     });
 
+    // Author the baseline provider + backend catalog as admitted records so the
+    // snapshot/projection family lists them.
+    seed_catalog(&state);
+
     let app = Router::new()
         .route("/healthz", get(|| async { "OK" }))
         .route("/readyz", get(|| async { "OK" }))
@@ -102,6 +108,10 @@ async fn main() -> anyhow::Result<()> {
             delete(handle_token_revoke),
         )
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
+        .route("/v1/model-mount/providers", get(handle_providers))
+        .route("/v1/model-mount/backends", get(handle_backends))
+        .route("/v1/model-mount/endpoints", get(handle_endpoints))
+        .route("/v1/model-mount/instances", get(handle_instances))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
@@ -458,6 +468,139 @@ async fn handle_server_events(
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "server.logs:read")?;
     server_control_projection(&st, "server_events")
+}
+
+// ---- Phase 5c.2: baseline provider + backend catalog (admitted records) ----
+
+const PROVIDER_KINDS: &[&str] = &[
+    "local_folder",
+    "ioi_native_local",
+    "lm_studio",
+    "ollama",
+    "llama_cpp",
+    "vllm",
+    "openai_compatible",
+    "custom_http",
+    "depin_tee",
+];
+
+const BACKEND_CATALOG: &[(&str, &str)] = &[
+    ("backend.fixture", "fixture"),
+    ("backend.hypervisor.native-local.fixture", "ioi_native_local"),
+    ("backend.llama-cpp", "llama_cpp"),
+    ("backend.ollama", "ollama"),
+    ("backend.vllm", "vllm"),
+    ("backend.lmstudio", "lm_studio"),
+    ("backend.openai-compatible", "openai_compatible"),
+];
+
+fn iso_now() -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| "2026-01-01T00:00:00Z".to_string())
+}
+
+/// Seed the baseline provider + backend catalog as Agentgres-admitted records:
+/// author each through the kernel (plan_provider_control / plan_backend_lifecycle)
+/// and persist plan.record under state_dir — NOT a raw fs::write of fixtures.
+/// Idempotent (re-seeding overwrites the same content-addressed records).
+fn seed_catalog(st: &DaemonState) {
+    let generated_at = iso_now();
+    for kind in PROVIDER_KINDS {
+        let mut body = json!({
+            "kind": kind,
+            "status": "available",
+            "label": format!("Hypervisor {kind} provider"),
+        });
+        // Only hosted-secret kinds require a vault secret_ref (provider_control
+        // validation); custom_http is the one of our 9 that does.
+        if *kind == "custom_http" {
+            body["secret_ref"] = json!("vault://provider/custom_http");
+        }
+        let req: ModelMountProviderControlRequest = match serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+            "operation_kind": "model_mount.provider.write",
+            "provider_id": format!("provider:{kind}"),
+            "source": "hypervisor-daemon-catalog-seed",
+            "generated_at": generated_at,
+            "body": body,
+            "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+        })) {
+            Ok(req) => req,
+            Err(error) => {
+                tracing::warn!(%kind, "seed provider request build failed: {error}");
+                continue;
+            }
+        };
+        match ModelMountCore.plan_provider_control(&req) {
+            Ok(plan) => {
+                if let Err(error) =
+                    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+                {
+                    tracing::warn!(%kind, "seed provider persist failed: {error}");
+                }
+            }
+            Err(error) => tracing::warn!(%kind, "seed provider failed: {}", debug_string(error)),
+        }
+    }
+    for (backend_id, backend_kind) in BACKEND_CATALOG {
+        let req: ModelMountBackendLifecycleRequest = match serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
+            "operation_kind": "model_mount.backend.health",
+            "backend_id": backend_id,
+            "backend_kind": backend_kind,
+            "source": "hypervisor-daemon-catalog-seed",
+            "generated_at": generated_at,
+        })) {
+            Ok(req) => req,
+            Err(error) => {
+                tracing::warn!(%backend_id, "seed backend request build failed: {error}");
+                continue;
+            }
+        };
+        match ModelMountCore.plan_backend_lifecycle(&req) {
+            Ok(plan) => {
+                if let Err(error) =
+                    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+                {
+                    tracing::warn!(%backend_id, "seed backend persist failed: {error}");
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%backend_id, "seed backend failed: {}", debug_string(error))
+            }
+        }
+    }
+}
+
+/// Generic read-projection route (providers/backends/endpoints/instances/...).
+fn project_kind(st: &DaemonState, kind: &str) -> Result<Json<Value>, AppError> {
+    let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
+        "projection_kind": kind,
+        "schema_version": "ioi.model-mounting.runtime.v1",
+        "base_url": st.base_url,
+        "state_dir": st.data_dir,
+        "state": {},
+    }))
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_read_projection(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    Ok(Json(plan.projection))
+}
+
+async fn handle_providers(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    project_kind(&st, "providers")
+}
+async fn handle_backends(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    project_kind(&st, "backends")
+}
+async fn handle_endpoints(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    project_kind(&st, "endpoints")
+}
+async fn handle_instances(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    project_kind(&st, "instances")
 }
 
 /// Real model-mount kernel projection over HTTP. The truth is Agentgres; this
