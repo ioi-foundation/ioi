@@ -44,25 +44,43 @@ default), so the very first step (`GET /v1/model-mount/server/status` →
 computation to that 49-method seam, the contract splits cleanly into two layers:
 the **kernel** (`ModelMountCore` — stateless unit struct, all methods `&self,
 &Request -> Result<Plan, Error>`; **already done and proven** via the shipped
-native-local chain) and the **daemon-owned state + shapes** (token store, receipts,
-seeded catalog, redaction, restart-survival, camelCase response shaping — the bulk
-of the 6,326 JS lines). The fork: bolt the JS facade onto the Rust kernel via that
-seam (cheap, but throwaway and keeps the split-brain), **or** rebuild the
-state+shape layer in Rust so the Rust daemon owns the whole substrate. §1 chooses
-the latter.
+native-local chain) and the **daemon-owned admission/projection + shaping layer**
+(capability-token *records*, receipts, catalog, redaction, restart-survival,
+camelCase response shaping — the bulk of the 6,326 JS lines), which the daemon
+*admits and projects over Agentgres-recorded truth* (it does not mint truth). The
+fork: bolt the JS facade onto the Rust kernel via that seam (cheap, but throwaway
+and keeps the split-brain), **or** rebuild that admission/projection layer in Rust
+so one Rust daemon owns the whole execution surface. §1 chooses the latter.
 
 ## 1. The strategy decision (explicit)
 
 **Decision: go straight to Strategy A — the unified Rust substrate.** The Rust
 daemon serves the full `/v1/model-mount/*` + OpenAI-compat surface directly,
-owning state + truth + shapes and calling `ModelMountCore` in-process; the e2e is
-repointed at the Rust binary; the JS `model-mounting.mjs` facade is retired. This
-is the canonical end-state (consolidation plan §2.5: one Rust true-north daemon,
-JS retired), and it is all permanent work.
+owning the **execution + admission/projection + shaping layer** and calling
+`ModelMountCore` in-process; the e2e is repointed at the Rust binary; the JS
+`model-mounting.mjs` facade is retired. This is the canonical end-state
+(`_meta/hypervisor-kernel-substrate-unification-master-guide.md` Authority owner
+map + Final Doctrine; consolidation plan §2.5: one Rust true-north daemon, JS
+retired), and it is all permanent work.
+
+> **Ownership invariant (canon — baked into every Phase 5c sub-phase).** Per the
+> kernel-substrate-unification master guide's Authority owner map and Final
+> Doctrine: **the daemon owns *execution semantics*** (what may cross an effect
+> boundary); **Agentgres owns *canonical operational truth*** (accepted
+> operations, refs, heads, state roots, **receipts**, projections, replay);
+> **wallet.network owns *authority*** (capability grants/leases). So everything
+> "the daemon owns" below is an **Agentgres-admitted record + projection**, not
+> free-standing daemon truth: token mint/revoke and receipts **commit through the
+> Rust model_mount record-state admission path** (admit → state-root/head bind →
+> commit) *before* they are served, and every capability token is **rooted in a
+> wallet.network grant** (the daemon *enforces* the 401/403 gate, it does not
+> *decide* the authority). The daemon never authors-and-serves canonical truth —
+> doing so is the exact Agentgres-bypass split-brain canon forbids and this
+> migration exists to kill.
 
 | | Strategy | What it is | Verdict |
 | - | -------- | ---------- | ------- |
-| **A** | **Full Rust route surface (CHOSEN)** | Rust daemon owns the stateful layer (token store, receipt log, seeded catalog, redaction, restart-survival) + exact shapes, calling `ModelMountCore` in-process; e2e spawns the Rust binary; JS facade deleted. | **The substrate end-state. Build this.** |
+| **A** | **Full Rust route surface (CHOSEN)** | Rust daemon owns the admission/projection + shaping layer (capability-token records, receipts, catalog, redaction, restart-survival) **over Agentgres-admitted truth, with wallet.network authority** + exact shapes, calling `ModelMountCore` in-process; e2e spawns the Rust binary; JS facade deleted. | **The substrate end-state. Build this.** |
 | ~~B1~~ | ~~`daemonCoreModelMountApi` HTTP bridge~~ | ~~Rust exposes 49 `/core/:method` endpoints; JS bridge forwards; JS keeps owning shapes.~~ | **Rejected — mostly throwaway** (JS bridge deleted by A; the `/core/:method` endpoints are dead once A calls the kernel in-process; keeps the 6,326-line facade A removes). |
 | ~~B2~~ | ~~in-process napi bridge~~ | ~~napi binding exposes the 49 methods to JS.~~ | Rejected — same JS-facade dependency; needs napi infra. |
 
@@ -73,12 +91,16 @@ complete real `ModelMountProviderInvocationResult`). So the parity risk that wou
 justify a bridge is retired; the bridge would be ~2 sub-phases of throwaway.
 
 **What A actually entails.** Not "port the kernel" (it is done) — but **build the
-Rust daemon's stateful layer the kernel deliberately does not own**: the
-capability-token store (sha256-keyed; never store raw tokens), the receipt log,
-the seeded provider catalog (9 kinds + 7 backends), redaction, restart-survival /
-per-`bootId` stale recovery, and the exact camelCase response shapes. That is the
-bulk of the 6,326 JS lines, and it is the *right* bulk to move: a unified
-substrate means Rust owns state + truth, not just compute.
+Rust daemon's admission/projection layer the kernel deliberately does not own**:
+capability-token *records* (wallet.network-rooted — each bound to a wallet
+capability lease/grant; store `token_hash` only, never raw), the receipt log, the
+seeded provider catalog (9 kinds + 7 backends), redaction, restart-survival /
+per-`bootId` stale recovery, and the exact camelCase response shapes — **each
+persisted as an Agentgres-admitted record, not free-standing daemon truth**. That
+is the bulk of the 6,326 JS lines, and it is the *right* bulk to move: a unified
+substrate means Rust owns **execution + admission/projection**, while **Agentgres
+still owns truth and wallet.network still owns authority** — the daemon admits and
+projects, it does not mint truth.
 
 **De-risking without a bridge — the e2e as a ratchet.** A one-time harness edit
 makes `validate-model-mounting-e2e.mjs` spawn the Rust binary; it then fails at the
@@ -156,23 +178,23 @@ small `ioi-hypervisor-daemon` crate if the bin grows large. The kernel
 | Verify | The script runs and fails on the first unported model-mount route (expected); `node scripts/validate-hypervisor-daemon-e2e.mjs` stays green. |
 | Commit boundary | The binding spec now measures the Rust daemon. |
 
-### Phase 5c.1 — Capability-token store + server control + receipt log + redaction
+### Phase 5c.1 — Capability-token records (wallet-rooted, Agentgres-admitted) + server control + receipts + redaction
 
 | Field | Detail |
 | ----- | ------ |
-| Goal | Pass e2e steps 1–3 (fail-closed auth, server status/stop/restart/logs/events). |
-| Work | Daemon state in Rust: a capability-token store (mint `POST /tokens` → `{id, token}`; store **sha256(token)** + allowed/denied/expiresAt/revoked — never the raw token; revoke `DELETE /tokens/:id`); `authorize(bearer, scope)` glob-matching `model.chat:*` → **401** (no/empty bearer), **403** (denied/expired/revoked). `GET /server/status` → `{schemaVersion:"ioi.model-mounting.runtime.v1", openAiCompatibleBaseUrl, controlStatus:"running"}`. `server/stop`→`"stopped"`, `restart`→`"running"`, `logs?limit`→`{redaction:"redacted", records:[…server_restart…]}`, `events?limit`. A receipt log (in-memory + persisted under `state_dir`) keyed by generated `receipt_id`, served at `GET /receipts` + `/receipts/:id`. A redaction pass over all log/receipt output (drop secret needles + raw tokens). |
+| Goal | Pass e2e steps 1–3 (fail-closed auth, server status/stop/restart/logs/events) — via the canonical admission path, not daemon-local truth (see the Ownership invariant in §1). |
+| Work | Every write commits through the model_mount record-state path (admit → state-root/head bind → commit) **before** it is served. **Tokens (wallet-rooted):** `POST /tokens` runs `ModelMountCore.plan_capability_token_control` (op `model_mount.capability_token.create`), binds each grant to a **wallet.network capability lease/grant ref** (`grant_id`/`lease_id` + `policy_hash` + `revocation_epoch`), and persists a redacted Rust-authored Agentgres record under `state_dir` (content-hashed `token_id`; **`token_hash` only**, `plaintext_material_persisted:false`); `DELETE /tokens/:id` revokes via the same path. `authorize(bearer, scope)` projects allowed/denied **from the wallet grant** and the daemon *enforces* **401** (no/empty bearer) / **403** (denied/expired/revoked) — it enforces, it does not *decide* authority. **Server control:** `GET /server/status` → `{schemaVersion:"ioi.model-mounting.runtime.v1", openAiCompatibleBaseUrl, controlStatus:"running"}`; `server/stop`→`"stopped"`, `restart`→`"running"`, `logs?limit`→`{redaction:"redacted", records:[…server_restart…]}`, `events?limit`. **Receipts:** Rust-authored records committed through the record-state/receipt-state admission path (not a free-standing log), served at `GET /receipts` + `/receipts/:id`. A redaction pass over all output (drop secret needles + raw tokens). |
 | Verify | e2e advances past the token + server-control steps. |
-| Commit boundary | Fail-closed auth + server control + receipts are real and persisted. |
+| Commit boundary | Wallet-rooted fail-closed auth + server control + Agentgres-admitted receipts. |
 
 ### Phase 5c.2 — Seeded provider catalog + snapshot/projection family
 
 | Field | Detail |
 | ----- | ------ |
 | Goal | `GET /snapshot` lists the 9 provider kinds + 7 backends; the read-projection family answers. |
-| Work | On startup seed Agentgres-shaped JSON records under `state_dir` (reuse the `lifecycle.rs` seed shape) for the 9 provider kinds (`local_folder, ioi_native_local, lm_studio, ollama, llama_cpp, vllm, openai_compatible, custom_http, depin_tee`) + 7 backends (`backend.fixture, backend.hypervisor.native-local.fixture, backend.llama-cpp, backend.ollama, backend.vllm, backend.lmstudio, backend.openai-compatible`). Route `GET /snapshot|/projection|/providers|/endpoints|/instances|/backends|/routes|/authority|/downloads` → `ModelMountCore.plan_read_projection({projection_kind, state, state_dir})` (Appendix B). `POST /instances/load|unload` → `plan_instance_lifecycle`. |
+| Work | On first startup author the baseline catalog as **Agentgres-admitted records** (NOT a raw `fs::write` of fixture JSON): commit the 9 provider kinds (`local_folder, ioi_native_local, lm_studio, ollama, llama_cpp, vllm, openai_compatible, custom_http, depin_tee`) + 7 backends (`backend.fixture, backend.hypervisor.native-local.fixture, backend.llama-cpp, backend.ollama, backend.vllm, backend.lmstudio, backend.openai-compatible`) through the same Rust model_mount record-state admission the writes use, so `model-providers`/`model-endpoints`/`model-instances`/`model-artifacts` under `state_dir` are admitted records, not a daemon-local cache. Then the read side replays them: `GET /snapshot|/projection|/providers|/endpoints|/instances|/backends|/routes|/authority|/downloads` → `ModelMountCore.plan_read_projection({projection_kind, state, state_dir})` (Appendix B). `POST /instances/load|unload` → `plan_instance_lifecycle` (admitted write → projected read). `depin_tee` must not be presented as a private route without cTEE/custody (per `daemon-runtime/private-workspace-ctee.md`). |
 | Verify | e2e "discover providers and backends" + instance steps pass. |
-| Commit boundary | The real kernel projects the seeded catalog over HTTP. |
+| Commit boundary | The real kernel replays the Agentgres-admitted catalog over HTTP. |
 
 ### Phase 5c.3 — Runtime engines + survey + select + PATCH
 
@@ -208,7 +230,7 @@ small `ioi-hypervisor-daemon` crate if the bin grows large. The kernel
 | Goal | One Rust true-north daemon; the parallel JS engine is gone. |
 | Work | Delete / reduce to a thin shim: `packages/runtime-daemon/src/model-mounting.mjs` + `model-mounting/**` + `openai-compat-routes.mjs` + the model-mount route handlers in `public-runtime-routes.mjs` + the model-mounting `*.test.mjs` suite. Collapse the dev-replay model-mount routes to a thin proxy; **keep** the Phase-0 deterministic turn behind `IOI_HYPERVISOR_REPLAY_MODE` for offline UI tests. **Before deleting `model-mounting.mjs`, migrate any identity token only present there into the Rust kernel sources** (see §5) so `check-runtime-layout` survives. App default stays `:8765` → no app change. |
 | Verify | e2e still green; `check-runtime-layout`; `hypervisor-app-shell-contract`; `npm run build`; `cargo test`. |
-| Commit boundary | The split-brain facade is gone; Rust owns state + truth + compute. |
+| Commit boundary | The split-brain facade is gone; Rust owns execution + the admission/projection layer + compute, over Agentgres truth and wallet.network authority. |
 
 ### Phase 5c.7 — `ioi.model_mount.v1` proto
 
@@ -289,22 +311,34 @@ these tokens may live there — but verify the assert's file list before deletin
 1. **The e2e is wired to the JS daemon, not the Rust binary.** Making it green
    requires editing its daemon abstraction to spawn `hypervisor-daemon` (Phase
    5c.0) — the one-time change that turns the e2e into the ratchet. State it in the PR.
-2. **Build the stateful layer, not the kernel.** The bulk of A is daemon-owned
-   state (tokens, receipts, catalog, redaction, restart-survival) — the kernel is
-   done. Structure it as its own Rust module(s), not inline in the bin.
-3. **Shape exactness.** the e2e asserts strict camelCase shapes against the JS
+2. **Build the admission/projection layer, not the kernel — and route it through
+   Agentgres + wallet (the §1 Ownership invariant).** The #1 alignment failure mode
+   is recreating the split-brain this migration kills: do NOT let the daemon author
+   token grants or receipts as free-standing `state_dir` truth. Every write commits
+   through the model_mount record-state admission path (admit → state-root/head bind
+   → commit); every token is rooted in a wallet.network grant; the daemon *enforces*
+   the gate but Agentgres owns truth and wallet owns authority. Canon: kernel-
+   substrate-unification master guide Authority owner map + Final Doctrine; migration
+   matrix `model-mounting` terminal owner ("Agentgres record-state admission/
+   projection/replay, wallet.network authority, receipt/state-root binding").
+3. **Reconcile the served routes against `daemon-runtime/api.md`.** the daemon's
+   canonical model surface is published there — confirm the `/v1/model-mount/*` +
+   OpenAI-compat + session routes the plan builds match (or extend with a doc edit)
+   the api.md inventory; keep the `runtime.lifecycle_projection.*` operation_kind
+   strings `check-runtime-layout` couples to api.md.
+4. **Shape exactness.** the e2e asserts strict camelCase shapes against the JS
    `ModelMountingState` output; the Rust daemon must reproduce them field-for-field
    (snake_case kernel plans need explicit camelCase projection at the route edge).
-4. **Redaction.** never persist raw tokens (store sha256); keep secret needles out
-   of logs/receipts — the e2e fails on any leak.
-5. **Restart survival.** the e2e restarts the daemon against the same `stateDir`
-   and asserts receipt/replay continuity — daemon state must persist under
-   `state_dir` (5c.3) and re-hydrate; mark stale backend processes on `bootId`
-   mismatch.
-6. **Schema-version exactness.** hyphenated `ioi.model-mounting.runtime.v1` for the
+5. **Redaction.** never persist raw tokens (store `token_hash` only); keep secret
+   needles out of logs/receipts — the e2e fails on any leak.
+6. **Restart survival = replay of admitted records.** the e2e restarts the daemon
+   against the same `stateDir` and asserts receipt/replay continuity — rebuild from
+   the Agentgres-admitted records under `state_dir` (checkpoint/replay), not from a
+   re-hydrated daemon-local cache; mark stale backend processes on `bootId` mismatch.
+7. **Schema-version exactness.** hyphenated `ioi.model-mounting.runtime.v1` for the
    server/runtime/evidence envelopes; underscored `ioi.model_mount.*.v1` for the
    kernel/proto. Do not cross them.
-7. **Keep `:8765` + `startRuntimeDaemonService` + the localStorage keys.** the app
+8. **Keep `:8765` + `startRuntimeDaemonService` + the localStorage keys.** the app
    default is `:8765`; retiring must not change `HYPERVISOR_MODEL_MOUNT_DEFAULT_DAEMON_ENDPOINT`
    or `ioi.hypervisor.daemonEndpoint`/`ioi.modelMounts.daemonEndpoint`.
 
