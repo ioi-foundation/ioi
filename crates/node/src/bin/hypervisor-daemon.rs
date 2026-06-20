@@ -24,7 +24,9 @@ use serde_json::{json, Value};
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountCore, ModelMountReadProjectionRequest,
+    ModelMountCore, ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
+    ModelMountReadProjectionRequest, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
 };
 use ioi_types::app::agentic::InferenceOptions;
 
@@ -67,6 +69,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/models", get(handle_models))
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
+        .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
         .with_state(state);
@@ -183,6 +186,85 @@ async fn handle_snapshot(
         .plan_read_projection(&req)
         .map_err(|error| (StatusCode::BAD_REQUEST, debug_string(error)))?;
     Ok(Json(plan.projection))
+}
+
+/// Run a REAL model-mount native-local inference through the kernel admission
+/// chain (admit_provider_execution -> invoke_provider). Deterministic and fully
+/// offline — no Ollama, no network — so it proves the Rust Core serves real
+/// model-mount inference, not just a projection. This is the
+/// `route.native-local` / `backend.hypervisor.native-local.fixture` path.
+fn invoke_native_local(prompt: &str, model: &str) -> Result<Value, String> {
+    let route_receipt_ref = "receipt://route/native-local";
+    let exec_req: ModelMountProviderExecutionRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+        "invocation_ref": "model_mount://invocation/native-local",
+        "route_decision_ref": "model_mount://route_decision/native-local",
+        "route_receipt_ref": route_receipt_ref,
+        "route_ref": "route.native-local",
+        "provider_ref": "provider.hypervisor.local",
+        "endpoint_ref": "endpoint.native-local",
+        "model_ref": model,
+        "capability": "chat",
+        "invocation_kind": "chat.completions",
+        "policy_hash": "sha256:native-local-policy",
+        "input_hash": format!("sha256:{}", short_hash(prompt)),
+        "request_hash": format!("sha256:{}", short_hash(prompt)),
+        "idempotency_key": short_hash(prompt),
+        "receipt_refs": [route_receipt_ref],
+        "node_plaintext_allowed": true,
+    }))
+    .map_err(|error| format!("exec request build: {error}"))?;
+
+    let record = ModelMountCore
+        .admit_provider_execution(&exec_req)
+        .map_err(|error| format!("admit_provider_execution: {}", debug_string(error)))?;
+    let admitted = serde_json::to_value(&record)
+        .map_err(|error| format!("record serialize: {error}"))?;
+
+    let invocation: ModelMountProviderInvocationRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+        "provider_execution_ref": admitted["provider_execution_ref"],
+        "provider_execution_hash": admitted["provider_execution_hash"],
+        "route_decision_ref": admitted["route_decision_ref"],
+        "route_receipt_ref": admitted["route_receipt_ref"],
+        "route_ref": admitted["route_ref"],
+        "provider_ref": admitted["provider_ref"],
+        "provider_kind": "ioi_native_local",
+        "endpoint_ref": admitted["endpoint_ref"],
+        "model_ref": admitted["model_ref"],
+        "capability": admitted["capability"],
+        "invocation_kind": admitted["invocation_kind"],
+        "input": prompt,
+        "request_hash": admitted["request_hash"],
+        "execution_backend": "rust_model_mount_native_local",
+        "backend_ref": "backend.hypervisor.native-local.fixture",
+        "api_format": "ioi_native",
+        "driver": "native_local",
+        "receipt_refs": [admitted["route_receipt_ref"]],
+        "admitted_provider_execution": admitted,
+    }))
+    .map_err(|error| format!("invocation request build: {error}"))?;
+
+    let result = ModelMountCore
+        .invoke_provider(&invocation)
+        .map_err(|error| format!("invoke_provider: {}", debug_string(error)))?;
+    serde_json::to_value(&result).map_err(|error| format!("result serialize: {error}"))
+}
+
+/// POST /v1/model-mount/native-local — real offline kernel inference.
+async fn handle_native_local(
+    State(_st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let prompt = flatten_messages(&body);
+    let model = body
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("qwen2.5-coder")
+        .to_string();
+    let result = invoke_native_local(&prompt, &model)
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    Ok(Json(result))
 }
 
 async fn handle_read_projection(

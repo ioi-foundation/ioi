@@ -116,11 +116,42 @@ async function main() {
     }
     if (/Plan:/.test(turnText)) fail("session-turn leaked deterministic prose");
 
+    // 5. Real native-local model-mount inference through the kernel admission
+    //    chain (admit_provider_execution -> invoke_provider), fully offline.
+    const native = await fetch(`${BASE}/v1/model-mount/native-local`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "qwen2.5-coder",
+        messages: [{ role: "user", content: "explain post-quantum computers" }],
+      }),
+    });
+    if (native.status !== 200) {
+      fail(`native-local status ${native.status}: ${await native.text()}`);
+    }
+    const result = await native.json();
+    if (result.execution_backend !== "rust_model_mount_native_local") {
+      fail(`native-local execution_backend mismatch: ${result.execution_backend}`);
+    }
+    if (result.backend_id !== "backend.hypervisor.native-local.fixture") {
+      fail(`native-local backend_id mismatch: ${result.backend_id}`);
+    }
+    if (!/Hypervisor native local model response/.test(result.output_text || "")) {
+      fail(`native-local output_text mismatch: ${result.output_text}`);
+    }
+    if (!/^sha256:[a-f0-9]{64}$/.test(result.invocation_hash || "")) {
+      fail(`native-local invocation_hash mismatch: ${result.invocation_hash}`);
+    }
+
     console.log("PASS: hypervisor-daemon serves real Core over HTTP");
     console.log("  - /healthz OK");
     console.log("  - /v1/hypervisor/dev-replay/status ready");
     console.log("  - /v1/model-mount/snapshot -> real ModelMountCore projection");
     console.log("  - /v1/hypervisor/session-turns -> honest no_model_route SSE");
+    console.log(
+      "  - /v1/model-mount/native-local -> real kernel admission->invoke (offline), " +
+        `output: ${JSON.stringify((result.output_text || "").slice(0, 64))}`,
+    );
   } finally {
     daemon.kill("SIGKILL");
     rmSync(dataDir, { recursive: true, force: true });
