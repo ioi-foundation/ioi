@@ -313,6 +313,24 @@ async function main() {
       assert.equal(jobs.body[0].jobId, `job_${turnRequestId}`);
     });
 
+    // Step 5d: agents collection (shares the agent-candidate builder with thread-create).
+    await runStep("POST /v1/agents creates a standalone agent + GET /v1/agents lists it", async () => {
+      const create = await fetchJson(`${rust.endpoint}/v1/agents`, {
+        method: "POST",
+        body: JSON.stringify({ options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } } }),
+      });
+      assert.equal(create.status, 200);
+      assert.match(create.body.id, /^agent_/);
+      assert.equal(create.body.status, "active");
+      assert.equal(create.body.modelId, "hypervisor:native-fixture");
+      const list = await fetchJson(`${rust.endpoint}/v1/agents`);
+      assert.equal(list.status, 200);
+      assert.ok(
+        Array.isArray(list.body) && list.body.some((a) => a.id === create.body.id),
+        "agents list should include the created agent",
+      );
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(

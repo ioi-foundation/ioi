@@ -23,8 +23,9 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest, RunCancelStateUpdateRequest,
-    RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    AgentCreateStateUpdateRequest, McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
+    ThreadCreateStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -102,17 +103,12 @@ fn project_thread_record(st: &DaemonState, thread_id: &str) -> Result<Value, App
     Ok(projected.get("record").cloned().unwrap_or(Value::Null))
 }
 
-/// POST /v1/threads — create a thread (and its owning agent).
-///
-/// Resolves the model route internally (the route-control planner as an internal
-/// Rust call), builds the agent + thread candidates, validates/stamps via
-/// `plan_thread_create_state_update`, persists the agent, and returns the kernel
-/// thread projection (the thread.started event is synthesized by the projection).
-pub(crate) async fn handle_thread_create(
-    State(st): State<Arc<DaemonState>>,
-    Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
-    let options = body.get("options").cloned().unwrap_or_else(|| body.clone());
+/// Build the dual-cased agent candidate for a create request: resolve the model
+/// route internally (the route-control planner as an internal Rust call), assign
+/// identity, and construct the runtime controls. Shared by thread-create and
+/// agent-create. The planners validate camelCase (createdAt/updatedAt); the kernel
+/// projections read snake_case (created_at, model_route_*, model_id) — both are set.
+fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
     let model = options.get("model").cloned().unwrap_or(Value::Null);
     let now = iso_now();
 
@@ -145,7 +141,7 @@ pub(crate) async fn handle_thread_create(
         route_body.insert("workflow_node_type".to_string(), json!(node_type));
     }
     let route_body = Value::Object(route_body);
-    let selection = route_selection(&st, &route_id);
+    let selection = route_selection(st, &route_id);
     let decision = build_route_decision(&route_id, &route_body, &selection);
 
     let selected_model = decision
@@ -167,8 +163,6 @@ pub(crate) async fn handle_thread_create(
 
     // --- identity ---
     let agent_id = format!("agent_{}", uuid::Uuid::new_v4());
-    let thread_id = thread_id_for_agent(&agent_id);
-    let event_stream_id = format!("{thread_id}:events");
     let cwd = options
         .get("local")
         .and_then(|local| local.get("cwd"))
@@ -240,11 +234,37 @@ pub(crate) async fn handle_thread_create(
         "mcpRegistry": Value::Null,
         "options": json!({ "local": { "cwd": cwd } }),
     });
+    agent
+}
+
+/// POST /v1/threads — create a thread (and its owning agent).
+///
+/// Builds the agent + thread candidates, validates/stamps via
+/// `plan_thread_create_state_update`, persists the agent, and returns the kernel
+/// thread projection (the thread.started event is synthesized by the projection).
+pub(crate) async fn handle_thread_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let options = body.get("options").cloned().unwrap_or_else(|| body.clone());
+    let agent = build_agent_candidate(&st, &options);
+    let agent_id = agent
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let thread_id = thread_id_for_agent(&agent_id);
+    let event_stream_id = format!("{thread_id}:events");
+    let now = agent
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(iso_now);
 
     let thread = json!({
         "schema_version": RUNTIME_THREAD_SCHEMA_VERSION,
         "thread_id": thread_id.clone(),
-        "agent_id": agent_id,
+        "agent_id": agent_id.clone(),
         "event_stream_id": event_stream_id,
         "status": "active",
         "created_at": now.clone(),
@@ -269,6 +289,36 @@ pub(crate) async fn handle_thread_create(
     // --- return the kernel thread projection ---
     let record = project_thread_record(&st, &thread_id)?;
     Ok(Json(record))
+}
+
+/// POST /v1/agents — create an agent (no thread) via plan_agent_create_state_update.
+pub(crate) async fn handle_agent_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let options = body.get("options").cloned().unwrap_or_else(|| json!({}));
+    let agent = build_agent_candidate(&st, &options);
+    let agent_id = agent
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let plan_request: AgentCreateStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "agent": agent,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned = RuntimeKernelService::new()
+        .plan_agent_create_state_update(&plan_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "agents", &agent_id, &planned.agent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(planned.agent))
+}
+
+/// GET /v1/agents — list persisted agent records.
+pub(crate) async fn handle_agents_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!(read_record_dir(&st.data_dir, "agents")))
 }
 
 /// GET /v1/threads/:id — project a single thread record.
