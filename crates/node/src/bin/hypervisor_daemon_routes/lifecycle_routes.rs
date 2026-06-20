@@ -23,8 +23,10 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    RunCreateStateUpdateRequest, ThreadCreateStateUpdateRequest,
-    RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION, THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
     RuntimeThreadEventProjectionRequest, RuntimeThreadTurnProjectionRequest,
@@ -35,7 +37,7 @@ use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 use super::{
     build_route_decision, debug_string, iso_now, persist_record, read_record_dir, route_selection,
-    AppError, DaemonState,
+    short_hash, AppError, DaemonState,
 };
 
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
@@ -559,6 +561,255 @@ pub(crate) async fn handle_runs_list(
         })
         .collect();
     Json(json!(runs))
+}
+
+/// Synchronize an agent record's snake_case projection fields from the camelCase
+/// fields the kernel planners write (the planners mutate camelCase, the kernel
+/// projections read snake_case). Camel is the source of truth.
+fn dual_case_agent(agent: &mut serde_json::Map<String, Value>) {
+    const PAIRS: &[(&str, &str)] = &[
+        ("createdAt", "created_at"),
+        ("updatedAt", "updated_at"),
+        ("modelId", "model_id"),
+        ("requestedModelId", "requested_model_id"),
+        ("modelRouteId", "model_route_id"),
+        ("modelRouteEndpointId", "model_route_endpoint_id"),
+        ("modelRouteProviderId", "model_route_provider_id"),
+        ("modelRouteReceiptId", "model_route_receipt_id"),
+        ("modelRouteDecision", "model_route_decision"),
+        ("runtimeControls", "runtime_controls"),
+    ];
+    for (camel, snake) in PAIRS {
+        if let Some(value) = agent.get(*camel).cloned() {
+            agent.insert((*snake).to_string(), value);
+        }
+    }
+}
+
+fn coalesce_value(value: &Value, keys: &[&str]) -> Value {
+    for key in keys {
+        if let Some(found) = value.get(*key) {
+            if !found.is_null() {
+                return found.clone();
+            }
+        }
+    }
+    Value::Null
+}
+
+/// Build the model_route payload (planner-required: selected_model/requested_model_id/route_id)
+/// from the agent's current model route — used for thinking control (model unchanged).
+fn model_route_from_agent(agent: &Value) -> Value {
+    json!({
+        "requested_model_id": coalesce_value(agent, &["requested_model_id", "requestedModelId"]),
+        "selected_model": coalesce_value(agent, &["model_id", "modelId"]),
+        "route_id": coalesce_value(agent, &["model_route_id", "modelRouteId"]),
+        "endpoint_id": coalesce_value(agent, &["model_route_endpoint_id", "modelRouteEndpointId"]),
+        "provider_id": coalesce_value(agent, &["model_route_provider_id", "modelRouteProviderId"]),
+        "receipt_id": coalesce_value(agent, &["model_route_receipt_id", "modelRouteReceiptId"]),
+        "decision": coalesce_value(agent, &["model_route_decision", "modelRouteDecision"]),
+    })
+}
+
+fn approval_mode_for_mode(mode: &str) -> &'static str {
+    match mode {
+        "plan" | "review" => "human_required",
+        "yolo" => "never_prompt",
+        _ => "suggest",
+    }
+}
+
+/// Apply a thread runtime control (mode | model | thinking) via the kernel
+/// plan_thread_control_agent_state_update planner, then dual-case + persist the
+/// updated agent so the projection reflects the new controls.
+fn apply_thread_control(
+    st: &DaemonState,
+    thread_id: &str,
+    control_kind: &str,
+    body: &Value,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(st, thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let now = body
+        .get("updated_at")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(iso_now);
+    let current = agent
+        .get("runtime_controls")
+        .or_else(|| agent.get("runtimeControls"))
+        .cloned()
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({ "schema_version": RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION, "mode": "agent", "approval_mode": "suggest", "model": {} }));
+    let current_model = current.get("model").cloned().unwrap_or_else(|| json!({}));
+
+    // Compute the next controls and the planner model_route (None for mode control).
+    let (controls, model_route) = if control_kind == "mode" {
+        let mode = body
+            .get("mode")
+            .or_else(|| body.get("interaction_mode"))
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| current.get("mode").and_then(|v| v.as_str()).unwrap_or("agent"))
+            .to_string();
+        let approval_mode = body
+            .get("approval_mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| approval_mode_for_mode(&mode))
+            .to_string();
+        let mut controls = current.clone();
+        if let Some(map) = controls.as_object_mut() {
+            map.insert("mode".to_string(), json!(mode));
+            map.insert("approval_mode".to_string(), json!(approval_mode));
+        }
+        (controls, Value::Null)
+    } else {
+        // model + thinking both update the model controls and require a model_route.
+        let mut model = current_model.clone();
+        let model_map = model.as_object_mut().unwrap();
+        if control_kind == "thinking" {
+            let effort = coalesce_value(body, &["reasoning_effort", "thinking"]);
+            model_map.insert("reasoning_effort".to_string(), effort);
+            model_map.insert("updated_at".to_string(), json!(now));
+            let mut controls = current.clone();
+            controls.as_object_mut().unwrap().insert("model".to_string(), model);
+            (controls, model_route_from_agent(&agent))
+        } else {
+            // model control: re-resolve the route from the request model.
+            let req_model = body.get("model").cloned().unwrap_or(Value::Null);
+            let route_id = coalesce_value(&req_model, &["route_id", "routeId"]);
+            let route_id = route_id
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| coalesce_value(&agent, &["model_route_id"]).as_str().map(str::to_string))
+                .unwrap_or_else(|| "route.local-first".to_string());
+            let requested = coalesce_value(&req_model, &["id", "model"]);
+            let requested = requested.as_str().unwrap_or("auto").to_string();
+            let selection = route_selection(st, &route_id);
+            let route_body = json!({ "model": requested, "route_id": route_id, "capability": "chat" });
+            let decision = build_route_decision(&route_id, &route_body, &selection);
+            let selected_model = decision.get("selected_model").cloned().unwrap_or(Value::Null);
+            model_map.insert("id".to_string(), json!(requested));
+            model_map.insert("route_id".to_string(), json!(route_id));
+            model_map.insert("selected_model".to_string(), selected_model.clone());
+            model_map.insert("updated_at".to_string(), json!(now));
+            if let Some(effort) = coalesce_value(&req_model, &["reasoning_effort", "reasoningEffort"]).as_str() {
+                model_map.insert("reasoning_effort".to_string(), json!(effort));
+            }
+            let mut controls = current.clone();
+            controls.as_object_mut().unwrap().insert("model".to_string(), model);
+            let route = json!({
+                "requested_model_id": requested,
+                "selected_model": selected_model,
+                "route_id": route_id,
+                "endpoint_id": decision.get("endpoint_id").cloned().unwrap_or(Value::Null),
+                "provider_id": decision.get("provider_id").cloned().unwrap_or(Value::Null),
+                "receipt_id": coalesce_value(&agent, &["model_route_receipt_id"]),
+                "decision": decision,
+            });
+            (controls, route)
+        }
+    };
+
+    let event_id = format!("thread_control_{thread_id}_{control_kind}_{}", short_hash(&now));
+    let request: ThreadControlAgentStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "state_dir": st.data_dir,
+        "event_stream_id": format!("{thread_id}:events"),
+        "agent": agent,
+        "control_kind": control_kind,
+        "controls": controls,
+        "event_id": event_id,
+        "created_at": now,
+        "updated_at": now,
+        "model_route": model_route,
+        "receipt_refs": [],
+        "policy_decision_refs": [],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_thread_control_agent_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+
+    // Persist the planner-updated agent, dual-cased so the projection reads it.
+    let mut updated_agent = record.agent.clone();
+    if let Some(map) = updated_agent.as_object_mut() {
+        dual_case_agent(map);
+    }
+    let agent_id = agent_id_for_thread(thread_id);
+    persist_record(st.data_dir.as_str(), "agents", &agent_id, &updated_agent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // Shape the control response.
+    let source_event_kind = match control_kind {
+        "mode" => "OperatorControl.Mode",
+        "model" => "OperatorControl.Model",
+        _ => "OperatorControl.Thinking",
+    };
+    let event_kind = if control_kind == "model" {
+        "model.route_decision".to_string()
+    } else {
+        format!("thread.{control_kind}_updated")
+    };
+    let mut response = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let model_controls = controls.get("model").cloned().unwrap_or(Value::Null);
+    if let Some(map) = response.as_object_mut() {
+        map.insert("commit".to_string(), json!({ "persisted": true }));
+        map.insert("source".to_string(), json!("rust_thread_control"));
+        map.insert("backend".to_string(), json!("rust_policy"));
+        map.insert("control_kind".to_string(), json!(control_kind));
+        map.insert("runtime_controls".to_string(), controls.clone());
+        map.insert("mode".to_string(), controls.get("mode").cloned().unwrap_or(Value::Null));
+        map.insert(
+            "approval_mode".to_string(),
+            controls.get("approval_mode").cloned().unwrap_or(Value::Null),
+        );
+        map.insert(
+            "reasoning_effort".to_string(),
+            model_controls.get("reasoning_effort").cloned().unwrap_or(Value::Null),
+        );
+        map.insert("requested_model".to_string(), model_controls.get("id").cloned().unwrap_or(Value::Null));
+        map.insert("model_route_id".to_string(), model_controls.get("route_id").cloned().unwrap_or(Value::Null));
+        map.insert(
+            "event".to_string(),
+            json!({
+                "source_event_kind": source_event_kind,
+                "event_kind": event_kind,
+                "component_kind": if control_kind == "model" { "model_router" } else { "thread_control" },
+                "control_kind": control_kind,
+            }),
+        );
+    }
+    Ok(Json(response))
+}
+
+/// POST /v1/threads/:id/mode — set the thread interaction mode + approval mode.
+pub(crate) async fn handle_thread_mode(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_thread_control(&st, &thread_id, "mode", &body)
+}
+
+/// POST /v1/threads/:id/model — set the thread model route.
+pub(crate) async fn handle_thread_model(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_thread_control(&st, &thread_id, "model", &body)
+}
+
+/// POST /v1/threads/:id/thinking — set the thread reasoning effort.
+pub(crate) async fn handle_thread_thinking(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_thread_control(&st, &thread_id, "thinking", &body)
 }
 
 /// GET /v1/threads — list thread projection records (one per persisted agent).

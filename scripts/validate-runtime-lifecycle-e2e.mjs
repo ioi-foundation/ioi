@@ -209,7 +209,49 @@ async function main() {
       assert.equal(missing.status, 404);
     });
 
-    // RATCHET FRONTIER — next: run cancel + thread-control (mode/model/thinking).
+    // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
+    // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
+    // makes the projection reflect the new controls.
+    await runStep("POST /v1/threads/:id/mode owns the interaction mode", async () => {
+      const { status, body } = await fetchJson(
+        `${rust.endpoint}/v1/threads/${encodeURIComponent(createdThread.thread_id)}/mode`,
+        { method: "POST", body: JSON.stringify({ mode: "yolo" }) },
+      );
+      assert.equal(status, 200);
+      assert.equal(body.control_kind, "mode");
+      assert.equal(body.mode, "yolo");
+      assert.equal(body.approval_mode, "never_prompt");
+      assert.equal(body.event.source_event_kind, "OperatorControl.Mode");
+      // The thread projection reflects the new mode (dual-case normalizer).
+      const thread = await fetchJson(`${rust.endpoint}/v1/threads/${encodeURIComponent(createdThread.thread_id)}`);
+      assert.equal(thread.body.mode, "yolo");
+      assert.equal(thread.body.approval_mode, "never_prompt");
+    });
+
+    await runStep("POST /v1/threads/:id/thinking owns the reasoning effort", async () => {
+      const { status, body } = await fetchJson(
+        `${rust.endpoint}/v1/threads/${encodeURIComponent(createdThread.thread_id)}/thinking`,
+        { method: "POST", body: JSON.stringify({ reasoning_effort: "high" }) },
+      );
+      assert.equal(status, 200);
+      assert.equal(body.control_kind, "thinking");
+      assert.equal(body.reasoning_effort, "high");
+      assert.equal(body.runtime_controls.model.reasoning_effort, "high");
+    });
+
+    await runStep("POST /v1/threads/:id/model owns the model route", async () => {
+      const { status, body } = await fetchJson(
+        `${rust.endpoint}/v1/threads/${encodeURIComponent(createdThread.thread_id)}/model`,
+        { method: "POST", body: JSON.stringify({ model: { id: "auto", route_id: "route.native-local" } }) },
+      );
+      assert.equal(status, 200);
+      assert.equal(body.control_kind, "model");
+      assert.equal(body.model_route_id, "route.native-local");
+      assert.equal(body.event.event_kind, "model.route_decision");
+      assert.equal(body.event.component_kind, "model_router");
+    });
+
+    // RATCHET FRONTIER — next: run cancel, turn control inheritance, subagents, tasks/jobs, MCP.
   } finally {
     await rust.close();
   }

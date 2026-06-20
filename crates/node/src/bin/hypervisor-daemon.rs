@@ -261,6 +261,12 @@ async fn main() -> anyhow::Result<()> {
             "/v1/threads/:id/turns",
             post(lifecycle_routes::handle_turn_create),
         )
+        .route("/v1/threads/:id/mode", post(lifecycle_routes::handle_thread_mode))
+        .route("/v1/threads/:id/model", post(lifecycle_routes::handle_thread_model))
+        .route(
+            "/v1/threads/:id/thinking",
+            post(lifecycle_routes::handle_thread_thinking),
+        )
         .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
