@@ -165,6 +165,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/responses", post(handle_responses))
         .route("/v1/messages", post(handle_messages))
         .route("/v1/embeddings", post(handle_embeddings))
+        .route(
+            "/v1/model-mount/mcp",
+            get(handle_mcp_list),
+        )
+        .route("/v1/model-mount/mcp/import", post(handle_mcp_import))
+        .route("/v1/model-mount/mcp/invoke", post(handle_mcp_invoke))
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
         .with_state(state);
 
@@ -1847,6 +1853,7 @@ async fn handle_responses(
         .unwrap_or_default()
         .to_string();
     let (previous_response_id, continuation) = continuation_for(&st, &body, &route);
+    let tool_receipt_ids = process_mcp_integrations(&st, &route, &body);
     let response_id = format!(
         "resp_{}",
         short_hash(&format!(
@@ -1878,6 +1885,7 @@ async fn handle_responses(
             "responseId": response_id,
             "previousResponseId": previous_response_id,
             "continuation": continuation,
+            "toolReceiptIds": tool_receipt_ids,
         }),
     );
     Ok(Json(json!({
@@ -1889,8 +1897,123 @@ async fn handle_responses(
         "output_text": text,
         "receipt_id": receipt_id,
         "previous_response_id": previous_response_id,
+        "tool_receipt_ids": tool_receipt_ids,
     }))
     .into_response())
+}
+
+// ---- Phase 5c.5: MCP import / invoke / list + ephemeral MCP integrations ----
+
+/// Author an `mcp_tool_invocation` receipt per ephemeral MCP integration on a
+/// /v1/responses call. Vault refs (integration headers) are NEVER persisted.
+fn process_mcp_integrations(st: &DaemonState, route: &RouteResolution, body: &Value) -> Vec<String> {
+    let mut ids = Vec::new();
+    let Some(integrations) = body.get("integrations").and_then(|v| v.as_array()) else {
+        return ids;
+    };
+    for (index, integration) in integrations.iter().enumerate() {
+        if integration.get("type").and_then(|v| v.as_str()) != Some("ephemeral_mcp") {
+            continue;
+        }
+        let server_label = integration.get("server_label").and_then(|v| v.as_str()).unwrap_or("mcp");
+        let allowed = integration.get("allowed_tools").cloned().unwrap_or(json!([]));
+        let tool = allowed.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()).unwrap_or("tool");
+        let receipt_id = format!(
+            "receipt_mcp_tool_invocation_{}",
+            short_hash(&format!("{}:{server_label}:{tool}:{index}", route.route_id))
+        );
+        let receipt = json!({
+            "id": receipt_id,
+            "kind": "mcp_tool_invocation",
+            "redaction": "redacted",
+            "createdAt": iso_now(),
+            "details": {
+                "serverLabel": server_label, "tool": tool, "ephemeral": true,
+                "routeId": route.route_id, "allowedTools": allowed,
+            },
+        });
+        let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+        ids.push(receipt_id);
+    }
+    ids
+}
+
+/// POST /v1/model-mount/mcp/import — register MCP servers (auth headers redacted
+/// to a hash; the raw vault ref is never persisted).
+async fn handle_mcp_import(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "mcp.import:*")?;
+    let servers = body
+        .get("mcpServers")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let mut count = 0u64;
+    let mut imported = Vec::new();
+    for (label, config) in &servers {
+        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or_default();
+        let allowed = config.get("allowed_tools").cloned().unwrap_or(json!([]));
+        let auth_ref_hash = config
+            .get("headers")
+            .and_then(|h| h.get("authorization"))
+            .and_then(|v| v.as_str())
+            .map(|secret| format!("sha256:{}", sha256_hex_str(secret)));
+        let record = json!({
+            "id": label, "label": label, "url": url, "allowedTools": allowed,
+            "authRefHash": auth_ref_hash, "status": "imported",
+            "object": "ioi.model_mount_mcp_server",
+        });
+        let _ = persist_record(&st.data_dir, "model-mcp-servers", label, &record);
+        imported.push(record);
+        count += 1;
+    }
+    Ok(Json(json!({ "count": count, "servers": imported })))
+}
+
+/// POST /v1/model-mount/mcp/invoke — governed MCP tool call (receipt only).
+async fn handle_mcp_invoke(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let server_label = body.get("server_label").and_then(|v| v.as_str()).unwrap_or("mcp").to_string();
+    let tool = body.get("tool").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
+    authorize(&st, &headers, &format!("mcp.call:{server_label}.{tool}"))?;
+    let receipt_id = format!(
+        "receipt_mcp_tool_invocation_{}",
+        short_hash(&format!("{server_label}:{tool}:{}", iso_now()))
+    );
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "mcp_tool_invocation",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": { "serverLabel": server_label, "tool": tool, "ephemeral": false },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({ "receipt": receipt, "result": { "status": "executed" } })))
+}
+
+/// GET /v1/model-mount/mcp — list registered MCP servers.
+async fn handle_mcp_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let dir = std::path::Path::new(&st.data_dir).join("model-mcp-servers");
+    let mut servers = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if entry.path().extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            if let Ok(bytes) = std::fs::read(entry.path()) {
+                if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
+                    servers.push(value);
+                }
+            }
+        }
+    }
+    Json(json!(servers))
 }
 
 /// Anthropic-compatible Messages API over the native-local kernel.
