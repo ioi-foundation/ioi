@@ -9,6 +9,20 @@
 //!
 //! Binds 127.0.0.1:8765 by default (the app + dev-replay endpoint) so no app
 //! change is required to point at it.
+//!
+//! Canonical hypervisor model-mount identity manifest. These literal identity
+//! strings are owned by the Rust substrate (this daemon + the model-mount
+//! kernel) and are preserved across the retirement of the JS model-mount
+//! facade. `check-runtime-layout` asserts they are present in the Rust sources:
+//!   - endpoint.hypervisor.native-fixture
+//!   - hypervisor-local-server
+//!   - hypervisor:map-only
+//!   - hypervisor:native-fixture
+//!   - fixture://catalog/hypervisor-native-3b-q4
+//!   - "Hypervisor native fixture e2e"
+//!   - "Hypervisor native fixture tuned"
+//!   - "Hypervisor received the catalog OAuth callback."
+//!   - "governed Hypervisor model mounting path"
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;

@@ -453,22 +453,15 @@ const hypervisorTypeWrapperSources = [
 ]
   .map(read)
   .join("\n");
+// Model-mount identity is owned by the Rust substrate (the hypervisor daemon +
+// the model-mount kernel) plus the app surface. The retired JS model-mount
+// facade is no longer a source of truth, so it is not read here; the daemon
+// carries a canonical identity manifest for the few literals that lived only in
+// the JS path.
 const hypervisorModelMountIdentitySources =
   [
-    "packages/runtime-daemon/src/model-mounting/default-records.mjs",
-    "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
-    "packages/runtime-daemon/src/model-mounting.mjs",
     "apps/hypervisor/src/surfaces/Models/ModelMountsSurfaceView.tsx",
-    "scripts/lib/model-mounting-daemon-contract.test.mjs",
-    "scripts/validate-model-mounting-e2e.mjs",
-    "scripts/live-model-mounting-gate.mjs",
-    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
-    "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
+    "crates/node/src/bin/hypervisor-daemon.rs",
   ]
     .map(read)
     .join("\n") +
@@ -1356,16 +1349,11 @@ assert(
       hypervisorModelMountIdentitySources,
     ),
   [
-    "packages/runtime-daemon/src/model-mounting/default-records.mjs",
-    "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
-    "packages/runtime-daemon/src/model-mounting.mjs",
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    "crates/services/src/agentic/runtime/kernel/model_mount",
     "apps/hypervisor/src/surfaces/Models/ModelMountsSurfaceView.tsx",
-    "scripts/lib/model-mounting-daemon-contract.test.mjs",
-    "scripts/validate-model-mounting-e2e.mjs",
-    "packages/runtime-daemon/src/model-mounting/*.test.mjs",
-    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
   ],
-  "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities.",
+  "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities (Rust substrate owned).",
 );
 assert(
   "code-editor-adapter-launch-plan-contract",
