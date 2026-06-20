@@ -62,6 +62,11 @@ const TIERS = {
     ),
   ],
   negative: [npmRun("check:runtime-layout")],
+  // The unified-Rust-daemon lifecycle ratchet: the Rust hypervisor-daemon owns the
+  // thread/agent/run/turn/events/control/MCP/task/job/subagent surface (spawns the
+  // Rust daemon and asserts the lifecycle contract). See
+  // internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md.
+  "rust-lifecycle": [node("scripts/validate-runtime-lifecycle-e2e.mjs")],
 };
 
 const DEFAULT_TIERS = [
@@ -75,6 +80,7 @@ const DEFAULT_TIERS = [
   "wallet",
   "candidates",
   "negative",
+  "rust-lifecycle",
 ];
 
 function usage() {
