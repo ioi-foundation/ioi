@@ -248,7 +248,6 @@ const vocabulary = fs.readFileSync(
 for (const required of [
   "`HypervisorWorkbench`",
   "`IOIAuthorityGateway`",
-  "`HypervisorGuard`",
   "`CompatibilityAdapter`",
   "`HypervisorAppShell`",
   "`GuestWorkload`",

@@ -1239,8 +1239,8 @@ IOI L1 anchors only selected public/economic commitments.
 ## Related Canon
 
 - [`../../domains/decentralized/README.md`](../../domains/decentralized/README.md):
-  decentralized.exchange, decentralized.trade, and the parked future
-  decentralized.cloud boundary note.
+  decentralized.exchange and decentralized.trade route/venue-intelligence
+  boundaries.
 - [`../../domains/decentralized/exchange.md`](../../domains/decentralized/exchange.md):
   route-source and spot/cross-chain exchange doctrine.
 - [`../../domains/decentralized/trade.md`](../../domains/decentralized/trade.md):

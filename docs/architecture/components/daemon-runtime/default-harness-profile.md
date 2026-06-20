@@ -2,7 +2,7 @@
 
 Status: canonical reference harness profile.
 Canonical owner: this file for HarnessProfile semantics, the Default Harness Profile reference scaffold/fallback, loop-native step resolution, context topology, output ownership, and implementation-stage object boundaries.
-Supersedes: standalone "Default Harness Runtime" wording when that wording implies a peer runtime beside the Hypervisor Daemon.
+Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 

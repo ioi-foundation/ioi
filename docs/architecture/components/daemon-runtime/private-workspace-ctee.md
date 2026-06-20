@@ -202,14 +202,6 @@ Private Workspace backed by cTEE owns:
 - protected remote-node routing rules;
 - sensitive-compute conformance checks.
 
-Compatibility aliases:
-
-```text
-PersistentShieldedHypervisorNode -> PrivateWorkspaceNode
-ShieldedTaskCapsule             -> PrivateWorkspaceCapsule
-shielded_persistent             -> private_workspace_ctee
-```
-
 It does not own wallet keys, Agentgres state, artifact payload bytes, IOI L1
 settlement, marketplace listings, or storage backend durability.
 
@@ -1391,96 +1383,6 @@ PrivateStrategyExecutionProfile:
       requires: capability_exit
       signer: wallet.network
       receipt: DeclassificationReceipt
-```
-
-## PersistentShieldedHypervisorNode
-
-Deprecated name. Prefer `PrivateWorkspaceNode`.
-
-```yaml
-PrivateWorkspaceNode:
-  node_id: runtime_node:...
-  workspace_profile: private_workspace_ctee
-  compatibility_mode_alias: shielded_persistent
-  execution_venue:
-    hosted | depin | provider | customer_vpc
-  gpu_profile:
-    class: consumer | datacenter | confidential_capable
-    model_hint: rtx_3090 | rtx_4090 | h100 | other
-    hardware_tee_claim:
-      none | attested | policy_required
-  daemon_profile_ref: default-harness-profile
-  agentgres_domain_ref: agentgres://domain/...
-  wallet_authority_ref: wallet://...
-  guardian_ref: guardian://...
-  sensitive_data_policy_ref: policy://...
-  default_execution_strategy: candidate_lattice_private_decoding
-  private_operator_tactics:
-    - guardian_selection
-    - masked_score
-    - secret_share
-    - garbled_rule
-    - homomorphic_score
-    - committed_witness
-  forbidden_plaintext_classes:
-    - pii
-    - strategy_source
-    - broker_credentials
-    - live_portfolio
-    - private_memory
-  persistent_state:
-    state_mode: encrypted_agentgres_refs
-    archive_refs:
-      - archive://...
-  receipts_required:
-    - NodeMeasurementReceipt
-    - PrivateInferenceReceipt
-    - DeclassificationReceipt
-    - CapabilityExitReceipt
-```
-
-## ShieldedTaskCapsule
-
-Deprecated name. Prefer `PrivateWorkspaceCapsule`.
-
-```yaml
-PrivateWorkspaceCapsule:
-  capsule_id: shielded_capsule://...
-  task_id: task:...
-  node_id: runtime_node:...
-  visible_context:
-    - public_dataset_ref
-    - redacted_summary
-    - public_schema
-    - bounded_objective
-  protected_context:
-    - encrypted_payload_ref: artifact://...
-    - alpha_seal_ref: alpha_seal://...
-    - private_memory_ref: memory://...
-  allowed_remote_ops:
-    - public_model_inference
-    - tensor_compute
-    - masked_score_eval
-    - encrypted_checkpoint_write
-  forbidden_remote_ops:
-    - plaintext_secret_read
-    - broker_key_read
-    - live_portfolio_plaintext_read
-    - unbounded_external_action
-  leakage_profile:
-    visible:
-      - task_type
-      - public_dataset_window
-      - tensor_dimensions
-      - runtime_cost
-    padded:
-      - output_size
-      - schedule_window
-  receipts:
-    required:
-      - private_inference
-      - artifact_recorded
-      - capability_exit_if_action
 ```
 
 ## AutonomyLease

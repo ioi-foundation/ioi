@@ -35,10 +35,6 @@ Hypervisor application surfaces
   Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
   Receipts/Audit
 
-Hypervisor Canvas
-  visual builder/editor inside Automations, Workbench, or Foundry; not runtime
-  truth
-
 ioi.ai collaborative outcome pattern
   chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over Hypervisor,
   with evidence, receipts, verifier state, and final ownership synthesis
@@ -192,8 +188,8 @@ Intent
 
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
-Workbench/Automations/Foundry surfaces, Canvas views, and
-provider/environment views are clients, projections, application surfaces,
+Workbench/Automations/Foundry surfaces, and provider/environment views are
+clients, projections, application surfaces,
 editors, views, or daemon-executed profiles.
 
 ## Route By Problem
@@ -357,8 +353,7 @@ Start here:
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
-Workbench/Automations/Foundry application surfaces, Canvas views,
-provider/environment views, package
+Workbench/Automations/Foundry application surfaces, provider/environment views, package
 install/publish flows, and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
 Daemon, Agentgres, wallet.network, and L1.
 
@@ -381,8 +376,8 @@ Use these meta docs while building:
 
 - [`_meta/source-of-truth-map.md`](./source-of-truth-map.md): where each
   concept is canonically owned.
-- [`_meta/vocabulary.md`](./vocabulary.md): canonical names and deprecated
-  wording.
+- [`_meta/vocabulary.md`](./vocabulary.md): canonical names and inactive naming
+  boundaries.
 - [`_meta/implementation-matrix.md`](./implementation-matrix.md): concept
   to durable form, owner, code anchor, and conformance hook.
 - [`_meta/canon-readability-audit.md`](./canon-readability-audit.md):
@@ -403,13 +398,11 @@ external CLI agent harness = Hypervisor runtime truth
 Codex/Claude Code/Grok Build = Hypervisor client
 Hypervisor Workbench/Automations/Foundry/provider views = runtime truth
 one editor shell = live parent product term
-Canvas = runtime truth or automation owner
 ioi.ai Goal Chat = durable automation owner
 provider posture = separate product surface, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
 decentralized.exchange/trade = mandatory UIs users must visit before Wallet
-parked future decentralized.cloud = present cloud gateway or privacy proof
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
@@ -433,7 +426,6 @@ Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 Hypervisor App/Web/CLI-headless are first-class clients
 TUI is an optional CLI presentation
 Hypervisor Workbench/Automations/Foundry are application surfaces over Core
-Canvas is a visual editor/projection, not a runtime owner
 ioi.ai Goal Chat proposes, coordinates, compares, and synthesizes
 ioi.ai collaborative outcomes are goal-appropriate multi-model/multi-path
 pursuits over Hypervisor with evidence, receipts, and authority gates

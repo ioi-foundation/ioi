@@ -328,10 +328,7 @@ schedule, API/service, approval-flow, queue-worker, and background
 mission surface over Hypervisor Core and the Workflow Compositor. It is
 where ad hoc work becomes reusable service shape, but it does not own
 execution semantics, wallet.network authority, Agentgres truth, receipts,
-or restore validity. \textbf{Hypervisor Canvas} is a visual
-editor/projection inside Automations, Workbench, or Foundry where a graph
-view is useful; Canvas state is layout and presentation, not runtime
-truth. \textbf{ioi.ai} is the intent and coordination surface that may
+or restore validity. \textbf{ioi.ai} is the intent and coordination surface that may
 ask, inspect, summarize, invoke existing work, or draft a handoff. When a
 goal benefits from multiple models, harnesses, workers, connectors,
 sessions, branches, or verifier lanes, ioi.ai may coordinate that
@@ -373,9 +370,9 @@ the following owner map:
   attestation, key share, approval, or declassification. It does not
   replace wallet.network as the authority layer.
 \item
-  \textbf{Hypervisor Guard} names a developer-facing adapter posture for
-  \textbf{IOI Authority Gateway} mediation. It is not a separate runtime,
-  authority root, or total-control promise over opaque third-party tools.
+  \textbf{IOI Authority Gateway} names the adapter posture for mediated
+  third-party tool integration. It is not a separate runtime, authority root,
+  or total-control promise over opaque third-party tools.
 \item
   \textbf{Vault} is a wallet.network product/security subcomponent for
   protected secrets and custody policy. It is not the application
@@ -5319,9 +5316,8 @@ integrations for local machines, customer clouds, hyperscalers,
 confidential-compute lanes, DePIN compute, decentralized storage, GPU
 markets, enterprise clusters, and user-specified provider routes while
 maintaining a unified authority, receipt, and verification layer.
-\emph{decentralized.cloud} is not a mandatory gateway in this path; it
-is reserved future product space for a possible public provider catalog
-or P2P/PQ-aware cloud-routing layer.
+Provider catalogs and route marketplaces are optional surfaces in this path,
+not mandatory gateways.
 
 The canonical provider-routing objects are:
 
@@ -10787,10 +10783,8 @@ while simple goals may remain single-path.
 \emph{Hypervisor CLI/headless} is the operator and automation client over
 Hypervisor Core and daemon APIs; IOI protocol subcommands may manage
 domains, manifests, receipts, authority scopes, Agentgres, and Mainnet
-interactions. \emph{decentralized.cloud} is parked future product space
-for a possible public provider catalog or P2P/PQ-aware cloud routing
-layer; current Hypervisor architecture uses direct provider integrations
-instead of a mandatory cloud gateway.
+interactions. Current Hypervisor architecture uses direct provider
+integrations instead of a mandatory cloud gateway.
 
 \textbf{Developer package boundary.} The low-level \textbf{IOISdk} is
 the protocol/client library over daemon APIs, Agentgres projections,

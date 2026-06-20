@@ -62,8 +62,7 @@ Current Hypervisor product-shell addition:
 > or resumes work, Projects organize persistent software/system work,
 > Automations own durable workflows/services, Applications expose specialized
 > surfaces, and Sessions show live and historical execution. Workbench,
-> Automations, and Foundry are application surfaces over the same Core; Canvas
-> is a visual editor/projection inside Automations, Workbench, or Foundry. ioi.ai
+> Automations, and Foundry are application surfaces over the same Core. ioi.ai
 > is the intent-to-outcome surface; when a goal calls for it, ioi.ai can
 > coordinate multiple models, harnesses, workers, connectors, sessions, branches,
 > and verifier lanes over Hypervisor. Foundry is the model, worker, eval,

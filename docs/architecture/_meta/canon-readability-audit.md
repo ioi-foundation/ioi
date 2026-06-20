@@ -38,7 +38,7 @@ This audit tracks the cleanup needed to make the canon:
 | --- | --- | --- | --- | --- |
 | [`start-here.md`](./start-here.md) | everyone | guided entry point | new file; keep synchronized with source map | maintain as first-read map |
 | [`_meta/source-of-truth-map.md`](./source-of-truth-map.md) | architects, implementers | strong owner table | must include new profile and matrix docs | keep owner rows complete |
-| [`_meta/vocabulary.md`](./vocabulary.md) | everyone | strong naming reference | stale terms must remain qualified only | keep `DefaultHarnessProfile`, `AgentWiki`, `ioi-memory` current |
+| [`_meta/vocabulary.md`](./vocabulary.md) | everyone | strong naming reference | inactive terms should stay out of the live reader path | keep `DefaultHarnessProfile`, `AgentWiki`, `ioi-memory` current |
 | [`_meta/implementation-matrix.md`](./implementation-matrix.md) | implementers | maps concept to durable form | new file; needs code anchors maintained | update whenever objects promote |
 | [`daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | runtime implementers | implementation-grade lifecycle and schemas | long but intentionally buildable | keep as canonical profile owner |
 | [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) | runtime/product/CLI | clear daemon ownership | long CLI appendix competes for attention | keep top canon crisp; label appendix as support |
@@ -79,14 +79,11 @@ implementation ownership.
 
 ## Terminology Watchlist
 
-Allowed only when qualified:
+Keep live wording to:
 
 ```text
-Default Harness Runtime
-  deprecated wording; use Default Harness Profile
-
-SCS
-  historical terminology; use Agent Wiki / ioi-memory for live architecture
+Default Harness Profile
+  selected profile for loop-native scoped step resolution
 
 CAS/Filecoin as runtime substrate
   wrong; storage backend / payload availability plane only
@@ -120,4 +117,4 @@ capability as authority
   marketplace surfaces apart.
 - An interop implementer can find AIIP as the shared protocol instead of
   inventing bespoke per-app protocols.
-- Stale terms appear only as explicitly deprecated or historical wording.
+- Inactive terms stay out of the live reader path.

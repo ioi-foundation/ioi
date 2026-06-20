@@ -165,9 +165,7 @@ Artifact/storage and projection planes
 ```
 
 The live product-memory name is `ioi-memory` and the user-facing/product
-surface should be called **Agent Wiki** or **memory**. `SCS` is legacy
-vocabulary removed as the product-memory architecture by ADR 0001; do not use
-`SCS` for new live architecture except when describing historical context.
+surface should be called **Agent Wiki** or **memory**.
 
 The Agent Wiki governs what agents can know, retrieve, and remember. Agentgres
 governs which memory changes become canonical, authorized, versioned,

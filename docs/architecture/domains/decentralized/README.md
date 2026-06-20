@@ -5,8 +5,9 @@ Canonical owner: this directory for the `decentralized.*` product/domain lanes
 and their boundaries with wallet.network, Hypervisor, Agentgres, storage
 backends, and IOI L1.
 Supersedes: product prose that treats `decentralized.exchange`,
-`decentralized.trade`, or parked future `decentralized.cloud` as authority
-layers, custody owners, execution owners, mandatory gateways, or trust roots.
+`decentralized.trade`, route-intelligence services, or venue-intelligence
+services as authority layers, custody owners, execution owners, mandatory
+gateways, or trust roots.
 Superseded by: none.
 Last alignment pass: 2026-06-14.
 
@@ -42,9 +43,8 @@ IOI L1 settles only triggered public, economic, dispute, registry,
 rights, reputation, or cross-domain commitments.
 ```
 
-`decentralized.cloud` is parked future product space. Present Hypervisor canon
-uses direct provider integrations for cloud compute, storage, GPUs,
-confidential compute, DePIN, local machines, customer cloud, enterprise
+Hypervisor canon uses direct provider integrations for cloud compute, storage,
+GPUs, confidential compute, DePIN, local machines, customer cloud, enterprise
 clusters, decentralized storage networks, and user-specified providers.
 
 ## Files
@@ -56,17 +56,13 @@ clusters, decentralized storage networks, and user-specified providers.
   leverage, margin, prediction markets, event contracts, position lifecycle,
   `TradeIntent`, `PredictionIntent`, `PositionReceipt`, `PredictionReceipt`,
   and agent-trading restrictions.
-- [`cloud-parked-future.md`](./cloud-parked-future.md): parked future
-  `decentralized.cloud` posture and the current Hypervisor direct-provider
-  integration boundary.
-
 ## Owns
 
 This directory owns:
 
 - the meaning of the `decentralized.*` names;
-- active versus parked status for `decentralized.exchange`,
-  `decentralized.trade`, and `decentralized.cloud`;
+- route and venue-intelligence boundaries for `decentralized.exchange` and
+  `decentralized.trade`;
 - the route-intelligence / venue-intelligence engine boundary;
 - cross-lane proposal/authority/execution/truth/settlement boundaries;
 - route-source and venue-adapter non-ownership doctrine;
@@ -122,16 +118,13 @@ IOI L1
   venue execution, provider resources, storage truth, or settlement truth.
 - Prediction markets and event contracts belong under `decentralized.trade` as
   event exposure, not under `decentralized.exchange` as asset conversion.
-- `decentralized.cloud` must remain parked future product space until a later
-  canon document promotes it explicitly.
 - Hypervisor must support direct provider integrations without routing through
-  `decentralized.cloud`.
+  a separate cloud gateway.
 
 ## Related Canon
 
 - [`exchange.md`](./exchange.md)
 - [`trade.md`](./trade.md)
-- [`cloud-parked-future.md`](./cloud-parked-future.md)
 - [`../../components/wallet-network/product-exchange-risk.md`](../../components/wallet-network/product-exchange-risk.md)
 - [`../../components/wallet-network/doctrine.md`](../../components/wallet-network/doctrine.md)
 - [`../../components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md)

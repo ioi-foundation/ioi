@@ -342,6 +342,7 @@ Receipts
 Monitoring
 Security / Governance
 Provider and environment views
+Change, rollout, recall, and remediation views
 Domain-specific operations consoles
 ```
 
@@ -378,6 +379,8 @@ Automations may own product-level projections for:
 - trigger, schedule, webhook, queue, and API entrypoints;
 - workflow/service graphs backed by Workflow Compositor contracts;
 - review points, approval gates, and output contracts;
+- change plans, rollout gates, release channels, maintenance windows,
+  suppression windows, canary/adjudication, recall, and remediation workflows;
 - run history, mission status, receipt views, and replay links;
 - service templates and reusable recipes;
 - Canvas editor state where a visual view is useful.
@@ -489,6 +492,8 @@ The compositor owns:
 - typed step contracts;
 - dependencies and handoff edges;
 - acceptance criteria and review points;
+- change-plan gates, rollout cohorts, maintenance windows, suppression windows,
+  recall/remediation handoff edges, and blocked-reason projections;
 - delivery contract and reusable templates;
 - harness, model, worker, provider, and verifier selection hints;
 - replay, receipt, authority, cTEE, and context-topology projections for the

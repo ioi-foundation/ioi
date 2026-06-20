@@ -240,9 +240,8 @@ For IOI specifically:
 - Agent Wiki / `ioi-memory` remains separate because context memory and general
   application state are not the same problem
 
-`SCS` is legacy terminology for a broad context substrate. ADR 0001 removed it
-as the product-memory architecture, so new architecture prose should use Agent
-Wiki, `ioi-memory`, or context-memory plane instead.
+New architecture prose should use Agent Wiki, `ioi-memory`, or context-memory
+plane for context-memory concerns.
 
 This separation is important:
 

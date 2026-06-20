@@ -1,7 +1,7 @@
 # Runtime Vocabulary
 
 Status: canonical vocabulary reference.
-Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
+Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-14.
@@ -253,13 +253,11 @@ compliance acronyms for hidden audit material.
 - `PrivateWorkspaceNode`: a rented or hosted runtime node that runs a
   Hypervisor Daemon and Hypervisor Node shell persistently while protected workspace state
   is stored and processed only through private workspace representations unless
-  explicitly declassified. `PersistentShieldedHypervisorNode` is a deprecated
-  compatibility alias.
+  explicitly declassified.
 - `PrivateWorkspaceCapsule`: the task/workspace capsule sent to an untrusted
   rented node. It carries visible public/redacted context, encrypted refs,
   sealed private heads, allowed remote ops, forbidden plaintext classes, leakage
-  profile, and required receipts. `ShieldedTaskCapsule` is a deprecated
-  compatibility alias.
+  profile, and required receipts.
 - `AlphaSeal`: a sealed private strategy capsule for quantitative strategies or
   similar high-value logic. It binds a public compute trunk, private strategy
   head, leakage profile, policy, wallet authority, and receipts.
@@ -325,11 +323,6 @@ compliance acronyms for hidden audit material.
   paper venues, venue comparison, and trade-candidate receipts; it does not own
   user authority, custody, final approval, venue execution, market resolution,
   user positions, policy, or settlement truth.
-- `FutureDecentralizedCloud`: parked future product space for a possible public
-  provider catalog, P2P/PQ-aware cloud routing layer, compute/storage receipt
-  explorer, provider reputation surface, or infrastructure marketplace. It is
-  not part of the present canon spine and must not be required for Hypervisor
-  provider integrations.
 - `TradeIntent`: the semantic wallet object above raw venue order or calldata.
   It binds venue, market, side, collateral, leverage, margin mode, order type,
   liquidation/funding assumptions, max-loss policy, simulation, risk labels,
@@ -648,8 +641,7 @@ compliance acronyms for hidden audit material.
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Automations, Canvas, Foundry, or provider/environment view by
-  itself.
+  Workbench, Automations, Foundry, or provider/environment view by itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
@@ -792,8 +784,7 @@ compliance acronyms for hidden audit material.
 - `ioi-memory`: the live product-memory implementation boundary for runtime
   memory, thread checkpoints, core and archival memory, local evidence blobs,
   and enrichment jobs. It is a context-memory plane, not Agentgres and not IOI
-  L1. `SCS` is legacy terminology removed as the product-memory architecture by
-  ADR 0001.
+  L1.
 - `ContextMemoryPlane`: the adjacent memory/retrieval plane that governs what
   agents can know, remember, and retrieve. Agentgres governs which context
   changes are canonical, replayable, portable, shared, policy-relevant, or
@@ -931,16 +922,10 @@ compliance acronyms for hidden audit material.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
-- `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
-  adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
-  Codex, Claude Code, Grok Build, JetBrains, OpenHands, Aider, hosted agents,
-  and similar tools," but canonical runtime authority still belongs to the
-  Hypervisor Daemon.
 - `HypervisorAppShell`: implementation-level native shell for Hypervisor App.
   It owns shell affordances such as windows, deep links, tray, shortcuts,
-  updater, auth handoff, and daemon supervision. Electron/VS Code fork,
-  Tauri/OpenVSCode embedding, and similar shells are implementation choices or
-  legacy extraction inventory, not Hypervisor's product identity.
+  updater, auth handoff, and daemon supervision. Shell framework selection is an
+  implementation choice, not Hypervisor's product identity.
 - `HypervisorDesktop`: the local/private device automation mode within the
   Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.
@@ -959,11 +944,6 @@ compliance acronyms for hidden audit material.
   systems, workers, service modules, harnesses, evals, manifests, receipts, and
   deployment profiles. It may be built on top of SDK clients, but it is a
   builder framework, not an operator shell and not the daemon/runtime owner.
-- `AgentIde`: deprecated live product/surface wording. Use
-  `HypervisorWorkbench` for the code/systems/workspace surface and
-  `WorkflowCompositor` for high-level directed workflow/service graph
-  authoring. Historical package names may remain as implementation anchors, but
-  canonical run/session/task truth remains in daemon/Agentgres state.
 - `CompatibilityAdapter`: an IDE extension, CLI wrapper, MCP gateway, shell
   shim, Git hook, workspace watcher, API proxy, browser/cloud connector, or
   CI/CD gate that observes or submits proposed actions to the daemon. It is a

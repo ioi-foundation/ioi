@@ -70,6 +70,11 @@ session access leases
 services, tasks, ports, logs, and support posture
 SCM auth requirements
 cost, health, utilization, and placement views
+target-vs-observed environment and workload state
+change plans, release channels, maintenance windows, suppression windows,
+adjudication, recall, and remediation posture
+supply-chain, SBOM, vulnerability, and deployed-where evidence as
+Agentgres-backed refs
 zero-to-idle and restore posture
 archive/restore refs as projections over Agentgres truth
 ```
@@ -141,9 +146,6 @@ workloads when policy allows. Filecoin can hold encrypted payload/archive bytes
 and retrieval commitments. Neither owns Hypervisor execution, wallet authority,
 Agentgres artifact meaning, private plaintext, or restore validity.
 
-`decentralized.cloud` is parked future product space. It is not present canon,
-not a required cloud gateway, and not the provider abstraction for Hypervisor.
-
 ## Environment Ops
 
 Canonical environment ops objects:
@@ -161,6 +163,24 @@ HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
 HypervisorScmAuthRequirement
+HypervisorTargetState
+HypervisorObservedState
+HypervisorEnvironmentInstallation
+DeployedWhereIndex
+HypervisorChangePlan
+ChangePlanGate
+ReleaseChannel
+MaintenanceWindow
+SuppressionWindow
+CanaryRun
+AdjudicationReceipt
+RecallPolicy
+RecallReceipt
+RemediationPlan
+SupplyChainManifestRef
+SBOMRef
+VulnerabilityFinding
+PatchSlaPolicy
 ```
 
 Hypervisor may initiate or display:
@@ -282,6 +302,174 @@ owner-token authority                      ->  wallet.network capability leases 
 The status object is a projection of Agentgres-admitted truth: component phases,
 ports, and initializer state are not authoritative until the daemon records the
 operation, state root, authority context, and receipt that produced them.
+
+## Change Plane
+
+Hypervisor should manage infrastructure and autonomous-work changes as explicit
+plans, not as invisible provider control loops.
+
+The canonical change-plane flow is:
+
+```text
+policy, release channel, and desired posture
+  -> HypervisorTargetState
+  -> HypervisorObservedState from daemon/provider/scanner evidence
+  -> HypervisorChangePlan with gates and constraints
+  -> wallet, maintenance-window, suppression-window, privacy, and spend checks
+  -> staged daemon/provider execution
+  -> canary, adjudication, recall, or remediation receipts
+  -> Agentgres-admitted truth and projections
+```
+
+This is broader than software deployment. A change plan may cover release
+upgrades, configuration changes, connector changes, secret rotation, model-route
+changes, provider placement, workspace image changes, dependency/schema
+migrations, vulnerability remediation, restore repair, or environment
+reconciliation.
+
+### Target And Observed State
+
+`HypervisorTargetState` is the policy-shaped target for an environment,
+session, service, worker, model route, connector, or project. It should prefer
+durable intent over brittle exact pins when policy allows:
+
+```text
+release channel
+allowed version or model-route range
+required labels, attestations, or SBOM posture
+provider class and placement constraints
+cTEE/private workspace posture
+budget, latency, region, data-locality, and support constraints
+maintenance window and suppression window refs
+dependency and migration constraints
+```
+
+`HypervisorObservedState` is admitted evidence about what is actually deployed
+or running. It may originate from daemon heartbeats, provider connectors,
+runtime probes, log streams, vulnerability scanners, package registries,
+artifact registries, model registries, or storage-backend checks. Observed state
+does not become truth until Agentgres admits the evidence, object refs, state
+roots, authority context, and receipts that produced it.
+
+`HypervisorEnvironmentInstallation` binds an installed product, worker, model
+route, service, connector, module, image, dataset, or automation to an
+environment/session/project with:
+
+```text
+installation_ref
+environment_ref / session_ref / project_ref
+artifact_ref / model_route_ref / worker_package_ref / connector_ref
+target_state_ref
+observed_state_ref
+release_channel_ref?
+authority_scope_refs
+receipt_refs
+```
+
+### Plans, Gates, And Execution
+
+`HypervisorChangePlan` is the visible, inspectable unit of environment change.
+It should include:
+
+```text
+plan_ref
+target_ref and observed_ref
+plan_type
+steps and rollback_steps
+required ChangePlanGate refs
+affected sessions, environments, providers, services, model routes, workers,
+connectors, secrets, ports, storage refs, and datasets
+maintenance_window_ref / suppression_window_ref
+authority_scope_refs
+expected spend and risk posture
+privacy and cTEE posture
+state_root_ref and receipt_refs
+reason_when_blocked
+```
+
+Change plans may be proposed by Automations, Workbench, Foundry, ioi.ai,
+provider views, scanner findings, policy engines, or human operators. They are
+executed only through Hypervisor Core and the daemon/provider boundary.
+wallet.network authorizes spend, secret release, SCM auth, access,
+declassification, and emergency overrides. Agentgres records plan lifecycle,
+state roots, receipts, rollback outcomes, and replay projections.
+
+`ChangePlanGate` covers constraints that must be satisfied before execution:
+
+```text
+wallet approval
+maintenance window
+suppression window not active
+release channel eligibility
+recall not active
+dependency/schema migration readiness
+health, liveness, and readiness checks
+SBOM/vulnerability policy
+cTEE/private workspace posture
+budget, region, data locality, support, and provider-capacity checks
+operator required approval or break-glass receipt
+```
+
+If no plan can execute, the product should show the blocked reason and the
+object or policy that would unblock it. Silent "no work" states are not a
+canonical Hypervisor UX.
+
+### Channels, Windows, And Suppression
+
+`ReleaseChannel` groups eligible releases, model routes, worker packages,
+connectors, modules, images, or automation versions by policy posture. A
+session or environment may track a channel instead of a fixed version when the
+operator wants governed continuous improvement.
+
+`MaintenanceWindow` defines when disruptive or risky plans may run.
+`SuppressionWindow` blocks additional work after a human hold, failed rollout,
+incident signal, privacy concern, provider degradation, or automated failure
+threshold. Human suppression must be respected until an authorized actor clears
+it. Automated suppression may allow rollback or urgent remediation when policy
+permits.
+
+### Canary, Adjudication, Recall, And Remediation
+
+`CanaryRun` is a staged execution slice with explicit cohort, health,
+readiness, eval, receipt, and rollback criteria.
+
+`AdjudicationReceipt` records whether a canary, rollout, model-route change,
+connector change, or remediation met its acceptance criteria. Promotion,
+rollback, or further rollout should depend on admitted adjudication, not raw
+provider logs.
+
+`RecallPolicy` and `RecallReceipt` are how Hypervisor blocks or rolls off bad
+releases, model routes, workers, connectors, images, datasets, automation
+versions, or provider placements. A recall must:
+
+```text
+identify the affected range or artifact refs
+block further promotion or placement while active
+prioritize roll-off, rollback, or patched replacement plans
+record issuer, reason, risk posture, and authority refs
+emit receipts for affected environments and sessions
+```
+
+`RemediationPlan` is a change plan specialized for repairing a risk:
+vulnerability, bad release, failed migration, broken connector, compromised
+secret, invalid archive material, provider outage, cTEE posture regression, or
+deployed-where mismatch.
+
+### Supply Chain And Deployed-Where Evidence
+
+`DeployedWhereIndex` answers what version, image, worker, model route, connector,
+dataset, automation, or package is active in which session, environment,
+provider, project, tenant, region, or customer-controlled domain.
+
+`SupplyChainManifestRef`, `SBOMRef`, `VulnerabilityFinding`, and
+`PatchSlaPolicy` are evidence-backed refs used by change gates and recalls.
+Scanner output, registry metadata, and provider inventory are evidence until
+Agentgres admits them with source, time, artifact refs, state roots, and
+receipt context.
+
+Deployed-where and vulnerability posture should be visible from provider,
+environment, project, application, receipt, and automation views because IOI
+operates autonomous work across more than one deployment plane.
 
 ## Session UX Doctrine
 
@@ -414,6 +602,18 @@ restore/import receipt chain.
 - Access, logs, support, ports, SCM auth, archive, restore, service, and task
   actions must be policy-bound and receipted when they affect authority,
   privacy, replay, cost, or restore.
+- Change plans must be visible units with gates, affected objects, blocked
+  reasons, daemon/provider execution, Agentgres lifecycle refs, and receipts.
+- Target state, observed state, scanner findings, registry metadata, provider
+  logs, and raw health output are evidence until Agentgres admits them.
+- Release channel promotion, rollback, recall, remediation, emergency override,
+  secret release, spend, and private/cTEE placement must route through the
+  appropriate wallet and policy gates.
+- Active recalls must block affected versions, routes, workers, connectors,
+  images, datasets, or placements until an admitted clearance or authorized
+  exception exists.
+- Deployed-where indexes must derive from admitted environment/session/project
+  refs and receipts, not provider inventory alone.
 - Cheap DePIN compute must not be described as private unless cTEE, TEE,
   local-only, or customer-controlled posture supports that claim.
 
@@ -429,10 +629,18 @@ provider posture = provider authority
 provider posture = Agentgres replacement
 provider posture = storage truth
 cloud provider catalog = compute provider
-future decentralized.cloud = mandatory gateway
 provider lifecycle state = restore truth
 encrypted blob = restore truth
 cheap DePIN GPU route = private route
+target state = provider truth
+observed state = Agentgres truth without admission
+scanner output = authority
+rollout = wallet/network bypass
+release channel = blind auto-upgrade
+maintenance window = calendar note outside policy
+suppression window = hidden provider flag
+recall = unreceipted provider toggle
+deployed-where = raw provider inventory
 ```
 
 Correct:
