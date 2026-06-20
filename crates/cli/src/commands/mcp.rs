@@ -3,17 +3,27 @@ use clap::{Parser, Subcommand};
 use ioi_types::config::{
     McpConfigEntry, McpContainmentMode, McpMode, McpServerTier, WorkloadConfig,
 };
+use reqwest::Method;
 use serde::Serialize;
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use super::model_mount_http::print_value;
+use super::model_mount_http::{daemon_request, print_value};
 
 #[derive(Parser, Debug)]
 pub struct McpArgs {
     /// Path to workload.toml.
     #[clap(long, default_value = "workload.toml")]
     pub workload: PathBuf,
+
+    /// Runtime daemon endpoint. Defaults to IOI_DAEMON_ENDPOINT or http://127.0.0.1:8765.
+    #[clap(long)]
+    pub endpoint: Option<String>,
+
+    /// Capability token. Defaults to IOI_DAEMON_TOKEN.
+    #[clap(long)]
+    pub token: Option<String>,
 
     /// Emit machine-readable JSON.
     #[clap(long)]
@@ -29,6 +39,18 @@ pub enum McpCommands {
     Validate { path: PathBuf },
     /// List configured MCP servers and containment posture.
     List,
+    /// List MCP servers registered with the runtime daemon.
+    Ls,
+    /// Invoke a governed MCP tool through the runtime daemon.
+    Invoke {
+        #[clap(long)]
+        server_label: String,
+        #[clap(long)]
+        tool: String,
+        /// Tool input as a JSON object string.
+        #[clap(long, default_value = "{}")]
+        input_json: String,
+    },
     /// Inspect one configured MCP server.
     Inspect { server: String },
     /// Show declared MCP tool allowlists.
@@ -80,6 +102,7 @@ struct McpStaticCheck {
 }
 
 pub async fn run(args: McpArgs) -> Result<()> {
+    // Daemon-backed subcommands (no workload.toml required).
     match &args.command {
         McpCommands::Validate { path } => {
             let value = read_json_value(path)?;
@@ -96,12 +119,42 @@ pub async fn run(args: McpArgs) -> Result<()> {
             });
             return print_value(&report, args.json);
         }
+        McpCommands::Ls => {
+            let value = daemon_request(
+                args.endpoint.as_deref(),
+                args.token.as_deref(),
+                Method::GET,
+                "/v1/model-mount/mcp",
+                None,
+            )
+            .await?;
+            return print_value(&value, args.json);
+        }
+        McpCommands::Invoke {
+            server_label,
+            tool,
+            input_json,
+        } => {
+            let input: serde_json::Value = serde_json::from_str(input_json)
+                .with_context(|| format!("failed to parse --input-json: {input_json}"))?;
+            let value = daemon_request(
+                args.endpoint.as_deref(),
+                args.token.as_deref(),
+                Method::POST,
+                "/v1/model-mount/mcp/invoke",
+                Some(json!({ "server_label": server_label, "tool": tool, "input": input })),
+            )
+            .await?;
+            return print_value(&value, args.json);
+        }
         _ => {}
     }
 
     let workload = read_workload(&args.workload)?;
     match args.command {
-        McpCommands::Validate { .. } => Ok(()),
+        McpCommands::Validate { .. }
+        | McpCommands::Ls
+        | McpCommands::Invoke { .. } => Ok(()),
         McpCommands::List => print_list(&workload, args.json),
         McpCommands::Inspect { server } => print_inspect(&workload, &server, args.json),
         McpCommands::Tools { server } => print_tools(&workload, &server, args.json),

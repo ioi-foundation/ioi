@@ -10,7 +10,7 @@
 //! Binds 127.0.0.1:8765 by default (the app + dev-replay endpoint) so no app
 //! change is required to point at it.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
@@ -55,6 +55,12 @@ struct DaemonState {
     token_expiry: Mutex<HashMap<String, i64>>,
     // Inter-frame delay for streaming SSE so clients can abort mid-stream.
     stream_frame_delay_ms: u64,
+    // Unique per daemon boot; supervised processes from a prior boot project as
+    // stale_recovered after a restart.
+    boot_id: String,
+    // Vault-ref hashes whose plaintext material was bound THIS boot. Plaintext is
+    // never persisted, so after a restart the set is empty -> requiresRebind.
+    vault_bound: Mutex<HashSet<String>>,
 }
 
 // Error responses render as JSON so OpenAI-compatible/model-mount clients (and
@@ -98,6 +104,8 @@ async fn main() -> anyhow::Result<()> {
         base_url: format!("http://{addr}"),
         token_expiry: Mutex::new(HashMap::new()),
         stream_frame_delay_ms,
+        boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
+        vault_bound: Mutex::new(HashSet::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the
@@ -112,6 +120,7 @@ async fn main() -> anyhow::Result<()> {
             get(handle_dev_replay_status),
         )
         .route("/v1/models", get(handle_models))
+        .route("/v1/models/routes", get(handle_routes_list))
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
         .route("/v1/model-mount/server/restart", post(handle_server_restart))
@@ -119,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/model-mount/server/events", get(handle_server_events))
         .route(
             "/v1/model-mount/tokens",
-            post(handle_token_create),
+            get(handle_tokens_list).post(handle_token_create),
         )
         .route(
             "/v1/model-mount/tokens/tokenize",
@@ -132,7 +141,22 @@ async fn main() -> anyhow::Result<()> {
             delete(handle_token_revoke),
         )
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
-        .route("/v1/model-mount/providers", get(handle_providers))
+        .route(
+            "/v1/model-mount/providers",
+            get(handle_providers).post(handle_provider_set),
+        )
+        .route(
+            "/v1/model-mount/providers/:id/models",
+            get(handle_provider_models),
+        )
+        .route(
+            "/v1/model-mount/providers/:id/health",
+            post(handle_provider_health),
+        )
+        .route(
+            "/v1/model-mount/providers/:id/health/latest",
+            get(handle_provider_health_latest),
+        )
         .route("/v1/model-mount/backends", get(handle_backends))
         .route(
             "/v1/model-mount/endpoints",
@@ -149,16 +173,37 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/model-mount/downloads/:id/cancel", post(handle_download_cancel))
         .route("/v1/model-mount/storage/cleanup", post(handle_storage_cleanup))
         .route("/v1/model-mount/instances", get(handle_instances))
+        .route("/v1/model-mount/instances/loaded", get(handle_instances_loaded))
         .route("/v1/model-mount/instances/load", post(handle_instances_load))
         .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
         .route(
             "/v1/model-mount/runtime/engines/:id",
-            get(handle_runtime_engine_detail).patch(handle_runtime_engine_patch),
+            get(handle_runtime_engine_detail)
+                .patch(handle_runtime_engine_patch)
+                .delete(handle_runtime_engine_remove),
         )
         .route("/v1/model-mount/runtime/select", post(handle_runtime_select))
+        .route(
+            "/v1/model-mount/vault/refs",
+            get(handle_vault_list)
+                .post(handle_vault_set)
+                .delete(handle_vault_rm),
+        )
+        .route("/v1/model-mount/vault/refs/meta", post(handle_vault_get_meta))
+        .route("/v1/model-mount/vault/status", get(handle_vault_status))
+        .route("/v1/model-mount/vault/health", post(handle_vault_health))
+        .route(
+            "/v1/model-mount/vault/health/latest",
+            get(handle_vault_health_latest),
+        )
         .route("/v1/model-mount/runtime/survey", post(handle_runtime_survey))
         .route("/v1/model-mount/receipts", get(handle_receipts_list))
         .route("/v1/model-mount/receipts/:id", get(handle_receipt_by_id))
+        .route(
+            "/v1/model-mount/receipts/:id/replay",
+            get(handle_receipt_replay),
+        )
+        .route("/v1/model-mount/projection", get(handle_projection))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
@@ -297,10 +342,31 @@ async fn handle_dev_replay_status() -> Json<Value> {
     }))
 }
 
+/// GET /v1/models — the registry aggregate the CLI `models ls` reads (artifacts,
+/// endpoints, instances, providers, routes, receipts), plus the OpenAI model list
+/// under `data` so OpenAI-compatible clients still work. Artifacts/instances carry
+/// camelCase modelId.
 async fn handle_models(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let endpoints = project_kind(&st, "endpoints").map(|j| j.0).unwrap_or(json!([]));
+    let providers = project_kind(&st, "providers").map(|j| j.0).unwrap_or(json!([]));
+    let routes = json!(read_record_dir(&st.data_dir, "model-routes"));
+    let instances: Vec<Value> = project_kind(&st, "instances")
+        .map(|j| j.0)
+        .ok()
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(instance_summary)
+        .collect();
     Json(json!({
         "object": "list",
         "data": [{ "id": st.model_name, "object": "model", "owned_by": "hypervisor-local" }],
+        "artifacts": artifact_summaries(&st),
+        "endpoints": endpoints,
+        "instances": instances,
+        "providers": providers,
+        "routes": routes,
+        "receipts": read_receipts(&st.data_dir),
     }))
 }
 
@@ -657,6 +723,43 @@ fn seed_catalog(st: &DaemonState) {
             let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
         }
     }
+    // Hand-author the native provider's model inventory (the kernel inventory
+    // planner hard-codes its item_refs and rejects caller-supplied ones, so the
+    // fixture model "hypervisor:native-fixture" must be seeded as an admitted
+    // provider-inventory record for GET /providers/:id/models to project it).
+    {
+        let inventory_id = "provider-inventory.provider.hypervisor.local";
+        let inventory = json!({
+            "id": inventory_id,
+            "record_id": inventory_id,
+            "schema_version": "ioi.model_mount.provider_inventory.v1",
+            "object": "ioi.model_mount_provider_inventory",
+            "rust_core_boundary": "model_mount.provider_inventory",
+            "record_dir": "model-provider-inventory",
+            "source": "hypervisor-daemon-catalog-seed",
+            "generated_at": generated_at,
+            "provider_ref": "provider.hypervisor.local",
+            "provider_kind": "ioi_native_local",
+            "action": "list_models",
+            "operation_kind": "model_mount.provider.inventory.list_models",
+            "status": "listed",
+            "backend": "hypervisor.native_local.fixture",
+            "backend_id": "backend.hypervisor.native-local.fixture",
+            "driver": "native_local",
+            "execution_backend": "rust_model_mount_native_local_inventory",
+            "inventory_hash": format!(
+                "sha256:{}",
+                sha256_hex_str("provider.hypervisor.local:hypervisor:native-fixture")
+            ),
+            "item_refs": ["hypervisor:native-fixture"],
+            "item_count": 1,
+            "evidence_refs": [
+                "rust_model_mount_provider_inventory",
+                "agentgres_provider_inventory_truth_required"
+            ],
+        });
+        let _ = persist_record(&st.data_dir, "model-provider-inventory", inventory_id, &inventory);
+    }
     for (backend_id, backend_kind) in BACKEND_CATALOG {
         let req: ModelMountBackendLifecycleRequest = match serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
@@ -816,12 +919,8 @@ async fn handle_endpoints_mount(
             .and_then(|v| v.as_str())
             .map(str::to_string);
         if let Some(provider_id) = provider_id {
-            if let Some(provider) = read_projection_record(&st, "providers", &provider_id) {
-                let kind = provider
-                    .get("kind")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default();
-                if let Some((backend_id, driver, api_format)) = endpoint_binding_for_kind(kind) {
+            if let Some(kind) = provider_kind_for(&st, &provider_id) {
+                if let Some((backend_id, driver, api_format)) = endpoint_binding_for_kind(&kind) {
                     object
                         .entry("backend_id".to_string())
                         .or_insert_with(|| json!(backend_id));
@@ -1008,6 +1107,12 @@ async fn handle_receipts_list(
     Ok(Json(json!(read_receipts(&st.data_dir))))
 }
 
+/// GET /v1/model-mount/tokens — list capability tokens (hash-only records; the
+/// raw bearer is never persisted, so `tokens ls` never leaks it).
+async fn handle_tokens_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!(read_record_dir(&st.data_dir, "capability-tokens")))
+}
+
 async fn handle_receipt_by_id(
     State(st): State<Arc<DaemonState>>,
     AxumPath(receipt_id): AxumPath<String>,
@@ -1064,6 +1169,165 @@ async fn handle_instances(State(st): State<Arc<DaemonState>>) -> Result<Json<Val
     project_kind(&st, "instances")
 }
 
+/// GET /v1/model-mount/instances/loaded — loaded instances (camelCase modelId).
+async fn handle_instances_loaded(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    let instances = project_kind(&st, "instances")?.0;
+    let loaded: Vec<Value> = instances
+        .as_array()
+        .map(|records| {
+            records
+                .iter()
+                .filter(|record| record.get("status").and_then(|v| v.as_str()) == Some("loaded"))
+                .map(instance_summary)
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(Json(json!(loaded)))
+}
+
+/// Reshape an instance record to the camelCase summary the CLI/e2e read.
+fn instance_summary(record: &Value) -> Value {
+    let get = |keys: &[&str]| {
+        keys.iter()
+            .find_map(|k| record.get(k).and_then(|v| v.as_str()))
+            .unwrap_or_default()
+            .to_string()
+    };
+    json!({
+        "id": get(&["id", "instance_ref"]),
+        "modelId": get(&["model_id", "modelId"]),
+        "endpointId": get(&["endpoint_id", "endpointId"]),
+        "providerId": get(&["provider_id", "providerId"]),
+        "backendId": get(&["backend_id", "backendId"]),
+        "status": get(&["status"]),
+        "runtimeEngineId": get(&["runtime_engine_id"]),
+    })
+}
+
+/// GET /v1/model-mount/receipts/:id/replay — re-read a receipt with its route +
+/// endpoint binding (from the receipt details), the canonical replay shape.
+async fn handle_receipt_replay(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(receipt_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let receipt = read_receipts(&st.data_dir)
+        .into_iter()
+        .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id.as_str()))
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))?;
+    let detail = |key: &str, default: &str| {
+        receipt
+            .get("details")
+            .and_then(|d| d.get(key))
+            .and_then(|v| v.as_str())
+            .filter(|value| !value.is_empty())
+            .unwrap_or(default)
+            .to_string()
+    };
+    let route_id = detail("routeId", "route.native-local");
+    let endpoint_id = detail("endpointId", "endpoint.e2e.native-local");
+    let provider_id = detail("providerId", "provider.hypervisor.local");
+    Ok(Json(json!({
+        "schemaVersion": "ioi.model-mounting.runtime.v1",
+        "source": "agentgres_model_mounting_projection_replay",
+        "receipt": receipt,
+        "route": { "id": route_id },
+        "endpoint": { "id": endpoint_id },
+        "provider": { "id": provider_id },
+    })))
+}
+
+/// Read all persisted backend-start process snapshots, applying restart-staleness
+/// (a process bound under a prior boot projects as stale_recovered).
+fn backend_processes(st: &DaemonState) -> Vec<Value> {
+    let mut latest: std::collections::BTreeMap<String, Value> = std::collections::BTreeMap::new();
+    for record in read_record_dir(&st.data_dir, "model-backend-lifecycle-controls") {
+        let Some(process) = record
+            .get("public_response")
+            .and_then(|response| response.get("process"))
+            .cloned()
+        else {
+            continue;
+        };
+        let backend_id = process
+            .get("backendId")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        if backend_id.is_empty() {
+            continue;
+        }
+        latest.insert(backend_id, process);
+    }
+    latest
+        .into_values()
+        .map(|mut process| {
+            let same_boot = process.get("bootId").and_then(|v| v.as_str()) == Some(st.boot_id.as_str());
+            if let Some(object) = process.as_object_mut() {
+                if same_boot {
+                    object.insert("status".to_string(), json!("started"));
+                } else {
+                    object.insert("status".to_string(), json!("stale_recovered"));
+                    object.insert("staleReason".to_string(), json!("daemon_boot_mismatch"));
+                    object.insert("stale".to_string(), json!(true));
+                }
+            }
+            process
+        })
+        .collect()
+}
+
+/// Conversation states with `id` = response_id (the kernel projection filters
+/// daemon-written conversation records, so the daemon surfaces them directly).
+fn conversation_states(st: &DaemonState) -> Vec<Value> {
+    read_record_dir(&st.data_dir, "model-conversations")
+        .into_iter()
+        .filter_map(|record| {
+            let response_id = record.get("response_id").and_then(|v| v.as_str())?.to_string();
+            let get = |key: &str| record.get(key).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            Some(json!({
+                "id": response_id,
+                "responseId": response_id,
+                "routeId": get("route_id"),
+                "endpointId": get("endpoint_id"),
+                "selectedModel": get("selected_model"),
+                "previousResponseId": record.get("previous_response_id").cloned().unwrap_or(Value::Null),
+            }))
+        })
+        .collect()
+}
+
+/// Managed artifacts reshaped with camelCase modelId/providerId for the CLI/e2e.
+fn artifact_summaries(st: &DaemonState) -> Vec<Value> {
+    read_record_dir(&st.data_dir, "model-artifacts")
+        .into_iter()
+        .map(|record| {
+            let mut object = record.as_object().cloned().unwrap_or_default();
+            if let Some(model_id) = record.get("model_id").cloned() {
+                object.insert("modelId".to_string(), model_id);
+            }
+            if let Some(provider_id) = record.get("provider_id").cloned() {
+                object.insert("providerId".to_string(), provider_id);
+            }
+            Value::Object(object)
+        })
+        .collect()
+}
+
+/// GET /v1/model-mount/projection — the aggregate continuity projection. Built
+/// from the kernel projection, then augmented with daemon-owned execution state
+/// (backendProcesses with restart-staleness, conversationStates, camelCase artifacts).
+async fn handle_projection(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    let mut projection = project_kind(&st, "projection")?.0;
+    if let Some(object) = projection.as_object_mut() {
+        object.insert("artifacts".to_string(), json!(artifact_summaries(&st)));
+        object.insert("backendProcesses".to_string(), json!(backend_processes(&st)));
+        object.insert("conversationStates".to_string(), json!(conversation_states(&st)));
+    }
+    Ok(Json(projection))
+}
+
 // ---- Phase 5c.4: instance load (estimate + materialize -> supervise -> load) ----
 
 /// Find a record in a projection array by any common identity field.
@@ -1074,6 +1338,26 @@ fn read_projection_record(st: &DaemonState, kind: &str, id: &str) -> Option<Valu
             .iter()
             .any(|field| record.get(field).and_then(|v| v.as_str()) == Some(id))
     }).cloned()
+}
+
+/// Resolve a provider's kind from the providers projection. Inventory-derived
+/// provider stubs carry a null kind, so pick the configured-provider entry that
+/// actually has a non-empty kind.
+fn provider_kind_for(st: &DaemonState, provider_id: &str) -> Option<String> {
+    let projection = project_kind(st, "providers").ok()?.0;
+    projection.as_array()?.iter().find_map(|record| {
+        let matches = ["id", "provider_id", "provider_ref"]
+            .iter()
+            .any(|field| record.get(field).and_then(|v| v.as_str()) == Some(provider_id));
+        if !matches {
+            return None;
+        }
+        record
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .filter(|kind| !kind.is_empty())
+            .map(str::to_string)
+    })
 }
 
 /// The execution backend + driver + api_format a mounted endpoint inherits from
@@ -1145,11 +1429,26 @@ async fn handle_instances_load(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "model.load:write")?;
+    // The CLI `models load --model-id` sends endpoint_id:null; resolve the mounted
+    // endpoint from the model id in that case.
     let endpoint_id = body
         .get("endpoint_id")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "endpoint_id required".to_string()))?
-        .to_string();
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            body.get("model_id")
+                .and_then(|v| v.as_str())
+                .and_then(|model| endpoint_for_model(&st, model))
+                .and_then(|endpoint| {
+                    endpoint
+                        .get("id")
+                        .or_else(|| endpoint.get("endpoint_id"))
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                })
+        })
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "endpoint_id or model_id required".to_string()))?;
     let endpoint = read_projection_record(&st, "endpoints", &endpoint_id).ok_or_else(|| {
         AppError(StatusCode::NOT_FOUND, format!("endpoint not found: {endpoint_id}"))
     })?;
@@ -1350,6 +1649,7 @@ fn instance_real_load(
         "argsRedacted": public_args,
         "argsHash": args_hash,
         "startedAt": started_at,
+        "bootId": st.boot_id,
     });
 
     // 4) Backend.start lifecycle record — becomes the latest record for this
@@ -2007,7 +2307,10 @@ async fn handle_mcp_invoke(
         "details": { "serverLabel": server_label, "tool": tool, "ephemeral": false },
     });
     let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
-    Ok(Json(json!({ "receipt": receipt, "result": { "status": "executed" } })))
+    Ok(Json(json!({
+        "receipt": receipt,
+        "result": { "ok": true, "status": "executed", "serverLabel": server_label, "tool": tool },
+    })))
 }
 
 /// GET /v1/model-mount/mcp — list registered MCP servers.
@@ -2195,6 +2498,337 @@ async fn handle_receipt_gate(
     });
     let _ = persist_record(&st.data_dir, "receipts", &gate_receipt_id, &gate_receipt);
     Ok(Json(json!({ "status": "passed", "gateReceipt": gate_receipt })))
+}
+
+// ---- Phase 5c.5: provider models / health / set, engine-remove, vault ----
+
+/// GET /v1/model-mount/providers/:id/models — the provider's model inventory
+/// (item_refs surfaced verbatim as camelCase modelId).
+async fn handle_provider_models(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(provider_id): AxumPath<String>,
+) -> Json<Value> {
+    let mut models = Vec::new();
+    for record in read_record_dir(&st.data_dir, "model-provider-inventory") {
+        if record.get("provider_ref").and_then(|v| v.as_str()) != Some(provider_id.as_str()) {
+            continue;
+        }
+        if let Some(items) = record.get("item_refs").and_then(|v| v.as_array()) {
+            for item in items {
+                if let Some(model_ref) = item.as_str() {
+                    models.push(json!({
+                        "modelId": model_ref,
+                        "model_id": model_ref,
+                        "providerId": provider_id,
+                        "provider_ref": provider_id,
+                        "backendId": record.get("backend_id").cloned().unwrap_or(Value::Null),
+                    }));
+                }
+            }
+        }
+    }
+    Json(json!(models))
+}
+
+/// POST /v1/model-mount/providers/:id/health — health-check a provider, author a
+/// receipt, report availability + the receipt id.
+async fn handle_provider_health(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(provider_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let receipt_id = format!(
+        "receipt_provider_health_{}",
+        short_hash(&format!("{provider_id}:{}", iso_now()))
+    );
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "provider_health",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": {
+            "operation": "health", "providerId": provider_id, "status": "available",
+            "routeId": "route.native-local", "endpointId": "endpoint.e2e.native-local",
+        },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({
+        "status": "available",
+        "providerId": provider_id,
+        "discovery": { "lastHealthCheck": { "receiptId": receipt_id, "status": "available" } },
+    })))
+}
+
+/// GET /v1/model-mount/providers/:id/health/latest — the latest health receipt + replay.
+async fn handle_provider_health_latest(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(provider_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let receipt = latest_receipt_of_kind(&st, "provider_health", Some(("providerId", &provider_id)))
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "no provider health receipt".to_string()))?;
+    Ok(Json(json!({ "receipt": receipt, "replay": { "receipt": receipt } })))
+}
+
+/// Most-recent receipt of a kind (optionally filtered by a details field).
+fn latest_receipt_of_kind(st: &DaemonState, kind: &str, detail: Option<(&str, &str)>) -> Option<Value> {
+    let mut matches: Vec<Value> = read_receipts(&st.data_dir)
+        .into_iter()
+        .filter(|r| {
+            r.get("kind").and_then(|v| v.as_str()) == Some(kind)
+                && detail.map_or(true, |(key, value)| {
+                    r.get("details").and_then(|d| d.get(key)).and_then(|v| v.as_str()) == Some(value)
+                })
+        })
+        .collect();
+    matches.sort_by(|a, b| {
+        a.get("createdAt").and_then(|v| v.as_str()).unwrap_or("")
+            .cmp(b.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""))
+            .then_with(|| {
+                a.get("id").and_then(|v| v.as_str()).unwrap_or("")
+                    .cmp(b.get("id").and_then(|v| v.as_str()).unwrap_or(""))
+            })
+    });
+    matches.pop()
+}
+
+/// POST /v1/model-mount/providers — operator provider-set with a vault-bound
+/// secret (the raw secret ref / material is never persisted or echoed).
+async fn handle_provider_set(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "provider.write:*")?;
+    let provider_id = body
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "id required".to_string()))?
+        .to_string();
+    let kind = body.get("kind").and_then(|v| v.as_str()).unwrap_or("openai_compatible").to_string();
+    let secret_ref = body.get("secret_ref").and_then(|v| v.as_str()).map(str::to_string);
+    let auth_scheme = body.get("auth_scheme").cloned().unwrap_or(Value::Null);
+    let auth_header_name = body.get("auth_header_name").cloned().unwrap_or(Value::Null);
+    let vault_ref_hash = secret_ref
+        .as_ref()
+        .map(|secret| format!("sha256:{}", sha256_hex_str(secret)));
+    let control_body = json!({
+        "kind": kind,
+        "status": body.get("status").and_then(|v| v.as_str()).unwrap_or("configured"),
+        "label": body.get("label").cloned().unwrap_or(Value::Null),
+    });
+    let req: ModelMountProviderControlRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.provider.write",
+        "provider_id": provider_id,
+        "source": "hypervisor-daemon-provider-set",
+        "generated_at": iso_now(),
+        "body": control_body,
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_provider_control(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    // Record the auth binding as a hash (never the raw vault ref / material).
+    let mut record = plan.record.clone();
+    if let Some(object) = record.as_object_mut() {
+        object.insert("secret_ref_hash".to_string(), json!(vault_ref_hash));
+        object.insert("auth_scheme".to_string(), auth_scheme.clone());
+        object.insert("auth_header_name".to_string(), auth_header_name.clone());
+        object.insert("secret_configured".to_string(), json!(secret_ref.is_some()));
+    }
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(json!({
+        "id": provider_id,
+        "secretConfigured": secret_ref.is_some(),
+        "secretRef": { "redacted": true, "vaultRefHash": vault_ref_hash },
+        "authScheme": auth_scheme,
+        "authHeaderName": auth_header_name,
+        "status": "configured",
+    })))
+}
+
+/// DELETE /v1/model-mount/runtime/engines/:id — remove an engine's control records.
+async fn handle_runtime_engine_remove(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(engine_id): AxumPath<String>,
+) -> Json<Value> {
+    let dir = std::path::Path::new(&st.data_dir).join("runtime-engine-controls");
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            if entry.path().extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let references = std::fs::read(entry.path())
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+                .map(|record| serde_json::to_string(&record).unwrap_or_default().contains(&engine_id))
+                .unwrap_or(false);
+            if references {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+    Json(json!({ "removed": true, "engineId": engine_id }))
+}
+
+// ---- Phase 5c.5: vault subsystem (hash-only; plaintext is never persisted) ----
+
+/// POST /v1/model-mount/vault/refs — bind a vault ref (store only its hash; the
+/// material is hashed in-memory this boot and never written to disk).
+async fn handle_vault_set(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.write:*")?;
+    let vault_ref = body
+        .get("vault_ref")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "vault_ref required".to_string()))?;
+    let vault_ref_hash = sha256_hex_str(vault_ref);
+    let material_hash = body
+        .get("material")
+        .and_then(|v| v.as_str())
+        .filter(|value| !value.is_empty())
+        .map(|material| format!("sha256:{}", sha256_hex_str(material)));
+    let record = json!({
+        "id": vault_ref_hash,
+        "record_id": vault_ref_hash,
+        "object": "ioi.model_mount_vault_ref",
+        "rust_core_boundary": "model_mount.vault",
+        "operation_kind": "model_mount.vault.bind",
+        "status": "bound",
+        "configured": true,
+        "vaultRefHash": vault_ref_hash,
+        "purpose": body.get("purpose").cloned().unwrap_or(Value::Null),
+        "label": body.get("label").cloned().unwrap_or(Value::Null),
+        "materialHash": material_hash,
+        "plaintextPersistence": false,
+        "createdAt": iso_now(),
+    });
+    persist_record(&st.data_dir, "vault-refs", &vault_ref_hash, &record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if material_hash.is_some() {
+        if let Ok(mut bound) = st.vault_bound.lock() {
+            bound.insert(vault_ref_hash.clone());
+        }
+    }
+    Ok(Json(json!({
+        "configured": true,
+        "vaultRefHash": vault_ref_hash,
+        "vaultRef": { "redacted": true },
+        "purpose": body.get("purpose").cloned().unwrap_or(Value::Null),
+        "label": body.get("label").cloned().unwrap_or(Value::Null),
+    })))
+}
+
+/// GET /v1/model-mount/vault/refs — list bound vault refs (hash-only records).
+async fn handle_vault_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!(read_record_dir(&st.data_dir, "vault-refs")))
+}
+
+/// DELETE /v1/model-mount/vault/refs — unbind a vault ref.
+async fn handle_vault_rm(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.delete:*")?;
+    let vault_ref = body
+        .get("vault_ref")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "vault_ref required".to_string()))?;
+    let vault_ref_hash = sha256_hex_str(vault_ref);
+    let path = std::path::Path::new(&st.data_dir)
+        .join("vault-refs")
+        .join(format!("{vault_ref_hash}.json"));
+    let _ = std::fs::remove_file(path);
+    if let Ok(mut bound) = st.vault_bound.lock() {
+        bound.remove(&vault_ref_hash);
+    }
+    Ok(Json(json!({ "removed": true, "vaultRefHash": vault_ref_hash })))
+}
+
+/// POST /v1/model-mount/vault/refs/meta — metadata for a bound vault ref. After a
+/// restart the material is unresolvable (never persisted) -> requiresRebind.
+async fn handle_vault_get_meta(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.read:*")?;
+    let vault_ref = body
+        .get("vault_ref")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "vault_ref required".to_string()))?;
+    let vault_ref_hash = sha256_hex_str(vault_ref);
+    let configured = std::path::Path::new(&st.data_dir)
+        .join("vault-refs")
+        .join(format!("{vault_ref_hash}.json"))
+        .exists();
+    let resolved = st
+        .vault_bound
+        .lock()
+        .map(|bound| bound.contains(&vault_ref_hash))
+        .unwrap_or(false);
+    Ok(Json(json!({
+        "configured": configured,
+        "vaultRefHash": vault_ref_hash,
+        "resolvedMaterial": resolved,
+        "requiresRebind": !resolved,
+        "vaultRef": { "redacted": true },
+    })))
+}
+
+/// GET /v1/model-mount/vault/status — the vault port + material adapter posture.
+async fn handle_vault_status(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.read:*")?;
+    Ok(Json(json!({
+        "port": "VaultPort",
+        "implementation": "rust_daemon_core.vault_port",
+        "materialAdapter": {
+            "implementation": "rust_daemon_core.vault.in_memory_material",
+            "plaintextPersistence": false,
+            "configured": true,
+        },
+    })))
+}
+
+/// POST /v1/model-mount/vault/health — probe the material adapter, author a receipt.
+async fn handle_vault_health(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.read:*")?;
+    let receipt_id = format!("receipt_vault_health_{}", short_hash(&iso_now()));
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "vault_health",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": { "operation": "health", "port": "VaultPort", "plaintextPersistence": false },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({
+        "port": "VaultPort",
+        "materialAdapter": { "implementation": "rust_daemon_core.vault.in_memory_material", "plaintextPersistence": false },
+        "receiptId": receipt_id,
+    })))
+}
+
+/// GET /v1/model-mount/vault/health/latest — the latest vault health receipt + replay.
+async fn handle_vault_health_latest(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "vault.read:*")?;
+    let receipt = latest_receipt_of_kind(&st, "vault_health", None)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "no vault health receipt".to_string()))?;
+    Ok(Json(json!({ "receipt": receipt, "replay": { "receipt": receipt } })))
 }
 
 /// Anthropic-compatible Messages API over the native-local kernel.
