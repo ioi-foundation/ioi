@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     body::Body,
-    extract::{Path as AxumPath, State},
+    extract::{Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post},
@@ -139,6 +139,15 @@ async fn main() -> anyhow::Result<()> {
             get(handle_endpoints).post(handle_endpoints_mount),
         )
         .route("/v1/model-mount/artifacts/import", post(handle_artifacts_import))
+        .route(
+            "/v1/model-mount/artifacts/:id",
+            delete(handle_artifact_delete),
+        )
+        .route("/v1/models/catalog/search", get(handle_catalog_search))
+        .route("/v1/model-mount/catalog/import-url", post(handle_catalog_import_url))
+        .route("/v1/model-mount/downloads", post(handle_downloads))
+        .route("/v1/model-mount/downloads/:id/cancel", post(handle_download_cancel))
+        .route("/v1/model-mount/storage/cleanup", post(handle_storage_cleanup))
         .route("/v1/model-mount/instances", get(handle_instances))
         .route("/v1/model-mount/instances/load", post(handle_instances_load))
         .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
@@ -715,6 +724,31 @@ async fn handle_artifacts_import(
             format!("sha256:{}", hex::encode(hasher.finalize()))
         })
         .unwrap_or_else(|| "sha256:unavailable".to_string());
+    let import_mode = body
+        .get("import_mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("reference")
+        .to_string();
+    // Dry-run validates + receipts without authoring a durable artifact record.
+    if import_mode == "dry_run" {
+        let model_id = body.get("model_id").and_then(|v| v.as_str()).unwrap_or_default();
+        let receipt_id = format!("receipt_model_import_dry_run_{}", short_hash(&checksum));
+        let receipt = json!({
+            "id": receipt_id,
+            "kind": "model_import_dry_run",
+            "redaction": "redacted",
+            "createdAt": iso_now(),
+            "details": { "operation": "import", "importMode": "dry_run", "modelId": model_id, "checksum": checksum },
+        });
+        let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+        return Ok(Json(json!({
+            "status": "dry_run",
+            "importMode": "dry_run",
+            "modelId": model_id,
+            "checksum": checksum,
+            "receiptId": receipt_id,
+        })));
+    }
     // Map the e2e body field `path` -> kernel body `source_path`.
     let mut control_body = body.clone();
     if let Some(object) = control_body.as_object_mut() {
@@ -737,6 +771,7 @@ async fn handle_artifacts_import(
     let mut response = plan.public_response.clone();
     if let Some(object) = response.as_object_mut() {
         object.insert("checksum".to_string(), json!(checksum));
+        object.insert("importMode".to_string(), json!(import_mode));
     }
     Ok(Json(response))
 }
@@ -2397,6 +2432,206 @@ async fn handle_context_fit(
         },
         "receipt_id": receipt_id,
     })))
+}
+
+// ---- Phase 5c.5: catalog search / download lifecycle / cleanup / delete ----
+
+/// Deterministic fixture catalog (source_url, model_id, family, quantization).
+const CATALOG_FIXTURES: &[(&str, &str, &str, &str)] = &[(
+    "fixture://catalog/hypervisor-native-3b-q4",
+    "hypervisor:native-3b",
+    "hypervisor-native-3b",
+    "Q4_K_M",
+)];
+
+fn catalog_entry(source_url: &str, model_id: &str, family: &str, quantization: &str) -> Value {
+    json!({
+        "id": format!("catalog_{}", short_hash(source_url)),
+        "object": "ioi.model_catalog_search_entry",
+        "sourceUrl": source_url,
+        "modelId": model_id,
+        "family": family,
+        "quantization": quantization,
+        "variant": { "quantization": quantization, "family": family },
+        "providerId": "provider.hypervisor.local",
+        "provider_ref": "provider.hypervisor.local",
+    })
+}
+
+/// GET /v1/models/catalog/search?query=... — filter the fixture catalog.
+async fn handle_catalog_search(
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let query = params.get("query").cloned().unwrap_or_default().to_lowercase();
+    let results: Vec<Value> = CATALOG_FIXTURES
+        .iter()
+        .filter(|(source_url, model_id, family, quant)| {
+            query.is_empty()
+                || format!("{source_url} {model_id} {family} {quant}")
+                    .to_lowercase()
+                    .contains(&query)
+        })
+        .map(|(source_url, model_id, family, quant)| catalog_entry(source_url, model_id, family, quant))
+        .collect();
+    Json(json!({ "object": "list", "query": query, "results": results }))
+}
+
+/// Author an imported artifact record (so models ls/projection surface it).
+fn author_artifact(st: &DaemonState, model_id: &str, provider_id: &str, source_path: &str) -> Option<Value> {
+    let req: ModelMountArtifactEndpointRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+        "operation_kind": "model_mount.artifact.import",
+        "body": { "model_id": model_id, "provider_id": provider_id, "source_path": source_path },
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .ok()?;
+    let plan = ModelMountCore.plan_artifact_endpoint(&req).ok()?;
+    let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+    Some(plan.public_response)
+}
+
+/// POST /v1/model-mount/catalog/import-url — "download" a fixture catalog entry.
+async fn handle_catalog_import_url(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.download:*")?;
+    let source_url = body
+        .get("source_url")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "source_url required".to_string()))?;
+    let entry = CATALOG_FIXTURES
+        .iter()
+        .find(|(url, ..)| *url == source_url)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("catalog entry not found: {source_url}")))?;
+    let (url, default_model, family, quant) = *entry;
+    let model_id = body
+        .get("model_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(default_model)
+        .to_string();
+    // Materialize the fixture artifact bytes under the managed downloads dir.
+    let downloads_dir = std::path::Path::new(&st.data_dir).join("downloads");
+    let _ = std::fs::create_dir_all(&downloads_dir);
+    let artifact_path = downloads_dir.join(format!("{}.{quant}.gguf", sanitize_segment(&model_id)));
+    let _ = std::fs::write(
+        &artifact_path,
+        format!("family={family}\nquantization={quant}\nsource={url}\nfixture bytes\n"),
+    );
+    let artifact = author_artifact(&st, &model_id, "provider.hypervisor.local", &artifact_path.to_string_lossy());
+    let download_id = format!("download_{}", short_hash(&format!("{url}:{model_id}")));
+    let download = json!({
+        "id": download_id,
+        "status": "completed",
+        "progress": 1,
+        "sourceUrl": url,
+        "modelId": model_id,
+        "variant": { "quantization": quant, "family": family },
+    });
+    let _ = persist_record(&st.data_dir, "model-downloads", &download_id, &download);
+    Ok(Json(json!({
+        "status": "completed",
+        "modelId": model_id,
+        "artifact": artifact,
+        "download": download,
+    })))
+}
+
+/// POST /v1/model-mount/downloads — queue or complete a download job.
+async fn handle_downloads(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.download:*")?;
+    let model_id = body.get("model_id").and_then(|v| v.as_str()).unwrap_or("native:download").to_string();
+    let provider_id = body.get("provider_id").and_then(|v| v.as_str()).unwrap_or("provider.hypervisor.local").to_string();
+    let source_url = body.get("source_url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let download_id = format!("download_{}", short_hash(&format!("{source_url}:{model_id}")));
+    let queued_only = body.get("queued_only").and_then(Value::as_bool).unwrap_or(false);
+    if queued_only {
+        let download = json!({
+            "id": download_id, "status": "queued", "progress": 0,
+            "modelId": model_id, "providerId": provider_id, "sourceUrl": source_url,
+        });
+        let _ = persist_record(&st.data_dir, "model-downloads", &download_id, &download);
+        return Ok(Json(download));
+    }
+    // Completed: materialize fixture bytes, author the artifact, emit a receipt.
+    let downloads_dir = std::path::Path::new(&st.data_dir).join("downloads");
+    let _ = std::fs::create_dir_all(&downloads_dir);
+    let artifact_path = downloads_dir.join(format!("{}.gguf", sanitize_segment(&model_id)));
+    let content = body
+        .get("fixture_content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("family=download\ncontext=2048\nquantization=Q4_K_M\n");
+    let _ = std::fs::write(&artifact_path, content);
+    let artifact = author_artifact(&st, &model_id, &provider_id, &artifact_path.to_string_lossy());
+    let receipt_id = format!("receipt_model_download_{}", short_hash(&download_id));
+    let receipt = json!({
+        "id": receipt_id, "kind": "model_download", "redaction": "redacted", "createdAt": iso_now(),
+        "details": { "operation": "download", "modelId": model_id, "providerId": provider_id, "sourceUrl": source_url, "status": "completed" },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    let download = json!({
+        "id": download_id, "status": "completed", "progress": 1,
+        "modelId": model_id, "providerId": provider_id, "sourceUrl": source_url,
+        "artifact": artifact, "receiptId": receipt_id,
+    });
+    let _ = persist_record(&st.data_dir, "model-downloads", &download_id, &download);
+    Ok(Json(download))
+}
+
+/// POST /v1/model-mount/downloads/:id/cancel — cancel a queued download.
+async fn handle_download_cancel(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(download_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.download:*")?;
+    let download = json!({ "id": download_id, "status": "canceled", "progress": 0 });
+    let _ = persist_record(&st.data_dir, "model-downloads", &download_id, &download);
+    Ok(Json(download))
+}
+
+/// POST /v1/model-mount/storage/cleanup — scan managed storage, emit a receipt.
+async fn handle_storage_cleanup(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.delete:*")?;
+    let artifacts_dir = std::path::Path::new(&st.data_dir).join("model-artifacts");
+    let scanned = std::fs::read_dir(&artifacts_dir)
+        .map(|entries| entries.flatten().count())
+        .unwrap_or(0);
+    let receipt_id = format!("receipt_model_storage_cleanup_{}", short_hash(&iso_now()));
+    let receipt = json!({
+        "id": receipt_id, "kind": "model_storage_cleanup", "redaction": "redacted", "createdAt": iso_now(),
+        "details": { "operation": "cleanup", "status": "scanned", "scannedArtifacts": scanned },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({ "status": "scanned", "scannedArtifacts": scanned, "receiptId": receipt_id })))
+}
+
+/// DELETE /v1/model-mount/artifacts/:id — remove a managed artifact record.
+async fn handle_artifact_delete(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(artifact_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.delete:*")?;
+    let path = std::path::Path::new(&st.data_dir)
+        .join("model-artifacts")
+        .join(format!("{}.json", sanitize_segment(&artifact_id)));
+    let _ = std::fs::remove_file(&path);
+    let receipt_id = format!("receipt_model_artifact_delete_{}", short_hash(&artifact_id));
+    let receipt = json!({
+        "id": receipt_id, "kind": "model_artifact_delete", "redaction": "redacted", "createdAt": iso_now(),
+        "details": { "operation": "delete", "artifactId": artifact_id, "status": "deleted" },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({ "status": "deleted", "artifactId": artifact_id, "receiptId": receipt_id })))
 }
 
 /// The cockpit session turn, in the app's SSE contract shape
