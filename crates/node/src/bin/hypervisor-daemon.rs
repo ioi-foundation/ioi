@@ -34,6 +34,7 @@ struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
     data_dir: String,
+    base_url: String,
 }
 
 #[tokio::main]
@@ -57,6 +58,7 @@ async fn main() -> anyhow::Result<()> {
         inference,
         model_name,
         data_dir,
+        base_url: format!("http://{addr}"),
     });
 
     let app = Router::new()
@@ -67,6 +69,7 @@ async fn main() -> anyhow::Result<()> {
             get(handle_dev_replay_status),
         )
         .route("/v1/models", get(handle_models))
+        .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
         .route("/v1/model-mount/read-projection", post(handle_read_projection))
         .route("/v1/model-mount/native-local", post(handle_native_local))
@@ -169,6 +172,26 @@ async fn handle_models(State(st): State<Arc<DaemonState>>) -> Json<Value> {
         "object": "list",
         "data": [{ "id": st.model_name, "object": "model", "owned_by": "hypervisor-local" }],
     }))
+}
+
+/// Server status, projected by the kernel from Agentgres-admitted server-control
+/// records under `state_dir` (controlStatus is "running"; schemaVersion is the
+/// runtime envelope version the e2e asserts). Phase 5c.1.
+async fn handle_server_status(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
+        "projection_kind": "server_status",
+        "schema_version": "ioi.model-mounting.runtime.v1",
+        "base_url": st.base_url,
+        "state_dir": st.data_dir,
+        "state": {},
+    }))
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_read_projection(&req)
+        .map_err(|error| (StatusCode::BAD_REQUEST, debug_string(error)))?;
+    Ok(Json(plan.projection))
 }
 
 /// Real model-mount kernel projection over HTTP. The truth is Agentgres; this
