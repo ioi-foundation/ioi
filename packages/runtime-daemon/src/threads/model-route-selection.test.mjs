@@ -53,13 +53,13 @@ function rustModelMounting(calls = []) {
   };
 }
 
-test("model route selection explicit facade uses Rust route-control selection without JS receipt creation", () => {
+test("model route selection explicit facade uses Rust route-control selection without JS receipt creation", async () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: rustModelMounting(calls),
   });
 
-  const route = helper.resolveModelRoute(
+  const route = await helper.resolveModelRoute(
     {
       model: {
         id: "qwen-local",
@@ -92,13 +92,13 @@ test("model route selection explicit facade uses Rust route-control selection wi
   assert.equal(Object.hasOwn(calls[0][1].body, "workflowNodeId"), false);
 });
 
-test("model route selection validates canonical request shape before Rust route-control selection", () => {
+test("model route selection validates canonical request shape before Rust route-control selection", async () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: rustModelMounting(calls),
   });
 
-  const route = helper.resolveModelRoute({
+  const route = await helper.resolveModelRoute({
     routeId: "route.retired-option",
     model: {
       modelId: "retired-model",
@@ -117,13 +117,13 @@ test("model route selection validates canonical request shape before Rust route-
   assert.equal(Object.hasOwn(calls[0][1].body, "routeId"), false);
 });
 
-test("direct selectModelRoute uses Rust selection instead of creating JS fallback receipt", () => {
+test("direct selectModelRoute uses Rust selection instead of creating JS fallback receipt", async () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: rustModelMounting(calls),
   });
 
-  const route = helper.selectModelRoute({
+  const route = await helper.selectModelRoute({
     requestedModel: "gpt-hosted",
     routeId: "route.hosted",
     capability: "chat",
@@ -140,13 +140,13 @@ test("direct selectModelRoute uses Rust selection instead of creating JS fallbac
   assert.equal(calls[0][1].body.model_policy.allow_hosted_fallback, true);
 });
 
-test("run model route with model override uses Rust route-control selection", () => {
+test("run model route with model override uses Rust route-control selection", async () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: rustModelMounting(calls),
   });
 
-  const route = helper.resolveRunModelRoute(
+  const route = await helper.resolveRunModelRoute(
     {},
     {
       options: {
@@ -164,10 +164,10 @@ test("run model route with model override uses Rust route-control selection", ()
   assert.equal(calls[0][1].body.workflow_node_id, "runtime.model-router");
 });
 
-test("model route selection fails closed when Rust route-control client is unavailable", () => {
+test("model route selection fails closed when Rust route-control client is unavailable", async () => {
   const helper = createModelRouteSelection();
 
-  assert.throws(
+  await assert.rejects(
     () =>
       helper.selectModelRoute({
         requestedModel: "gpt-hosted",
@@ -191,7 +191,7 @@ test("model route selection fails closed when Rust route-control client is unava
   );
 });
 
-test("run model route reuses persisted agent route when request has no model override", () => {
+test("run model route reuses persisted agent route when request has no model override", async () => {
   const helper = createModelRouteSelection({
     modelMounting: {
       selectRoute() {
@@ -203,7 +203,7 @@ test("run model route reuses persisted agent route when request has no model ove
     },
   });
 
-  const route = helper.resolveRunModelRoute({
+  const route = await helper.resolveRunModelRoute({
     requestedModelId: "auto",
     modelId: "qwen-existing",
     modelRouteId: "route.local-first",

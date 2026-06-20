@@ -213,12 +213,12 @@ function assertNoThreadControlMutation(store, plannerCalls) {
   assert.deepEqual(plannerCalls, []);
 }
 
-test("thread control mode/model/thinking APIs delegate to Rust planner and Agentgres-backed write", () => {
+test("thread control mode/model/thinking APIs delegate to Rust planner and Agentgres-backed write", async () => {
   const store = createStore();
   const plannerCalls = [];
   const api = createApi(plannerCalls);
 
-  const mode = api.updateThreadMode(store, "thread_1", {
+  const mode = await api.updateThreadMode(store, "thread_1", {
     mode: "review",
     actor: "operator_1",
     source: "agent_studio",
@@ -231,7 +231,7 @@ test("thread control mode/model/thinking APIs delegate to Rust planner and Agent
   assert.deepEqual(mode.receipt_refs, ["receipt_thread_control_mode"]);
   assert.equal(mode.commit.operation_kind, "thread.mode");
 
-  const model = api.updateThreadModel(store, "thread_1", {
+  const model = await api.updateThreadModel(store, "thread_1", {
     model: { id: "auto", route_id: "route.local-first" },
     workflow_node_id: "runtime.model-router.custom",
   });
@@ -240,7 +240,7 @@ test("thread control mode/model/thinking APIs delegate to Rust planner and Agent
   assert.equal(model.agent.modelId, "local-model");
   assert.deepEqual(model.receipt_refs, ["receipt_route_1"]);
 
-  const thinking = api.updateThreadThinking(store, "thread_1", {
+  const thinking = await api.updateThreadThinking(store, "thread_1", {
     thinking: "off",
     model: {
       id: "auto",
@@ -271,7 +271,7 @@ test("thread control mode/model/thinking APIs delegate to Rust planner and Agent
   assert.equal(store.routeRequests[1].context.workflow_graph_id, "graph_1");
 });
 
-test("thread runtime-control API fails closed before lookup without Rust planner", () => {
+test("thread runtime-control API fails closed before lookup without Rust planner", async () => {
   const store = createStore();
   const plannerCalls = [];
   const api = createRuntimeThreadControlApi({
@@ -285,8 +285,7 @@ test("thread runtime-control API fails closed before lookup without Rust planner
     },
   });
 
-  assert.throws(
-    () => api.updateThreadRuntimeControls(store, "thread_1", {
+  await assert.rejects(async () => api.updateThreadRuntimeControls(store, "thread_1", {
       control: "mode",
       mode: "review",
       workflowGraphId: "graph_retired",
@@ -302,7 +301,7 @@ test("thread runtime-control API fails closed before lookup without Rust planner
   assertNoThreadControlMutation(store, plannerCalls);
 });
 
-test("thread mode fails closed before lookup when workspace trust Rust planner is missing", () => {
+test("thread mode fails closed before lookup when workspace trust Rust planner is missing", async () => {
   const store = createStore();
   const plannerCalls = [];
   const api = createRuntimeThreadControlApi({
@@ -321,8 +320,7 @@ test("thread mode fails closed before lookup when workspace trust Rust planner i
     },
   });
 
-  assert.throws(
-    () => api.updateThreadMode(store, "thread_1", {
+  await assert.rejects(async () => api.updateThreadMode(store, "thread_1", {
       mode: "review",
       workflow_graph_id: "graph_1",
     }),
@@ -339,13 +337,12 @@ test("thread mode fails closed before lookup when workspace trust Rust planner i
   assertNoThreadControlMutation(store, plannerCalls);
 });
 
-test("direct thread runtime-control event API stays retired before JS event append", () => {
+test("direct thread runtime-control event API stays retired before JS event append", async () => {
   const store = createStore();
   const plannerCalls = [];
   const api = createApi(plannerCalls);
 
-  assert.throws(
-    () => api.appendThreadRuntimeControlEvent(store, {
+  await assert.rejects(async () => api.appendThreadRuntimeControlEvent(store, {
       agent: { id: "agent_1", cwd: "/tmp/runtime-thread-control-test" },
       threadId: "thread_1",
       controlKind: "thinking",
@@ -372,11 +369,11 @@ test("direct thread runtime-control event API stays retired before JS event appe
   assertNoThreadControlMutation(store, plannerCalls);
 });
 
-test("thread control API delegates workspace trust acknowledgement", () => {
+test("thread control API delegates workspace trust acknowledgement", async () => {
   const store = createStore();
   const api = createApi();
 
-  const result = api.acknowledgeWorkspaceTrustWarning(
+  const result = await api.acknowledgeWorkspaceTrustWarning(
     store,
     "thread_1",
     "workspace_trust_warning_1",

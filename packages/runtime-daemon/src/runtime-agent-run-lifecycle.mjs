@@ -17,7 +17,7 @@ import {
   optionalString,
 } from "./runtime-value-helpers.mjs";
 
-export function createThread(store, request = {}, deps = {}) {
+export async function createThread(store, request = {}, deps = {}) {
   const options = request.options ?? request;
   const runtimeProfile = runtimeProfileForRequest(request, options);
   if (isRuntimeServiceProfile(runtimeProfile)) {
@@ -41,7 +41,7 @@ export function createThread(store, request = {}, deps = {}) {
       evidence_refs: threadCreateEvidenceRefs(),
     });
   }
-  const agent = buildAgentCreateCandidate(store, options, deps);
+  const agent = await buildAgentCreateCandidate(store, options, deps);
   const thread = buildThreadCreateCandidate(agent, deps);
   const planned = threadCreateStateUpdateRunner.planThreadCreateStateUpdate({ agent, thread });
   const plannedAgent = objectRecord(planned?.agent);
@@ -169,7 +169,7 @@ export function createThread(store, request = {}, deps = {}) {
   return threadProjection;
 }
 
-function createRuntimeBridgeThread(store, request = {}, deps = {}) {
+async function createRuntimeBridgeThread(store, request = {}, deps = {}) {
   const options = deps.options ?? request.options ?? request;
   const runtimeProfile = deps.runtime_profile ?? runtimeProfileForRequest(request, options);
   const threadStartStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
@@ -184,7 +184,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
       },
     });
   }
-  const agent = buildAgentCreateCandidate(store, options, deps);
+  const agent = await buildAgentCreateCandidate(store, options, deps);
   const thread = buildThreadCreateCandidate(agent, deps);
   const sessionId =
     optionalString(options.runtime_session_id ?? request.runtime_session_id) ??
@@ -309,7 +309,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
   return threadProjection;
 }
 
-export function createAgent(store, options = {}, deps = {}) {
+export async function createAgent(store, options = {}, deps = {}) {
   const agentCreateStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof agentCreateStateUpdateRunner?.planAgentCreateStateUpdate !== "function") {
     throwRuntimeLifecycleRustCoreRequired({
@@ -324,7 +324,7 @@ export function createAgent(store, options = {}, deps = {}) {
       evidence_refs: agentCreateEvidenceRefs(),
     });
   }
-  const agent = buildAgentCreateCandidate(store, options, deps);
+  const agent = await buildAgentCreateCandidate(store, options, deps);
   const planned = agentCreateStateUpdateRunner.planAgentCreateStateUpdate({ agent });
   const plannedAgent = objectRecord(planned?.agent);
   const plannedOperationKind = optionalString(planned?.operation_kind);
@@ -380,7 +380,7 @@ export function createAgent(store, options = {}, deps = {}) {
   return plannedAgent;
 }
 
-function buildAgentCreateCandidate(store, options = {}, deps = {}) {
+async function buildAgentCreateCandidate(store, options = {}, deps = {}) {
   const randomUUID = typeof deps.randomUUID === "function"
     ? deps.randomUUID
     : () => crypto.randomUUID();
@@ -403,7 +403,7 @@ function buildAgentCreateCandidate(store, options = {}, deps = {}) {
   const cwd = path.resolve(options.local?.cwd ?? store.defaultCwd);
   const runtime = runtimeModeForOptions(options);
   ensureProviderAvailable(runtime, options);
-  const modelRoute = store.resolveModelRoute(options, {
+  const modelRoute = await store.resolveModelRoute(options, {
     evidenceRefs: ["runtime_agent_model_route"],
     workflowNodeId: "runtime.model-router",
     workflowNodeType: "Model Router",
@@ -453,7 +453,7 @@ function buildThreadCreateCandidate(agent, deps = {}) {
   };
 }
 
-export function createRun(store, agentId, request = {}, deps = {}) {
+export async function createRun(store, agentId, request = {}, deps = {}) {
   const runCreateStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof runCreateStateUpdateRunner?.planRunCreateStateUpdate !== "function") {
     throwRuntimeLifecycleRustCoreRequired({
@@ -509,7 +509,7 @@ export function createRun(store, agentId, request = {}, deps = {}) {
       },
     });
   }
-  const candidateRun = buildRunCandidateForAgent(store, agentRecord, request, {
+  const candidateRun = await buildRunCandidateForAgent(store, agentRecord, request, {
     approvalModeForThreadMode,
     buildRun,
     ensureProviderAvailable,
@@ -583,7 +583,7 @@ export function createRun(store, agentId, request = {}, deps = {}) {
   return plannedRun;
 }
 
-function buildRunCandidateForAgent(store, agentRecord, request = {}, {
+async function buildRunCandidateForAgent(store, agentRecord, request = {}, {
   approvalModeForThreadMode,
   buildRun,
   ensureProviderAvailable,
@@ -635,7 +635,7 @@ function buildRunCandidateForAgent(store, agentRecord, request = {}, {
     (mode === "learn"
       ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
       : "");
-  const modelRoute = store.resolveRunModelRoute(agentRecord, request);
+  const modelRoute = await store.resolveRunModelRoute(agentRecord, request);
   const memory = store.resolveRunMemory(agentRecord, request, prompt);
   return {
     ...buildRun({

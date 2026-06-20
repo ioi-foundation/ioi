@@ -317,7 +317,7 @@ function diagnosticsOperatorOverrideStateUpdateCore() {
   };
 }
 
-test("diagnostics repair decision execution uses Rust planning and runtime event admission", () => {
+test("diagnostics repair decision execution uses Rust planning and runtime event admission", async () => {
   const appended = [];
   const runner = diagnosticsRepairControlCore();
   const store = {
@@ -331,7 +331,7 @@ test("diagnostics repair decision execution uses Rust planning and runtime event
     runtimeError,
   });
 
-  const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
+  const result = await surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
     decision_id: "decision_alpha",
     gate_event_id: "event_gate",
     snapshot_id: "snapshot_alpha",
@@ -372,11 +372,10 @@ test("diagnostics repair decision execution uses Rust planning and runtime event
   }]);
 });
 
-test("diagnostics repair decision execution fails closed before event append without Rust planning", () => {
+test("diagnostics repair decision execution fails closed before event append without Rust planning", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
         decision_id: "decision_alpha",
         action: "restore_apply",
@@ -404,11 +403,10 @@ test("diagnostics repair decision execution fails closed before event append wit
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair decision execution rejects retired request aliases", () => {
+test("diagnostics repair decision execution rejects retired request aliases", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
         decisionId: "decision_retired",
         decision_id: "decision_alpha",
@@ -454,7 +452,7 @@ test("diagnostics repair decision execution rejects retired request aliases", ()
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics operator override uses Rust state update and run-state admission", () => {
+test("diagnostics operator override uses Rust state update and run-state admission", async () => {
   const runner = diagnosticsOperatorOverrideStateUpdateCore();
   const calls = [];
   const store = {
@@ -483,7 +481,7 @@ test("diagnostics operator override uses Rust state update and run-state admissi
     runtimeError,
   });
 
-  const result = surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
+  const result = await surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
     request: {
       run_id: "run_blocked",
       event_id: "event_override",
@@ -567,11 +565,10 @@ test("diagnostics operator override uses Rust state update and run-state admissi
   }
 });
 
-test("diagnostics operator override fails closed before run lookup without Rust state update", () => {
+test("diagnostics operator override fails closed before run lookup without Rust state update", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
         request: {
           decisionId: "decision_retired",
@@ -608,7 +605,7 @@ test("diagnostics operator override fails closed before run lookup without Rust 
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection", () => {
+test("diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection", async () => {
   const appended = [];
   const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
@@ -635,7 +632,7 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
   });
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 
-  const result = surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
+  const result = await surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
     request: {
       decision_id: "decision_retry",
       prompt: "Retry the diagnostics repair.",
@@ -782,11 +779,10 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
   }]);
 });
 
-test("diagnostics repair retry fails closed before JS lookup without Rust retry-run planning", () => {
+test("diagnostics repair retry fails closed before JS lookup without Rust retry-run planning", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
         request: { decision_id: "decision_retry", repairRetryIdempotencyKey: "retry_retired" },
         gateEvent: { event_id: "event_gate" },
@@ -814,7 +810,7 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair retry fails closed before JS lookup without Rust retry-result projection", () => {
+test("diagnostics repair retry fails closed before JS lookup without Rust retry-result projection", async () => {
   const { calls, store } = harness();
   const surface = createRuntimeDiagnosticsRepairApi({
     contextPolicyCore: {
@@ -828,8 +824,7 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
     runtimeError,
   });
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
         request: { decision_id: "decision_retry" },
         gateEvent: { event_id: "event_gate" },
@@ -856,7 +851,7 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair retry rejects partial Rust retry-result projection without JS result synthesis", () => {
+test("diagnostics repair retry rejects partial Rust retry-result projection without JS result synthesis", async () => {
   const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
   });
@@ -888,8 +883,7 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
     runtimeError,
   });
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
         request: {
           decision_id: "decision_retry",
@@ -922,7 +916,7 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
   assert.equal(runner.retryResultRequests.length, 1);
 });
 
-test("diagnostics repair decision executed event uses Rust planning and runtime event admission", () => {
+test("diagnostics repair decision executed event uses Rust planning and runtime event admission", async () => {
   const appended = [];
   const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_decision.executed",
@@ -938,7 +932,7 @@ test("diagnostics repair decision executed event uses Rust planning and runtime 
     runtimeError,
   });
 
-  const result = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
+  const result = await surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
     threadId: "thread_alpha",
     gateEvent: { event_id: "event_gate" },
     decision: { decision_id: "decision_alpha" },
@@ -978,7 +972,7 @@ test("diagnostics repair decision executed event uses Rust planning and runtime 
   }]);
 });
 
-test("diagnostics repair retry event append uses Rust planning and runtime event admission", () => {
+test("diagnostics repair retry event append uses Rust planning and runtime event admission", async () => {
   const appended = [];
   const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
@@ -994,7 +988,7 @@ test("diagnostics repair retry event append uses Rust planning and runtime event
     runtimeError,
   });
 
-  const result = surface.appendDiagnosticsRepairRetryTurnEvent(store, {
+  const result = await surface.appendDiagnosticsRepairRetryTurnEvent(store, {
     threadId: "thread_alpha",
     gateEvent: { event_id: "event_gate" },
     decision: { decision_id: "decision_retry" },
@@ -1011,7 +1005,7 @@ test("diagnostics repair retry event append uses Rust planning and runtime event
   ]);
 });
 
-test("diagnostics operator override event append uses Rust planning and runtime event admission", () => {
+test("diagnostics operator override event append uses Rust planning and runtime event admission", async () => {
   const appended = [];
   const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.operator_override.event",
@@ -1027,7 +1021,7 @@ test("diagnostics operator override event append uses Rust planning and runtime 
     runtimeError,
   });
 
-  const result = surface.appendDiagnosticsOperatorOverrideEvent(store, {
+  const result = await surface.appendDiagnosticsOperatorOverrideEvent(store, {
     threadId: "thread_alpha",
     gateEvent: {
       event_id: "event_gate",
@@ -1081,11 +1075,10 @@ test("diagnostics operator override event append uses Rust planning and runtime 
   });
 });
 
-test("diagnostics operator override event append fails closed before JS runtime event append without Rust planning", () => {
+test("diagnostics operator override event append fails closed before JS runtime event append without Rust planning", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.appendDiagnosticsOperatorOverrideEvent(store, {
         threadId: "thread_alpha",
         gateEvent: { event_id: "event_gate" },
@@ -1112,7 +1105,7 @@ test("diagnostics operator override event append fails closed before JS runtime 
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport", () => {
+test("diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport", async () => {
   const runner = diagnosticsRepairProjectionCore();
   const { calls, store } = harness();
   const surface = createRuntimeDiagnosticsRepairApi({
@@ -1120,7 +1113,7 @@ test("diagnostics repair decision resolver uses Rust state replay projection wit
     runtimeError,
   });
 
-  const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
+  const result = await surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
     gate_id: "gate_alpha",
   });
 
@@ -1155,7 +1148,7 @@ test("diagnostics repair decision resolver uses Rust state replay projection wit
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair decision resolver rejects retired JS candidate transport", () => {
+test("diagnostics repair decision resolver rejects retired JS candidate transport", async () => {
   const runner = diagnosticsRepairProjectionCore();
   const { calls, store } = harness();
   const surface = createRuntimeDiagnosticsRepairApi({
@@ -1163,8 +1156,7 @@ test("diagnostics repair decision resolver rejects retired JS candidate transpor
     runtimeError,
   });
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
         gate_id: "gate_alpha",
         projection: {
@@ -1196,11 +1188,10 @@ test("diagnostics repair decision resolver rejects retired JS candidate transpor
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair decision resolver fails closed before JS projection reads without Rust projection", () => {
+test("diagnostics repair decision resolver fails closed before JS projection reads without Rust projection", async () => {
   const { calls, store, surface } = harness();
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
         gateId: "gate_retired",
         gate_id: "gate_alpha",
@@ -1227,7 +1218,7 @@ test("diagnostics repair decision resolver fails closed before JS projection rea
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair turn helpers remain non-authoritative null projections", () => {
+test("diagnostics repair turn helpers remain non-authoritative null projections", async () => {
   const { surface } = harness();
 
   assert.equal(surface.turnForOperatorOverrideEvent(), null);

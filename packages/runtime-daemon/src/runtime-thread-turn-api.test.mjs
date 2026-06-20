@@ -402,8 +402,7 @@ test("thread turn API fails closed for runtime thread resume when Rust bridge-co
     runtimeError,
   });
 
-  await assert.rejects(
-    () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
+  await assert.rejects(async () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
     (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
       operation: "runtime_bridge_thread_control",
       operationKind: "thread.runtime_bridge.control",
@@ -476,8 +475,7 @@ test("thread turn API fails closed for runtime turns when Rust bridge-turn lifec
     runtimeError,
   });
 
-  await assert.rejects(
-    () => surface.createTurn(store, "thread_alpha", {
+  await assert.rejects(async () => surface.createTurn(store, "thread_alpha", {
       prompt: "ship it",
       options: {},
     }),
@@ -532,8 +530,7 @@ test("thread turn API fails closed for non-runtime resume when direct Rust lifec
   });
   const store = createStore();
 
-  await assert.rejects(
-    () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
+  await assert.rejects(async () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
     (error) => assertThreadTurnRustCoreRequired(error, {
       operation: "thread_resume",
       operationKind: "thread.resume",
@@ -604,8 +601,7 @@ test("thread turn API fails closed for non-runtime turns when direct Rust run AP
   });
   const store = createStore();
 
-  await assert.rejects(
-    () => surface.createTurn(store, "thread_alpha", {
+  await assert.rejects(async () => surface.createTurn(store, "thread_alpha", {
       prompt: "ship it",
       options: {},
     }),
@@ -742,8 +738,7 @@ test("thread turn API fails closed for operator turn controls without state-upda
   });
   const store = createStore();
 
-  await assert.rejects(
-    () => surface.interruptTurn(store, "thread_alpha", "turn_alpha", { runtime_control_action: "stop" }),
+  await assert.rejects(async () => surface.interruptTurn(store, "thread_alpha", "turn_alpha", { runtime_control_action: "stop" }),
     (error) => {
       assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
       assert.equal(error.details.operation, "operator_interrupt");
@@ -756,8 +751,7 @@ test("thread turn API fails closed for operator turn controls without state-upda
     },
   );
 
-  assert.throws(
-    () => surface.steerTurn(store, "thread_alpha", "turn_alpha", { guidance: "focus" }),
+  await assert.rejects(async () => surface.steerTurn(store, "thread_alpha", "turn_alpha", { guidance: "focus" }),
     (error) => {
       assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
       assert.equal(error.details.operation, "operator_steer");

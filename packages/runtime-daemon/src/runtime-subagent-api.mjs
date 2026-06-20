@@ -366,7 +366,7 @@ export function createRuntimeSubagentApi({
     return agentId;
   }
 
-  function createSubagentAgent(store, {
+  async function createSubagentAgent(store, {
     parentAgent,
     modelRouteId = null,
     operationKind,
@@ -390,7 +390,7 @@ export function createRuntimeSubagentApi({
         },
       });
     }
-    const agent = createLifecycleAgentDep(store, {
+    const agent = await createLifecycleAgentDep(store, {
       local: { cwd: parentAgent?.cwd ?? store?.defaultCwd },
       model: {
         id: parentAgent?.requestedModelId ?? parentAgent?.modelId ?? "auto",
@@ -421,7 +421,7 @@ export function createRuntimeSubagentApi({
     return agent;
   }
 
-  function createSubagentRun(store, {
+  async function createSubagentRun(store, {
     agentId,
     prompt,
     role,
@@ -450,7 +450,7 @@ export function createRuntimeSubagentApi({
         },
       });
     }
-    const run = createLifecycleRunDep(store, agentId, {
+    const run = await createLifecycleRunDep(store, agentId, {
       mode: "send",
       prompt,
       options: {
@@ -634,7 +634,7 @@ export function createRuntimeSubagentApi({
         subagentId: optionalString(subagentId),
       });
     },
-    spawnSubagent(store, threadId, request = {}) {
+    async spawnSubagent(store, threadId, request = {}) {
       const operationKind = "subagent.spawn";
       requireSubagentControlCore({
         operation: "spawn",
@@ -657,7 +657,7 @@ export function createRuntimeSubagentApi({
         optionalString(request.model_route_id) ??
         parentAgent?.modelRouteId ??
         "route.local-first";
-      const childAgent = createSubagentAgent(store, {
+      const childAgent = await createSubagentAgent(store, {
         parentAgent,
         modelRouteId,
         operationKind,
@@ -665,7 +665,7 @@ export function createRuntimeSubagentApi({
       });
       const subagentId = childAgent.id;
       const childThreadId = threadIdForAgentDep(childAgent.id);
-      const run = createSubagentRun(store, {
+      const run = await createSubagentRun(store, {
         agentId: childAgent.id,
         prompt,
         role,
@@ -832,7 +832,7 @@ export function createRuntimeSubagentApi({
         subagentId: optionalString(subagentId),
       });
     },
-    sendSubagentInput(store, threadId, subagentId, request = {}) {
+    async sendSubagentInput(store, threadId, subagentId, request = {}) {
       const operationKind = "subagent.input";
       const record = this.getSubagent(store, threadId, subagentId);
       if ((record.lifecycle_status ?? record.status) === "canceled") {
@@ -855,7 +855,7 @@ export function createRuntimeSubagentApi({
       const agentId = subagentRecordAgentId(record, { threadId, subagentId, operationKind });
       const previousRunId = optionalString(record.run_id);
       const role = record.role ?? "general";
-      const run = createSubagentRun(store, {
+      const run = await createSubagentRun(store, {
         agentId,
         prompt: message,
         role,
@@ -927,7 +927,7 @@ export function createRuntimeSubagentApi({
         event,
       };
     },
-    resumeSubagent(store, threadId, subagentId, request = {}) {
+    async resumeSubagent(store, threadId, subagentId, request = {}) {
       const operationKind = "subagent.resume";
       const record = this.getSubagent(store, threadId, subagentId);
       const agentId = subagentRecordAgentId(record, { threadId, subagentId, operationKind });
@@ -939,7 +939,7 @@ export function createRuntimeSubagentApi({
         record.model_route_id ??
         "route.local-first";
       const prompt = optionalString(request.prompt) ?? `Resume subagent ${role}.`;
-      const run = createSubagentRun(store, {
+      const run = await createSubagentRun(store, {
         agentId,
         prompt,
         role,

@@ -274,7 +274,7 @@ function runtimeControlStore(stateDir, calls) {
   return store;
 }
 
-test("runtime thread-control integration proof seeds model routes through Rust route control", () => {
+test("runtime thread-control integration proof seeds model routes through Rust route control", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-route-required-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
@@ -304,7 +304,7 @@ test("runtime thread-control integration proof seeds model routes through Rust r
   }
 });
 
-test("runtime thread-event projection sends state-dir request without JS replay cache candidates", () => {
+test("runtime thread-event projection sends state-dir request without JS replay cache candidates", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-event-projection-state-dir-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
@@ -338,7 +338,7 @@ test("runtime thread-event projection sends state-dir request without JS replay 
   }
 });
 
-test("runtime thread-event replay sends state-dir request without JS event candidates", () => {
+test("runtime thread-event replay sends state-dir request without JS event candidates", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-event-replay-state-dir-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
@@ -374,7 +374,7 @@ test("runtime-service thread creation uses Rust bridge-start planning with retir
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
   try {
-    const thread = createThread(store, {
+    const thread = await createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -399,7 +399,7 @@ test("runtime-service thread creation uses Rust bridge-start planning with retir
   }
 });
 
-test("runtime thread-control compatibility wrappers stay retired while turn APIs are store-owned", () => {
+test("runtime thread-control compatibility wrappers stay retired while turn APIs are store-owned", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-wrapper-retired-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);

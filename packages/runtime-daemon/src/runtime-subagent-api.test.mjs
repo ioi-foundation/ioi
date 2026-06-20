@@ -485,7 +485,7 @@ const retiredSubagentSkippedRecordAliasKeys = [
   "cancellationInheritance",
 ];
 
-test("subagent lifecycle mutation facades stay retired before JS truth mutation", () => {
+test("subagent lifecycle mutation facades stay retired before JS truth mutation", async () => {
   const store = createStore();
   const surface = createRuntimeSubagentApi();
   store.surface = surface;
@@ -499,8 +499,7 @@ test("subagent lifecycle mutation facades stay retired before JS truth mutation"
     stateUpdates: store.stateUpdates.length,
   };
 
-  assert.throws(
-    () => surface.propagateSubagentCancellation(store, "thread_1", { reason: "parent_cancel" }),
+  await assert.rejects(async () => surface.propagateSubagentCancellation(store, "thread_1", { reason: "parent_cancel" }),
     (error) =>
       assertRuntimeSubagentControlPlanningMissing(error, {
         operation: "cancel",
@@ -522,7 +521,7 @@ test("subagent lifecycle mutation facades stay retired before JS truth mutation"
   assert.equal(store.stateUpdates.length, baseline.stateUpdates);
 });
 
-test("subagent direct controls fail closed before Rust read/control planning", () => {
+test("subagent direct controls fail closed before Rust read/control planning", async () => {
   const store = createStore();
   const surface = createRuntimeSubagentApi();
   store.surface = surface;
@@ -536,8 +535,7 @@ test("subagent direct controls fail closed before Rust read/control planning", (
     stateUpdates: store.stateUpdates.length,
   };
 
-  assert.throws(
-    () => surface.spawnSubagent(store, "thread_1", { prompt: "Plan the migration" }),
+  await assert.rejects(async () => surface.spawnSubagent(store, "thread_1", { prompt: "Plan the migration" }),
     (error) =>
       assertRuntimeSubagentControlPlanningMissing(error, {
         operation: "spawn",
@@ -599,8 +597,7 @@ test("subagent direct controls fail closed before Rust read/control planning", (
   ];
 
   for (const testCase of cases) {
-    assert.throws(
-      testCase.call,
+    await assert.rejects(async () => testCase.call(),
       (error) => assertRuntimeSubagentProjectionMissing(error, testCase.expected),
     );
   }
@@ -614,13 +611,12 @@ test("subagent direct controls fail closed before Rust read/control planning", (
   assert.equal(store.stateUpdates.length, baseline.stateUpdates);
 });
 
-test("subagent control event append fails closed before JS runtime event append without Rust planning", () => {
+test("subagent control event append fails closed before JS runtime event append without Rust planning", async () => {
   const store = createStore();
   const surface = createRuntimeSubagentApi();
   store.surface = surface;
 
-  assert.throws(
-    () =>
+  await assert.rejects(async () =>
       surface.appendThreadSubagentControlEvent(store, {
         threadId: "thread_1",
         parentAgent: store.parentAgent,
@@ -651,7 +647,7 @@ test("subagent control event append fails closed before JS runtime event append 
   assert.equal(store.stateUpdates.length, 0);
 });
 
-test("subagent control event append uses Rust control planning and Agentgres event admission", () => {
+test("subagent control event append uses Rust control planning and Agentgres event admission", async () => {
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
@@ -789,7 +785,7 @@ const retiredSubagentErrorDetailAliasKeys = [
 
 const retiredSubagentLifecycleResultEnvelopeAliasKeys = ["receiptRefs"];
 
-test("subagent read projections fail closed before JS subagent/run reads without Rust", () => {
+test("subagent read projections fail closed before JS subagent/run reads without Rust", async () => {
   const store = createStore();
   const surface = createRuntimeSubagentApi();
 
@@ -825,8 +821,7 @@ test("subagent read projections fail closed before JS subagent/run reads without
   ];
 
   for (const testCase of cases) {
-    assert.throws(
-      testCase.call,
+    await assert.rejects(async () => testCase.call(),
       (error) => assertRuntimeSubagentProjectionMissing(error, testCase),
     );
   }
@@ -838,7 +833,7 @@ test("subagent read projections fail closed before JS subagent/run reads without
   assert.equal(store.stateUpdates.length, baseline.stateUpdates);
 });
 
-test("subagent read projections return Rust daemon-core projections", () => {
+test("subagent read projections return Rust daemon-core projections", async () => {
   const projectionCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentApi({
@@ -886,7 +881,7 @@ test("subagent read projections return Rust daemon-core projections", () => {
   );
 });
 
-test("subagent spawn control uses Rust agent and run creation, control planning, state planning, and Agentgres commits", () => {
+test("subagent spawn control uses Rust agent and run creation, control planning, state planning, and Agentgres commits", async () => {
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
@@ -944,7 +939,7 @@ test("subagent spawn control uses Rust agent and run creation, control planning,
   });
   store.surface = surface;
 
-  const result = surface.spawnSubagent(store, "thread_1", {
+  const result = await surface.spawnSubagent(store, "thread_1", {
     prompt: "Plan the migration",
     role: "reviewer",
     model_route_id: "route.spawn",
@@ -978,7 +973,7 @@ test("subagent spawn control uses Rust agent and run creation, control planning,
   assert.equal(store.subagents.get("agent_spawn_1").planned_by, "rust_subagent.spawn");
 });
 
-test("subagent wait control uses Rust control, state planning, and Agentgres commits", () => {
+test("subagent wait control uses Rust control, state planning, and Agentgres commits", async () => {
   const projectionCalls = [];
   const controlCalls = [];
   const stateUpdateCalls = [];
@@ -1049,7 +1044,7 @@ test("subagent wait control uses Rust control, state planning, and Agentgres com
   assert.deepEqual(result.receipt_refs, ["receipt_wait_control", "receipt_event_admitted"]);
 });
 
-test("subagent input and resume controls use Rust run creation, control planning, state planning, and Agentgres commits", () => {
+test("subagent input and resume controls use Rust run creation, control planning, state planning, and Agentgres commits", async () => {
   const projectionCalls = [];
   const controlCalls = [];
   const stateUpdateCalls = [];
@@ -1108,10 +1103,10 @@ test("subagent input and resume controls use Rust run creation, control planning
   });
   store.surface = surface;
 
-  const input = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+  const input = await surface.sendSubagentInput(store, "thread_1", "subagent_1", {
     input: "Follow up",
   });
-  const resumed = surface.resumeSubagent(store, "thread_1", "subagent_1", {
+  const resumed = await surface.resumeSubagent(store, "thread_1", "subagent_1", {
     prompt: "Resume now",
     model_route_id: "route.resume",
   });
@@ -1158,7 +1153,7 @@ test("subagent input and resume controls use Rust run creation, control planning
   assert.equal(resumed.subagent.planned_by, "rust_subagent.resume");
 });
 
-test("subagent assign and cancel controls use Rust control, state planning, and Agentgres commits", () => {
+test("subagent assign and cancel controls use Rust control, state planning, and Agentgres commits", async () => {
   const projectionCalls = [];
   const controlCalls = [];
   const stateUpdateCalls = [];
@@ -1268,7 +1263,7 @@ test("subagent assign and cancel controls use Rust control, state planning, and 
   assert.equal(projectionCalls.length, 2);
 });
 
-test("subagent cancellation propagation uses Rust projection, propagated cancel planning, state planning, and Agentgres commits", () => {
+test("subagent cancellation propagation uses Rust projection, propagated cancel planning, state planning, and Agentgres commits", async () => {
   const projectionCalls = [];
   const controlCalls = [];
   const stateUpdateCalls = [];

@@ -23,7 +23,7 @@ export function modelRouteSelectionRustCoreRequiredError(operationKind, details 
 }
 
 export function createModelRouteSelection({ modelMounting } = {}) {
-  function selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs = [] }) {
+  async function selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs = [] }) {
     if (!modelMounting || typeof modelMounting.selectRoute !== "function") {
       throw modelRouteSelectionRustCoreRequiredError("select_model_route", {
         requested_model: requestedModel,
@@ -35,7 +35,7 @@ export function createModelRouteSelection({ modelMounting } = {}) {
       });
     }
     const requestBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
-    const selection = modelMounting.selectRoute({
+    const selection = await modelMounting.selectRoute({
       modelId: requestedModel,
       routeId,
       capability,
@@ -56,7 +56,7 @@ export function createModelRouteSelection({ modelMounting } = {}) {
     });
   }
 
-  function resolveModelRoute(options = {}, context = {}) {
+  async function resolveModelRoute(options = {}, context = {}) {
     const model = options.model ?? {};
     const requestedModel = model.id ?? model.model ?? "auto";
     const routeId = model.route_id ?? model.route ?? options.route_id ?? "route.local-first";
@@ -79,7 +79,7 @@ export function createModelRouteSelection({ modelMounting } = {}) {
     });
   }
 
-  function resolveRunModelRoute(agent, request = {}) {
+  async function resolveRunModelRoute(agent, request = {}) {
     const options = request.options ?? {};
     if (options.model) {
       return resolveModelRoute(options, {

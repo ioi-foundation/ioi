@@ -103,7 +103,7 @@ export function createRuntimeRouteHandlers(deps) {
     }
     if (request.method === "POST" && action === "runs") {
       const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.run_create");
-      writeJsonResponse(response, createLifecycleRunDep(store, agentId, await readBody(request), {
+      writeJsonResponse(response, await createLifecycleRunDep(store, agentId, await readBody(request), {
         approvalModeForThreadMode,
         buildRun,
         ensureProviderAvailable,

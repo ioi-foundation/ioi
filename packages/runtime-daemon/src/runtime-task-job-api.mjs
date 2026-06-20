@@ -77,8 +77,8 @@ export function createRuntimeTaskJobApi({
         options,
       });
     },
-    createTask(store, body = {}) {
-      return createRuntimeTask(store, body);
+    async createTask(store, body = {}) {
+      return await createRuntimeTask(store, body);
     },
     listTasks(store, options = {}) {
       return projectRuntimeTaskJob(store, {
@@ -122,7 +122,7 @@ export function createRuntimeTaskJobApi({
     },
   };
 
-  function createRuntimeTask(store, body = {}) {
+  async function createRuntimeTask(store, body = {}) {
     const operation = "runtime_task_create";
     const operationKind = "task.create";
     if (typeof store.createRun !== "function") {
@@ -163,7 +163,7 @@ export function createRuntimeTaskJobApi({
       });
     }
     const request = canonicalTaskCreateRunRequest(body);
-    const plannedRun = objectRecord(store.createRun(agentId, request));
+    const plannedRun = objectRecord(await store.createRun(agentId, request));
     const runId = optionalString(plannedRun?.id);
     const plannedTask = objectRecord(plannedRun?.runtimeTask);
     const taskId = optionalString(plannedTask?.taskId);

@@ -90,7 +90,7 @@ export function createRuntimeThreadControlApi({
     },
   };
 
-  function applyRustThreadControlStateUpdate(store, threadId, controlKind, request = {}) {
+  async function applyRustThreadControlStateUpdate(store, threadId, controlKind, request = {}) {
     const planner = contextPolicyCoreDep?.planThreadControlAgentStateUpdate;
     if (typeof planner !== "function") {
       throwThreadControlRustCoreRequired({ threadId, controlKind });
@@ -113,7 +113,7 @@ export function createRuntimeThreadControlApi({
     }
 
     const now = optionalStringDep(request.updated_at) ?? nowIso();
-    const controls = nextThreadRuntimeControls(store, agent, controlKind, request, now);
+    const controls = await nextThreadRuntimeControls(store, agent, controlKind, request, now);
     const modelRoute = controls.model_route ?? null;
     const { model_route: _modelRoute, ...controlsForRust } = controls;
     const eventStreamId = eventStreamIdForThreadDep(threadId);
@@ -180,7 +180,7 @@ export function createRuntimeThreadControlApi({
     return result;
   }
 
-  function nextThreadRuntimeControls(store, agent, controlKind, request, now) {
+  async function nextThreadRuntimeControls(store, agent, controlKind, request, now) {
     const current = normalizedAgentRuntimeControlsDep(agent);
     if (controlKind === "mode") {
       const mode = normalizeThreadInteractionModeDep(
@@ -209,7 +209,7 @@ export function createRuntimeThreadControlApi({
       optionalStringDep(model.workflow_graph_id) ??
       optionalStringDep(current.model?.workflow_graph_id) ??
       null;
-    const modelRoute = store.resolveModelRoute(
+    const modelRoute = await store.resolveModelRoute(
       { model },
       {
         evidence_refs: ["runtime_thread_control_model_route"],

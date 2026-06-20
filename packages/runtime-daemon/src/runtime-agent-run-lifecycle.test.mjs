@@ -525,7 +525,7 @@ function assertRuntimeBridgeThreadRustCoreRequired(error, {
   return true;
 }
 
-test("createAgent commits Rust-planned agent projection through Agentgres", () => {
+test("createAgent commits Rust-planned agent projection through Agentgres", async () => {
   const store = fakeStore();
   const options = {
     local: { cwd: "/workspace/project" },
@@ -535,7 +535,7 @@ test("createAgent commits Rust-planned agent projection through Agentgres", () =
     mcpServers: { retired: {} },
   };
 
-  const agent = createAgent(store, options, agentCreateDeps(store));
+  const agent = await createAgent(store, options, agentCreateDeps(store));
 
   assert.equal(agent.id, "agent_uuid-agent");
   assert.equal(agent.status, "active");
@@ -558,10 +558,10 @@ test("createAgent commits Rust-planned agent projection through Agentgres", () =
   assert.equal(Object.hasOwn(agent.options, "mcpServers"), false);
 });
 
-test("createAgent fails closed before route planning when Rust planner is missing", () => {
+test("createAgent fails closed before route planning when Rust planner is missing", async () => {
   const store = fakeStore({ agentCreatePlan: null });
 
-  assert.throws(
+  await assert.rejects(
     () => createAgent(store, {
       local: { cwd: "/workspace/project" },
       hosted: true,
@@ -609,7 +609,7 @@ test("createAgent fails closed before route planning when Rust planner is missin
   assert.deepEqual(store.mcpCalls, []);
 });
 
-test("createAgent rejects missing Rust-planned agent projection", () => {
+test("createAgent rejects missing Rust-planned agent projection", async () => {
   const store = fakeStore({
     agentCreatePlan: () => ({
       status: "planned",
@@ -617,7 +617,7 @@ test("createAgent rejects missing Rust-planned agent projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "agent_create_state_update_agent_missing");
@@ -634,7 +634,7 @@ test("createAgent rejects missing Rust-planned agent projection", () => {
   assert.equal(store.agents.size, 2);
 });
 
-test("createAgent rejects mismatched Rust operation kind", () => {
+test("createAgent rejects mismatched Rust operation kind", async () => {
   const store = fakeStore({
     agentCreatePlan: (request) => ({
       status: "planned",
@@ -643,7 +643,7 @@ test("createAgent rejects mismatched Rust operation kind", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "agent_create_state_update_operation_kind_mismatch");
@@ -660,7 +660,7 @@ test("createAgent rejects mismatched Rust operation kind", () => {
   assert.equal(store.agents.size, 2);
 });
 
-test("createAgent rejects incomplete Rust-planned projection", () => {
+test("createAgent rejects incomplete Rust-planned projection", async () => {
   const store = fakeStore({
     agentCreatePlan: () => ({
       status: "planned",
@@ -671,7 +671,7 @@ test("createAgent rejects incomplete Rust-planned projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "agent_create_state_update_projection_incomplete");
@@ -687,10 +687,10 @@ test("createAgent rejects incomplete Rust-planned projection", () => {
   assert.equal(store.agents.size, 2);
 });
 
-test("createRun commits Rust-planned run projection through Agentgres", () => {
+test("createRun commits Rust-planned run projection through Agentgres", async () => {
   const store = fakeStore();
 
-  const run = createRun(store, "agent_existing", {
+  const run = await createRun(store, "agent_existing", {
     mode: "learn",
     prompt: "Learn governed task-family updates",
     threadMode: "retired",
@@ -724,7 +724,7 @@ test("createRun commits Rust-planned run projection through Agentgres", () => {
   assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
 });
 
-test("createRun requires explicit repository workflow projector instead of lifecycle-runner fallback", () => {
+test("createRun requires explicit repository workflow projector instead of lifecycle-runner fallback", async () => {
   const store = fakeStore();
   const deps = runCreateDepsWithoutRepositoryProjector(store);
   deps.buildRun = (args) => {
@@ -745,7 +745,7 @@ test("createRun requires explicit repository workflow projector instead of lifec
     };
   };
 
-  assert.throws(
+  await assert.rejects(
     () => createRun(store, "agent_existing", {
       mode: "learn",
       prompt: "Require repository workflow projector",
@@ -763,10 +763,10 @@ test("createRun requires explicit repository workflow projector instead of lifec
   assert.deepEqual(store.writes, []);
 });
 
-test("createRun fails closed before lookup, route, memory, or persistence when Rust planner is missing", () => {
+test("createRun fails closed before lookup, route, memory, or persistence when Rust planner is missing", async () => {
   const store = fakeStore({ runCreatePlan: null });
 
-  assert.throws(
+  await assert.rejects(
     () => createRun(store, "agent_existing", {
       mode: "learn",
       prompt: "Learn governed task-family updates",
@@ -813,7 +813,7 @@ test("createRun fails closed before lookup, route, memory, or persistence when R
   assert.deepEqual(store.writes, []);
 });
 
-test("createRun rejects missing Rust-planned run projection", () => {
+test("createRun rejects missing Rust-planned run projection", async () => {
   const store = fakeStore({
     runCreatePlan: () => ({
       status: "planned",
@@ -821,7 +821,7 @@ test("createRun rejects missing Rust-planned run projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "run_create_state_update_run_missing");
@@ -838,7 +838,7 @@ test("createRun rejects missing Rust-planned run projection", () => {
   assert.equal(store.runs.size, 0);
 });
 
-test("createRun rejects mismatched Rust operation kind", () => {
+test("createRun rejects mismatched Rust operation kind", async () => {
   const store = fakeStore({
     runCreatePlan: (request) => ({
       status: "planned",
@@ -847,7 +847,7 @@ test("createRun rejects mismatched Rust operation kind", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "run_create_state_update_operation_kind_mismatch");
@@ -864,7 +864,7 @@ test("createRun rejects mismatched Rust operation kind", () => {
   assert.equal(store.runs.size, 0);
 });
 
-test("createRun rejects incomplete Rust-planned projection", () => {
+test("createRun rejects incomplete Rust-planned projection", async () => {
   const store = fakeStore({
     runCreatePlan: () => ({
       status: "planned",
@@ -875,7 +875,7 @@ test("createRun rejects incomplete Rust-planned projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "run_create_state_update_projection_incomplete");
@@ -891,10 +891,10 @@ test("createRun rejects incomplete Rust-planned projection", () => {
   assert.equal(store.runs.size, 0);
 });
 
-test("createThread commits Rust-planned thread agent and returns Rust thread projection", () => {
+test("createThread commits Rust-planned thread agent and returns Rust thread projection", async () => {
   const store = fakeStore();
 
-  const thread = createThread(store, {
+  const thread = await createThread(store, {
     goal: "Keep the public thread lifecycle Rust-owned",
     options: {
       local: { cwd: "/workspace/thread" },
@@ -928,10 +928,10 @@ test("createThread commits Rust-planned thread agent and returns Rust thread pro
   assert.equal(store.summaryCalls.length, 1);
 });
 
-test("createThread fails closed before route planning when Rust planner is missing", () => {
+test("createThread fails closed before route planning when Rust planner is missing", async () => {
   const store = fakeStore({ threadCreatePlan: null });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, {
       options: {
         local: { cwd: "/workspace/thread" },
@@ -966,7 +966,7 @@ test("createThread fails closed before route planning when Rust planner is missi
   assert.deepEqual(store.threadProjectionCalls, []);
 });
 
-test("createThread rejects missing Rust-planned agent projection", () => {
+test("createThread rejects missing Rust-planned agent projection", async () => {
   const store = fakeStore({
     threadCreatePlan: (request) => ({
       status: "planned",
@@ -975,7 +975,7 @@ test("createThread rejects missing Rust-planned agent projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "thread_create_state_update_agent_missing");
@@ -991,7 +991,7 @@ test("createThread rejects missing Rust-planned agent projection", () => {
   assert.deepEqual(store.startedEvents, []);
 });
 
-test("createThread rejects missing Rust-planned thread projection", () => {
+test("createThread rejects missing Rust-planned thread projection", async () => {
   const store = fakeStore({
     threadCreatePlan: (request) => ({
       status: "planned",
@@ -1000,7 +1000,7 @@ test("createThread rejects missing Rust-planned thread projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "thread_create_state_update_thread_missing");
@@ -1016,7 +1016,7 @@ test("createThread rejects missing Rust-planned thread projection", () => {
   assert.deepEqual(store.startedEvents, []);
 });
 
-test("createThread rejects mismatched Rust operation kind", () => {
+test("createThread rejects mismatched Rust operation kind", async () => {
   const store = fakeStore({
     threadCreatePlan: (request) => ({
       status: "planned",
@@ -1026,7 +1026,7 @@ test("createThread rejects mismatched Rust operation kind", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "thread_create_state_update_operation_kind_mismatch");
@@ -1043,7 +1043,7 @@ test("createThread rejects mismatched Rust operation kind", () => {
   assert.deepEqual(store.startedEvents, []);
 });
 
-test("createThread rejects incomplete Rust-planned projection", () => {
+test("createThread rejects incomplete Rust-planned projection", async () => {
   const store = fakeStore({
     threadCreatePlan: () => ({
       status: "planned",
@@ -1057,7 +1057,7 @@ test("createThread rejects incomplete Rust-planned projection", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "thread_create_state_update_projection_incomplete");
@@ -1073,7 +1073,7 @@ test("createThread rejects incomplete Rust-planned projection", () => {
   assert.deepEqual(store.startedEvents, []);
 });
 
-test("createThread rejects Rust thread projection agent mismatch", () => {
+test("createThread rejects Rust thread projection agent mismatch", async () => {
   const store = fakeStore({
     threadCreatePlan: (request) => ({
       ...defaultThreadCreatePlan(request),
@@ -1084,7 +1084,7 @@ test("createThread rejects Rust thread projection agent mismatch", () => {
     }),
   });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "thread_create_state_update_agent_mismatch");
@@ -1101,10 +1101,10 @@ test("createThread rejects Rust thread projection agent mismatch", () => {
   assert.deepEqual(store.startedEvents, []);
 });
 
-test("createThread starts runtime-service threads through Rust bridge-start state planning", () => {
+test("createThread starts runtime-service threads through Rust bridge-start state planning", async () => {
   const store = fakeStore();
 
-  const thread = createThread(store, {
+  const thread = await createThread(store, {
     options: {
       runtime_profile: "runtime_service",
       runtime_session_id: "session_runtime",
@@ -1139,10 +1139,10 @@ test("createThread starts runtime-service threads through Rust bridge-start stat
   assert.equal(store.providerCalls.length, 1);
 });
 
-test("createThread fails closed for runtime-service threads before route planning when Rust bridge-start planner is missing", () => {
+test("createThread fails closed for runtime-service threads before route planning when Rust bridge-start planner is missing", async () => {
   const store = fakeStore({ runtimeBridgeThreadStartPlan: null });
 
-  assert.throws(
+  await assert.rejects(
     () => createThread(store, {
       options: {
         runtime_profile: "runtime_service",
@@ -1167,21 +1167,21 @@ test("agent/run lifecycle direct APIs route create, run creation, thread creatio
     ...runCreateDeps(store),
     ...threadCreateDeps(store),
   };
-  const agent = createAgent(store, { local: { cwd: "/workspace/surface" } }, lifecycleDeps);
+  const agent = await createAgent(store, { local: { cwd: "/workspace/surface" } }, lifecycleDeps);
   assert.equal(agent.id, "agent_uuid-agent");
   assert.equal(agent.rust_planned, true);
-  const run = createRun(store, "agent_existing", { mode: "review" }, lifecycleDeps);
+  const run = await createRun(store, "agent_existing", { mode: "review" }, lifecycleDeps);
   assert.equal(run.id, "run_uuid-run");
   assert.equal(run.rust_planned, true);
   assert.equal(run.thread_mode, "agent");
   assert.equal(run.approval_mode, "suggest");
-  const thread = createThread(store, {
+  const thread = await createThread(store, {
     options: { local: { cwd: "/workspace/thread" } },
   }, lifecycleDeps);
   assert.equal(thread.thread_id, "thread_uuid-agent");
   assert.equal(thread.agent_id, "agent_uuid-agent");
   assert.equal(thread.rust_projected, true);
-  const runtimeThread = createThread(store, {
+  const runtimeThread = await createThread(store, {
     options: {
       runtime_profile: "runtime_service",
       runtime_session_id: "session_runtime",

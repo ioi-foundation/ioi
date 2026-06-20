@@ -1017,7 +1017,7 @@ export function createPublicRuntimeRequestHandler(deps) {
           contextPolicyCore,
           "runtime.agent_create",
         );
-        writeJsonResponse(response, createLifecycleAgentDep(store, (await readBody(request)).options ?? {}, {
+        writeJsonResponse(response, await createLifecycleAgentDep(store, (await readBody(request)).options ?? {}, {
           ensureProviderAvailable,
           initialThreadRuntimeControls,
           lifecycleAdmissionRunner: routeContextPolicyCore,
@@ -1206,7 +1206,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/tasks") {
-        writeJsonResponse(response, store.createRuntimeTask(await readBody(request)));
+        writeJsonResponse(response, await store.createRuntimeTask(await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tasks") {

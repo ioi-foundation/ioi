@@ -575,7 +575,7 @@ export function createRuntimeDiagnosticsRepairApi(deps = {}) {
     };
   }
 
-  function createDiagnosticsRepairRetryTurn(store, threadId, { request = {}, gateEvent, decision, snapshotId = null } = {}) {
+  async function createDiagnosticsRepairRetryTurn(store, threadId, { request = {}, gateEvent, decision, snapshotId = null } = {}) {
     const normalizedRequest = objectRecord(request) ?? {};
     const decisionId =
       optionalString(decision?.decision_id ?? normalizedRequest.decision_id) ?? "repair_retry";
@@ -669,7 +669,7 @@ export function createRuntimeDiagnosticsRepairApi(deps = {}) {
         },
       });
     }
-    const retryRun = createLifecycleRunDep(store, agentId, plannedRunRequest, {
+    const retryRun = await createLifecycleRunDep(store, agentId, plannedRunRequest, {
       approvalModeForThreadMode,
       buildRun,
       ensureProviderAvailable,

@@ -109,7 +109,7 @@ function assertRuntimeTaskJobRustCoreRequired(error, {
   return true;
 }
 
-test("runtime task create uses store-owned run lifecycle and Rust replay projection", () => {
+test("runtime task create uses store-owned run lifecycle and Rust replay projection", async () => {
   const calls = [];
   const contextPolicyCore = {
     projectRuntimeTaskJobProjection(request) {
@@ -155,7 +155,7 @@ test("runtime task create uses store-owned run lifecycle and Rust replay project
     },
   };
 
-  const result = api.createTask(store, {
+  const result = await api.createTask(store, {
     agent_id: "agent-one",
     agentId: "legacy-agent",
     prompt: "Do it",
@@ -191,11 +191,10 @@ test("runtime task create uses store-owned run lifecycle and Rust replay project
   assert.equal(Object.hasOwn(calls[1].request, "run"), false);
 });
 
-test("runtime task create fails closed before run lifecycle when store API is missing", () => {
+test("runtime task create fails closed before run lifecycle when store API is missing", async () => {
   const { calls, store, api } = harness();
 
-  assert.throws(
-    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+  await assert.rejects(async () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_task_create_run_lifecycle_unavailable");
@@ -213,7 +212,7 @@ test("runtime task create fails closed before run lifecycle when store API is mi
   assert.deepEqual(calls, []);
 });
 
-test("runtime task create fails closed before run lifecycle when Rust projector is missing", () => {
+test("runtime task create fails closed before run lifecycle when Rust projector is missing", async () => {
   const calls = [];
   const api = createRuntimeTaskJobApi({});
   const store = {
@@ -223,8 +222,7 @@ test("runtime task create fails closed before run lifecycle when Rust projector 
     },
   };
 
-  assert.throws(
-    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+  await assert.rejects(async () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_task_create_projection",
@@ -234,7 +232,7 @@ test("runtime task create fails closed before run lifecycle when Rust projector 
   assert.deepEqual(calls, []);
 });
 
-test("runtime task create rejects Rust replay projection mismatches", () => {
+test("runtime task create rejects Rust replay projection mismatches", async () => {
   const contextPolicyCore = {
     projectRuntimeTaskJobProjection() {
       return {
@@ -260,8 +258,7 @@ test("runtime task create rejects Rust replay projection mismatches", () => {
     },
   };
 
-  assert.throws(
-    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+  await assert.rejects(async () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) => {
       assert.equal(error.code, "runtime_task_create_projection_mismatch");
       assert.equal(error.status, 502);
@@ -273,7 +270,7 @@ test("runtime task create rejects Rust replay projection mismatches", () => {
   );
 });
 
-test("runtime task cancel commits Rust-planned run cancellation and returns task projection", () => {
+test("runtime task cancel commits Rust-planned run cancellation and returns task projection", async () => {
   const calls = [];
   const writes = [];
   const existingRun = run("run-a", "running", "2026-06-04T00:00:01.000Z");
@@ -316,7 +313,7 @@ test("runtime task cancel commits Rust-planned run cancellation and returns task
   assert.equal(writes[0].run.events.at(-1).type, "canceled");
 });
 
-test("runtime job cancel commits Rust-planned run cancellation and returns job projection", () => {
+test("runtime job cancel commits Rust-planned run cancellation and returns job projection", async () => {
   const writes = [];
   const existingRun = run("run-b", "running", "2026-06-04T00:00:02.000Z");
   const contextPolicyCore = {
@@ -345,11 +342,10 @@ test("runtime job cancel commits Rust-planned run cancellation and returns job p
   assert.equal(writes[0].run.status, "canceled");
 });
 
-test("runtime task job cancel fails closed before run lookup when Rust planner is missing", () => {
+test("runtime task job cancel fails closed before run lookup when Rust planner is missing", async () => {
   const { calls, store, api } = harness();
 
-  assert.throws(
-    () => api.cancelTask(store, "task_run-a"),
+  await assert.rejects(async () => api.cancelTask(store, "task_run-a"),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_task_cancel",
@@ -357,8 +353,7 @@ test("runtime task job cancel fails closed before run lookup when Rust planner i
         taskId: "task_run-a",
       }),
   );
-  assert.throws(
-    () => api.cancelJob(store, "job_run-b"),
+  await assert.rejects(async () => api.cancelJob(store, "job_run-b"),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_job_cancel",
@@ -369,7 +364,7 @@ test("runtime task job cancel fails closed before run lookup when Rust planner i
   assert.deepEqual(calls, []);
 });
 
-test("runtime task job cancel rejects Rust projection mismatches before persistence", () => {
+test("runtime task job cancel rejects Rust projection mismatches before persistence", async () => {
   const writes = [];
   const existingRun = run("run-a", "running", "2026-06-04T00:00:01.000Z");
   const contextPolicyCore = {
@@ -389,8 +384,7 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
     },
   };
 
-  assert.throws(
-    () => api.cancelTask(store, "task_run-a"),
+  await assert.rejects(async () => api.cancelTask(store, "task_run-a"),
     (error) => {
       assert.equal(error.code, "runtime_task_job_cancel_state_update_projection_mismatch");
       assert.equal(error.status, 502);
@@ -403,7 +397,7 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
   assert.deepEqual(writes, []);
 });
 
-test("runtime task job read projection calls Rust state-dir projector for list filters", () => {
+test("runtime task job read projection calls Rust state-dir projector for list filters", async () => {
   const calls = [];
   const contextPolicyCore = {
     projectRuntimeTaskJobProjection(request) {
@@ -454,7 +448,7 @@ test("runtime task job read projection calls Rust state-dir projector for list f
   assert.equal(Object.hasOwn(calls[0].request, "runs"), false);
 });
 
-test("runtime task job read projection returns Rust-selected task and job records", () => {
+test("runtime task job read projection returns Rust-selected task and job records", async () => {
   const calls = [];
   const contextPolicyCore = {
     projectRuntimeTaskJobProjection(request) {
@@ -507,7 +501,7 @@ test("runtime task job read projection returns Rust-selected task and job record
   assert.equal(Object.hasOwn(calls[1].request, "runs"), false);
 });
 
-test("runtime task job read projection fails closed before run lookup when Rust projector is missing", () => {
+test("runtime task job read projection fails closed before run lookup when Rust projector is missing", async () => {
   const { calls, store, api } = harness();
   const cases = [
     {
@@ -535,8 +529,7 @@ test("runtime task job read projection fails closed before run lookup when Rust 
   ];
 
   for (const testCase of cases) {
-    assert.throws(
-      testCase.call,
+    await assert.rejects(async () => testCase.call(),
       (error) => assertRuntimeTaskJobRustCoreRequired(error, testCase),
     );
   }
@@ -544,7 +537,7 @@ test("runtime task job read projection fails closed before run lookup when Rust 
   assert.deepEqual(calls, []);
 });
 
-test("runtime task job read projection rejects Rust projection mismatches before returning", () => {
+test("runtime task job read projection rejects Rust projection mismatches before returning", async () => {
   const contextPolicyCore = {
     projectRuntimeTaskJobProjection(request) {
       return {
@@ -563,8 +556,7 @@ test("runtime task job read projection rejects Rust projection mismatches before
     stateDir: "/tmp/ioi-runtime-state",
   };
 
-  assert.throws(
-    () => api.getTask(store, "task_run-a"),
+  await assert.rejects(async () => api.getTask(store, "task_run-a"),
     (error) => {
       assert.equal(error.code, "runtime_task_job_projection_mismatch");
       assert.equal(error.status, 502);

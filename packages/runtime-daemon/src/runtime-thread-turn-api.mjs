@@ -398,7 +398,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
     return threadProjection;
   }
 
-  function submitRuntimeServiceTurn(store, threadId, agent, request = {}) {
+  async function submitRuntimeServiceTurn(store, threadId, agent, request = {}) {
     const agentRecord = objectRecord(agent);
     const agentId = optionalStringDep(agentRecord?.id);
     const runtimeProfile = optionalStringDep(agentRecord?.runtime_profile);
@@ -444,7 +444,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
         },
       });
     }
-    const candidateRun = buildRuntimeServiceTurnRunCandidate(store, agentRecord, request);
+    const candidateRun = await buildRuntimeServiceTurnRunCandidate(store, agentRecord, request);
     const planned = contextPolicyCore.planRuntimeBridgeTurnRunStateUpdate({
       thread_id: threadId,
       agent: agentRecord,
@@ -531,7 +531,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
     return turnProjection;
   }
 
-  function buildRuntimeServiceTurnRunCandidate(store, agentRecord, request = {}) {
+  async function buildRuntimeServiceTurnRunCandidate(store, agentRecord, request = {}) {
     if (typeof buildRun !== "function") {
       throwRuntimeBridgeLifecycleError({
         status: 501,
@@ -570,7 +570,7 @@ export function createRuntimeThreadTurnApi(deps = {}) {
       (mode === "learn"
         ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
         : "");
-    const modelRoute = store.resolveRunModelRoute(agentRecord, request);
+    const modelRoute = await store.resolveRunModelRoute(agentRecord, request);
     const memory = store.resolveRunMemory(agentRecord, request, prompt);
     return {
       ...buildRun({
