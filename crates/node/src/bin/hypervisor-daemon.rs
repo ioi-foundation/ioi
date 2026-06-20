@@ -15,14 +15,16 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
 use axum::{
+    body::Body,
     extract::{Path as AxumPath, State},
     http::{header, HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::{delete, get, patch, post},
     Json, Router,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use tokio::time::sleep;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
@@ -51,6 +53,8 @@ struct DaemonState {
     base_url: String,
     // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
     token_expiry: Mutex<HashMap<String, i64>>,
+    // Inter-frame delay for streaming SSE so clients can abort mid-stream.
+    stream_frame_delay_ms: u64,
 }
 
 // Error responses render as JSON so OpenAI-compatible/model-mount clients (and
@@ -82,12 +86,18 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "./hypervisor-data".to_string());
     let _ = std::fs::create_dir_all(&data_dir);
 
+    let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(25);
+
     let state = Arc::new(DaemonState {
         inference,
         model_name,
         data_dir,
         base_url: format!("http://{addr}"),
         token_expiry: Mutex::new(HashMap::new()),
+        stream_frame_delay_ms,
     });
 
     // Author the baseline provider + backend catalog as admitted records so the
@@ -1443,6 +1453,74 @@ fn invoke_native_local(prompt: &str, model: &str) -> Result<Value, String> {
     serde_json::to_value(&result).map_err(|error| format!("result serialize: {error}"))
 }
 
+/// Streaming sibling of `invoke_native_local`: admits a streaming provider
+/// execution and runs `invoke_provider_stream`, returning the serialized
+/// `ModelMountProviderStreamInvocationResult` (ioi_jsonl stream_chunks + output).
+/// invocation_kind drives the kernel stream_kind ("responses" vs chat).
+fn invoke_native_local_stream(
+    prompt: &str,
+    model: &str,
+    invocation_kind: &str,
+) -> Result<Value, String> {
+    let route_receipt_ref = "receipt://route/native-local";
+    let exec_req: ModelMountProviderExecutionRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+        "invocation_ref": "model_mount://invocation/native-local",
+        "route_decision_ref": "model_mount://route_decision/native-local",
+        "route_receipt_ref": route_receipt_ref,
+        "route_ref": "route.native-local",
+        "provider_ref": "provider.hypervisor.local",
+        "endpoint_ref": "endpoint.native-local",
+        "model_ref": model,
+        "capability": "chat",
+        "invocation_kind": invocation_kind,
+        "policy_hash": "sha256:native-local-policy",
+        "input_hash": format!("sha256:{}", short_hash(prompt)),
+        "request_hash": format!("sha256:{}", short_hash(prompt)),
+        "idempotency_key": short_hash(prompt),
+        "receipt_refs": [route_receipt_ref],
+        "node_plaintext_allowed": true,
+        "stream_status": "started",
+    }))
+    .map_err(|error| format!("stream exec request build: {error}"))?;
+
+    let record = ModelMountCore
+        .admit_provider_execution(&exec_req)
+        .map_err(|error| format!("admit_provider_execution(stream): {}", debug_string(error)))?;
+    let admitted = serde_json::to_value(&record)
+        .map_err(|error| format!("record serialize: {error}"))?;
+
+    let invocation: ModelMountProviderInvocationRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+        "provider_execution_ref": admitted["provider_execution_ref"],
+        "provider_execution_hash": admitted["provider_execution_hash"],
+        "route_decision_ref": admitted["route_decision_ref"],
+        "route_receipt_ref": admitted["route_receipt_ref"],
+        "route_ref": admitted["route_ref"],
+        "provider_ref": admitted["provider_ref"],
+        "provider_kind": "ioi_native_local",
+        "endpoint_ref": admitted["endpoint_ref"],
+        "model_ref": admitted["model_ref"],
+        "capability": admitted["capability"],
+        "invocation_kind": admitted["invocation_kind"],
+        "input": prompt,
+        "request_hash": admitted["request_hash"],
+        "execution_backend": "rust_model_mount_native_local_stream",
+        "backend_ref": "backend.hypervisor.native-local.fixture",
+        "api_format": "ioi_native",
+        "driver": "native_local",
+        "stream_status": "started",
+        "receipt_refs": [admitted["route_receipt_ref"]],
+        "admitted_provider_execution": admitted,
+    }))
+    .map_err(|error| format!("stream invocation request build: {error}"))?;
+
+    let result = ModelMountCore
+        .invoke_provider_stream(&invocation)
+        .map_err(|error| format!("invoke_provider_stream: {}", debug_string(error)))?;
+    serde_json::to_value(&result).map_err(|error| format!("stream result serialize: {error}"))
+}
+
 /// POST /v1/model-mount/native-local — real offline kernel inference.
 async fn handle_native_local(
     State(_st): State<Arc<DaemonState>>,
@@ -1647,10 +1725,13 @@ async fn handle_chat_completions(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Response, AppError> {
     authorize(&st, &headers, "model.chat:*")?;
     let route = resolve_route(&st, &body);
     let prompt = flatten_messages(&body);
+    if route.is_native_local && body_wants_stream(&body) {
+        return run_native_stream(st.clone(), route, prompt, StreamProtocol::OpenAiChat).await;
+    }
     if route.is_native_local {
         let result = invoke_native_local(&prompt, &route.model)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
@@ -1679,7 +1760,8 @@ async fn handle_chat_completions(
                 "finish_reason": "stop",
             }],
             "usage": result.get("token_count"),
-        })));
+        }))
+        .into_response());
     }
     let options = InferenceOptions {
         max_tokens: 2048,
@@ -1705,7 +1787,8 @@ async fn handle_chat_completions(
             "message": { "role": "assistant", "content": text },
             "finish_reason": "stop",
         }],
-    })))
+    }))
+    .into_response())
 }
 
 /// OpenAI Responses API over the native-local kernel, with conversation-state
@@ -1714,10 +1797,13 @@ async fn handle_responses(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Response, AppError> {
     authorize(&st, &headers, "model.responses:*")?;
     let route = resolve_route(&st, &body);
     let prompt = flatten_messages(&body);
+    if route.is_native_local && body_wants_stream(&body) {
+        return run_native_stream(st.clone(), route, prompt, StreamProtocol::Responses).await;
+    }
     let result = invoke_native_local(&prompt, &route.model)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
     let text = result
@@ -1768,7 +1854,8 @@ async fn handle_responses(
         "output_text": text,
         "receipt_id": receipt_id,
         "previous_response_id": previous_response_id,
-    })))
+    }))
+    .into_response())
 }
 
 /// Anthropic-compatible Messages API over the native-local kernel.
@@ -1776,10 +1863,13 @@ async fn handle_messages(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Response, AppError> {
     authorize(&st, &headers, "model.chat:*")?;
     let route = resolve_route(&st, &body);
     let prompt = flatten_messages(&body);
+    if route.is_native_local && body_wants_stream(&body) {
+        return run_native_stream(st.clone(), route, prompt, StreamProtocol::Anthropic).await;
+    }
     let result = invoke_native_local(&prompt, &route.model)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
     let text = result
@@ -1804,7 +1894,8 @@ async fn handle_messages(
         "content": [{ "type": "text", "text": text }],
         "stop_reason": "end_turn",
         "usage": result.get("token_count"),
-    })))
+    }))
+    .into_response())
 }
 
 /// Deterministic embeddings over the native-local edge (one vector per input).
@@ -1848,6 +1939,355 @@ async fn handle_embeddings(
         "receipt_id": receipt_id,
         "usage": { "prompt_tokens": inputs.len(), "total_tokens": inputs.len() },
     })))
+}
+
+// ---- Phase 5c.4b: streaming inference (OpenAI chat / Anthropic / Responses) ----
+
+#[derive(Clone, Copy)]
+enum StreamProtocol {
+    OpenAiChat,
+    Anthropic,
+    Responses,
+}
+
+fn body_wants_stream(body: &Value) -> bool {
+    body.get("stream").and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn merge_object(base: &Value, extra: Value) -> Value {
+    let mut object = base.as_object().cloned().unwrap_or_default();
+    if let Some(source) = extra.as_object() {
+        for (key, value) in source {
+            object.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(object)
+}
+
+fn sse_data(value: &Value) -> String {
+    format!(
+        "data: {}\n\n",
+        serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string())
+    )
+}
+
+/// Build (content frames = opening + per-delta, closing frames) for a protocol.
+/// The closing frames carry stream_receipt_id and are sent only after the
+/// completion receipt is persisted.
+fn build_stream_frames(
+    protocol: StreamProtocol,
+    route: &RouteResolution,
+    receipt_id: &str,
+    stream_receipt_id: &str,
+    deltas: &[String],
+    full_text: &str,
+    prompt_tokens: u64,
+    completion_tokens: u64,
+) -> (Vec<String>, Vec<String>) {
+    let created = now_unix_secs();
+    let seed = short_hash(full_text);
+    match protocol {
+        StreamProtocol::OpenAiChat => {
+            let base = json!({
+                "id": format!("chatcmpl_{seed}"),
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": route.model,
+                "receipt_id": receipt_id,
+                "route_id": route.route_id,
+                "tool_receipt_ids": [],
+                "response_id": Value::Null,
+                "previous_response_id": Value::Null,
+                "provider_stream": "native",
+            });
+            let mut content = vec![sse_data(&merge_object(
+                &base,
+                json!({ "choices": [{ "index": 0, "delta": { "role": "assistant" }, "finish_reason": Value::Null }] }),
+            ))];
+            for delta in deltas {
+                content.push(sse_data(&merge_object(
+                    &base,
+                    json!({ "choices": [{ "index": 0, "delta": { "content": delta }, "finish_reason": Value::Null }] }),
+                )));
+            }
+            let closing = vec![
+                sse_data(&merge_object(
+                    &base,
+                    json!({
+                        "stream_receipt_id": stream_receipt_id,
+                        "usage": { "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": prompt_tokens + completion_tokens },
+                        "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }],
+                    }),
+                )),
+                "data: [DONE]\n\n".to_string(),
+            ];
+            (content, closing)
+        }
+        StreamProtocol::Anthropic => {
+            let mut content = vec![
+                sse_frame(
+                    "message_start",
+                    &json!({
+                        "type": "message_start",
+                        "message": {
+                            "id": format!("msg_{seed}"), "type": "message", "role": "assistant",
+                            "content": [], "model": route.model, "stop_reason": Value::Null, "stop_sequence": Value::Null,
+                            "usage": { "input_tokens": prompt_tokens, "output_tokens": 0, "cache_read_input_tokens": 0 },
+                        },
+                    }),
+                ),
+                sse_frame(
+                    "content_block_start",
+                    &json!({ "type": "content_block_start", "index": 0, "content_block": { "type": "text", "text": "" } }),
+                ),
+            ];
+            for delta in deltas {
+                content.push(sse_frame(
+                    "content_block_delta",
+                    &json!({ "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": delta } }),
+                ));
+            }
+            let closing = vec![
+                sse_frame("content_block_stop", &json!({ "type": "content_block_stop", "index": 0 })),
+                sse_frame(
+                    "message_delta",
+                    &json!({ "type": "message_delta", "delta": { "stop_reason": "end_turn", "stop_sequence": Value::Null }, "usage": { "output_tokens": completion_tokens } }),
+                ),
+                sse_frame(
+                    "message_stop",
+                    &json!({
+                        "type": "message_stop", "receipt_id": receipt_id, "stream_receipt_id": stream_receipt_id,
+                        "response_id": Value::Null, "previous_response_id": Value::Null,
+                        "route_id": route.route_id, "tool_receipt_ids": [], "provider_stream": "native",
+                    }),
+                ),
+            ];
+            (content, closing)
+        }
+        StreamProtocol::Responses => {
+            let resp_id = format!("resp_{seed}");
+            let item_id = format!("msg_{seed}");
+            let base_response = json!({
+                "id": resp_id, "object": "response", "created_at": created, "model": route.model,
+                "status": "in_progress", "output": [], "usage": Value::Null,
+                "receipt_id": receipt_id, "route_id": route.route_id, "tool_receipt_ids": [],
+                "previous_response_id": Value::Null, "provider_stream": "native",
+            });
+            let mut content = vec![
+                sse_frame("response.created", &json!({ "type": "response.created", "response": base_response })),
+                sse_frame(
+                    "response.output_item.added",
+                    &json!({
+                        "type": "response.output_item.added", "output_index": 0,
+                        "item": { "id": item_id, "type": "message", "role": "assistant", "status": "in_progress", "content": [] },
+                    }),
+                ),
+                sse_frame(
+                    "response.content_part.added",
+                    &json!({
+                        "type": "response.content_part.added", "item_id": item_id, "output_index": 0, "content_index": 0,
+                        "part": { "type": "output_text", "text": "" },
+                    }),
+                ),
+            ];
+            for delta in deltas {
+                content.push(sse_frame(
+                    "response.output_text.delta",
+                    &json!({ "type": "response.output_text.delta", "item_id": item_id, "output_index": 0, "content_index": 0, "delta": delta }),
+                ));
+            }
+            let completed_response = merge_object(
+                &base_response,
+                json!({
+                    "status": "completed", "stream_receipt_id": stream_receipt_id,
+                    "output": [{ "id": item_id, "type": "message", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": full_text }] }],
+                    "usage": { "input_tokens": prompt_tokens, "output_tokens": completion_tokens },
+                }),
+            );
+            let closing = vec![
+                sse_frame(
+                    "response.content_part.done",
+                    &json!({ "type": "response.content_part.done", "item_id": item_id, "output_index": 0, "content_index": 0, "part": { "type": "output_text", "text": full_text } }),
+                ),
+                sse_frame(
+                    "response.output_item.done",
+                    &json!({ "type": "response.output_item.done", "output_index": 0, "item": { "id": item_id, "type": "message", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": full_text }] } }),
+                ),
+                sse_frame("response.completed", &json!({ "type": "response.completed", "response": completed_response })),
+            ];
+            (content, closing)
+        }
+    }
+}
+
+/// Stream the native-local model over the protocol's SSE shape. Persists the
+/// invocation (started) receipt before the first byte, the completion receipt
+/// before the closing frames, and a cancel receipt on client disconnect.
+async fn run_native_stream(
+    st: Arc<DaemonState>,
+    route: RouteResolution,
+    prompt: String,
+    protocol: StreamProtocol,
+) -> Result<Response, AppError> {
+    let invocation_kind = match protocol {
+        StreamProtocol::Responses => "responses",
+        _ => "chat.completions",
+    };
+    let provider_response_kind = match protocol {
+        StreamProtocol::Responses => "native_local.responses.stream",
+        _ => "native_local.chat.stream",
+    };
+    let stream_kind = match protocol {
+        StreamProtocol::OpenAiChat => "openai_chat_completions_native_local",
+        StreamProtocol::Anthropic => "anthropic_messages_provider_native",
+        StreamProtocol::Responses => "openai_responses_native_local",
+    };
+    let result = invoke_native_local_stream(&prompt, &route.model, invocation_kind)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error))?;
+
+    let mut deltas: Vec<String> = Vec::new();
+    let mut prompt_tokens = 0u64;
+    let mut completion_tokens = 0u64;
+    if let Some(chunks) = result.get("stream_chunks").and_then(|v| v.as_array()) {
+        for chunk in chunks {
+            let Some(line) = chunk.as_str() else { continue };
+            let Ok(payload) = serde_json::from_str::<Value>(line) else { continue };
+            if payload.get("done").and_then(Value::as_bool).unwrap_or(false) {
+                prompt_tokens = payload.get("prompt_eval_count").and_then(Value::as_u64).unwrap_or(prompt_tokens);
+                completion_tokens = payload.get("eval_count").and_then(Value::as_u64).unwrap_or(completion_tokens);
+            } else if let Some(delta) = payload.get("delta").and_then(|v| v.as_str()) {
+                if !delta.is_empty() {
+                    deltas.push(delta.to_string());
+                }
+            }
+        }
+    }
+    if let Some(token_count) = result.get("token_count") {
+        prompt_tokens = token_count.get("prompt_tokens").and_then(Value::as_u64).unwrap_or(prompt_tokens);
+        completion_tokens = token_count.get("completion_tokens").and_then(Value::as_u64).unwrap_or(completion_tokens);
+    }
+    let full_text: String = deltas.concat();
+    let output_hash = sha256_hex_str(&full_text);
+
+    let mut backend_evidence_refs: Vec<Value> = result
+        .get("backend_evidence_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    if !backend_evidence_refs
+        .iter()
+        .any(|value| value.as_str() == Some("hypervisor_native_local_provider_native_stream"))
+    {
+        backend_evidence_refs.push(json!("hypervisor_native_local_provider_native_stream"));
+    }
+
+    // Invocation (started) receipt — persisted before the first byte so it
+    // survives an abort and its id anchors every metadata frame.
+    let invocation_seed = format!("stream:{stream_kind}:{}:{}", route.route_id, short_hash(&prompt));
+    let receipt_id = format!("receipt_model_invocation_{}", short_hash(&invocation_seed));
+    let invocation_receipt = json!({
+        "id": receipt_id,
+        "kind": "model_invocation",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": {
+            "routeId": route.route_id, "selectedModel": route.model,
+            "endpointId": route.endpoint_id, "providerId": route.provider_id,
+            "backendId": route.backend_id, "selectedBackend": route.backend_id,
+            "streamStatus": "started", "streamSource": "provider_native",
+            "providerResponseKind": provider_response_kind,
+            "backendEvidenceRefs": backend_evidence_refs,
+        },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &invocation_receipt);
+
+    let stream_receipt_id = format!(
+        "receipt_model_invocation_stream_completed_{}",
+        short_hash(&invocation_seed)
+    );
+    let cancel_receipt_id = format!(
+        "receipt_model_invocation_stream_canceled_{}",
+        short_hash(&invocation_seed)
+    );
+
+    let (content_frames, closing_frames) = build_stream_frames(
+        protocol,
+        &route,
+        &receipt_id,
+        &stream_receipt_id,
+        &deltas,
+        &full_text,
+        prompt_tokens,
+        completion_tokens,
+    );
+
+    let stream_details_base = json!({
+        "routeId": route.route_id, "selectedModel": route.model,
+        "endpointId": route.endpoint_id, "providerId": route.provider_id,
+        "backendId": route.backend_id, "selectedBackend": route.backend_id,
+        "streamSource": "provider_native", "providerResponseKind": provider_response_kind,
+        "streamKind": stream_kind, "invocationReceiptId": receipt_id,
+        "backendEvidenceRefs": backend_evidence_refs,
+        "outputHash": output_hash,
+    });
+
+    let delay_ms = st.stream_frame_delay_ms;
+    let data_dir = st.data_dir.clone();
+    let header_receipt_id = receipt_id.clone();
+    // capacity 1 forces backpressure so the producer never runs ahead of the
+    // client — required for the abort case to be observed at the next frame.
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<axum::body::Bytes, std::io::Error>>(1);
+    tokio::spawn(async move {
+        let delay = std::time::Duration::from_millis(delay_ms);
+        let mut aborted = false;
+        for frame in &content_frames {
+            if tx.send(Ok(axum::body::Bytes::from(frame.clone()))).await.is_err() {
+                aborted = true;
+                break;
+            }
+            if delay_ms > 0 {
+                sleep(delay).await;
+            }
+        }
+        if aborted {
+            let cancel = json!({
+                "id": cancel_receipt_id,
+                "kind": "model_invocation_stream_canceled",
+                "redaction": "redacted",
+                "createdAt": iso_now(),
+                "details": merge_object(&stream_details_base, json!({ "status": "aborted", "reason": "client_disconnect" })),
+            });
+            let _ = persist_record(&data_dir, "receipts", &cancel_receipt_id, &cancel);
+            return;
+        }
+        let completion = json!({
+            "id": stream_receipt_id,
+            "kind": "model_invocation_stream_completed",
+            "redaction": "redacted",
+            "createdAt": iso_now(),
+            "details": stream_details_base,
+        });
+        let _ = persist_record(&data_dir, "receipts", &stream_receipt_id, &completion);
+        for frame in &closing_frames {
+            if tx.send(Ok(axum::body::Bytes::from(frame.clone()))).await.is_err() {
+                break;
+            }
+            if delay_ms > 0 {
+                sleep(delay).await;
+            }
+        }
+    });
+
+    let stream = futures::stream::unfold(rx, |mut rx| async move {
+        rx.recv().await.map(|item| (item, rx))
+    });
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header("x-ioi-stream-source", "provider_native")
+        .header("x-ioi-receipt-id", header_receipt_id)
+        .body(Body::from_stream(stream))
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 // ---- Phase 5c.4b: tokenize / count / context-fit (deterministic edge) ----
