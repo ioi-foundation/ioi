@@ -27,14 +27,18 @@ use sha2::{Digest, Sha256};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountArtifactEndpointRequest, ModelMountBackendLifecycleRequest,
-    ModelMountCapabilityTokenControlRequest, ModelMountCore,
+    ModelMountBackendProcessMaterializationRequest, ModelMountBackendProcessSupervisionRequest,
+    ModelMountCapabilityTokenControlRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInvocationRequest, ModelMountReadProjectionRequest,
-    ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyRequest,
+    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
+    ModelMountReadProjectionRequest, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyRequest,
     ModelMountServerControlRequest, MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
-    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION,
     MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
 };
@@ -120,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/model-mount/artifacts/import", post(handle_artifacts_import))
         .route("/v1/model-mount/instances", get(handle_instances))
+        .route("/v1/model-mount/instances/load", post(handle_instances_load))
         .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
         .route(
             "/v1/model-mount/runtime/engines/:id",
@@ -561,6 +566,30 @@ fn seed_catalog(st: &DaemonState) {
             Err(error) => tracing::warn!(%kind, "seed provider failed: {}", debug_string(error)),
         }
     }
+    // The canonical native-local provider the app + e2e mount against. Native
+    // model imports/mounts target `provider.hypervisor.local`; instance-load and
+    // provider-lifecycle resolve it from state_dir, so it must be an admitted
+    // record (kind ioi_native_local -> native-local backend + driver).
+    if let Ok(req) = serde_json::from_value::<ModelMountProviderControlRequest>(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+        "operation_kind": "model_mount.provider.write",
+        "provider_id": "provider.hypervisor.local",
+        "source": "hypervisor-daemon-catalog-seed",
+        "generated_at": generated_at,
+        "body": {
+            "kind": "ioi_native_local",
+            "status": "available",
+            "label": "Hypervisor native local",
+            "api_format": "ioi_native",
+            "driver": "native_local",
+            "backend_id": "backend.hypervisor.native-local.fixture",
+        },
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    })) {
+        if let Ok(plan) = ModelMountCore.plan_provider_control(&req) {
+            let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+        }
+    }
     for (backend_id, backend_kind) in BACKEND_CATALOG {
         let req: ModelMountBackendLifecycleRequest = match serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
@@ -684,6 +713,36 @@ async fn handle_endpoints_mount(
     if let Some(object) = control_body.as_object_mut() {
         if let Some(id) = object.remove("id") {
             object.insert("endpoint_id".to_string(), id);
+        }
+        // Inherit backend/driver/api_format/provider_kind from the configured
+        // provider so the mounted endpoint resolves to the right execution
+        // backend (the kernel mount defaults to backend.fixture otherwise). The
+        // provider is the truth source for its kind; the endpoint just binds it.
+        let provider_id = object
+            .get("provider_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        if let Some(provider_id) = provider_id {
+            if let Some(provider) = read_projection_record(&st, "providers", &provider_id) {
+                let kind = provider
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                if let Some((backend_id, driver, api_format)) = endpoint_binding_for_kind(kind) {
+                    object
+                        .entry("backend_id".to_string())
+                        .or_insert_with(|| json!(backend_id));
+                    object
+                        .entry("driver".to_string())
+                        .or_insert_with(|| json!(driver));
+                    object
+                        .entry("api_format".to_string())
+                        .or_insert_with(|| json!(api_format));
+                    object
+                        .entry("provider_kind".to_string())
+                        .or_insert_with(|| json!(kind));
+                }
+            }
         }
     }
     let req: ModelMountArtifactEndpointRequest = serde_json::from_value(json!({
@@ -887,13 +946,392 @@ async fn handle_providers(State(st): State<Arc<DaemonState>>) -> Result<Json<Val
     project_kind(&st, "providers")
 }
 async fn handle_backends(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
-    project_kind(&st, "backends")
+    // The kernel backends projection re-exposes each backend's public_response
+    // verbatim. The instance-load chain stashes the live process snapshot under
+    // public_response.process (execution-layer state the daemon owns); lift it to
+    // the top-level `.process` the ModelBackendSummary contract expects.
+    let mut projection = project_kind(&st, "backends")?.0;
+    if let Some(backends) = projection.as_array_mut() {
+        for backend in backends.iter_mut() {
+            let process = backend
+                .get("public_response")
+                .and_then(|response| response.get("process"))
+                .cloned();
+            if let (Some(process), Some(object)) = (process, backend.as_object_mut()) {
+                object.insert("process".to_string(), process);
+            }
+        }
+    }
+    Ok(Json(projection))
 }
 async fn handle_endpoints(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
     project_kind(&st, "endpoints")
 }
 async fn handle_instances(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
     project_kind(&st, "instances")
+}
+
+// ---- Phase 5c.4: instance load (estimate + materialize -> supervise -> load) ----
+
+/// Find a record in a projection array by any common identity field.
+fn read_projection_record(st: &DaemonState, kind: &str, id: &str) -> Option<Value> {
+    let projection = project_kind(st, kind).ok()?.0;
+    projection.as_array()?.iter().find(|record| {
+        ["id", "endpoint_id", "provider_id", "backend_id", "endpoint_ref", "provider_ref"]
+            .iter()
+            .any(|field| record.get(field).and_then(|v| v.as_str()) == Some(id))
+    }).cloned()
+}
+
+/// The execution backend + driver + api_format a mounted endpoint inherits from
+/// its provider's kind (native-local is the path the e2e exercises). Other kinds
+/// fall through to the kernel mount defaults.
+fn endpoint_binding_for_kind(kind: &str) -> Option<(&'static str, &'static str, &'static str)> {
+    match kind {
+        "ioi_native_local" => Some((
+            "backend.hypervisor.native-local.fixture",
+            "native_local",
+            "ioi_native",
+        )),
+        _ => None,
+    }
+}
+
+fn lo_u64(value: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| value.get(key).and_then(Value::as_u64))
+}
+
+fn lo_str(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| value.get(key).and_then(Value::as_str))
+        .map(str::to_string)
+}
+
+/// Normalize load options (either snake_case from the e2e body or camelCase from
+/// the runtime engine profile) into (snake for the kernel, camel for responses).
+fn normalize_load_options(input: &Value) -> (Value, Value) {
+    let context_length = lo_u64(input, &["context_length", "contextLength"]);
+    let parallel = lo_u64(input, &["parallel"]);
+    let ttl_seconds = lo_u64(input, &["ttl_seconds", "ttlSeconds"]);
+    let gpu = lo_str(input, &["gpu"]);
+    let identifier = lo_str(input, &["identifier"]);
+    let mut snake = serde_json::Map::new();
+    let mut camel = serde_json::Map::new();
+    if let Some(v) = context_length {
+        snake.insert("context_length".into(), json!(v));
+        camel.insert("contextLength".into(), json!(v));
+    }
+    if let Some(v) = parallel {
+        snake.insert("parallel".into(), json!(v));
+        camel.insert("parallel".into(), json!(v));
+    }
+    if let Some(v) = ttl_seconds {
+        snake.insert("ttl_seconds".into(), json!(v));
+        camel.insert("ttlSeconds".into(), json!(v));
+    }
+    if let Some(v) = &gpu {
+        snake.insert("gpu".into(), json!(v));
+        camel.insert("gpu".into(), json!(v));
+    }
+    if let Some(v) = &identifier {
+        snake.insert("identifier".into(), json!(v));
+        camel.insert("identifier".into(), json!(v));
+    }
+    (Value::Object(snake), Value::Object(camel))
+}
+
+const PROCESS_SUPERVISION_OWNER: &str = "rust_daemon_core.model_mount.backend_process_supervisor";
+
+/// POST /v1/model-mount/instances/load — estimate or load a native-local model.
+/// Estimate runs a single kernel `estimate` pass; load runs the canonical chain
+/// (provider lifecycle -> backend-process materialization -> supervision ->
+/// backend.start lifecycle -> instance load), persisting each Agentgres record.
+async fn handle_instances_load(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.load:write")?;
+    let endpoint_id = body
+        .get("endpoint_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "endpoint_id required".to_string()))?
+        .to_string();
+    let endpoint = read_projection_record(&st, "endpoints", &endpoint_id).ok_or_else(|| {
+        AppError(StatusCode::NOT_FOUND, format!("endpoint not found: {endpoint_id}"))
+    })?;
+    let model_ref = endpoint
+        .get("model_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let provider_id = endpoint
+        .get("provider_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let engine_id = endpoint
+        .get("backend_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("backend.hypervisor.native-local.fixture")
+        .to_string();
+
+    let top_estimate = body.get("estimate_only").and_then(Value::as_bool).unwrap_or(false);
+    let load_options_in = body.get("load_options").cloned();
+    let lo_estimate = load_options_in
+        .as_ref()
+        .and_then(|o| o.get("estimate_only"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    // Effective load options: explicit body load_options, else the engine's
+    // operator default profile (set via PATCH /runtime/engines/:id).
+    let effective_lo = match &load_options_in {
+        Some(lo) => lo.clone(),
+        None => project_kind_engine(&st, "runtime_engine_detail", &engine_id)
+            .ok()
+            .and_then(|detail| detail.get("default_load_options").cloned())
+            .unwrap_or(Value::Null),
+    };
+    let (snake_lo, camel_lo) = normalize_load_options(&effective_lo);
+
+    if top_estimate || lo_estimate {
+        return instance_estimate(&st, &endpoint_id, &model_ref, &engine_id, &snake_lo, &camel_lo);
+    }
+    instance_real_load(&st, &endpoint_id, &model_ref, &provider_id, &engine_id, &snake_lo)
+}
+
+fn instance_estimate(
+    st: &DaemonState,
+    endpoint_id: &str,
+    model_ref: &str,
+    engine_id: &str,
+    snake_lo: &Value,
+    camel_lo: &Value,
+) -> Result<Json<Value>, AppError> {
+    let req: ModelMountInstanceLifecycleRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+        "action": "estimate",
+        "target_status": "estimated",
+        "execution_backend": "rust_model_mount_instance_lifecycle",
+        "state_dir": st.data_dir,
+        "endpoint_ref": endpoint_id,
+        "model_ref": model_ref,
+        "runtime_engine_ref": engine_id,
+        "load_options": snake_lo.clone(),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let result = ModelMountCore
+        .plan_instance_lifecycle(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    let receipt_id = format!("receipt_model_load_estimate_{}", short_hash(&result.id));
+    let receipt = json!({
+        "id": receipt_id,
+        "kind": "model_load_estimate",
+        "redaction": "redacted",
+        "createdAt": iso_now(),
+        "details": {
+            "endpointId": endpoint_id,
+            "selectedModel": model_ref,
+            "runtimeEngineId": engine_id,
+            "loadEstimate": result.load_estimate,
+        },
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+    Ok(Json(json!({
+        "id": result.id,
+        "status": "estimate_only",
+        "runtimeEngineId": engine_id,
+        "loadOptions": camel_lo,
+        "loadEstimate": result.load_estimate,
+        "receiptId": receipt_id,
+    })))
+}
+
+fn instance_real_load(
+    st: &DaemonState,
+    endpoint_id: &str,
+    model_ref: &str,
+    provider_id: &str,
+    engine_id: &str,
+    snake_lo: &Value,
+) -> Result<Json<Value>, AppError> {
+    let backend_kind = "native_local";
+    let identifier = snake_lo
+        .get("identifier")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let context_length = snake_lo.get("context_length").and_then(Value::as_u64);
+
+    // 1) Provider lifecycle (load) — the canonical provider_lifecycle_hash.
+    let plc_req: ModelMountProviderLifecycleRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
+        "provider_ref": provider_id,
+        "action": "load",
+        "execution_backend": "rust_model_mount_native_local_lifecycle",
+        "endpoint_ref": endpoint_id,
+        "model_ref": model_ref,
+        "state_dir": st.data_dir,
+        "receipt_refs": ["receipt://provider-lifecycle/native-local"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plc = ModelMountCore
+        .plan_provider_lifecycle(&plc_req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plc.record_dir, &plc.record_id, &plc.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let provider_lifecycle_hash = plc.lifecycle_hash.clone();
+
+    // 2) Backend-process materialization (resolves the redacted spawn args).
+    let mat_req: ModelMountBackendProcessMaterializationRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
+        "operation_kind": "model_mount.backend_process.materialize",
+        "backend_ref": engine_id,
+        "backend_kind": backend_kind,
+        "model_ref": model_ref,
+        "load_options": snake_lo.clone(),
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let mat = ModelMountCore
+        .plan_backend_process_materialization(&mat_req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &mat.record_dir, &mat.record_id, &mat.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let backend_process_ref = mat
+        .public_response
+        .get("backend_process_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let materialization_hash = mat.materialization_hash.clone();
+    let supervision_ref = mat.backend_supervision_ref.clone();
+    let supervision_hash = mat.backend_supervision_hash.clone();
+    let supervision_status = mat.backend_supervision_status.clone();
+    let public_args: Vec<Value> = mat.process_plan.public_args.iter().map(|a| json!(a)).collect();
+
+    // 3) Supervision start (native_local binds a fixture process, no real pid).
+    let sup_req: ModelMountBackendProcessSupervisionRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
+        "operation_kind": "model_mount.backend_process.start",
+        "backend_ref": engine_id,
+        "backend_kind": backend_kind,
+        "model_ref": model_ref,
+        "load_options": snake_lo.clone(),
+        "backend_process_ref": backend_process_ref.clone(),
+        "backend_process_materialization_hash": materialization_hash.clone(),
+        "backend_supervision_ref": supervision_ref.clone(),
+        "backend_supervision_hash": supervision_hash.clone(),
+        "backend_supervision_status": supervision_status.clone(),
+        "process_supervision_owner": PROCESS_SUPERVISION_OWNER,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let sup = ModelMountCore
+        .supervise_backend_process(&sup_req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &sup.record_dir, &sup.record_id, &sup.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let runtime_ref = sup.runtime_ref.clone();
+    let runtime_hash = sup.runtime_hash.clone();
+    let runtime_status = sup.runtime_status.clone();
+
+    // The 16-hex execution-layer pidHash (native_local has no real OS pid).
+    let pid_hash: String = sha256_hex_str(&format!("{backend_process_ref}:{identifier}"))
+        .chars()
+        .take(16)
+        .collect();
+    let started_at = iso_now();
+    let args_hash = format!(
+        "sha256:{}",
+        sha256_hex_str(&serde_json::to_string(&public_args).unwrap_or_default())
+    );
+    let process_snapshot = json!({
+        "id": backend_process_ref.clone(),
+        "backendId": engine_id,
+        "backendKind": backend_kind,
+        "status": "started",
+        "processStatus": runtime_status,
+        "pidHash": pid_hash,
+        "pidTracked": false,
+        "argsRedacted": public_args,
+        "argsHash": args_hash,
+        "startedAt": started_at,
+    });
+
+    // 4) Backend.start lifecycle record — becomes the latest record for this
+    // backend so GET /backends surfaces .process (stashed in public_response).
+    let start_req: ModelMountBackendLifecycleRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
+        "operation_kind": "model_mount.backend.start",
+        "backend_id": engine_id,
+        "backend_kind": backend_kind,
+        "generated_at": started_at,
+        "body": {
+            "load_options": snake_lo.clone(),
+            "process_supervision_owner": PROCESS_SUPERVISION_OWNER,
+            "backend_process_ref": backend_process_ref.clone(),
+            "backend_process_materialization_hash": materialization_hash.clone(),
+            "backend_supervision_ref": supervision_ref.clone(),
+            "backend_supervision_hash": supervision_hash.clone(),
+            "backend_supervision_status": supervision_status.clone(),
+            "backend_process_runtime_ref": runtime_ref,
+            "backend_process_runtime_hash": runtime_hash,
+            "backend_process_runtime_status": runtime_status,
+        },
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let mut start = ModelMountCore
+        .plan_backend_lifecycle(&start_req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    if let Some(response) = start
+        .record
+        .get_mut("public_response")
+        .and_then(|v| v.as_object_mut())
+    {
+        response.insert("process".to_string(), process_snapshot.clone());
+    }
+    persist_record(&st.data_dir, &start.record_dir, &start.record_id, &start.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // 5) Instance load — the kernel authors the loaded instance from state_dir.
+    let load_req: ModelMountInstanceLifecycleRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+        "action": "load",
+        "target_status": "loaded",
+        "execution_backend": "rust_model_mount_instance_lifecycle",
+        "state_dir": st.data_dir,
+        "endpoint_ref": endpoint_id,
+        "model_ref": model_ref,
+        "backend_ref": engine_id,
+        "runtime_engine_ref": engine_id,
+        "load_options": snake_lo.clone(),
+        "provider_lifecycle_hash": provider_lifecycle_hash,
+        "backend_process_ref": backend_process_ref,
+        "backend_process_materialization_hash": materialization_hash,
+        "backend_supervision_ref": supervision_ref,
+        "backend_supervision_hash": supervision_hash,
+        "backend_supervision_status": supervision_status,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let loaded = ModelMountCore
+        .plan_instance_lifecycle(&load_req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    let loaded_record = serde_json::to_value(&loaded)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(&st.data_dir, "model-instances", &loaded.id, &loaded_record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    Ok(Json(json!({
+        "id": loaded.id,
+        "status": loaded.status,
+        "backendId": loaded.backend_id,
+        "runtimeEngineId": loaded.runtime_engine_id,
+        "driver": loaded.driver,
+        "identifier": identifier,
+        "contextLength": context_length,
+        "backendProcess": process_snapshot,
+    })))
 }
 
 /// Real model-mount kernel projection over HTTP. The truth is Agentgres; this
