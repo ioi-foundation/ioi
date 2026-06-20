@@ -23,7 +23,8 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
+    ThreadCreateStateUpdateRequest, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -542,6 +543,32 @@ pub(crate) async fn handle_run_get(
         .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
         .map(Json)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")))
+}
+
+/// POST /v1/runs/:id/cancel — cancel a run via plan_run_cancel_state_update.
+pub(crate) async fn handle_run_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(run) = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
+    else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")));
+    };
+    let request: RunCancelStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "run_id": run_id,
+        "run": run,
+        "canceled_at": iso_now(),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_run_cancel_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(record.run))
 }
 
 /// GET /v1/runs — list persisted run records (optionally filtered by ?agent_id=).

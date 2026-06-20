@@ -251,7 +251,21 @@ async function main() {
       assert.equal(body.event.component_kind, "model_router");
     });
 
-    // RATCHET FRONTIER — next: run cancel, turn control inheritance, subagents, tasks/jobs, MCP.
+    // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
+    await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
+      const { status, body } = await fetchJson(
+        `${rust.endpoint}/v1/runs/${encodeURIComponent(turnRequestId)}/cancel`,
+        { method: "POST", body: "{}" },
+      );
+      assert.equal(status, 200);
+      assert.equal(body.id, turnRequestId);
+      assert.equal(body.status, "canceled");
+      assert.equal(body.runtimeTask?.status, "canceled");
+      const reloaded = await fetchJson(`${rust.endpoint}/v1/runs/${encodeURIComponent(turnRequestId)}`);
+      assert.equal(reloaded.body.status, "canceled", "cancel should persist");
+    });
+
+    // RATCHET FRONTIER — next: turn control inheritance, subagents, tasks/jobs, MCP family.
   } finally {
     await rust.close();
   }

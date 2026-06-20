@@ -277,6 +277,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/runs", get(lifecycle_routes::handle_runs_list))
         .route("/v1/runs/:id", get(lifecycle_routes::handle_run_get))
+        .route("/v1/runs/:id/cancel", post(lifecycle_routes::handle_run_cancel))
         .route("/v1/runs/:id/events", get(lifecycle_routes::handle_run_events))
         .with_state(state);
 
