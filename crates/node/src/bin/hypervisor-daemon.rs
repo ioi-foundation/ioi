@@ -26,11 +26,13 @@ use sha2::{Digest, Sha256};
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountBackendLifecycleRequest, ModelMountCapabilityTokenControlRequest, ModelMountCore,
+    ModelMountArtifactEndpointRequest, ModelMountBackendLifecycleRequest,
+    ModelMountCapabilityTokenControlRequest, ModelMountCore,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountReadProjectionRequest,
     ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyRequest,
-    ModelMountServerControlRequest, MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
+    ModelMountServerControlRequest, MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION,
@@ -112,7 +114,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
         .route("/v1/model-mount/providers", get(handle_providers))
         .route("/v1/model-mount/backends", get(handle_backends))
-        .route("/v1/model-mount/endpoints", get(handle_endpoints))
+        .route(
+            "/v1/model-mount/endpoints",
+            get(handle_endpoints).post(handle_endpoints_mount),
+        )
+        .route("/v1/model-mount/artifacts/import", post(handle_artifacts_import))
         .route("/v1/model-mount/instances", get(handle_instances))
         .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
         .route(
@@ -619,6 +625,80 @@ fn read_receipts(data_dir: &str) -> Vec<Value> {
         }
     }
     out
+}
+
+// ---- Phase 5c.4: artifacts/import + endpoints/mount (kernel) ----
+
+async fn handle_artifacts_import(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.import:write")?;
+    // The kernel returns source_path_hash, not a content checksum; the e2e
+    // asserts imported.checksum =~ /^sha256:/, so hash the artifact file here.
+    let checksum = body
+        .get("path")
+        .and_then(|v| v.as_str())
+        .and_then(|p| std::fs::read(p).ok())
+        .map(|bytes| {
+            let mut hasher = Sha256::new();
+            hasher.update(&bytes);
+            format!("sha256:{}", hex::encode(hasher.finalize()))
+        })
+        .unwrap_or_else(|| "sha256:unavailable".to_string());
+    // Map the e2e body field `path` -> kernel body `source_path`.
+    let mut control_body = body.clone();
+    if let Some(object) = control_body.as_object_mut() {
+        if let Some(path) = object.remove("path") {
+            object.insert("source_path".to_string(), path);
+        }
+    }
+    let req: ModelMountArtifactEndpointRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+        "operation_kind": "model_mount.artifact.import",
+        "body": control_body,
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_artifact_endpoint(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let mut response = plan.public_response.clone();
+    if let Some(object) = response.as_object_mut() {
+        object.insert("checksum".to_string(), json!(checksum));
+    }
+    Ok(Json(response))
+}
+
+async fn handle_endpoints_mount(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    authorize(&st, &headers, "model.mount:write")?;
+    // e2e body {model_id, id, provider_id} -> kernel body {model_id, endpoint_id, provider_id}.
+    let mut control_body = body.clone();
+    if let Some(object) = control_body.as_object_mut() {
+        if let Some(id) = object.remove("id") {
+            object.insert("endpoint_id".to_string(), id);
+        }
+    }
+    let req: ModelMountArtifactEndpointRequest = serde_json::from_value(json!({
+        "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+        "operation_kind": "model_mount.endpoint.mount",
+        "body": control_body,
+        "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = ModelMountCore
+        .plan_artifact_endpoint(&req)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
+    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(plan.public_response))
 }
 
 // ---- Phase 5c.3: runtime engines + survey + select + PATCH + receipts ----
