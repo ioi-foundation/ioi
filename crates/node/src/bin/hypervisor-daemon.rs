@@ -268,6 +268,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_thread_thinking),
         )
         .route(
+            "/v1/threads/:id/mcp/tools/search",
+            get(lifecycle_routes::handle_mcp_tool_search),
+        )
+        .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
         )

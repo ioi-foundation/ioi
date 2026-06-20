@@ -23,8 +23,9 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
-    ThreadCreateStateUpdateRequest, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    McpToolSearchProjectionRequest, RunCancelStateUpdateRequest, RunCreateStateUpdateRequest,
+    ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -543,6 +544,44 @@ pub(crate) async fn handle_run_get(
         .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
         .map(Json)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")))
+}
+
+/// GET /v1/threads/:id/mcp/tools/search — project the thread's MCP tool catalog.
+///
+/// Exercises the kernel MCP catalog/tool-search projection (the boundary that
+/// originally 502'd thread-create). A thread with no mounted MCP servers projects
+/// an empty tool set.
+pub(crate) async fn handle_mcp_tool_search(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let agent_id = agent_id_for_thread(&thread_id);
+    let query = params
+        .get("q")
+        .or_else(|| params.get("query"))
+        .or_else(|| params.get("search"))
+        .cloned();
+    let request: McpToolSearchProjectionRequest = serde_json::from_value(json!({
+        "schema_version": MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "status_schema_version": "ioi.runtime.mcp-tool-search.v1",
+        "state_dir": st.data_dir,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "server_id": params.get("server_id"),
+        "servers": [],
+        "query": query,
+        "tool_id": params.get("tool_id"),
+        "limit": params.get("limit").and_then(|v| v.parse::<u64>().ok()),
+        "live_discovery": false,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_mcp_tool_search_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let projected = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(projected))
 }
 
 /// POST /v1/runs/:id/cancel — cancel a run via plan_run_cancel_state_update.

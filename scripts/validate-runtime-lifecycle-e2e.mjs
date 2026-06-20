@@ -251,6 +251,19 @@ async function main() {
       assert.equal(body.event.component_kind, "model_router");
     });
 
+    // Step 5a: MCP family — the catalog/tool-search projection (the boundary that
+    // originally 502'd thread-create) now runs as an internal Rust call.
+    await runStep("GET /v1/threads/:id/mcp/tools/search projects the MCP catalog", async () => {
+      const { status, body } = await fetchJson(
+        `${rust.endpoint}/v1/threads/${encodeURIComponent(createdThread.thread_id)}/mcp/tools/search?q=read`,
+      );
+      assert.equal(status, 200);
+      assert.equal(body.object, "ioi.runtime_mcp_tool_search");
+      assert.equal(body.status, "completed");
+      assert.ok(Array.isArray(body.tools), "tools should be an array");
+      assert.equal(body.tool_count, 0, "no MCP servers mounted -> empty catalog");
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(
