@@ -530,6 +530,37 @@ pub(crate) async fn handle_run_events(
     sse_events_response(events, &params, &headers)
 }
 
+/// GET /v1/runs/:id — return the persisted run record.
+pub(crate) async fn handle_run_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
+        .map(Json)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")))
+}
+
+/// GET /v1/runs — list persisted run records (optionally filtered by ?agent_id=).
+pub(crate) async fn handle_runs_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let agent_filter = params.get("agent_id").map(String::as_str);
+    let runs: Vec<Value> = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .filter(|run| match agent_filter {
+            Some(agent_id) => {
+                run.get("agentId").or_else(|| run.get("agent_id")).and_then(|v| v.as_str())
+                    == Some(agent_id)
+            }
+            None => true,
+        })
+        .collect();
+    Json(json!(runs))
+}
+
 /// GET /v1/threads — list thread projection records (one per persisted agent).
 pub(crate) async fn handle_threads_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let agents = read_record_dir(&st.data_dir, "agents");

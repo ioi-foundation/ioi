@@ -62,6 +62,7 @@ async function main() {
     // monotonic event records" (thread-record assertions).
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lifecycle-e2e-ws-"));
     let createdThread;
+    let turnRequestId;
     await runStep("POST /v1/threads creates a thread with the faithful model route decision", async () => {
       const { status, body } = await fetchJson(`${rust.endpoint}/v1/threads`, {
         method: "POST",
@@ -130,6 +131,7 @@ async function main() {
       assert.match(body.request_id, /^run_/);
       assert.equal(body.thread_id, createdThread.thread_id);
       assert.ok(body.quality_ledger_ref, "turn should carry a quality_ledger_ref");
+      turnRequestId = body.request_id;
     });
 
     // Step 3: events / SSE projection. The Rust daemon projects the thread's runtime
@@ -194,7 +196,20 @@ async function main() {
       assert.ok(events.length >= 1, "run events should project");
     });
 
-    // RATCHET FRONTIER — next: run record/cancel routes, thread-control (mode/model/thinking).
+    // Step 4a: run read endpoints.
+    await runStep("GET /v1/runs/:id + GET /v1/runs project the persisted run", async () => {
+      const get = await fetchJson(`${rust.endpoint}/v1/runs/${encodeURIComponent(turnRequestId)}`);
+      assert.equal(get.status, 200);
+      assert.equal(get.body.id, turnRequestId);
+      assert.equal(get.body.status, "completed");
+      const list = await fetchJson(`${rust.endpoint}/v1/runs`);
+      assert.equal(list.status, 200);
+      assert.ok(Array.isArray(list.body) && list.body.length === 1, "should list the one run");
+      const missing = await fetchJson(`${rust.endpoint}/v1/runs/run_does_not_exist`);
+      assert.equal(missing.status, 404);
+    });
+
+    // RATCHET FRONTIER — next: run cancel + thread-control (mode/model/thinking).
   } finally {
     await rust.close();
   }
