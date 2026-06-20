@@ -648,8 +648,14 @@ export class AgentgresRuntimeStateStore {
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),
     });
+    // Route-control client (dependency-injected). Defaults to the in-process
+    // model-mount facade for behavior parity; production injects the Rust
+    // route-control client (createRustRouteControlClient) so run/turn route
+    // selection resolves through the Rust true-north daemon. The async
+    // route-selection refactor makes either client a drop-in.
+    this.routeControlClient = options.routeControlClient ?? this.modelMounting;
     this.modelRouteSelection = createModelRouteSelection({
-      modelMounting: this.modelMounting,
+      modelMounting: this.routeControlClient,
       normalizeArray,
     });
     this.runMemoryResolution = createRunMemoryResolution({
