@@ -122,6 +122,7 @@ import {
   type HypervisorSessionOperationKind,
   type HypervisorSessionOperationProposal,
 } from "../hypervisorSessionOperationsModel";
+import { useHypervisorSessionOperationsProjectionSubscription } from "../useHypervisorSessionOperationsProjectionSubscription";
 import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
@@ -1864,31 +1865,11 @@ function HypervisorSessionOperationsCockpit({
     agentOptions.find((option) => option.selection_ref === agentSelectionRef)
       ?.label ?? "Agent";
 
-  useEffect(() => {
-    if (
-      !shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
-      )
-    ) {
-      return;
-    }
-    let cancelled = false;
-    loadHypervisorSessionOperationsProjection()
-      .then((nextProjection) => {
-        if (!cancelled) {
-          setProjection(nextProjection);
-        }
-      })
-      .catch((error) => {
-        console.warn(
-          "[Hypervisor][Sessions] operations projection unavailable",
-          error,
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // The Sessions cockpit projection is driven live by the session-events SSE
+  // subscription (useHypervisorSessionOperationsProjectionSubscription, wired
+  // below once activeSessionRef is known): a baseline load then folded
+  // environment_status / workspace_change / terminal_chunk / receipt_projection
+  // deltas, replacing the one-shot fetch.
 
   function handleSessionOperation(
     operationKind: HypervisorSessionOperationKind,
@@ -1930,6 +1911,17 @@ function HypervisorSessionOperationsCockpit({
     null;
   const activeSessionRef =
     launchedHarnessSession?.session_ref ?? projection.selected_session_ref;
+  // Phase 3: subscribe the cockpit to live session events (terminal, diffs,
+  // ports, status). Baseline load via loadHypervisorSessionOperationsProjection,
+  // then SSE deltas; degrades silently offline.
+  useHypervisorSessionOperationsProjectionSubscription({
+    enabled: shouldAttemptHypervisorDaemonProjectionFetch(
+      HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
+    ),
+    sessionRef: activeSessionRef,
+    onProjection: setProjection,
+    load: loadHypervisorSessionOperationsProjection,
+  });
   const activeBranchLabel =
     launchedHarnessSession?.branch_label ?? projection.branch_label;
   const activeProjectLabel =

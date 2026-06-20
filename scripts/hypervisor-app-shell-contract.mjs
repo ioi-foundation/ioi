@@ -460,6 +460,54 @@ async function createContractDaemonServer() {
       }
       if (
         request.method === "GET" &&
+        url.pathname.startsWith("/v1/hypervisor/sessions/") &&
+        url.pathname.endsWith("/events")
+      ) {
+        // Canonical session-events SSE the cockpit subscription folds. Emits a
+        // ready environment status so the launched-session drill-in renders.
+        response.setHeader("content-type", "text/event-stream; charset=utf-8");
+        response.setHeader("cache-control", "no-store");
+        response.statusCode = 200;
+        const componentReady = (component) => ({
+          phase: "ready",
+          evidence_ref: `receipt://env/${component}`,
+        });
+        const environmentStatus = {
+          schema_version: "ioi.hypervisor.environment_status.v1",
+          environment_ref: "environment:shell-contract",
+          provider_placement_ref: null,
+          phase: "running",
+          components: {
+            provisioner: componentReady("provisioner"),
+            workspace_content: componentReady("workspace_content"),
+            sandbox: componentReady("sandbox"),
+            secrets: componentReady("secrets"),
+            automations: componentReady("automations"),
+            model_mount: componentReady("model_mount"),
+            harness: componentReady("harness"),
+          },
+          ports: [],
+          failure_message: null,
+          warning_message: null,
+          state_root_ref: "agentgres://state-root/env/shell-contract",
+          workspace_artifact_ref: "agentgres://artifact/workspace/shell-contract",
+          runtimeTruthSource: "daemon-runtime",
+        };
+        response.write(
+          `event: environment_status\ndata: ${JSON.stringify(environmentStatus)}\n\n`,
+        );
+        response.write(
+          `event: readiness\ndata: ${JSON.stringify({
+            session_ref: "session:shell-contract/local-qwen",
+            environment_phase: "running",
+            ready: true,
+          })}\n\n`,
+        );
+        response.end();
+        return;
+      }
+      if (
+        request.method === "GET" &&
         url.pathname === "/v1/hypervisor/receipt-evidence"
       ) {
         writeContractDaemonJson(response, buildContractReceiptEvidenceProjection());

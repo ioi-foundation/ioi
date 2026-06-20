@@ -312,6 +312,16 @@ export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH =
   "/v1/hypervisor/session-operations";
 export const HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH =
   "/v1/hypervisor/session-operations/proposals";
+// Canonical session-events SSE stream the subscription hook reads:
+// event: environment_status | terminal_chunk | workspace_change |
+// receipt_projection | readiness.
+export const HYPERVISOR_SESSION_OPERATIONS_EVENTS_PATH_TEMPLATE =
+  "/v1/hypervisor/sessions/:session_id/events";
+
+export function hypervisorSessionEventsPath(sessionRef: string): string {
+  const id = encodeURIComponent(sessionRef?.trim() || "dev-replay");
+  return `/v1/hypervisor/sessions/${id}/events`;
+}
 
 type FetchLike = (
   input: string,
