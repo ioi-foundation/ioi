@@ -1063,6 +1063,9 @@ test("thread and run routes use store-owned context policy API methods", async (
       segments: ["v1", "threads", "thread_route", "context-budget"],
       operation: "evaluateContextBudget",
       args: [{ threadId: "thread_route", request: body }],
+      // Thread-scoped context-budget is migrated to the Rust daemon (admits a
+      // decision event onto the unified log). Run-scoped context-budget stays here.
+      retired: true,
     },
     {
       handler: handleThreadRoute,

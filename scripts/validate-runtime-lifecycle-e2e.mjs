@@ -488,7 +488,35 @@ async function main() {
       assert.equal(after.at(-1)?.component_kind, "compaction_policy", "decision event is on the log");
     });
 
-    // RATCHET FRONTIER — next: context-budget, compact, workspace-trust, approvals.
+    // Step 7: context-budget — second event-emitting route (same unified-log path).
+    await runStep("POST /v1/threads/:id/context-budget admits a decision event", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const budget = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/context-budget`, {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "warn",
+          thresholds: { max_total_tokens: 1000, warn_at_ratio: 0.8 },
+          usage_telemetry: { total_tokens: 850 },
+        }),
+      });
+      assert.equal(budget.status, 200);
+      assert.equal(budget.body.component_kind, "context_budget");
+      assert.equal(budget.body.status, "warn", "850/1000 over warn_at_ratio 0.8 should warn");
+      assert.equal(budget.body.seq, beforeMax + 1, "decision seq lands after the prior events");
+      assert.equal(budget.body.evidence_refs?.[0], "context_budget_evaluation_rust_owned");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.at(-1)?.component_kind, "context_budget", "decision event is on the log");
+    });
+
+    // RATCHET FRONTIER — next: compact, workspace-trust, approvals, diagnostics.
   } finally {
     await rust.close();
   }

@@ -26,12 +26,13 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    AgentCreateStateUpdateRequest, CompactionPolicyRequest, McpControlAgentStateUpdateRequest,
-    McpToolSearchProjectionRequest, OperatorInterruptStateUpdateRequest,
-    OperatorSteerStateUpdateRequest, RunCancelStateUpdateRequest, RunCreateStateUpdateRequest,
-    SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
-    ThreadCreateStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+    AgentCreateStateUpdateRequest, CompactionPolicyRequest, ContextBudgetPolicyRequest,
+    McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
+    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest,
+    ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
+    AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+    CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1099,22 +1100,99 @@ pub(crate) async fn handle_compaction_policy(
         build_context_policy_event(&st, &thread_id, "compaction_policy", &policy, &evidence_refs),
     )?;
 
-    // contextPolicyResultEnvelope: {...policy, event, event_id, seq, refs..., context_compaction}.
-    let mut response = policy;
+    // contextPolicyResultEnvelope + the execute_compaction cascade (deferred -> null).
+    let mut response = context_policy_envelope(policy, admitted, evidence_refs);
     if let Some(map) = response.as_object_mut() {
+        map.insert("context_compaction".to_string(), Value::Null);
+    }
+    Ok(Json(response))
+}
+
+/// POST /v1/threads/:id/context-budget — evaluate the context-budget policy in the
+/// kernel and admit the resulting decision event onto the persisted event log.
+pub(crate) async fn handle_context_budget(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let obj = body.as_object().cloned().unwrap_or_default();
+    let thresholds_src = obj
+        .get("thresholds")
+        .or_else(|| obj.get("context_budget"))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let num = |src: &serde_json::Map<String, Value>, key: &str| -> Value {
+        src.get(key)
+            .or_else(|| obj.get(key))
+            .and_then(|v| v.as_f64())
+            .map(Value::from)
+            .unwrap_or(Value::Null)
+    };
+    let mode = match obj.get("mode").and_then(|v| v.as_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("warn") => "warn",
+        Some("block") => "block",
+        _ => "simulate",
+    };
+    let request: ContextBudgetPolicyRequest = serde_json::from_value(json!({
+        "schema_version": CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+        "usage_telemetry": obj.get("usage_telemetry").cloned().unwrap_or_else(|| json!({})),
+        "thresholds": {
+            "max_total_tokens": num(&thresholds_src, "max_total_tokens"),
+            "max_cost_usd": num(&thresholds_src, "max_cost_usd"),
+            "max_context_pressure": num(&thresholds_src, "max_context_pressure"),
+            "warn_at_ratio": thresholds_src.get("warn_at_ratio").or_else(|| obj.get("warn_at_ratio")).and_then(|v| v.as_f64()).unwrap_or(0.8),
+        },
+        "mode": mode,
+        "scope": obj.get("scope").and_then(|v| v.as_str()).unwrap_or("thread"),
+        "thread_id": thread_id,
+        "turn_id": obj.get("turn_id").and_then(|v| v.as_str()),
+        "run_id": obj.get("run_id").and_then(|v| v.as_str()),
+        "source": obj.get("source").and_then(|v| v.as_str()).unwrap_or("react_flow"),
+        "actor": obj.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "event_kind": obj.get("event_kind").and_then(|v| v.as_str()).unwrap_or("RuntimeContextBudget.Evaluate"),
+        "component_kind": "context_budget",
+        "workflow_graph_id": obj.get("workflow_graph_id").and_then(|v| v.as_str()),
+        "workflow_node_id": obj.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.context-budget"),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let policy_record = RuntimeKernelService::new()
+        .evaluate_context_budget_policy(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let policy = serde_json::to_value(&policy_record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let evidence_refs = json!([
+        "context_budget_evaluation_rust_owned",
+        "rust_daemon_core_context_budget_event",
+        "agentgres_context_budget_event_truth_required",
+    ]);
+    let admitted = admit_and_persist_event(
+        &st,
+        build_context_policy_event(&st, &thread_id, "context_budget", &policy, &evidence_refs),
+    )?;
+    Ok(Json(context_policy_envelope(policy, admitted, evidence_refs)))
+}
+
+/// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
+/// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
+fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {
+    if let Some(map) = policy.as_object_mut() {
         let event_id = admitted.get("event_id").cloned().unwrap_or(Value::Null);
         let seq = admitted.get("seq").cloned().unwrap_or(Value::Null);
         let receipt_refs = merge_string_refs(&[map.get("receipt_refs"), admitted.get("receipt_refs")]);
-        let policy_decision_refs = merge_string_refs(&[map.get("policy_decision_refs"), admitted.get("policy_decision_refs")]);
+        let policy_decision_refs =
+            merge_string_refs(&[map.get("policy_decision_refs"), admitted.get("policy_decision_refs")]);
         map.insert("event".to_string(), admitted);
         map.insert("event_id".to_string(), event_id);
         map.insert("seq".to_string(), seq);
         map.insert("receipt_refs".to_string(), Value::Array(receipt_refs));
         map.insert("policy_decision_refs".to_string(), Value::Array(policy_decision_refs));
         map.insert("evidence_refs".to_string(), evidence_refs);
-        map.insert("context_compaction".to_string(), Value::Null);
     }
-    Ok(Json(response))
+    policy
 }
 
 /// Build a runtime event from a context-policy decision record (mirrors the JS
@@ -1145,24 +1223,41 @@ fn build_context_policy_event(
     if receipt_refs.is_empty() {
         receipt_refs.push(Value::from(format!("{component_kind}_decision:{policy_decision_id}")));
     }
-    let payload = json!({
-        "status": policy.get("status"),
-        "action": policy.get("action"),
-        "selected_action": policy.get("selected_action"),
-        "budget_status": policy.get("budget_status"),
-        "summary": policy.get("summary"),
-        "policy_decision_id": policy.get("policy_decision_id"),
-        "context_budget": policy.get("context_budget"),
-        "approval_id": policy.get("approval_id"),
-        "approval_required": policy.get("approval_required"),
-        "approval_granted": policy.get("approval_granted"),
-        "approval_satisfied": policy.get("approval_satisfied"),
-        "execute_compaction": policy.get("execute_compaction"),
-        "compaction_requested": policy.get("compaction_requested"),
-        "compact_reason": policy.get("compact_reason"),
-        "compact_scope": policy.get("compact_scope"),
-        "continuation_allowed": policy.get("continuation_allowed"),
-    });
+    let payload = if component_kind == "context_budget" {
+        json!({
+            "status": policy.get("status"),
+            "mode": policy.get("mode"),
+            "scope": policy.get("scope"),
+            "summary": policy.get("summary"),
+            "policy_decision_id": policy.get("policy_decision_id"),
+            "policy_decision": policy.get("policy_decision"),
+            "usage_telemetry": policy.get("usage_telemetry"),
+            "usage_summary": policy.get("usage_summary"),
+            "thresholds": policy.get("thresholds"),
+            "warnings": policy.get("warnings"),
+            "violations": policy.get("violations"),
+            "would_block": policy.get("would_block"),
+        })
+    } else {
+        json!({
+            "status": policy.get("status"),
+            "action": policy.get("action"),
+            "selected_action": policy.get("selected_action"),
+            "budget_status": policy.get("budget_status"),
+            "summary": policy.get("summary"),
+            "policy_decision_id": policy.get("policy_decision_id"),
+            "context_budget": policy.get("context_budget"),
+            "approval_id": policy.get("approval_id"),
+            "approval_required": policy.get("approval_required"),
+            "approval_granted": policy.get("approval_granted"),
+            "approval_satisfied": policy.get("approval_satisfied"),
+            "execute_compaction": policy.get("execute_compaction"),
+            "compaction_requested": policy.get("compaction_requested"),
+            "compact_reason": policy.get("compact_reason"),
+            "compact_scope": policy.get("compact_scope"),
+            "continuation_allowed": policy.get("continuation_allowed"),
+        })
+    };
     json!({
         "event_stream_id": event_stream_id,
         "event_id": event_id,

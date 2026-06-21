@@ -343,6 +343,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_compaction_policy),
         )
         .route(
+            "/v1/threads/:id/context-budget",
+            post(lifecycle_routes::handle_context_budget),
+        )
+        .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
         )
