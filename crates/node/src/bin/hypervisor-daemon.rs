@@ -280,6 +280,26 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_subagent_result),
         )
         .route(
+            "/v1/threads/:id/subagents/:subagent_id/wait",
+            post(lifecycle_routes::handle_subagent_wait),
+        )
+        .route(
+            "/v1/threads/:id/subagents/:subagent_id/input",
+            post(lifecycle_routes::handle_subagent_input),
+        )
+        .route(
+            "/v1/threads/:id/subagents/:subagent_id/resume",
+            post(lifecycle_routes::handle_subagent_resume),
+        )
+        .route(
+            "/v1/threads/:id/subagents/:subagent_id/assign",
+            post(lifecycle_routes::handle_subagent_assign),
+        )
+        .route(
+            "/v1/threads/:id/subagents/:subagent_id/cancel",
+            post(lifecycle_routes::handle_subagent_cancel),
+        )
+        .route(
             "/v1/threads/:id/mcp/tools/search",
             get(lifecycle_routes::handle_mcp_tool_search),
         )

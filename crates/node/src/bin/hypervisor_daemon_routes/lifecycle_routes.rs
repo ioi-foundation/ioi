@@ -891,6 +891,187 @@ pub(crate) async fn handle_subagent_result(
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")))
 }
 
+/// Load a subagent record by subagent_id.
+fn read_subagent(st: &DaemonState, subagent_id: &str) -> Option<Value> {
+    read_record_dir(&st.data_dir, "subagents")
+        .into_iter()
+        .find(|sub| sub.get("subagent_id").and_then(|v| v.as_str()) == Some(subagent_id))
+}
+
+/// Stamp + persist a subagent record via plan_subagent_record_state_update.
+fn plan_and_persist_subagent(
+    st: &DaemonState,
+    thread_id: &str,
+    operation_kind: &str,
+    subagent: Value,
+) -> Result<Value, AppError> {
+    let subagent_id = subagent
+        .get("subagent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let request: SubagentRecordStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "operation_kind": operation_kind,
+        "thread_id": thread_id,
+        "subagent": subagent,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_subagent_record_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "subagents", &subagent_id, &record.subagent)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(record.subagent)
+}
+
+/// POST /v1/threads/:id/subagents/:subId/wait — settle a subagent.
+pub(crate) async fn handle_subagent_wait(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+    };
+    let now = iso_now();
+    if let Some(map) = subagent.as_object_mut() {
+        map.insert("waited_at".to_string(), json!(now));
+        map.insert("updated_at".to_string(), json!(now));
+    }
+    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.wait", subagent)?))
+}
+
+/// POST /v1/threads/:id/subagents/:subId/assign — reassign a subagent.
+pub(crate) async fn handle_subagent_assign(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+    };
+    let now = iso_now();
+    if let Some(map) = subagent.as_object_mut() {
+        if let Some(role) = body.get("role").and_then(|v| v.as_str()) {
+            map.insert("role".to_string(), json!(role));
+        }
+        if let Some(target) = body.get("target_agent_id").and_then(|v| v.as_str()) {
+            map.insert("assigned_agent_id".to_string(), json!(target));
+        }
+        map.insert("updated_at".to_string(), json!(now));
+    }
+    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.assign", subagent)?))
+}
+
+/// POST /v1/threads/:id/subagents/:subId/cancel — cancel a subagent (and its run).
+pub(crate) async fn handle_subagent_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+    };
+    let now = iso_now();
+    if let Some(run_id) = subagent.get("run_id").and_then(|v| v.as_str()).map(str::to_string) {
+        if let Some(run) = read_record_dir(&st.data_dir, "runs")
+            .into_iter()
+            .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
+        {
+            if let Ok(request) = serde_json::from_value::<RunCancelStateUpdateRequest>(json!({
+                "schema_version": RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                "run_id": run_id,
+                "run": run,
+                "canceled_at": now,
+            })) {
+                if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
+                    let _ = persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run);
+                }
+            }
+        }
+    }
+    if let Some(map) = subagent.as_object_mut() {
+        map.insert("status".to_string(), json!("canceled"));
+        map.insert("lifecycle_status".to_string(), json!("canceled"));
+        if let Some(reason) = body
+            .get("reason")
+            .or_else(|| body.get("cancellation_reason"))
+            .and_then(|v| v.as_str())
+        {
+            map.insert("cancellation_reason".to_string(), json!(reason));
+        }
+        map.insert("updated_at".to_string(), json!(now));
+    }
+    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.cancel", subagent)?))
+}
+
+/// Shared input/resume: create a new child run, then advance the subagent record.
+fn subagent_run_control(
+    st: &DaemonState,
+    thread_id: &str,
+    subagent_id: &str,
+    body: &Value,
+    operation_kind: &str,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut subagent) = read_subagent(st, subagent_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+    };
+    let child_agent_id = subagent
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(subagent_id)
+        .to_string();
+    let Some(child_agent) = read_record_dir(&st.data_dir, "agents")
+        .into_iter()
+        .find(|agent| agent.get("id").and_then(|v| v.as_str()) == Some(child_agent_id.as_str()))
+    else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("child agent not found: {child_agent_id}")));
+    };
+    let now = iso_now();
+    let run_id = format!("run_{}", uuid::Uuid::new_v4());
+    let prompt = body
+        .get("input")
+        .or_else(|| body.get("prompt"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let run = build_run_candidate(&child_agent, &run_id, "send", prompt, &now);
+    let plan_run: RunCreateStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "run": run,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned_run = RuntimeKernelService::new()
+        .plan_run_create_state_update(&plan_run)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    persist_record(st.data_dir.as_str(), "runs", &run_id, &planned_run.run)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(map) = subagent.as_object_mut() {
+        map.insert("run_id".to_string(), json!(run_id));
+        map.insert("status".to_string(), json!("completed"));
+        map.insert("lifecycle_status".to_string(), json!("completed"));
+        map.insert("updated_at".to_string(), json!(now));
+    }
+    Ok(Json(plan_and_persist_subagent(st, thread_id, operation_kind, subagent)?))
+}
+
+/// POST /v1/threads/:id/subagents/:subId/input — send input (creates a new run).
+pub(crate) async fn handle_subagent_input(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    subagent_run_control(&st, &thread_id, &subagent_id, &body, "subagent.input")
+}
+
+/// POST /v1/threads/:id/subagents/:subId/resume — resume (creates a new run).
+pub(crate) async fn handle_subagent_resume(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    subagent_run_control(&st, &thread_id, &subagent_id, &body, "subagent.resume")
+}
+
 /// GET /v1/threads/:id/mcp/tools/search — project the thread's MCP tool catalog.
 ///
 /// Exercises the kernel MCP catalog/tool-search projection (the boundary that

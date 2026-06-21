@@ -359,6 +359,40 @@ async function main() {
       assert.equal(result.body.subagent_id, spawn.body.subagent_id);
     });
 
+    // Step 5f: subagent tail (wait/input/resume/assign/cancel) — the run-creating ops
+    // (input/resume) materialize their own runs, so this runs after the run/task counts.
+    await runStep("subagent tail (wait/input/resume/assign/cancel) is Rust-owned", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const spawn = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents`, {
+        method: "POST",
+        body: JSON.stringify({ prompt: "tail subtask", role: "implementer" }),
+      });
+      const sid = encodeURIComponent(spawn.body.subagent_id);
+
+      const wait = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents/${sid}/wait`, { method: "POST", body: "{}" });
+      assert.equal(wait.status, 200);
+      assert.ok(wait.body.waited_at, "wait stamps waited_at");
+
+      const input = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents/${sid}/input`, {
+        method: "POST",
+        body: JSON.stringify({ input: "refine the section" }),
+      });
+      assert.equal(input.status, 200);
+      assert.match(input.body.run_id, /^run_/, "input creates a new run");
+
+      const assign = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents/${sid}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ role: "reviewer" }),
+      });
+      assert.equal(assign.status, 200);
+      assert.equal(assign.body.role, "reviewer");
+
+      const cancel = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents/${sid}/cancel`, { method: "POST", body: "{}" });
+      assert.equal(cancel.status, 200);
+      assert.equal(cancel.body.status, "canceled");
+      assert.equal(cancel.body.lifecycle_status, "canceled");
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(
