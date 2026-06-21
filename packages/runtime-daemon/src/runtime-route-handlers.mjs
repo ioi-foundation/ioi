@@ -173,6 +173,12 @@ export function createRuntimeRouteHandlers(deps) {
       (action === "compaction-policy" && !segments[4]) ||
       (action === "context-budget" && !segments[4]) ||
       (action === "compact" && !segments[4]) ||
+      // diagnostics repair-decision execute: the Rust daemon synthesizes + admits the
+      // diagnostics.repair_decision.execute event onto the unified persisted log.
+      (action === "diagnostics" &&
+        segments[4] === "repair-decisions" &&
+        segments[5] &&
+        segments[6] === "execute") ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&

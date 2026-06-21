@@ -546,7 +546,32 @@ async function main() {
       assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
     });
 
-    // RATCHET FRONTIER — next: workspace-trust pair, approvals, diagnostics.
+    // Step 9: diagnostics repair-decision execute — synthesized event admitted to the log.
+    await runStep("POST /v1/threads/:id/diagnostics/repair-decisions/:id/execute admits an event", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const exec = await fetchJson(
+        `${rust.endpoint}/v1/threads/${tid}/diagnostics/repair-decisions/decision_e2e/execute`,
+        { method: "POST", body: JSON.stringify({ source: "operator", status: "approved" }) },
+      );
+      assert.equal(exec.status, 200);
+      assert.equal(exec.body.event_kind, "diagnostics.repair_decision.execute");
+      assert.equal(exec.body.component_kind, "diagnostics_repair");
+      assert.equal(exec.body.payload?.decision_id, "decision_e2e");
+      assert.equal(exec.body.seq, beforeMax + 1, "repair event lands after prior events");
+      assert.ok((exec.body.receipt_refs ?? []).length >= 1, "synthesized event carries receipt_refs");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.at(-1)?.event_kind, "diagnostics.repair_decision.execute", "repair event is on the log");
+    });
+
+    // RATCHET FRONTIER — next: workspace-trust pair, approvals.
   } finally {
     await rust.close();
   }

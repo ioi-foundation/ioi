@@ -866,6 +866,8 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       segments: ["v1", "threads", "thread_route", "diagnostics", "repair-decisions", "decision_route", "execute"],
       operation: "executeDiagnosticsRepairDecision",
       args: ["thread_route", "decision_route", body],
+      // Migrated to the Rust daemon (synthesizes + admits the repair event onto the log).
+      retired: true,
     },
     {
       method: "GET",
@@ -903,6 +905,16 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       url: new URL(testCase.path, "http://daemon.test"),
       segments: testCase.segments,
     });
+    if (testCase.retired) {
+      // Migrated routes are retired in the JS daemon (served by the Rust daemon).
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      assert.equal(calls.length, 0, "retired route must not invoke the JS store");
+      continue;
+    }
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
     assert.equal(call.operation, testCase.operation);

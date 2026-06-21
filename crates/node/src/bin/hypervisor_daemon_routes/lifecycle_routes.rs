@@ -44,6 +44,9 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
+    RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
     RuntimeThreadEventAdmissionRequest, RuntimeThreadEventProjectionRequest,
     RuntimeThreadEventReplayRequest, RuntimeThreadTurnProjectionRequest,
@@ -1368,6 +1371,52 @@ pub(crate) async fn handle_compact(
         "commit": { "persisted": true },
         "evidence_refs": evidence_refs,
     })))
+}
+
+/// POST /v1/threads/:id/diagnostics/repair-decisions/:decision_id/execute — execute
+/// a diagnostics repair decision. The kernel plan_runtime_diagnostics_repair_control
+/// SYNTHESIZES the diagnostics.repair_decision.execute runtime event (with generated
+/// receipt_refs + evidence_refs); we admit it onto the unified persisted log. Returns
+/// the admitted event envelope. The decision_id from the URL is authoritative.
+pub(crate) async fn handle_diagnostics_repair_execute(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, decision_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let event_stream_id = format!("{thread_id}:events");
+    let request: RuntimeDiagnosticsRepairControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "diagnostics_repair_decision_execution",
+        "operation_kind": "diagnostics.repair_decision.execute",
+        "thread_id": thread_id,
+        "event_stream_id": event_stream_id,
+        "turn_id": body.get("turn_id").and_then(|v| v.as_str()),
+        "decision_id": decision_id,
+        "gate_event_id": body.get("gate_event_id").and_then(|v| v.as_str()),
+        "gate_id": body.get("gate_id").and_then(|v| v.as_str()),
+        "snapshot_id": body.get("snapshot_id").and_then(|v| v.as_str()),
+        "workspace_root": body.get("workspace_root").and_then(|v| v.as_str()),
+        "source": body.get("source").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "status": body.get("status").and_then(|v| v.as_str()),
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_diagnostics_repair_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let event = serde_json::to_value(&record.event)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if event.is_null() {
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "diagnostics repair planner returned no event".to_string(),
+        ));
+    }
+    let admitted = admit_and_persist_event(&st, event)?;
+    Ok(Json(admitted))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
