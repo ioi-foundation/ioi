@@ -1282,7 +1282,10 @@ fn preview_operation(
     max_diff_bytes: u64,
 ) -> Result<WorkspaceRestoreOperationRecord, WorkspaceRestoreOperationError> {
     let target = resolve_workspace_restore_path(workspace_root, &file.path)?;
-    let current = read_workspace_restore_current(&target.absolute_path);
+    let current = read_workspace_restore_current(
+        &target.absolute_path,
+        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
+    );
     let before_exists = file.before.exists;
     let after_exists = file.after.exists;
     let desired_content = if before_exists {
@@ -1393,7 +1396,10 @@ fn apply_operation(
     let target = resolve_workspace_restore_path(workspace_root, &file.path)?;
     let target_exists = file.before.exists;
     if preview.status == "noop" {
-        let current = read_workspace_restore_current(&target.absolute_path);
+        let current = read_workspace_restore_current(
+        &target.absolute_path,
+        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
+    );
         return Ok(applied_operation(preview, current, "noop"));
     }
     let write_result = if !target_exists {
@@ -1435,7 +1441,10 @@ fn apply_operation(
         failed.error_message = Some(error.to_string());
         return Ok(failed);
     }
-    let current = read_workspace_restore_current(&target.absolute_path);
+    let current = read_workspace_restore_current(
+        &target.absolute_path,
+        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
+    );
     let apply_status = if preview.status == "conflict" && allow_conflicts {
         "applied_with_override"
     } else {
@@ -1543,7 +1552,7 @@ fn resolve_workspace_restore_path(
     })
 }
 
-fn read_workspace_restore_current(path: &Path) -> WorkspaceRestoreCurrent {
+fn read_workspace_restore_current(path: &Path, encoding: Option<&str>) -> WorkspaceRestoreCurrent {
     let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -1608,12 +1617,16 @@ fn read_workspace_restore_current(path: &Path) -> WorkspaceRestoreCurrent {
         }
     };
     // Represent the current file the SAME way capture did so hashes compare correctly:
-    // valid UTF-8 as literal text; otherwise base64 (matching a base64-captured snapshot
-    // side). The stored `content`/`content_hash` are only used for comparison + diff.
+    // when the snapshot side is base64, ALWAYS base64-encode the current bytes (even if
+    // they happen to be valid UTF-8) so a byte-identical working file matches the snapshot
+    // post-state instead of becoming a spurious conflict; otherwise valid UTF-8 is literal
+    // text and any non-UTF-8 falls back to base64. `content`/`content_hash` are only used
+    // for comparison + diff.
     let bytes_len = bytes.len() as u64;
-    let content = match String::from_utf8(bytes) {
-        Ok(text) => text,
-        Err(error) => BASE64.encode(error.as_bytes()),
+    let content = if encoding == Some("base64") {
+        BASE64.encode(&bytes)
+    } else {
+        String::from_utf8(bytes).unwrap_or_else(|error| BASE64.encode(error.as_bytes()))
     };
     WorkspaceRestoreCurrent {
         exists: true,

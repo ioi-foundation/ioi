@@ -731,8 +731,18 @@ fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppE
 /// the write half of the unified event model: GET /events reads back via `replay`.
 fn persist_thread_events(st: &DaemonState, thread_id: &str) -> Result<(), AppError> {
     let event_stream_id = format!("{thread_id}:events");
-    let admitted = project_runtime_events(st, "thread", thread_id, None)?;
-    append_persisted_events(st, &event_stream_id, &admitted)
+    // This is a THIRD writer to the stream's <sha256(stream)>.jsonl (alongside
+    // admit_and_persist_event and the runtime bridge); it must take the SAME per-stream
+    // lock across its read-latest-seq (project) + append window, or it re-opens the
+    // duplicate-seq race the lock closes.
+    ioi_services::agentic::runtime::event_log_bridge::with_event_stream_lock(
+        &st.data_dir,
+        &event_stream_id,
+        || {
+            let admitted = project_runtime_events(st, "thread", thread_id, None)?;
+            append_persisted_events(st, &event_stream_id, &admitted)
+        },
+    )
 }
 
 /// Replay the full persisted runtime-event log for a stream (`replay_kind = stream`)
@@ -2799,9 +2809,12 @@ async fn run_snapshot_restore(
     }
 
     // restore-apply is gated by the kernel apply policy over the preview: it requires an
-    // explicit confirmation (confirm_restore_apply / approved) in the body, and derives
-    // allow_conflicts from the POLICY PLAN — never the raw body. A blocked/conflict
-    // preview, or a missing confirmation, returns requires_confirmation WITHOUT writing.
+    // explicit confirmation (confirm_restore_apply / approved) in the body for ANY write.
+    // The operator's allow_conflicts/override_conflicts are forwarded as INPUTS to the
+    // policy, which decides the effective allow_conflicts (only honored alongside a
+    // satisfied approval); the apply request uses plan.allow_conflicts, not the raw body
+    // value. A blocked/conflict preview, or a missing confirmation, returns
+    // requires_confirmation WITHOUT writing.
     let policy_operations: Vec<Value> = preview_ops
         .iter()
         .map(|op| json!({ "path": op.path, "status": op.status, "blocked_reason": op.blocked_reason }))

@@ -882,12 +882,14 @@ async function main() {
         return encodeURIComponent(created.body.thread_id);
       };
 
-      // A) binary HEAD, modified to text on disk. The binary HEAD is now captured (base64),
-      // but the on-disk text matches neither base64 side -> a conflict the policy refuses
-      // (requires_confirmation) without an explicit override. The file MUST NOT be deleted.
+      // A) binary HEAD, modified to TEXT on disk. Both sides are captured base64; on
+      // restore the on-disk text is re-encoded base64 to match the snapshot post-state, so
+      // it is a clean restore that writes the real raw binary HEAD bytes back (validates
+      // the capture/read_current encoding symmetry; the file is reverted, never deleted).
       const a = newRepo("ioi-snap-bin-");
       const binFile = path.join(a.repo, "bin.dat");
-      fs.writeFileSync(binFile, Buffer.from([0xff, 0xfe, 0x00, 0x80, 0x01, 0x02]));
+      const aHead = Buffer.from([0xff, 0xfe, 0x00, 0x80, 0x01, 0x02]);
+      fs.writeFileSync(binFile, aHead);
       a.git(["add", "."]);
       a.git(["commit", "-q", "-m", "binary"]);
       fs.writeFileSync(binFile, "now plain text\n"); // working tree modified; HEAD is binary
@@ -896,9 +898,25 @@ async function main() {
       assert.equal(capA.status, 200);
       const applyA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/${encodeURIComponent(capA.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
       assert.equal(applyA.status, 200);
-      assert.ok(fs.existsSync(binFile), "binary-HEAD file MUST NOT be deleted on restore (data-loss guard)");
-      assert.equal(fs.readFileSync(binFile, "utf8"), "now plain text\n", "conflict restore leaves the file untouched");
-      assert.equal(applyA.body.applied_file_count, 0, "binary<->text conflict -> nothing applied");
+      assert.equal(applyA.body.event?.event_kind, "workspace_restore.applied");
+      assert.ok(fs.readFileSync(binFile).equals(aHead), "binary HEAD restored to its raw bytes even though the working copy was text");
+
+      // A2) DATA-LOSS guard for the genuinely-uncapturable case: a file whose content
+      // exceeds the 256KB capture cap is omitted, so restore BLOCKS — the file must remain
+      // untouched, NEVER deleted.
+      const big = newRepo("ioi-snap-big-");
+      const bigFile = path.join(big.repo, "big.txt");
+      fs.writeFileSync(bigFile, "a".repeat(300 * 1024) + "\n");
+      big.git(["add", "."]);
+      big.git(["commit", "-q", "-m", "big"]);
+      fs.writeFileSync(bigFile, "b".repeat(300 * 1024) + "\n"); // modified, still over the cap
+      const tidBig = await newThread(big.repo);
+      const capBig = await fetchJson(`${rust.endpoint}/v1/threads/${tidBig}/snapshots/capture`, { method: "POST", body: "{}" });
+      assert.equal(capBig.status, 200);
+      const applyBig = await fetchJson(`${rust.endpoint}/v1/threads/${tidBig}/snapshots/${encodeURIComponent(capBig.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      assert.equal(applyBig.status, 200);
+      assert.ok(fs.existsSync(bigFile), "over-cap (uncapturable) file MUST NOT be deleted on restore");
+      assert.equal(applyBig.body.applied_file_count, 0, "uncapturable content -> nothing applied (blocked)");
 
       // B) rename revert (confirmed).
       const b = newRepo("ioi-snap-mv-");
