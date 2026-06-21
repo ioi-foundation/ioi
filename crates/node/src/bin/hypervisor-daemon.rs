@@ -449,6 +449,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/runs/:id", get(lifecycle_routes::handle_run_get))
         .route("/v1/runs/:id/cancel", post(lifecycle_routes::handle_run_cancel))
         .route("/v1/runs/:id/events", get(lifecycle_routes::handle_run_events))
+        // run replay == the run's one-shot event SSE (same kernel projection as events).
+        .route("/v1/runs/:id/replay", get(lifecycle_routes::handle_run_events))
         // Read-only run sub-projections (pure kernel runtime-lifecycle replays).
         .route("/v1/runs/:id/usage", get(lifecycle_routes::handle_run_usage))
         .route("/v1/runs/:id/wait", get(lifecycle_routes::handle_run_wait))

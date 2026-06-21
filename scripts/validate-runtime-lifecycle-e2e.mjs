@@ -199,6 +199,11 @@ async function main() {
       assert.equal(response.status, 200);
       const events = parseSseEvents(await response.text());
       assert.ok(events.length >= 1, "run events should project");
+      // run replay is the same one-shot event SSE (the SDK round-trip's run.replay()).
+      const replay = await fetch(`${rust.endpoint}/v1/runs/${encodeURIComponent(runId)}/replay`);
+      assert.equal(replay.status, 200);
+      assert.equal(replay.headers.get("content-type"), "text/event-stream");
+      assert.equal(parseSseEvents(await replay.text()).length, events.length, "replay matches the run event stream");
     });
 
     // Step 4a: run read endpoints.

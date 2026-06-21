@@ -697,11 +697,11 @@ export function createRuntimeRouteHandlers(deps) {
     const action = segments[3];
     // Run sub-routes owned by the Rust hypervisor-daemon: the read-only projections
     // (usage/wait/conversation/trace/inspect/computer-use/scorecard/artifacts) replay via
-    // the kernel runtime-lifecycle projection; cancel + events are already Rust-served.
-    // Preserved (still JS): replay (SSE), run-scoped context-budget, coding-tool-budget-recovery.
+    // the kernel runtime-lifecycle projection; cancel + events + replay are already Rust-served.
+    // Preserved (still JS): run-scoped context-budget, coding-tool-budget-recovery.
     if (
       (request.method === "GET" &&
-        ["usage", "wait", "conversation", "trace", "inspect", "scorecard", "artifacts", "events"].includes(
+        ["usage", "wait", "conversation", "trace", "inspect", "scorecard", "artifacts", "events", "replay"].includes(
           action,
         )) ||
       (request.method === "GET" &&

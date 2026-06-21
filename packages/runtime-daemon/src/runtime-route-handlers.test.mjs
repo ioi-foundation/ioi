@@ -222,14 +222,13 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
       url: new URL("/v1/runs/run_route", "http://daemon.test"),
       segments: ["v1", "runs", "run_route"],
   });
-  // Read-only run projections + cancel/events are Rust-owned (410). Run-scoped replay
-  // (SSE) stays JS-served, so it still hits the store.
+  // Read-only run projections + cancel/events + replay are all Rust-owned (410).
   for (const { path, retired } of [
     { path: "/v1/runs/run_route/usage", retired: true },
     { path: "/v1/runs/run_route/wait", retired: true },
     { path: "/v1/runs/run_route/conversation", retired: true },
     { path: "/v1/runs/run_route/events", retired: true },
-    { path: "/v1/runs/run_route/replay" },
+    { path: "/v1/runs/run_route/replay", retired: true },
     { path: "/v1/runs/run_route/trace", retired: true },
     { path: "/v1/runs/run_route/inspect", retired: true },
     { path: "/v1/runs/run_route/computer-use/trace", retired: true },
@@ -255,14 +254,13 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
   }
 
   // Retired thread + run lifecycle routes are served by the Rust daemon, so they never
-  // hit the store. Only the bare run get + the preserved run replay (SSE) remain JS.
+  // hit the store. Only the bare run get remains JS-served.
   assert.deepEqual(calls, [
     { projectionKind: "agent", facts: { agent_id: "agent_route" } },
     { projectionKind: "agent_runs", facts: { agent_id: "agent_route" } },
     { projectionKind: "thread_turns", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turn", facts: { thread_id: "thread_route", turn_id: "turn_1" } },
     { projectionKind: "run", facts: { run_id: "run_route" } },
-    { projectionKind: "run_replay", facts: { run_id: "run_route" } },
   ]);
 });
 
