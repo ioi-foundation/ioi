@@ -1719,6 +1719,28 @@ pub(crate) async fn handle_thread_usage(
     Ok(Json(record.projection.clone()))
 }
 
+/// Find the persisted request-time lease's `policy_hash` for an approval on a target
+/// record (agent or run). The request authority folds each approval onto the record's
+/// `approvalRequests` list as an operator-control carrying its `approval_lease`; the
+/// most recent matching entry's lease policy_hash is the canonical binding the decision
+/// grant must match. Returns None if the approval isn't found (no binding enforced).
+fn approval_lease_policy_hash_for(record: &Value, approval_id: &str) -> Option<String> {
+    record
+        .get("approvalRequests")
+        .or_else(|| record.get("approval_requests"))
+        .and_then(|v| v.as_array())
+        .and_then(|items| {
+            items
+                .iter()
+                .rev()
+                .find(|item| item.get("approval_id").and_then(|v| v.as_str()) == Some(approval_id))
+        })
+        .and_then(|item| item.get("approval_lease"))
+        .and_then(|lease| lease.get("policy_hash"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
 /// Persist an approval state-update record's folded agent (dual-cased) or run.
 fn commit_approval_record(
     st: &DaemonState,
@@ -1778,6 +1800,18 @@ fn apply_approval_decision(
     let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
     let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
+    // Daemon-derived authority binding inputs — NEVER the POST body. now_ms is the
+    // daemon wall-clock (rejects an expired grant); expected_policy_hash is the persisted
+    // request-time lease's policy_hash (so a grant minted for one approval/lease cannot
+    // authorize another). Both are derived from Rust-authored state here, not the caller.
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or(0);
+    let policy_binding_source = if target_kind == "run" { run.as_ref() } else { Some(&agent) };
+    let expected_policy_hash = policy_binding_source
+        .and_then(|record| approval_lease_policy_hash_for(record, approval_id));
+
     // --- phase 1: authorize the decision against the wallet-signed grant ---
     let authority_request: ApprovalDecisionAuthorityRequest = serde_json::from_value(json!({
         "schema_version": APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
@@ -1788,8 +1822,11 @@ fn apply_approval_decision(
         "run_id": requested_run_id,
         "approval_lease": body.get("approval_lease").cloned().unwrap_or_else(|| json!({})),
         "source": source,
-        // Wallet-signed authority grant (deterministic test key in the harness; verified
-        // structurally here and cryptographically at the settlement layer).
+        // Daemon-derived fail-closed binding (clock + persisted lease policy_hash).
+        "now_ms": now_ms,
+        "expected_policy_hash": expected_policy_hash,
+        // Wallet-signed authority grant — verified structurally AND cryptographically by
+        // the kernel decision authority (no structural-only acceptance deferred to settlement).
         "wallet_approval_grant": body.get("wallet_approval_grant").cloned().unwrap_or_else(|| json!({})),
         "authority_grant_refs": body.get("authority_grant_refs").cloned().unwrap_or_else(|| json!([])),
         "authority_receipt_refs": body.get("authority_receipt_refs").cloned().unwrap_or_else(|| json!([])),

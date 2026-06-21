@@ -698,74 +698,89 @@ async function main() {
       assert.equal(after.body.length, 1, "the created artifact is listed");
     });
 
-    // Step 16: approval decision routes — gated on a REAL wallet-signed ApprovalGrant.
-    // The mint fixture (Rust, dcrypt-backed) stands in for the wallet approver; the same
-    // grant passes the runtime structural verify here AND settlement's cryptographic verify.
-    await runStep("POST /v1/threads/:id/approvals/:id/{approve,reject,revoke} honor a signed grant", async () => {
+    // Step 16: approval decision routes — gated on a REAL wallet-signed ApprovalGrant
+    // bound to the request-time lease. The mint fixture (Rust, dcrypt-backed) stands in
+    // for the wallet approver; the daemon derives now_ms + expected_policy_hash from
+    // Rust-authored lease state (never the POST body) and the kernel decision authority
+    // verifies the signature AND binds expiry + policy_hash before authorizing.
+    await runStep("POST /v1/threads/:id/approvals/:id/{approve,reject,revoke} honor a bound signed grant", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);
-      const grant = mintApprovalGrant();
-      const auth = { wallet_approval_grant: grant, authority_receipt_refs: ["receipt_wallet_grant_e2e"] };
+      const refs = ["receipt_wallet_grant_e2e"];
 
-      const seed = async (approvalId) =>
-        fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals`, {
+      // Seed an approval and return its request-time lease policy_hash (the binding the
+      // wallet must sign the grant under).
+      const seed = async (approvalId) => {
+        const created = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals`, {
           method: "POST",
-          body: JSON.stringify({ approval_id: approvalId, receipt_refs: ["receipt_wallet_grant_e2e"] }),
+          body: JSON.stringify({ approval_id: approvalId, receipt_refs: refs }),
         });
+        assert.equal(created.status, 200);
+        const policyHash = created.body.approval_lease?.policy_hash;
+        assert.ok(policyHash, "the request authority establishes a lease policy_hash");
+        return policyHash;
+      };
+      const authFor = (policyHash, overrides = {}) => ({
+        wallet_approval_grant: mintApprovalGrant({ policyHash, ...overrides }),
+        authority_receipt_refs: refs,
+      });
 
-      await seed("approval_approve_e2e");
+      const approveHash = await seed("approval_approve_e2e");
       const approve = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
         method: "POST",
-        body: JSON.stringify(auth),
+        body: JSON.stringify(authFor(approveHash)),
       });
       assert.equal(approve.status, 200);
       assert.equal(approve.body.operation_kind, "approval.approve");
       assert.equal(approve.body.decision, "approve");
       assert.equal(approve.body.lease_status, "active");
 
-      await seed("approval_reject_e2e");
+      const rejectHash = await seed("approval_reject_e2e");
       const reject = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_reject_e2e/reject`, {
         method: "POST",
-        body: JSON.stringify(auth),
+        body: JSON.stringify(authFor(rejectHash)),
       });
       assert.equal(reject.status, 200);
       assert.equal(reject.body.operation_kind, "approval.reject");
 
-      await seed("approval_revoke_e2e");
+      const revokeHash = await seed("approval_revoke_e2e");
       const revoke = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_revoke_e2e/revoke`, {
         method: "POST",
-        body: JSON.stringify(auth),
+        body: JSON.stringify(authFor(revokeHash)),
       });
       assert.equal(revoke.status, 200);
       assert.equal(revoke.body.operation_kind, "approval.revoke");
       assert.equal(revoke.body.lease_status, "revoked");
 
       // /decision dispatches by body.decision.
-      await seed("approval_decision_e2e");
+      const decisionHash = await seed("approval_decision_e2e");
+      const decisionAuth = authFor(decisionHash);
       const decision = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_decision_e2e/decision`, {
         method: "POST",
-        body: JSON.stringify({ ...auth, decision: "approve" }),
+        body: JSON.stringify({ ...decisionAuth, decision: "approve" }),
       });
       assert.equal(decision.status, 200);
       assert.equal(decision.body.decision, "approve");
 
-      // NEGATIVE 1 — wrong signer: a grant whose authority_id no longer matches the
-      // signer pubkey fails the structural binding.
-      const wrongAuthority = { ...grant, authority_id: grant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
-      const wrongSigner = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
-        method: "POST",
-        body: JSON.stringify({ wallet_approval_grant: wrongAuthority, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
-      });
-      assert.notEqual(wrongSigner.status, 200, "a tampered authority_id must be rejected");
+      // Fail-closed negatives, each on a fresh approval bound to its own policy_hash.
+      const negHash = await seed("approval_negative_e2e");
+      const validGrant = mintApprovalGrant({ policyHash: negHash });
+      const reject403 = async (grant, why) => {
+        const res = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_negative_e2e/approve`, {
+          method: "POST",
+          body: JSON.stringify({ wallet_approval_grant: grant, authority_receipt_refs: refs }),
+        });
+        assert.notEqual(res.status, 200, why);
+      };
 
-      // NEGATIVE 2 — tampered signature: authority_id/pubkey intact, but the signature
-      // bytes are corrupted. The runtime decision authority now cryptographically verifies
-      // the grant (the split-brain is closed), so this must be rejected at the route.
-      const tamperedSig = { ...grant, approver_sig: grant.approver_sig.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
-      const badSignature = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
-        method: "POST",
-        body: JSON.stringify({ wallet_approval_grant: tamperedSig, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
-      });
-      assert.notEqual(badSignature.status, 200, "a tampered signature must be rejected by the runtime authority");
+      // N1 wrong signer: authority_id no longer matches the pubkey (structural binding).
+      await reject403({ ...validGrant, authority_id: validGrant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) }, "tampered authority_id must be rejected");
+      // N2 tampered signature: cryptographic verification fails (split-brain closed).
+      await reject403({ ...validGrant, approver_sig: validGrant.approver_sig.map((b, i) => (i === 0 ? b ^ 0xff : b)) }, "tampered signature must be rejected");
+      // N3 policy mismatch: a grant bound to a different policy_hash (the default fixture
+      // hash) must not authorize this approval.
+      await reject403(mintApprovalGrant({}), "policy_hash mismatch must be rejected");
+      // N4 expired: correct policy_hash but a past expiry — the daemon clock rejects it.
+      await reject403(mintApprovalGrant({ policyHash: negHash, expiresAt: 1000 }), "an expired grant must be rejected");
     });
 
     // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,

@@ -24,6 +24,19 @@ fn flag(args: &[String], name: &str) -> Option<String> {
         .cloned()
 }
 
+/// Decode a 32-byte hash from a hex string (bare or `sha256:`-prefixed); defaults to a
+/// repeated `default_byte` (e.g. the lease policy_hash form, or the legacy fixtures).
+fn hash32(args: &[String], name: &str, default_byte: u8) -> [u8; 32] {
+    let mut out = [default_byte; 32];
+    if let Some(raw) = flag(args, name) {
+        let hex_str = raw.trim().trim_start_matches("sha256:");
+        let decoded = hex::decode(hex_str).expect("hash must be hex");
+        assert_eq!(decoded.len(), 32, "{name} must be 32 bytes (64 hex chars)");
+        out.copy_from_slice(&decoded);
+    }
+    out
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     // Deterministic 32-byte seed (defaults to the kernel test fixture's [7u8; 32]).
@@ -47,8 +60,10 @@ fn main() {
     let mut grant = ApprovalGrant {
         schema_version: 1,
         authority_id,
-        request_hash: [1u8; 32],
-        policy_hash: [2u8; 32],
+        // Bound at signing time by the wallet; the runtime decision authority compares
+        // these to daemon-derived expected hashes (the request-time lease's policy_hash).
+        request_hash: hash32(&args, "--request-hash", 1),
+        policy_hash: hash32(&args, "--policy-hash", 2),
         audience: [3u8; 32],
         nonce: [4u8; 32],
         counter: 1,

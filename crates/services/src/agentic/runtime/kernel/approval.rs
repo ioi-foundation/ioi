@@ -626,6 +626,19 @@ pub struct ApprovalDecisionAuthorityRequest {
     pub approval_request: Value,
     #[serde(default)]
     pub authority_context: Value,
+    /// Daemon-authored wall-clock (ms). When present, the authority rejects a grant
+    /// whose `expires_at` is in the past. NEVER sourced from the route POST body.
+    #[serde(default)]
+    pub now_ms: Option<u64>,
+    /// Daemon-derived expected policy hash (the persisted request-time lease's
+    /// policy_hash). When present, the grant's `policy_hash` must match it. NEVER from
+    /// the POST body — derived from Rust-authored lease state.
+    #[serde(default)]
+    pub expected_policy_hash: Option<String>,
+    /// Daemon-derived expected request hash (when a canonical approval-request hash is
+    /// available). When present, the grant's `request_hash` must match it.
+    #[serde(default)]
+    pub expected_request_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1120,6 +1133,27 @@ impl ApprovalRequestStateUpdateCore {
             agent.insert(
                 "updatedAt".to_string(),
                 Value::String(request.created_at.clone()),
+            );
+            // Persist the request-time approval (with its lease + policy_hash) onto the
+            // agent so the decision authority can later derive the canonical
+            // expected_policy_hash from Rust-authored state (mirrors the run target).
+            let mut trace = agent.get("trace").and_then(object_value).unwrap_or_default();
+            trace.insert(
+                "operatorControls".to_string(),
+                append_operator_control(trace.get("operatorControls"), &operator_control),
+            );
+            trace.insert(
+                "approvalRequests".to_string(),
+                append_operator_control(trace.get("approvalRequests"), &operator_control),
+            );
+            agent.insert("trace".to_string(), Value::Object(trace));
+            agent.insert(
+                "operatorControls".to_string(),
+                append_operator_control(agent.get("operatorControls"), &operator_control),
+            );
+            agent.insert(
+                "approvalRequests".to_string(),
+                append_operator_control(agent.get("approvalRequests"), &operator_control),
             );
             (Value::Null, Some(Value::Object(agent)))
         };
@@ -3084,6 +3118,30 @@ fn approval_wallet_grant_binding_from_request(
     })?;
     verify_approval_grant_signature(&grant)
         .map_err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant)?;
+    // Fail-closed authority binding (daemon-derived inputs, never the POST body): an
+    // expired grant or a grant bound to a different policy must not author an
+    // "authorized" record the settlement layer would later have to veto.
+    if let Some(now_ms) = request.now_ms {
+        if now_ms > grant.expires_at {
+            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant has expired".to_string(),
+            ));
+        }
+    }
+    if let Some(expected_policy_hash) = request.expected_policy_hash.as_deref() {
+        if !approval_grant_hash_matches(&grant.policy_hash, expected_policy_hash) {
+            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant policy hash mismatch".to_string(),
+            ));
+        }
+    }
+    if let Some(expected_request_hash) = request.expected_request_hash.as_deref() {
+        if !approval_grant_hash_matches(&grant.request_hash, expected_request_hash) {
+            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant request hash mismatch".to_string(),
+            ));
+        }
+    }
     let grant_hash = format!(
         "sha256:{}",
         hex::encode(
@@ -3355,6 +3413,17 @@ fn approval_lease_expiration(created_at: Option<&str>, ttl_ms: u64) -> Option<St
 fn approval_lease_policy_hash(value: Value) -> String {
     let bytes = serde_json::to_vec(&value).unwrap_or_default();
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+/// Compares a grant's raw 32-byte hash against an expected hash string that may be
+/// either bare lowercase hex or `sha256:<hex>` (the lease policy_hash form). Both sides
+/// are normalized to bare lowercase hex before comparison.
+fn approval_grant_hash_matches(grant_hash: &[u8; 32], expected: &str) -> bool {
+    let expected_hex = expected
+        .trim()
+        .trim_start_matches("sha256:")
+        .to_ascii_lowercase();
+    hex::encode(grant_hash) == expected_hex
 }
 
 fn approval_authority_state_binding_present(
@@ -4708,6 +4777,9 @@ mod tests {
             authority_context: json!({
                 "surface": "runtime.approval_control",
             }),
+            now_ms: None,
+            expected_policy_hash: None,
+            expected_request_hash: None,
         }
     }
 
@@ -5554,6 +5626,50 @@ mod tests {
         assert_eq!(
             error,
             ApprovalDecisionAuthorityError::MissingField("wallet_approval_grant")
+        );
+    }
+
+    #[test]
+    fn rust_authority_binds_matching_policy_and_unexpired_grant() {
+        // The fixture grant binds policy_hash [2u8; 32] and expires at 1_850_000_000_000.
+        let mut request = approval_decision_authority_request("approve");
+        request.now_ms = Some(1_000_000_000_000);
+        request.expected_policy_hash = Some(hex::encode([2u8; 32]));
+        ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect("a matching, unexpired, signed grant authorizes the decision");
+    }
+
+    #[test]
+    fn rust_authority_rejects_expired_grant() {
+        let mut request = approval_decision_authority_request("approve");
+        // now is past the fixture grant's expires_at (1_850_000_000_000).
+        request.now_ms = Some(2_000_000_000_000);
+        let error = ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect_err("an expired grant must not authorize a decision");
+        assert_eq!(
+            error,
+            ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant has expired".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn rust_authority_rejects_policy_hash_mismatch() {
+        let mut request = approval_decision_authority_request("approve");
+        request.now_ms = Some(1_000_000_000_000);
+        // The grant binds policy_hash [2u8; 32]; bind a different expected hash.
+        request.expected_policy_hash = Some(format!("sha256:{}", hex::encode([9u8; 32])));
+        let error = ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect_err("a grant bound to a different policy must not authorize");
+        assert_eq!(
+            error,
+            ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant policy hash mismatch".to_string()
+            )
         );
     }
 
