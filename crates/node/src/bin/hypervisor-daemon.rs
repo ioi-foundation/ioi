@@ -329,6 +329,15 @@ async fn main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/servers/:server_id/disable",
             post(lifecycle_routes::handle_mcp_disable),
         )
+        .route("/v1/threads/:id/mcp", post(lifecycle_routes::handle_mcp_status))
+        .route(
+            "/v1/threads/:id/mcp/status",
+            post(lifecycle_routes::handle_mcp_status),
+        )
+        .route(
+            "/v1/threads/:id/mcp/validate",
+            post(lifecycle_routes::handle_mcp_validate),
+        )
         .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),

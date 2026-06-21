@@ -173,11 +173,15 @@ export function createRuntimeRouteHandlers(deps) {
         (!segments[4] ||
           (segments[4] === "cancel" && !segments[5]) ||
           ["result", "wait", "input", "resume", "assign", "cancel"].includes(segments[5]))) ||
-      // mcp: import, servers (add/remove/enable/disable), tools/search are migrated; serve,
-      // validate, status, tools/:id (fetch), tools/:id/invoke are preserved.
+      // mcp: import, servers (add/remove/enable/disable), tools/search, status (POST /mcp
+      // or /mcp/status), and validate are migrated; serve (JSON-RPC), invoke, and
+      // tools/:id (fetch / :id/invoke) need live MCP transport and stay preserved.
       (action === "mcp" &&
-        (segments[4] === "import" ||
+        (!segments[4] ||
+          segments[4] === "import" ||
           segments[4] === "servers" ||
+          segments[4] === "status" ||
+          segments[4] === "validate" ||
           (segments[4] === "tools" && segments[5] === "search")))
     ) {
       writeJsonResponse(

@@ -295,6 +295,21 @@ async function main() {
       });
       assert.equal(remove.status, 200);
       assert.equal(remove.body.operation_kind, "thread.mcp_remove");
+
+      // status + validate ride the same plan_mcp_control_agent_state_update planner.
+      const status = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: "ready" }),
+      });
+      assert.equal(status.status, 200);
+      assert.equal(status.body.operation_kind, "thread.mcp_status");
+
+      const validate = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mcp/validate`, {
+        method: "POST",
+        body: JSON.stringify({ validation: { ok: true } }),
+      });
+      assert.equal(validate.status, 200);
+      assert.equal(validate.body.operation_kind, "thread.mcp_validate");
     });
 
     // Step 5c: tasks / jobs read (materialized into the run records by run-create).

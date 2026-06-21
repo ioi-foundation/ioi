@@ -1451,12 +1451,15 @@ test("thread route sends MCP controls through store-owned MCP APIs", async () =>
       url: new URL(testCase.path, "http://daemon.test"),
       segments: testCase.segments,
     });
-    // import / servers / tools-search are migrated to the Rust daemon (retired here);
-    // serve / validate / status / tools-fetch / invoke are preserved.
+    // import / servers / tools-search / status / validate are migrated to the Rust
+    // daemon (retired here); serve / tools-fetch / invoke (live transport) are preserved.
     const s = testCase.segments;
     const retired =
+      !s[4] ||
       s[4] === "import" ||
       s[4] === "servers" ||
+      s[4] === "status" ||
+      s[4] === "validate" ||
       (s[4] === "tools" && s[5] === "search");
     if (retired) {
       assert.equal(response.statusCode, 410);

@@ -858,6 +858,42 @@ pub(crate) async fn handle_mcp_disable(
     )
 }
 
+/// POST /v1/threads/:id/mcp (or /mcp/status) — record an MCP manager status marker.
+///
+/// Same kernel control planner as import/add/remove/enable/disable; control_kind
+/// `mcp_status` records the reported status onto the agent's MCP registry. Live
+/// tool invocation (`/mcp/invoke`, `/mcp/serve`) is NOT migrated here — those need
+/// live MCP transport admission and stay served by the JS client.
+pub(crate) async fn handle_mcp_status(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let mut payload = body.as_object().cloned().unwrap_or_default();
+    let status = payload
+        .get("status")
+        .and_then(|v| v.as_str())
+        .map(Value::from)
+        .unwrap_or(Value::Null);
+    payload.insert("status".to_string(), status);
+    apply_mcp_control(&st, &thread_id, "mcp_status", Value::Object(payload))
+}
+
+/// POST /v1/threads/:id/mcp/validate — record an MCP manager validation projection.
+///
+/// Control planner kind `mcp_validate`; records the supplied validation summary onto
+/// the agent's MCP registry.
+pub(crate) async fn handle_mcp_validate(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let mut payload = body.as_object().cloned().unwrap_or_default();
+    let validation = payload.get("validation").cloned().unwrap_or(Value::Null);
+    payload.insert("validation".to_string(), validation);
+    apply_mcp_control(&st, &thread_id, "mcp_validate", Value::Object(payload))
+}
+
 /// POST /v1/threads/:id/subagents — spawn a subagent (child agent + run + record).
 ///
 /// Builds a child agent (build_agent_candidate) + a child run (build_run_candidate),
