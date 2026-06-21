@@ -12,6 +12,10 @@ use crate::agentic::runtime::service::lifecycle::{
     browser_subagent_request_from_dynamic, run_browser_subagent,
 };
 use crate::agentic::runtime::service::tool_execution::tool_success_evidence_name;
+use crate::agentic::runtime::event_log_bridge::managed_session_projected_event;
+use crate::agentic::runtime::managed_session_snapshot::{
+    managed_session_snapshot_for_state, record_managed_browser_session_result,
+};
 use serde_json::json;
 
 mod chat_context;
@@ -65,6 +69,58 @@ pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub verification_checks: &'a mut Vec<String>,
     pub command_probe_completed: &'a mut bool,
     pub execution_result: (bool, Option<String>, Option<String>, Option<[u8; 32]>),
+}
+
+/// Managed-session producer (real session-lifecycle). On a successful `browser__*`
+/// tool, record the managed browser session into KV via the same recorder the
+/// managed-session snapshot reads, then emit a `managed_session.projected` runtime
+/// thread event on the KernelEvent channel. The event-log bridge resolves the
+/// daemon thread for `session_id` and persists it to `<state_dir>/events`, so
+/// `GET /v1/threads/:id/managed-sessions` projects real sessions. Best-effort: any
+/// failure (non-browser tool, KV error, empty snapshot, no event channel) is a
+/// silent no-op and never affects the turn.
+fn emit_managed_browser_session(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &AgentState,
+    tool_name: &str,
+    output: Option<&str>,
+    error_class: Option<&str>,
+    block_timestamp_ns: u64,
+) {
+    if !tool_name.trim().to_ascii_lowercase().starts_with("browser__") {
+        return;
+    }
+    let updated_at_ms = block_timestamp_ns / 1_000_000;
+    if record_managed_browser_session_result(
+        state,
+        agent_state,
+        tool_name,
+        output.unwrap_or_default(),
+        error_class,
+        updated_at_ms,
+    )
+    .is_err()
+    {
+        return;
+    }
+    let Ok(snapshot) = managed_session_snapshot_for_state(state, agent_state) else {
+        return;
+    };
+    if snapshot.sessions.is_empty() {
+        return;
+    }
+    let Some(tx) = service.event_sender.as_ref() else {
+        return;
+    };
+    let event = managed_session_projected_event(&agent_state.session_id, &snapshot);
+    let Ok(event_json) = serde_json::to_string(&event) else {
+        return;
+    };
+    let _ = tx.send(ioi_types::app::KernelEvent::RuntimeThreadEvent {
+        session_id: agent_state.session_id,
+        event_json,
+    });
 }
 
 fn should_treat_command_failure_as_tool_observation(
@@ -594,6 +650,20 @@ pub(super) async fn handle_execution_success(
             step_index,
             resolved_intent_id,
             synthesized_payload_hash.clone(),
+        );
+
+        // Managed-session producer (real session-lifecycle): a successful
+        // `browser__*` tool means the agent is driving an operator-observable
+        // sandbox browser session. Record it into KV and bridge the managed-session
+        // snapshot onto the daemon's event log so GET /managed-sessions projects it.
+        emit_managed_browser_session(
+            service,
+            &mut *state,
+            agent_state,
+            current_tool_name.as_str(),
+            action_output.as_deref(),
+            error_msg.as_deref(),
+            block_timestamp_ns,
         );
 
         if is_command_execution_provider_tool(tool) {

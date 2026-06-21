@@ -619,6 +619,21 @@ async fn async_main() -> Result<()> {
 
     // 5. Driver Instantiation
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+    // Runtime -> daemon event-log bridge: drain turn-execution KernelEvents and
+    // persist RuntimeThreadEvent carriers (e.g. managed_session.projected) onto the
+    // hypervisor daemon's event log so its HTTP projections see runtime output.
+    // Targets the daemon's state_dir (shared IOI_HYPERVISOR_DATA_DIR), falling back
+    // to this runtime's data_dir when co-located.
+    {
+        let bridge_state_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
+            .unwrap_or_else(|_| abs_data_dir_str.clone());
+        tokio::spawn(
+            ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge(
+                bridge_state_dir,
+                event_tx.subscribe(),
+            ),
+        );
+    }
     let os_driver = Arc::new(NativeOsDriver::new());
 
     // Create GUI driver mutably to register lenses
