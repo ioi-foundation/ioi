@@ -369,5 +369,9 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             receipt.worker_graph.len(),
             receipt.policy_bindings.len()
         ),
+        Ev::RuntimeThreadEvent { session_id, .. } => format!(
+            "RuntimeThreadEvent session={} (event-log bridge carrier)",
+            prefix_hex_4(session_id)
+        ),
     }
 }

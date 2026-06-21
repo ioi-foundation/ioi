@@ -691,5 +691,9 @@ fn map_kernel_event(
                 ),
             }))
         }
+        // Runtime → daemon event-log carrier: persisted to the hypervisor daemon's
+        // event log by the event-log bridge, not projected onto the public gRPC
+        // chain-event stream.
+        ioi_types::app::KernelEvent::RuntimeThreadEvent { .. } => None,
     }
 }

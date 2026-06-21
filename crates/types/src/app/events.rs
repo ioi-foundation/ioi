@@ -1027,6 +1027,25 @@ pub enum KernelEvent {
     ExecutionContractReceipt(ExecutionContractReceiptEvent),
     /// Receipt emitted when planner synthesis commits to an execution plan.
     PlanReceipt(PlanReceiptEvent),
+
+    /// A turn-execution-produced runtime thread event destined for the hypervisor
+    /// daemon's persisted event log. Carries a JSON-serialized event object
+    /// (`event_json`, e.g. a `managed_session.projected` record) keyed by the
+    /// runtime `session_id`. The event-log bridge resolves the daemon `thread_id`
+    /// for the session, injects `thread_id`/`event_stream_id`, admits the event
+    /// through the kernel (assigning seq), and appends it to
+    /// `<state_dir>/events/<sha256(stream_id)>.jsonl` so daemon HTTP projections
+    /// (e.g. `GET /v1/threads/:id/managed-sessions`) can read it. This is the one
+    /// generic carrier that lets any turn-execution producer reach the daemon log;
+    /// the payload is a String (not `serde_json::Value`) so the enum stays
+    /// `Encode`/`Decode`-safe.
+    RuntimeThreadEvent {
+        /// The runtime session this event was produced for.
+        session_id: [u8; 32],
+        /// The JSON-serialized runtime thread event object (must omit `thread_id`
+        /// and `event_stream_id`; the bridge fills those from the session lookup).
+        event_json: String,
+    },
 }
 
 #[cfg(test)]
