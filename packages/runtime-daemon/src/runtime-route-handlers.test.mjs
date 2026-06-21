@@ -198,7 +198,7 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
     },
   ];
   for (const { path, retired } of [
-    { path: "/v1/threads/thread_route/usage" },
+    { path: "/v1/threads/thread_route/usage", retired: true },
     { path: "/v1/threads/thread_route/turns" },
     { path: "/v1/threads/thread_route/turns/turn_1" },
     { path: "/v1/threads/thread_route/events", retired: true },
@@ -255,7 +255,6 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
   assert.deepEqual(calls, [
     { projectionKind: "agent", facts: { agent_id: "agent_route" } },
     { projectionKind: "agent_runs", facts: { agent_id: "agent_route" } },
-    { projectionKind: "thread_usage", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turns", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turn", facts: { thread_id: "thread_route", turn_id: "turn_1" } },
     { projectionKind: "run", facts: { run_id: "run_route" } },

@@ -359,6 +359,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_approval_request),
         )
         .route(
+            "/v1/threads/:id/usage",
+            get(lifecycle_routes::handle_thread_usage),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

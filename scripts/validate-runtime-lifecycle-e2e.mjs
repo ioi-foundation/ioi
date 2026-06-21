@@ -637,7 +637,18 @@ async function main() {
       assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
     });
 
-    // RATCHET FRONTIER — next: GET projections (usage/artifacts/managed-sessions/snapshots).
+    // Step 12: GET /usage — pure read-only runtime-lifecycle projection (no event/mutation).
+    await runStep("GET /v1/threads/:id/usage projects the thread's runtime usage", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const usage = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/usage`);
+      assert.equal(usage.status, 200);
+      assert.equal(usage.body.thread_id, createdThread.thread_id);
+      assert.ok(typeof usage.body.run_count === "number", "projects a run_count");
+      assert.ok(usage.body.run_count >= 1, "the created turn's run is counted");
+      assert.ok(typeof usage.body.total_tokens === "number", "projects total_tokens");
+    });
+
+    // RATCHET FRONTIER — next: more GET projections (artifacts/managed-sessions/snapshots).
   } finally {
     await rust.close();
   }

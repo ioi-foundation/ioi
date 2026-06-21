@@ -52,6 +52,7 @@ use ioi_services::agentic::runtime::kernel::approval::{
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -1672,6 +1673,31 @@ pub(crate) async fn handle_memory_validate(
         "runtime.memory-manager.validate",
         "ioi.runtime.memory-validation.v1",
     )
+}
+
+/// GET /v1/threads/:id/usage — project the thread's runtime usage (read-only). The
+/// kernel runtime-lifecycle projection sums usage_telemetry.total_tokens over the
+/// thread's runs in state_dir and returns {thread_id, agent_id, run_count, total_tokens}.
+pub(crate) async fn handle_thread_usage(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let request: RuntimeLifecycleProjectionRequest = serde_json::from_value(json!({
+        "operation": "runtime_lifecycle_projection",
+        "operation_kind": "runtime.lifecycle_projection.thread_usage",
+        "projection_kind": "thread_usage",
+        "thread_id": thread_id,
+        "state_dir": st.data_dir,
+        "source": "sdk_client",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_lifecycle(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

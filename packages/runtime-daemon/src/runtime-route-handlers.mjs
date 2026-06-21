@@ -188,6 +188,9 @@ export function createRuntimeRouteHandlers(deps) {
         action === "memory" &&
         (segments[4] === "status" || segments[4] === "validate") &&
         !segments[5]) ||
+      // usage (thread-scoped GET): the Rust daemon projects run usage via the kernel
+      // runtime-lifecycle projection. Run-scoped GET /runs/:id/usage stays preserved.
+      (request.method === "GET" && action === "usage" && !segments[4]) ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&
