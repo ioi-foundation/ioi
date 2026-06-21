@@ -163,7 +163,16 @@ export function createRuntimeRouteHandlers(deps) {
       action === "mode" ||
       action === "model" ||
       action === "thinking" ||
-      action === "events"
+      action === "events" ||
+      // subagents: spawn (POST) + list (GET) + result (GET /:id/result) are migrated; the
+      // tail (wait/input/resume/assign/cancel, propagate-cancel) is preserved.
+      (action === "subagents" && (!segments[4] || segments[5] === "result")) ||
+      // mcp: import, servers (add/remove/enable/disable), tools/search are migrated; serve,
+      // validate, status, tools/:id (fetch), tools/:id/invoke are preserved.
+      (action === "mcp" &&
+        (segments[4] === "import" ||
+          segments[4] === "servers" ||
+          (segments[4] === "tools" && segments[5] === "search")))
     ) {
       writeJsonResponse(
         response,

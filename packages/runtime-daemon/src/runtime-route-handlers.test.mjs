@@ -1451,6 +1451,21 @@ test("thread route sends MCP controls through store-owned MCP APIs", async () =>
       url: new URL(testCase.path, "http://daemon.test"),
       segments: testCase.segments,
     });
+    // import / servers / tools-search are migrated to the Rust daemon (retired here);
+    // serve / validate / status / tools-fetch / invoke are preserved.
+    const s = testCase.segments;
+    const retired =
+      s[4] === "import" ||
+      s[4] === "servers" ||
+      (s[4] === "tools" && s[5] === "search");
+    if (retired) {
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      continue;
+    }
     const call = calls.pop();
     assert.equal(response.statusCode, testCase.expectedStatus ?? 200);
     assert.equal(call.method, testCase.apiMethod);
@@ -1919,6 +1934,18 @@ test("thread route sends subagent controls through store-owned subagent API", as
       url: new URL(testCase.path, "http://daemon.test"),
       segments: testCase.segments,
     });
+    // spawn (POST) + list (GET) + result (GET /:id/result) are migrated to the Rust
+    // daemon (retired here); the tail (wait/input/resume/assign/cancel, propagate) is preserved.
+    const s = testCase.segments;
+    const retired = !s[4] || s[5] === "result";
+    if (retired) {
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      continue;
+    }
     const call = calls.pop();
     assert.equal(response.statusCode, testCase.expectedStatus ?? 200);
     assert.equal(call.method, testCase.apiMethod);
