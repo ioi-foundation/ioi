@@ -1625,24 +1625,14 @@ test("thread route sends turn controls through store-owned turn APIs", async () 
       path: "/v1/threads/thread_route/turns/turn_route/interrupt",
       segments: ["v1", "threads", "thread_route", "turns", "turn_route", "interrupt"],
       body: { reason: "stop" },
-      expected: {
-        method: "interruptTurn",
-        threadId: "thread_route",
-        turnId: "turn_route",
-        requestBody: { reason: "stop" },
-      },
+      retired: true,
     },
     {
       method: "steerTurn",
       path: "/v1/threads/thread_route/turns/turn_route/steer",
       segments: ["v1", "threads", "thread_route", "turns", "turn_route", "steer"],
       body: { guidance: "focus" },
-      expected: {
-        method: "steerTurn",
-        threadId: "thread_route",
-        turnId: "turn_route",
-        requestBody: { guidance: "focus" },
-      },
+      retired: true,
     },
   ];
 

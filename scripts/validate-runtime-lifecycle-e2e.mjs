@@ -393,6 +393,29 @@ async function main() {
       assert.equal(cancel.body.lifecycle_status, "canceled");
     });
 
+    // Step 5g: operator turn controls (interrupt/steer) on a fresh turn.
+    await runStep("turn interrupt/steer are Rust-owned operator controls", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const turn = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/turns`, {
+        method: "POST",
+        body: JSON.stringify({ prompt: "a turn to interrupt" }),
+      });
+      const turnId = encodeURIComponent(turn.body.turn_id);
+      const interrupt = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/turns/${turnId}/interrupt`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "stop" }),
+      });
+      assert.equal(interrupt.status, 200);
+      assert.equal(interrupt.body.operation_kind, "turn.interrupt");
+      assert.ok(interrupt.body.operator_control, "interrupt returns an operator_control envelope");
+      const steer = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/turns/${turnId}/steer`, {
+        method: "POST",
+        body: JSON.stringify({ guidance: "focus on the conclusion" }),
+      });
+      assert.equal(steer.status, 200);
+      assert.equal(steer.body.operation_kind, "turn.steer");
+    });
+
     // Step 5: run cancel (mutates the run, so it runs after the run-read assertions).
     await runStep("POST /v1/runs/:id/cancel cancels the run", async () => {
       const { status, body } = await fetchJson(

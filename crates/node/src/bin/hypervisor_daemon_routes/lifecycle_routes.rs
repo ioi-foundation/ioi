@@ -24,13 +24,15 @@ use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateRequest, McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
-    RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
-    SubagentRecordStateUpdateRequest, ThreadCreateStateUpdateRequest,
-    AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest, RunCancelStateUpdateRequest,
+    RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
+    ThreadCreateStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+    OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
@@ -321,6 +323,104 @@ pub(crate) async fn handle_agent_create(
 /// GET /v1/agents — list persisted agent records.
 pub(crate) async fn handle_agents_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!(read_record_dir(&st.data_dir, "agents")))
+}
+
+/// Apply an operator turn control (interrupt | steer) via the kernel operator-control
+/// planner, then persist the updated run. Returns the operator-control envelope.
+fn operator_turn_control(
+    st: &DaemonState,
+    thread_id: &str,
+    turn_id: &str,
+    body: &Value,
+    kind: &str,
+) -> Result<Json<Value>, AppError> {
+    let run_id = format!("run_{}", turn_id.strip_prefix("turn_").unwrap_or(turn_id));
+    let now = iso_now();
+    let event_id = format!("operator_{kind}_{thread_id}_{turn_id}_{}", short_hash(&now));
+    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("hypervisor_daemon");
+    let event_stream_id = format!("{thread_id}:events");
+
+    let record_value = if kind == "interrupt" {
+        let reason = body
+            .get("reason")
+            .or_else(|| body.get("message"))
+            .or_else(|| body.get("runtime_control_action"))
+            .or_else(|| body.get("control_action"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("operator requested interrupt");
+        let request: OperatorInterruptStateUpdateRequest = serde_json::from_value(json!({
+            "schema_version": OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+            "thread_id": thread_id,
+            "state_dir": st.data_dir,
+            "event_stream_id": event_stream_id,
+            "turn_id": turn_id,
+            "run_id": run_id,
+            "event_id": event_id,
+            "created_at": now,
+            "source": source,
+            "reason": reason,
+        }))
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+        let record = RuntimeKernelService::new()
+            .plan_operator_interrupt_state_update(&request)
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+        persist_operator_run(st, &run_id, &record.run);
+        serde_json::to_value(&record)
+    } else {
+        let guidance = body
+            .get("guidance")
+            .or_else(|| body.get("message"))
+            .or_else(|| body.get("input"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("operator steer");
+        let request: OperatorSteerStateUpdateRequest = serde_json::from_value(json!({
+            "schema_version": OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+            "thread_id": thread_id,
+            "state_dir": st.data_dir,
+            "event_stream_id": event_stream_id,
+            "turn_id": turn_id,
+            "run_id": run_id,
+            "event_id": event_id,
+            "created_at": now,
+            "source": source,
+            "guidance": guidance,
+        }))
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+        let record = RuntimeKernelService::new()
+            .plan_operator_steer_state_update(&request)
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+        persist_operator_run(st, &run_id, &record.run);
+        serde_json::to_value(&record)
+    }
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(record_value))
+}
+
+/// Persist the operator-control-updated run (keyed by the run's own id).
+fn persist_operator_run(st: &DaemonState, fallback_run_id: &str, run: &Value) {
+    let run_id = run
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(fallback_run_id);
+    let _ = persist_record(st.data_dir.as_str(), "runs", run_id, run);
+}
+
+/// POST /v1/threads/:id/turns/:turnId/interrupt — operator interrupt.
+pub(crate) async fn handle_turn_interrupt(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, turn_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    operator_turn_control(&st, &thread_id, &turn_id, &body, "interrupt")
+}
+
+/// POST /v1/threads/:id/turns/:turnId/steer — operator steer.
+pub(crate) async fn handle_turn_steer(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, turn_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    operator_turn_control(&st, &thread_id, &turn_id, &body, "steer")
 }
 
 /// GET /v1/threads/:id — project a single thread record.

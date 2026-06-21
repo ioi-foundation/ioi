@@ -159,7 +159,10 @@ export function createRuntimeRouteHandlers(deps) {
     // are preserved.
     if (
       (request.method === "GET" && !action) ||
-      (request.method === "POST" && action === "turns" && !segments[4]) ||
+      (action === "turns" &&
+        ((request.method === "POST" && !segments[4]) ||
+          segments[5] === "interrupt" ||
+          segments[5] === "steer")) ||
       action === "mode" ||
       action === "model" ||
       action === "thinking" ||
