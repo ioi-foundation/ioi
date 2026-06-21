@@ -596,6 +596,15 @@ fn build_run_candidate(agent: &Value, run_id: &str, mode: &str, prompt: &str, no
             "usage_telemetry": json!({}),
             "stop_condition": { "reason": "evidence_sufficient", "satisfied": true },
             "quality_ledger": { "ledger_id": ledger_id },
+            // Canonical-state marker + scorecard the live contract reads off the run trace
+            // (GET /v1/runs/:id/trace + /scorecard); scorecard also populates the bundle
+            // scorecards/<run>.json record (the materializer reads trace.scorecard).
+            "canonicalState": { "source": "agentgres_canonical_state_projection" },
+            "scorecard": {
+                "object": "ioi.runtime_scorecard",
+                "runId": run_id,
+                "verifierIndependence": 1,
+            },
         },
     })
 }

@@ -240,6 +240,17 @@ async function main() {
       assert.equal(bySuffix.wait.body.id, turnRequestId, "run_wait projects the run record");
       assert.ok(bySuffix.trace.body && typeof bySuffix.trace.body === "object", "run_trace projects the trace");
       assert.equal(JSON.stringify(bySuffix.inspect.body), JSON.stringify(bySuffix.trace.body), "inspect aliases trace");
+      // Trace carries the canonical-state marker + scorecard the live contract reads.
+      assert.equal(
+        bySuffix.trace.body.canonicalState?.source,
+        "agentgres_canonical_state_projection",
+        "run_trace carries the canonical-state marker",
+      );
+      assert.equal(bySuffix.scorecard.body?.verifierIndependence, 1, "run_scorecard projects verifierIndependence");
+      // The trace embeds the materialized runtimeTask/Job/Checklist with canonical fields.
+      assert.equal(bySuffix.trace.body.runtimeTask?.object, "ioi.runtime_task", "trace embeds runtimeTask");
+      assert.equal(bySuffix.trace.body.runtimeJob?.queueName, "local-agentgres", "trace embeds runtimeJob");
+      assert.equal(bySuffix.trace.body.runtimeChecklist?.readOnly, true, "trace embeds runtimeChecklist");
       // conversation + artifacts are array projections (empty is fine for a minimal turn).
       assert.ok(Array.isArray(bySuffix.conversation.body), "run_conversation is an array");
       assert.ok(Array.isArray(bySuffix.artifacts.body), "run_artifacts is an array");
