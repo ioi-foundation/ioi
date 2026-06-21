@@ -24,6 +24,16 @@ a manifest, policy envelope, tools, runtime requirements, receipt obligations,
 license terms, and settlement identity. Mixture of Experts is model/provider
 routing. Mixture of Workers is labor routing.
 
+Product naming rule:
+
+> **Expose `Models` to users; preserve `ModelRoute` as runtime truth.**
+
+Hypervisor composer controls, Applications catalog entries, and setup flows
+should usually say `Model`, `Reasoning`, and `Speed`. The implementation still
+records `ModelRoute`, `ModelEndpoint`, `ModelConfiguration`,
+`ReasoningEffort`, `ServiceTier`, custody posture, fallback policy, and
+receipt obligations for daemon/runtime use.
+
 Model serving compute follows the same runtime-node rule as worker execution:
 remote, hosted, DePIN, TEE, and customer-boundary model jobs should be
 represented as compute sessions behind Hypervisor Daemon runtime-node profiles or

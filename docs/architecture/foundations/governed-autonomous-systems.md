@@ -64,9 +64,9 @@ It is not merely a Hypervisor client or application surface. It is the
 node-shaped composition of:
 
 - Hypervisor App, Hypervisor Web, CLI/headless, and application surfaces such
-  as Workbench and Foundry plus provider/environment views as operator clients/projections; optional TUI
-  views are presentations over the CLI/headless client, not separate runtime
-  lanes;
+  as Workbench, Foundry, and Providers / Environments views as operator
+  clients/projections; optional TUI views are presentations over the
+  CLI/headless client, not separate runtime lanes;
 - Hypervisor Daemon as the deterministic execution and authority-enforcement
   substrate;
 - Agentgres as the local canonical operational state and projection substrate;

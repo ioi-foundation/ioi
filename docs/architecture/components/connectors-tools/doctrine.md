@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
@@ -18,6 +18,35 @@ auth posture, dry-run previews, approval requests, run state, and receipts.
 They must not hold connector secrets or call provider APIs directly. Connector
 execution flows through daemon tool calls, wallet.network authority, policy
 decisions, and receipts.
+
+## Product Surface Doctrine
+
+`Connectors / Tools / MCP` is a first-party Hypervisor Application surface over
+this registry. It belongs in the Applications catalog and may render as the
+singular Open Application when active.
+
+The surface may expose:
+
+```text
+tool discovery
+native connector readiness
+MCP server readiness
+workflow-as-tool subgraphs
+input/output schemas
+risk classes
+primitive capability requirements
+wallet/provider authority requirements
+policy explanations
+approval previews
+adapter health
+receipt obligations
+tool quality signals
+```
+
+This surface is not Settings and not an authority bypass. It helps builders and
+operators understand what a tool can do, what it needs, why it is blocked, and
+what proof it must emit. Actual invocation still flows through Hypervisor Core,
+the daemon, wallet.network, Agentgres, and receipt/replay boundaries.
 
 ## Connector Examples
 
@@ -142,6 +171,20 @@ The older flattened `capability_*` projection has been removed from the runtime
 tool contract. Compatibility adapters must map explicitly into one of these two
 tiers instead of recreating a generic capability bag.
 
+MCP tools, external agent tools, and workflow-as-tool subgraphs must compile to
+the same contract split:
+
+```text
+RuntimeToolContract
+primitive capabilities
+authority scopes
+policy decision
+receipt obligation
+```
+
+No MCP server or external tool bridge may become a shortcut around daemon
+admission, wallet.network authority, Agentgres projection, or receipt policy.
+
 ## Tool Registry
 
 The tool registry should:
@@ -200,6 +243,9 @@ They should still emit artifacts and receipts.
 7. No connector payload may become training, evaluation, projection, routing,
    or service truth without the applicable ConnectorMapping, DataRecipe,
    policy-bound data view, and receipts.
+8. No MCP server, external agent tool, or workflow-as-tool subgraph may bypass
+   `RuntimeToolContract`, primitive capability, authority scope, policy, and
+   receipt requirements.
 
 ## One-Line Doctrine
 

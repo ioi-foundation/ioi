@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
@@ -14,7 +14,8 @@ permission, decryption-lease, and revocation control plane for autonomous
 software.**
 
 It owns identity, secrets, authority scope grants, session authority, approvals,
-payments, revocation, and audit lineage. It is not merely a crypto wallet.
+payments, revocation, and audit lineage. It is the authority wallet and control
+cockpit for autonomous agents. It is not merely a crypto wallet.
 
 ## Core Doctrine
 
@@ -28,6 +29,38 @@ Put more sharply:
 > **wallet.network authorizes power. It does not do the work, store the app, or
 > become the chain.**
 
+## Autonomous Work Authority Gateway
+
+For Hypervisor, wallet.network is the authority gateway for autonomous work.
+It controls the user-visible and organization-visible decision path for:
+
+```text
+agent and worker identity
+delegated authority
+capability leases
+connector and tool authority
+approval queues
+secret leases
+spend limits
+data-use permission
+declassification
+private workspace authority
+provider and GPU spend
+revocation and panic controls
+policy simulation inputs
+gateway decisions
+risk labels
+authority receipts
+```
+
+The gateway must be portable, revocable, policy-bound, receipted, and visible
+across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
+connector, marketplace, and domain-application routes.
+
+It may render as a Wallet console, embedded approval panel, mobile/passkey
+step-up, CLI signer, enterprise authority service, or Hypervisor authority
+panel. The presentation can vary; the authority contract cannot.
+
 ## Boundary Statement
 
 wallet.network does not execute work, store app-domain operational truth, or
@@ -38,8 +71,9 @@ remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
 - Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
-  Workbench/Foundry surfaces plus provider/environment views request, approve,
-  and inspect work as operator clients, application surfaces, and projections.
+  Workbench, Automations, Foundry, Applications, Providers / Environments views,
+  and domain surfaces request, approve, and inspect work as operator clients,
+  application surfaces, and projections.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
 - IOI L1 settles registry, rights, escrows, bonds, disputes, and public
@@ -60,12 +94,16 @@ wallet.network authority receipt
 wallet.network owns:
 
 - user identity;
+- authentication factors and account security posture;
+- high-assurance guardian surfaces;
+- MPC, threshold, hardware-backed, or organization key shards;
 - low-assurance access-point bindings and step-up challenge policy;
 - agent/app/domain authority grants;
 - root secrets;
 - API keys;
 - OAuth refresh tokens;
 - connector credentials;
+- provider credential bindings;
 - BYOK model provider keys;
 - sealed archive decryption authority;
 - cTEE guardian identity, key-share, and declassification authority;
@@ -86,6 +124,8 @@ wallet.network owns:
   account migration, and agent-fund isolation;
 - panic/emergency controls;
 - capability-exit signing and revocation for protected remote work;
+- wallet CLI, MCP, SDK, mobile, web, embedded, and enterprise authority-client
+  contracts;
 - audit lineage.
 
 ## What wallet.network Does Not Own
@@ -178,32 +218,143 @@ A frictionless login creates a native wallet.network account with a Level 1 auth
 
 The external login is an authentication factor, not the root identity.
 
+## Account Security and Authority Factor Taxonomy
+
+wallet.network separates account access from authority. A user may enter through
+a simple provider login, but consequential agent authority must pass through
+policy, step-up, grant issuance, revocation semantics, and receipts.
+
+Canonical terms:
+
+```text
+AuthFactor
+  A credential or login method that helps authenticate the user or device.
+  Examples: Google, GitHub, email/OIDC, enterprise SSO, passkey, Web3 wallet,
+  TOTP. An AuthFactor is not an authority grant.
+
+LowAssuranceAccessPoint
+  A notification or initiation channel such as SMS, email, chat, voice, or
+  webhook. It may carry a challenge pointer, but not grants, raw credentials,
+  decryption keys, or durable authority.
+
+GuardianSurface
+  A high-assurance surface that can render an exact action, bind the request
+  hash, and sign or approve the challenge. Examples: enrolled mobile device,
+  passkey device, hardware key, local CLI signer, enterprise approval surface,
+  or trusted Hypervisor/wallet app.
+
+KeyShard
+  Actual MPC, threshold, hardware-backed, or organization quorum key material.
+  "Shard" is reserved for cryptographic or threshold authority, not ordinary
+  provider login.
+
+ProviderCredentialBinding
+  A brokered OAuth refresh token, API key, wallet credential, model-provider key,
+  cloud credential, or connector credential managed by wallet.network.
+
+AuthorityGrant
+  The scoped `grant://...` or lease object an agent, app, worker, service, or
+  runtime receives. It is the only object that conveys power.
+```
+
+Google, GitHub, email, or enterprise SSO can bootstrap a wallet.network account
+and satisfy low-risk access. They should not be sufficient by themselves for
+funds, secret release, policy widening, persistent agent authority,
+declassification, production deploys, high-value compute spend, or organization
+administration.
+
+TOTP is a supplemental factor and may raise confidence, but it is phishable and
+must not be treated as a sovereign authority shard. Face ID, Touch ID, or other
+biometrics are stronger when bound to passkey or secure-enclave assertions and
+an enrolled device policy.
+
+Out-of-band guardian approval should be available for high-risk actions. A QR,
+push, or CLI challenge is only a transport; the security property comes from the
+guardian surface displaying and signing the exact:
+
+```text
+subject
+action
+resources / destination
+budget or amount
+expiry
+risk class
+policy hash
+request hash
+```
+
+The agent never receives provider tokens, OTP values, biometric results,
+guardian secrets, raw key shards, or root session material. It receives only a
+scoped grant, denial receipt, revocation epoch, or authority receipt.
+
 ## Frictionless-to-Fortress Security Ladder
 
-### Level 1: Frictionless Account
+### Level 1: Federated / Frictionless Account
 
-- Google/GitHub/OIDC/Web3 login;
+- Google/GitHub/OIDC/Web3/email login;
 - native wallet.network identity created automatically;
 - low-risk authority scopes;
 - managed recovery;
 - limited autonomy.
 
-### Level 2: Trusted Device
+### Level 2: Trusted Device / Passkey
 
 - passkey;
-- biometric;
+- biometric assertion bound to an enrolled device;
 - mobile approver;
+- local wallet or Hypervisor app;
 - higher risk limits;
 - stronger approval flows.
 
-### Level 3: Sovereign Vault
+### Level 3: Out-of-Band Guardian
 
-- multiple factors;
+- enrolled external device;
+- QR, push, or CLI challenge over exact request hash;
 - hardware key;
-- MPC/shards;
+- local CLI signer;
+- enterprise approval surface;
+- persistent agent authority;
+- funds, secrets, deploys, policy widening, and declassification.
+
+### Level 4: Sovereign / Organization Vault
+
+- MPC or threshold key shards;
+- hardware-backed key shares;
+- quorum or role-based organization approvals;
 - high-value assets;
+- high-value compute and production environments;
 - policy widening;
 - institutional autonomy.
+
+## wallet.network Authority Surfaces
+
+wallet.network may expose web, mobile, desktop, embedded Hypervisor panels, CLI,
+SDK, MCP, enterprise authority service, and local signer surfaces. All surfaces
+are clients of the same authority pipeline:
+
+```text
+intent
+-> simulation / evidence
+-> risk and eligibility labels
+-> policy
+-> step-up or denial
+-> scoped grant / lease
+-> execution handoff
+-> receipt
+-> revocation path
+```
+
+The wallet.network CLI is a local operator and signer surface. It may sign in,
+link factors, enroll guardian devices, approve or deny challenges, inspect
+grants, revoke leases, broker secret execution, and export receipts. It must not
+become a second authority source.
+
+The wallet.network MCP surface is an agent-facing authority request and receipt
+surface. It may let agents request authority, check capability posture, create
+approval requests, request policy-bound payments, inspect receipts, and request
+revocation. It must not export raw secrets, reveal provider tokens, raw-sign
+arbitrary payloads, raise limits, disable step-up, enroll guardians, or convert
+authentication into authority without policy and receipts.
 
 ## Authority Scope Request Flow
 
@@ -755,13 +906,17 @@ It functions as a secure **Cryptographic Superset** that manages the pillars of 
 | **Web4 Native Assets** | `wallet.network` (Native) | **Hybrid Sigs:** `Ed25519` + `ML-DSA-44` | Service licenses, ServiceOrder escrows, SLA bonds, work credits, receipt-backed claims. |
 | **Agentic Authority** | `wallet.network` (Vault) | **Hybrid KEM & Sigs** | Session Keys, ApprovalTokens, Policy Envelopes. |
 
-### 2.2 The "Frictionless-to-Fortress" Authentication Tiers
+### 2.2 The "Frictionless-to-Fortress" Authority Tiers
 
-Users configure their "Authority Policy" based on risk appetite, managed as **Configurable Signature Thresholds**.
+Users configure authority policy based on risk appetite, but the canonical split
+above still applies: authentication factors are not authority grants, guardian
+surfaces approve exact request hashes, and key shards are actual threshold or
+cryptographic authority material.
 
-*   **Level 1: Frictionless (1FA):** Google OIDC (Social Login) + ZK-Login. A "Managed Shard" is generated via Multi-Party Computation (MPC). User experiences standard Web2 flow.
-*   **Level 2: The Trusted Device (2FA):** 6-digit TOTP OR Mobile Biometric (FaceID/Android Fingerprint). Utilizing the mobile **Secure Enclave (TEE)** guarantees the private key never leaves the physical chip, providing hardware-attested "Physical Presence."
-*   **Level 3: The Sovereign Fortress (3FA+):** Configurable MPC Sharding. Requires fractional or absolute approvals (e.g., "Google + FaceID + YubiKey") for high-risk actions, modifying policies, or large value transfers.
+*   **Level 1: Federated / Frictionless:** Google OIDC, GitHub, email/OIDC, enterprise SSO, Web3 sign-in, or similar providers may bootstrap a native wallet.network account and low-risk authority posture. A provider login is not a shard and cannot authorize high-risk agent power by itself.
+*   **Level 2: Trusted Device / Passkey:** Passkeys, enrolled devices, and secure-enclave-backed assertions may satisfy stronger step-up. TOTP is supplemental and phishable. Biometrics count only when bound to an enrolled device/passkey assertion; they are not standalone authority.
+*   **Level 3: Out-of-Band Guardian:** Enrolled mobile, hardware key, enterprise approval surface, trusted Hypervisor/wallet app, or local CLI signer displays the exact subject, action, resources, budget, expiry, policy hash, and request hash before approval.
+*   **Level 4: Sovereign / Organization Vault:** MPC, threshold key shards, hardware-backed shares, role/quorum approval, and institutional policies secure high-value assets, production authority, high-value compute, policy widening, and persistent agent autonomy.
 
 ### 2.3 The "Link and Upgrade" Web3 Bridge
 
@@ -851,9 +1006,9 @@ To ensure interoperability and security, the following fields are mandatory for 
 
 1.  **The Hook:** User clicks "Login" on a Web4 interface (`aiagent.xyz` or `sas.xyz`).
 2.  **Auth Choice:**
-    *   *Path A (Web2 Native):* "Sign in with Google." A native Web4 identity is spun up via MPC. User funds account via fiat-ramp.
+    *   *Path A (Web2 Native):* "Sign in with Google." A native wallet.network identity is created with low-risk authority posture. Provider login is an auth factor, not a shard or grant.
     *   *Path B (Web3 Native):* "Connect MetaMask." Web4 identity is generated and cryptographically linked to the EOA via SIWE.
-3.  **Security Upgrades:** Inside the Vault dashboard, user adds FaceID (2FA) or YubiKey (3FA) to unlock higher limits and institutional autonomy.
+3.  **Security Upgrades:** Inside the Vault dashboard, user adds passkeys, enrolled guardian devices, hardware keys, local CLI signer, MPC/key shards, or organization quorum policies to unlock higher limits and institutional autonomy.
 
 ### 4.2 Marketplace Flow (Delegating Agency)
 
@@ -907,7 +1062,7 @@ To ensure interoperability and security, the following fields are mandatory for 
 
 *   **`wallet-desktop` (Primary):** Tauri + React + Rust. Background/tray service, secret management, policy graph, audit feed, local approvals fallback.
 *   **`wallet-extension` (Bridge):** Chrome Extension (Manifest V3). **Crypto Role:** Uses `dcrypt` WASM bindings *only* for request integrity, local pairing, and channel encryption to the desktop. **Constraint:** The extension is a relay and UI surface; it **never** holds vault DEKs/KEKs or decrypts secrets directly.
-*   **`wallet-mobile` (Notifier / Approver):** React Native / Native. Push notifications for gates, passkey / FaceID approval signing, panic + revocation controls.
+*   **`wallet-mobile` (Notifier / Approver):** React Native / Native. Push notifications for gates, passkey/enrolled-device approval signing, biometrics only when bound to device policy, panic + revocation controls.
 
 ### 5.5 Zero-Trust Extensibility Framework (Open Ecosystem)
 
@@ -1037,7 +1192,7 @@ Receipts are hash-linked for tamper-evidence and can be anchored into IOI’s br
 
 ### Phase 3: The Mobile Approver (Q1 2026)
 *   Mobile notifier/approver app.
-*   Out-of-band approvals via passkeys / FaceID.
+*   Out-of-band approvals via passkeys, enrolled guardian devices, or hardware-backed assertions; biometrics are valid only when bound to the enrolled device/passkey policy.
 *   Panic button + remote revocation.
 *   Stronger step-up rules + anomaly triggers.
 

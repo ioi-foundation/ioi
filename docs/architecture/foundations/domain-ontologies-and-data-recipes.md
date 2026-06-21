@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, and ontology-to-worker generation.
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
@@ -59,6 +59,8 @@ This layer is:
 - the semantic contract between raw sources and worker behavior;
 - the source of canonical domain object definitions;
 - the repeatable path from source data to training/evaluation data;
+- the path that turns examples, role tracks, solution diagrams, and domain app
+  templates into ontology-bound recipes instead of static demos;
 - the mapping layer between connectors and canonical domain objects;
 - the distillation layer that turns ontology-bound source truth into compact
   training and evaluation signal;
@@ -156,11 +158,51 @@ This layer is not:
 
 ## Product and Domain Roles
 
-Hypervisor Foundry is the primary local product surface for authoring and
-inspecting ontologies, data recipes, connector mappings, evaluation datasets,
-and ontology-to-worker plans. It should expose guided views first, then allow
-advanced users to open the same data, training, evaluation, benchmark,
-deployment, or outcome recipe in the Workflow Compositor.
+Hypervisor should expose `Data / Knowledge` and `Ontology` as first-party
+Applications catalog entries, Open Application views, or contextual
+project/session panels over this semantic data plane.
+
+`Data / Knowledge` owns product-level views for:
+
+```text
+source inventory
+connector mappings
+data recipes
+policy-bound data views
+transformation runs
+distilled ontology datasets
+evaluation datasets
+memory and knowledge refs
+freshness, lineage, quality, and access posture
+```
+
+`Ontology` owns product-level views for:
+
+```text
+domain ontologies
+canonical object models
+objects, actions, events, states, roles, and invariants
+ontology projections
+schema health
+used-by relationships across workers, automations, connectors, and apps
+```
+
+Hypervisor Foundry consumes these surfaces for training, evaluation,
+simulation, worker/package generation, and capability improvement. Foundry may
+author or propose ontology and recipe changes, but Agentgres-backed semantic
+truth, wallet/network data authority, and transformation receipts remain the
+canon boundaries.
+
+Guided views should come first. Advanced users may open the same ontology,
+data, training, evaluation, benchmark, deployment, or outcome recipe in the
+Workflow Compositor when graph-level editing is useful.
+
+Patterns / Examples / Training consumes this layer whenever an example becomes
+launchable. A useful example should identify the DomainOntology,
+CanonicalObjectModel, DataRecipe, ConnectorMapping, PolicyBoundDataView,
+EvaluationDataset, and TransformationReceipt posture needed to run, replay,
+evaluate, package, or sell the pattern. Without that binding, the example is a
+learning artifact, not a portable autonomous-system package.
 
 aiagent.xyz uses this layer to evaluate, rank, and route workers inside Sparse
 Worker Categories. A worker category should declare the ontology, object models,

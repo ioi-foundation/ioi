@@ -107,7 +107,7 @@ HypervisorOS does not begin by cloning VMware or ESXi feature-for-feature. The
 first implementation may use a minimal Linux/KVM/microVM base. The canonical
 property is that **all autonomous workloads are subordinate to the Hypervisor
 Daemon**, and ordinary VM/container/microVM/WASM workloads can become governed
-provider/environment primitives under the same node-root doctrine.
+provider and environment primitives under the same node-root doctrine.
 
 The long-term infrastructure path is therefore natural:
 
@@ -115,7 +115,7 @@ The long-term infrastructure path is therefore natural:
 HypervisorOS
   daemon-rooted node profile
   -> VMs / containers / microVMs / WASM workloads / model servers
-  -> Hypervisor provider/environment management
+  -> Hypervisor Providers / Environments management
   -> private workspaces, authority scopes, receipts, replay, and service outcomes
 ```
 

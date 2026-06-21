@@ -8,7 +8,7 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
@@ -37,7 +37,7 @@ a model provider monopoly
 
 Foundry owns product-level projections and workflows for:
 
-- model garden and model discovery;
+- model catalog and model discovery;
 - model registry and model cards;
 - model route candidates and model-mount candidates;
 - tuning, fine-tuning, distillation, post-training, and training plans;
@@ -73,9 +73,9 @@ Foundry should expose a platform-style IA, not a single wizard:
 
 ```text
 Overview
-Model Garden
+Model Catalog
 Model Registry
-Model Routes / Mounts
+Models / Routes / Mounts
 Tuning / Training
 Evaluation
 Datasets
@@ -94,7 +94,7 @@ The exact product labels may vary, but the conceptual split should stay stable:
 
 ```text
 Discover
-  model garden, worker/package catalog candidates
+  model catalog, worker/package catalog candidates
 
 Build
   datasets, recipes, prompts, tool schemas, workers, packages, pipelines
@@ -112,11 +112,53 @@ Govern
   metadata, monitoring, receipts, promotion queue, policy and authority checks
 ```
 
+## Capability Improvement Loop
+
+Foundry is the product surface for turning observed autonomous work into better
+capability. It should make the improvement loop explicit without giving Foundry
+runtime authority:
+
+```text
+sessions, receipts, traces, corrections, and failures
+  -> examples, holdouts, and failure clusters
+  -> datasets, eval suites, scorecards, and simulations
+  -> prompts, tools, model routes, workers, data recipes, or package changes
+  -> offline, simulation, and online gates
+  -> promotion, rollback, or continued review
+```
+
+This loop is the product path from work evidence to reusable capability.
+Promotions still require the appropriate daemon, wallet.network, Agentgres,
+policy, receipt, and marketplace gates.
+
+## Pattern And Example Supply
+
+Patterns, examples, role tracks, and solution diagrams are upstream demand and
+capability-supply inputs for Foundry. They may propose datasets, eval packs,
+worker manifests, model-route candidates, data recipes, ontology packs,
+automation templates, package templates, or managed-service templates.
+
+Foundry may turn a high-performing example into:
+
+```text
+eval suite
+distilled ontology dataset
+training or tuning plan
+worker/package candidate
+model-route benchmark
+promotion gate
+marketplace/package proposal
+```
+
+The example itself is not proof of production readiness. Production promotion
+requires evaluation receipts, benchmark receipts, authority and privacy
+posture, package metadata, rollback or recall posture, and Agentgres admission.
+
 ## Ontology-Aware Foundry
 
-Foundry may use domain ontologies in the Palantir-like sense: objects, actions,
+Foundry may use domain ontologies as operational contracts: objects, actions,
 interfaces, properties, permissions, data recipes, and projections define how
-real operational domains become teachable and governable agent substrates.
+real domains become teachable and governable agent substrates.
 
 Canonical ontology inputs:
 

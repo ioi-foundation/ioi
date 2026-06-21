@@ -10,7 +10,7 @@ Last alignment pass: 2026-05-13.
 
 Runtime nodes are execution venues. They may be a local Hypervisor Daemon
 managed by Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI
-views, Workbench surfaces, or provider/environment views; hosted Hypervisor Daemon; provider node;
+views, Workbench surfaces, or Providers / Environments views; hosted Hypervisor Daemon; provider node;
 DePIN node; TEE-verified node; or customer VPC node. They execute task
 capsules and return events, artifacts, and receipts.
 
@@ -127,7 +127,16 @@ profile, not the VM by itself.
   "capsule_id": "cap_123",
   "run_id": "run_123",
   "task_id": "task_123",
+  "work_item_ref": "hypervisor_work_item:optional",
+  "work_run_ref": "hypervisor_work_run:optional",
+  "work_queue_ref": "hypervisor_work_queue:optional",
   "worker_id": "ai://workers.runtime-auditor.ioi",
+  "code_context": {
+    "project_ref": "project:optional",
+    "repository_refs": ["repo://optional"],
+    "environment_ref": "hypervisor_environment_lifecycle:optional",
+    "pull_request_ref": "scm_pr://optional"
+  },
   "visible_context": [
     {"type": "text", "value": "redacted objective"},
     {"type": "artifact_ref", "ref": "artifact://redacted_input"}
@@ -140,6 +149,10 @@ profile, not the VM by itself.
     "schema_ref": "cid://schema",
     "required_receipts": ["execution"]
   },
+  "review_contract_ref": "review_contract://optional",
+  "conversation_projection_ref": "hypervisor_work_run_conversation:optional",
+  "transcript_ref": "artifact://optional",
+  "integration_status_refs": ["hypervisor_work_run_integration_status:optional"],
   "ttl_seconds": 900,
   "watermark": {
     "execution_id": "exec_123",
@@ -147,6 +160,13 @@ profile, not the VM by itself.
   }
 }
 ```
+
+Work refs are optional because not every low-level runtime task is delegated
+agent work. When present, they bind the capsule to Hypervisor's durable product
+objects without giving the runtime node extra authority. The runtime node may
+emit outputs, proposed patches, delivery refs, observations, and receipts; the
+daemon, wallet.network, verifier path, and Agentgres decide what becomes
+admitted truth.
 
 ## TEE Attestation Envelope
 
@@ -189,6 +209,10 @@ Enterprise Secure:
   "status": "completed | failed",
   "output_artifacts": ["artifact://..."],
   "proposed_patches": ["patch://..."],
+  "delivery_refs": ["pull_request://optional"],
+  "review_state_ref": "hypervisor_work_run_review_state:optional",
+  "conversation_projection_ref": "hypervisor_work_run_conversation:optional",
+  "transcript_ref": "artifact://optional",
   "receipts": ["receipt://execution_123"],
   "logs_ref": "artifact://redacted_logs",
   "attestation_ref": "optional"

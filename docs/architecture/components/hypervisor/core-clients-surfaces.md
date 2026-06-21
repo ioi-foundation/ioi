@@ -8,7 +8,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-06-19.
+Last alignment pass: 2026-06-21.
 
 ## Canonical Definition
 
@@ -53,6 +53,30 @@ Workbench develops, debugs, and operates systems.
 Canvas visually edits automations; it is not runtime truth.
 ```
 
+Product direction doctrine:
+
+```text
+Hypervisor is the open operating environment for autonomous systems.
+
+It lets people and organizations build, run, govern, verify, improve, package,
+and trade autonomous work across local machines, cloud providers, enterprise
+infrastructure, cTEE/private workspaces, DePIN compute, model providers,
+workers, tools, and domain applications without surrendering runtime truth or
+authority to one vendor.
+```
+
+The product should make the full autonomous-system lifecycle legible without
+turning lifecycle categories into default navigation:
+
+```text
+Build
+Run / Scale
+Govern
+Observe / Verify
+Optimize
+Package / Trade
+```
+
 ## Hypervisor Core
 
 **Hypervisor Core** is the shared runtime/control substrate used by Hypervisor
@@ -69,6 +93,8 @@ Hypervisor Core includes or coordinates:
 - daemon API boundary;
 - Workflow Compositor graph projection and HarnessProfile selection/mediation
   path;
+- delegated agent-work queues, work items, work runs, review states, and
+  conversation/transcript/log projections;
 - model, worker, service, tool, connector, browser, terminal, and
   computer-use routing;
 - adapter registry and adapter-target mediation;
@@ -100,23 +126,30 @@ Hypervisor
       Hypervisor Web
       Hypervisor CLI / Headless Client
       SDK / ADK clients
+  -> default shell
+      Home
+      Projects
+      Automations
+      Applications
+      Sessions
   -> application surfaces
       Workbench
-      Automations
       Foundry
-      Agents
-      Services
+      Agents / Workers
       Models
-      cTEE / Privacy
-      Receipts / Audit
-      Connectors
-  -> default session and provider views
-      Home
-      Sessions
-      Projects
-      Applications
-      Providers
-      Environments
+      Connectors / Tools / MCP
+      Data / Knowledge
+      Ontology
+      Authority / Govern
+      Receipts / Replay
+      Operate / Monitoring
+      Providers / Environments
+      Privacy / cTEE
+      Change Plane
+      Marketplace
+      Patterns / Examples / Training
+      Domain Apps
+  -> session, project, and contextual views
       Services / Tasks / Ports / Logs / Restore
   -> Hypervisor Core
       shared substrate and stable contracts
@@ -171,14 +204,8 @@ Automations
 Applications
 Sessions
 
-Pinned Applications
-  Foundry
-  Models
-  Workers
-  Connectors
-  Policies
-  Receipts
-  Monitoring
+Open Application
+  optional singular shell slot for the currently open application
 ```
 
 This is a product-navigation doctrine, not a new ownership graph. The durable
@@ -193,23 +220,56 @@ Home
 
 Projects
   persistent software/system work containers with repos, files, environments,
-  adapter preferences, policy defaults, linked automations, and receipts
+  development environment recipes, adapter preferences, policy defaults, linked
+  automations, and receipts
 
 Automations
   durable workflow/service/API/trigger/approval-flow objects
 
 Applications
-  catalog and launcher for specialized surfaces over Hypervisor Core
+  catalog, search, launcher, and management surface for specialized surfaces
+  over Hypervisor Core
 
 Sessions
   live and historical governed execution contexts
 ```
 
-Avoid turning platform primitives into permanent top-level nav by default.
-Models, Workers, Connectors, Policies, Receipts, Monitoring, Foundry, and
-similar surfaces should usually live under Applications or appear as pinned
-applications. Power users may pin them; the architecture must not require every
-user to manage the full primitive list.
+Avoid turning platform primitives into permanent top-level nav. Agents, Workers,
+Models, Connectors, MCP servers, Ontology, Policies, Receipts, Monitoring,
+Foundry, Marketplace, and similar surfaces should live in the Applications
+catalog and may appear as the singular Open Application while active. Favorites,
+recommended apps, promoted apps, recent apps, and organization shortcuts are
+catalog affordances and user/org preferences, not canonical shell categories.
+The architecture must not require every user to manage the full primitive list
+in the default shell.
+
+The Applications catalog is query-first. A client may render it as a modal,
+command palette, full page, or embedded picker, but it must support search,
+filtering, recent/favorite/recommended entries, and context-aware launch paths
+without expanding the permanent rail. A visible empty `Pinned Applications`
+region is not canonical; pinned/favorite/promoted entries are catalog, Home, or
+project/session affordances. `Open Application` remains a singular active
+surface slot when a specialized surface is selected.
+
+The Applications catalog may include these first-party families:
+
+```text
+Foundry
+Agents / Workers
+Models
+Connectors / Tools / MCP
+Data / Knowledge
+Ontology
+Authority / Govern
+Receipts / Replay
+Operate / Monitoring
+Providers / Environments
+Privacy / cTEE
+Change Plane
+Marketplace
+Patterns / Examples / Training
+Domain Apps
+```
 
 The compact doctrine:
 
@@ -224,6 +284,41 @@ Run consequential work through Hypervisor Core, the daemon, wallet.network,
 Agentgres, and receipt/replay boundaries.
 ```
 
+## Lifecycle Lens
+
+The product-management lifecycle is:
+
+```text
+Build
+  Projects, Workbench, Automations, Canvas, SDK/ADK, Connectors, MCP,
+  Data Recipes, Ontology, Patterns, Examples, Training, Solution Designer
+
+Run / Scale
+  Sessions, daemon runtime, providers, environments, HypervisorOS, cTEE,
+  code execution, computer use, worker/model/tool routing, memory, restore
+
+Govern
+  wallet.network, authority scopes, capability leases, approvals, secrets,
+  policy gates, privacy, declassification, risk, semantic governance,
+  registries
+
+Observe / Verify
+  receipts, replay, traces, logs, lineage, state roots, evaluations,
+  simulations, online monitors, quality alerts, examples
+
+Optimize
+  Foundry, evals, benchmarks, worker/model promotion, data recipes,
+  distilled ontology datasets, cost/work ledgers, routing improvements
+
+Package / Trade
+  Autonomous System Packages, worker manifests, templates, patterns,
+  marketplace installs, aiagent.xyz, sas.xyz outcomes, IOI settlement triggers
+```
+
+This is a planning taxonomy behind the stable shell. Do not expose it as
+primary navigation unless product testing proves the stable shell is
+insufficient.
+
 ## Application Surfaces
 
 Application surfaces are major product modes inside one or more first-class
@@ -232,7 +327,8 @@ clients.
 ```text
 Hypervisor Workbench
   code, systems, workflow, workspace, editor, terminal, browser, and
-  debugging surface
+  debugging surface, including development environment recipes and lifecycle
+  observations where they help users start, inspect, restore, or tear down work
 
 Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, and
@@ -240,7 +336,7 @@ Hypervisor Automations
   collaborative outcome handoffs
 
 Hypervisor Foundry
-  model garden, registry, model routes/mounts, tuning, training, evaluation,
+  model catalog, registry, model routes/mounts, tuning, training, evaluation,
   datasets, experiments, pipelines, endpoints, monitoring, worker/package
   creation, and ontology-aware improvement surface
 
@@ -249,8 +345,29 @@ Hypervisor Canvas
   not a separate product plane or runtime owner
 ```
 
-Other surfaces may include Agents, Services, Models, cTEE / Privacy,
-Receipts / Audit, Connectors, and Settings.
+Other surfaces may include specialized agent/worker consoles, model consoles,
+service/API consoles, domain-operation consoles, organization admin views, and
+settings panes. These should still resolve through the Applications catalog,
+the singular Open Application slot, session/project detail, or contextual
+panels instead of becoming new default top-level shell categories.
+
+User-facing configuration should prefer simple labels:
+
+```text
+Agent      configurable worker-backed agent or adapter
+Mode       Agent | Plan | Goal
+Model      product-facing model choice
+Reasoning  Low | Medium | High | Extra high
+Speed      Standard | Fast
+Harness    advanced execution topology, hidden unless relevant
+```
+
+`Agent` is the buildable product object. `Worker` remains the durable protocol
+actor/package boundary. `Model` is the product-facing label; `ModelRoute`
+remains the internal runtime object for provider, custody, fallback, spend,
+privacy, eligibility, and invocation policy. `Harness` is the visible
+power-user label for selected `HarnessProfile` or adapter topology; it should
+not be exposed as "execution profile" in ordinary composer controls.
 
 Application surfaces are not separate apps with separate runtime truth. They
 are governed projections and control surfaces over Hypervisor Core, the
@@ -260,6 +377,37 @@ integrations.
 Provider and infrastructure posture is part of Hypervisor's default session,
 project, provider, and environment views.
 
+## Hypervisor New Session
+
+`+ New Session` launches governed work. It is not generic chat and not a
+private UI state transition.
+
+A New Session request should bind:
+
+```text
+intent
+project or application context
+work execution mode: foreground session | one-off background handoff |
+                     durable automation | background mission
+worker/model/tool route
+provider and environment profile
+authority scope
+privacy posture
+expected receipt shape
+replay/eval posture
+handoff destination
+review and delivery contract
+```
+
+Hypervisor Core admits the request through daemon, wallet.network, Agentgres,
+privacy, provider, and receipt boundaries before consequential work begins.
+
+A New Session may atomically bind project/environment recipe, selected agent,
+initial input, mode, model configuration, reasoning effort, speed/service tier,
+harness selection, tools/connectors, memory policy, authority, budget, eval,
+and receipt posture. That bundle is a daemon-admitted launch recipe, not a
+client-local chat setting.
+
 ## Hypervisor Home
 
 **Hypervisor Home** is the default command and resume surface.
@@ -268,6 +416,11 @@ Home may accept goal prompts, show recent sessions, surface waiting approvals,
 and route the user into a Project, Automation, Application, Session, receipt, or
 replay. Home is allowed to draft work, but it must not become the durable owner
 of automations, projects, or sessions.
+
+Home should stay a low-friction command and resume surface. Dense panes for
+code, diffs, comments, terminals, ports, tasks, logs, or environment controls
+belong in active Project, Workbench, Session, or Open Application contexts where
+the user has selected the work scope.
 
 Correct:
 
@@ -323,8 +476,9 @@ inside Hypervisor.
 
 An Application is a specialized UI/work surface over Hypervisor Core that
 creates, inspects, modifies, or governs Projects, Automations, Sessions,
-Workers, Models, Policies, Artifacts, Receipts, provider posture, or other
-domain objects.
+Agents, Workers, Models, Connectors / Tools / MCP, Data / Knowledge, Ontology,
+Authority / Govern, Receipts / Replay, Providers / Environments, Artifacts, or
+other domain objects.
 
 Applications may be first-party, organization-built, generated, marketplace, or
 vertical-specific. They are product surfaces, not separate runtimes or authority
@@ -334,20 +488,104 @@ Examples:
 
 ```text
 Foundry
-Model Garden
-Worker Registry
-Connectors
-Policies
-Receipts
-Monitoring
-Security / Governance
-Provider and environment views
-Change, rollout, recall, and remediation views
+Agents / Workers
+Models
+Connectors / Tools / MCP
+Data / Knowledge
+Ontology
+Authority / Govern
+Receipts / Replay
+Operate / Monitoring
+Providers / Environments
+Privacy / cTEE
+Change Plane
+Marketplace
+Patterns / Examples / Training
 Domain-specific operations consoles
 ```
 
 Applications may contain or manage Automations, Projects, or Sessions, but they
 do not replace those durable object classes.
+
+Applications is also the product breadth layer for installable or generated
+surfaces. Repeated work should be promoted from private sessions into governed
+patterns, templates, packages, workers, domain apps, or marketplace entries
+when reuse, evaluation, installation, or settlement matters.
+
+### Application Surface Registration Contract
+
+Every durable Hypervisor application surface should have a registration contract
+before it becomes first-class product inventory. The contract may start as a
+client-local descriptor and promote into daemon/Agentgres records when install,
+permissioning, packaging, replay, audit, or marketplace behavior needs durable
+identity.
+
+A surface registration should declare:
+
+- stable surface id, display name, summary, and family;
+- canonical owner doc and owning object families;
+- supported placements: Applications catalog, Open Application, Home
+  suggestion, Project context, Session context, org/admin view, or operator
+  console;
+- launch modes and target bindings, including project/session compatibility;
+- daemon/API dependencies and Agentgres object refs;
+- required authority scopes, policy posture, and privacy posture;
+- receipt, replay, eval, package, and promotion obligations where applicable;
+- install, favorite, recent, recommended, and marketplace metadata where
+  applicable.
+
+The registration contract prevents Applications from becoming a junk drawer: a
+surface must say what it operates, where it can open, what authority it needs,
+and which canonical owners retain truth.
+
+## Patterns, Examples, And Training
+
+**Patterns / Examples / Training** is the role-guided enablement and reusable
+recipe surface inside Hypervisor Applications.
+
+It is not passive documentation. It is a product path from learning or
+exploration into governed work:
+
+```text
+role track
+  -> guided speedrun
+  -> installable example or solution diagram
+  -> project, session, automation, data recipe, ontology pack, eval, or package
+  -> authority request
+  -> execution through Hypervisor Core and the daemon
+  -> receipts, replay, evaluation, improvement, and promotion
+```
+
+This surface may expose:
+
+- role tracks for agent builders, automation builders, application builders,
+  data engineers, ontology builders, model engineers, operators, security
+  admins, and marketplace providers;
+- guided speedruns that launch governed New Session recipes;
+- installable examples for agents, automations, data recipes, ontology packs,
+  eval packs, dashboard/application shells, model routes, provider profiles,
+  and marketplace packages;
+- solution diagrams and architecture planners that compile into reviewed
+  Workbench, Automations, Foundry, Data / Knowledge, Ontology, or Domain App
+  proposals.
+
+Every serious example should declare the vertical problem, required data and
+ontology contracts, selected agents/workers/models/tools, authority scopes,
+session or automation launch path, receipt/eval/replay posture, and package or
+marketplace promotion path.
+
+Use this surface to increase useful autonomous work, not raw runtime. A good
+example is valuable because it becomes a launchable work path, an eval path, a
+reusable package path, and sometimes a recurring managed-service path.
+
+It does not own:
+
+- daemon execution;
+- wallet.network authority;
+- Agentgres truth;
+- Foundry training or promotion;
+- marketplace settlement;
+- domain app runtime truth.
 
 ## Hypervisor Workbench
 
@@ -385,6 +623,25 @@ Automations may own product-level projections for:
 - service templates and reusable recipes;
 - Canvas editor state where a visual view is useful.
 
+Automation graphs may include:
+
+```text
+trigger nodes
+worker/agent nodes
+task/shell nodes
+tool/MCP nodes
+model-route nodes
+data recipe nodes
+ontology action nodes
+approval/wallet gate nodes
+eval/test nodes
+deployment/change nodes
+pull-request and delivery nodes
+receipt/replay nodes
+output mapping panels
+run history panels
+```
+
 Automations does not own:
 
 - execution semantics;
@@ -400,6 +657,7 @@ Common automation modes:
 manual workflow
 scheduled workflow
 event/webhook-triggered workflow
+pull-request or issue-triggered workflow
 background mission
 approval flow
 service/API endpoint
@@ -415,6 +673,30 @@ ioi.ai may hand off a collaborative outcome into Automations when a goal needs
 many models, harnesses, workers, sessions, branches, connectors, or verifier
 lanes. The ioi.ai coordination pattern is owned by
 [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md).
+
+One-off agent handoffs and durable automations are different products over the
+same execution substrate:
+
+```text
+one-off handoff
+  preserves the user's prompt or work request as a single work item
+  creates or selects a governed environment for that work
+  returns a durable work-run ref once accepted
+  does not create a reusable automation definition by default
+
+durable automation
+  stores a versioned automation spec
+  has declared triggers, limits, steps, review gates, and delivery contracts
+  can be created, updated, started, disabled, replayed, and audited
+  should not silently duplicate an existing name/project trigger match
+```
+
+Automations should support step families such as `agent`, `task`, `approval`,
+`pull_request`, `report`, `deployment`, `remediation`, and `webhook/API`.
+An `agent` step resolves through a HarnessProfile or Agent Harness Adapter; a
+`task` step resolves through daemon-owned environment task execution; a
+`pull_request` step is a delivery contract, not proof of completion by itself.
+Every consequential step still emits receipts and Agentgres-backed run history.
 
 ## Hypervisor Canvas
 
@@ -459,7 +741,7 @@ endpoint/package surface over Hypervisor Core.
 
 Foundry produces and improves things that other surfaces use:
 
-- model garden entries and model cards;
+- model catalog entries and model cards;
 - model registry entries, model routes, and model-mount candidates;
 - WorkerPackages and worker manifests;
 - datasets, feature views, ontology-bound datasets, and holdouts;
@@ -473,7 +755,7 @@ Foundry produces and improves things that other surfaces use:
 Foundry may consume Automations traces, Workbench runs, agent corrections,
 receipts, and evaluation results, but it does not directly self-mutate the
 runtime. Durable improvements enter through governed proposals, eval gates,
-wallet/network approvals when needed, and Agentgres admission.
+wallet.network approvals when needed, and Agentgres admission.
 
 Foundry is owned in detail by [`foundry.md`](./foundry.md). ioi.ai may consume
 Foundry evals and promote lessons into Foundry proposals, but ioi.ai
@@ -483,8 +765,8 @@ coordination is not Foundry and Foundry is not a chat room.
 
 **Workflow Compositor** is the high-level directed-work surface over Hypervisor
 Core. It is a shared graph/projection model used by Automations, Workbench,
-Foundry, Agents, Services, provider/environment views, and SDK/ADK clients when
-work needs explicit structure.
+Foundry, other application surfaces, Providers / Environments views, and
+SDK/ADK clients when work needs explicit structure.
 
 The compositor owns:
 
@@ -551,6 +833,8 @@ provider / environment management session
 A session binds:
 
 - user, org, project, or worker identity;
+- work item and work run refs when the session is executing delegated agent
+  work;
 - authority grants and capability leases;
 - policy and approval state;
 - runtime assignment;
@@ -559,6 +843,54 @@ A session binds:
 - Agentgres refs and receipt obligations;
 - adapter targets;
 - replay and restore metadata.
+
+Sessions are the execution truth window. A session view should be able to show
+the live or historical transcript, step graph, tool/model calls,
+terminal/browser/computer-use activity, authority gates, privacy posture,
+provider and environment state, logs, traces, receipts, state roots, replay
+availability, and package or promotion options.
+
+For delegated agent work, the session should also expose a stable
+`HypervisorWorkRun` view: desired/current phase, selected agent or harness,
+project/environment code context, model and reasoning settings, iteration and
+token/context-window usage, MCP/connector integration status, current activity,
+conversation history, live stream, transcript, support/log refs, used
+environments, comments sent back to the run, review state, and delivery refs.
+This makes long-running work observable without tying the product to one agent
+implementation.
+
+## Receipts, Replay, And Improvement
+
+Traces and logs are necessary diagnostics, but they are not sufficient proof.
+For consequential work, Hypervisor surfaces should converge on receipts and
+replay so a user, organization, marketplace, verifier, or settlement path can
+answer:
+
+```text
+what happened
+why it happened
+under whose authority
+against which policy
+with which artifacts
+whether it can be replayed, challenged, improved, packaged, or settled
+```
+
+The improvement loop is:
+
+```text
+sessions and receipts
+  -> examples and traces
+  -> eval datasets
+  -> failure clusters
+  -> prompt/tool/model/worker/data-recipe fixes
+  -> simulation/offline/online evaluation
+  -> promotion or rollback
+  -> better routing and work acceptance
+```
+
+Foundry, Automations, Applications, Sessions, Receipts/Replay, and marketplace
+surfaces should expose this loop without giving any one UI surface runtime
+truth.
 
 ## Hypervisor Adapters And Targets
 
@@ -907,7 +1239,7 @@ receipt obligations
 ```
 
 External harnesses, Workbench, Automations, Foundry, Canvas views, Hypervisor
-App/Web, CLI/headless clients, and provider/environment views may receive
+App/Web, CLI/headless clients, and Providers / Environments views may receive
 structured outputs and exit codes. They do not get durable secrets, plaintext
 custody, or authority except through wallet.network capability leases and
 receipts.
@@ -1280,7 +1612,8 @@ HypervisorEnvironmentActivitySignal:
   signal_kind:
     user_active | agent_active | task_running | service_running |
     port_open | log_written | file_changed | network_activity |
-    idle_candidate | idle_confirmed | restore_required | policy_blocked
+    work_run_active | review_waiting | idle_candidate | idle_confirmed |
+    restore_required | policy_blocked
   observed_at: timestamp
   evidence_refs:
     - artifact://... | trace://... | receipt://...
@@ -1299,7 +1632,128 @@ HypervisorProject:
   default_workspace_persistence_profile_ref: workspace_persistence:... | null
   preferred_adapter_connection_profile_refs:
     - adapter_connection_profile:...
+  work_queue_refs:
+    - hypervisor_work_queue:...
   agentgres_domain_ref: agentgres://domain/... | null
+
+HypervisorWorkQueue:
+  work_queue_id: hypervisor_work_queue:...
+  project_ref: project:... | null
+  owner_ref: wallet://... | org://...
+  queue_kind:
+    one_off_handoffs | automation_runs | review_queue |
+    background_missions | service_requests | custom
+  intake_policy_ref: policy://...
+  default_environment_profile_ref: hypervisor_environment_ops:... | null
+  default_harness_selection_ref: harness_selection:... | null
+  default_model_configuration_ref: model_configuration:... | null
+  status:
+    active | paused | draining | archived
+  receipt_refs:
+    - receipt://...
+
+HypervisorWorkItem:
+  work_item_id: hypervisor_work_item:...
+  queue_ref: hypervisor_work_queue:...
+  project_ref: project:... | null
+  source_kind:
+    new_session | automation_trigger | pull_request | issue_event |
+    webhook | schedule | human_comment | api | collaborative_outcome
+  original_request_ref: artifact://... | null
+  normalized_intent_ref: intent://... | null
+  code_context:
+    repository_refs:
+      - repo://...
+    environment_ref: hypervisor_environment_lifecycle:... | null
+    pull_request_ref: scm_pr://... | null
+  desired_delivery:
+    none | report | patch | pull_request | deployment | service_response
+  review_contract_ref: review_contract://... | null
+  authority_scope_refs:
+    - grant://...
+  status:
+    draft | queued | admitted | running | waiting_for_input |
+    ready_for_review | completed | failed | canceled | archived
+  receipt_refs:
+    - receipt://...
+
+HypervisorWorkRun:
+  work_run_id: hypervisor_work_run:...
+  work_item_ref: hypervisor_work_item:...
+  session_ref: hypervisor_session:...
+  automation_run_ref: automation_run:... | null
+  workflow_action_ref: workflow_action:... | null
+  selected_agent_ref: worker://... | agent_harness_adapter:... | null
+  harness_selection_ref: harness_selection:...
+  model_configuration_ref: model_configuration:...
+  reasoning_profile_ref: reasoning_profile:... | null
+  desired_phase:
+    pending | running | waiting_for_input | stopped
+  current_phase:
+    pending | running | waiting_for_input | ready_for_review |
+    stopped | completed | failed | canceled
+  current_activity: string
+  current_operation_ref: trace://... | null
+  code_context_ref: artifact://... | project://... | null
+  conversation_projection_ref: hypervisor_work_run_conversation:...
+  transcript_ref: artifact://... | trace://... | null
+  support_bundle_ref: artifact://... | null
+  integration_status_refs:
+    - hypervisor_work_run_integration_status:...
+  used_environment_refs:
+    - hypervisor_environment_lifecycle:...
+  usage:
+    iterations: integer
+    input_tokens: integer
+    output_tokens: integer
+    cached_creation_tokens: integer
+    cached_input_tokens: integer
+    context_window_length: integer
+    context_window_limit: integer | null
+  output_refs:
+    - artifact://... | patch://... | receipt://...
+  review_state_ref: hypervisor_work_run_review_state:... | null
+  receipt_refs:
+    - receipt://...
+
+HypervisorWorkRunConversationProjection:
+  conversation_projection_id: hypervisor_work_run_conversation:...
+  work_run_ref: hypervisor_work_run:...
+  history_ref: artifact://... | null
+  live_stream_ref: stream://... | null
+  blob_store_ref: artifact://... | null
+  comments:
+    - comment_ref: comment://...
+      file_ref: artifact://... | null
+      hunk_ref: diff_hunk://... | null
+      submitted_by: wallet://... | org_role://...
+      delivered_at: timestamp | null
+  read_model_only: true
+
+HypervisorWorkRunIntegrationStatus:
+  integration_status_id: hypervisor_work_run_integration_status:...
+  work_run_ref: hypervisor_work_run:...
+  integration_ref: connector://... | mcp://... | tool://...
+  phase:
+    unknown | connected | degraded | failed | auth_required |
+    policy_blocked | revoked
+  failure_message: string | null
+  authority_ref: grant://... | null
+  evidence_refs:
+    - trace://... | receipt://...
+
+HypervisorWorkRunReviewState:
+  review_state_id: hypervisor_work_run_review_state:...
+  work_run_ref: hypervisor_work_run:...
+  phase:
+    not_required | waiting_for_review | changes_requested |
+    approved | rejected | superseded
+  reviewer_refs:
+    - wallet://... | org_role://...
+  delivery_refs:
+    - pull_request://... | artifact://... | deployment://...
+  receipt_refs:
+    - receipt://...
 
 HypervisorMission:
   mission_id: mission:...
@@ -1358,7 +1812,8 @@ HypervisorEnvironmentService:
   session_ref: hypervisor_session:...
   service_kind:
     model_server | dev_server | database | queue | browser |
-    worker | evaluator | custom
+    worker | agent_service | evaluator | custom
+  service_reference: string | null
   command_ref: artifact://... | null
   port_refs:
     - hypervisor_environment_port:...
@@ -1373,7 +1828,9 @@ HypervisorEnvironmentTask:
   session_ref: hypervisor_session:...
   task_kind:
     shell | build | test | eval | benchmark | migration |
-    provider_action | archive | restore | custom
+    package_install | git_operation | pull_request | code_review_response |
+    agent_run | provider_action | archive | restore | custom
+  work_run_ref: hypervisor_work_run:... | null
   authority_refs:
     - grant://...
   status:
@@ -1418,8 +1875,9 @@ HypervisorScmAuthRequirement:
   Hypervisor Daemon.
 - No adapter target may receive secrets, declassification authority, or
   payment authority except through wallet.network leases and receipts.
-- Workbench, Automations, Foundry, Canvas, and provider/environment views must
-  share Core session, authority, receipt, replay, and projection contracts.
+- Workbench, Automations, Foundry, Canvas, other application surfaces, and
+  Providers / Environments views must share Core session, authority, receipt,
+  replay, and projection contracts.
 - Automations must use Workflow Compositor contracts for graph shape and the
   daemon/Agentgres path for execution truth; it must not invent a separate
   automation runtime.
@@ -1464,6 +1922,10 @@ one editor shell = parent product
 Hypervisor App owns Core
 Hypervisor Web owns Core
 ioi.ai chat = durable automation owner
+Home = dense Workbench terminal/diff/file console
+Applications = unstructured app drawer
+Pinned Applications = permanent empty rail region
+Open Application = multiple simultaneous primary app frames
 CLI/headless owns a separate runtime loop
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor client
@@ -1482,7 +1944,7 @@ ioi.ai collaborative outcome = group chat
 ioi.ai collaborative outcome = unbounded swarm
 Workbench = runtime truth
 Foundry = direct self-mutation path
-provider posture = separate product surface
+provider posture = standalone provider-management product
 provider posture = infrastructure runtime or authority owner
 editor adapter = full execution boundary
 adapter target = secret vault
@@ -1504,8 +1966,9 @@ Workbench/Automations/Foundry = application surfaces
 Canvas = visual editor/projection
 ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
 goal pursuit when useful
-Provider and infrastructure posture = Hypervisor session/project/provider/
-environment views
+Provider and infrastructure posture = Providers / Environments views through
+Applications, Open Application, sessions, projects, provider settings,
+org/admin views, or operator consoles
 Sessions = governed live workspaces/runs
 Adapters = mediated bridges to targets
 Agent harness adapters = mediated bridges for external agent harnesses

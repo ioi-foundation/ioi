@@ -1,25 +1,26 @@
 # wallet.network Product, Exchange, and Risk Doctrine
 
 Status: canonical architecture product module.
-Canonical owner: this file for wallet.network product doctrine, exchange
-authority, route-source boundaries, advanced trade authority, position-risk
-boundaries, asset exposure, protection actions, approval inbox, user-facing
-wallet receipts, and wallet SDK events.
+Canonical owner: this file for wallet.network product doctrine, agent authority
+cockpit, exchange authority, route-source boundaries, advanced trade authority,
+position-risk boundaries, asset exposure, protection actions, approval inbox,
+user-facing wallet receipts, and wallet SDK events.
 Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-06-14.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
-**wallet.network is the user-facing authority wallet and cockpit for autonomous
-finance.**
+**wallet.network is the user-facing authority wallet and control cockpit for
+autonomous agents and autonomous finance.**
 
 It is not merely a crypto wallet and not merely an IAM service. It lets users
-and organizations hold assets, exchange assets, delegate bounded financial
-authority, revoke authority, inspect risk, protect assets, manage approved
-trading exposure, and verify receipts.
+and organizations connect agents, bind auth factors, enroll guardian surfaces,
+manage key shards, broker provider credentials, delegate bounded authority,
+authorize payments and exchanges, inspect risk, protect assets, revoke power,
+and verify receipts.
 
 The product grammar is:
 
@@ -34,21 +35,25 @@ Action
 ```
 
 This grammar applies to sends, receives, exchanges, advanced trades, approvals,
-delegations, revocations, protection actions, secret brokerage,
-declassification, payment authorization, and agent actions.
+delegations, revocations, protection actions, secret brokerage, provider
+credential use, declassification, payment authorization, deploy authority,
+compute spend, and agent actions.
 
 ## Owns
 
-wallet.network owns the authority and user-understanding path for wallet
-actions:
+wallet.network owns the authority and user-understanding path for wallet and
+agent-authority actions:
 
 - identity and account authority;
+- auth-factor, guardian-surface, and key-shard posture;
+- provider credential binding posture;
 - policy evaluation;
 - authority risk classification;
 - asset, route, and security risk labeling;
 - approval, denial, step-up, revocation, and emergency stop;
 - exact intent binding for sends, exchanges, advanced trades, position changes,
-  delegations, protection actions, capability exits, and agent actions;
+  delegations, protection actions, provider credential use, capability exits,
+  and agent actions;
 - approval-mode selection for one-shot, session, batch, silent-within-policy,
   after-the-fact receipt, and step-up flows;
 - reusable authority presentation profiles for embedded apps, Wallet surfaces,
@@ -57,12 +62,16 @@ actions:
 - user-facing and machine-verifiable wallet receipts;
 - asset exposure records and protection recommendations;
 - approval inbox state;
+- agent/session authority state;
+- wallet CLI, MCP, mobile, embedded, and enterprise authority-client posture;
 - wallet SDK events for authority, risk, route, receipt, and revocation changes.
 
 ## Does Not Own
 
 wallet.network does not own:
 
+- agent runtime execution;
+- model inference execution;
 - liquidity;
 - DEX, bridge, or venue execution mechanics;
 - trading venue mechanics;
@@ -83,10 +92,14 @@ Wallet must expose authority in user-understandable surfaces:
 
 ```text
 Home
-  assets, risk, active authority, recent receipts
+  agents, assets, risk, active authority, recent receipts
 
 Assets
   holdings, custody accounts, security assumptions, exposure
+
+Agents
+  active agents/workers, authority envelopes, budgets, limits, sessions,
+  credential use, receipts, and revocation
 
 Exchange
   route-visible swaps with simulation, risk labels, fees, approvals, receipts
@@ -97,20 +110,23 @@ Trade
   liquidation, funding, resolution, and position receipts
 
 Authority
-  apps, agents, grants, policies, leases, revocation, emergency stop
+  apps, agents, grants, policies, leases, auth factors, guardians, key shards,
+  provider credential bindings, revocation, emergency stop
 
-Agents
-  bounded financial authority for autonomous workers and outcome engines
+Credentials
+  OAuth/API/model/cloud/provider bindings, BYOK posture, secret brokerage,
+  brokered execution, rotation, and exposure
 
 Activity
-  receipt-backed audit trail across sends, swaps, approvals, agent actions,
-  revocations, protection actions, and policy changes
+  receipt-backed audit trail across sends, swaps, approvals, credential use,
+  agent actions, revocations, protection actions, and policy changes
 
 Risk
   asset exposure, route exposure, cryptographic posture, recommendations
 
 Settings
-  factors, recovery, networks, developer mode, org/team controls
+  factors, guardian devices, key shards, recovery, networks, developer mode,
+  org/team controls
 ```
 
 Core actions:
@@ -119,11 +135,14 @@ Core actions:
 hold
 send
 receive
+connect
+authorize
 exchange
 trade
 delegate
 revoke
 review
+step-up
 protect
 ```
 
@@ -134,6 +153,34 @@ Wallet is the canonical user-facing cockpit for Exchange and Trade. The user
 should be able to review, approve, deny, execute, monitor, and receipt exchange
 or trade actions inside Wallet without first visiting `decentralized.exchange`
 or `decentralized.trade`.
+
+Wallet is also the canonical user-facing cockpit for agent authority. The user
+should be able to connect an agent, bind provider credentials, set authority
+limits, choose approval modes, inspect active sessions, review pending
+authority, revoke grants, and verify receipts without exposing raw secrets or
+root credentials to the agent.
+
+## Agent Authority Cockpit
+
+The Wallet product must make autonomous-agent authority understandable at the
+same level of quality as asset authority. It should expose:
+
+```text
+which agents and workers exist
+which sessions and autonomy leases are active
+which provider credential bindings they may use
+which budgets, call limits, spend limits, and expiry bounds apply
+which actions require review, step-up, or guardian approval
+which auth factors and guardian surfaces secure the account
+which grants, leases, and approval envelopes are active
+which receipts prove what happened
+which revocation and emergency-stop actions are available
+```
+
+Finance remains a major high-risk vertical, but it is not the product boundary.
+The same cockpit grammar applies to repo authority, cloud deploys, model-provider
+keys, data access, private workspace declassification, compute budgets, and
+connector actions.
 
 ## Wallet Authority UX Model
 
@@ -165,6 +212,7 @@ Capability
 
 Object
   asset | credential | data | vote | message | position | workload | secret
+  auth_factor | guardian | key_shard | provider_credential
 
 Policy
   when, where, how much, by whom, for how long, and under which risk posture

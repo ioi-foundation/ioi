@@ -1,21 +1,23 @@
 # wallet.network API and Authority Scopes
 
 Status: canonical low-level reference.
-Canonical owner: this file for wallet.network account, authority scope, grant,
-approval, secret brokerage, payment, exchange, exposure, protection, receipt,
-and revocation APIs.
+Canonical owner: this file for wallet.network account, auth factor, guardian,
+key-shard, provider credential binding, authority scope, grant, approval, secret
+brokerage, payment, exchange, exposure, protection, receipt, wallet authority
+client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-14.
+Last alignment pass: 2026-06-20.
 
 ## Purpose
 
 wallet.network is the canonical Web4 authority layer. It owns identity,
-secrets, BYOK keys, connector credentials, authority scope grants,
-training-data permissions, decryption leases, approvals, payments, exchange
-authority, asset/route/security risk disclosure, sealed archive restore
-authority, revocation, and emergency stops. Agents, workers, apps, and
-runtimes are authority clients, not raw secret custodians.
+auth factors, guardian surfaces, key shards, secrets, BYOK keys, connector
+credentials, provider credential bindings, authority scope grants, training-data
+permissions, decryption leases, approvals, payments, exchange authority,
+asset/route/security risk disclosure, sealed archive restore authority,
+revocation, and emergency stops. Agents, workers, apps, and runtimes are
+authority clients, not raw secret custodians.
 
 ## Contract Packaging Boundary
 
@@ -54,11 +56,21 @@ may contain UI fixtures and prototypes, but they must not define canonical
 scopes, grants, leases, secret-release policy, receipt schemas, exchange/trade
 intent semantics, or revocation behavior.
 
-## Account and Session API
+## Account, Factor, Guardian, and Session API
 
 ```http
 POST /v1/auth/sign-in
 POST /v1/auth/link-factor
+GET  /v1/auth/factors
+DELETE /v1/auth/factors/{factor_id}
+POST /v1/guardians
+GET  /v1/guardians
+GET  /v1/guardians/{guardian_id}
+POST /v1/guardians/{guardian_id}/challenge
+POST /v1/guardians/{guardian_id}/disable
+POST /v1/key-shards
+GET  /v1/key-shards
+POST /v1/key-shards/{shard_id}/rotate
 GET  /v1/account
 GET  /v1/account/security-level
 POST /v1/account/upgrade-security
@@ -66,7 +78,7 @@ POST /v1/session
 DELETE /v1/session/{session_id}
 ```
 
-Sign-in providers:
+Sign-in providers and linked factors:
 
 ```text
 google
@@ -75,9 +87,111 @@ passkey
 web3_wallet
 email_magic_link
 enterprise_sso
+totp
 ```
 
-A frictionless login creates a Level 1 wallet.network account. High-risk authority scopes require step-up.
+A frictionless login creates a Level 1 wallet.network account. TOTP is a linked
+step-up factor, not a primary identity provider. High-risk authority scopes
+require step-up.
+
+Canonical factor taxonomy:
+
+```text
+AuthFactor
+  Authenticates account access or step-up posture. It does not convey authority
+  by itself. Google, GitHub, email/OIDC, enterprise SSO, Web3 wallet, passkey,
+  and TOTP are auth factors.
+
+GuardianSurface
+  High-assurance authority surface that can render an exact action and sign or
+  approve a challenge. Examples include enrolled mobile approver, passkey device,
+  local CLI signer, hardware key, trusted wallet/Hypervisor app, and enterprise
+  approval surface.
+
+KeyShard
+  Cryptographic or threshold authority material such as MPC share, threshold
+  key share, hardware-backed share, recovery share, or organization quorum share.
+  Do not use "shard" for ordinary provider logins.
+
+ProviderCredentialBinding
+  OAuth refresh token, API key, model-provider key, wallet credential, cloud
+  credential, or connector credential held or brokered by wallet.network.
+
+AuthorityGrant
+  Scoped `grant://...` or lease issued after policy review. Agents receive this
+  object, not raw auth factors, raw credentials, or key shards.
+```
+
+Account posture should distinguish:
+
+```text
+federated_frictionless
+trusted_device
+out_of_band_guardian
+sovereign_or_org_vault
+```
+
+TOTP may increase confidence but is phishable and cannot satisfy high-risk
+authority alone. Biometrics only count as high-assurance when bound to a
+passkey, secure enclave, enrolled device, or equivalent signed assertion.
+
+### Auth Factor
+
+```json
+{
+  "factor_id": "auth_factor://google/user_123/default",
+  "owner_ref": "wallet://user_123",
+  "kind": "google | github | email_oidc | enterprise_sso | web3_wallet | passkey | totp",
+  "assurance_level": "low | medium | high",
+  "can_bootstrap_account": true,
+  "can_satisfy_step_up": false,
+  "can_hold_grant": false,
+  "can_release_secret": false,
+  "created_at": "2026-06-20T12:00:00Z",
+  "last_used_at": "2026-06-20T12:30:00Z",
+  "status": "active"
+}
+```
+
+### Guardian Surface
+
+```json
+{
+  "guardian_id": "guardian://device/user_123/phone",
+  "owner_ref": "wallet://user_123",
+  "kind": "enrolled_mobile | passkey_device | hardware_key | local_cli_signer | hypervisor_app | enterprise_approval",
+  "display_label": "Personal phone",
+  "challenge_methods": ["qr", "push", "local_cli"],
+  "can_render_exact_intent": true,
+  "can_sign_request_hash": true,
+  "allowed_risk_classes": [
+    "external_message",
+    "commerce",
+    "funds",
+    "deploy",
+    "secret_export",
+    "policy_widening",
+    "private_workspace_declassification"
+  ],
+  "revocation_epoch": 7,
+  "status": "active"
+}
+```
+
+### Key Shard
+
+```json
+{
+  "shard_id": "key_shard://user_123/mpc/device_a",
+  "owner_ref": "wallet://user_123",
+  "kind": "mpc_share | threshold_key_share | hardware_backed_share | recovery_share | org_quorum_share",
+  "guardian_ref": "guardian://device/user_123/phone",
+  "threshold_policy_ref": "policy://wallet/key-threshold/default",
+  "can_export": false,
+  "revocation_epoch": 7,
+  "status": "active"
+}
+```
 
 ## Access Point Binding API
 
@@ -157,6 +271,17 @@ DELETE /v1/access-points/{binding_id}
   "risk_class": "external_message | funds | secret_export | private_workspace_view",
   "action_summary": "Approve one vendor email draft",
   "challenge_url": "https://wallet.network/step-up/challenge/abc",
+  "challenge_delivery": "link | qr | push | local_cli",
+  "guardian_surface_required": "guardian://device/user_123/phone | passkey | enterprise_approval | local_cli_signer",
+  "must_display": {
+    "subject": "agent://assistant",
+    "action": "gmail.send",
+    "resources": ["gmail://thread/abc"],
+    "budget_or_amount": null,
+    "expires_at": "2026-05-01T12:05:00Z",
+    "policy_hash": "sha256:...",
+    "request_hash": "sha256:..."
+  },
   "single_use": true,
   "expires_at": "2026-05-01T12:05:00Z"
 }
@@ -167,6 +292,11 @@ Approval must authenticate on wallet.network, Hypervisor, an enrolled guardian
 device, passkey, enterprise IdP, local app, CLI signer, or another
 high-assurance authority surface. The agent receives only a scoped
 `grant://...` or denial receipt after the step-up flow completes.
+
+QR or push delivery is not authority by itself. The guardian surface must render
+the exact action and sign or approve the bound request hash. The agent never
+receives OTP values, biometric results, provider tokens, raw key shards, raw
+session material, or guardian secrets.
 
 ## Authority Scope Request API
 
@@ -283,6 +413,28 @@ plaintext secrets or root accounts.
 Capability leases are the Wallet-native answer to credential orchestration:
 the agent receives a scoped, expiring right to ask Wallet or a provider to use a
 capability. It does not receive long-lived credentials by default.
+
+### Provider Credential Binding
+
+Provider credential bindings are brokered credentials managed by wallet.network.
+They are not auth factors and not authority grants. A Google login may bootstrap
+account access; a Google provider credential binding may later authorize Gmail,
+Drive, or other provider scopes only after policy and grant issuance.
+
+```json
+{
+  "credential_binding_id": "credential://google/user_123/workspace",
+  "owner_ref": "wallet://user_123",
+  "provider": "google | github | coinbase | aws | openai | anthropic | custom",
+  "credential_kind": "oauth_refresh_token | api_key | wallet_credential | byok_model_key | cloud_role",
+  "available_scopes": ["scope:gmail.send", "scope:drive.read"],
+  "secret_ref": "wallet.network://secret/google-workspace-refresh-token",
+  "default_release_policy": "brokered_execution",
+  "can_export_secret": false,
+  "revocation_epoch": 7,
+  "status": "active"
+}
+```
 
 ### Capability Lease Revocation
 
@@ -476,6 +628,83 @@ denied
 Apps may request a presentation profile and approval mode, but Wallet must derive
 the allowed mode from policy, risk, eligibility, account posture, and active
 session state.
+
+## Wallet Authority Client Surfaces
+
+wallet.network may expose web, mobile, desktop, embedded Hypervisor panels, CLI,
+SDK, MCP, enterprise authority service, and local signer surfaces. These are
+clients of the same authority pipeline, not separate sources of authority.
+
+```http
+POST /v1/authority/client-sessions
+GET  /v1/authority/client-sessions/{client_session_id}
+POST /v1/authority/challenges/{challenge_id}/approve
+POST /v1/authority/challenges/{challenge_id}/deny
+POST /v1/authority/challenges/{challenge_id}/edit-and-approve
+GET  /v1/authority/client-sessions/{client_session_id}/receipts
+```
+
+Client session example:
+
+```json
+{
+  "client_session_id": "wallet_client://cli/user_123/session_abc",
+  "client_kind": "wallet_web | wallet_mobile | wallet_desktop | hypervisor_panel | cli_signer | mcp_server | sdk | enterprise_authority_service",
+  "owner_ref": "wallet://user_123",
+  "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
+  "guardian_refs": ["guardian://device/user_123/phone"],
+  "allowed_operations": [
+    "request_authority",
+    "approve_challenge",
+    "deny_challenge",
+    "inspect_grants",
+    "revoke_lease",
+    "list_receipts"
+  ],
+  "risk_ceiling": "funds | deploy | secret_export | policy_widening",
+  "expires_at": "2026-06-20T13:00:00Z",
+  "revocation_epoch": 7
+}
+```
+
+### wallet.network CLI
+
+The wallet.network CLI is a local operator and signer surface. It may support:
+
+```text
+sign in
+link factor
+enroll guardian
+approve / deny / edit challenge
+inspect grants
+revoke grants or leases
+broker secret execution
+export receipts
+```
+
+The CLI must still call the same account, guardian, approval, grant, lease,
+secret-brokerage, receipt, and revocation APIs. A local CLI signer can satisfy
+policy only when it is enrolled as a guardian surface or required client session.
+
+### wallet.network MCP
+
+The wallet.network MCP surface is an agent-facing authority request and receipt
+surface. It may expose tool equivalents of:
+
+```text
+wallet_authority_request
+wallet_authority_status
+wallet_capability_check
+wallet_approval_request
+wallet_payment_request
+wallet_receipts_list
+wallet_grant_revoke_request
+```
+
+It must not expose tools that reveal raw secrets, export provider tokens,
+raw-sign arbitrary payloads, raise limits, disable step-up, enroll guardians, or
+turn authentication into authority without policy, grant issuance, revocation
+semantics, and receipts.
 
 ## Payment and Escrow API
 
@@ -756,3 +985,9 @@ Emergency stop must revoke active grants, pause pending runs, and notify relevan
    the full Wallet console is not required for every Web3/Web4 app.
 9. Unknown, unassessed, stale, and conflicting-source risk or eligibility states
    must be surfaced as caution states, not hidden as absent warnings.
+10. Auth factors, provider credential bindings, guardian surfaces, key shards,
+    and authority grants are distinct objects and must not be collapsed.
+11. TOTP or federated login alone cannot authorize high-risk agent authority.
+12. wallet.network MCP and CLI clients can request, inspect, approve, deny, or
+    receipt authority only through the same policy pipeline; they cannot bypass
+    step-up, export secrets, raise limits, or raw-sign arbitrary payloads.

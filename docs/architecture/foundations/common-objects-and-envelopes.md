@@ -140,8 +140,12 @@ wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
 wallet://...            wallet.network account or authority ref
+auth_factor://...       wallet.network authentication factor identity
 access_point://...      low-assurance access-point binding ref
 challenge://...         short-lived wallet.network step-up challenge pointer
+credential://...        provider credential binding or secret metadata ref
+key_shard://...         MPC, threshold, hardware-backed, or org key-share ref
+wallet_client://...     wallet.network CLI/MCP/mobile/web/embedded client session
 shielded_capsule://...  private workspace capsule identity; legacy name kept for compatibility
 model_mount://...       plaintext-free model mount identity
 model_mount_view://...  per-inference plaintext-free model mount view identity
@@ -152,7 +156,7 @@ crypto_op_policy://...  cTEE cryptographic/private operator policy identity
 counterfactual_lattice://... cTEE committed counterfactual candidate lattice identity
 alpha_seal://...        sealed private strategy capsule identity
 autonomy_lease://...    wallet-bounded offline autonomy lease identity
-guardian://...          cTEE guardian or threshold authority participant
+guardian://...          high-assurance wallet/cTEE guardian or threshold authority participant
 leakage://...           declared leakage profile for Private Workspace/private work
 deterrence://...        cTEE deterrence/detection profile identity
 commitment://...        private output, state, or witness commitment

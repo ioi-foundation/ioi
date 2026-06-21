@@ -15,9 +15,10 @@ Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
 
 The Hypervisor Daemon emits these objects as the autonomous-execution
 hypervisor/control plane. Hypervisor App, Hypervisor Web, CLI/headless,
-optional TUI, SDK, ADK, Workbench/Foundry surfaces, provider/environment views, harnesses,
-benchmarks, and extension-host code may project or inspect them, but they must
-not mint private runtime truth for consequential work.
+optional TUI, SDK, ADK, Workbench/Foundry surfaces, other Applications
+surfaces, Providers / Environments views, harnesses, benchmarks, and
+extension-host code may project or inspect them, but they must not mint private
+runtime truth for consequential work.
 
 ## Runtime Events
 
@@ -30,7 +31,7 @@ thread.resumed
 thread.forked
 thread.mode_changed
 thread.model_route_changed
-thread.thinking_changed
+thread.reasoning_changed
 turn.started
 turn.interrupted
 turn.steered

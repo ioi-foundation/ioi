@@ -32,8 +32,10 @@ Hypervisor product shell
 
 Hypervisor application surfaces
   organize the same Core by job-to-be-done
-  Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
-  Receipts/Audit
+  Workbench, Automations, Foundry, Agents / Workers, Models,
+  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
+  Receipts / Replay, Operate / Monitoring, Providers / Environments,
+  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
 
 ioi.ai collaborative outcome pattern
   chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over Hypervisor,
@@ -188,8 +190,8 @@ Intent
 
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
-Workbench/Automations/Foundry surfaces, and provider/environment views are
-clients, projections, application surfaces,
+Workbench/Automations/Foundry surfaces, other application surfaces, and
+Providers / Environments views are clients, projections, application surfaces,
 editors, views, or daemon-executed profiles.
 
 ## Route By Problem
@@ -353,9 +355,10 @@ Start here:
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
-Workbench/Automations/Foundry application surfaces, provider/environment views, package
-install/publish flows, and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
-Daemon, Agentgres, wallet.network, and L1.
+Workbench/Automations/Foundry application surfaces, other Applications
+surfaces, Providers / Environments views, package install/publish flows, and
+clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor Daemon,
+Agentgres, wallet.network, and L1.
 
 ### Implementing Interop
 
@@ -399,7 +402,7 @@ Codex/Claude Code/Grok Build = Hypervisor client
 Hypervisor Workbench/Automations/Foundry/provider views = runtime truth
 one editor shell = live parent product term
 ioi.ai Goal Chat = durable automation owner
-provider posture = separate product surface, execution runtime, or authority plane
+provider posture = standalone provider-management product, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
 decentralized.exchange/trade = mandatory UIs users must visit before Wallet
@@ -425,13 +428,13 @@ daemon executes
 Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 Hypervisor App/Web/CLI-headless are first-class clients
 TUI is an optional CLI presentation
-Hypervisor Workbench/Automations/Foundry are application surfaces over Core
+Hypervisor Workbench/Automations/Foundry and other application surfaces are projections over Core
 ioi.ai Goal Chat proposes, coordinates, compares, and synthesizes
 ioi.ai collaborative outcomes are goal-appropriate multi-model/multi-path
 pursuits over Hypervisor with evidence, receipts, and authority gates
 Foundry builds and evaluates models, workers, datasets, endpoints, registries,
 simulation-training jobs, and ontology-aware packages
-Hypervisor provider/environment views manage sessions, providers, and environments
+Providers / Environments views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work
 selected HarnessProfiles resolve scoped steps

@@ -43,8 +43,8 @@ The default stack relation is:
 ```text
 Hypervisor clients and surfaces
   Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-  Workbench/Automations/Foundry surfaces, Canvas views, provider/environment
-  views, Authority Gateway adapters
+  Workbench/Automations/Foundry surfaces, other application surfaces,
+  Canvas views, Providers / Environments views, Authority Gateway adapters
 
 Hypervisor Daemon
   execution owner and policy/authority/effect boundary
@@ -182,6 +182,123 @@ DefaultHarnessProfile:
 A harness profile may be implemented by a lower-level runtime service, external
 agent harness, deterministic service module, or Rust/WASM workload substrate,
 but the public ownership boundary stays with the daemon.
+
+## Agent Operating Contract
+
+Hypervisor may expose an `Agent` selector in composer controls, launch forms,
+Automations nodes, Workbench panels, and Applications surfaces. That selector is
+product-facing. Under the runtime contract, a configured agent compiles into:
+
+```text
+AgentRecord
+  metadata, owner, install/package refs, project/environment/code context
+
+Mode
+  Agent | Plan | Goal
+
+ModelConfiguration
+  model, reasoning effort, speed/service tier, fallback policy, custody policy
+
+HarnessSelection
+  selected HarnessProfile or Agent Harness Adapter
+
+ToolAndConnectorBindings
+  RuntimeToolContracts, MCP servers, connector mappings, authority scopes
+
+MemoryAndWorkspaceIntelligence
+  Agent Wiki / ioi-memory reads, Agentgres-admitted durable memory mutations
+
+AuthorityAndBudget
+  wallet.network grants, approval gates, spend limits, context/token budgets
+
+ReceiptsAndReplay
+  receipt policy, artifact refs, transcript refs, state roots, replay refs
+```
+
+The product may show a compact control such as:
+
+```text
+Agent -> Mode -> Model -> Reasoning -> Speed
+```
+
+`Harness` is an advanced configuration child of Agent. It should appear only
+when the selected agent supports multiple execution topologies or when the user
+is editing the agent definition. Do not expose "Execution Profile" as ordinary
+composer language; reserve deployment/execution profile wording for provider
+and runtime-posture docs.
+
+## Turn Coordination
+
+A selected harness resolves bounded turns under daemon control. The daemon owns
+turn admission, active-turn state, stale-turn reconciliation, failure breaker
+state, model/MCP configuration for the turn, and terminal-state emission.
+Clients may render turn state or request controls, but they do not own a hidden
+loop.
+
+Canonical control inputs:
+
+```text
+compact
+goal.pause
+goal.resume
+goal.complete
+goal.clear
+goal.set(objective, status)
+delete_queued_message(user_input_id)
+interrupt
+steer
+```
+
+Canonical turn options:
+
+```text
+modes: Agent | Plan | Goal
+model configuration: model, reasoning effort, speed/service tier
+tool/MCP availability
+authority and budget posture
+receipt/replay policy
+```
+
+LLM/provider failures are run facts, not only client errors. A harness profile
+must report repeated model failures, fallback route use, waiting-for-input
+states, stale active turns, and human-handoff conditions through daemon events,
+Agentgres operation refs, and receipts when they affect accepted work.
+
+## Subagent And Delegated Work Boundary
+
+Subagents are delegated work items or child work runs, not hidden private
+threads. Parent and child work must share explicit authority, budget,
+conversation, cancellation, receipt, and output contracts.
+
+Subagent message flow should use explicit boundary objects:
+
+```text
+UserInputBlock
+AgentMessage
+WakeEvent
+AgentResponseBlock
+WorkRunConversationProjection
+```
+
+Avoid a generic untyped event bag as the canonical subagent interface. Generic
+event envelopes may transport records, but the durable agent contract should
+distinguish user input, parent/child agent messages, wake events, text output,
+action started/completed, file modifications, host-auth-required, todo items,
+thoughts, mode changes, and available commands.
+
+Subagent wait conditions should be represented as runtime interests:
+
+```text
+timer
+subagent result
+user message
+environment readiness
+devcontainer or workspace rebuild
+```
+
+The parent harness may wait, cancel, resume, assign, or send input to a
+subagent, but the daemon remains the admission, cancellation, event ordering,
+receipt, and state-root owner.
 
 ## Compositor And Harness Boundary
 

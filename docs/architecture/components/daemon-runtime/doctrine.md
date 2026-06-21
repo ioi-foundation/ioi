@@ -39,10 +39,12 @@ Hypervisor Core is the shared product/runtime substrate over this daemon-owned
 execution boundary. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK,
 benchmarks, and extension hosts are first-class clients, builder frameworks, or
 projections; they do not become private runtimes. A TUI is an optional
-presentation of CLI/headless controls. Hypervisor Workbench, Foundry, Agents,
-Services, Models, cTEE/Privacy, Receipts/Audit, Connectors, and
-provider/environment views are projections over the same Core, not separate
-runtime truth paths.
+presentation of CLI/headless controls. Hypervisor Workbench, Automations,
+Foundry, Agents / Workers, Models, Connectors / Tools / MCP, Data / Knowledge,
+Ontology, Authority / Govern, Receipts / Replay, Operate / Monitoring,
+Providers / Environments, Privacy / cTEE, Change Plane, Marketplace,
+Patterns / Examples / Training, and Domain Apps are projections over the same Core, not
+separate runtime truth paths.
 
 Hypervisor Workbench is the live code/systems surface. VS Code, Cursor,
 Windsurf, JetBrains, browser IDEs, terminals, VMs, local OS surfaces, and
@@ -106,6 +108,17 @@ loop-native lifecycle, context topology, action proposal and gate path,
 Agentgres admission rules, artifact/ref boundary, output ownership pass, and
 conformance phases used by selected harness profiles.
 
+Agent operating plane rule:
+
+> **Agents are configurable product objects; agent execution is daemon-owned.**
+
+The daemon owns configured agent records, agent/session admission, work queues,
+work items, work runs, thread/turn controls, conversation streams, subagent
+delegation, runner reconciliation, model/LLM usage reporting, exec/security
+telemetry, receipts, and Agentgres bindings. Product controls such as Agent,
+Mode, Model, Reasoning, Speed, and Harness compile into daemon contracts rather
+than creating client-local loops.
+
 ## Hypervisor Node Boundary
 
 A Hypervisor Node is the local autonomous-system settlement and interop domain
@@ -115,7 +128,7 @@ stores, and runtime profiles.
 
 The daemon is the execution and authority-enforcement substrate inside that
 node. Hypervisor App, Hypervisor Web, CLI/headless, optional TUI views, and
-application surfaces such as Workbench and Foundry plus provider/environment
+application surfaces such as Workbench, Foundry, and Providers / Environments
 views are operator clients/projections. Agentgres is the local operational
 truth substrate. AIIP is
 the semantic interop protocol for local microharness routing and external
@@ -252,8 +265,8 @@ CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
 Agentgres APIs. The CLI does not become the Hypervisor runtime.
 
-Hypervisor App, Hypervisor Web, CLI/headless, Workbench/Foundry surfaces, and
-provider/environment views
+Hypervisor App, Hypervisor Web, CLI/headless, Workbench/Foundry surfaces, other
+application surfaces, and Providers / Environments views
 may manage or inspect local Hypervisor Daemons and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
 should still be described as Hypervisor Daemon runtime-node profiles, even when
@@ -339,7 +352,8 @@ GET  /v1/deliveries/{id}
 
 Interactive clients and builder frameworks such as Hypervisor App/Web,
 CLI/headless, optional TUI views, SDK, ADK, Workflow Compositor, and
-Workbench/Foundry surfaces and provider/environment views also use the
+Workbench/Foundry surfaces, other application surfaces, and
+Providers / Environments views also use the
 thread/turn control substrate:
 
 ```http
@@ -356,7 +370,9 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
 POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 POST /v1/threads/{thread_id}/mode
 POST /v1/threads/{thread_id}/model
-POST /v1/threads/{thread_id}/thinking
+POST /v1/threads/{thread_id}/reasoning
+POST /v1/threads/{thread_id}/speed
+POST /v1/threads/{thread_id}/control
 GET  /v1/threads/{thread_id}/usage
 POST /v1/threads/{thread_id}/context-budget
 POST /v1/threads/{thread_id}/compaction-policy
@@ -405,6 +421,12 @@ NormalizedObservation
 AgentRuntimeEvent
 AuthorityScopeRequest
 PolicyDecision
+HypervisorWorkQueue
+HypervisorWorkItem
+HypervisorWorkRun
+HypervisorWorkRunConversationProjection
+HypervisorWorkRunIntegrationStatus
+HypervisorWorkRunReviewState
 ModelInvocationReceipt
 ToolExecutionReceipt
 ArtifactRef
@@ -420,8 +442,59 @@ The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
 CLI/headless, optional TUI views, Workflow Compositor, Hypervisor App/Web
-clients, Workbench/Foundry surfaces, provider/environment views, harnesses, and benchmarks remain
+clients, Workbench/Foundry surfaces, other application surfaces,
+Providers / Environments views, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
+
+## Delegated Agent Work Handling
+
+The daemon owns the execution boundary for delegated agent work, whether it
+starts from New Session, ioi.ai, Automations, Workbench, an API call, a pull
+request, a schedule, or a webhook.
+
+Canonical delegated-work shape:
+
+```text
+HypervisorWorkQueue
+  intake and ordering policy for delegated work
+
+HypervisorWorkItem
+  normalized work request, code context, desired delivery, authority, and
+  review contract
+
+HypervisorWorkRun
+  one execution attempt of a work item inside a governed session/environment
+```
+
+A WorkRun must bind desired phase, observed phase, selected HarnessProfile or
+Agent Harness Adapter, model configuration, reasoning profile, project and
+environment code context, authority grants, connector/MCP status, current
+activity, conversation history, live stream, transcript, logs/support refs,
+usage counters, output refs, review state, receipts, and Agentgres operation
+refs.
+
+Environment-resident agents are services behind the run. They may have a stable
+service reference, package/binary/container hash, healthcheck, memory store,
+ports, logs, and support bundle, but they do not become durable work truth and
+do not hold durable authority. The daemon may start, stop, health-check,
+comment, attach, or revoke them through admitted environment ops.
+
+One-off handoff and durable automation are separate intents:
+
+```text
+one-off handoff
+  create/admit a WorkItem and WorkRun, return a run ref once accepted, and
+  avoid creating a reusable automation definition by default
+
+durable automation
+  create/update a versioned automation spec with triggers, limits, steps,
+  review gates, and delivery contracts before starting runs
+```
+
+If a client times out after the daemon accepted a WorkRun, retrying the same
+payload must be idempotency-aware so it does not create duplicate autonomous
+runs. Clients should surface the run ref and environment/session link, then
+poll or subscribe only when the user asks for live status.
 
 ## Event Model
 
@@ -430,6 +503,9 @@ The daemon should emit typed replayable events:
 ```text
 session.started
 turn.started
+work_item.admitted
+work_run.started
+work_run.activity_changed
 context.prepared
 model.requested
 model.completed
@@ -439,11 +515,18 @@ approval.requested
 tool.started
 tool.progress
 tool.completed
+work_run.waiting_for_input
+work_run.ready_for_review
+work_run.comment_received
+work_run.delivery_created
 artifact.created
 receipt.emitted
 run.completed
 run.failed
 run.cancelled
+work_run.completed
+work_run.failed
+work_run.cancelled
 ```
 
 Events are not canonical by themselves; persisted settlement state and receipts are authoritative.

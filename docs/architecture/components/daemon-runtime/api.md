@@ -11,9 +11,9 @@ Last alignment pass: 2026-05-30.
 The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
 for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
 presentation, `@ioi/agent-sdk`, future IOI ADK, Hypervisor App,
-Hypervisor Web, Workbench/Foundry surfaces, provider/environment views,
-Workflow Compositor, harness profiles, benchmarks, editor extension-host code,
-and IOI
+Hypervisor Web, Workbench/Foundry surfaces, other application surfaces,
+Providers / Environments views, Workflow Compositor, harness profiles,
+benchmarks, editor extension-host code, and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
 this public runtime API. They must not own separate execution semantics. Local
 Hypervisor-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
@@ -391,7 +391,7 @@ Automation compositor projections power Hypervisor Automations/Workflows
 surfaces, reusable recipes, scheduled/manual run previews, graph references,
 and workflow receipt evidence. The client may render and edit proposals through
 the Workflow Compositor, but workflow execution, state-root mutation, receipt
-creation, and package promotion still require daemon admission, wallet/network
+creation, and package promotion still require daemon admission, wallet.network
 authority where relevant, and Agentgres operation linkage.
 
 ```http
@@ -1256,10 +1256,92 @@ GET  /v1/runs/{run_id}/inspect
 GET  /v1/runs/{run_id}/scorecard
 GET  /v1/runs/{run_id}/export
 GET  /v1/runs/{run_id}/verify
+GET  /v1/work-queues
+POST /v1/work-queues
+GET  /v1/work-queues/{work_queue_id}
+PATCH /v1/work-queues/{work_queue_id}
+GET  /v1/work-queues/{work_queue_id}/items
+POST /v1/work-items
+GET  /v1/work-items
+GET  /v1/work-items/{work_item_id}
+PATCH /v1/work-items/{work_item_id}
+POST /v1/work-items/{work_item_id}/runs
+GET  /v1/work-items/{work_item_id}/runs
+GET  /v1/work-runs
+GET  /v1/work-runs/{work_run_id}
+GET  /v1/work-runs/{work_run_id}/status
+GET  /v1/work-runs/{work_run_id}/events
+GET  /v1/work-runs/{work_run_id}/conversation
+GET  /v1/work-runs/{work_run_id}/conversation/history
+GET  /v1/work-runs/{work_run_id}/conversation/live
+GET  /v1/work-runs/{work_run_id}/conversation/blobs
+GET  /v1/work-runs/{work_run_id}/transcript
+GET  /v1/work-runs/{work_run_id}/logs
+GET  /v1/work-runs/{work_run_id}/support-bundle
+GET  /v1/work-runs/{work_run_id}/integration-status
+GET  /v1/work-runs/{work_run_id}/review-state
+POST /v1/work-runs/{work_run_id}/comments
+POST /v1/work-runs/{work_run_id}/input
+POST /v1/work-runs/{work_run_id}/stop
+POST /v1/work-runs/{work_run_id}/cancel
+POST /v1/work-runs/{work_run_id}/replay
 GET  /v1/models
 GET  /v1/repositories
 GET  /v1/account
 ```
+
+`/v1/runs` is the generic runtime execution lifecycle. `/v1/work-*` is the
+Hypervisor delegated-agent-work product contract layered over that lifecycle:
+queues define intake, work items define requested work, and work runs define
+one governed execution attempt with project/environment context,
+conversation/transcript/log refs, integration status, usage counters, review
+state, delivery refs, receipts, and replay refs.
+
+### Delegated Agent Work Run
+
+```json
+{
+  "work_item": {
+    "source_kind": "new_session | automation_trigger | pull_request | issue_event | webhook | schedule | api",
+    "project_ref": "project:...",
+    "original_request_ref": "artifact://...",
+    "code_context": {
+      "repository_refs": ["repo://..."],
+      "environment_ref": "hypervisor_environment_lifecycle:...",
+      "pull_request_ref": "scm_pr://..."
+    },
+    "desired_delivery": "report | patch | pull_request | deployment | service_response",
+    "review_contract_ref": "review_contract://...",
+    "authority_scope_refs": ["grant://..."]
+  },
+  "work_run": {
+    "session_ref": "hypervisor_session:...",
+    "harness_selection_ref": "harness_selection:...",
+    "model_configuration_ref": "model_configuration:...",
+    "reasoning_profile_ref": "reasoning_profile:...",
+    "desired_phase": "running",
+    "current_phase": "pending | running | waiting_for_input | ready_for_review | completed | failed",
+    "current_activity": "string",
+    "conversation_projection_ref": "hypervisor_work_run_conversation:...",
+    "transcript_ref": "artifact://...",
+    "integration_status_refs": ["hypervisor_work_run_integration_status:..."],
+    "used_environment_refs": ["hypervisor_environment_lifecycle:..."],
+    "usage": {
+      "iterations": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cached_input_tokens": 0,
+      "context_window_length": 0
+    },
+    "review_state_ref": "hypervisor_work_run_review_state:...",
+    "receipt_refs": ["receipt://..."]
+  }
+}
+```
+
+`POST /v1/work-runs/{work_run_id}/comments` accepts human or reviewer input,
+including optional file/hunk refs. It must deliver the comment as admitted work
+run input, not as a direct mutation of the agent service's internal state.
 
 ### Create Managed Agent Instance
 
@@ -1294,6 +1376,199 @@ Response:
   "status": "starting",
   "thread_endpoint": "/v1/threads",
   "runs_endpoint": "/v1/agents/agent_.../runs"
+}
+```
+
+## Agent Operating Plane API
+
+The Agent Operating Plane is the daemon-owned control surface for configured
+agents, agent sessions, agent executions, conversation streams, turn controls,
+subagent delegation, model/LLM integration posture, runner reconciliation,
+usage accounting, and security telemetry.
+
+It is not a second runtime beside `/v1/runs`, `/v1/work-*`, or
+`/v1/threads`. Product-facing agent actions compile into WorkQueue, WorkItem,
+WorkRun, Session, Thread, Turn, HarnessProfile, ModelConfiguration,
+RuntimeToolContract, wallet.network, Agentgres, and receipt objects.
+
+```http
+POST /v1/agent-sessions
+GET  /v1/agent-executions
+GET  /v1/agent-executions/{agent_execution_id}
+POST /v1/agent-executions/{agent_execution_id}/input
+POST /v1/agent-executions/{agent_execution_id}/control
+GET  /v1/agent-executions/{agent_execution_id}/events
+GET  /v1/agent-executions/{agent_execution_id}/events/stream
+POST /v1/agent-executions/{agent_execution_id}/outputs
+POST /v1/agent-executions/{agent_execution_id}/stop
+POST /v1/agent-executions/{agent_execution_id}/delete
+GET  /v1/runtime/runner-requests/stream
+POST /v1/runtime/runner-responses
+POST /v1/runtime/llm-usage-events
+POST /v1/runtime/exec-events
+```
+
+`POST /v1/agent-sessions` may atomically create or select an environment,
+create a session, start a configured agent, and submit initial input. The
+request must not smuggle provider credentials, workspace plaintext, or
+unadmitted execution into the client.
+
+```json
+{
+  "agent_ref": "agent://...",
+  "project_ref": "project:...",
+  "environment_request": {
+    "create_from_project_ref": "project:...",
+    "development_environment_recipe_ref": "dev-recipe://...",
+    "environment_class_ref": "environment-class://..."
+  },
+  "initial_input": {
+    "text": "Implement the approved change."
+  },
+  "mode": "agent | plan | goal",
+  "model_configuration_ref": "model-configuration://...",
+  "reasoning_effort": "low | medium | high | extra_high",
+  "speed": "standard | fast",
+  "harness_selection_ref": "harness-selection://...",
+  "tool_binding_refs": ["tool://..."],
+  "mcp_server_refs": ["mcp://..."],
+  "authority_scope_refs": ["scope:..."],
+  "budget_ref": "budget://...",
+  "receipt_policy_ref": "receipt-policy://..."
+}
+```
+
+The response binds all created or selected runtime objects:
+
+```json
+{
+  "session_ref": "hypervisor_session:...",
+  "environment_ref": "hypervisor_environment_lifecycle:...",
+  "agent_execution_ref": "agent-execution://...",
+  "work_item_ref": "hypervisor_work_item:...",
+  "work_run_ref": "hypervisor_work_run:...",
+  "thread_ref": "thread:...",
+  "conversation_projection_ref": "hypervisor_work_run_conversation:...",
+  "wallet_lease_refs": ["lease:wallet/..."],
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "state_root_ref": "agentgres://state-root/...",
+  "receipt_refs": ["receipt://..."],
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Agent execution status should include phase, desired phase, current activity,
+current operation, model configuration, mode, usage, waiting interests,
+integration status, outputs, conversation refs, transcript refs, support bundle
+refs, receipts, and Agentgres refs. Common phases:
+
+```text
+pending
+running
+waiting_for_input
+ready_for_review
+stopped
+completed
+failed
+```
+
+`POST /v1/agent-executions/{agent_execution_id}/input` accepts explicit input
+blocks and control messages:
+
+```json
+{
+  "user_input": {
+    "id": "input_...",
+    "text": {"content": "Please respond to the review comment."},
+    "metadata": {"source": "reviewer", "modes": ["agent"]}
+  },
+  "agent_message": {
+    "type": "update | complete",
+    "role": "parent | child",
+    "sender_execution_ref": "agent-execution://...",
+    "payload_ref": "artifact://..."
+  },
+  "wake_event": {
+    "kind": "timer_fired | loop_retrigger | environment_ready"
+  },
+  "model_configuration_ref": "model-configuration://...",
+  "turn_options": {"modes": ["agent", "plan", "goal"]},
+  "control_input": {
+    "compact": false,
+    "goal": "pause | resume | complete | clear | set",
+    "delete_queued_message_ref": "input_..."
+  }
+}
+```
+
+Conversation streams should use typed blocks rather than a generic event bag.
+Valid block families include:
+
+```text
+user_input_seen
+user_input
+user_input_deleted
+text
+action_started
+action_completed
+file_modification
+environment_creation
+host_authentication_required
+code_annotation
+todo_group
+todo_item
+thought
+agent_mode_change
+clarifying_questions
+next_steps_proposal
+available_commands
+```
+
+Runner reconciliation APIs are internal/runtime-node APIs. They allow
+daemon-compatible runners to watch admitted requests, report responses, update
+agent execution status, request actor tokens, list integrations, report model
+usage, report runner metrics, update snapshots and warm pools, and publish
+lifecycle observations. Runner APIs must never create an alternate source of
+truth: every returned mutation must bind back to WorkRun, Session, Agentgres,
+wallet, receipt, and state-root refs.
+
+`POST /v1/runtime/llm-usage-events` records model usage:
+
+```json
+{
+  "idempotency_key": "usage_...",
+  "runner_ref": "runner://...",
+  "agent_execution_ref": "agent-execution://...",
+  "model_ref": "model://...",
+  "model_route_ref": "model-route://...",
+  "llm_integration_ref": "llm-integration://...",
+  "input_tokens": 0,
+  "cached_input_tokens": 0,
+  "cache_input_creation_tokens": 0,
+  "output_tokens": 0,
+  "context_tier": "standard | extended",
+  "service_tier": "standard | fast"
+}
+```
+
+`POST /v1/runtime/exec-events` records security-relevant process execution:
+
+```json
+{
+  "environment_ref": "hypervisor_environment_lifecycle:...",
+  "executable": "/usr/bin/git",
+  "filename": "git",
+  "kernel_controls_action": "allow | deny | log | require_approval",
+  "process": {
+    "pid": 123,
+    "tid": 123,
+    "name": "git",
+    "cmdline": "git status --short",
+    "ppid": 1,
+    "pgid": 123,
+    "sid": 123
+  },
+  "timestamp": "2026-06-21T00:00:00Z"
 }
 ```
 
@@ -1350,7 +1625,9 @@ POST /v1/threads/{thread_id}/resume
 POST /v1/threads/{thread_id}/fork
 POST /v1/threads/{thread_id}/mode
 POST /v1/threads/{thread_id}/model
-POST /v1/threads/{thread_id}/thinking
+POST /v1/threads/{thread_id}/reasoning
+POST /v1/threads/{thread_id}/speed
+POST /v1/threads/{thread_id}/control
 POST /v1/threads/{thread_id}/compact
 GET  /v1/threads/{thread_id}/events
 GET  /v1/threads/{thread_id}/events/stream
@@ -1362,9 +1639,10 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-Workflow Compositor, Workbench/Foundry surfaces, and provider/environment views may
-render these controls differently, but they must converge on these daemon
-contracts rather than maintaining private session loops.
+Workflow Compositor, Workbench/Foundry surfaces, other application surfaces,
+and Providers / Environments views may render these controls differently, but
+they must converge on these daemon contracts rather than maintaining private
+session loops.
 
 ### Start Run
 
@@ -1393,8 +1671,9 @@ contracts rather than maintaining private session loops.
 
 Projects, sessions, missions, adapter targets, and environment operations are
 daemon/Core APIs. Hypervisor App, Hypervisor Web, CLI/headless clients,
-Workbench, Foundry, provider/environment views, SDK/ADK clients, and agent harness adapters may
-render or call these APIs, but they must not maintain parallel lifecycle truth.
+Workbench, Foundry, other application surfaces, Providers / Environments
+views, SDK/ADK clients, and agent harness adapters may render or call these
+APIs, but they must not maintain parallel lifecycle truth.
 
 ### Projects
 
@@ -1413,6 +1692,10 @@ GET  /v1/projects/{project_id}/adapter-connection-profiles
 ```http
 GET  /v1/environment-classes
 GET  /v1/environment-classes/{environment_class_id}
+GET  /v1/development-environment-recipes
+POST /v1/projects/{project_id}/development-environment-recipes
+GET  /v1/development-environment-recipes/{recipe_id}
+PATCH /v1/development-environment-recipes/{recipe_id}
 POST /v1/sessions
 POST /v1/sessions/from-project
 POST /v1/sessions/from-context-url
@@ -1421,12 +1704,15 @@ GET  /v1/sessions/{session_id}
 GET  /v1/sessions/{session_id}/environment
 GET  /v1/sessions/{session_id}/status
 GET  /v1/sessions/{session_id}/events
+GET  /v1/sessions/{session_id}/lifecycle-observations
 POST /v1/sessions/{session_id}/start
 POST /v1/sessions/{session_id}/mark-active
 POST /v1/sessions/{session_id}/exec
 GET  /v1/sessions/{session_id}/logs
 GET  /v1/sessions/{session_id}/ssh-config
 POST /v1/sessions/{session_id}/stop
+POST /v1/sessions/{session_id}/snapshots
+POST /v1/sessions/{session_id}/backups
 POST /v1/sessions/{session_id}/archive
 POST /v1/sessions/{session_id}/unarchive
 POST /v1/sessions/{session_id}/restore
@@ -1438,22 +1724,47 @@ structured command execution, readiness polling, logs, and cleanup. They should
 not scrape Hypervisor product UI.
 
 Environment lifecycle responses should expose `HypervisorEnvironmentClass`,
-`HypervisorEnvironmentOpsProfile`, `HypervisorEnvironmentLifecycleState`,
-activity signal refs, archive refs, restore refs, state-root refs, and receipt
-refs when present. Provider lifecycle state may be evidence, but it is not
-Agentgres truth.
+`HypervisorEnvironmentOpsProfile`, `HypervisorDevelopmentEnvironmentRecipe`,
+`HypervisorEnvironmentRecipeResolution`,
+`HypervisorEnvironmentLifecycleState`, activity signal refs, lifecycle
+observation refs, snapshot refs, backup refs, archive refs, restore refs,
+state-root refs, and receipt refs when present.
+Provider lifecycle state may be evidence, but it is not Agentgres truth.
 
 Canonical session/environment API objects include
 `HypervisorEnvironmentClass`, `HypervisorEnvironmentOpsProfile`,
-`HypervisorEnvironmentLifecycleState`, `HypervisorEnvironmentActivitySignal`,
+`HypervisorDevelopmentEnvironmentRecipe`,
+`HypervisorEnvironmentRecipeResolution`,
+`HypervisorEnvironmentLifecycleState`,
+`HypervisorEnvironmentLifecycleObservation`,
+`HypervisorEnvironmentActivitySignal`, `HypervisorEnvironmentStopPolicy`,
+`HypervisorEnvironmentSnapshot`, `HypervisorEnvironmentBackup`,
 `HypervisorSessionAccessLease`, `HypervisorEnvironmentService`,
-`HypervisorEnvironmentTask`, `HypervisorEnvironmentPort`, and
-`HypervisorScmAuthRequirement`.
+`HypervisorEnvironmentTask`, `HypervisorEnvironmentPort`,
+`HypervisorScmAuthRequirement`, `HypervisorWorkQueue`,
+`HypervisorWorkItem`, `HypervisorWorkRun`,
+`HypervisorWorkRunConversationProjection`,
+`HypervisorWorkRunIntegrationStatus`, and
+`HypervisorWorkRunReviewState`.
 
-Archive and restore operations must not silently mutate local or provider files
-as canonical state. Archive payloads are restore material. Restore validity is
-operation-backed through Agentgres, artifact refs, state-root refs, policy refs,
-authority refs, and receipts.
+Development environment recipe APIs manage reusable setup contracts for
+Workbench and other development-oriented sessions: substrate, image or
+devcontainer refs, checkout/workspace locations, init tasks, services, ports,
+editor adapters, environment variable refs, secret requirements, SCM auth,
+cache/warmup policy, model/harness defaults, privacy posture, and authority
+templates. Recipe resolution is daemon-admitted before a session can treat the
+recipe as launch posture.
+
+Snapshot, backup, archive, and restore operations must not silently mutate
+local or provider files as canonical state. Snapshot and backup payloads are
+restore material. Archive payloads are policy-bound restore material. Restore
+validity is operation-backed through Agentgres, artifact refs, state-root refs,
+policy refs, authority refs, and receipts.
+
+`POST /v1/sessions/{session_id}/stop` accepts a stop policy such as
+`graceful`, `immediate`, or `abort`. The selected policy is lifecycle evidence
+until the daemon records the resulting state, receipts, cleanup posture,
+snapshot/backup/archive refs when applicable, and state-root transition.
 
 ### Environment Services, Tasks, and SCM Auth
 
@@ -1463,6 +1774,9 @@ POST /v1/sessions/{session_id}/services
 GET  /v1/sessions/{session_id}/services/{service_id}
 POST /v1/sessions/{session_id}/services/{service_id}/start
 POST /v1/sessions/{session_id}/services/{service_id}/stop
+GET  /v1/sessions/{session_id}/services/{service_id}/health
+GET  /v1/sessions/{session_id}/services/{service_id}/logs
+GET  /v1/sessions/{session_id}/agent-work
 GET  /v1/sessions/{session_id}/tasks
 POST /v1/sessions/{session_id}/tasks
 GET  /v1/sessions/{session_id}/tasks/{task_id}
@@ -1474,9 +1788,15 @@ POST /v1/sessions/{session_id}/scm-auth-requirements/{requirement_id}/satisfy
 ```
 
 Services and tasks are daemon-visible environment resources. A dev server,
-model server, eval job, shell task, provider action, archive, or restore is not
-just UI process state once it has authority, cost, privacy, replay, or receipt
-impact.
+model server, agent service, eval job, shell task, provider action, archive, or
+restore is not just UI process state once it has authority, cost, privacy,
+replay, or receipt impact.
+
+An agent service is an environment service with a stable service reference,
+package/binary/container hash, start command, healthcheck, memory store, port
+refs, log refs, work queue refs, and support-bundle policy. The service is
+runtime posture. The durable work truth remains the WorkItem/WorkRun plus
+Agentgres operations, receipts, artifacts, and review state.
 
 SCM auth requirements are brokered capability/credential requests. Satisfying
 one may require wallet.network step-up, secret-release policy, a scoped lease,
@@ -1688,7 +2008,7 @@ POST /v1/connectors/{connector_id}/subscriptions
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, SDK, ADK, Workbench, Workflow Compositor, Foundry
-surfaces, and provider/environment views.
+surfaces, other application surfaces, and Providers / Environments views.
 Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
 `/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 
@@ -1855,13 +2175,20 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 9. TUI controls must be represented as daemon/domain API controls, not as hidden
    client-only state transitions.
 10. Compute/runtime nodes run daemon-compatible profiles; SDK helpers may be
-   present inside worker or client code, but they are not the execution owner.
-10. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
-   jobs with receipts, not product-surface private loops.
-11. Authority Gateway adapters submit action requests and observations; they do
-    not own policy, effects, secrets, receipts, replay, or durable runtime
-    state, and they must not overclaim control over opaque third-party agents.
-12. Project, session, mission, adapter, environment-ops, access-token,
+    present inside worker or client code, but they are not the execution owner.
+11. Training, evaluation, benchmark, and MoW routing paths are daemon/runtime
+    jobs with receipts, not product-surface private loops.
+12. Authority Gateway adapters submit action requests and observations; they do
+    not own policy, effects, secrets, receipts, replay, durable runtime state,
+    or total control over opaque third-party agents.
+13. Delegated agent work must use WorkQueue/WorkItem/WorkRun, Session,
+    Thread/Turn, HarnessProfile, ModelConfiguration, wallet, Agentgres, and
+    receipt contracts for long-running or background work; hidden
+    service-local job state is not canonical run state.
+14. Project, session, mission, adapter, environment-ops, access-token,
     log-token, port, browser-open, and support-bundle APIs are daemon/Core
     lifecycle APIs; product clients and agent harnesses must not invent private
     lifecycle truth for them.
+15. Runner reconciliation, LLM usage reporting, exec/security telemetry,
+    subagent message routing, and conversation streaming are runtime contracts
+    that must bind back to admitted work, state roots, and receipts.

@@ -92,6 +92,31 @@ GET  /v1/models/receipts/{receipt_id}
 }
 ```
 
+## ModelConfiguration
+
+`ModelConfiguration` is the user/session/agent-facing selection object. It may
+point to one or more `ModelRoute` objects, but it is not itself the router.
+
+```json
+{
+  "model_configuration_id": "model_config_agent_default",
+  "display_model": "GPT-5.5",
+  "reasoning_effort": "low | medium | high | extra_high",
+  "service_tier": "standard | fast",
+  "route_policy_ref": "model-route-policy://...",
+  "primary_route_id": "planner_high",
+  "fallback_route_ids": ["planner_medium"],
+  "custody_profile_ref": "model_weight_custody://...",
+  "privacy_constraints": ["no_external_api_for_private_data"],
+  "authority_scope_refs": ["scope:model.invoke"],
+  "receipt_policy_ref": "receipt-policy://model-invocation"
+}
+```
+
+Product surfaces may call this `Model`, `Reasoning`, and `Speed`. Runtime
+records should preserve route, endpoint, custody, fallback, authority, and
+receipt refs.
+
 ## Model Invocation
 
 ```json

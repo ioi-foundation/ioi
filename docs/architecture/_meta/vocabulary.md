@@ -269,10 +269,43 @@ compliance acronyms for hidden audit material.
   consoles. It evaluates intent, simulation, risk, eligibility, policy,
   approval mode, execution handoff, receipt, and revocation. It is not the full
   Wallet application UI.
+- `WalletAuthorityCockpit`: the user-facing wallet.network product shape for
+  autonomous agents and autonomous finance. It lets users and organizations see
+  agents, active authority, provider credential bindings, budgets, approval
+  modes, auth-factor posture, guardian surfaces, key shards, receipts, and
+  revocation controls without making the agent a raw credential holder.
 - `WalletPresentationProfile`: a UI profile over the same `WalletAuthorityCore`
   review contract. Canonical profiles are `lite_approval_card`,
   `standard_wallet_review`, `advanced_authority_console`, `cli_prompt`, and
   `mobile_approval_sheet`.
+- `AuthFactor`: a wallet.network account credential or factor such as Google,
+  GitHub, email/OIDC, enterprise SSO, Web3 wallet, passkey, or TOTP. It can help
+  authenticate account access or step-up posture, but it is not an authority
+  grant and does not by itself convey agent power.
+- `GuardianSurface`: a high-assurance wallet.network surface such as an enrolled
+  mobile approver, passkey device, hardware key, local CLI signer, trusted
+  wallet/Hypervisor app, or enterprise approval surface. It must render exact
+  action details and bind the request hash before approving high-risk authority.
+- `KeyShard`: actual MPC, threshold, hardware-backed, recovery, or organization
+  quorum key material. The term "shard" is reserved for cryptographic or
+  threshold authority, not ordinary provider login.
+- `ProviderCredentialBinding`: a wallet.network-managed OAuth refresh token, API
+  key, wallet credential, model-provider key, cloud role, or connector
+  credential. It is brokered through policy and grants; agents do not receive the
+  raw binding by default.
+- `WalletAuthorityClient`: a CLI, MCP, SDK, mobile, web, embedded Hypervisor, or
+  enterprise authority service session over wallet.network. It can request,
+  inspect, approve, deny, revoke, or receipt authority only through the same
+  policy pipeline and cannot bypass step-up or export secrets.
+- `WalletMCP`: an agent-facing wallet.network authority request and receipt
+  surface. It may expose authority-request, capability-check, approval-request,
+  payment-request, receipt-list, and revoke-request tools, but must not expose
+  raw secrets, provider tokens, raw signing, limit widening, guardian enrollment,
+  or step-up bypass.
+- `WalletCLI`: a local wallet.network operator and signer surface for sign-in,
+  factor linking, guardian enrollment, approval/denial, grant inspection,
+  revocation, secret-brokerage requests, and receipt export. It is a client of
+  wallet.network authority, not a separate authority source.
 - `ApprovalMode`: the policy-derived execution approval posture for an
   authority review. Values include `one_shot_review`, `session_envelope`,
   `batch_review`, `silent_within_policy`, `after_the_fact_receipt`,
@@ -433,15 +466,18 @@ compliance acronyms for hidden audit material.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Workbench, Automations, Foundry, Agents, Models, cTEE/Privacy, Receipts/Audit,
-  Connectors, provider/environment views, and other application surfaces.
+  Workbench, Automations, Foundry, Agents / Workers, Models,
+  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
+  Receipts / Replay, Operate / Monitoring, Providers / Environments,
+  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps,
+  and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
   contracts.
 - `HypervisorCliHeadless`: the terminal, scripting, CI, node-ops, and headless
   operator client over Hypervisor Core. It can render plans, controls, traces,
-  approvals, receipts, provider/environment projections, and node operations,
+  approvals, receipts, Providers / Environments projections, and node operations,
   but it does not own execution semantics.
 - `HypervisorTui`: an optional interactive presentation of the
   HypervisorCliHeadless client. It is not a separate first-class client lane and
@@ -455,14 +491,26 @@ compliance acronyms for hidden audit material.
   inside Hypervisor. Applications can expose first-party, organization-built,
   generated, marketplace, or domain-specific surfaces over Hypervisor Core.
   Applications may create, inspect, modify, or govern Projects, Automations,
-  Sessions, Workers, Models, Policies, Artifacts, Receipts, provider posture, or
-  other domain objects, but they are not separate runtimes, authority owners, or
-  Agentgres truth sources.
+  Sessions, Agents, Workers, Models, Connectors / Tools / MCP,
+  Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
+  Providers / Environments, Artifacts, or other domain objects, but they are not
+  separate runtimes, authority owners, or Agentgres truth sources.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
-  Receipts/Audit, or Connectors. Provider/environment posture is a default
-  Hypervisor view, not a separate provider-management application surface. Application
-  surfaces are not separate apps with separate runtime truth.
+  such as Workbench, Automations, Foundry, Agents / Workers, Models,
+  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
+  Receipts / Replay, Operate / Monitoring, Providers / Environments,
+  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, or Domain
+  Apps. Providers / Environments posture may appear through the Applications
+  catalog, Open Application, session, project, provider, org/admin, or
+  operator-console views, not through a standalone provider-management product.
+  Application surfaces are not separate apps with separate runtime truth.
+- `HypervisorPatternsExamplesTraining`: the role-guided recipe and enablement
+  surface inside Hypervisor Applications. It turns role tracks, speedruns,
+  solution diagrams, examples, starter automations, data recipes, ontology
+  packs, eval packs, and package templates into governed sessions,
+  automations, Foundry jobs, domain apps, receipts, replay, improvement, and
+  marketplace paths. It is not passive documentation, a runtime owner, an
+  authority layer, or proof of production readiness by itself.
 - `HypervisorWorkbench`: the code, systems, workspace, editor, terminal,
   browser, workflow, and debugging surface over Hypervisor Core. It replaces
   one editor shell as the live product term for the code-oriented Hypervisor
@@ -497,6 +545,30 @@ compliance acronyms for hidden audit material.
 - `HypervisorAutomationRun`: run/session projection for one execution of an
   AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
   operation refs, receipt refs, artifact refs, and terminal status.
+- `HypervisorWorkQueue`: intake and ordering object for delegated agent work
+  inside Hypervisor. It may represent one-off handoffs, automation runs,
+  review queues, background missions, service requests, or custom queues. It
+  is product/work routing state, not an agent brain.
+- `HypervisorWorkItem`: normalized work request queued for governed execution.
+  It binds source kind, original request, project/code context, desired
+  delivery, review contract, authority scopes, and status. It is distinct from
+  a chat message and distinct from an AutomationSpec.
+- `HypervisorWorkRun`: one execution attempt of a `HypervisorWorkItem` inside
+  a governed session/environment. It binds selected harness or agent adapter,
+  model and reasoning configuration, desired/current phase, activity,
+  conversation, transcript, logs, support bundle, connector/MCP status, usage,
+  outputs, review state, receipts, and Agentgres operation refs.
+- `HypervisorWorkRunConversationProjection`: read model for a WorkRun's
+  conversation history, live stream, blobs, and human/reviewer comments. It is
+  a projection over daemon/admitted work input, not the private state of an
+  agent service.
+- `HypervisorWorkRunIntegrationStatus`: per-run connector, tool, or MCP status
+  such as connected, degraded, failed, auth required, policy blocked, or
+  revoked. It prevents missing credentials from being hidden inside the agent
+  loop.
+- `HypervisorWorkRunReviewState`: review status for a WorkRun, including
+  waiting-for-review, changes-requested, approved, rejected, superseded, and
+  delivery refs such as pull requests, artifacts, or deployments.
 - `IoiAiGoal`: user-facing goal object for chat.ioi.ai / ioi.ai. It carries
   goal text, constraints, privacy posture, authority context, project refs, and
   terminal state.
@@ -605,19 +677,23 @@ compliance acronyms for hidden audit material.
   receipts.
 - `HypervisorEnvironmentActivitySignal`: observable environment signal such as
   user activity, agent activity, task running, service running, port open, log
-  write, file change, network activity, idle candidate, idle confirmed, restore
-  required, or policy blocked. It is evidence/projection data, not authority.
+  write, file change, network activity, work run active, waiting review, idle
+  candidate, idle confirmed, restore required, or policy blocked. It is
+  evidence/projection data, not authority.
 - `HypervisorSessionAccessLease`: durable authority object for short-lived
   editor, SSH, browser, log, support, port-share, SCM-auth, task-exec, or
   environment-ops access to a Hypervisor Session. `SessionAccessToken` is
   derived token material under this lease, not durable authority.
 - `HypervisorEnvironmentService`: daemon-visible service inside a Hypervisor
   environment, such as model server, dev server, database, queue, browser,
-  worker, evaluator, or custom service, with health refs and receipts.
+  worker, agent service, evaluator, or custom service, with service refs,
+  health refs, logs, support posture, and receipts. An agent service is runtime
+  posture behind a WorkRun, not durable work truth.
 - `HypervisorEnvironmentTask`: daemon-visible task inside a Hypervisor
   environment, such as shell, build, test, eval, benchmark, migration, provider
-  action, archive, restore, or custom task, with authority refs, execution
-  results, and receipts.
+  action, package install, git operation, pull request, code-review response,
+  agent run, archive, restore, or custom task, with WorkRun refs when relevant,
+  authority refs, execution results, and receipts.
 - `HypervisorEnvironmentPort`: daemon-visible port and exposure posture for a
   Hypervisor environment. Port sharing is a policy and lease event, not a
   harmless preview toggle.
@@ -641,7 +717,7 @@ compliance acronyms for hidden audit material.
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Automations, Foundry, or provider/environment view by itself.
+  Workbench, Automations, Foundry, or Providers / Environments view by itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
@@ -756,11 +832,42 @@ compliance acronyms for hidden audit material.
   VPC, webhook/API, voice/SMS, robotics/physical, embodied humanoid,
   vehicle-adjacent, field service, education, creative/media, or support/ops.
   It is a policy/evidence profile, not an authority grant.
-- `Agent`: product-facing or colloquial language for an autonomous assistant,
-  delegated actor, or user-facing worker experience. New protocol prose should
-  use `Worker` when referring to the accountable execution actor. When an agent
-  is treated as durable system architecture, prefer `IntelligentExecutionNode`
-  or `GovernedAutonomousSystemChain` to avoid implying a stateless chatbot.
+- `Agent`: configurable, buildable product object for an autonomous assistant,
+  delegated actor, or user-facing worker experience. Agent records may bind
+  mode, model, reasoning effort, speed/service tier, harness, tools/connectors,
+  memory, authority, budgets, evals, receipts, runtime compatibility, and
+  marketplace/install status. New protocol prose should still use `Worker` when
+  referring to the accountable execution actor. When an agent is treated as
+  durable system architecture, prefer `IntelligentExecutionNode` or
+  `GovernedAutonomousSystemChain` to avoid implying a stateless chatbot.
+- `AgentOperatingPlane`: the daemon-owned control plane for configured agents,
+  agent/session admission, agent executions, work queues, work items, work
+  runs, thread/turn controls, conversation streams, subagents, runner
+  reconciliation, usage accounting, and exec/security telemetry. It is not a
+  client-local loop and not a second runtime beside the daemon.
+- `AgentRecord`: daemon/Agentgres-facing configuration record for a product
+  agent. It binds metadata, owner, package/install refs, project/environment
+  context, mode defaults, model configuration, HarnessProfile or adapter
+  selection, tools/connectors, memory policy, authority posture, budgets,
+  evals, receipts, and runtime compatibility.
+- `AgentExecution`: one admitted execution of an `AgentRecord` inside a
+  session, environment, work run, thread, or automation. It records phase,
+  desired phase, current activity, current operation, mode, model
+  configuration, usage, waiting interests, outputs, conversation refs,
+  transcript refs, support bundle refs, receipts, and Agentgres refs.
+- `ModelConfiguration`: product/runtime selection object for model, reasoning
+  effort, speed/service tier, fallback policy, custody posture, and route
+  eligibility. It may point to one or more `ModelRoute` objects; it is the
+  user-facing configuration layer, not the model router itself.
+- `ReasoningEffort`: model/harness control value such as low, medium, high, or
+  extra high. Product surfaces should usually show the value under a simple
+  `Reasoning` control rather than exposing provider-specific internals.
+- `ServiceTier`: latency/throughput posture such as standard or fast. Product
+  surfaces may call this `Speed`; runtime receipts and usage records should
+  preserve the exact tier that was used.
+- `TurnControlInput`: daemon-admitted control input for compact, goal pause,
+  goal resume, goal complete, goal clear, goal set, queued-message deletion,
+  interrupt, or steer. It is a runtime control, not hidden client state.
 - `ManagedWorkerInstance`: a user-, org-, or project-bound initialization of a
   worker package. Product UX may call this an agent instance, but canonical
   state should bind it to a worker manifest, install/license right, runtime
@@ -870,7 +977,7 @@ compliance acronyms for hidden audit material.
   schemas, recipe model, daemon execution path, and Agentgres receipt model
   used by Hypervisor application surfaces. It is a UI/workflow substrate, not
   canonical runtime truth by itself.
-- `HypervisorFoundry`: the Hypervisor application surface for model garden,
+- `HypervisorFoundry`: the Hypervisor application surface for model catalog,
   model registry, model routes/mounts, tuning, training, evaluation, datasets,
   feature views, experiments, pipelines, endpoints, batch inference, metadata,
   monitoring, simulation training, robotics worlds, worker/package creation,

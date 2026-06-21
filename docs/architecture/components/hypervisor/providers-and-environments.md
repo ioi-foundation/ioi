@@ -3,19 +3,22 @@
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor-managed providers, environments,
 cross-session infrastructure posture, zero-to-idle, archive/restore posture,
-and provider integration doctrine.
+development environment recipes, lifecycle observability, and provider
+integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
-separate application surface.
+standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-06-19.
+Last alignment pass: 2026-06-20.
 
 ## Canonical Definition
 
 **Hypervisor manages sessions, environments, and provider resources directly.**
 
-Provider and environment capabilities are part of the default Hypervisor UX and
-daemon/Core contracts. They are not a separate product, application surface, or
-truth layer.
+Provider and environment capabilities are part of Hypervisor UX and daemon/Core
+contracts. They may appear through the Applications catalog, the singular Open
+Application slot, session detail, project settings, provider settings, org/admin views, or
+operator console panels. They are not a separate product, cloud-console clone,
+runtime, or truth layer.
 
 Core doctrine:
 
@@ -37,23 +40,26 @@ The product shape:
 ```text
 Hypervisor App / Hypervisor Web / CLI-headless
   -> Home
-  -> Sessions
   -> Projects
-  -> Providers
-  -> Environments
+  -> Automations
+  -> Applications
+  -> Sessions
+
+Applications Catalog / Open Application / Contextual Views
+  -> Providers / Environments
+  -> Operate / Monitoring
+  -> Privacy / cTEE
+  -> Authority / Govern
+  -> Receipts / Replay
+  -> Change Plane
   -> Workbench
-  -> Agents
-  -> Models
-  -> Privacy
   -> Foundry
-  -> Authority
-  -> Receipts
 ```
 
 Provider and infrastructure posture should appear inside the default
-Hypervisor shell, session detail views, project settings, provider settings,
-and org/admin web views. It should not require users to enter a separate
-provider-management product.
+Hypervisor shell through Applications, Open Application, session detail
+views, project settings, provider settings, and org/admin web views. It should
+not require users to enter a separate provider-management product.
 
 ## Owns
 
@@ -65,10 +71,14 @@ provider integrations
 provider accounts and connector posture
 local/cloud/DePIN/customer/bare-metal resource posture
 environment classes
+development environment recipes
 environment lifecycle
+environment lifecycle observations
 session access leases
 services, tasks, ports, logs, and support posture
+agent work services, service refs, health checks, and work-run observability
 SCM auth requirements
+snapshots, backups, archive material, and restore posture
 cost, health, utilization, and placement views
 target-vs-observed environment and workload state
 change plans, release channels, maintenance windows, suppression windows,
@@ -80,12 +90,13 @@ archive/restore refs as projections over Agentgres truth
 ```
 
 The Hypervisor Daemon owns lifecycle execution semantics for create, start,
-stop, mark-active, archive, unarchive, restore, delete, service/task execution,
-port sharing, log access, and environment operations.
+stop, mark-active, snapshot, backup, archive, unarchive, restore, delete,
+service/task execution, port sharing, log access, lifecycle observation, and
+environment operations.
 
 ## Does Not Own
 
-Hypervisor provider/environment views do not own:
+Providers / Environments views do not own:
 
 ```text
 wallet.network authority
@@ -153,9 +164,15 @@ Canonical environment ops objects:
 ```text
 HypervisorEnvironmentClass
 HypervisorEnvironmentOpsProfile
+HypervisorDevelopmentEnvironmentRecipe
+HypervisorEnvironmentRecipeResolution
 HypervisorEnvironmentLifecycleState
 HypervisorEnvironmentStatus
 HypervisorEnvironmentComponentStatus
+HypervisorEnvironmentLifecycleObservation
+HypervisorEnvironmentStopPolicy
+HypervisorEnvironmentSnapshot
+HypervisorEnvironmentBackup
 HypervisorWorkspaceInitializer
 HypervisorEnvironmentActivitySignal
 HypervisorSessionAccessLease
@@ -163,6 +180,12 @@ HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
 HypervisorScmAuthRequirement
+HypervisorWorkQueue
+HypervisorWorkItem
+HypervisorWorkRun
+HypervisorWorkRunConversationProjection
+HypervisorWorkRunIntegrationStatus
+HypervisorWorkRunReviewState
 HypervisorTargetState
 HypervisorObservedState
 HypervisorEnvironmentInstallation
@@ -187,14 +210,19 @@ Hypervisor may initiate or display:
 
 ```text
 create / create_from_project / create_from_context_url
+development recipe validate / admit / resolve
 start / stop / mark_active
 service start / stop
 task start / stop
 port share / revoke
 SCM auth satisfaction flow
+snapshot / backup / finalization
 archive / unarchive / restore / delete
+timeout / idle / maximum lifetime policy
+graceful / immediate / abort stop policy
 activity and idle posture
 access/log/support leases
+lifecycle observations and condition timeline
 ```
 
 Ownership boundary:
@@ -205,7 +233,7 @@ Hypervisor Daemon executes lifecycle operations.
 wallet.network authorizes spend, secrets, SCM auth, access, support, and
 declassification.
 Agentgres records lifecycle receipts, archive refs, restore refs, state roots,
-activity signals, and provider evidence.
+activity signals, lifecycle observations, and provider evidence.
 Storage backends hold encrypted payload/archive bytes.
 Providers expose native state as evidence, not canonical restore truth.
 ```
@@ -224,18 +252,26 @@ HypervisorEnvironmentStatus
   schema_version: ioi.hypervisor.environment_status.v1
   environment_ref
   provider_placement_ref
+  recipe_ref
+  recipe_resolution_ref
   phase: creating | starting | running | updating | stopping | stopped |
          archived | failed
   components:
+    recipe            { phase, recipe_ref, resolution_ref, evidence_ref }
     provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
     workspace_content { phase, initializer_ref, custody_posture, evidence_ref }
     sandbox           { phase, container_ref, evidence_ref }     # devcontainer/microVM/host lane
     secrets           { phase, capability_lease_refs, evidence_ref }
     automations       { phase, evidence_ref }
+    agent_work        { phase, work_run_refs, evidence_ref }     # IOI-native
     model_mount       { phase, model_route_ref, evidence_ref }   # IOI-native
     harness           { phase, harness_session_ref, evidence_ref } # IOI-native
   ports: [ HypervisorEnvironmentPort ]
   failure_message? / warning_message?
+  lifecycle_observation_refs
+  initializer_metrics
+  snapshot_ref?
+  backup_ref?
   state_root_ref
   workspace_artifact_ref
   runtimeTruthSource: daemon-runtime
@@ -302,6 +338,226 @@ owner-token authority                      ->  wallet.network capability leases 
 The status object is a projection of Agentgres-admitted truth: component phases,
 ports, and initializer state are not authoritative until the daemon records the
 operation, state root, authority context, and receipt that produced them.
+
+## Development Environment Recipe
+
+`HypervisorDevelopmentEnvironmentRecipe` is the reusable setup contract for
+Workbench and other development-oriented sessions. It describes how a
+development environment should be assembled, but it is not provider truth,
+storage truth, wallet authority, or runtime execution by itself.
+
+Recipes may be authored from project files, templates, organization policy,
+prior sessions, human configuration, or generated setup plans. The canonical
+recipe is the admitted Hypervisor object; source files and local UI forms are
+inputs.
+
+```text
+HypervisorDevelopmentEnvironmentRecipe
+  schema_version
+  recipe_ref
+  project_ref?
+  environment_class_ref?
+  substrate: host | devcontainer | container | microvm | wasm |
+             browser_sandbox | vm | hypervisoros_node
+  image_ref? / devcontainer_ref? / base_snapshot_ref?
+  checkout:
+    remote_uri
+    target_ref
+    checkout_location
+    workspace_location
+  workspace_initializer_ref
+  init_tasks
+  post_start_tasks
+  services
+  agent_services
+  ports
+  editor_adapter_preferences
+  tooling_or_extension_refs
+  environment_variable_refs
+  secret_requirement_refs
+  scm_auth_requirement_refs
+  cache_policy_ref
+  warmup_policy_ref
+  snapshot_policy_ref
+  backup_policy_ref
+  archive_policy_ref
+  idle_timeout_policy_ref
+  maximum_lifetime_policy_ref
+  resource_class_ref
+  storage_quota_ref
+  model_configuration_ref?
+  harness_profile_policy_ref?
+  work_queue_policy_ref?
+  privacy_posture_ref
+  authority_scope_templates
+  receipt_policy_ref
+```
+
+`HypervisorEnvironmentRecipeResolution` is the daemon-admitted result of
+turning a recipe into a concrete session/environment plan:
+
+```text
+recipe_ref
+session_ref / environment_ref
+provider_candidate_ref
+resolved_image_ref / resolved_substrate
+resolved_initializer_ref
+resolved_ports
+resolved_tasks
+resolved_services
+resolved_agent_services
+resolved_editor_adapters
+required_wallet_scope_refs
+required_secret_refs
+required_scm_auth_refs
+storage_refs
+cache_refs
+state_root_ref
+receipt_refs
+blocked_reason?
+runtimeTruthSource: daemon-runtime
+```
+
+Recipes should make the development path ergonomic without hiding governance.
+Image selection, dependency setup, port exposure, SSH/editor/browser access,
+secret injection, SCM auth, model/harness defaults, and cache/restore behavior
+must still pass through daemon admission, wallet.network authority where
+relevant, and Agentgres refs/receipts when they affect truth.
+
+Snapshot, backup, and archive are distinct:
+
+```text
+Snapshot
+  forkable point-in-time workspace material; useful for restore previews,
+  patch branches, comparisons, and new session initialization.
+
+Backup
+  durability material for content recovery; useful for resilience and
+  provider failure recovery.
+
+Archive
+  policy-bound zero-to-idle or restore chain with Agentgres archive refs,
+  restore refs, state roots, authority context, and receipts.
+```
+
+Snapshot or backup bytes may live in local disk, object storage, CAS/Filecoin,
+or provider storage. They are restore material only. Restore validity remains
+Agentgres-operation-backed.
+
+## Agent Work Services In Environments
+
+Long-running software-engineering agents, code-review agents, migration agents,
+and other autonomous work loops may run inside a Hypervisor environment as
+declared services. The service is an environment component, not the durable work
+object. The durable work objects are `HypervisorWorkItem`,
+`HypervisorWorkRun`, receipts, artifacts, and Agentgres-admitted run history.
+
+An environment-resident agent service should declare:
+
+```text
+service_reference
+service_role: agent_service
+install_or_package_ref
+binary_or_container_hash
+start_command_ref
+ready_or_healthcheck_command_ref
+memory_store_ref
+port_refs
+log_ref
+support_bundle_policy_ref
+runner_reconciliation_ref
+llm_usage_event_sink_ref
+exec_security_event_sink_ref
+authority_scope_refs
+work_queue_ref
+receipt_policy_ref
+```
+
+The daemon may install, start, stop, health-check, and attach to this service
+through environment ops, but the service must not hold durable authority by
+default. It receives only short-lived leases, brokered credentials, connector
+handles, model-route access, and environment access needed for admitted work.
+Runner reconciliation, usage reporting, and exec/security events are service
+telemetry inputs; they must bind back to WorkRun, Session, Agentgres, receipt,
+and state-root refs before they become durable truth.
+
+Agent services should use stable service references so clients, automation
+steps, and comments can target the running service without relying on a raw TCP
+port, raw host path, or provider-native process ID. Ports may be exposed for
+compatibility, but exposure must be lease-bound and policy-visible.
+
+The environment status object should show agent-work posture alongside recipe,
+provisioner, workspace content, services, tasks, ports, model mount, and harness
+posture:
+
+```text
+agent_work
+  phase: none | installing | starting | ready | running |
+         waiting_for_input | ready_for_review | degraded | failed | stopped
+  active_work_run_refs
+  current_activity
+  conversation_projection_refs
+  integration_status_refs
+  log_ref
+  support_bundle_ref
+```
+
+User comments, file-review comments, pull-request review input, and operator
+steering should enter the work run as conversation input or review events, not
+as direct mutation of the service's private loop. This keeps the human-agent
+handoff ergonomic while preserving daemon, wallet.network, Agentgres, and
+receipt boundaries.
+
+## Lifecycle Observability
+
+`HypervisorEnvironmentLifecycleObservation` is the append-only observation
+timeline for environment lifecycle UX, debugging, and support. It explains what
+happened, where time was spent, and why a session is blocked or degraded. It is
+evidence until admitted by Agentgres and bound to receipts where required.
+
+```text
+HypervisorEnvironmentLifecycleObservation
+  schema_version
+  observation_ref
+  session_ref
+  environment_ref
+  observed_at
+  stage:
+    queued | resolving_recipe | provisioning | pulling_image |
+    initializing_content | restoring_snapshot | restoring_backup |
+    restoring_archive | reconciling_sandbox | starting_services |
+    starting_agent_work | binding_access | mounting_model |
+    binding_harness | ready | active | idle | backing_up |
+    snapshotting | archiving | stopping | deleting | wiping_state | failed
+  component:
+    recipe | provisioner | workspace_content | sandbox | secrets |
+    automations | services | agent_work | tasks | ports | model_mount |
+    harness | adapters | storage | provider
+  condition_kind:
+    content_ready | ever_ready | backup_complete | backup_failed |
+    snapshot_complete | snapshot_failed | stopped_by_request |
+    aborted | timeout | node_unavailable | volume_attached |
+    volume_mounted | state_wiped | force_killed | network_degraded |
+    waiting_for_input | ready_for_review | blocked_by_policy |
+    blocked_by_authority | failed
+  severity: info | warning | error
+  message
+  metrics:
+    duration_ms?
+    bytes?
+    image_bytes?
+    cache_hit?
+  evidence_ref
+  provider_event_ref?
+  agentgres_operation_refs
+  receipt_refs
+  state_root_ref?
+```
+
+`HypervisorEnvironmentStatus` is the current projection. Lifecycle observations
+are the timeline behind that projection. Provider logs, container IDs, terminal
+output, file watchers, and resource metrics can contribute observations, but
+they do not become restore truth or authority.
 
 ## Change Plane
 
@@ -511,6 +767,7 @@ Avoid making users learn a separate provider-management product.
 ```text
 operator opens Hypervisor
   -> selects or creates a session
+  -> Hypervisor resolves a development environment recipe when applicable
   -> Hypervisor resolves environment class and provider candidates
   -> wallet.network authorizes spend, access, SCM auth, or secret release
   -> Hypervisor Daemon creates/starts/attaches the environment
@@ -527,6 +784,11 @@ Hypervisor/Agentgres objects:
 ```text
 Booting Hypervisor node
   provider VM, local machine, HypervisorOS node, or customer cluster starts
+
+Resolving development environment recipe
+  project setup, image/devcontainer/microVM/host lane, checkout path, init
+  tasks, services, ports, editor adapters, cache policy, model/harness defaults,
+  privacy posture, and authority templates resolve into an admitted plan
 
 Preparing provider or local environment
   disk, network, builder/cache, image, volume, GPU, and trace setup
@@ -560,6 +822,11 @@ Running and monitoring
   transcripts, periodic consistency checks, receipts, and activity signals
   stream into projections
 
+Snapshotting or backing up
+  forkable workspace material, durability material, initializer metrics,
+  finalization state, and provider/storage evidence are recorded as restore
+  material, not restore truth
+
 Archiving or zero-to-idle
   session pauses, seals outputs, updates archive refs, writes restore receipts,
   and releases provider resources according to policy
@@ -588,15 +855,25 @@ restore/import receipt chain.
 
 ## Conformance Checks
 
-- No live canon may split provider/environment posture into a separate app,
+- No live canon may split provider and environment posture into a separate app,
   surface, runtime, or truth layer.
 - Provider and infrastructure posture belongs to Hypervisor sessions,
   environment views, provider views, and daemon APIs.
 - Provider state must be evidence, not Agentgres truth.
+- Development environment recipes are setup contracts and desired posture; they
+  do not authorize secret use, expose ports, execute tasks, or mutate restore
+  truth without daemon admission, wallet.network authority where relevant, and
+  Agentgres operation/receipt refs.
 - The environment status object, its component phases, ports, and initializer
   must be projections of Agentgres-admitted operations, not authoritative state;
   port exposure and secret injection must be wallet capability-gated, not
   owner-token shared.
+- Lifecycle observations explain readiness, progress, failures, time spent,
+  snapshots, backups, and teardown conditions; they are evidence until admitted
+  and must not replace status projections, receipt refs, or state roots.
+- Snapshot, backup, and archive semantics must remain distinct. Snapshots are
+  forkable point-in-time material, backups are durability material, and archives
+  are policy-bound restore chains with Agentgres refs and receipts.
 - Encrypted blobs may be restore material, but restore validity must be
   operation-backed through Agentgres.
 - Access, logs, support, ports, SCM auth, archive, restore, service, and task
@@ -623,7 +900,7 @@ Avoid:
 
 ```text
 provider posture = separate app
-provider posture = application surface
+provider posture = standalone provider-management product
 provider posture = runtime truth
 provider posture = provider authority
 provider posture = Agentgres replacement
@@ -635,7 +912,7 @@ cheap DePIN GPU route = private route
 target state = provider truth
 observed state = Agentgres truth without admission
 scanner output = authority
-rollout = wallet/network bypass
+rollout = wallet.network bypass
 release channel = blind auto-upgrade
 maintenance window = calendar note outside policy
 suppression window = hidden provider flag
