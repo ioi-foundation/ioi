@@ -194,14 +194,15 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
       store,
       url: new URL("/v1/threads/thread_route", "http://daemon.test"),
       segments: ["v1", "threads", "thread_route"],
+      retired: true,
     },
   ];
-  for (const path of [
-    "/v1/threads/thread_route/usage",
-    "/v1/threads/thread_route/turns",
-    "/v1/threads/thread_route/turns/turn_1",
-    "/v1/threads/thread_route/events",
-    "/v1/threads/thread_route/events/stream",
+  for (const { path, retired } of [
+    { path: "/v1/threads/thread_route/usage" },
+    { path: "/v1/threads/thread_route/turns" },
+    { path: "/v1/threads/thread_route/turns/turn_1" },
+    { path: "/v1/threads/thread_route/events", retired: true },
+    { path: "/v1/threads/thread_route/events/stream", retired: true },
   ]) {
     routeRequests.push({
       handler: handleThreadRoute,
@@ -210,6 +211,7 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
       store,
       url: new URL(path, "http://daemon.test"),
       segments: path.split("/").filter(Boolean),
+      retired,
     });
   }
   routeRequests.push({
@@ -246,18 +248,16 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
 
   for (const routeRequest of routeRequests) {
     await routeRequest.handler(routeRequest);
-    assert.equal(routeRequest.response.statusCode, 200);
+    assert.equal(routeRequest.response.statusCode, routeRequest.retired ? 410 : 200);
   }
 
+  // Retired thread lifecycle routes (GET /:id, events) are served by the Rust daemon.
   assert.deepEqual(calls, [
     { projectionKind: "agent", facts: { agent_id: "agent_route" } },
     { projectionKind: "agent_runs", facts: { agent_id: "agent_route" } },
-    { projectionKind: "thread", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_usage", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turns", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turn", facts: { thread_id: "thread_route", turn_id: "turn_1" } },
-    { projectionKind: "thread_events", facts: { thread_id: "thread_route" } },
-    { projectionKind: "thread_events", facts: { thread_id: "thread_route" } },
     { projectionKind: "run", facts: { run_id: "run_route" } },
     { projectionKind: "run_usage", facts: { run_id: "run_route" } },
     { projectionKind: "run_wait", facts: { run_id: "run_route" } },
@@ -1603,7 +1603,7 @@ test("thread route sends turn controls through store-owned turn APIs", async () 
       path: "/v1/threads/thread_route/turns",
       segments: ["v1", "threads", "thread_route", "turns"],
       body: { prompt: "next" },
-      expected: { method: "createTurn", threadId: "thread_route", requestBody: { prompt: "next" } },
+      retired: true,
     },
     {
       method: "interruptTurn",
@@ -1645,11 +1645,22 @@ test("thread route sends turn controls through store-owned turn APIs", async () 
       segments: testCase.segments,
     });
 
+    if (testCase.retired) {
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      continue;
+    }
     assert.equal(response.statusCode, 200);
-    assert.equal(JSON.parse(response.body).status, testCase.method === "createTurn" ? "created" : testCase.method === "resumeThread" ? "active" : "blocked");
+    assert.equal(JSON.parse(response.body).status, testCase.method === "resumeThread" ? "active" : "blocked");
   }
 
-  assert.deepEqual(calls, cases.map((testCase) => testCase.expected));
+  assert.deepEqual(
+    calls,
+    cases.filter((testCase) => !testCase.retired).map((testCase) => testCase.expected),
+  );
 });
 
 test("thread route sends runtime controls through store-owned thread control API methods", async () => {
@@ -1721,17 +1732,14 @@ test("thread route sends runtime controls through store-owned thread control API
       segments: ["v1", "threads", "thread_route", testCase.action],
     });
 
-    const call = calls.pop();
-    assert.equal(response.statusCode, 200);
-    assert.equal(call.method, testCase.method);
-    assert.equal(call.threadId, "thread_route");
-    assert.deepEqual(call.requestBody, testCase.body);
-    assert.deepEqual(JSON.parse(response.body), {
-      status: "blocked",
-      thread_id: "thread_route",
-      requested_control_kind: testCase.requestedControlKind,
-    });
+    // Retired: thread mode/model/thinking controls are served by the Rust daemon.
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
   }
+  assert.equal(calls.length, 0, "the JS thread control API must not be invoked");
 });
 
 test("thread route sends workspace-trust acknowledgement through thread control API", async () => {

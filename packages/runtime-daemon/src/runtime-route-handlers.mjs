@@ -152,6 +152,34 @@ export function createRuntimeRouteHandlers(deps) {
   async function handleThreadRoute({ request, response, store, url, segments }) {
     const threadId = decodeURIComponent(segments[2]);
     const action = segments[3];
+    // Unified-Rust-daemon migration: these thread lifecycle sub-routes are owned by the
+    // Rust hypervisor-daemon (127.0.0.1:8765). They are retired here; non-migrated thread
+    // sub-routes (usage, context-budget, artifacts, memory, approvals, workspace-trust,
+    // managed-sessions, tools, diagnostics, snapshots, subagents tail, mcp serve/fetch, ...)
+    // are preserved.
+    if (
+      (request.method === "GET" && !action) ||
+      (request.method === "POST" && action === "turns" && !segments[4]) ||
+      action === "mode" ||
+      action === "model" ||
+      action === "thinking" ||
+      action === "events"
+    ) {
+      writeJsonResponse(
+        response,
+        {
+          error: {
+            code: "runtime_lifecycle_retired_served_by_rust_daemon",
+            message:
+              "This thread lifecycle route is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+            retryable: false,
+            details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+          },
+        },
+        410,
+      );
+      return;
+    }
     if (request.method === "GET" && !action) {
       writeJsonResponse(response, store.projectRuntimeLifecycleProjection("thread", { thread_id: threadId }));
       return;
