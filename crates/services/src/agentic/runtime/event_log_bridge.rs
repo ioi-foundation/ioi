@@ -38,6 +38,36 @@ const MANAGED_SESSION_PROJECTED_EVENT_KIND: &str = "managed_session.projected";
 const MANAGED_SESSION_PROJECTED_PAYLOAD_SCHEMA_VERSION: &str =
     "ioi.runtime.managed-session.event.v1";
 
+/// Run `f` while holding an exclusive cross-process advisory file lock for one event
+/// stream, serializing the dedup-check + admit (latest_seq) + append window ACROSS
+/// processes: the hypervisor daemon and the runtime event-log bridge both append to the
+/// same `<state_dir>/events/<sha256(stream)>.jsonl`, and without this both could read the
+/// same `latest_seq` and assign a duplicate `seq` (or interleave a torn line). The lock
+/// is held on a sibling `<sha256(stream)>.lock` file (via `fd-lock`, a safe flock/
+/// LockFileEx wrapper — this crate forbids `unsafe`) for the duration of `f` and released
+/// when it returns. Best-effort: if the lock file/lock cannot be obtained, `f` still runs
+/// (the idempotency dedup + tolerant replay remain backstops). Both writers MUST use this
+/// same `<sha256(stream)>.lock` path to serialize against each other.
+pub fn with_event_stream_lock<T>(
+    state_dir: &str,
+    event_stream_id: &str,
+    f: impl FnOnce() -> T,
+) -> T {
+    let events_dir = Path::new(state_dir).join("events");
+    let _ = fs::create_dir_all(&events_dir);
+    let lock_path = events_dir.join(format!("{}.lock", sha256_hex(event_stream_id)));
+    let mut lock = fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+        .ok()
+        .map(fd_lock::RwLock::new);
+    // Held (exclusive, blocking) for the body; released when `_guard`/`lock` drop.
+    let _guard = lock.as_mut().and_then(|handle| handle.write().ok());
+    f()
+}
+
 /// The hypervisor daemon names each stream's log file by the hex SHA-256 of the
 /// `event_stream_id`; replicate the same derivation so appends land in the file the
 /// daemon's kernel projection reads.
@@ -254,22 +284,28 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    if let Some(existing) = existing_event_by_idempotency_key(state_dir, &event_stream_id, &idempotency_key) {
-        return Ok(existing);
-    }
-    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
-        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-        "event": event,
-        "state_dir": state_dir,
-    }))
-    .map_err(|error| format!("build admission request: {error}"))?;
-    let record = RuntimeKernelService::new()
-        .admit_runtime_thread_event(&request)
-        .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
-    let admitted = serde_json::to_value(&record.event)
-        .map_err(|error| format!("serialize admitted event: {error}"))?;
-    append_event_line(state_dir, &event_stream_id, &admitted)?;
-    Ok(admitted)
+    // Serialize the dedup-check + kernel admit (latest_seq) + append against the daemon
+    // and any other writer to this stream.
+    with_event_stream_lock(state_dir, &event_stream_id, || {
+        if let Some(existing) =
+            existing_event_by_idempotency_key(state_dir, &event_stream_id, &idempotency_key)
+        {
+            return Ok(existing);
+        }
+        let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+            "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+            "event": event,
+            "state_dir": state_dir,
+        }))
+        .map_err(|error| format!("build admission request: {error}"))?;
+        let record = RuntimeKernelService::new()
+            .admit_runtime_thread_event(&request)
+            .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
+        let admitted = serde_json::to_value(&record.event)
+            .map_err(|error| format!("serialize admitted event: {error}"))?;
+        append_event_line(state_dir, &event_stream_id, &admitted)?;
+        Ok(admitted)
+    })
 }
 
 /// Bridge a managed-session snapshot onto the daemon's event log for `session_id`.

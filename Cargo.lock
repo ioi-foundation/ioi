@@ -7011,6 +7011,7 @@ dependencies = [
  "bytes",
  "dcrypt",
  "dotenvy",
+ "fd-lock",
  "hex",
  "image",
  "image_hasher",

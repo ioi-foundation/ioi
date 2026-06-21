@@ -1109,6 +1109,7 @@ fn runtime_thread_admission_events_from_state_dir(
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
     runtime_thread_events_from_state_dir(
         request.state_dir.as_deref(),
+        request.event.get("event_stream_id").and_then(Value::as_str),
         RuntimeThreadEventAdmissionError::AdmissionStateDirRequired,
         "admission",
     )
@@ -1119,6 +1120,7 @@ fn runtime_thread_projection_events_from_state_dir(
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
     runtime_thread_events_from_state_dir(
         request.state_dir.as_deref(),
+        Some(request.event_stream_id.as_str()),
         RuntimeThreadEventAdmissionError::ProjectionStateDirRequired,
         "projection",
     )
@@ -1129,6 +1131,7 @@ fn runtime_thread_replay_events_from_state_dir(
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
     runtime_thread_events_from_state_dir(
         request.state_dir.as_deref(),
+        Some(request.event_stream_id.as_str()),
         RuntimeThreadEventAdmissionError::ReplayStateDirRequired,
         "replay",
     )
@@ -1136,6 +1139,7 @@ fn runtime_thread_replay_events_from_state_dir(
 
 fn runtime_thread_events_from_state_dir(
     state_dir: Option<&str>,
+    scope_stream_id: Option<&str>,
     missing_error: RuntimeThreadEventAdmissionError,
     operation: &str,
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
@@ -1144,24 +1148,47 @@ fn runtime_thread_events_from_state_dir(
     if !events_dir.exists() {
         return Ok(Vec::new());
     }
-    let entries = fs::read_dir(&events_dir).map_err(|error| {
-        RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
-            "runtime thread-event {operation} could not read Agentgres events: {error}"
-        ))
-    })?;
     let mut paths: Vec<PathBuf> = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|error| {
-            RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
-                "runtime thread-event {operation} could not inspect Agentgres event entry: {error}"
-            ))
-        })?;
-        let path = entry.path();
-        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+    // Every production writer names a stream's log file by hex(sha256(event_stream_id))
+    // (the daemon's append_persisted_events + the bridge's append_event_line), and all of
+    // these readers operate on a SINGLE stream. So when the target stream is known AND its
+    // canonical file already exists, read only that one file instead of scanning + parsing
+    // the entire events/ directory (O(target stream) vs O(all threads) per
+    // admit/replay/projection). Fall back to a full scan when the canonical file is absent
+    // (a brand-new stream, or a writer/test using a non-canonical filename) so behavior is
+    // never narrower than before.
+    let scoped = optional_trimmed(scope_stream_id).map(|stream_id| {
+        events_dir.join(format!(
+            "{}.jsonl",
+            hex::encode(Sha256::digest(stream_id.as_bytes()))
+        ))
+    });
+    match scoped {
+        Some(path) if path.is_file() => {
             paths.push(path);
         }
+        _ => {
+            let entries = fs::read_dir(&events_dir).map_err(|error| {
+                RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                    "runtime thread-event {operation} could not read Agentgres events: {error}"
+                ))
+            })?;
+            for entry in entries {
+                let entry = entry.map_err(|error| {
+                    RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                        "runtime thread-event {operation} could not inspect Agentgres event entry: {error}"
+                    ))
+                })?;
+                let path = entry.path();
+                if path.is_file()
+                    && path.extension().and_then(|value| value.to_str()) == Some("jsonl")
+                {
+                    paths.push(path);
+                }
+            }
+            paths.sort();
+        }
     }
-    paths.sort();
 
     let mut events = Vec::new();
     for path in paths {
@@ -1423,6 +1450,7 @@ fn runtime_thread_turn_events_from_state_dir(
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
     let mut events = runtime_thread_events_from_state_dir(
         request.state_dir.as_deref(),
+        Some(request.event_stream_id.as_str()),
         RuntimeThreadEventAdmissionError::ProjectionStateDirRequired,
         "thread-turn-projection",
     )?

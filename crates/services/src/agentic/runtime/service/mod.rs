@@ -107,6 +107,12 @@ pub struct RuntimeAgentService {
     pub(crate) memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Sender for broadcasting kernel events to the UI.
     pub(crate) event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    /// Dedicated, low-volume sender for `KernelEvent::RuntimeThreadEvent` carriers bound
+    /// for the event-log bridge. Kept separate from `event_sender` (which carries the
+    /// full high-volume UI event stream) so the bridge does not lag behind and silently
+    /// drop managed-session/other turn-execution events. Falls back to `event_sender`
+    /// when unset.
+    pub(crate) runtime_thread_event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     /// Driver for OS-level operations (window management, clipboard).
     pub(crate) os_driver: Option<Arc<dyn OsDriver>>,
     /// Path to the local workspace/sandbox.

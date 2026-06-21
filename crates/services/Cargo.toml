@@ -36,6 +36,9 @@ time = { workspace = true, features = ["formatting", "parsing"] }
 base64 = { workspace = true }
 once_cell = { workspace = true }
 sha2 = "0.10"
+# Cross-process advisory file locking for the runtime->daemon event-log bridge
+# (safe wrapper over flock/LockFileEx; the crate forbids unsafe_code).
+fd-lock = "4.0"
 
 # [FIX] Added 'rt' feature for tokio::spawn
 tokio = { workspace = true, features = ["sync", "rt", "time", "process"] }

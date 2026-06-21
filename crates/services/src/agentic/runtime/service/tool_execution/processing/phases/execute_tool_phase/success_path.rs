@@ -110,7 +110,13 @@ fn emit_managed_browser_session(
     if snapshot.sessions.is_empty() {
         return;
     }
-    let Some(tx) = service.event_sender.as_ref() else {
+    // Prefer the dedicated low-volume RuntimeThreadEvent channel (so the bridge does not
+    // lag behind the high-volume UI event stream); fall back to event_sender.
+    let Some(tx) = service
+        .runtime_thread_event_sender
+        .as_ref()
+        .or(service.event_sender.as_ref())
+    else {
         return;
     };
     let event = managed_session_projected_event(&agent_state.session_id, &snapshot);

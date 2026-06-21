@@ -619,18 +619,24 @@ async fn async_main() -> Result<()> {
 
     // 5. Driver Instantiation
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
-    // Runtime -> daemon event-log bridge: drain turn-execution KernelEvents and
-    // persist RuntimeThreadEvent carriers (e.g. managed_session.projected) onto the
-    // hypervisor daemon's event log so its HTTP projections see runtime output.
-    // Targets the daemon's state_dir (shared IOI_HYPERVISOR_DATA_DIR), falling back
-    // to this runtime's data_dir when co-located.
+    // Dedicated, higher-capacity channel for RuntimeThreadEvent carriers only — the
+    // event-log bridge drains this instead of the high-volume UI event_tx so it never
+    // lags and drops a managed-session/turn-execution event. Fed by the service's
+    // runtime_thread_event_sender (set below); the producer falls back to event_tx only
+    // when this is unset.
+    let (runtime_thread_event_tx, _runtime_thread_event_rx) =
+        tokio::sync::broadcast::channel(4096);
+    // Runtime -> daemon event-log bridge: drain RuntimeThreadEvent carriers (e.g.
+    // managed_session.projected) and persist them onto the hypervisor daemon's event log
+    // so its HTTP projections see runtime output. Targets the daemon's state_dir (shared
+    // IOI_HYPERVISOR_DATA_DIR), falling back to this runtime's data_dir when co-located.
     {
         let bridge_state_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
             .unwrap_or_else(|_| abs_data_dir_str.clone());
         tokio::spawn(
             ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge(
                 bridge_state_dir,
-                event_tx.subscribe(),
+                runtime_thread_event_tx.subscribe(),
             ),
         );
     }
@@ -878,6 +884,7 @@ async fn async_main() -> Result<()> {
     .with_memory_runtime(memory_runtime.clone())
     .with_workspace_path(abs_data_dir_str.clone())
     .with_event_sender(event_tx.clone())
+    .with_runtime_thread_event_sender(runtime_thread_event_tx.clone())
     .with_os_driver(os_driver.clone())
     .with_som(true); // Enable SoM in Agent
 

@@ -692,22 +692,32 @@ fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppE
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    if let Some(existing) = existing_event_by_idempotency_key(st, &event_stream_id, &idempotency_key) {
-        return Ok(existing);
-    }
-    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
-        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-        "event": event,
-        "state_dir": st.data_dir,
-    }))
-    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
-        .admit_runtime_thread_event(&request)
-        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    let admitted = serde_json::to_value(&record.event)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    append_persisted_events(st, &event_stream_id, std::slice::from_ref(&admitted))?;
-    Ok(admitted)
+    // Serialize dedup-check + admit (latest_seq) + append against the runtime event-log
+    // bridge (a second process writing the same stream file). Same lock path both sides.
+    ioi_services::agentic::runtime::event_log_bridge::with_event_stream_lock(
+        &st.data_dir,
+        &event_stream_id,
+        || {
+            if let Some(existing) =
+                existing_event_by_idempotency_key(st, &event_stream_id, &idempotency_key)
+            {
+                return Ok(existing);
+            }
+            let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+                "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+                "event": event,
+                "state_dir": st.data_dir,
+            }))
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+            let record = RuntimeKernelService::new()
+                .admit_runtime_thread_event(&request)
+                .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+            let admitted = serde_json::to_value(&record.event)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            append_persisted_events(st, &event_stream_id, std::slice::from_ref(&admitted))?;
+            Ok(admitted)
+        },
+    )
 }
 
 /// Unified-event-log writer: run the kernel thread-event projection (which admits

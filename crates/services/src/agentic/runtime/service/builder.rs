@@ -89,6 +89,7 @@ impl RuntimeAgentService {
             zk_verifier: None,
             memory_runtime: None,
             event_sender: None,
+            runtime_thread_event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
             shield_policy_path: shield_policy_path_from_env(),
@@ -142,6 +143,7 @@ impl RuntimeAgentService {
             zk_verifier: None,
             memory_runtime: None,
             event_sender: None,
+            runtime_thread_event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
             shield_policy_path: shield_policy_path_from_env(),
@@ -192,6 +194,17 @@ impl RuntimeAgentService {
         sender: tokio::sync::broadcast::Sender<KernelEvent>,
     ) -> Self {
         self.event_sender = Some(sender);
+        self
+    }
+
+    /// Set the dedicated, low-volume channel for `RuntimeThreadEvent` carriers consumed
+    /// by the event-log bridge, so they are not dropped when the high-volume UI
+    /// `event_sender` channel lags.
+    pub fn with_runtime_thread_event_sender(
+        mut self,
+        sender: tokio::sync::broadcast::Sender<KernelEvent>,
+    ) -> Self {
+        self.runtime_thread_event_sender = Some(sender);
         self
     }
 
