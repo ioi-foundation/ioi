@@ -983,6 +983,8 @@ test("thread route sends approvals through store-owned approval API", async () =
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "decision"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", body],
+      // Migrated to the Rust daemon (authorizes the wallet-signed grant).
+      retired: true,
     },
     {
       method: "POST",
@@ -990,6 +992,7 @@ test("thread route sends approvals through store-owned approval API", async () =
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "approve"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", { ...body, decision: "approve" }],
+      retired: true,
     },
     {
       method: "POST",
@@ -997,6 +1000,7 @@ test("thread route sends approvals through store-owned approval API", async () =
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "reject"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", { ...body, decision: "reject" }],
+      retired: true,
     },
     {
       method: "POST",
@@ -1004,6 +1008,7 @@ test("thread route sends approvals through store-owned approval API", async () =
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "revoke"],
       operation: "revokeThreadApproval",
       args: ["thread_route", "approval_route", body],
+      retired: true,
     },
   ];
 

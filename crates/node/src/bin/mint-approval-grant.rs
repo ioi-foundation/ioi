@@ -1,0 +1,76 @@
+//! Deterministic ApprovalGrant minter — a test/fixture stand-in for the wallet
+//! approver (which, in production, is a separate signing device/process).
+//!
+//! Mints a fully-valid, REAL Ed25519-signed `ioi_types::app::ApprovalGrant`: a
+//! deterministic keypair (from a seed), the `authority_id` derived from its public
+//! key via `account_id_from_key_material`, non-zero binding hashes, and a real
+//! signature over the canonical `signing_bytes()`. The grant therefore passes BOTH
+//! the runtime approval-decision authority's structural `grant.verify()` AND the
+//! settlement-layer cryptographic `verify_approval_grant_signature`. No test-only
+//! bypass — the routes verify the grant exactly the way production does.
+//!
+//! Usage: `mint-approval-grant [--seed <hex32>] [--expires-at <ms>]`. Prints the
+//! grant as a single line of JSON on stdout.
+
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+use ioi_types::app::action::ApprovalGrant;
+use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+
+fn flag(args: &[String], name: &str) -> Option<String> {
+    args.iter()
+        .position(|arg| arg == name)
+        .and_then(|index| args.get(index + 1))
+        .cloned()
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    // Deterministic 32-byte seed (defaults to the kernel test fixture's [7u8; 32]).
+    let seed_hex = flag(&args, "--seed").unwrap_or_else(|| "07".repeat(32));
+    let mut seed = [0u8; 32];
+    let decoded = hex::decode(&seed_hex).expect("--seed must be hex");
+    assert_eq!(decoded.len(), 32, "--seed must be 32 bytes (64 hex chars)");
+    seed.copy_from_slice(&decoded);
+    // expires_at in ms — far future by default so the grant is valid at settlement.
+    let expires_at: u64 = flag(&args, "--expires-at")
+        .unwrap_or_else(|| "1850000000000".to_string())
+        .parse()
+        .expect("--expires-at must be a u64 (ms)");
+
+    let private_key = Ed25519PrivateKey::from_bytes(&seed).expect("private key from seed");
+    let keypair = Ed25519KeyPair::from_private_key(&private_key).expect("keypair from private key");
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+        .expect("derive authority_id from public key");
+
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id,
+        request_hash: [1u8; 32],
+        policy_hash: [2u8; 32],
+        audience: [3u8; 32],
+        nonce: [4u8; 32],
+        counter: 1,
+        expires_at,
+        max_usages: Some(1),
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: public_key,
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let signing_bytes = grant.signing_bytes().expect("canonical signing bytes");
+    grant.approver_sig = keypair
+        .sign(&signing_bytes)
+        .expect("sign canonical payload")
+        .to_bytes()
+        .to_vec();
+
+    // Sanity: the minted grant must pass the structural verify (the runtime gate).
+    grant.verify().expect("minted grant must verify");
+
+    println!("{}", serde_json::to_string(&grant).expect("serialize grant"));
+}

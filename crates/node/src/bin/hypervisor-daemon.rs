@@ -359,6 +359,22 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_approval_request),
         )
         .route(
+            "/v1/threads/:id/approvals/:approval_id/decision",
+            post(lifecycle_routes::handle_approval_decision),
+        )
+        .route(
+            "/v1/threads/:id/approvals/:approval_id/approve",
+            post(lifecycle_routes::handle_approval_approve),
+        )
+        .route(
+            "/v1/threads/:id/approvals/:approval_id/reject",
+            post(lifecycle_routes::handle_approval_reject),
+        )
+        .route(
+            "/v1/threads/:id/approvals/:approval_id/revoke",
+            post(lifecycle_routes::handle_approval_revoke),
+        )
+        .route(
             "/v1/threads/:id/usage",
             get(lifecycle_routes::handle_thread_usage),
         )

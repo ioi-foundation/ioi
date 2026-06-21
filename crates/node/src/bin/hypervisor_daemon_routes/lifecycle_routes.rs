@@ -45,9 +45,13 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
+    ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
     ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
+    ApprovalRevokeStateUpdateRequest, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_control::{
     RuntimeConversationArtifactControlRequest,
@@ -1713,6 +1717,184 @@ pub(crate) async fn handle_thread_usage(
         .project_runtime_lifecycle(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
+}
+
+/// Persist an approval state-update record's folded agent (dual-cased) or run.
+fn commit_approval_record(
+    st: &DaemonState,
+    target_kind: &str,
+    agent_id: &str,
+    run_id: Option<&str>,
+    response: &Value,
+) -> Result<(), AppError> {
+    if target_kind == "run" {
+        if let (Some(run_id), Some(run_value)) =
+            (run_id, response.get("run").filter(|v| v.is_object()))
+        {
+            persist_record(st.data_dir.as_str(), "runs", run_id, run_value)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        }
+    } else if let Some(agent_value) = response.get("agent").filter(|v| v.is_object()).cloned() {
+        let mut updated_agent = agent_value;
+        if let Some(map) = updated_agent.as_object_mut() {
+            dual_case_agent(map);
+        }
+        persist_record(st.data_dir.as_str(), "agents", agent_id, &updated_agent)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Shared approval decision/revoke flow: authorize the decision (kernel
+/// authorize_approval_decision — requires a real wallet-signed ApprovalGrant, verified
+/// structurally here [authority_id derived from the signer pubkey] and cryptographically
+/// at the settlement layer) then plan the decision (approve/reject) or revoke state
+/// update, folding the resolved approval onto the agent/run record. NO event admitted.
+fn apply_approval_decision(
+    st: &DaemonState,
+    thread_id: &str,
+    approval_id: &str,
+    decision: &str,
+    body: &Value,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(st, thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let agent_id = agent
+        .get("id")
+        .or_else(|| agent.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| agent_id_for_thread(thread_id));
+    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let run = requested_run_id.as_ref().and_then(|rid| {
+        read_record_dir(&st.data_dir, "runs")
+            .into_iter()
+            .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(rid.as_str()))
+    });
+    let target_kind = if run.is_some() { "run" } else { "agent" };
+    let now = iso_now();
+    let event_id = format!("event_{approval_id}_{decision}");
+    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
+    let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    // --- phase 1: authorize the decision against the wallet-signed grant ---
+    let authority_request: ApprovalDecisionAuthorityRequest = serde_json::from_value(json!({
+        "schema_version": APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "approval_id": approval_id,
+        "decision": decision,
+        "target_kind": target_kind,
+        "run_id": requested_run_id,
+        "approval_lease": body.get("approval_lease").cloned().unwrap_or_else(|| json!({})),
+        "source": source,
+        // Wallet-signed authority grant (deterministic test key in the harness; verified
+        // structurally here and cryptographically at the settlement layer).
+        "wallet_approval_grant": body.get("wallet_approval_grant").cloned().unwrap_or_else(|| json!({})),
+        "authority_grant_refs": body.get("authority_grant_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_receipt_refs": body.get("authority_receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "policy_decision_refs": body.get("policy_decision_refs").cloned().unwrap_or_else(|| json!([])),
+        "approval_manifest": body.get("approval_manifest").cloned().unwrap_or_else(|| json!({})),
+        "approval_request": body.get("approval_request").cloned().unwrap_or_else(|| json!({})),
+        "authority_context": body.get("authority_context").cloned().unwrap_or_else(|| json!({})),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let authority = RuntimeKernelService::new()
+        .authorize_approval_decision(&authority_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let authority = serde_json::to_value(&authority)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- phase 2: plan the decision (approve/reject) or revoke state update ---
+    let common = json!({
+        "target_kind": target_kind,
+        "thread_id": thread_id,
+        "run_id": requested_run_id,
+        "state_dir": st.data_dir,
+        // Inline run/agent candidate transport is retired; planner reads from state_dir.
+        "agent": Value::Null,
+        "run": Value::Null,
+        "event_id": event_id,
+        "seq": 1,
+        "created_at": now,
+        "approval_id": approval_id,
+        "lease_id": authority.get("lease_id"),
+        "approval_lease": authority.get("approval_lease").cloned().unwrap_or(Value::Null),
+        "source": source,
+        "reason": reason,
+        "receipt_refs": authority.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "policy_decision_refs": authority.get("policy_decision_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_record": authority.clone(),
+        "authority_hash": authority.get("authority_hash"),
+        "authority_receipt_refs": authority.get("authority_receipt_refs").cloned().unwrap_or_else(|| json!([])),
+    });
+    let mut response = if decision == "revoke" {
+        let mut value = common;
+        value["schema_version"] = json!(APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
+        let request: ApprovalRevokeStateUpdateRequest = serde_json::from_value(value)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+        let record = RuntimeKernelService::new()
+            .plan_approval_revoke_state_update(&request)
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+        serde_json::to_value(&record)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    } else {
+        let mut value = common;
+        value["schema_version"] = json!(APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
+        value["decision"] = json!(decision);
+        value["lease_status"] = authority.get("lease_status").cloned().unwrap_or_else(|| json!("granted"));
+        value["status"] = json!(if decision == "approve" { "approved" } else { "rejected" });
+        let request: ApprovalDecisionStateUpdateRequest = serde_json::from_value(value)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+        let record = RuntimeKernelService::new()
+            .plan_approval_decision_state_update(&request)
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+        serde_json::to_value(&record)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    };
+
+    commit_approval_record(st, target_kind, &agent_id, requested_run_id.as_deref(), &response)?;
+    if let Some(map) = response.as_object_mut() {
+        map.insert("commit".to_string(), json!({ "persisted": true }));
+    }
+    Ok(Json(response))
+}
+
+/// POST /v1/threads/:id/approvals/:approval_id/decision — decide via body.decision.
+pub(crate) async fn handle_approval_decision(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let decision = body.get("decision").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    apply_approval_decision(&st, &thread_id, &approval_id, &decision, &body)
+}
+
+/// POST /v1/threads/:id/approvals/:approval_id/approve
+pub(crate) async fn handle_approval_approve(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_approval_decision(&st, &thread_id, &approval_id, "approve", &body)
+}
+
+/// POST /v1/threads/:id/approvals/:approval_id/reject
+pub(crate) async fn handle_approval_reject(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_approval_decision(&st, &thread_id, &approval_id, "reject", &body)
+}
+
+/// POST /v1/threads/:id/approvals/:approval_id/revoke
+pub(crate) async fn handle_approval_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    apply_approval_decision(&st, &thread_id, &approval_id, "revoke", &body)
 }
 
 /// GET /v1/threads/:id/managed-sessions — project the thread's managed sessions

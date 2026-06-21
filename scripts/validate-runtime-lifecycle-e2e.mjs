@@ -14,6 +14,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { startRustHypervisorDaemon } from "./lib/rust-hypervisor-daemon.mjs";
+import { mintApprovalGrant } from "./lib/mint-approval-grant.mjs";
 
 const steps = [];
 async function runStep(name, fn) {
@@ -697,8 +698,68 @@ async function main() {
       assert.equal(after.body.length, 1, "the created artifact is listed");
     });
 
+    // Step 16: approval decision routes — gated on a REAL wallet-signed ApprovalGrant.
+    // The mint fixture (Rust, dcrypt-backed) stands in for the wallet approver; the same
+    // grant passes the runtime structural verify here AND settlement's cryptographic verify.
+    await runStep("POST /v1/threads/:id/approvals/:id/{approve,reject,revoke} honor a signed grant", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const grant = mintApprovalGrant();
+      const auth = { wallet_approval_grant: grant, authority_receipt_refs: ["receipt_wallet_grant_e2e"] };
+
+      const seed = async (approvalId) =>
+        fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals`, {
+          method: "POST",
+          body: JSON.stringify({ approval_id: approvalId, receipt_refs: ["receipt_wallet_grant_e2e"] }),
+        });
+
+      await seed("approval_approve_e2e");
+      const approve = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
+        method: "POST",
+        body: JSON.stringify(auth),
+      });
+      assert.equal(approve.status, 200);
+      assert.equal(approve.body.operation_kind, "approval.approve");
+      assert.equal(approve.body.decision, "approve");
+      assert.equal(approve.body.lease_status, "active");
+
+      await seed("approval_reject_e2e");
+      const reject = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_reject_e2e/reject`, {
+        method: "POST",
+        body: JSON.stringify(auth),
+      });
+      assert.equal(reject.status, 200);
+      assert.equal(reject.body.operation_kind, "approval.reject");
+
+      await seed("approval_revoke_e2e");
+      const revoke = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_revoke_e2e/revoke`, {
+        method: "POST",
+        body: JSON.stringify(auth),
+      });
+      assert.equal(revoke.status, 200);
+      assert.equal(revoke.body.operation_kind, "approval.revoke");
+      assert.equal(revoke.body.lease_status, "revoked");
+
+      // /decision dispatches by body.decision.
+      await seed("approval_decision_e2e");
+      const decision = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_decision_e2e/decision`, {
+        method: "POST",
+        body: JSON.stringify({ ...auth, decision: "approve" }),
+      });
+      assert.equal(decision.status, 200);
+      assert.equal(decision.body.decision, "approve");
+
+      // NEGATIVE: a grant whose authority_id no longer matches the signer pubkey is
+      // rejected (the wrong-signer case the runtime structural verify enforces).
+      const tampered = { ...grant, authority_id: grant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
+      const wrongSigner = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
+        method: "POST",
+        body: JSON.stringify({ wallet_approval_grant: tampered, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
+      });
+      assert.notEqual(wrongSigner.status, 200, "a tampered authority_id must be rejected");
+    });
+
     // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,
-    // snapshots restore, workspace-trust pair (warn-on-review), approval decision (wallet).
+    // snapshots restore, workspace-trust pair (warn-on-review).
   } finally {
     await rust.close();
   }

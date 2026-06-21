@@ -179,9 +179,13 @@ export function createRuntimeRouteHandlers(deps) {
         segments[4] === "repair-decisions" &&
         segments[5] &&
         segments[6] === "execute") ||
-      // approvals create (POST /approvals): the Rust daemon authorizes + folds the
-      // approval onto the agent/run. GET (list) + decide/approve/reject/revoke stay preserved.
-      (request.method === "POST" && action === "approvals" && !segments[4]) ||
+      // approvals create (POST /approvals) + decide/approve/reject/revoke: the Rust daemon
+      // authorizes (wallet-signed grant) + folds the approval/decision onto the agent/run.
+      // GET (list) stays preserved.
+      (request.method === "POST" &&
+        action === "approvals" &&
+        (!segments[4] ||
+          ["decision", "approve", "reject", "revoke"].includes(segments[5]))) ||
       // memory status/validate: the Rust daemon projects the memory snapshot + admits the
       // memory.status/memory.validate event onto the unified log. Other memory routes preserved.
       (request.method === "POST" &&
