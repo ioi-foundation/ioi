@@ -282,7 +282,9 @@ mod tests {
         RuntimeScreenshotPersistenceSnapshot, RUNTIME_MANAGED_SESSION_SCHEMA_VERSION,
     };
     use crate::agentic::runtime::kernel::runtime_managed_session_control::{
+        RuntimeManagedSessionControlCore, RuntimeManagedSessionControlRequest,
         RuntimeManagedSessionProjectionCore, RuntimeManagedSessionProjectionRequest,
+        RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
         RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
     };
 
@@ -459,5 +461,48 @@ mod tests {
         assert_eq!(record.record_count, 1);
         let sessions = record.projection.as_array().expect("sessions array");
         assert_eq!(sessions[0]["managed_session_id"], "sandbox_browser:7");
+    }
+
+    #[test]
+    fn control_planner_transitions_a_bridge_produced_session() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path();
+        let session_id = [0x55u8; 32];
+        write_bridge_agent_record(state_dir, "gamma", session_id);
+
+        // Bridge a real managed session onto the log (the producer side).
+        let snap = snapshot(session_id, vec![card("sandbox_browser:9")]);
+        persist_managed_session_snapshot(&state_dir.to_string_lossy(), &session_id, &snap)
+            .expect("bridge persists")
+            .expect("event admitted");
+
+        // The kernel control planner reads the bridge-produced managed_session record
+        // from the log and synthesizes the controlled transition — the same path the
+        // daemon's POST /managed-sessions/control route drives.
+        let request = RuntimeManagedSessionControlRequest {
+            schema_version: Some(
+                RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION.to_string(),
+            ),
+            operation: Some("managed_session_control".to_string()),
+            operation_kind: Some("managed_session.control".to_string()),
+            thread_id: Some("thread_gamma".to_string()),
+            event_stream_id: Some("thread_gamma:events".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            managed_session_id: Some("sandbox_browser:9".to_string()),
+            control_state: Some("take_over".to_string()),
+            reason: Some("operator inspects".to_string()),
+            event_seed: Some("seed".to_string()),
+            managed_session: Value::Null,
+            request: json!({ "source": "hypervisor_session" }),
+            receipt_refs: vec![],
+            policy_decision_refs: vec![],
+            evidence_refs: vec![],
+        };
+        let record = RuntimeManagedSessionControlCore
+            .plan(&request)
+            .expect("control plans over the bridge-produced session");
+        assert_eq!(record.control_state, "take_over");
+        assert_eq!(record.event["event_kind"], "managed_session.controlled");
+        assert_eq!(record.event["status"], "take_over");
     }
 }

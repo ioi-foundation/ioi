@@ -1201,7 +1201,7 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/threads/thread_route/managed-sessions?projection=summary",
       operation: "inspectManagedSessionsForThread",
       args: ["thread_route", { projection: "summary" }],
-      // Migrated to the Rust daemon (read-only projection). control (POST) stays here.
+      // Migrated to the Rust daemon (read-only projection).
       retired: true,
     },
     {
@@ -1227,6 +1227,9 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/threads/thread_route/managed-sessions/control",
       operation: "controlManagedSessionForThread",
       args: ["thread_route", body],
+      // Migrated to the Rust daemon (kernel control over the bridge-produced
+      // managed_session events).
+      retired: true,
     },
     {
       handler: handleRunRoute,

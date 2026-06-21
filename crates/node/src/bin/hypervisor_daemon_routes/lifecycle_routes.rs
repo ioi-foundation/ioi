@@ -65,7 +65,9 @@ use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::
 };
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
-    RuntimeManagedSessionProjectionRequest, RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    RuntimeManagedSessionControlRequest, RuntimeManagedSessionProjectionRequest,
+    RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+    RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
@@ -1983,6 +1985,53 @@ pub(crate) async fn handle_managed_sessions(
         "evidence_refs": record.evidence_refs,
         "receipt_refs": record.receipt_refs,
     })))
+}
+
+/// POST /v1/threads/:id/managed-sessions/control — operator control (observe /
+/// take_over / return_agent) of a managed session. The kernel
+/// plan_runtime_managed_session_control reads the prior managed_session record from
+/// the persisted event log (produced by the runtime event-log bridge when a real
+/// `browser__*` turn drives a sandbox session) and synthesizes the
+/// `managed_session.controlled` transition, which is admitted onto the log. Returns
+/// the admitted event. Errors (e.g. record_required) surface when no managed session
+/// has been produced for the thread yet.
+pub(crate) async fn handle_managed_session_control(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let Some(managed_session_id) = body.get("managed_session_id").and_then(|v| v.as_str()) else {
+        return Err(AppError(StatusCode::BAD_REQUEST, "managed_session_id is required".to_string()));
+    };
+    let request: RuntimeManagedSessionControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "managed_session_control",
+        "operation_kind": "managed_session.control",
+        "thread_id": thread_id,
+        "event_stream_id": format!("{thread_id}:events"),
+        "state_dir": st.data_dir,
+        "managed_session_id": managed_session_id,
+        "control_state": body.get("control_state").and_then(|v| v.as_str()),
+        "reason": body.get("reason").and_then(|v| v.as_str()),
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_managed_session_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let event = serde_json::to_value(&record.event)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if !event.is_object() {
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "managed-session control planner returned no event".to_string(),
+        ));
+    }
+    let admitted = admit_and_persist_event(&st, event)?;
+    Ok(Json(admitted))
 }
 
 /// GET /v1/threads/:id/workspace-change-reviews — project the thread's workspace-change

@@ -755,6 +755,32 @@ async function main() {
       assert.equal(control.body.payload?.next_lifecycle, "applied");
     });
 
+    // Step 13c: managed-sessions control is Rust-owned and correctly gated on real
+    // production. Managed sessions are produced ONLY by the runtime event-log bridge
+    // when a real `browser__*` turn drives a sandbox session (the bridge: turn
+    // execution -> KernelEvent::RuntimeThreadEvent -> <state_dir>/events). That path
+    // is verified end-to-end by the Rust bridge round-trip + control-planner tests
+    // (event_log_bridge), not reproducible in this HTTP-only ratchet without a real
+    // turn. So here we assert the migrated route REACHES the kernel control planner
+    // and refuses without a produced session — NOT 404 (unregistered) or 410
+    // (JS-retired). This proves the route is Rust-owned and gated on the real
+    // producer, never a fixture.
+    await runStep("managed-sessions/control is Rust-owned + gated on a produced session", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const control = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/managed-sessions/control`, {
+        method: "POST",
+        body: JSON.stringify({ managed_session_id: "sandbox_browser:absent", control_state: "take_over" }),
+      });
+      assert.notEqual(control.status, 404, "route is registered on the Rust daemon");
+      assert.notEqual(control.status, 410, "route is not JS-retired-poisoned");
+      assert.ok(control.status >= 400, "no produced managed session -> the planner refuses");
+      assert.match(
+        JSON.stringify(control.body),
+        /managed session|record/i,
+        "gated on a produced managed_session record, not a fixture",
+      );
+    });
+
     // Step 14: GET /snapshots — read-only workspace-snapshot list projection.
     await runStep("GET /v1/threads/:id/snapshots lists workspace snapshots", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);
@@ -885,17 +911,20 @@ async function main() {
       await reject403(mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: otherLease.request_hash }), "a grant bound to a different approval's request_hash must be rejected");
     });
 
-    // ROUTE MIGRATION COMPLETE — the Rust hypervisor-daemon owns the entire thread/run
-    // lifecycle + non-lifecycle route surface, plus the two precondition-gated families
-    // that have a thread-route trigger (approval decision via the wallet grant; the
-    // workspace-trust warn+acknowledge pair via the mode route).
+    // ROUTE MIGRATION COMPLETE + PRODUCER CUTS — the Rust hypervisor-daemon owns the
+    // entire thread/run lifecycle + non-lifecycle route surface, plus the
+    // precondition-gated families that have a thread-route trigger.
     //
-    // The three residual families are NOT route-ownership problems — they are
-    // PRODUCER-SUBSYSTEM problems, gated on records emitted outside the thread/run route
-    // surface, so they belong to a separate macro cut (a different owner boundary):
-    //   - managed-sessions/control  — needs real session-lifecycle production
-    //   - workspace-change/control  — needs real workspace-change-review production
-    //   - snapshots restore-*       — needs real snapshot-capture production
+    // The producer subsystems that feed the gated families are now wired to REAL
+    // production (no fixture events seeded onto the log):
+    //   - workspace-change/control — fed by real `git status` detection (step 13b).
+    //   - managed-sessions/control — fed by the runtime event-log bridge: a real
+    //     `browser__*` turn records the managed session into KV and emits a
+    //     KernelEvent::RuntimeThreadEvent that the bridge persists to <state_dir>/events
+    //     (verified by the Rust bridge round-trip + control-planner tests; route
+    //     Rust-ownership + gating asserted in step 13c).
+    //   - snapshots restore-*      — STILL needs real snapshot-capture production (the
+    //     remaining producer cut: a real git-tree capture over the workspace).
   } finally {
     await rust.close();
   }

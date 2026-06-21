@@ -387,6 +387,10 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_managed_sessions),
         )
         .route(
+            "/v1/threads/:id/managed-sessions/control",
+            post(lifecycle_routes::handle_managed_session_control),
+        )
+        .route(
             "/v1/threads/:id/workspace-change-reviews",
             get(lifecycle_routes::handle_workspace_change_reviews),
         )
