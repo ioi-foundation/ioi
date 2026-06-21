@@ -471,6 +471,8 @@ async function main() {
       assert.match(create.body.id, /^agent_/);
       assert.equal(create.body.status, "active");
       assert.equal(create.body.modelId, "hypervisor:native-fixture");
+      // The SDK Agent constructor reads options.subagentNames; the agent record must carry it.
+      assert.ok(Array.isArray(create.body.options?.subagentNames), "agent options carry subagentNames");
       const list = await fetchJson(`${rust.endpoint}/v1/agents`);
       assert.equal(list.status, 200);
       assert.ok(

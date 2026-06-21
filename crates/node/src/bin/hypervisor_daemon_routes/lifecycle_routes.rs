@@ -176,6 +176,12 @@ fn project_thread_record(st: &DaemonState, thread_id: &str) -> Result<Value, App
 fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
     let model = options.get("model").cloned().unwrap_or(Value::Null);
     let now = iso_now();
+    // The SDK Agent constructor reads options.subagentNames (Object.keys(options.agents)).
+    let subagent_names: Vec<String> = options
+        .get("agents")
+        .and_then(|agents| agents.as_object())
+        .map(|map| map.keys().cloned().collect())
+        .unwrap_or_default();
 
     // --- resolve the model route (internal route-control) ---
     let route_id = coalesce_str(&model, &["routeId", "route_id", "route"])
@@ -297,7 +303,7 @@ fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
         "runtime_controls": runtime_controls,
         "receipt_refs": [receipt_id],
         "mcpRegistry": Value::Null,
-        "options": json!({ "local": { "cwd": cwd } }),
+        "options": json!({ "local": { "cwd": cwd }, "subagentNames": subagent_names }),
     });
     agent
 }
