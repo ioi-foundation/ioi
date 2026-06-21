@@ -167,11 +167,12 @@ export function createRuntimeRouteHandlers(deps) {
       action === "model" ||
       action === "thinking" ||
       action === "events" ||
-      // compaction-policy + (thread-scoped) context-budget: evaluated in the Rust
-      // daemon, which admits the decision event onto the unified persisted log. The
-      // run-scoped context-budget (handleRunRoute) + compact stay preserved.
+      // compaction-policy + (thread-scoped) context-budget + compact: owned by the
+      // Rust daemon, which admits the decision/compaction event onto the unified
+      // persisted log. The run-scoped context-budget (handleRunRoute) stays preserved.
       (action === "compaction-policy" && !segments[4]) ||
       (action === "context-budget" && !segments[4]) ||
+      (action === "compact" && !segments[4]) ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&

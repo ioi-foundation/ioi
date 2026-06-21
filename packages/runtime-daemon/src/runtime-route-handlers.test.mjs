@@ -1082,6 +1082,8 @@ test("thread and run routes use store-owned context policy API methods", async (
       segments: ["v1", "threads", "thread_route", "compact"],
       operation: "compactThread",
       args: ["thread_route", body],
+      // Migrated to the Rust daemon (admits the context.compacted event onto the log).
+      retired: true,
     },
     {
       handler: handleRunRoute,

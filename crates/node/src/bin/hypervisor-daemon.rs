@@ -347,6 +347,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_context_budget),
         )
         .route(
+            "/v1/threads/:id/compact",
+            post(lifecycle_routes::handle_compact),
+        )
+        .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
         )

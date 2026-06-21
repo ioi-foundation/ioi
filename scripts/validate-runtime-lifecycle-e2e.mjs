@@ -516,7 +516,37 @@ async function main() {
       assert.equal(after.at(-1)?.component_kind, "context_budget", "decision event is on the log");
     });
 
-    // RATCHET FRONTIER — next: compact, workspace-trust, approvals, diagnostics.
+    // Step 8: compact — plan + admit a context.compacted event + commit the updated agent.
+    await runStep("POST /v1/threads/:id/compact executes a context compaction", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const compact = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/compact`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "operator requested compaction" }),
+      });
+      assert.equal(compact.status, 200);
+      assert.equal(compact.body.object, "ioi.runtime_context_compaction");
+      assert.equal(compact.body.status, "completed");
+      assert.equal(compact.body.operation_kind, "thread.compact");
+      assert.equal(compact.body.target_kind, "agent", "no run_id -> agent target");
+      assert.equal(compact.body.event?.event_kind, "context.compacted");
+      assert.equal(compact.body.operator_control?.control, "compact");
+      assert.equal(compact.body.context_compaction?.event_id, compact.body.event_id);
+      assert.equal(compact.body.seq, beforeMax + 1, "compaction event lands after prior events");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.at(-1)?.event_kind, "context.compacted", "compaction event is on the log");
+      const seqs = after.map((event) => event.seq);
+      assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
+    });
+
+    // RATCHET FRONTIER — next: workspace-trust pair, approvals, diagnostics.
   } finally {
     await rust.close();
   }

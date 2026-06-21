@@ -27,12 +27,14 @@ use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateRequest, CompactionPolicyRequest, ContextBudgetPolicyRequest,
+    ContextCompactionPlanRequest, ContextCompactionStateUpdateRequest,
     McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest,
     RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
     AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
-    CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION, CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+    CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1174,6 +1176,198 @@ pub(crate) async fn handle_context_budget(
         build_context_policy_event(&st, &thread_id, "context_budget", &policy, &evidence_refs),
     )?;
     Ok(Json(context_policy_envelope(policy, admitted, evidence_refs)))
+}
+
+/// POST /v1/threads/:id/compact — execute a context compaction. Plans the
+/// compaction (kernel plan_context_compaction → context.compacted event plan),
+/// admits the event onto the unified persisted log, plans the state update
+/// (kernel plan_context_compaction_state_update → operator_control + updated
+/// agent/run), commits the updated record, and returns the JS
+/// ioi.runtime_context_compaction envelope. Default target is the agent; a
+/// `run_id` in the body targets that run instead.
+pub(crate) async fn handle_compact(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let agent_id = agent
+        .get("id")
+        .or_else(|| agent.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| agent_id_for_thread(&thread_id));
+
+    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let run = requested_run_id.as_ref().and_then(|rid| {
+        read_record_dir(&st.data_dir, "runs")
+            .into_iter()
+            .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(rid.as_str()))
+    });
+    if requested_run_id.is_some() && run.is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("run not found: {}", requested_run_id.unwrap_or_default()),
+        ));
+    }
+    let target_kind = if body.get("target_kind").and_then(|v| v.as_str()) == Some("agent") || run.is_none() {
+        "agent"
+    } else {
+        "run"
+    };
+    let run_id = if target_kind == "run" {
+        run.as_ref().and_then(|r| r.get("id")).and_then(|v| v.as_str()).map(str::to_string)
+    } else {
+        None
+    };
+
+    let now = iso_now();
+    let event_stream_id = format!("{thread_id}:events");
+    let reason = body
+        .get("reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("operator requested context compaction")
+        .to_string();
+    let scope = body
+        .get("scope")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| if target_kind == "run" { "run".into() } else { "thread".into() });
+    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
+    let workspace_root = body
+        .get("workspace_root")
+        .or_else(|| agent.get("cwd"))
+        .or_else(|| agent.get("workspace_root"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
+    // --- plan the compaction (event plan) ---
+    let plan_request: ContextCompactionPlanRequest = serde_json::from_value(json!({
+        "schema_version": CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "run_id": run_id,
+        "turn_id": body.get("turn_id").and_then(|v| v.as_str()),
+        "session_id": body.get("session_id").and_then(|v| v.as_str()),
+        "state_dir": st.data_dir,
+        "workspace_root": workspace_root,
+        "event_stream_id": event_stream_id,
+        "source": source,
+        "actor": body.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "requested_by": body.get("requested_by").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "reason": reason,
+        "scope": scope,
+        "workflow_graph_id": body.get("workflow_graph_id").and_then(|v| v.as_str()),
+        "workflow_node_id": body.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.context-compact"),
+        "idempotency_key": body.get("idempotency_key").and_then(|v| v.as_str()),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = RuntimeKernelService::new()
+        .plan_context_compaction(&plan_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let plan = serde_json::to_value(&plan)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- build + admit the context.compacted event ---
+    let event_id = format!("evt_context_compaction_{thread_id}_{}", short_hash(&now));
+    let evidence_refs = json!([
+        "context_compaction_rust_owned",
+        "rust_daemon_core_context_compaction_plan",
+        "rust_daemon_core_context_compaction_state_update",
+        "agentgres_runtime_thread_event_truth_required",
+        "agentgres_context_compaction_state_truth_required",
+    ]);
+    let planned_event = json!({
+        "event_stream_id": event_stream_id,
+        "event_id": event_id,
+        "thread_id": thread_id,
+        "turn_id": plan.get("turn_id"),
+        "item_id": plan.get("item_id"),
+        "idempotency_key": plan.get("idempotency_key"),
+        "source": plan.get("source"),
+        "source_event_kind": plan.get("source_event_kind"),
+        "event_kind": plan.get("event_kind"),
+        "status": "completed",
+        "actor": plan.get("actor"),
+        "workflow_graph_id": plan.get("workflow_graph_id"),
+        "workflow_node_id": plan.get("workflow_node_id"),
+        "component_kind": plan.get("component_kind"),
+        "payload_schema_version": plan.get("payload_schema_version"),
+        "payload": plan.get("payload").cloned().unwrap_or_else(|| json!({})),
+        "receipt_refs": plan.get("receipt_refs"),
+        "policy_decision_refs": plan.get("policy_decision_refs"),
+        "artifact_refs": plan.get("artifact_refs"),
+        "rollback_refs": plan.get("rollback_refs"),
+        "redaction_profile": plan.get("redaction_profile"),
+        "created_at": now,
+        "evidence_refs": evidence_refs,
+    });
+    let admitted = admit_and_persist_event(&st, planned_event)?;
+    let admitted_event_id = admitted.get("event_id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let admitted_seq = admitted.get("seq").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    // --- plan the state update (operator control + updated agent/run) ---
+    let state_request: ContextCompactionStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "target_kind": target_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "run_id": run_id,
+        "run": if target_kind == "run" { run.clone() } else { None },
+        "agent": agent,
+        "event_id": admitted_event_id,
+        "seq": admitted_seq,
+        "created_at": admitted.get("created_at").and_then(|v| v.as_str()).unwrap_or(now.as_str()),
+        "source": source,
+        "reason": reason,
+        "scope": scope,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let state_update = RuntimeKernelService::new()
+        .plan_context_compaction_state_update(&state_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let state_update = serde_json::to_value(&state_update)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- commit the updated record (dual-case the agent before persisting) ---
+    let planned_run = state_update.get("run").cloned().unwrap_or(Value::Null);
+    let planned_agent = state_update.get("agent").cloned().unwrap_or(Value::Null);
+    if target_kind == "run" {
+        if let Some(run_id) = &run_id {
+            persist_record(st.data_dir.as_str(), "runs", run_id, &planned_run)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        }
+    } else {
+        let mut updated_agent = planned_agent.clone();
+        if let Some(map) = updated_agent.as_object_mut() {
+            dual_case_agent(map);
+        }
+        persist_record(st.data_dir.as_str(), "agents", &agent_id, &updated_agent)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
+
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.context_compaction.v1",
+        "object": "ioi.runtime_context_compaction",
+        "status": "completed",
+        "operation": "context_compaction",
+        "operation_kind": state_update.get("operation_kind"),
+        "target_kind": target_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "run_id": run_id,
+        "event_id": admitted_event_id,
+        "seq": admitted_seq,
+        "event": admitted,
+        "operator_control": state_update.get("operator_control"),
+        "context_compaction": state_update.get("context_compaction"),
+        "run": if target_kind == "run" { planned_run } else { Value::Null },
+        "agent": if target_kind == "agent" { planned_agent } else { Value::Null },
+        "commit": { "persisted": true },
+        "evidence_refs": evidence_refs,
+    })))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
