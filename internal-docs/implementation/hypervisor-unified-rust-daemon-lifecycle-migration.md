@@ -24,18 +24,41 @@ pair with (unlike approval's create route or workspace-trust's mode route). Migr
 under this banner would start a new macro cut with a different owner boundary and muddy the
 closeout. Each needs its **producer subsystem** migrated first, as its own deliberate chapter:
 
-| Residual route | Gated on | Producer subsystem to migrate first |
-| --- | --- | --- |
-| `POST /v1/threads/:id/managed-sessions/control` | a prior `managed_session` event on the log | **session lifecycle production** (`source: hypervisor_session`) |
-| `POST /v1/threads/:id/workspace-change-reviews/control` | a workspace-change-review record | **workspace-change review production** (git-diff review detection) |
-| `POST /v1/threads/:id/snapshots/{restore-preview,restore-apply}` | a captured snapshot | **snapshot-capture production** (`captureSnapshotFiles` during real turns) + real workspace FS |
+| Residual route | Gated on | Producer subsystem | Status |
+| --- | --- | --- | --- |
+| `POST /v1/threads/:id/workspace-change-reviews/control` | a workspace-change-review record | git-diff review detection | ✅ **DONE** — real `git status` producer (`/workspace-change-reviews/detect`), commit `620d1cb27` |
+| `POST /v1/threads/:id/managed-sessions/control` | a prior `managed_session` event on the log | session-lifecycle production via the runtime→daemon event-log bridge | ✅ **DONE** — commits `c580bafde` + `bf5448b34` + `64aa01c50` |
+| `POST /v1/threads/:id/snapshots/{restore-preview,restore-apply}` | a captured snapshot | snapshot-capture production + real workspace FS | ⏳ remaining — clean daemon git-tree capture (the daemon can read git directly) |
 
-Discipline for the residuals: do NOT seed fixture session/review/snapshot events to make a
-route "pass" — migrate the real producer. Next macro-cut candidate (smallest, least
-FS-risky): **workspace-change detection**.
+### Producer chapter 2 — the runtime → daemon event-log bridge (foundational)
 
-This closeout does **not** claim terminal Hypervisor unification; the model-mount / session /
-workspace-change / snapshot subsystems remain their own owner boundaries.
+Managed-sessions had no daemon-readable external signal (unlike git for workspace-change):
+its real data lives in execution-layer KV (`StateAccess`) the daemon can't reach, and the
+`managed_session_snapshot.rs` library was complete-but-dead (never wired into production).
+Turn execution (`RuntimeAgentService` in `ioi-local`/`ioi-agent`) and the daemon are separate
+processes joined only by `state_dir`; turn-execution `KernelEvent`s went to a **dropped**
+broadcast receiver. So the foundational fix was a real **runtime → daemon event-log bridge**
+(not a fixture):
+
+- `KernelEvent::RuntimeThreadEvent { session_id, event_json }` — a generic carrier any
+  turn-execution producer can emit (String payload keeps the bincode-derived enum valid).
+- `crates/services/.../event_log_bridge.rs` resolves the daemon `thread_id` for a runtime
+  `session_id` (the `runtime_session_id` linkage in `state_dir/agents/*.json`), admits the
+  event through the kernel (assigns `seq`), and appends it to `<state_dir>/events` —
+  byte-for-byte the daemon's own `admit_and_persist_event`.
+- The browser-tool success path records the managed session into KV and emits the carrier;
+  `ioi-local` drives `run_event_log_bridge`. The control route now plans over real
+  bridge-produced sessions.
+
+This bridge is foundational: **every** future turn-execution producer can reach the daemon
+log through it.
+
+Discipline (unchanged): do NOT seed fixture session/review/snapshot events to make a route
+"pass" — migrate the real producer. Remaining macro-cut: **snapshot capture** (a real
+git-tree capture over the workspace, the daemon-readable signal, like workspace-change).
+
+This closeout does **not** claim terminal Hypervisor unification; the model-mount / snapshot
+subsystems remain their own owner boundaries.
 
 ## Direction (user-set)
 
