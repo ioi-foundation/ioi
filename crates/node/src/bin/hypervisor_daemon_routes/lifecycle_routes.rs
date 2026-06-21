@@ -75,12 +75,15 @@ use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
-    capture_workspace_snapshot_files_protocol_response, WorkspaceRestoreOperationsRequest,
-    WorkspaceSnapshotCaptureProtocolRequest, WorkspaceSnapshotListProtocolRequest,
-    WorkspaceSnapshotListRequest, WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    capture_workspace_snapshot_files_protocol_response, WorkspaceRestoreApplyPolicyRequest,
+    WorkspaceRestoreOperationsRequest, WorkspaceSnapshotCaptureProtocolRequest,
+    WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
+    WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
     WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
     WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -2366,7 +2369,7 @@ fn read_captured_snapshots(st: &DaemonState, thread_id: &str) -> Vec<Value> {
 /// Read a file's committed (`HEAD`) content via `git show HEAD:<path>` — the
 /// pre-change ("before") side of a workspace snapshot. Returns None for files not in
 /// HEAD (newly created/untracked) or on any git failure.
-fn git_file_head_content(workspace_root: &str, path: &str) -> Option<String> {
+fn git_file_head_bytes(workspace_root: &str, path: &str) -> Option<Vec<u8>> {
     let output = std::process::Command::new("git")
         .args(["-C", workspace_root, "show", &format!("HEAD:{path}")])
         .output()
@@ -2374,7 +2377,7 @@ fn git_file_head_content(workspace_root: &str, path: &str) -> Option<String> {
     if !output.status.success() {
         return None;
     }
-    String::from_utf8(output.stdout).ok()
+    Some(output.stdout)
 }
 
 /// Resolve the git repository root for a workspace (`git rev-parse --show-toplevel`).
@@ -2473,16 +2476,39 @@ fn snapshot_file_entry(
     after_exists: bool,
     created: bool,
 ) -> (Value, Value) {
-    let before_content = if before_exists {
-        git_file_head_content(repo_root, path)
+    // Read each existing side as RAW BYTES, then decide a SINGLE per-file encoding: if any
+    // side is non-UTF-8 (binary), both sides are base64-encoded so they round-trip; else
+    // both are stored as literal UTF-8 text. A consistent per-file marker avoids a mixed
+    // case where one side's literal text would be wrongly base64-decoded on restore.
+    let before_bytes = if before_exists {
+        git_file_head_bytes(repo_root, path)
     } else {
         None
     };
-    let after_content = if after_exists {
-        fs::read_to_string(Path::new(repo_root).join(path)).ok()
+    let after_bytes = if after_exists {
+        fs::read(Path::new(repo_root).join(path)).ok()
     } else {
         None
     };
+    let use_base64 = before_bytes
+        .as_ref()
+        .map(|bytes| std::str::from_utf8(bytes).is_err())
+        .unwrap_or(false)
+        || after_bytes
+            .as_ref()
+            .map(|bytes| std::str::from_utf8(bytes).is_err())
+            .unwrap_or(false);
+    let encode_side = |bytes: &Option<Vec<u8>>| -> Option<String> {
+        bytes.as_ref().map(|bytes| {
+            if use_base64 {
+                BASE64.encode(bytes)
+            } else {
+                String::from_utf8_lossy(bytes).to_string()
+            }
+        })
+    };
+    let before_content = encode_side(&before_bytes);
+    let after_content = encode_side(&after_bytes);
     let changed_file = json!({
         "path": path,
         "created": created,
@@ -2497,6 +2523,7 @@ fn snapshot_file_entry(
         "path": path,
         "before_content": before_content,
         "after_content": after_content,
+        "encoding": if use_base64 { "base64" } else { "utf8" },
     });
     (changed_file, content_draft)
 }
@@ -2585,6 +2612,26 @@ pub(crate) async fn handle_snapshot_capture(
         .and_then(|v| v.as_str())
         .unwrap_or("sha256:unknown")
         .to_string();
+    // Keep the heavy content package (file bytes, up to 256KB/file) OUT of the event
+    // payload — it would otherwise be parsed/replayed verbatim on every GET /events.
+    // Strip content_files from the metadata record that goes on the log and persist them
+    // as a side artifact (<state_dir>/snapshot-content/<snapshot_id>.json) that the
+    // restore path resolves by snapshot_id. The event carries only metadata + a ref.
+    let content_files = snapshot_record
+        .as_object_mut()
+        .and_then(|record| record.remove("content_files"))
+        .unwrap_or_else(|| json!([]));
+    let artifact_ref = format!("snapshot-content/{snapshot_id}.json");
+    let content_artifact = json!({
+        "schema_version": "ioi.runtime.workspace-snapshot-content.v1",
+        "object": "ioi.runtime_workspace_snapshot_content",
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "captured_workspace_root": workspace_root,
+        "content_files": content_files,
+    });
+    persist_record(&st.data_dir, "snapshot-content", &snapshot_id, &content_artifact)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}"));
     let event = json!({
         "event_id": format!("event_workspace_snapshot_{event_hash}"),
@@ -2603,11 +2650,12 @@ pub(crate) async fn handle_snapshot_capture(
             "snapshot_id": snapshot_id,
             "snapshot_hash": snapshot_hash,
             "workspace_root": workspace_root,
+            "artifact_ref": artifact_ref.clone(),
             "snapshot_record": snapshot_record,
         },
         "receipt_refs": [format!("receipt_workspace_snapshot_capture_{event_hash}")],
         "policy_decision_refs": [],
-        "artifact_refs": [],
+        "artifact_refs": [artifact_ref],
         "rollback_refs": [],
         "redaction_profile": "internal",
         "evidence_refs": ["runtime_workspace_snapshot_capture_rust_owned"],
@@ -2624,26 +2672,57 @@ pub(crate) async fn handle_snapshot_capture(
     })))
 }
 
-/// Build the kernel restore `files` (path + before/after `{exists, content_hash,
-/// content}`) from a captured snapshot's `content_files`. The restore target is the
-/// `before` side (the pre-change / `HEAD` content), so applying reverts each file to
-/// its snapshotted state.
-fn restore_files_from_snapshot(record: &Value) -> Vec<Value> {
-    let content_files = record
+/// Resolve a captured snapshot's content package (the `content_files` array, with file
+/// bytes). Content lives in the `snapshot-content/<snapshot_id>.json` side artifact (the
+/// event payload carries only metadata); read it back from there. Falls back to an inline
+/// `content_files` on the record for forward/back-compat with any log written before the
+/// content was externalized.
+fn read_snapshot_content_files(st: &DaemonState, record: &Value) -> Vec<Value> {
+    if let Some(files) = record.get("content_files").and_then(|v| v.as_array()) {
+        if !files.is_empty() {
+            return files.clone();
+        }
+    }
+    let Some(snapshot_id) = record.get("snapshot_id").and_then(|v| v.as_str()) else {
+        return Vec::new();
+    };
+    let safe = snapshot_id
+        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let path = Path::new(st.data_dir.as_str())
+        .join("snapshot-content")
+        .join(format!("{safe}.json"));
+    let Ok(bytes) = fs::read(&path) else {
+        return Vec::new();
+    };
+    let Ok(artifact) = serde_json::from_slice::<Value>(&bytes) else {
+        return Vec::new();
+    };
+    artifact
         .get("content_files")
         .and_then(|v| v.as_array())
         .cloned()
-        .unwrap_or_default();
-    content_files
+        .unwrap_or_default()
+}
+
+/// Build the kernel restore `files` (path + before/after `{exists, content_hash,
+/// content, encoding}`) from a captured snapshot's content package (resolved from the
+/// side artifact). The restore target is the `before` side (the pre-change / `HEAD`
+/// content), so applying reverts each file to its snapshotted state.
+fn restore_files_from_snapshot(st: &DaemonState, record: &Value) -> Vec<Value> {
+    read_snapshot_content_files(st, record)
         .iter()
         .filter_map(|file| {
             let path = file.get("path").and_then(|v| v.as_str())?;
+            // The per-file encoding marker (utf8 | base64) is carried on the captured
+            // file so the kernel restore can decode binary content before writing.
+            let encoding = file.get("encoding").cloned().unwrap_or(Value::Null);
             let side = |key: &str| {
                 let side = file.get(key);
                 json!({
                     "exists": side.and_then(|s| s.get("exists")).and_then(Value::as_bool).unwrap_or(false),
                     "content_hash": side.and_then(|s| s.get("content_hash")).cloned().unwrap_or(Value::Null),
                     "content": side.and_then(|s| s.get("content")).cloned().unwrap_or(Value::Null),
+                    "encoding": encoding.clone(),
                 })
             };
             Some(json!({ "path": path, "before": side("before"), "after": side("after") }))
@@ -2692,36 +2771,93 @@ async fn run_snapshot_restore(
     if workspace_root.trim().is_empty() {
         return Err(AppError(StatusCode::BAD_REQUEST, "snapshot has no workspace root to restore into".to_string()));
     }
-    let files = restore_files_from_snapshot(&record);
-    let allow_conflicts = body.get("allow_conflicts").and_then(Value::as_bool).unwrap_or(false);
-    let schema_version = if apply {
-        WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION
-    } else {
-        WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION
-    };
-    let request: WorkspaceRestoreOperationsRequest = serde_json::from_value(json!({
-        "schema_version": schema_version,
+    let files = restore_files_from_snapshot(&st, &record);
+    let kernel = RuntimeKernelService::new();
+
+    // Preview is always computed (read-only): the operator-facing diff and — for apply —
+    // the input to the server-side apply-policy decision.
+    let preview_request: WorkspaceRestoreOperationsRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
         "workspace_root": workspace_root,
-        "files": files,
-        "allow_conflicts": allow_conflicts,
+        "files": files.clone(),
+        "allow_conflicts": Value::Null,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let kernel = RuntimeKernelService::new();
-    let operations = if apply {
-        kernel.apply_workspace_restore_operations(&request)
-    } else {
-        kernel.preview_workspace_restore_operations(&request)
+    let preview_ops = kernel
+        .preview_workspace_restore_operations(&preview_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let preview_value = serde_json::to_value(&preview_ops)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    if !apply {
+        return Ok(Json(json!({
+            "object": "ioi.runtime_workspace_restore_preview",
+            "snapshot_id": snapshot_id,
+            "operation": "preview_workspace_restore",
+            "operations": preview_value,
+        })));
     }
-    .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+
+    // restore-apply is gated by the kernel apply policy over the preview: it requires an
+    // explicit confirmation (confirm_restore_apply / approved) in the body, and derives
+    // allow_conflicts from the POLICY PLAN — never the raw body. A blocked/conflict
+    // preview, or a missing confirmation, returns requires_confirmation WITHOUT writing.
+    let policy_operations: Vec<Value> = preview_ops
+        .iter()
+        .map(|op| json!({ "path": op.path, "status": op.status, "blocked_reason": op.blocked_reason }))
+        .collect();
+    let policy_request: WorkspaceRestoreApplyPolicyRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
+        "snapshot_id": snapshot_id,
+        "operations": policy_operations,
+        "confirm_restore_apply": body.get("confirm_restore_apply"),
+        "approved": body.get("approved"),
+        "approval": body.get("approval"),
+        "override_conflicts": body.get("override_conflicts"),
+        "allow_conflicts": body.get("allow_conflicts"),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let plan = kernel
+        .plan_workspace_restore_apply_policy(&policy_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let policy_value = serde_json::to_value(&plan)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    if plan.policy_status != "allowed" {
+        // Confirmation missing or the preview is hard/conflict-blocked: write nothing.
+        return Ok(Json(json!({
+            "object": "ioi.runtime_workspace_restore_apply",
+            "snapshot_id": snapshot_id,
+            "operation": "apply_workspace_restore",
+            "status": "requires_confirmation",
+            "requires_confirmation": true,
+            "applied_file_count": 0,
+            "policy": policy_value,
+            "operations": preview_value,
+        })));
+    }
+
+    // Approved + clean: apply with the SERVER-derived allow_conflicts (plan.allow_conflicts).
+    let apply_request: WorkspaceRestoreOperationsRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
+        "files": files,
+        "allow_conflicts": plan.allow_conflicts,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let operations = kernel
+        .apply_workspace_restore_operations(&apply_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let operations_value = serde_json::to_value(&operations)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let mut response = json!({
-        "object": if apply { "ioi.runtime_workspace_restore_apply" } else { "ioi.runtime_workspace_restore_preview" },
+        "object": "ioi.runtime_workspace_restore_apply",
         "snapshot_id": snapshot_id,
-        "operation": if apply { "apply_workspace_restore" } else { "preview_workspace_restore" },
+        "operation": "apply_workspace_restore",
         "operations": operations_value,
+        "policy": policy_value,
     });
-    if apply {
+    {
         let applied_count = operations
             .iter()
             .filter(|op| op.apply_status.as_deref() == Some("applied")

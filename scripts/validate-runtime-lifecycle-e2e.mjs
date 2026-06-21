@@ -835,12 +835,24 @@ async function main() {
         "the captured snapshot_id is listed",
       );
 
-      // Restore-apply: the kernel writes the snapshot's `before` (HEAD) content back to
-      // the real file. The working tree is still v2 (== snapshot after) so it is a clean
-      // restore; a.txt reverts to v1 on disk.
-      const apply = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
+      // Restore-apply is GATED: without an explicit confirmation it must write NOTHING
+      // (requires_confirmation), so a stray/unconfirmed POST can never mutate the FS.
+      const unconfirmed = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
         method: "POST",
         body: "{}",
+      });
+      assert.equal(unconfirmed.status, 200);
+      assert.equal(unconfirmed.body.requires_confirmation, true, "apply requires explicit confirmation");
+      assert.equal(unconfirmed.body.applied_file_count, 0);
+      assert.equal(unconfirmed.body.event, undefined, "no event admitted for an unconfirmed apply");
+      assert.equal(fs.readFileSync(file, "utf8"), "v2\n", "unconfirmed apply leaves the file untouched");
+
+      // Confirmed restore-apply: the kernel writes the snapshot's `before` (HEAD) content
+      // back. The working tree is still v2 (== snapshot after) so it is a clean restore;
+      // a.txt reverts to v1 on disk.
+      const apply = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
+        method: "POST",
+        body: JSON.stringify({ confirm_restore_apply: true }),
       });
       assert.equal(apply.status, 200);
       assert.equal(apply.body.event?.event_kind, "workspace_restore.applied");
@@ -870,7 +882,9 @@ async function main() {
         return encodeURIComponent(created.body.thread_id);
       };
 
-      // A) binary HEAD, modified to text on disk.
+      // A) binary HEAD, modified to text on disk. The binary HEAD is now captured (base64),
+      // but the on-disk text matches neither base64 side -> a conflict the policy refuses
+      // (requires_confirmation) without an explicit override. The file MUST NOT be deleted.
       const a = newRepo("ioi-snap-bin-");
       const binFile = path.join(a.repo, "bin.dat");
       fs.writeFileSync(binFile, Buffer.from([0xff, 0xfe, 0x00, 0x80, 0x01, 0x02]));
@@ -880,14 +894,13 @@ async function main() {
       const tidA = await newThread(a.repo);
       const capA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capA.status, 200);
-      const applyA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/${encodeURIComponent(capA.body.snapshot_id)}/restore-apply`, { method: "POST", body: "{}" });
+      const applyA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/${encodeURIComponent(capA.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
       assert.equal(applyA.status, 200);
       assert.ok(fs.existsSync(binFile), "binary-HEAD file MUST NOT be deleted on restore (data-loss guard)");
-      assert.equal(fs.readFileSync(binFile, "utf8"), "now plain text\n", "blocked restore leaves the file untouched");
-      assert.equal(applyA.body.applied_file_count, 0, "uncapturable before-content -> nothing applied (blocked)");
-      assert.equal(applyA.body.event?.event_kind, "workspace_restore.blocked", "no-op apply is recorded as blocked, not applied");
+      assert.equal(fs.readFileSync(binFile, "utf8"), "now plain text\n", "conflict restore leaves the file untouched");
+      assert.equal(applyA.body.applied_file_count, 0, "binary<->text conflict -> nothing applied");
 
-      // B) rename revert.
+      // B) rename revert (confirmed).
       const b = newRepo("ioi-snap-mv-");
       fs.writeFileSync(path.join(b.repo, "r.txt"), "orig\n");
       b.git(["add", "."]);
@@ -896,11 +909,29 @@ async function main() {
       const tidB = await newThread(b.repo);
       const capB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capB.status, 200);
-      const applyB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/${encodeURIComponent(capB.body.snapshot_id)}/restore-apply`, { method: "POST", body: "{}" });
+      const applyB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/${encodeURIComponent(capB.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
       assert.equal(applyB.status, 200);
       assert.equal(applyB.body.event?.event_kind, "workspace_restore.applied");
       assert.equal(fs.readFileSync(path.join(b.repo, "r.txt"), "utf8"), "orig\n", "rename revert recreates the original path");
       assert.ok(!fs.existsSync(path.join(b.repo, "r2.txt")), "rename revert removes the new path");
+
+      // C) binary round-trip: a file binary in BOTH HEAD and working is captured base64
+      // and restored to its real raw HEAD bytes (base64-decoded), not the base64 text.
+      const c = newRepo("ioi-snap-bin2-");
+      const cFile = path.join(c.repo, "img.bin");
+      const headBytes = Buffer.from([0x00, 0x9f, 0x92, 0x96, 0xff, 0x01, 0x02, 0x03]);
+      const workBytes = Buffer.from([0xff, 0xfe, 0x00, 0x01, 0x80, 0x09]);
+      fs.writeFileSync(cFile, headBytes);
+      c.git(["add", "."]);
+      c.git(["commit", "-q", "-m", "bin-v1"]);
+      fs.writeFileSync(cFile, workBytes); // still binary, different bytes
+      const tidC = await newThread(c.repo);
+      const capC = await fetchJson(`${rust.endpoint}/v1/threads/${tidC}/snapshots/capture`, { method: "POST", body: "{}" });
+      assert.equal(capC.status, 200);
+      const applyC = await fetchJson(`${rust.endpoint}/v1/threads/${tidC}/snapshots/${encodeURIComponent(capC.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      assert.equal(applyC.status, 200);
+      assert.equal(applyC.body.event?.event_kind, "workspace_restore.applied");
+      assert.ok(fs.readFileSync(cFile).equals(headBytes), "binary file round-trips to its raw HEAD bytes via base64");
     });
 
     // Step 15: conversation artifacts — GET list projection + POST create (record-write).

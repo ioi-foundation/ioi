@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -254,6 +255,11 @@ pub struct WorkspaceRestoreFileSide {
     pub content_hash: Option<String>,
     #[serde(default)]
     pub content: Option<String>,
+    /// Encoding of `content`: `None`/`"utf8"` = literal text; `"base64"` = the file's raw
+    /// bytes base64-encoded (so binary / non-UTF-8 files round-trip). The apply path
+    /// decodes base64 before writing real bytes.
+    #[serde(default)]
+    pub encoding: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1400,7 +1406,22 @@ fn apply_operation(
         if let Some(parent) = target.absolute_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(&target.absolute_path, content)
+        // Decode base64-encoded (binary / non-UTF-8) content back to its raw bytes before
+        // writing; literal text (utf8/None) is written verbatim.
+        if file.before.encoding.as_deref() == Some("base64") {
+            match BASE64.decode(content.as_bytes()) {
+                Ok(bytes) => fs::write(&target.absolute_path, bytes),
+                Err(error) => {
+                    let mut failed = preview;
+                    failed.apply_status = Some("failed".to_string());
+                    failed.apply_reason = Some("workspace_restore_base64_decode_failed".to_string());
+                    failed.error_message = Some(error.to_string());
+                    return Ok(failed);
+                }
+            }
+        } else {
+            fs::write(&target.absolute_path, content)
+        }
     } else {
         let mut failed = preview;
         failed.apply_status = Some("failed".to_string());
@@ -1586,12 +1607,19 @@ fn read_workspace_restore_current(path: &Path) -> WorkspaceRestoreCurrent {
             };
         }
     };
-    let content = String::from_utf8_lossy(&bytes).to_string();
+    // Represent the current file the SAME way capture did so hashes compare correctly:
+    // valid UTF-8 as literal text; otherwise base64 (matching a base64-captured snapshot
+    // side). The stored `content`/`content_hash` are only used for comparison + diff.
+    let bytes_len = bytes.len() as u64;
+    let content = match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(error) => BASE64.encode(error.as_bytes()),
+    };
     WorkspaceRestoreCurrent {
         exists: true,
         content_hash: Some(sha256_hex(&content)),
         content,
-        content_bytes: bytes.len() as u64,
+        content_bytes: bytes_len,
         blocked: false,
         blocked_reason: None,
     }
@@ -2255,11 +2283,13 @@ fn workspace_restore_files_from_content_package(
                 exists: file.before.exists,
                 content_hash: file.before.content_hash,
                 content: file.before.content,
+                encoding: file.encoding.clone(),
             },
             after: WorkspaceRestoreFileSide {
                 exists: file.after.exists,
                 content_hash: file.after.content_hash,
                 content: None,
+                encoding: file.encoding,
             },
         })
         .collect())
@@ -2807,11 +2837,13 @@ mod tests {
                 exists: true,
                 content_hash: Some(sha256_hex(before)),
                 content: Some(before.to_string()),
+                encoding: None,
             },
             after: WorkspaceRestoreFileSide {
                 exists: true,
                 content_hash: Some(sha256_hex(after)),
                 content: None,
+                encoding: None,
             },
         }
     }
@@ -3029,6 +3061,53 @@ mod tests {
             "old"
         );
         assert_eq!(operations[0].applied_matches_target, Some(true));
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn workspace_restore_apply_restores_binary_file_via_base64() {
+        let workspace = temp_workspace("apply_base64");
+        let file_path = workspace.join("data.bin");
+        // Raw, non-UTF-8 bytes: the HEAD content to restore TO, and a different binary on
+        // disk now. Both are captured as base64 (encoding="base64").
+        let head_raw: Vec<u8> = vec![0u8, 159, 146, 150, 255, 1, 2, 3];
+        let working_raw: Vec<u8> = vec![255, 254, 0, 1, 128, 9];
+        fs::write(&file_path, &working_raw).expect("write current binary");
+        let before_b64 = BASE64.encode(&head_raw);
+        let after_b64 = BASE64.encode(&working_raw);
+        let file = WorkspaceRestoreFile {
+            path: "data.bin".to_string(),
+            before: WorkspaceRestoreFileSide {
+                exists: true,
+                content_hash: Some(sha256_hex(&before_b64)),
+                content: Some(before_b64),
+                encoding: Some("base64".to_string()),
+            },
+            after: WorkspaceRestoreFileSide {
+                exists: true,
+                content_hash: Some(sha256_hex(&after_b64)),
+                content: Some(after_b64),
+                encoding: Some("base64".to_string()),
+            },
+        };
+        let request = WorkspaceRestoreOperationsRequest {
+            schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+            workspace_root: workspace.to_string_lossy().to_string(),
+            files: vec![file],
+            max_diff_bytes: Some(4096),
+            allow_conflicts: Some(false),
+        };
+
+        let operations = WorkspaceRestoreOperationsCore
+            .apply_operations(&request)
+            .expect("apply operations");
+
+        // The on-disk binary is re-encoded to base64 by read_current, so it matches the
+        // snapshot's base64 `after` -> a clean (non-conflict) restore.
+        assert_eq!(operations[0].status, "ready");
+        assert_eq!(operations[0].apply_status.as_deref(), Some("applied"));
+        // The real raw HEAD bytes are written back (base64-DECODED), not the base64 text.
+        assert_eq!(fs::read(&file_path).expect("restored binary"), head_raw);
         let _ = fs::remove_dir_all(workspace);
     }
 
