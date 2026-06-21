@@ -245,6 +245,35 @@ async function main() {
       assert.ok(Array.isArray(bySuffix.artifacts.body), "run_artifacts is an array");
     });
 
+    // Step 3d: turn-create persists the FULL canonical Agentgres state bundle to the
+    // state_dir (not just runs/<run>.json) via the kernel commit. This is the layout the
+    // canonical live-runtime-daemon contract asserts — the split-brain repoint target.
+    await runStep("turn-create persists the canonical Agentgres state bundle", async () => {
+      for (const dir of ["runs", "tasks", "jobs", "checklists", "scorecards", "ledgers", "projections"]) {
+        const dirPath = path.join(stateDir, dir);
+        assert.ok(fs.existsSync(dirPath), `bundle dir ${dir}/ should exist`);
+        const records = fs.readdirSync(dirPath).filter((f) => f.endsWith(".json"));
+        assert.ok(records.length >= 1, `bundle dir ${dir}/ should hold a record`);
+      }
+      // The tasks record embeds the run's runtimeTask + runtimeChecklist + the agentgres
+      // transition (derived by the kernel from the run, not a separate write).
+      const taskFiles = fs.readdirSync(path.join(stateDir, "tasks")).filter((f) => f.endsWith(".json"));
+      const taskRecord = taskFiles
+        .map((f) => JSON.parse(fs.readFileSync(path.join(stateDir, "tasks", f), "utf8")))
+        .find((record) => record.runId === turnRequestId);
+      assert.ok(taskRecord, "a tasks/ record exists for the turn run");
+      assert.ok(taskRecord.runtimeTask, "tasks record embeds runtimeTask");
+      assert.ok(taskRecord.runtimeChecklist, "tasks record embeds runtimeChecklist");
+      assert.ok(taskRecord.agentgresTransition, "tasks record carries the agentgres transition");
+      // The jobs record is keyed by the run's jobId and carries the canonical lifecycle.
+      const jobFiles = fs.readdirSync(path.join(stateDir, "jobs")).filter((f) => f.endsWith(".json"));
+      const jobRecord = jobFiles
+        .map((f) => JSON.parse(fs.readFileSync(path.join(stateDir, "jobs", f), "utf8")))
+        .find((record) => record.runId === turnRequestId);
+      assert.ok(jobRecord, "a jobs/ record exists for the turn run");
+      assert.equal(jobRecord.schemaVersion, "ioi.agent-runtime.job-record.v1", "job record schema");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

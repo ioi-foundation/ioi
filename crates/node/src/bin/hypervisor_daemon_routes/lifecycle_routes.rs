@@ -64,6 +64,9 @@ use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projec
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::agentgres_admission::{
+    RuntimeRunStateCommitRequest, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
     RuntimeManagedSessionControlRequest, RuntimeManagedSessionProjectionRequest,
@@ -595,6 +598,42 @@ fn build_run_candidate(agent: &Value, run_id: &str, mode: &str, prompt: &str, no
     })
 }
 
+/// Commit a run's full Agentgres state bundle to `<state_dir>` via the kernel
+/// `commit_runtime_run_state_to_dir`. This writes `runs/<run>.json` (byte-identical to a
+/// plain `persist_record` — payload is the run verbatim) PLUS the canonical Agentgres
+/// bundle the live contract expects: `tasks/`, `jobs/`, `checklists/`, `scorecards/`,
+/// `ledgers/`, `quality/`, `projections/`, `receipts/`, `artifacts/` — all derived from
+/// the run's embedded runtimeTask/Job/Checklist + receipts. Replaces the bare
+/// `persist_record(runs)` for run-state mutations so the Rust daemon's state_dir matches
+/// the canonical layout (the split-brain repoint target toward JS-daemon retirement).
+fn commit_run_state_bundle(
+    st: &DaemonState,
+    run_id: &str,
+    operation_kind: &str,
+    run: &Value,
+) -> Result<(), AppError> {
+    // Daemon-derived canonical projection marker; the kernel folds the agentgres
+    // transition into the persisted projections/<run>.json record.
+    let canonical_projection = json!({
+        "runId": run_id,
+        "object": "ioi.runtime_canonical_state_projection",
+        "source": "agentgres_canonical_state_projection",
+    });
+    let request: RuntimeRunStateCommitRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+        "run_id": run_id,
+        "operation_kind": operation_kind,
+        "storage_backend_ref": "storage://runtime-agentgres/local-json",
+        "run": run,
+        "canonical_projection": canonical_projection,
+    }))
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    RuntimeKernelService::new()
+        .commit_runtime_run_state_to_dir(st.data_dir.as_str(), &request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(())
+}
+
 /// POST /v1/threads/:id/turns — submit a turn (create a run).
 ///
 /// Builds a deterministic run candidate from the thread's agent, validates/stamps
@@ -627,8 +666,10 @@ pub(crate) async fn handle_turn_create(
         .plan_run_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
-    persist_record(&st.data_dir, "runs", &run_id, &planned.run)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    // Persist the run as the full canonical Agentgres bundle (runs + tasks/jobs/
+    // checklists/scorecards/ledgers/quality/projections/receipts/artifacts), not just
+    // runs/<run>.json — the kernel derives the bundle from the run's embedded records.
+    commit_run_state_bundle(&st, &run_id, "run.create", &planned.run)?;
     // Admit+persist the turn's events on top of the persisted thread.started.
     persist_thread_events(&st, &thread_id)?;
 
@@ -3798,8 +3839,9 @@ pub(crate) async fn handle_run_cancel(
     let record = RuntimeKernelService::new()
         .plan_run_cancel_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    // Re-commit the canceled run as the full bundle so tasks/jobs/checklists reflect
+    // the cancel (run.cancel transition), not just runs/<run>.json.
+    commit_run_state_bundle(&st, &run_id, "run.cancel", &record.run)?;
     Ok(Json(record.run))
 }
 
