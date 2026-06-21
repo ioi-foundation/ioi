@@ -1,9 +1,41 @@
 # Hypervisor Unified Rust Daemon — Lifecycle + MCP Migration Plan
 
-Status: implementation-grade plan (active)
+Status: **ROUTE MIGRATION COMPLETE** for the Rust-owned thread/run/lifecycle route surface (not terminal Hypervisor unification — see Closeout).
 Branch: `hypervisor-real-execution-master-guide`
-Last reviewed: 2026-06-20
+Last reviewed: 2026-06-21
 Supersedes: the "bridge the 16 daemon-core APIs" approach (a napi/sync-CLI/async-cascade bridge was rejected).
+
+## Closeout (2026-06-21) — route migration complete, residuals are subsystem-gated
+
+The Rust `hypervisor-daemon` now owns the **entire thread/run lifecycle + non-lifecycle
+route surface** plus the two precondition-gated families that have a thread-route trigger:
+the **approval decision** family (decide/approve/reject/revoke, gated on the create route
++ a real dcrypt-signed wallet `ApprovalGrant` verified at the route — signature + signer +
+expiry + policy_hash + request_hash, all daemon-derived), and the **workspace-trust** pair
+(the mode route emits `workspace.trust_warning` on review/yolo; acknowledge consumes it).
+Every migrated JS route is poisoned (`410 runtime_lifecycle_retired_served_by_rust_daemon`)
+and its route test asserts the retired contract. The ratchet
+(`scripts/validate-runtime-lifecycle-e2e.mjs`) is **33/33**.
+
+**Three residual families are explicitly OUT OF SCOPE for this phase — they are
+producer-subsystem problems, not route-ownership problems.** Each is gated on records
+emitted *outside* the thread/run route surface, with no thread-route create/capture path to
+pair with (unlike approval's create route or workspace-trust's mode route). Migrating them
+under this banner would start a new macro cut with a different owner boundary and muddy the
+closeout. Each needs its **producer subsystem** migrated first, as its own deliberate chapter:
+
+| Residual route | Gated on | Producer subsystem to migrate first |
+| --- | --- | --- |
+| `POST /v1/threads/:id/managed-sessions/control` | a prior `managed_session` event on the log | **session lifecycle production** (`source: hypervisor_session`) |
+| `POST /v1/threads/:id/workspace-change-reviews/control` | a workspace-change-review record | **workspace-change review production** (git-diff review detection) |
+| `POST /v1/threads/:id/snapshots/{restore-preview,restore-apply}` | a captured snapshot | **snapshot-capture production** (`captureSnapshotFiles` during real turns) + real workspace FS |
+
+Discipline for the residuals: do NOT seed fixture session/review/snapshot events to make a
+route "pass" — migrate the real producer. Next macro-cut candidate (smallest, least
+FS-risky): **workspace-change detection**.
+
+This closeout does **not** claim terminal Hypervisor unification; the model-mount / session /
+workspace-change / snapshot subsystems remain their own owner boundaries.
 
 ## Direction (user-set)
 

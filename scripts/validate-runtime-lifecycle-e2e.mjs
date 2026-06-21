@@ -831,8 +831,17 @@ async function main() {
       await reject403(mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: otherLease.request_hash }), "a grant bound to a different approval's request_hash must be rejected");
     });
 
-    // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,
-    // snapshots restore, workspace-trust pair (warn-on-review).
+    // ROUTE MIGRATION COMPLETE — the Rust hypervisor-daemon owns the entire thread/run
+    // lifecycle + non-lifecycle route surface, plus the two precondition-gated families
+    // that have a thread-route trigger (approval decision via the wallet grant; the
+    // workspace-trust warn+acknowledge pair via the mode route).
+    //
+    // The three residual families are NOT route-ownership problems — they are
+    // PRODUCER-SUBSYSTEM problems, gated on records emitted outside the thread/run route
+    // surface, so they belong to a separate macro cut (a different owner boundary):
+    //   - managed-sessions/control  — needs real session-lifecycle production
+    //   - workspace-change/control  — needs real workspace-change-review production
+    //   - snapshots restore-*       — needs real snapshot-capture production
   } finally {
     await rust.close();
   }
