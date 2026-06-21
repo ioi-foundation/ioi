@@ -1719,12 +1719,12 @@ pub(crate) async fn handle_thread_usage(
     Ok(Json(record.projection.clone()))
 }
 
-/// Find the persisted request-time lease's `policy_hash` for an approval on a target
-/// record (agent or run). The request authority folds each approval onto the record's
-/// `approvalRequests` list as an operator-control carrying its `approval_lease`; the
-/// most recent matching entry's lease policy_hash is the canonical binding the decision
-/// grant must match. Returns None if the approval isn't found (no binding enforced).
-fn approval_lease_policy_hash_for(record: &Value, approval_id: &str) -> Option<String> {
+/// Read a field of the persisted request-time approval lease for an approval on a
+/// target record (agent or run). The request authority folds each approval onto the
+/// record's `approvalRequests` list as an operator-control carrying its `approval_lease`;
+/// the most recent matching entry's lease is the canonical binding source. Returns None
+/// if the approval (or field) isn't found (no binding enforced for that field).
+fn approval_lease_field_for(record: &Value, approval_id: &str, field: &str) -> Option<String> {
     record
         .get("approvalRequests")
         .or_else(|| record.get("approval_requests"))
@@ -1736,7 +1736,7 @@ fn approval_lease_policy_hash_for(record: &Value, approval_id: &str) -> Option<S
                 .find(|item| item.get("approval_id").and_then(|v| v.as_str()) == Some(approval_id))
         })
         .and_then(|item| item.get("approval_lease"))
-        .and_then(|lease| lease.get("policy_hash"))
+        .and_then(|lease| lease.get(field))
         .and_then(|v| v.as_str())
         .map(str::to_string)
 }
@@ -1810,7 +1810,9 @@ fn apply_approval_decision(
         .unwrap_or(0);
     let policy_binding_source = if target_kind == "run" { run.as_ref() } else { Some(&agent) };
     let expected_policy_hash = policy_binding_source
-        .and_then(|record| approval_lease_policy_hash_for(record, approval_id));
+        .and_then(|record| approval_lease_field_for(record, approval_id, "policy_hash"));
+    let expected_request_hash = policy_binding_source
+        .and_then(|record| approval_lease_field_for(record, approval_id, "request_hash"));
 
     // --- phase 1: authorize the decision against the wallet-signed grant ---
     let authority_request: ApprovalDecisionAuthorityRequest = serde_json::from_value(json!({
@@ -1822,9 +1824,10 @@ fn apply_approval_decision(
         "run_id": requested_run_id,
         "approval_lease": body.get("approval_lease").cloned().unwrap_or_else(|| json!({})),
         "source": source,
-        // Daemon-derived fail-closed binding (clock + persisted lease policy_hash).
+        // Daemon-derived fail-closed binding (clock + persisted lease policy/request hash).
         "now_ms": now_ms,
         "expected_policy_hash": expected_policy_hash,
+        "expected_request_hash": expected_request_hash,
         // Wallet-signed authority grant — verified structurally AND cryptographically by
         // the kernel decision authority (no structural-only acceptance deferred to settlement).
         "wallet_approval_grant": body.get("wallet_approval_grant").cloned().unwrap_or_else(|| json!({})),

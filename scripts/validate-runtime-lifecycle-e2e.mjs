@@ -700,60 +700,66 @@ async function main() {
 
     // Step 16: approval decision routes — gated on a REAL wallet-signed ApprovalGrant
     // bound to the request-time lease. The mint fixture (Rust, dcrypt-backed) stands in
-    // for the wallet approver; the daemon derives now_ms + expected_policy_hash from
-    // Rust-authored lease state (never the POST body) and the kernel decision authority
-    // verifies the signature AND binds expiry + policy_hash before authorizing.
+    // for the wallet approver; the daemon derives now_ms + expected_policy_hash +
+    // expected_request_hash from Rust-authored lease state (never the POST body) and the
+    // kernel decision authority verifies the signature AND binds expiry + policy_hash +
+    // request_hash before authorizing.
     await runStep("POST /v1/threads/:id/approvals/:id/{approve,reject,revoke} honor a bound signed grant", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);
       const refs = ["receipt_wallet_grant_e2e"];
 
-      // Seed an approval and return its request-time lease policy_hash (the binding the
-      // wallet must sign the grant under).
+      // Seed an approval and return its request-time lease (carrying the canonical
+      // policy_hash + request_hash the wallet grant must be bound to).
       const seed = async (approvalId) => {
         const created = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals`, {
           method: "POST",
           body: JSON.stringify({ approval_id: approvalId, receipt_refs: refs }),
         });
         assert.equal(created.status, 200);
-        const policyHash = created.body.approval_lease?.policy_hash;
-        assert.ok(policyHash, "the request authority establishes a lease policy_hash");
-        return policyHash;
+        const lease = created.body.approval_lease;
+        assert.ok(lease?.policy_hash, "the request authority establishes a lease policy_hash");
+        assert.ok(lease?.request_hash, "the request authority establishes a canonical request_hash");
+        return lease;
       };
-      const authFor = (policyHash, overrides = {}) => ({
-        wallet_approval_grant: mintApprovalGrant({ policyHash, ...overrides }),
+      const authFor = (lease, overrides = {}) => ({
+        wallet_approval_grant: mintApprovalGrant({
+          policyHash: lease.policy_hash,
+          requestHash: lease.request_hash,
+          ...overrides,
+        }),
         authority_receipt_refs: refs,
       });
 
-      const approveHash = await seed("approval_approve_e2e");
+      const approveLease = await seed("approval_approve_e2e");
       const approve = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
         method: "POST",
-        body: JSON.stringify(authFor(approveHash)),
+        body: JSON.stringify(authFor(approveLease)),
       });
       assert.equal(approve.status, 200);
       assert.equal(approve.body.operation_kind, "approval.approve");
       assert.equal(approve.body.decision, "approve");
       assert.equal(approve.body.lease_status, "active");
 
-      const rejectHash = await seed("approval_reject_e2e");
+      const rejectLease = await seed("approval_reject_e2e");
       const reject = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_reject_e2e/reject`, {
         method: "POST",
-        body: JSON.stringify(authFor(rejectHash)),
+        body: JSON.stringify(authFor(rejectLease)),
       });
       assert.equal(reject.status, 200);
       assert.equal(reject.body.operation_kind, "approval.reject");
 
-      const revokeHash = await seed("approval_revoke_e2e");
+      const revokeLease = await seed("approval_revoke_e2e");
       const revoke = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_revoke_e2e/revoke`, {
         method: "POST",
-        body: JSON.stringify(authFor(revokeHash)),
+        body: JSON.stringify(authFor(revokeLease)),
       });
       assert.equal(revoke.status, 200);
       assert.equal(revoke.body.operation_kind, "approval.revoke");
       assert.equal(revoke.body.lease_status, "revoked");
 
       // /decision dispatches by body.decision.
-      const decisionHash = await seed("approval_decision_e2e");
-      const decisionAuth = authFor(decisionHash);
+      const decisionLease = await seed("approval_decision_e2e");
+      const decisionAuth = authFor(decisionLease);
       const decision = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_decision_e2e/decision`, {
         method: "POST",
         body: JSON.stringify({ ...decisionAuth, decision: "approve" }),
@@ -761,9 +767,11 @@ async function main() {
       assert.equal(decision.status, 200);
       assert.equal(decision.body.decision, "approve");
 
-      // Fail-closed negatives, each on a fresh approval bound to its own policy_hash.
-      const negHash = await seed("approval_negative_e2e");
-      const validGrant = mintApprovalGrant({ policyHash: negHash });
+      // Fail-closed negatives. `negLease` is the target approval; `otherLease` is a
+      // distinct approval used to prove a grant bound to another approval is rejected.
+      const negLease = await seed("approval_negative_e2e");
+      const otherLease = await seed("approval_other_e2e");
+      const validGrant = mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: negLease.request_hash });
       const reject403 = async (grant, why) => {
         const res = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_negative_e2e/approve`, {
           method: "POST",
@@ -776,11 +784,15 @@ async function main() {
       await reject403({ ...validGrant, authority_id: validGrant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) }, "tampered authority_id must be rejected");
       // N2 tampered signature: cryptographic verification fails (split-brain closed).
       await reject403({ ...validGrant, approver_sig: validGrant.approver_sig.map((b, i) => (i === 0 ? b ^ 0xff : b)) }, "tampered signature must be rejected");
-      // N3 policy mismatch: a grant bound to a different policy_hash (the default fixture
-      // hash) must not authorize this approval.
-      await reject403(mintApprovalGrant({}), "policy_hash mismatch must be rejected");
-      // N4 expired: correct policy_hash but a past expiry — the daemon clock rejects it.
-      await reject403(mintApprovalGrant({ policyHash: negHash, expiresAt: 1000 }), "an expired grant must be rejected");
+      // N3 policy mismatch: correct request_hash but a different policy_hash (the default
+      // fixture hash) must not authorize this approval.
+      await reject403(mintApprovalGrant({ requestHash: negLease.request_hash }), "policy_hash mismatch must be rejected");
+      // N4 expired: correct policy + request hash but a past expiry — the clock rejects it.
+      await reject403(mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: negLease.request_hash, expiresAt: 1000 }), "an expired grant must be rejected");
+      // N5 cross-approval anti-replay: this approval's policy_hash but ANOTHER approval's
+      // request_hash. Signer/signature/expiry/policy are all otherwise valid; only the
+      // request binding is wrong, so the grant for one approval cannot decide another.
+      await reject403(mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: otherLease.request_hash }), "a grant bound to a different approval's request_hash must be rejected");
     });
 
     // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,

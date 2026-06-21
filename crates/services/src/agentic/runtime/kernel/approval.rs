@@ -3315,6 +3315,17 @@ fn approval_lease_record(
         "authority_scope_requirements": authority_scope_requirements,
         "expected_receipt_refs": receipt_refs,
     }));
+    // Canonical request hash — the stable identity of the approval REQUEST (what the
+    // wallet grant authorizes). Unlike policy_hash it excludes lease lifecycle fields
+    // (lease_id/status/expires_at), so it is identical at request and decision time and
+    // binds a grant to THIS approval: a grant minted for one approval cannot decide
+    // another even if all other shape (signer/expiry/policy) is otherwise valid.
+    let request_hash = approval_lease_policy_hash(json!({
+        "approval_id": approval_id,
+        "action": action,
+        "scope": scope,
+        "authority_scope_requirements": authority_scope_requirements,
+    }));
     json!({
         "schema_version": APPROVAL_LEASE_SCHEMA_VERSION,
         "object": "ioi.runtime_approval_lease",
@@ -3324,6 +3335,7 @@ fn approval_lease_record(
         "action": action,
         "scope": scope,
         "policy_hash": policy_hash,
+        "request_hash": request_hash,
         "ttl_ms": ttl_ms,
         "expires_at": expires_at,
         "expected_receipt_refs": receipt_refs,
@@ -5630,14 +5642,35 @@ mod tests {
     }
 
     #[test]
-    fn rust_authority_binds_matching_policy_and_unexpired_grant() {
-        // The fixture grant binds policy_hash [2u8; 32] and expires at 1_850_000_000_000.
+    fn rust_authority_binds_matching_policy_request_and_unexpired_grant() {
+        // The fixture grant binds request_hash [1u8;32], policy_hash [2u8;32], expiry
+        // 1_850_000_000_000.
         let mut request = approval_decision_authority_request("approve");
         request.now_ms = Some(1_000_000_000_000);
         request.expected_policy_hash = Some(hex::encode([2u8; 32]));
+        request.expected_request_hash = Some(format!("sha256:{}", hex::encode([1u8; 32])));
         ApprovalDecisionAuthorityCore
             .authorize(&request)
             .expect("a matching, unexpired, signed grant authorizes the decision");
+    }
+
+    #[test]
+    fn rust_authority_rejects_request_hash_mismatch() {
+        // policy + expiry are valid; only the request binding is wrong — a grant for one
+        // approval must not decide another.
+        let mut request = approval_decision_authority_request("approve");
+        request.now_ms = Some(1_000_000_000_000);
+        request.expected_policy_hash = Some(hex::encode([2u8; 32]));
+        request.expected_request_hash = Some(hex::encode([9u8; 32]));
+        let error = ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect_err("a grant bound to a different approval's request must not authorize");
+        assert_eq!(
+            error,
+            ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
+                "approval grant request hash mismatch".to_string()
+            )
+        );
     }
 
     #[test]
