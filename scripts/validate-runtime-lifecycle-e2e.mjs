@@ -835,27 +835,49 @@ async function main() {
         "the captured snapshot_id is listed",
       );
 
-      // Restore-apply is GATED: without an explicit confirmation it must write NOTHING
-      // (requires_confirmation), so a stray/unconfirmed POST can never mutate the FS.
-      const unconfirmed = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
-        method: "POST",
-        body: "{}",
-      });
-      assert.equal(unconfirmed.status, 200);
-      assert.equal(unconfirmed.body.requires_confirmation, true, "apply requires explicit confirmation");
-      assert.equal(unconfirmed.body.applied_file_count, 0);
-      assert.equal(unconfirmed.body.event, undefined, "no event admitted for an unconfirmed apply");
-      assert.equal(fs.readFileSync(file, "utf8"), "v2\n", "unconfirmed apply leaves the file untouched");
+      // restore-PREVIEW exposes the wallet-grant binding the apply will require.
+      const preview = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-preview`, { method: "POST", body: "{}" });
+      assert.equal(preview.status, 200);
+      assert.equal(preview.body.approval?.required, true, "preview advertises that apply requires approval");
+      const policyHash = preview.body.approval.policy_hash;
+      const requestHash = preview.body.approval.request_hash;
+      assert.ok(policyHash && requestHash, "preview exposes the policy_hash + request_hash to mint a grant against");
 
-      // Confirmed restore-apply: the kernel writes the snapshot's `before` (HEAD) content
-      // back. The working tree is still v2 (== snapshot after) so it is a clean restore;
-      // a.txt reverts to v1 on disk.
+      // restore-apply WRITES THE REAL FS, so it requires a real wallet-signed ApprovalGrant
+      // bound to THIS restore. A bare/boolean POST is FORBIDDEN — it must mutate nothing.
+      const noGrant = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      assert.equal(noGrant.status, 403, "restore-apply without a signed grant is forbidden");
+      assert.equal(fs.readFileSync(file, "utf8"), "v2\n", "no-grant apply leaves the file untouched");
+
+      // A grant minted for a DIFFERENT snapshot (wrong request_hash) cannot authorize this
+      // restore (anti-replay), even though it is a perfectly valid signed grant.
+      const crossGrant = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
+        method: "POST",
+        body: JSON.stringify({ wallet_approval_grant: mintApprovalGrant({ policyHash, requestHash: "11".repeat(32) }) }),
+      });
+      assert.equal(crossGrant.status, 403, "a grant bound to a different request_hash is rejected");
+      assert.equal(fs.readFileSync(file, "utf8"), "v2\n", "rejected-grant apply leaves the file untouched");
+
+      // A grant with the CORRECT request_hash but a foreign policy_hash is also rejected:
+      // the daemon binds BOTH daemon-derived hashes, so weakening the policy_hash binding
+      // (e.g. dropping it from verification) would flip this negative.
+      const wrongPolicy = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
+        method: "POST",
+        body: JSON.stringify({ wallet_approval_grant: mintApprovalGrant({ policyHash: "22".repeat(32), requestHash }) }),
+      });
+      assert.equal(wrongPolicy.status, 403, "a grant bound to a different policy_hash is rejected");
+      assert.equal(fs.readFileSync(file, "utf8"), "v2\n", "wrong-policy-grant apply leaves the file untouched");
+
+      // Valid wallet-signed grant bound to this restore -> applies. Working tree is still v2
+      // (== snapshot after), a clean restore; a.txt reverts to v1 on disk.
+      const grant = mintApprovalGrant({ policyHash, requestHash });
       const apply = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
         method: "POST",
-        body: JSON.stringify({ confirm_restore_apply: true }),
+        body: JSON.stringify({ wallet_approval_grant: grant }),
       });
       assert.equal(apply.status, 200);
       assert.equal(apply.body.event?.event_kind, "workspace_restore.applied");
+      assert.ok(apply.body.approval_grant_ref, "the applied event records which grant authorized it");
       assert.equal(fs.readFileSync(file, "utf8"), "v1\n", "restore-apply reverts the real file to its snapshotted content");
     });
 
@@ -881,6 +903,13 @@ async function main() {
         });
         return encodeURIComponent(created.body.thread_id);
       };
+      // restore-apply requires a wallet-signed grant bound to the daemon-derived binding
+      // returned by restore-preview; mint it and apply.
+      const signedApply = async (tid, snapshotId) => {
+        const preview = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-preview`, { method: "POST", body: "{}" });
+        const grant = mintApprovalGrant({ policyHash: preview.body.approval.policy_hash, requestHash: preview.body.approval.request_hash });
+        return fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, { method: "POST", body: JSON.stringify({ wallet_approval_grant: grant }) });
+      };
 
       // A) binary HEAD, modified to TEXT on disk. Both sides are captured base64; on
       // restore the on-disk text is re-encoded base64 to match the snapshot post-state, so
@@ -896,7 +925,7 @@ async function main() {
       const tidA = await newThread(a.repo);
       const capA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capA.status, 200);
-      const applyA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/${encodeURIComponent(capA.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      const applyA = await signedApply(tidA, capA.body.snapshot_id);
       assert.equal(applyA.status, 200);
       assert.equal(applyA.body.event?.event_kind, "workspace_restore.applied");
       assert.ok(fs.readFileSync(binFile).equals(aHead), "binary HEAD restored to its raw bytes even though the working copy was text");
@@ -913,7 +942,7 @@ async function main() {
       const tidBig = await newThread(big.repo);
       const capBig = await fetchJson(`${rust.endpoint}/v1/threads/${tidBig}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capBig.status, 200);
-      const applyBig = await fetchJson(`${rust.endpoint}/v1/threads/${tidBig}/snapshots/${encodeURIComponent(capBig.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      const applyBig = await signedApply(tidBig, capBig.body.snapshot_id);
       assert.equal(applyBig.status, 200);
       assert.ok(fs.existsSync(bigFile), "over-cap (uncapturable) file MUST NOT be deleted on restore");
       assert.equal(applyBig.body.applied_file_count, 0, "uncapturable content -> nothing applied (blocked)");
@@ -927,7 +956,7 @@ async function main() {
       const tidB = await newThread(b.repo);
       const capB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capB.status, 200);
-      const applyB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/${encodeURIComponent(capB.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      const applyB = await signedApply(tidB, capB.body.snapshot_id);
       assert.equal(applyB.status, 200);
       assert.equal(applyB.body.event?.event_kind, "workspace_restore.applied");
       assert.equal(fs.readFileSync(path.join(b.repo, "r.txt"), "utf8"), "orig\n", "rename revert recreates the original path");
@@ -946,7 +975,7 @@ async function main() {
       const tidC = await newThread(c.repo);
       const capC = await fetchJson(`${rust.endpoint}/v1/threads/${tidC}/snapshots/capture`, { method: "POST", body: "{}" });
       assert.equal(capC.status, 200);
-      const applyC = await fetchJson(`${rust.endpoint}/v1/threads/${tidC}/snapshots/${encodeURIComponent(capC.body.snapshot_id)}/restore-apply`, { method: "POST", body: JSON.stringify({ confirm_restore_apply: true }) });
+      const applyC = await signedApply(tidC, capC.body.snapshot_id);
       assert.equal(applyC.status, 200);
       assert.equal(applyC.body.event?.event_kind, "workspace_restore.applied");
       assert.ok(fs.readFileSync(cFile).equals(headBytes), "binary file round-trips to its raw HEAD bytes via base64");

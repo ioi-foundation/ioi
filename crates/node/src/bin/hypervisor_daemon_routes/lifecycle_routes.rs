@@ -47,9 +47,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
     WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
-    ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
-    ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
-    ApprovalRevokeStateUpdateRequest, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    verify_wallet_approval_grant_binding, ApprovalDecisionAuthorityRequest,
+    ApprovalDecisionStateUpdateRequest, ApprovalRequestAuthorityRequest,
+    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
+    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1874,13 +1875,11 @@ fn apply_approval_decision(
     let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     // Daemon-derived authority binding inputs — NEVER the POST body. now_ms is the
-    // daemon wall-clock (rejects an expired grant); expected_policy_hash is the persisted
-    // request-time lease's policy_hash (so a grant minted for one approval/lease cannot
-    // authorize another). Both are derived from Rust-authored state here, not the caller.
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis() as u64)
-        .unwrap_or(0);
+    // daemon wall-clock (rejects an expired grant, fail-closed on a clock fault);
+    // expected_policy_hash is the persisted request-time lease's policy_hash (so a grant
+    // minted for one approval/lease cannot authorize another). Both are derived from
+    // Rust-authored state here, not the caller.
+    let now_ms = daemon_now_ms_fail_closed();
     let policy_binding_source = if target_kind == "run" { run.as_ref() } else { Some(&agent) };
     let expected_policy_hash = policy_binding_source
         .and_then(|record| approval_lease_field_for(record, approval_id, "policy_hash"));
@@ -2740,6 +2739,48 @@ fn restore_files_from_snapshot(st: &DaemonState, record: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// Daemon wall-clock in epoch-ms for approval-grant expiry checks. On the pathological
+/// clock fault (host clock set before 1970-01-01, so `duration_since(UNIX_EPOCH)` errors)
+/// this returns `u64::MAX` so EVERY grant compares as expired — fail CLOSED. Returning 0
+/// would silently DISABLE the expiry gate (`0 > expires_at` is never true); a clock fault
+/// must never be able to revive an expired grant.
+fn daemon_now_ms_fail_closed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or(u64::MAX)
+}
+
+/// Canonical `sha256:<hex>` over the JSON bytes of `value` (matches the kernel's
+/// approval_lease_policy_hash format, so a grant minted against these hashes verifies).
+fn sha256_json_ref(value: &Value) -> String {
+    format!("sha256:{}", sha256_hex_str(&serde_json::to_string(value).unwrap_or_default()))
+}
+
+/// Daemon-derived POLICY hash a restore-apply approval grant must carry: binds the grant
+/// to this thread + snapshot + workspace root (the policy context).
+fn restore_apply_policy_hash(thread_id: &str, snapshot_id: &str, workspace_root: &str) -> String {
+    sha256_json_ref(&json!({
+        "domain": "workspace_restore.apply.policy.v1",
+        "thread_id": thread_id,
+        "snapshot_id": snapshot_id,
+        "workspace_root": workspace_root,
+    }))
+}
+
+/// Daemon-derived REQUEST hash a restore-apply approval grant must carry: the stable
+/// identity of "restore snapshot <id> into thread <id>". It excludes volatile workspace
+/// state so it is identical at mint time and apply time, and it is DISTINCT from any
+/// approval-decision request hash — so a grant minted to authorize one operation (an
+/// approval decision, or a different snapshot/thread) can never authorize this restore.
+fn restore_apply_request_hash(thread_id: &str, snapshot_id: &str) -> String {
+    sha256_json_ref(&json!({
+        "domain": "workspace_restore.apply.request.v1",
+        "thread_id": thread_id,
+        "snapshot_id": snapshot_id,
+    }))
+}
+
 /// Shared body for the two restore routes. Loads the captured snapshot by id (from the
 /// log, via the capture producer — never a fixture), builds the restore operations,
 /// and runs the kernel restore core (`apply` writes the `before` content back to the
@@ -2799,22 +2840,69 @@ async fn run_snapshot_restore(
     let preview_value = serde_json::to_value(&preview_ops)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
+    // Daemon-derived approval binding for THIS restore (thread + snapshot + workspace
+    // root). The operator mints a wallet-signed ApprovalGrant against these hashes
+    // (returned by restore-preview) and presents it to restore-apply; nothing here comes
+    // from the POST body.
+    let expected_policy_hash = restore_apply_policy_hash(&thread_id, &snapshot_id, &workspace_root);
+    let expected_request_hash = restore_apply_request_hash(&thread_id, &snapshot_id);
+
     if !apply {
         return Ok(Json(json!({
             "object": "ioi.runtime_workspace_restore_preview",
             "snapshot_id": snapshot_id,
             "operation": "preview_workspace_restore",
             "operations": preview_value,
+            // The wallet-signed approval an apply will require, and what to bind it to.
+            "approval": {
+                "required": true,
+                "action": "workspace_restore.apply",
+                "policy_hash": expected_policy_hash,
+                "request_hash": expected_request_hash,
+            },
         })));
     }
 
-    // restore-apply is gated by the kernel apply policy over the preview: it requires an
-    // explicit confirmation (confirm_restore_apply / approved) in the body for ANY write.
-    // The operator's allow_conflicts/override_conflicts are forwarded as INPUTS to the
-    // policy, which decides the effective allow_conflicts (only honored alongside a
-    // satisfied approval); the apply request uses plan.allow_conflicts, not the raw body
-    // value. A blocked/conflict preview, or a missing confirmation, returns
-    // requires_confirmation WITHOUT writing.
+    // restore-apply writes the real filesystem, so it requires a REAL wallet-signed
+    // ApprovalGrant — verified EXACTLY like the approval-decision routes: structural +
+    // dcrypt signature + not-expired + bound to the daemon-derived policy/request hash for
+    // THIS restore. A boolean body flag is NOT accepted. now_ms is the daemon wall clock
+    // (never the body, fail-closed on a clock fault); the grant is the only untrusted input.
+    let now_ms = daemon_now_ms_fail_closed();
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let grant_present = grant_value
+        .as_object()
+        .map(|object| !object.is_empty())
+        .unwrap_or(false);
+    let grant_binding = if grant_present {
+        verify_wallet_approval_grant_binding(
+            &grant_value,
+            Some(now_ms),
+            Some(&expected_policy_hash),
+            Some(&expected_request_hash),
+        )
+    } else {
+        Err("restore-apply requires a wallet_approval_grant".to_string())
+    };
+    let grant_binding = match grant_binding {
+        Ok(binding) => binding,
+        Err(reason) => {
+            // Missing or invalid grant: FORBIDDEN, write nothing. Echo the binding the
+            // operator must mint against so a client can obtain a valid grant and retry.
+            return Err(AppError(
+                StatusCode::FORBIDDEN,
+                format!(
+                    "restore-apply approval grant rejected: {reason} \
+                     (bind a wallet grant to policy_hash {expected_policy_hash}, \
+                     request_hash {expected_request_hash})"
+                ),
+            ));
+        }
+    };
+
+    // The verified grant IS the approval. Run the apply policy with approval satisfied BY
+    // the grant (never a raw body flag); the operator's override_conflicts still governs
+    // whether conflicts may be overridden. A hard/conflict-blocked preview still refuses.
     let policy_operations: Vec<Value> = preview_ops
         .iter()
         .map(|op| json!({ "path": op.path, "status": op.status, "blocked_reason": op.blocked_reason }))
@@ -2823,11 +2911,8 @@ async fn run_snapshot_restore(
         "schema_version": WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
         "snapshot_id": snapshot_id,
         "operations": policy_operations,
-        "confirm_restore_apply": body.get("confirm_restore_apply"),
-        "approved": body.get("approved"),
-        "approval": body.get("approval"),
+        "confirm_restore_apply": true,
         "override_conflicts": body.get("override_conflicts"),
-        "allow_conflicts": body.get("allow_conflicts"),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let plan = kernel
@@ -2837,12 +2922,12 @@ async fn run_snapshot_restore(
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
     if plan.policy_status != "allowed" {
-        // Confirmation missing or the preview is hard/conflict-blocked: write nothing.
+        // The grant is valid, but the preview is hard/conflict-blocked: write nothing.
         return Ok(Json(json!({
             "object": "ioi.runtime_workspace_restore_apply",
             "snapshot_id": snapshot_id,
             "operation": "apply_workspace_restore",
-            "status": "requires_confirmation",
+            "status": "blocked",
             "requires_confirmation": true,
             "applied_file_count": 0,
             "policy": policy_value,
@@ -2908,9 +2993,12 @@ async fn run_snapshot_restore(
                 "applied_file_count": applied_count,
                 "blocked_file_count": blocked_count,
                 "operations": operations_value,
+                // Audit which wallet-signed grant authorized this real-FS write.
+                "approval_grant_hash": grant_binding.hash,
+                "approval_grant_ref": grant_binding.grant_ref.clone(),
             },
             "receipt_refs": [format!("receipt_workspace_restore_{event_hash}")],
-            "policy_decision_refs": [],
+            "policy_decision_refs": [grant_binding.grant_ref.clone()],
             "artifact_refs": [],
             "rollback_refs": [],
             "redaction_profile": "internal",
@@ -2920,6 +3008,7 @@ async fn run_snapshot_restore(
         if let Some(object) = response.as_object_mut() {
             object.insert("applied_file_count".to_string(), json!(applied_count));
             object.insert("blocked_file_count".to_string(), json!(blocked_count));
+            object.insert("approval_grant_ref".to_string(), json!(grant_binding.grant_ref));
             object.insert("event".to_string(), admitted);
         }
     }

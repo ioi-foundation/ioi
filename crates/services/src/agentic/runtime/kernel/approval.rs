@@ -3056,9 +3056,9 @@ fn normalized_approval_control_decision(value: Option<&str>) -> Option<String> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ApprovalWalletGrantBinding {
-    hash: String,
-    grant_ref: String,
+pub struct ApprovalWalletGrantBinding {
+    pub hash: String,
+    pub grant_ref: String,
 }
 
 /// Cryptographically verifies an approval grant's signature over its canonical
@@ -3104,51 +3104,45 @@ pub fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), Stri
     Ok(())
 }
 
-fn approval_wallet_grant_binding_from_request(
-    request: &ApprovalDecisionAuthorityRequest,
-) -> Result<ApprovalWalletGrantBinding, ApprovalDecisionAuthorityError> {
-    let grant: ApprovalGrant = serde_json::from_value(request.wallet_approval_grant.clone())
-        .map_err(|error| {
-            ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
-        })?;
-    // Full grant validation at the point of authorization: structural binding +
-    // cryptographic signature (no structural-only acceptance deferred to settlement).
-    grant.verify().map_err(|error| {
-        ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
-    })?;
-    verify_approval_grant_signature(&grant)
-        .map_err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant)?;
-    // Fail-closed authority binding (daemon-derived inputs, never the POST body): an
-    // expired grant or a grant bound to a different policy must not author an
-    // "authorized" record the settlement layer would later have to veto.
-    if let Some(now_ms) = request.now_ms {
+/// Verify a wallet [`ApprovalGrant`] (as a JSON value) is structurally valid, correctly
+/// signed by its claimed authority (dcrypt Ed25519 / ML-DSA over the canonical
+/// `signing_bytes`), not expired, and bound to the given daemon-derived expected policy
+/// and request hashes. This is the reusable authority check shared by the approval
+/// decision routes AND other gated operations (e.g. workspace restore-apply): it verifies
+/// the grant exactly the same way, so no caller reimplements crypto. Every input EXCEPT
+/// the grant itself MUST be daemon-derived (never the POST body) — the grant is the only
+/// untrusted input, and the expected hashes + clock fail it closed. Returns the grant's
+/// content hash + wallet-network ref on success.
+pub fn verify_wallet_approval_grant_binding(
+    wallet_approval_grant: &Value,
+    now_ms: Option<u64>,
+    expected_policy_hash: Option<&str>,
+    expected_request_hash: Option<&str>,
+) -> Result<ApprovalWalletGrantBinding, String> {
+    let grant: ApprovalGrant =
+        serde_json::from_value(wallet_approval_grant.clone()).map_err(|error| error.to_string())?;
+    // Structural binding + cryptographic signature (no structural-only acceptance).
+    grant.verify().map_err(|error| error.to_string())?;
+    verify_approval_grant_signature(&grant)?;
+    // Fail-closed: an expired grant, or one bound to a different policy/request, is rejected.
+    if let Some(now_ms) = now_ms {
         if now_ms > grant.expires_at {
-            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
-                "approval grant has expired".to_string(),
-            ));
+            return Err("approval grant has expired".to_string());
         }
     }
-    if let Some(expected_policy_hash) = request.expected_policy_hash.as_deref() {
-        if !approval_grant_hash_matches(&grant.policy_hash, expected_policy_hash) {
-            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
-                "approval grant policy hash mismatch".to_string(),
-            ));
+    if let Some(expected) = expected_policy_hash {
+        if !approval_grant_hash_matches(&grant.policy_hash, expected) {
+            return Err("approval grant policy hash mismatch".to_string());
         }
     }
-    if let Some(expected_request_hash) = request.expected_request_hash.as_deref() {
-        if !approval_grant_hash_matches(&grant.request_hash, expected_request_hash) {
-            return Err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(
-                "approval grant request hash mismatch".to_string(),
-            ));
+    if let Some(expected) = expected_request_hash {
+        if !approval_grant_hash_matches(&grant.request_hash, expected) {
+            return Err("approval grant request hash mismatch".to_string());
         }
     }
     let grant_hash = format!(
         "sha256:{}",
-        hex::encode(
-            grant
-                .artifact_hash()
-                .map_err(|error| ApprovalDecisionAuthorityError::HashFailed(error.to_string()))?,
-        ),
+        hex::encode(grant.artifact_hash().map_err(|error| error.to_string())?),
     );
     let grant_ref = format!(
         "wallet.network://grant/approval/{}",
@@ -3158,6 +3152,18 @@ fn approval_wallet_grant_binding_from_request(
         hash: grant_hash,
         grant_ref,
     })
+}
+
+fn approval_wallet_grant_binding_from_request(
+    request: &ApprovalDecisionAuthorityRequest,
+) -> Result<ApprovalWalletGrantBinding, ApprovalDecisionAuthorityError> {
+    verify_wallet_approval_grant_binding(
+        &request.wallet_approval_grant,
+        request.now_ms,
+        request.expected_policy_hash.as_deref(),
+        request.expected_request_hash.as_deref(),
+    )
+    .map_err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant)
 }
 
 fn is_wallet_network_grant_ref(grant_ref: &str) -> bool {
