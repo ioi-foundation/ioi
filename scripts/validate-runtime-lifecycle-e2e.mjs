@@ -791,6 +791,62 @@ async function main() {
       assert.equal(snapshots.body.thread_id, createdThread.thread_id);
     });
 
+    // Step 14b: snapshot PRODUCER cut — real git-tree capture over a real workspace,
+    // then a real-FS restore round-trip. A temp git repo with a committed file and an
+    // uncommitted edit is captured (before = HEAD, after = working tree); the captured
+    // event feeds the GET projection; restore-apply writes the `before` content back to
+    // the real file on disk. No fixtures, no turn execution.
+    await runStep("snapshot capture (real git) -> list -> restore-apply (real FS revert)", async () => {
+      const repo = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-snap-repo-"));
+      const git = (args) =>
+        execFileSync("git", ["-C", repo, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      git(["init", "-q"]);
+      git(["config", "user.email", "ratchet@ioi.test"]);
+      git(["config", "user.name", "ratchet"]);
+      const file = path.join(repo, "a.txt");
+      fs.writeFileSync(file, "v1\n");
+      git(["add", "."]);
+      git(["commit", "-q", "-m", "v1"]);
+      fs.writeFileSync(file, "v2\n"); // uncommitted edit -> the working-tree "after"
+
+      const created = await fetchJson(`${rust.endpoint}/v1/threads`, {
+        method: "POST",
+        body: JSON.stringify({ options: { local: { cwd: repo }, model: { id: "auto", routeId: "route.native-local" } } }),
+      });
+      const tid = encodeURIComponent(created.body.thread_id);
+
+      // Capture: the producer git-diffs the real workspace and admits the snapshot.
+      const capture = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/capture`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(capture.status, 200);
+      assert.equal(capture.body.object, "ioi.runtime_workspace_snapshot_capture");
+      assert.ok(capture.body.snapshot_id, "capture returns a snapshot_id");
+      assert.equal(capture.body.event?.event_kind, "workspace_snapshot.captured");
+      const snapshotId = capture.body.snapshot_id;
+
+      // The consumer replays the captured event into the GET list projection.
+      const list = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots`);
+      assert.equal(list.status, 200);
+      assert.ok(list.body.snapshot_count >= 1, "captured snapshot is projected");
+      assert.ok(
+        (list.body.snapshots ?? []).some((s) => (s.snapshot_id ?? s.id) === snapshotId),
+        "the captured snapshot_id is listed",
+      );
+
+      // Restore-apply: the kernel writes the snapshot's `before` (HEAD) content back to
+      // the real file. The working tree is still v2 (== snapshot after) so it is a clean
+      // restore; a.txt reverts to v1 on disk.
+      const apply = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots/${encodeURIComponent(snapshotId)}/restore-apply`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(apply.status, 200);
+      assert.equal(apply.body.event?.event_kind, "workspace_restore.applied");
+      assert.equal(fs.readFileSync(file, "utf8"), "v1\n", "restore-apply reverts the real file to its snapshotted content");
+    });
+
     // Step 15: conversation artifacts — GET list projection + POST create (record-write).
     await runStep("GET/POST /v1/threads/:id/artifacts list + create conversation artifacts", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);
@@ -911,20 +967,20 @@ async function main() {
       await reject403(mintApprovalGrant({ policyHash: negLease.policy_hash, requestHash: otherLease.request_hash }), "a grant bound to a different approval's request_hash must be rejected");
     });
 
-    // ROUTE MIGRATION COMPLETE + PRODUCER CUTS — the Rust hypervisor-daemon owns the
-    // entire thread/run lifecycle + non-lifecycle route surface, plus the
-    // precondition-gated families that have a thread-route trigger.
-    //
-    // The producer subsystems that feed the gated families are now wired to REAL
-    // production (no fixture events seeded onto the log):
+    // ROUTE MIGRATION COMPLETE + ALL PRODUCER CUTS DONE — the Rust hypervisor-daemon
+    // owns the entire thread/run lifecycle + non-lifecycle route surface, plus every
+    // precondition-gated family. All producer subsystems are wired to REAL production
+    // (no fixture events seeded onto the log):
     //   - workspace-change/control — fed by real `git status` detection (step 13b).
     //   - managed-sessions/control — fed by the runtime event-log bridge: a real
     //     `browser__*` turn records the managed session into KV and emits a
     //     KernelEvent::RuntimeThreadEvent that the bridge persists to <state_dir>/events
     //     (verified by the Rust bridge round-trip + control-planner tests; route
     //     Rust-ownership + gating asserted in step 13c).
-    //   - snapshots restore-*      — STILL needs real snapshot-capture production (the
-    //     remaining producer cut: a real git-tree capture over the workspace).
+    //   - snapshots restore-*      — fed by a real git-tree capture
+    //     (POST .../snapshots/capture): `before` = HEAD, `after` = working tree; the
+    //     captured event feeds the list projection and restore-apply writes `before`
+    //     back to the real filesystem (full round-trip in step 14b).
   } finally {
     await rust.close();
   }

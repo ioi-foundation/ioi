@@ -75,8 +75,11 @@ use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
-    WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
-    WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+    capture_workspace_snapshot_files_protocol_response, WorkspaceRestoreOperationsRequest,
+    WorkspaceSnapshotCaptureProtocolRequest, WorkspaceSnapshotListProtocolRequest,
+    WorkspaceSnapshotListRequest, WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -2242,9 +2245,14 @@ pub(crate) async fn handle_snapshots(
     if read_agent_for_thread(&st, &thread_id).is_none() {
         return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
     }
+    // Consumer: replay the workspace_snapshot.captured events the capture producer
+    // admitted (each carries the full snapshot_record) and feed them to the kernel
+    // list projection. Without this the projection always saw an empty array.
+    let snapshots = read_captured_snapshots(&st, &thread_id);
     let inner: WorkspaceSnapshotListRequest = serde_json::from_value(json!({
         "schema_version": WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
         "thread_id": thread_id,
+        "snapshots": snapshots,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let value = RuntimeKernelService::new()
@@ -2253,6 +2261,340 @@ pub(crate) async fn handle_snapshots(
     // The JS owner returns the envelope's `projection`; fall back to the full envelope.
     let body = value.get("projection").cloned().unwrap_or(value);
     Ok(Json(body))
+}
+
+/// Read every `workspace_snapshot.captured` event from the thread's persisted log and
+/// return each captured snapshot's full record (`payload.snapshot_record`, including
+/// the content package). Deduplicated by snapshot_id; newest-last by log order. This
+/// is the consumer the capture producer feeds — the list projection and the restore
+/// routes both read snapshots from here, never from a fixture.
+fn read_captured_snapshots(st: &DaemonState, thread_id: &str) -> Vec<Value> {
+    let event_stream_id = format!("{thread_id}:events");
+    let path = Path::new(st.data_dir.as_str())
+        .join("events")
+        .join(format!("{}.jsonl", sha256_hex_str(&event_stream_id)));
+    let Ok(contents) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let mut snapshots: Vec<Value> = Vec::new();
+    let mut index_by_id: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if event.get("event_kind").and_then(|v| v.as_str()) != Some("workspace_snapshot.captured") {
+            continue;
+        }
+        let Some(record) = event
+            .get("payload")
+            .and_then(|p| p.get("snapshot_record"))
+            .filter(|record| record.is_object())
+            .cloned()
+        else {
+            continue;
+        };
+        let id = record
+            .get("snapshot_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        if let Some(existing) = index_by_id.get(&id) {
+            snapshots[*existing] = record;
+        } else {
+            index_by_id.insert(id, snapshots.len());
+            snapshots.push(record);
+        }
+    }
+    snapshots
+}
+
+/// Read a file's committed (`HEAD`) content via `git show HEAD:<path>` — the
+/// pre-change ("before") side of a workspace snapshot. Returns None for files not in
+/// HEAD (newly created/untracked) or on any git failure.
+fn git_file_head_content(workspace_root: &str, path: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["-C", workspace_root, "show", &format!("HEAD:{path}")])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout).ok()
+}
+
+/// POST /v1/threads/:id/snapshots/capture — the snapshot PRODUCER. Captures a real
+/// workspace snapshot over the thread's cwd from on-disk git state (no fixtures, no
+/// turn execution): for each changed file, `after` = the current working-tree content
+/// and `before` = the committed `HEAD` content. The kernel capture core builds the
+/// snapshot_record (with the content package); the daemon admits a
+/// `workspace_snapshot.captured` event embedding the full record so GET /snapshots
+/// (read_captured_snapshots) and the restore routes can read it back.
+pub(crate) async fn handle_snapshot_capture(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let workspace_root = agent
+        .get("cwd")
+        .or_else(|| agent.get("workspace_root"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if workspace_root.trim().is_empty() {
+        return Err(AppError(StatusCode::BAD_REQUEST, "thread has no workspace cwd to snapshot".to_string()));
+    }
+    let changed = git_changed_files(&workspace_root);
+    let mut changed_files: Vec<Value> = Vec::new();
+    let mut content_drafts: Vec<Value> = Vec::new();
+    for (label, path) in &changed {
+        let created = label == "added";
+        let deleted = label == "deleted";
+        let before_exists = !created;
+        let after_exists = !deleted;
+        let before_content = if before_exists {
+            git_file_head_content(&workspace_root, path)
+        } else {
+            None
+        };
+        let after_content = if after_exists {
+            fs::read_to_string(Path::new(&workspace_root).join(path)).ok()
+        } else {
+            None
+        };
+        changed_files.push(json!({
+            "path": path,
+            "created": created,
+            "before_exists": before_exists && before_content.is_some(),
+            "after_exists": after_exists && after_content.is_some(),
+            // The kernel capture/restore cores hash content as bare hex (no `sha256:`
+            // prefix); match that so content is captured and restore matches.
+            "before_hash": before_content.as_ref().map(|c| sha256_hex_str(c)),
+            "after_hash": after_content.as_ref().map(|c| sha256_hex_str(c)),
+        }));
+        content_drafts.push(json!({
+            "path": path,
+            "before_content": before_content,
+            "after_content": after_content,
+        }));
+    }
+    let protocol: WorkspaceSnapshotCaptureProtocolRequest = serde_json::from_value(json!({
+        "request": {
+            "schema_version": WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+            "changed_files": changed_files,
+            "content_drafts": content_drafts,
+        },
+        "thread_id": thread_id,
+        "workspace_root": workspace_root,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let capture = capture_workspace_snapshot_files_protocol_response(protocol)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let snapshot_record = capture.get("snapshot_record").cloned().unwrap_or(Value::Null);
+    if !snapshot_record.is_object() {
+        return Err(AppError(StatusCode::BAD_GATEWAY, "snapshot capture produced no record".to_string()));
+    }
+    let snapshot_id = snapshot_record
+        .get("snapshot_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("workspace_snapshot_unknown")
+        .to_string();
+    let snapshot_hash = snapshot_record
+        .get("snapshot_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sha256:unknown")
+        .to_string();
+    let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}"));
+    let event = json!({
+        "event_id": format!("event_workspace_snapshot_{event_hash}"),
+        "event_stream_id": format!("{thread_id}:events"),
+        "thread_id": thread_id,
+        "item_id": format!("{thread_id}:item:workspace_snapshot:{event_hash}"),
+        "idempotency_key": format!("workspace_snapshot:capture:{snapshot_id}:{event_hash}"),
+        "source": "runtime_workspace_snapshot_capture",
+        "source_event_kind": "WorkspaceSnapshotCapture",
+        "event_kind": "workspace_snapshot.captured",
+        "status": "completed",
+        "actor": "policy",
+        "component_kind": "workspace_snapshot",
+        "payload_schema_version": "ioi.runtime.workspace-snapshot.event.v1",
+        "payload": {
+            "snapshot_id": snapshot_id,
+            "snapshot_hash": snapshot_hash,
+            "workspace_root": workspace_root,
+            "snapshot_record": snapshot_record,
+        },
+        "receipt_refs": [format!("receipt_workspace_snapshot_capture_{event_hash}")],
+        "policy_decision_refs": [],
+        "artifact_refs": [],
+        "rollback_refs": [],
+        "redaction_profile": "internal",
+        "evidence_refs": ["runtime_workspace_snapshot_capture_rust_owned"],
+    });
+    let admitted = admit_and_persist_event(&st, event)?;
+    Ok(Json(json!({
+        "object": "ioi.runtime_workspace_snapshot_capture",
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "changed_file_count": changed.len(),
+        "captured_file_count": capture.get("captured_file_count").cloned().unwrap_or(json!(0)),
+        "snapshot_record": snapshot_record,
+        "event": admitted,
+    })))
+}
+
+/// Build the kernel restore `files` (path + before/after `{exists, content_hash,
+/// content}`) from a captured snapshot's `content_files`. The restore target is the
+/// `before` side (the pre-change / `HEAD` content), so applying reverts each file to
+/// its snapshotted state.
+fn restore_files_from_snapshot(record: &Value) -> Vec<Value> {
+    let content_files = record
+        .get("content_files")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    content_files
+        .iter()
+        .filter_map(|file| {
+            let path = file.get("path").and_then(|v| v.as_str())?;
+            let side = |key: &str| {
+                let side = file.get(key);
+                json!({
+                    "exists": side.and_then(|s| s.get("exists")).and_then(Value::as_bool).unwrap_or(false),
+                    "content_hash": side.and_then(|s| s.get("content_hash")).cloned().unwrap_or(Value::Null),
+                    "content": side.and_then(|s| s.get("content")).cloned().unwrap_or(Value::Null),
+                })
+            };
+            Some(json!({ "path": path, "before": side("before"), "after": side("after") }))
+        })
+        .collect()
+}
+
+/// Shared body for the two restore routes. Loads the captured snapshot by id (from the
+/// log, via the capture producer — never a fixture), builds the restore operations,
+/// and runs the kernel restore core (`apply` writes the `before` content back to the
+/// real workspace filesystem). `apply` additionally admits a `workspace_restore.applied`
+/// event onto the log.
+async fn run_snapshot_restore(
+    st: Arc<DaemonState>,
+    thread_id: String,
+    snapshot_id: String,
+    body: Value,
+    apply: bool,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let workspace_root = agent
+        .get("cwd")
+        .or_else(|| agent.get("workspace_root"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if workspace_root.trim().is_empty() {
+        return Err(AppError(StatusCode::BAD_REQUEST, "thread has no workspace cwd to restore".to_string()));
+    }
+    let snapshots = read_captured_snapshots(&st, &thread_id);
+    let Some(record) = snapshots
+        .into_iter()
+        .find(|record| record.get("snapshot_id").and_then(|v| v.as_str()) == Some(snapshot_id.as_str()))
+    else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("snapshot not found: {snapshot_id}")));
+    };
+    let files = restore_files_from_snapshot(&record);
+    let allow_conflicts = body.get("allow_conflicts").and_then(Value::as_bool).unwrap_or(false);
+    let schema_version = if apply {
+        WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION
+    } else {
+        WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION
+    };
+    let request: WorkspaceRestoreOperationsRequest = serde_json::from_value(json!({
+        "schema_version": schema_version,
+        "workspace_root": workspace_root,
+        "files": files,
+        "allow_conflicts": allow_conflicts,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let kernel = RuntimeKernelService::new();
+    let operations = if apply {
+        kernel.apply_workspace_restore_operations(&request)
+    } else {
+        kernel.preview_workspace_restore_operations(&request)
+    }
+    .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let operations_value = serde_json::to_value(&operations)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let mut response = json!({
+        "object": if apply { "ioi.runtime_workspace_restore_apply" } else { "ioi.runtime_workspace_restore_preview" },
+        "snapshot_id": snapshot_id,
+        "operation": if apply { "apply_workspace_restore" } else { "preview_workspace_restore" },
+        "operations": operations_value,
+    });
+    if apply {
+        let applied_count = operations
+            .iter()
+            .filter(|op| op.apply_status.as_deref() == Some("applied")
+                || op.apply_status.as_deref() == Some("applied_with_override"))
+            .count();
+        let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}:restore"));
+        let event = json!({
+            "event_id": format!("event_workspace_restore_{event_hash}"),
+            "event_stream_id": format!("{thread_id}:events"),
+            "thread_id": thread_id,
+            "item_id": format!("{thread_id}:item:workspace_restore:{event_hash}"),
+            "idempotency_key": format!("workspace_restore:apply:{snapshot_id}:{event_hash}"),
+            "source": "runtime_workspace_restore",
+            "source_event_kind": "WorkspaceRestoreApply",
+            "event_kind": "workspace_restore.applied",
+            "status": "completed",
+            "actor": "operator",
+            "component_kind": "workspace_restore",
+            "payload_schema_version": "ioi.runtime.workspace-restore.event.v1",
+            "payload": {
+                "snapshot_id": snapshot_id,
+                "applied_file_count": applied_count,
+                "operations": operations_value,
+            },
+            "receipt_refs": [format!("receipt_workspace_restore_{event_hash}")],
+            "policy_decision_refs": [],
+            "artifact_refs": [],
+            "rollback_refs": [],
+            "redaction_profile": "internal",
+            "evidence_refs": ["runtime_workspace_restore_rust_owned"],
+        });
+        let admitted = admit_and_persist_event(&st, event)?;
+        if let Some(object) = response.as_object_mut() {
+            object.insert("applied_file_count".to_string(), json!(applied_count));
+            object.insert("event".to_string(), admitted);
+        }
+    }
+    Ok(Json(response))
+}
+
+/// POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview — preview the restore
+/// diff (read-only; reads current workspace files, writes nothing).
+pub(crate) async fn handle_snapshot_restore_preview(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, snapshot_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    run_snapshot_restore(st, thread_id, snapshot_id, body, false).await
+}
+
+/// POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply — apply the restore: the
+/// kernel writes the snapshot's `before` content back to the real workspace filesystem,
+/// then a `workspace_restore.applied` event is admitted onto the log.
+pub(crate) async fn handle_snapshot_restore_apply(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, snapshot_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    run_snapshot_restore(st, thread_id, snapshot_id, body, true).await
 }
 
 /// GET /v1/threads/:id/artifacts — list the thread's conversation artifacts (read-only).

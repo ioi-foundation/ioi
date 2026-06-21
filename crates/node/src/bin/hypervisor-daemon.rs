@@ -407,6 +407,18 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_snapshots),
         )
         .route(
+            "/v1/threads/:id/snapshots/capture",
+            post(lifecycle_routes::handle_snapshot_capture),
+        )
+        .route(
+            "/v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+            post(lifecycle_routes::handle_snapshot_restore_preview),
+        )
+        .route(
+            "/v1/threads/:id/snapshots/:snapshot_id/restore-apply",
+            post(lifecycle_routes::handle_snapshot_restore_apply),
+        )
+        .route(
             "/v1/threads/:id/artifacts",
             get(lifecycle_routes::handle_artifacts_list)
                 .post(lifecycle_routes::handle_artifact_create),

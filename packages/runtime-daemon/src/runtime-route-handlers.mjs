@@ -207,8 +207,15 @@ export function createRuntimeRouteHandlers(deps) {
       (action === "workspace-change-reviews" &&
         ((request.method === "GET" && !segments[4]) ||
           (request.method === "POST" && segments[4] === "control"))) ||
-      // snapshots (GET list): read-only workspace-snapshot projection. restore-* preserved.
-      (request.method === "GET" && action === "snapshots" && !segments[4]) ||
+      // snapshots: GET list projection + POST .../restore-{preview,apply} are Rust-owned.
+      // The Rust daemon also adds the producer (POST .../capture — real git-tree capture
+      // over the workspace feeds the list + restore from <state_dir>/events).
+      (action === "snapshots" &&
+        ((request.method === "GET" && !segments[4]) ||
+          (request.method === "POST" &&
+            segments[4] &&
+            (segments[5] === "restore-preview" || segments[5] === "restore-apply") &&
+            !segments[6]))) ||
       // artifacts (GET list projection + POST create): the Rust daemon projects the list
       // and plans+persists the created artifact. GET /:id stays preserved.
       ((request.method === "GET" || request.method === "POST") &&

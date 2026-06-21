@@ -865,7 +865,7 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       segments: ["v1", "threads", "thread_route", "snapshots"],
       operation: "listWorkspaceSnapshots",
       args: ["thread_route"],
-      // Migrated to the Rust daemon (read-only projection). restore-* stay preserved.
+      // Migrated to the Rust daemon (read-only projection over captured snapshots).
       retired: true,
     },
     {
@@ -874,6 +874,8 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       segments: ["v1", "threads", "thread_route", "snapshots", "snapshot_route", "restore-preview"],
       operation: "previewWorkspaceSnapshotRestore",
       args: ["thread_route", "snapshot_route", body],
+      // Migrated to the Rust daemon (restore preview over the captured snapshot).
+      retired: true,
     },
     {
       method: "POST",
@@ -881,6 +883,8 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       segments: ["v1", "threads", "thread_route", "snapshots", "snapshot_route", "restore-apply"],
       operation: "applyWorkspaceSnapshotRestore",
       args: ["thread_route", "snapshot_route", body],
+      // Migrated to the Rust daemon (real-FS restore apply over the captured snapshot).
+      retired: true,
     },
   ];
 
