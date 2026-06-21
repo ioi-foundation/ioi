@@ -109,17 +109,19 @@ pub fn managed_session_projected_event(
         .map(|card| serde_json::to_value(card).unwrap_or(Value::Null))
         .collect();
     let session_hex = hex::encode(session_id);
-    let event_hash = short_hash(&format!(
-        "{session_hex}:managed_session.projected:{}",
-        snapshot.session_count
-    ));
+    // Content-address the idempotency key on the MEANINGFUL session state (ids, kinds,
+    // statuses, control/waiting/replay flags) — NOT on volatile counters like
+    // action_count/updated_at. So a hook firing on every browser action emits a fresh
+    // event only when the operator-visible state actually changes (admission dedupes
+    // identical states), instead of appending a duplicate line per action.
+    let state_digest = managed_session_state_digest(&sessions);
+    let event_hash = short_hash(&format!("{session_hex}:managed_session.projected:{state_digest}"));
     let receipt_ref = format!("receipt_managed_session_projected_{event_hash}");
     json!({
         "event_id": format!("event_managed_session_projected_{event_hash}"),
         "item_id": format!("session:{session_hex}:item:managed_session_projected:{event_hash}"),
         "idempotency_key": format!(
-            "session:{session_hex}:managed_session.projected:{}",
-            snapshot.session_count
+            "session:{session_hex}:managed_session.projected:{state_digest}"
         ),
         "source": "runtime.agentic.turn_execution",
         "source_event_kind": "RuntimeTurnExecution.ManagedSessionSnapshot",
@@ -143,6 +145,67 @@ pub fn managed_session_projected_event(
             "agentgres_managed_session_truth_required",
         ],
     })
+}
+
+/// A stable digest of the operator-meaningful managed-session state (ids, kinds,
+/// statuses, control/waiting/replay flags) used to content-address the event so
+/// identical states collapse under admission idempotency. Volatile fields
+/// (action_count, updated_at, detail, last_tool) are deliberately excluded.
+fn managed_session_state_digest(sessions: &[Value]) -> String {
+    let mut parts: Vec<String> = sessions
+        .iter()
+        .map(|session| {
+            let s = |key: &str| session.get(key).and_then(Value::as_str).unwrap_or_default();
+            let b = |key: &str| session.get(key).and_then(Value::as_bool).unwrap_or(false);
+            let id = session
+                .get("id")
+                .and_then(Value::as_str)
+                .or_else(|| session.get("managed_session_id").and_then(Value::as_str))
+                .unwrap_or_default();
+            format!(
+                "{id}|{}|{}|{}|{}|{}|{}",
+                s("kind"),
+                s("status"),
+                s("control_state"),
+                b("waiting_for_user"),
+                b("replay_ready"),
+                s("waiting_reason"),
+            )
+        })
+        .collect();
+    parts.sort();
+    short_hash(&parts.join("\n"))
+}
+
+/// Return the already-admitted event on this stream carrying `idempotency_key`, if any
+/// — the bridge counterpart of the daemon's idempotency check, so the runtime side
+/// never appends a duplicate line for a logically-identical event (the two writers
+/// share one log file).
+fn existing_event_by_idempotency_key(
+    state_dir: &str,
+    event_stream_id: &str,
+    idempotency_key: &str,
+) -> Option<Value> {
+    if idempotency_key.is_empty() {
+        return None;
+    }
+    let path = Path::new(state_dir)
+        .join("events")
+        .join(format!("{}.jsonl", sha256_hex(event_stream_id)));
+    let contents = fs::read_to_string(&path).ok()?;
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if event.get("idempotency_key").and_then(Value::as_str) == Some(idempotency_key) {
+            return Some(event);
+        }
+    }
+    None
 }
 
 /// Inject the resolved daemon `thread_id` and its `event_stream_id` into a
@@ -185,6 +248,14 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
         .to_string();
     if event_stream_id.is_empty() {
         return Err("runtime thread event requires event_stream_id".to_string());
+    }
+    let idempotency_key = event
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    if let Some(existing) = existing_event_by_idempotency_key(state_dir, &event_stream_id, &idempotency_key) {
+        return Ok(existing);
     }
     let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
@@ -258,10 +329,21 @@ pub async fn run_event_log_bridge(
                 session_id,
                 event_json,
             }) => {
-                match persist_runtime_thread_event_json(&state_dir, &session_id, &event_json) {
-                    Ok(_) => {}
-                    Err(error) => {
+                // The persist does blocking filesystem IO (read the stream, admit,
+                // append); run it off the async worker so a large log cannot stall the
+                // runtime's executor.
+                let state_dir = state_dir.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    persist_runtime_thread_event_json(&state_dir, &session_id, &event_json)
+                })
+                .await;
+                match result {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(error)) => {
                         tracing::warn!(%error, "event-log bridge failed to persist runtime thread event");
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "event-log bridge persist task panicked");
                     }
                 }
             }

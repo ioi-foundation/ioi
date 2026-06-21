@@ -648,12 +648,53 @@ fn append_persisted_events(
 /// stream's `latest_seq` from `<state_dir>/events/*.jsonl` and assigns seq+1, so the
 /// event lands AFTER the thread.started + turn events already on the log — then
 /// append the admitted event. Returns the admitted event (with seq, event_id, refs).
+/// Return the already-admitted event on `event_stream_id` carrying `idempotency_key`,
+/// if any. Makes admission idempotent: re-admitting the same logical event (a managed
+/// session re-projected on every browser action, a snapshot captured twice over an
+/// unchanged workspace, a re-applied restore with the same outcome) returns the prior
+/// event instead of appending a duplicate line — which would otherwise grow the log
+/// unboundedly and let GET /events show duplicate/stale records.
+fn existing_event_by_idempotency_key(
+    st: &DaemonState,
+    event_stream_id: &str,
+    idempotency_key: &str,
+) -> Option<Value> {
+    if idempotency_key.is_empty() {
+        return None;
+    }
+    let path = Path::new(st.data_dir.as_str())
+        .join("events")
+        .join(format!("{}.jsonl", sha256_hex_str(event_stream_id)));
+    let contents = fs::read_to_string(&path).ok()?;
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if event.get("idempotency_key").and_then(|v| v.as_str()) == Some(idempotency_key) {
+            return Some(event);
+        }
+    }
+    None
+}
+
 fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppError> {
     let event_stream_id = event
         .get("event_stream_id")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
+    let idempotency_key = event
+        .get("idempotency_key")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if let Some(existing) = existing_event_by_idempotency_key(st, &event_stream_id, &idempotency_key) {
+        return Ok(existing);
+    }
     let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
         "event": event,
@@ -2326,6 +2367,130 @@ fn git_file_head_content(workspace_root: &str, path: &str) -> Option<String> {
     String::from_utf8(output.stdout).ok()
 }
 
+/// Resolve the git repository root for a workspace (`git rev-parse --show-toplevel`).
+/// `git status` paths are repo-root-relative, so snapshot content reads and restore
+/// writes must be rooted here — NOT at an agent cwd that may be a subdirectory of the
+/// repo (which would resolve every path to the wrong place). Falls back to the given
+/// workspace_root when it is not inside a git repo.
+fn git_repo_root(workspace_root: &str) -> String {
+    std::process::Command::new("git")
+        .args(["-C", workspace_root, "rev-parse", "--show-toplevel"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| workspace_root.to_string())
+}
+
+/// One changed path for snapshot capture, carrying the rename source when applicable.
+struct SnapshotChange {
+    label: String,
+    path: String,
+    old_path: Option<String>,
+}
+
+/// Enumerate workspace changes for snapshot capture ROBUSTLY: `core.quotePath=false`
+/// + `--porcelain=v1 -z` (NUL-delimited) so paths with spaces, quotes, or non-ASCII
+/// are returned verbatim (never C-quoted, which the naive parser would mangle), and
+/// renames carry BOTH the new path and the NUL-separated old path. Paths are
+/// repo-root-relative.
+fn git_snapshot_changes(repo_root: &str) -> Vec<SnapshotChange> {
+    let output = std::process::Command::new("git")
+        .args([
+            "-c",
+            "core.quotePath=false",
+            "-C",
+            repo_root,
+            "status",
+            "--porcelain=v1",
+            "-z",
+        ])
+        .output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let fields: Vec<&str> = text.split('\0').collect();
+    let mut changes = Vec::new();
+    let mut index = 0;
+    while index < fields.len() {
+        let field = fields[index];
+        if field.len() < 4 {
+            index += 1;
+            continue;
+        }
+        let code = &field[..2];
+        let path = field[3..].to_string();
+        if code.contains('R') || code.contains('C') {
+            // Rename/copy: the NEXT NUL-terminated field is the source path.
+            let old_path = fields
+                .get(index + 1)
+                .map(|value| value.to_string())
+                .filter(|value| !value.is_empty());
+            changes.push(SnapshotChange { label: "renamed".to_string(), path, old_path });
+            index += 2;
+        } else {
+            let label = if code.contains('D') {
+                "deleted"
+            } else if code.contains('A') || code == "??" {
+                "added"
+            } else {
+                "modified"
+            };
+            changes.push(SnapshotChange { label: label.to_string(), path, old_path: None });
+            index += 1;
+        }
+    }
+    changes
+}
+
+/// Build the (changed_file, content_draft) pair for one snapshot path. CRITICAL:
+/// `before_exists`/`after_exists` come from the git LABEL, never from whether the
+/// content could be read. A failed before-content read (binary/non-UTF-8 HEAD blob,
+/// unreadable file) therefore leaves before_exists=true with NO content, so the kernel
+/// marks the side content-missing and RESTORE BLOCKS — instead of collapsing
+/// before_exists to false, which the kernel would reclassify as a destructive `delete`
+/// of the user's real file (silent data loss).
+fn snapshot_file_entry(
+    repo_root: &str,
+    path: &str,
+    before_exists: bool,
+    after_exists: bool,
+    created: bool,
+) -> (Value, Value) {
+    let before_content = if before_exists {
+        git_file_head_content(repo_root, path)
+    } else {
+        None
+    };
+    let after_content = if after_exists {
+        fs::read_to_string(Path::new(repo_root).join(path)).ok()
+    } else {
+        None
+    };
+    let changed_file = json!({
+        "path": path,
+        "created": created,
+        "before_exists": before_exists,
+        "after_exists": after_exists,
+        // The kernel capture/restore cores hash content as bare hex (no `sha256:`
+        // prefix); match that so content is captured and restore comparisons line up.
+        "before_hash": before_content.as_ref().map(|content| sha256_hex_str(content)),
+        "after_hash": after_content.as_ref().map(|content| sha256_hex_str(content)),
+    });
+    let content_draft = json!({
+        "path": path,
+        "before_content": before_content,
+        "after_content": after_content,
+    });
+    (changed_file, content_draft)
+}
+
 /// POST /v1/threads/:id/snapshots/capture — the snapshot PRODUCER. Captures a real
 /// workspace snapshot over the thread's cwd from on-disk git state (no fixtures, no
 /// turn execution): for each changed file, `after` = the current working-tree content
@@ -2340,48 +2505,44 @@ pub(crate) async fn handle_snapshot_capture(
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
         return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
     };
-    let workspace_root = agent
+    let agent_cwd = agent
         .get("cwd")
         .or_else(|| agent.get("workspace_root"))
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    if workspace_root.trim().is_empty() {
+    if agent_cwd.trim().is_empty() {
         return Err(AppError(StatusCode::BAD_REQUEST, "thread has no workspace cwd to snapshot".to_string()));
     }
-    let changed = git_changed_files(&workspace_root);
+    // git status paths are repo-root-relative; root content reads + the restore target
+    // at the repo root, not at a (possibly subdirectory) agent cwd.
+    let workspace_root = git_repo_root(&agent_cwd);
+    let changes = git_snapshot_changes(&workspace_root);
     let mut changed_files: Vec<Value> = Vec::new();
     let mut content_drafts: Vec<Value> = Vec::new();
-    for (label, path) in &changed {
-        let created = label == "added";
-        let deleted = label == "deleted";
-        let before_exists = !created;
-        let after_exists = !deleted;
-        let before_content = if before_exists {
-            git_file_head_content(&workspace_root, path)
-        } else {
-            None
+    for change in &changes {
+        // Expand into capture entries whose before/after EXISTS bits come from the git
+        // label (never from content-read success), so a content-read failure blocks
+        // restore rather than turning the file into a delete target. Renames split into
+        // a delete-of-old (before=HEAD:old) + a create-of-new (after=working:new) so a
+        // restore reverts the rename instead of deleting the renamed file.
+        let entries: Vec<(Value, Value)> = match change.label.as_str() {
+            "renamed" => {
+                let mut entries = Vec::new();
+                if let Some(old) = &change.old_path {
+                    entries.push(snapshot_file_entry(&workspace_root, old, true, false, false));
+                }
+                entries.push(snapshot_file_entry(&workspace_root, &change.path, false, true, true));
+                entries
+            }
+            "added" => vec![snapshot_file_entry(&workspace_root, &change.path, false, true, true)],
+            "deleted" => vec![snapshot_file_entry(&workspace_root, &change.path, true, false, false)],
+            _ => vec![snapshot_file_entry(&workspace_root, &change.path, true, true, false)],
         };
-        let after_content = if after_exists {
-            fs::read_to_string(Path::new(&workspace_root).join(path)).ok()
-        } else {
-            None
-        };
-        changed_files.push(json!({
-            "path": path,
-            "created": created,
-            "before_exists": before_exists && before_content.is_some(),
-            "after_exists": after_exists && after_content.is_some(),
-            // The kernel capture/restore cores hash content as bare hex (no `sha256:`
-            // prefix); match that so content is captured and restore matches.
-            "before_hash": before_content.as_ref().map(|c| sha256_hex_str(c)),
-            "after_hash": after_content.as_ref().map(|c| sha256_hex_str(c)),
-        }));
-        content_drafts.push(json!({
-            "path": path,
-            "before_content": before_content,
-            "after_content": after_content,
-        }));
+        for (changed_file, content_draft) in entries {
+            changed_files.push(changed_file);
+            content_drafts.push(content_draft);
+        }
     }
     let protocol: WorkspaceSnapshotCaptureProtocolRequest = serde_json::from_value(json!({
         "request": {
@@ -2395,9 +2556,14 @@ pub(crate) async fn handle_snapshot_capture(
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let capture = capture_workspace_snapshot_files_protocol_response(protocol)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    let snapshot_record = capture.get("snapshot_record").cloned().unwrap_or(Value::Null);
+    let mut snapshot_record = capture.get("snapshot_record").cloned().unwrap_or(Value::Null);
     if !snapshot_record.is_object() {
         return Err(AppError(StatusCode::BAD_GATEWAY, "snapshot capture produced no record".to_string()));
+    }
+    // Pin the captured repo root so restore targets the SAME root the paths are
+    // relative to, regardless of the agent cwd at restore time.
+    if let Some(record) = snapshot_record.as_object_mut() {
+        record.insert("captured_workspace_root".to_string(), Value::String(workspace_root.clone()));
     }
     let snapshot_id = snapshot_record
         .get("snapshot_id")
@@ -2441,7 +2607,7 @@ pub(crate) async fn handle_snapshot_capture(
         "object": "ioi.runtime_workspace_snapshot_capture",
         "snapshot_id": snapshot_id,
         "snapshot_hash": snapshot_hash,
-        "changed_file_count": changed.len(),
+        "changed_file_count": changed_files.len(),
         "captured_file_count": capture.get("captured_file_count").cloned().unwrap_or(json!(0)),
         "snapshot_record": snapshot_record,
         "event": admitted,
@@ -2490,15 +2656,6 @@ async fn run_snapshot_restore(
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
         return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
     };
-    let workspace_root = agent
-        .get("cwd")
-        .or_else(|| agent.get("workspace_root"))
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-    if workspace_root.trim().is_empty() {
-        return Err(AppError(StatusCode::BAD_REQUEST, "thread has no workspace cwd to restore".to_string()));
-    }
     let snapshots = read_captured_snapshots(&st, &thread_id);
     let Some(record) = snapshots
         .into_iter()
@@ -2506,6 +2663,25 @@ async fn run_snapshot_restore(
     else {
         return Err(AppError(StatusCode::NOT_FOUND, format!("snapshot not found: {snapshot_id}")));
     };
+    // Target the SAME repo root the snapshot paths are relative to (pinned at capture),
+    // not the agent cwd at restore time (which may have moved or be a subdirectory).
+    let workspace_root = record
+        .get("captured_workspace_root")
+        .and_then(|v| v.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            agent
+                .get("cwd")
+                .or_else(|| agent.get("workspace_root"))
+                .and_then(|v| v.as_str())
+                .filter(|value| !value.trim().is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_default();
+    if workspace_root.trim().is_empty() {
+        return Err(AppError(StatusCode::BAD_REQUEST, "snapshot has no workspace root to restore into".to_string()));
+    }
     let files = restore_files_from_snapshot(&record);
     let allow_conflicts = body.get("allow_conflicts").and_then(Value::as_bool).unwrap_or(false);
     let schema_version = if apply {
@@ -2541,23 +2717,37 @@ async fn run_snapshot_restore(
             .filter(|op| op.apply_status.as_deref() == Some("applied")
                 || op.apply_status.as_deref() == Some("applied_with_override"))
             .count();
-        let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}:restore"));
+        let blocked_count = operations
+            .iter()
+            .filter(|op| op.status == "blocked" || op.status == "conflict"
+                || op.apply_status.as_deref() == Some("blocked"))
+            .count();
+        // Distinguish an apply that actually wrote files from one where every op was
+        // blocked/conflict (so GET /events does not show "applied" for a no-op). The
+        // event hash folds in the operation outcome so each distinct apply is its own
+        // audit record while identical no-op re-applies collapse under idempotency.
+        let applied = applied_count > 0;
+        let outcome_hash = short_hash(&operations_value.to_string());
+        let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}:restore:{outcome_hash}"));
+        let event_kind = if applied { "workspace_restore.applied" } else { "workspace_restore.blocked" };
+        let status = if applied { "completed" } else { "blocked" };
         let event = json!({
             "event_id": format!("event_workspace_restore_{event_hash}"),
             "event_stream_id": format!("{thread_id}:events"),
             "thread_id": thread_id,
             "item_id": format!("{thread_id}:item:workspace_restore:{event_hash}"),
-            "idempotency_key": format!("workspace_restore:apply:{snapshot_id}:{event_hash}"),
+            "idempotency_key": format!("workspace_restore:apply:{snapshot_id}:{outcome_hash}"),
             "source": "runtime_workspace_restore",
             "source_event_kind": "WorkspaceRestoreApply",
-            "event_kind": "workspace_restore.applied",
-            "status": "completed",
+            "event_kind": event_kind,
+            "status": status,
             "actor": "operator",
             "component_kind": "workspace_restore",
             "payload_schema_version": "ioi.runtime.workspace-restore.event.v1",
             "payload": {
                 "snapshot_id": snapshot_id,
                 "applied_file_count": applied_count,
+                "blocked_file_count": blocked_count,
                 "operations": operations_value,
             },
             "receipt_refs": [format!("receipt_workspace_restore_{event_hash}")],
@@ -2570,6 +2760,7 @@ async fn run_snapshot_restore(
         let admitted = admit_and_persist_event(&st, event)?;
         if let Some(object) = response.as_object_mut() {
             object.insert("applied_file_count".to_string(), json!(applied_count));
+            object.insert("blocked_file_count".to_string(), json!(blocked_count));
             object.insert("event".to_string(), admitted);
         }
     }

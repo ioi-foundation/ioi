@@ -201,7 +201,7 @@ export function createRuntimeRouteHandlers(deps) {
       // prior managed_session event to act on.
       (action === "managed-sessions" &&
         ((request.method === "GET" && !segments[4]) ||
-          (request.method === "POST" && segments[4] === "control"))) ||
+          (request.method === "POST" && segments[4] === "control" && !segments[5]))) ||
       // workspace-change-reviews: GET projection + POST control are Rust-owned; the Rust
       // daemon also adds the producer (POST .../detect — real git detection feeds them).
       (action === "workspace-change-reviews" &&

@@ -847,6 +847,62 @@ async function main() {
       assert.equal(fs.readFileSync(file, "utf8"), "v1\n", "restore-apply reverts the real file to its snapshotted content");
     });
 
+    // Step 14c: snapshot capture/restore DATA-LOSS regression guards (two isolated
+    // repos — a blocked op preflight-blocks an entire apply, so they must not share one).
+    //  A) a modified file whose committed (HEAD) blob is binary/non-UTF-8 must BLOCK on
+    //     restore (content uncapturable), NEVER be silently deleted.
+    //  B) a rename must REVERT (recreate old path, remove new path), not delete the file.
+    await runStep("snapshot restore blocks on binary-HEAD (no silent delete) + reverts renames", async () => {
+      const newRepo = (prefix) => {
+        const repo = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+        const git = (args) =>
+          execFileSync("git", ["-C", repo, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+        git(["init", "-q"]);
+        git(["config", "user.email", "ratchet@ioi.test"]);
+        git(["config", "user.name", "ratchet"]);
+        return { repo, git };
+      };
+      const newThread = async (repo) => {
+        const created = await fetchJson(`${rust.endpoint}/v1/threads`, {
+          method: "POST",
+          body: JSON.stringify({ options: { local: { cwd: repo }, model: { id: "auto", routeId: "route.native-local" } } }),
+        });
+        return encodeURIComponent(created.body.thread_id);
+      };
+
+      // A) binary HEAD, modified to text on disk.
+      const a = newRepo("ioi-snap-bin-");
+      const binFile = path.join(a.repo, "bin.dat");
+      fs.writeFileSync(binFile, Buffer.from([0xff, 0xfe, 0x00, 0x80, 0x01, 0x02]));
+      a.git(["add", "."]);
+      a.git(["commit", "-q", "-m", "binary"]);
+      fs.writeFileSync(binFile, "now plain text\n"); // working tree modified; HEAD is binary
+      const tidA = await newThread(a.repo);
+      const capA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/capture`, { method: "POST", body: "{}" });
+      assert.equal(capA.status, 200);
+      const applyA = await fetchJson(`${rust.endpoint}/v1/threads/${tidA}/snapshots/${encodeURIComponent(capA.body.snapshot_id)}/restore-apply`, { method: "POST", body: "{}" });
+      assert.equal(applyA.status, 200);
+      assert.ok(fs.existsSync(binFile), "binary-HEAD file MUST NOT be deleted on restore (data-loss guard)");
+      assert.equal(fs.readFileSync(binFile, "utf8"), "now plain text\n", "blocked restore leaves the file untouched");
+      assert.equal(applyA.body.applied_file_count, 0, "uncapturable before-content -> nothing applied (blocked)");
+      assert.equal(applyA.body.event?.event_kind, "workspace_restore.blocked", "no-op apply is recorded as blocked, not applied");
+
+      // B) rename revert.
+      const b = newRepo("ioi-snap-mv-");
+      fs.writeFileSync(path.join(b.repo, "r.txt"), "orig\n");
+      b.git(["add", "."]);
+      b.git(["commit", "-q", "-m", "orig"]);
+      b.git(["mv", "r.txt", "r2.txt"]);
+      const tidB = await newThread(b.repo);
+      const capB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/capture`, { method: "POST", body: "{}" });
+      assert.equal(capB.status, 200);
+      const applyB = await fetchJson(`${rust.endpoint}/v1/threads/${tidB}/snapshots/${encodeURIComponent(capB.body.snapshot_id)}/restore-apply`, { method: "POST", body: "{}" });
+      assert.equal(applyB.status, 200);
+      assert.equal(applyB.body.event?.event_kind, "workspace_restore.applied");
+      assert.equal(fs.readFileSync(path.join(b.repo, "r.txt"), "utf8"), "orig\n", "rename revert recreates the original path");
+      assert.ok(!fs.existsSync(path.join(b.repo, "r2.txt")), "rename revert removes the new path");
+    });
+
     // Step 15: conversation artifacts — GET list projection + POST create (record-write).
     await runStep("GET/POST /v1/threads/:id/artifacts list + create conversation artifacts", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);

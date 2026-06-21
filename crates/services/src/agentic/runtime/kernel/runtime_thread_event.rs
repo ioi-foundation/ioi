@@ -1176,14 +1176,22 @@ fn runtime_thread_events_from_state_dir(
             if line.is_empty() {
                 continue;
             }
-            let event: Value = serde_json::from_str(line).map_err(|error| {
-                RuntimeThreadEventAdmissionError::ReplayRecordInvalid(format!(
-                    "runtime thread-event {operation} found invalid Agentgres event record {}:{}: {error}",
-                    path.display(),
-                    index + 1
-                ))
-            })?;
-            events.push(event);
+            // Tolerate a single malformed/partially-written line rather than failing the
+            // ENTIRE stream read (which would 502 every GET /events for the thread). One
+            // corrupt or torn append — more likely now that the runtime event-log bridge
+            // is a second writer to the same file — must not take down the whole stream.
+            match serde_json::from_str::<Value>(line) {
+                Ok(event) => events.push(event),
+                Err(error) => {
+                    tracing::warn!(
+                        operation = %operation,
+                        path = %path.display(),
+                        line = index + 1,
+                        %error,
+                        "skipping malformed runtime thread-event record",
+                    );
+                }
+            }
         }
     }
     events.sort_by_key(|event| event.as_object().and_then(event_seq).unwrap_or(0));

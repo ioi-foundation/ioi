@@ -1483,6 +1483,30 @@ fn resolve_workspace_restore_path(
             selected_path.to_string(),
         ));
     }
+    // Lexical normalization alone does not stop a SYMLINKED parent from escaping the
+    // workspace (e.g. <root>/sub -> /etc). Canonicalize the deepest existing ancestor of
+    // the target and re-check it is still inside the canonicalized root before any write.
+    if let Ok(canonical_root) = fs::canonicalize(&root) {
+        let mut ancestor = candidate.as_path();
+        let existing = loop {
+            if ancestor.exists() {
+                break Some(ancestor.to_path_buf());
+            }
+            match ancestor.parent() {
+                Some(parent) => ancestor = parent,
+                None => break None,
+            }
+        };
+        if let Some(existing) = existing {
+            if let Ok(canonical_existing) = fs::canonicalize(&existing) {
+                if !path_inside(&canonical_root, &canonical_existing) {
+                    return Err(WorkspaceRestoreOperationError::PathEscapedWorkspace(
+                        selected_path.to_string(),
+                    ));
+                }
+            }
+        }
+    }
     let relative_path = candidate
         .strip_prefix(&root)
         .unwrap_or(candidate.as_path())
