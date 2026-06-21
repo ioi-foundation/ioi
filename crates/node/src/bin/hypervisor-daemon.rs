@@ -518,7 +518,7 @@ async fn handle_server_status(
 // Truth/authority invariant: the kernel + a wallet.network grant DECIDE; the
 // daemon ENFORCES and PROJECTS over Agentgres-admitted records under state_dir.
 
-fn sha256_hex_str(input: &str) -> String {
+pub(crate) fn sha256_hex_str(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     hex::encode(hasher.finalize())

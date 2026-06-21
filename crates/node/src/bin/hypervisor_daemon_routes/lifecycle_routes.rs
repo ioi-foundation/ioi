@@ -13,6 +13,9 @@
 //! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write as _;
+use std::path::Path;
 use std::sync::Arc;
 
 use axum::body::Body;
@@ -37,15 +40,16 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
-    RuntimeThreadEventProjectionRequest, RuntimeThreadTurnProjectionRequest,
-    RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    RuntimeThreadEventProjectionRequest, RuntimeThreadEventReplayRequest,
+    RuntimeThreadTurnProjectionRequest, RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
     RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 use super::{
     build_route_decision, debug_string, iso_now, persist_record, read_record_dir, route_selection,
-    short_hash, AppError, DaemonState,
+    sha256_hex_str, short_hash, AppError, DaemonState,
 };
 
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
@@ -286,9 +290,10 @@ pub(crate) async fn handle_thread_create(
         .plan_thread_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
-    // --- persist the planned agent (thread.started is synthesized by projection) ---
+    // --- persist the planned agent, then admit+persist thread.started to the log ---
     persist_record(&st.data_dir, "agents", &agent_id, &planned.agent)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_thread_events(&st, &thread_id)?;
 
     // --- return the kernel thread projection ---
     let record = project_thread_record(&st, &thread_id)?;
@@ -551,9 +556,83 @@ pub(crate) async fn handle_turn_create(
 
     persist_record(&st.data_dir, "runs", &run_id, &planned.run)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    // Admit+persist the turn's events on top of the persisted thread.started.
+    persist_thread_events(&st, &thread_id)?;
 
     let record = project_turn_record(&st, &thread_id, &run_id)?;
     Ok(Json(record))
+}
+
+/// Append admitted runtime events to the thread's persisted Agentgres event log
+/// (`<state_dir>/events/<sha256(stream_id)>.jsonl`). The kernel reads every
+/// `*.jsonl` under `events/` and filters by `event_stream_id`, so one file per
+/// stream keeps appends contiguous without clobbering sibling streams.
+fn append_persisted_events(
+    st: &DaemonState,
+    event_stream_id: &str,
+    events: &[Value],
+) -> Result<(), AppError> {
+    if events.is_empty() {
+        return Ok(());
+    }
+    let events_dir = Path::new(st.data_dir.as_str()).join("events");
+    fs::create_dir_all(&events_dir)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let path = events_dir.join(format!("{}.jsonl", sha256_hex_str(event_stream_id)));
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    for event in events {
+        let line = serde_json::to_string(event)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        writeln!(file, "{line}")
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Unified-event-log writer: run the kernel thread-event projection (which admits
+/// the synthesized thread.started + run/turn/materializer events on top of the
+/// already-persisted log, skipping anything whose idempotency_key is present) and
+/// APPEND the freshly-admitted events to the persisted log. Idempotent — calling it
+/// twice yields no duplicates because the projection dedupes against the log. This is
+/// the write half of the unified event model: GET /events reads back via `replay`.
+fn persist_thread_events(st: &DaemonState, thread_id: &str) -> Result<(), AppError> {
+    let event_stream_id = format!("{thread_id}:events");
+    let admitted = project_runtime_events(st, "thread", thread_id, None)?;
+    append_persisted_events(st, &event_stream_id, &admitted)
+}
+
+/// Replay the full persisted runtime-event log for a stream (`replay_kind = stream`)
+/// or a single turn (`replay_kind = turn`). Returns events with no cursor applied —
+/// the daemon's `sse_events_response` owns since_seq/Last-Event-ID/409 handling.
+fn replay_runtime_events(
+    st: &DaemonState,
+    replay_kind: &str,
+    event_stream_id: &str,
+    turn_id: Option<&str>,
+) -> Result<Vec<Value>, AppError> {
+    let request: RuntimeThreadEventReplayRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
+        "replay_kind": replay_kind,
+        "event_stream_id": event_stream_id,
+        "turn_id": turn_id,
+        "cursor": Value::Null,
+        "state_dir": st.data_dir,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let replay = RuntimeKernelService::new()
+        .project_runtime_thread_event_replay(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let value = serde_json::to_value(&replay)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(value
+        .get("events")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default())
 }
 
 /// Project the runtime event list for a thread (or a run) via the kernel event
@@ -662,7 +741,9 @@ pub(crate) async fn handle_thread_events(
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    let events = project_runtime_events(&st, "thread", &thread_id, None)?;
+    // Unified event model: read back the full persisted log via replay.
+    let event_stream_id = format!("{thread_id}:events");
+    let events = replay_runtime_events(&st, "stream", &event_stream_id, None)?;
     sse_events_response(events, &params, &headers)
 }
 
@@ -685,7 +766,10 @@ pub(crate) async fn handle_run_events(
         .and_then(|v| v.as_str())
         .unwrap_or_default();
     let thread_id = thread_id_for_agent(agent_id);
-    let events = project_runtime_events(&st, "run", &thread_id, Some(&run_id))?;
+    // Run events = the persisted log filtered to this run's turn (run_<x> -> turn_<x>).
+    let event_stream_id = format!("{thread_id}:events");
+    let turn_id = format!("turn_{}", run_id.strip_prefix("run_").unwrap_or(&run_id));
+    let events = replay_runtime_events(&st, "turn", &event_stream_id, Some(&turn_id))?;
     sse_events_response(events, &params, &headers)
 }
 
