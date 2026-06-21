@@ -68,7 +68,9 @@ use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
     RuntimeManagedSessionProjectionRequest, RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
-    RuntimeWorkspaceChangeProjectionRequest, RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+    RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
+    RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+    RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
     WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
@@ -2024,6 +2026,160 @@ pub(crate) async fn handle_workspace_change_reviews(
         "evidence_refs": record.evidence_refs,
         "receipt_refs": record.receipt_refs,
     })))
+}
+
+/// Run `git -C <root> status --porcelain` and return `(status_label, path)` for each
+/// changed file. Empty (and Ok) when the root is not a git work tree or has no changes —
+/// detection is a read-only signal, never a hard failure.
+fn git_changed_files(workspace_root: &str) -> Vec<(String, String)> {
+    let output = std::process::Command::new("git")
+        .args(["-C", workspace_root, "status", "--porcelain"])
+        .output();
+    let Ok(output) = output else { return Vec::new() };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    let mut changes = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        if line.len() < 4 {
+            continue;
+        }
+        let code = line[..2].trim().to_string();
+        // Porcelain v1: "XY <path>" (or "XY <old> -> <new>" for renames).
+        let raw_path = line[3..].trim();
+        let path = raw_path.rsplit(" -> ").next().unwrap_or(raw_path).trim_matches('"');
+        let label = if code.contains('D') {
+            "deleted"
+        } else if code.contains('A') || code == "??" {
+            "added"
+        } else if code.contains('R') {
+            "renamed"
+        } else {
+            "modified"
+        };
+        changes.push((label.to_string(), path.to_string()));
+    }
+    changes
+}
+
+/// POST /v1/threads/:id/workspace-change-reviews/detect — the workspace-change REVIEW
+/// PRODUCER. Runs a real `git status` over the thread's workspace (the agent cwd) and
+/// admits a `workspace_change.detected` event onto the unified log: one proposed
+/// workspace-change card per changed file. The existing control + projection consumers
+/// replay these verbatim — this closes the bootstrap gap where nothing in production
+/// emitted a proposed review onto the events log. No fixtures: real on-disk git changes.
+pub(crate) async fn handle_workspace_change_detect(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let workspace_root = agent
+        .get("cwd")
+        .or_else(|| agent.get("workspace_root"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let changed = git_changed_files(&workspace_root);
+    let now = iso_now();
+    let changes: Vec<Value> = changed
+        .iter()
+        .map(|(status, path)| {
+            let workspace_change_id =
+                format!("workspace_change:{}", short_hash(&format!("{thread_id}:{path}")));
+            json!({
+                "workspace_change_id": workspace_change_id,
+                "path": path,
+                "tool_name": "file__edit",
+                "lifecycle": "proposed",
+                "status": status,
+            })
+        })
+        .collect();
+    let detected_count = changes.len();
+    let mut admitted = Value::Null;
+    if detected_count > 0 {
+        let event_stream_id = format!("{thread_id}:events");
+        let event_hash = short_hash(&format!("{thread_id}:{now}:{detected_count}"));
+        let event = json!({
+            "event_stream_id": event_stream_id,
+            "event_id": format!("event_workspace_change_detect_{event_hash}"),
+            "thread_id": thread_id,
+            "turn_id": "",
+            "item_id": format!("{thread_id}:item:workspace_change_detect:{event_hash}"),
+            "idempotency_key": format!("thread:{thread_id}:workspace_change.detect:{event_hash}"),
+            "source": "runtime_workspace_change_detect",
+            "source_event_kind": "WorkspaceChange.Detected",
+            "event_kind": "workspace_change.detected",
+            "status": "proposed",
+            "actor": "policy",
+            "component_kind": "workspace_change",
+            "payload_schema_version": "ioi.runtime.workspace-change-detect.v1",
+            "payload": { "workspace_root": workspace_root, "changes": changes },
+            "receipt_refs": [format!("receipt_workspace_change_detect_{event_hash}")],
+            "policy_decision_refs": [format!("policy_workspace_change_detect_{event_hash}")],
+            "artifact_refs": [],
+            "rollback_refs": [],
+            "redaction_profile": "internal",
+            "created_at": now,
+        });
+        admitted = admit_and_persist_event(&st, event)?;
+    }
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.workspace-change-detection.v1",
+        "object": "ioi.runtime_workspace_change_detection",
+        "status": "detected",
+        "thread_id": thread_id,
+        "workspace_root": workspace_root,
+        "detected_count": detected_count,
+        "changes": changes,
+        "event": admitted,
+    })))
+}
+
+/// POST /v1/threads/:id/workspace-change-reviews/control — accept/reject a proposed
+/// workspace-change review. The kernel plan_runtime_workspace_change_control reads the
+/// proposed review from the persisted log (by workspace_change_id), validates the
+/// lifecycle transition, and synthesizes the workspace_change.controlled event, which
+/// the daemon admits onto the unified log.
+pub(crate) async fn handle_workspace_change_control(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let Some(workspace_change_id) = body.get("workspace_change_id").and_then(|v| v.as_str()) else {
+        return Err(AppError(StatusCode::BAD_REQUEST, "workspace_change_id is required".to_string()));
+    };
+    let request: RuntimeWorkspaceChangeControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "workspace_change_control",
+        "operation_kind": "workspace_change.control",
+        "thread_id": thread_id,
+        "event_stream_id": format!("{thread_id}:events"),
+        "state_dir": st.data_dir,
+        "workspace_change_id": workspace_change_id,
+        "control_state": body.get("control_state").and_then(|v| v.as_str()),
+        "reason": body.get("reason").and_then(|v| v.as_str()),
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_workspace_change_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let event = serde_json::to_value(&record.event)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if !event.is_object() {
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "workspace-change control planner returned no event".to_string(),
+        ));
+    }
+    let admitted = admit_and_persist_event(&st, event)?;
+    Ok(Json(admitted))
 }
 
 /// GET /v1/threads/:id/snapshots — list the thread's workspace snapshots (read-only).

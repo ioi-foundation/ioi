@@ -1218,6 +1218,8 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/threads/thread_route/workspace-change-reviews/control",
       operation: "controlWorkspaceChangeForThread",
       args: ["thread_route", body],
+      // Migrated to the Rust daemon (kernel control over the real-git-detected reviews).
+      retired: true,
     },
     {
       handler: handleThreadRoute,

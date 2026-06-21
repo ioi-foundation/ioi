@@ -195,10 +195,14 @@ export function createRuntimeRouteHandlers(deps) {
       // usage (thread-scoped GET): the Rust daemon projects run usage via the kernel
       // runtime-lifecycle projection. Run-scoped GET /runs/:id/usage stays preserved.
       (request.method === "GET" && action === "usage" && !segments[4]) ||
-      // managed-sessions + workspace-change-reviews (GET projections): the Rust daemon
-      // projects them. The POST .../control routes stay preserved (gated).
+      // managed-sessions GET projection: the Rust daemon projects it. The
+      // managed-sessions POST .../control stays preserved (still subsystem-gated).
       (request.method === "GET" && action === "managed-sessions" && !segments[4]) ||
-      (request.method === "GET" && action === "workspace-change-reviews" && !segments[4]) ||
+      // workspace-change-reviews: GET projection + POST control are Rust-owned; the Rust
+      // daemon also adds the producer (POST .../detect — real git detection feeds them).
+      (action === "workspace-change-reviews" &&
+        ((request.method === "GET" && !segments[4]) ||
+          (request.method === "POST" && segments[4] === "control"))) ||
       // snapshots (GET list): read-only workspace-snapshot projection. restore-* preserved.
       (request.method === "GET" && action === "snapshots" && !segments[4]) ||
       // artifacts (GET list projection + POST create): the Rust daemon projects the list

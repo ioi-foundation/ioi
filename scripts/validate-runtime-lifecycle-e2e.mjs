@@ -13,6 +13,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { execFileSync } from "node:child_process";
 import { startRustHypervisorDaemon } from "./lib/rust-hypervisor-daemon.mjs";
 import { mintApprovalGrant } from "./lib/mint-approval-grant.mjs";
 
@@ -699,6 +700,59 @@ async function main() {
       assert.equal(reviews.status, 200);
       assert.equal(reviews.body.status, "projected");
       assert.equal(reviews.body.operation_kind, "workspace_change.inspect");
+    });
+
+    // Step 13b: workspace-change PRODUCER cut — real git detection feeds the existing
+    // control/projection consumers. A real temp git repo with on-disk changes (no
+    // fixtures, no harness) is detected, projected as a pending review, then accepted.
+    await runStep("workspace-change detect (real git) -> project -> control(accept)", async () => {
+      const repo = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-wc-repo-"));
+      const git = (args) =>
+        execFileSync("git", ["-C", repo, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      git(["init", "-q"]);
+      git(["config", "user.email", "ratchet@ioi.test"]);
+      git(["config", "user.name", "ratchet"]);
+      fs.writeFileSync(path.join(repo, "a.txt"), "hello\n");
+      git(["add", "."]);
+      git(["commit", "-q", "-m", "init"]);
+      fs.writeFileSync(path.join(repo, "a.txt"), "hello world\n"); // modified
+      fs.writeFileSync(path.join(repo, "b.txt"), "new file\n"); // added
+
+      const created = await fetchJson(`${rust.endpoint}/v1/threads`, {
+        method: "POST",
+        body: JSON.stringify({ options: { local: { cwd: repo }, model: { id: "auto", routeId: "route.native-local" } } }),
+      });
+      const tid = encodeURIComponent(created.body.thread_id);
+
+      // Detect: the producer git-diffs the real workspace and admits proposed reviews.
+      const detect = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/workspace-change-reviews/detect`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(detect.status, 200);
+      assert.equal(detect.body.object, "ioi.runtime_workspace_change_detection");
+      assert.ok(detect.body.detected_count >= 2, "real git changes are detected");
+      assert.equal(detect.body.event?.event_kind, "workspace_change.detected");
+      const changeId = detect.body.changes?.[0]?.workspace_change_id;
+      assert.ok(changeId, "each change carries a workspace_change_id");
+
+      // The existing projection consumer replays the detected reviews as pending.
+      const reviews = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/workspace-change-reviews`);
+      assert.equal(reviews.status, 200);
+      const cards = Array.isArray(reviews.body.projection)
+        ? reviews.body.projection
+        : reviews.body.projection?.records ?? [];
+      assert.ok(cards.length >= 2, "detected reviews are projected");
+      assert.ok(cards.some((card) => card.review_state === "pending_review"), "proposed -> pending_review");
+
+      // Control: accept the proposed review (kernel transition proposed -> applied).
+      const control = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/workspace-change-reviews/control`, {
+        method: "POST",
+        body: JSON.stringify({ workspace_change_id: changeId, control_state: "accept" }),
+      });
+      assert.equal(control.status, 200);
+      assert.equal(control.body.event_kind, "workspace_change.controlled");
+      assert.equal(control.body.payload?.next_lifecycle, "applied");
     });
 
     // Step 14: GET /snapshots — read-only workspace-snapshot list projection.

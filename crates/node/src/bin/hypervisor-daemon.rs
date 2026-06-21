@@ -391,6 +391,14 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_workspace_change_reviews),
         )
         .route(
+            "/v1/threads/:id/workspace-change-reviews/detect",
+            post(lifecycle_routes::handle_workspace_change_detect),
+        )
+        .route(
+            "/v1/threads/:id/workspace-change-reviews/control",
+            post(lifecycle_routes::handle_workspace_change_control),
+        )
+        .route(
             "/v1/threads/:id/snapshots",
             get(lifecycle_routes::handle_snapshots),
         )
