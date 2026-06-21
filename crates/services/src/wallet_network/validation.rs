@@ -1,6 +1,8 @@
 // Path: crates/services/src/wallet_network/validation.rs
 
-use crate::agentic::runtime::kernel::approval::{ApprovalScopeContext, AuthorityScopeMatcher};
+use crate::agentic::runtime::kernel::approval::{
+    verify_approval_grant_signature, ApprovalScopeContext, AuthorityScopeMatcher,
+};
 use crate::guardian_registry::GuardianRegistry;
 use crate::wallet_network::keys::approval_authority_key;
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
@@ -221,49 +223,6 @@ pub(super) fn load_registered_approval_authority(
     }
 }
 
-fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), TransactionError> {
-    let message = grant
-        .signing_bytes()
-        .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
-    match grant.approver_suite {
-        ioi_types::app::SignatureSuite::ED25519 => {
-            let pk = Ed25519PublicKey::from_bytes(&grant.approver_public_key).map_err(|e| {
-                TransactionError::Invalid(format!("Invalid approval grant public key: {}", e))
-            })?;
-            let sig = Ed25519Signature::from_bytes(&grant.approver_sig).map_err(|e| {
-                TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
-            })?;
-            pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!(
-                    "Approval grant signature verification failed: {}",
-                    e
-                ))
-            })?;
-        }
-        ioi_types::app::SignatureSuite::ML_DSA_44 => {
-            let pk = MldsaPublicKey::from_bytes(&grant.approver_public_key).map_err(|e| {
-                TransactionError::Invalid(format!("Invalid approval grant public key: {}", e))
-            })?;
-            let sig = MldsaSignature::from_bytes(&grant.approver_sig).map_err(|e| {
-                TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
-            })?;
-            pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!(
-                    "Approval grant signature verification failed: {}",
-                    e
-                ))
-            })?;
-        }
-        _ => {
-            return Err(TransactionError::Invalid(format!(
-                "Unsupported approval grant signature suite: {}",
-                grant.approver_suite.0
-            )));
-        }
-    }
-    Ok(())
-}
-
 pub(super) fn validate_registered_approval_grant(
     state: &dyn StateAccess,
     grant: &ApprovalGrant,
@@ -274,7 +233,7 @@ pub(super) fn validate_registered_approval_grant(
     grant
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
-    verify_approval_grant_signature(grant)?;
+    verify_approval_grant_signature(grant).map_err(TransactionError::Invalid)?;
     let authority =
         load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(|| {
             TransactionError::Invalid("Approval authority is not registered".to_string())

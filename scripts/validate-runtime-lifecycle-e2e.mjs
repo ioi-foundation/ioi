@@ -748,14 +748,24 @@ async function main() {
       assert.equal(decision.status, 200);
       assert.equal(decision.body.decision, "approve");
 
-      // NEGATIVE: a grant whose authority_id no longer matches the signer pubkey is
-      // rejected (the wrong-signer case the runtime structural verify enforces).
-      const tampered = { ...grant, authority_id: grant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
+      // NEGATIVE 1 — wrong signer: a grant whose authority_id no longer matches the
+      // signer pubkey fails the structural binding.
+      const wrongAuthority = { ...grant, authority_id: grant.authority_id.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
       const wrongSigner = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
         method: "POST",
-        body: JSON.stringify({ wallet_approval_grant: tampered, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
+        body: JSON.stringify({ wallet_approval_grant: wrongAuthority, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
       });
       assert.notEqual(wrongSigner.status, 200, "a tampered authority_id must be rejected");
+
+      // NEGATIVE 2 — tampered signature: authority_id/pubkey intact, but the signature
+      // bytes are corrupted. The runtime decision authority now cryptographically verifies
+      // the grant (the split-brain is closed), so this must be rejected at the route.
+      const tamperedSig = { ...grant, approver_sig: grant.approver_sig.map((b, i) => (i === 0 ? b ^ 0xff : b)) };
+      const badSignature = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals/approval_approve_e2e/approve`, {
+        method: "POST",
+        body: JSON.stringify({ wallet_approval_grant: tamperedSig, authority_receipt_refs: ["receipt_wallet_grant_e2e"] }),
+      });
+      assert.notEqual(badSignature.status, 200, "a tampered signature must be rejected by the runtime authority");
     });
 
     // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,

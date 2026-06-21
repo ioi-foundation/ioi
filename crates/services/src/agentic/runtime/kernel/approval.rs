@@ -1,4 +1,6 @@
-use ioi_types::app::{ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::{
+    ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGrant, SignatureSuite,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -3025,6 +3027,49 @@ struct ApprovalWalletGrantBinding {
     grant_ref: String,
 }
 
+/// Cryptographically verifies an approval grant's signature over its canonical
+/// `signing_bytes()` for the grant's suite (Ed25519 / ML-DSA-44, both via dcrypt).
+///
+/// This is the wallet-authority enforcement that the grant's structural `verify()`
+/// does NOT perform. It is the single shared verifier reused by the runtime decision
+/// authority (below), the settlement resume path, and wallet-network validation so the
+/// SAME production-shaped grant is verified the same way at every authoring point —
+/// no structural-only lane at the runtime layer.
+pub fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), String> {
+    use ioi_api::crypto::{SerializableKey, VerifyingKey};
+    use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
+    use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
+
+    let message = grant
+        .signing_bytes()
+        .map_err(|e| format!("invalid approval grant: {e}"))?;
+    match grant.approver_suite {
+        SignatureSuite::ED25519 => {
+            let pk = Ed25519PublicKey::from_bytes(&grant.approver_public_key)
+                .map_err(|e| format!("invalid approval grant public key: {e}"))?;
+            let sig = Ed25519Signature::from_bytes(&grant.approver_sig)
+                .map_err(|e| format!("invalid approval grant signature: {e}"))?;
+            pk.verify(&message, &sig)
+                .map_err(|e| format!("approval grant signature verification failed: {e}"))?;
+        }
+        SignatureSuite::ML_DSA_44 => {
+            let pk = MldsaPublicKey::from_bytes(&grant.approver_public_key)
+                .map_err(|e| format!("invalid approval grant public key: {e}"))?;
+            let sig = MldsaSignature::from_bytes(&grant.approver_sig)
+                .map_err(|e| format!("invalid approval grant signature: {e}"))?;
+            pk.verify(&message, &sig)
+                .map_err(|e| format!("approval grant signature verification failed: {e}"))?;
+        }
+        other => {
+            return Err(format!(
+                "unsupported approval grant signature suite: {}",
+                other.0
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn approval_wallet_grant_binding_from_request(
     request: &ApprovalDecisionAuthorityRequest,
 ) -> Result<ApprovalWalletGrantBinding, ApprovalDecisionAuthorityError> {
@@ -3032,9 +3077,13 @@ fn approval_wallet_grant_binding_from_request(
         .map_err(|error| {
             ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
         })?;
+    // Full grant validation at the point of authorization: structural binding +
+    // cryptographic signature (no structural-only acceptance deferred to settlement).
     grant.verify().map_err(|error| {
         ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
     })?;
+    verify_approval_grant_signature(&grant)
+        .map_err(ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant)?;
     let grant_hash = format!(
         "sha256:{}",
         hex::encode(
@@ -4574,11 +4623,19 @@ mod tests {
     }
 
     fn approval_wallet_grant() -> ApprovalGrant {
-        let approver_public_key = vec![7u8; 32];
+        use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+        use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+
+        // A real, deterministic dcrypt-signed grant — the runtime decision authority now
+        // cryptographically verifies the signature, so a dummy approver_sig no longer
+        // authorizes a decision (the split-brain is closed).
+        let private_key = Ed25519PrivateKey::from_bytes(&[7u8; 32]).expect("private key");
+        let keypair = Ed25519KeyPair::from_private_key(&private_key).expect("keypair");
+        let approver_public_key = keypair.public_key().to_bytes();
         let authority_id =
             account_id_from_key_material(SignatureSuite::ED25519, &approver_public_key)
                 .expect("authority id");
-        ApprovalGrant {
+        let mut grant = ApprovalGrant {
             schema_version: 1,
             authority_id,
             request_hash: [1u8; 32],
@@ -4593,9 +4650,12 @@ mod tests {
             scoped_exception: None,
             review_request_hash: None,
             approver_public_key,
-            approver_sig: vec![8u8; 64],
+            approver_sig: Vec::new(),
             approver_suite: SignatureSuite::ED25519,
-        }
+        };
+        let signing_bytes = grant.signing_bytes().expect("signing bytes");
+        grant.approver_sig = keypair.sign(&signing_bytes).expect("sign").to_bytes().to_vec();
+        grant
     }
 
     fn wallet_approval_grant_hash_ref() -> (String, String) {
