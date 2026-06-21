@@ -40,6 +40,7 @@
     "hypervisor-conformance:candidates": "node scripts/conformance/hypervisor-conformance.mjs candidates",
     "test:cursor-sdk-reference": "node --test scripts/lib/cursor-sdk-reference-contract.test.mjs",
     "test:daemon-runtime-api": "node --test scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/architectural-improvements-broad-contract.test.mjs scripts/lib/model-mounting-daemon-contract.test.mjs scripts/lib/model-mounting-ui-contract.test.mjs",
+    "test:rust-daemon-runtime-api": "node --test scripts/lib/rust-daemon-lifecycle-contract.test.mjs",
     "test:sdk-live-daemon": "npm test --workspace=@ioi/agent-sdk",
     "test:runtime-events": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
     "test:mcp-skills-hooks": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
