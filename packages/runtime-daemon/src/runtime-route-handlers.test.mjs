@@ -662,51 +662,27 @@ test("thread conversation artifact routes use store-owned artifact API", async (
     },
   };
 
-  // GET /artifacts (list) is migrated to the Rust daemon (read-only projection) and
-  // retired here; POST /artifacts (create) stays store-owned.
-  const listResponse = responseRecorder();
-  await handleThreadRoute({
-    request: request({ url: "/v1/threads/thread_route/artifacts" }),
-    response: listResponse,
-    store,
-    url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "artifacts"],
-  });
-  assert.equal(listResponse.statusCode, 410);
-  assert.equal(
-    JSON.parse(listResponse.body).error.code,
-    "runtime_lifecycle_retired_served_by_rust_daemon",
-  );
-  const createResponse = responseRecorder();
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/artifacts",
-      body: { title: "Draft" },
-    }),
-    response: createResponse,
-    store,
-    url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "artifacts"],
-  });
-  assert.equal(createResponse.statusCode, 201);
-  assert.deepEqual(JSON.parse(createResponse.body), {
-    artifact_id: "artifact_created",
-    thread_id: "thread_route",
-    input: { title: "Draft" },
-    commit_hash: "commit-created",
-  });
+  // GET /artifacts (list projection) + POST /artifacts (create) are migrated to the
+  // Rust daemon and retired here; GET /artifacts/:id stays store-owned.
+  for (const method of ["GET", "POST"]) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({ method, url: "/v1/threads/thread_route/artifacts", body: { title: "Draft" } }),
+      response,
+      store,
+      url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
+      segments: ["v1", "threads", "thread_route", "artifacts"],
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
 
   assert.deepEqual(
     calls.map(({ method, query, threadId, input }) => ({ method, query, threadId, input })),
-    [
-      {
-        method: "createConversationArtifact",
-        query: undefined,
-        threadId: "thread_route",
-        input: { title: "Draft" },
-      },
-    ],
+    [],
   );
 });
 

@@ -49,6 +49,10 @@ use ioi_services::agentic::runtime::kernel::approval::{
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_control::{
+    RuntimeConversationArtifactControlRequest,
+    RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -1849,6 +1853,46 @@ pub(crate) async fn handle_artifacts_list(
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
+}
+
+/// POST /v1/threads/:id/artifacts — create a conversation artifact. The kernel
+/// plan_runtime_conversation_artifact_control builds the artifact record (generating
+/// the artifact_id when absent); the daemon persists it to state_dir/artifacts/{id}.json
+/// (the GET projection reads it back). Returns the JS shape with 201.
+pub(crate) async fn handle_artifact_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let request: RuntimeConversationArtifactControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "conversation_artifact_create",
+        "operation_kind": "artifact.conversation.create",
+        "thread_id": thread_id,
+        "artifact_id": body.get("artifact_id").and_then(|v| v.as_str()),
+        "state_dir": st.data_dir,
+        // Inline artifacts/artifact candidate transport is retired; the planner builds it.
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_conversation_artifact_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let artifact_id = record.artifact_id.clone();
+    let artifact = record.artifact.clone();
+    persist_record(st.data_dir.as_str(), "artifacts", &artifact_id, &artifact)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let mut response = record.result.clone();
+    if let Some(map) = response.as_object_mut() {
+        map.insert("artifact_id".to_string(), json!(artifact_id));
+        map.insert("operation_kind".to_string(), json!(record.operation_kind));
+        map.insert("artifact".to_string(), artifact);
+        map.insert("commit".to_string(), json!({ "persisted": true }));
+    }
+    Ok((StatusCode::CREATED, Json(response)))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

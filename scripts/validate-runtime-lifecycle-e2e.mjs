@@ -674,16 +674,31 @@ async function main() {
       assert.equal(snapshots.body.thread_id, createdThread.thread_id);
     });
 
-    // Step 15: GET /artifacts — read-only conversation-artifact list projection (array).
-    await runStep("GET /v1/threads/:id/artifacts lists conversation artifacts", async () => {
+    // Step 15: conversation artifacts — GET list projection + POST create (record-write).
+    await runStep("GET/POST /v1/threads/:id/artifacts list + create conversation artifacts", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);
-      const artifacts = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/artifacts`);
-      assert.equal(artifacts.status, 200);
-      assert.ok(Array.isArray(artifacts.body), "projects an array of artifacts");
-      assert.equal(artifacts.body.length, 0, "untouched thread -> no artifacts");
+      const empty = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/artifacts`);
+      assert.equal(empty.status, 200);
+      assert.ok(Array.isArray(empty.body), "projects an array of artifacts");
+      assert.equal(empty.body.length, 0, "untouched thread -> no artifacts");
+
+      const created = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/artifacts`, {
+        method: "POST",
+        body: JSON.stringify({ title: "Draft Plan", body: "hello", artifact_class: "document" }),
+      });
+      assert.equal(created.status, 201);
+      assert.equal(created.body.status, "created");
+      assert.equal(created.body.operation_kind, "artifact.conversation.create");
+      assert.ok(created.body.artifact_id, "create returns an artifact_id");
+
+      // The created artifact is persisted and read back by the GET projection.
+      const after = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/artifacts`);
+      assert.equal(after.status, 200);
+      assert.equal(after.body.length, 1, "the created artifact is listed");
     });
 
-    // RATCHET FRONTIER — next: POST /artifacts (create), workspace-trust/approval (gated).
+    // RATCHET FRONTIER — gated families need enablers: managed-sessions/wcr control,
+    // snapshots restore, workspace-trust pair (warn-on-review), approval decision (wallet).
   } finally {
     await rust.close();
   }
