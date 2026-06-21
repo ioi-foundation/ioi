@@ -138,10 +138,9 @@ async function main() {
 
     // Step 3: events / SSE projection. The Rust daemon projects the thread's runtime
     // events (thread.started synthesized + run events mapped), serves them as one-shot SSE
-    // frames, and honors since_seq / Last-Event-ID cursors + future-cursor 409.
-    // NOTE: aligning the exact live contract (events>=11, turn.completed LAST, the decision
-    // event_kind item.completed + payload_summary.event_kind ModelRouteDecision) is a kernel
-    // event-ordering hardening follow-up; this asserts the verified projection + cursor core.
+    // frames, and honors since_seq / Last-Event-ID cursors + future-cursor 409. The event
+    // stream is aligned to the live contract: >= 11 events, turn.completed LAST, and the
+    // decision projects as item.completed with payload_summary.event_kind ModelRouteDecision.
     function parseSseEvents(text) {
       return text
         .split("\n\n")
@@ -160,16 +159,20 @@ async function main() {
       assert.equal(response.status, 200);
       assert.equal(response.headers.get("content-type"), "text/event-stream");
       const events = parseSseEvents(await response.text());
-      assert.ok(events.length >= 9, `expected >=9 events, got ${events.length}`);
+      assert.ok(events.length >= 11, `expected >=11 events, got ${events.length}`);
       assert.equal(events[0].event_kind, "thread.started", "first event should be thread.started");
+      assert.equal(events[0].event, "thread.started", "events carry the `event` alias");
       const seqs = events.map((e) => e.seq);
       assert.deepEqual(seqs, seqs.map((_, i) => i + 1), "event seqs should be contiguous 1..N");
       assert.ok(events.some((e) => e.event_kind === "turn.started"), "should include turn.started");
-      assert.ok(
-        events.some((e) => e.component_kind === "model_router"),
-        "should include a model_router (ModelRouteDecision) event",
-      );
-      assert.ok(events.some((e) => e.event_kind === "turn.completed"), "should include turn.completed");
+      // turn.completed must be LAST (the materialized task/job items splice ahead of it).
+      assert.equal(events.at(-1).event_kind, "turn.completed", "turn.completed must be the last event");
+      // The model-route decision projects as item.completed, found by payload_summary.event_kind.
+      const decision = events.find((e) => e.payload_summary?.event_kind === "ModelRouteDecision");
+      assert.ok(decision, "should include the ModelRouteDecision event");
+      assert.equal(decision.event_kind, "item.completed", "decision projects as item.completed");
+      assert.equal(decision.component_kind, "model_router", "decision component_kind is model_router");
+      assert.equal(decision.workflow_node_id, "workflow.model-router", "decision node is workflow.model-router");
       turnRunId = events.find((e) => e.event_kind === "turn.started")?.payload?.run_id;
     });
 

@@ -537,12 +537,31 @@ fn build_run_candidate(agent: &Value, run_id: &str, mode: &str, prompt: &str, no
         .unwrap_or_else(|| format!("receipt_{run_id}_model_route"));
     let ledger_id = format!("ledger_{run_id}");
     let result_text = "Runtime turn completed via the Rust true-north daemon.".to_string();
+    // The materializer splices runtime task/job/checklist events ahead of the terminal
+    // `completed`, so `turn.completed` projects LAST. The decision event carries
+    // payload_summary.event_kind=ModelRouteDecision + workflow.model-router so it projects
+    // as the contract's `item.completed` model-route decision. The delta + usage_delta
+    // round the durable stream out to the contract's >= 11 events.
     let run_events = json!([
         { "type": "run_started", "receipt_refs": [receipt_id.clone()], "data": { "prompt": prompt } },
         {
             "type": "model_route_decision",
             "receipt_refs": [receipt_id.clone()],
-            "data": { "model_route_decision": decision.clone() },
+            "data": {
+                "event_kind": "ModelRouteDecision",
+                "workflow_node_id": "workflow.model-router",
+                "model_route_decision": decision.clone(),
+            },
+        },
+        {
+            "type": "delta",
+            "receipt_refs": [receipt_id.clone()],
+            "data": { "text": result_text.clone() },
+        },
+        {
+            "type": "usage_delta",
+            "receipt_refs": [receipt_id.clone()],
+            "data": { "usage_telemetry": { "total_tokens": 0 } },
         },
         { "type": "completed", "receipt_refs": [receipt_id.clone()], "data": { "result": result_text.clone() } },
     ]);

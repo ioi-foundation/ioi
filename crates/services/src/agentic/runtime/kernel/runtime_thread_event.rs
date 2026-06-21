@@ -2259,6 +2259,7 @@ fn thread_started_event(
         "idempotency_key": format!("thread:{}:started", request.thread_id),
         "source": "rust_daemon_core",
         "source_event_kind": "Thread.Started",
+        "event": "thread.started",
         "event_kind": "thread.started",
         "status": "completed",
         "actor": "runtime",
@@ -2382,6 +2383,7 @@ fn run_thread_event(
             "rust_daemon_core"
         },
         "source_event_kind": source_event_kind,
+        "event": event_kind.clone(),
         "event_kind": event_kind,
         "status": runtime_event_status_for_run_event(&event_type, &payload),
         "actor": if event_type == "delta" { "assistant" } else { "runtime" },
@@ -2438,6 +2440,9 @@ fn agent_id_for_thread(thread_id: &str) -> String {
 fn runtime_event_kind_for_run_event(event_type: &str) -> String {
     match event_type {
         "run_started" => "turn.started",
+        // The model-route decision projects as a completed run item (the contract finds it
+        // by payload_summary.event_kind == "ModelRouteDecision", set in the event data).
+        "model_route_decision" => "item.completed",
         "job_queued" => "item.created",
         "job_started" => "item.started",
         "job_failed" => "item.failed",

@@ -2790,7 +2790,9 @@ fn materialize_runtime_task_job_run(
     run.insert("runtimeJob".to_string(), runtime_job.clone());
     run.insert("runtimeChecklist".to_string(), runtime_checklist.clone());
     append_array_field(run, "receipts", receipts.clone());
-    append_array_field(run, "events", events.clone());
+    // Splice the materialized task/job/checklist events BEFORE the terminal `completed`
+    // event so the projected `turn.completed` is LAST in the runtime event stream.
+    insert_array_field_before_terminal(run, "events", events.clone());
     append_array_field(run, "artifacts", artifacts.clone());
 
     if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
@@ -2798,7 +2800,7 @@ fn materialize_runtime_task_job_run(
         trace.insert("runtimeJob".to_string(), runtime_job.clone());
         trace.insert("runtimeChecklist".to_string(), runtime_checklist.clone());
         append_array_field(trace, "receipts", receipts);
-        append_array_field(trace, "events", events);
+        insert_array_field_before_terminal(trace, "events", events);
         append_array_field(trace, "artifacts", artifacts);
         if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
             append_string_array_field(
@@ -4096,6 +4098,41 @@ fn append_array_field(target: &mut serde_json::Map<String, Value>, key: &str, va
         .or_insert_with(|| Value::Array(Vec::new()));
     if let Value::Array(existing) = entry {
         existing.extend(values);
+    }
+}
+
+/// Insert `values` into `target[key]` immediately BEFORE the terminal run event
+/// (`type` completed/canceled/failed/error) so the projected `turn.completed` (or
+/// `turn.canceled`) stays LAST in the event stream while the materialized task/job/
+/// checklist items land ahead of it. Falls back to a plain append when there is no
+/// terminal event yet (the field is created if absent).
+fn insert_array_field_before_terminal(
+    target: &mut serde_json::Map<String, Value>,
+    key: &str,
+    values: Vec<Value>,
+) {
+    if values.is_empty() {
+        return;
+    }
+    let entry = target
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    let Value::Array(existing) = entry else {
+        return;
+    };
+    let terminal_index = existing.iter().position(|event| {
+        matches!(
+            event.get("type").and_then(Value::as_str),
+            Some("completed") | Some("canceled") | Some("failed") | Some("error")
+        )
+    });
+    match terminal_index {
+        Some(index) => {
+            for (offset, value) in values.into_iter().enumerate() {
+                existing.insert(index + offset, value);
+            }
+        }
+        None => existing.extend(values),
     }
 }
 
