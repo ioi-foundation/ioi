@@ -1,22 +1,14 @@
 import {
-  createRun as createLifecycleRun,
-} from "./runtime-agent-run-lifecycle.mjs";
-import {
   deleteAgent as deleteLifecycleAgent,
   updateAgent as updateLifecycleAgent,
 } from "./threads/thread-store.mjs";
 
 export function createRuntimeRouteHandlers(deps) {
   const {
-    approvalModeForThreadMode = null,
-    buildRun = null,
-    createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
-    ensureProviderAvailable = null,
     notFound,
     readBody,
     runtimeError = null,
-    threadModeForRunMode = null,
     updateLifecycleAgent: updateLifecycleAgentDep = updateLifecycleAgent,
     writeJsonResponse,
     writeMcpJsonRpcResponse,
