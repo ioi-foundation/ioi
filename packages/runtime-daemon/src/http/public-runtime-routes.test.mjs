@@ -4633,91 +4633,56 @@ test("public runtime routes delegate thread subroutes unchanged", async () => {
   assert.equal(response.ended, false);
 });
 
-test("public runtime agent and thread list routes use store-owned lifecycle projection API", async () => {
+test("public runtime agent and thread list routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
+  let projectionCalled = false;
   const store = {
-    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
-      calls.push({ projectionKind, facts });
-      if (projectionKind === "agents") {
-        return [{ id: "agent_route" }];
-      }
-      if (projectionKind === "threads") {
-        return [{ thread_id: "thread_route" }];
-      }
-      return null;
+    projectRuntimeLifecycleProjection() {
+      projectionCalled = true;
+      return [];
     },
   };
 
-  const agentsResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/agents" }), response: agentsResponse, store });
-  assert.equal(agentsResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(agentsResponse.body), [{ id: "agent_route" }]);
-
-  const threadsResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/threads" }), response: threadsResponse, store });
-  assert.equal(threadsResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(threadsResponse.body), [{ thread_id: "thread_route" }]);
-  assert.deepEqual(calls, [
-    { projectionKind: "agents", facts: {} },
-    { projectionKind: "threads", facts: {} },
-  ]);
+  for (const path of ["/v1/agents", "/v1/threads"]) {
+    const response = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response, store });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
+  assert.equal(projectionCalled, false, "the JS lifecycle projection must not be invoked");
 });
 
-test("public runtime run list route uses store-owned lifecycle projection API", async () => {
+test("public runtime run list route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
+  let projectionCalled = false;
+  const store = {
+    projectRuntimeLifecycleProjection() {
+      projectionCalled = true;
+      return [];
+    },
+  };
+
   const response = responseRecorder();
-  const calls = [];
-  const store = {
-    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
-      calls.push({ projectionKind, facts });
-      return [{ id: "run_route", agent_id: facts.agent_id ?? null }];
-    },
-  };
-
-  await handleRequest({
-    request: request({ url: "/v1/runs?agent_id=agent-canonical" }),
-    response,
-    store,
-  });
-
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), [
-    { id: "run_route", agent_id: "agent-canonical" },
-  ]);
-  assert.deepEqual(calls, [{ projectionKind: "agent_runs", facts: { agent_id: "agent-canonical" } }]);
-
-  const unfilteredResponse = responseRecorder();
-  await handleRequest({
-    request: request({ url: "/v1/runs" }),
-    response: unfilteredResponse,
-    store,
-  });
-
-  assert.deepEqual(calls.at(-1), { projectionKind: "runs", facts: {} });
-  assert.equal(unfilteredResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(unfilteredResponse.body), [
-    { id: "run_route", agent_id: null },
-  ]);
+  await handleRequest({ request: request({ url: "/v1/runs?agent_id=agent-canonical" }), response, store });
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.equal(projectionCalled, false, "the JS lifecycle projection must not be invoked");
 });
 
-test("public runtime agent create route uses direct Rust lifecycle API", async () => {
-  const calls = [];
+test("public runtime agent create route is retired (served by the Rust daemon)", async () => {
+  let lifecycleInvoked = false;
   const { handleRequest } = routeHarness({
-    createLifecycleAgent(surfaceStore, options, deps) {
-      calls.push({ surfaceStore, options, deps });
-      const error = new Error("agent creation requires Rust core");
-      error.status = 501;
-      error.code = "runtime_agent_create_rust_core_required";
-      error.details = { rust_core_boundary: "runtime.agent_create", requested_cwd: options.local?.cwd };
-      throw error;
+    createLifecycleAgent() {
+      lifecycleInvoked = true;
     },
   });
   const response = responseRecorder();
-  const contextPolicyCore = { direct: true };
-  const store = {
-    createAgent: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
@@ -4726,35 +4691,27 @@ test("public runtime agent create route uses direct Rust lifecycle API", async (
       body: { options: { local: { cwd: "/workspace/project" } } },
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: {},
+    contextPolicyCore: { direct: true },
   });
 
-  assert.equal(response.statusCode, 501);
-  assert.equal(response.error.code, "runtime_agent_create_rust_core_required");
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].surfaceStore, store);
-  assert.deepEqual(calls[0].options, { local: { cwd: "/workspace/project" } });
-  assert.equal(calls[0].deps.lifecycleAdmissionRunner, contextPolicyCore);
-  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.equal(lifecycleInvoked, false, "createLifecycleAgent must not be invoked");
 });
 
-test("public runtime thread create route uses direct Rust lifecycle API", async () => {
-  const calls = [];
+test("public runtime thread create route is retired (served by the Rust daemon)", async () => {
+  let lifecycleInvoked = false;
   const { handleRequest } = routeHarness({
-    async createLifecycleThread(surfaceStore, body, deps) {
-      calls.push({ surfaceStore, body, deps });
-      return {
-        thread_id: "thread_route",
-        status: "active",
-      };
+    async createLifecycleThread() {
+      lifecycleInvoked = true;
+      return { thread_id: "thread_route", status: "active" };
     },
   });
   const response = responseRecorder();
-  const contextPolicyCore = { direct: true };
-  const store = {
-    createThread: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
@@ -4763,20 +4720,16 @@ test("public runtime thread create route uses direct Rust lifecycle API", async 
       body: { options: { local: { cwd: "/workspace/project" } } },
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: {},
+    contextPolicyCore: { direct: true },
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), {
-    thread_id: "thread_route",
-    status: "active",
-  });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].surfaceStore, store);
-  assert.deepEqual(calls[0].body, { options: { local: { cwd: "/workspace/project" } } });
-  assert.equal(calls[0].deps.lifecycleAdmissionRunner, contextPolicyCore);
-  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.equal(lifecycleInvoked, false, "createLifecycleThread must not be invoked");
 });
 
 test("public runtime usage and authority evidence routes use store-owned lifecycle projection API", async () => {
@@ -5092,14 +5045,12 @@ test("public runtime task and job routes use store-owned task job API directly",
     {
       method: "POST",
       path: "/v1/tasks",
-      apiMethod: "createRuntimeTask",
-      expectedArgs: [body],
+      retired: true,
     },
     {
       method: "GET",
       path: "/v1/tasks?agent_id=agent-canonical",
-      apiMethod: "listRuntimeTasks",
-      expectedArgs: [{ agent_id: "agent-canonical" }],
+      retired: true,
     },
     {
       method: "GET",
@@ -5116,8 +5067,7 @@ test("public runtime task and job routes use store-owned task job API directly",
     {
       method: "GET",
       path: "/v1/jobs?agent_id=agent-canonical",
-      apiMethod: "listRuntimeJobs",
-      expectedArgs: [{ agent_id: "agent-canonical" }],
+      retired: true,
     },
     {
       method: "GET",
@@ -5144,6 +5094,15 @@ test("public runtime task and job routes use store-owned task job API directly",
       response,
       store,
     });
+    if (testCase.retired) {
+      // Collection routes are retired (served by the Rust daemon); the store is not called.
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      continue;
+    }
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
     assert.equal(call.method, testCase.apiMethod);

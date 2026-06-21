@@ -95,6 +95,34 @@ export function createPublicRuntimeRequestHandler(deps) {
 
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const segments = url.pathname.split("/").filter(Boolean);
+    // Unified-Rust-daemon migration: the thread/agent/run/turn lifecycle is owned by the
+    // Rust hypervisor-daemon (binds 127.0.0.1:8765). The JS daemon's lifecycle COLLECTION
+    // routes are retired (demoted to non-serving); non-lifecycle routes are preserved.
+    if (
+      segments[0] === "v1" &&
+      !segments[2] &&
+      (segments[1] === "threads" ||
+        segments[1] === "agents" ||
+        segments[1] === "runs" ||
+        segments[1] === "tasks" ||
+        segments[1] === "jobs")
+    ) {
+      response.statusCode = 410;
+      response.setHeader("content-type", "application/json");
+      response.end(
+        JSON.stringify({
+          error: {
+            code: "runtime_lifecycle_retired_served_by_rust_daemon",
+            message:
+              "The runtime thread/agent/run lifecycle is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+            retryable: false,
+            requestId,
+            details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+          },
+        }),
+      );
+      return;
+    }
     try {
       if (segments[0] === "api" && segments[1] === "v1") {
         await handleModelMountingNativeRoute({ request, response, store, url, segments });
