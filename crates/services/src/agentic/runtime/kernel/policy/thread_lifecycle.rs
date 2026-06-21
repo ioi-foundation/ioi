@@ -1890,7 +1890,8 @@ fn materialize_skill_hook_run(
         invocation_ledger.clone(),
     );
     append_array_field(run, "receipts", receipts.clone());
-    append_array_field(run, "events", events.clone());
+    // Splice before the terminal event so a terminal-bearing candidate keeps turn.completed LAST.
+    insert_array_field_before_terminal(run, "events", events.clone());
     append_array_field(run, "artifacts", artifacts.clone());
     update_runtime_task_skill_hook_binding(run, &manifest);
     if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
@@ -1901,7 +1902,7 @@ fn materialize_skill_hook_run(
             invocation_ledger.clone(),
         );
         append_array_field(trace, "receipts", receipts);
-        append_array_field(trace, "events", events);
+        insert_array_field_before_terminal(trace, "events", events);
         append_array_field(trace, "artifacts", artifacts);
         if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
             append_string_array_field(
@@ -3871,12 +3872,13 @@ fn materialize_computer_use_run(
     );
     append_array_field(run, "receipts", vec![receipt.clone()]);
     append_array_field(run, "artifacts", vec![artifact.clone()]);
-    append_array_field(run, "events", events.clone());
+    // Splice before the terminal event so a terminal-bearing candidate keeps turn.completed LAST.
+    insert_array_field_before_terminal(run, "events", events.clone());
     if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
         trace.insert("computerUse".to_string(), computer_use.clone());
         append_array_field(trace, "receipts", vec![receipt]);
         append_array_field(trace, "artifacts", vec![artifact]);
-        append_array_field(trace, "events", events);
+        insert_array_field_before_terminal(trace, "events", events);
         if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
             append_string_array_field(
                 task_state,
@@ -5191,6 +5193,50 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_daemon_core_computer_use_run_materialization"));
+    }
+
+    // Regression: a run-create candidate that ALREADY carries a terminal `completed` event
+    // and ALSO requests computer-use materialization must keep the terminal LAST (the
+    // materialized computer-use events splice ahead of it). Before the splice fix the
+    // materializer plain-appended, landing computer_use_cleanup after `completed`.
+    #[test]
+    fn rust_policy_keeps_turn_completed_last_when_computer_use_materializes() {
+        let mut request = run_create_state_update_request();
+        request.run["events"] = json!([
+            { "type": "run_started", "receipt_refs": ["r_terminal_last"], "data": {} },
+            { "type": "completed", "receipt_refs": ["r_terminal_last"], "data": {} },
+        ]);
+        request.run["computer_use_materialization_request"] = json!({
+            "schema_version": COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+            "object": "ioi.runtime_computer_use_run_materialization_request",
+            "run_id": "run_create_one",
+            "agent_id": "agent_create_one",
+            "prompt": "Inspect the browser page without side effects.",
+            "mode": "send",
+            "selected_model": "model_rust",
+            "request": {
+                "computer_use": true,
+                "computer_use_lane": "native_browser",
+                "computer_use_action_kind": "inspect",
+                "computer_use_target_ref": "target_browser",
+                "workflow_graph_id": "graph_browser",
+                "workflow_node_id": "node_browser"
+            }
+        });
+
+        let record = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect("run create state update");
+        let events = record.run["events"].as_array().expect("events");
+        assert!(
+            events.iter().any(|event| event["type"] == "computer_use_observation"),
+            "computer-use events must be materialized",
+        );
+        assert_eq!(
+            events.last().expect("last event")["type"],
+            "completed",
+            "turn.completed must remain LAST after computer-use materialization",
+        );
     }
 
     #[test]

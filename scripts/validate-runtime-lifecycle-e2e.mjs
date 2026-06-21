@@ -528,6 +528,13 @@ async function main() {
       assert.equal(body.id, turnRequestId);
       assert.equal(body.status, "canceled");
       assert.equal(body.runtimeTask?.status, "canceled");
+      // Cancel rewrites the run events with the canceled terminal LAST (the cancel-path
+      // mirror of the turn.completed-LAST invariant).
+      assert.equal(
+        body.events?.at(-1)?.type,
+        "canceled",
+        "cancel leaves the canceled terminal as the last run event",
+      );
       const reloaded = await fetchJson(`${rust.endpoint}/v1/runs/${encodeURIComponent(turnRequestId)}`);
       assert.equal(reloaded.body.status, "canceled", "cancel should persist");
     });
