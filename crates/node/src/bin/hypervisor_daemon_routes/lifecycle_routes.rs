@@ -59,6 +59,10 @@ use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RuntimeWorkspaceChangeProjectionRequest, RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::workspace_restore::{
+    WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
+    WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -1791,6 +1795,30 @@ pub(crate) async fn handle_workspace_change_reviews(
         "evidence_refs": record.evidence_refs,
         "receipt_refs": record.receipt_refs,
     })))
+}
+
+/// GET /v1/threads/:id/snapshots — list the thread's workspace snapshots (read-only).
+/// The kernel snapshot-list projection returns an envelope; the JS client consumes its
+/// `projection` field. Matches the JS, which passes only thread_id (no state_dir), so an
+/// untouched thread projects an empty snapshot list.
+pub(crate) async fn handle_snapshots(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let inner: WorkspaceSnapshotListRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let value = RuntimeKernelService::new()
+        .project_workspace_snapshot_list(WorkspaceSnapshotListProtocolRequest { request: inner })
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    // The JS owner returns the envelope's `projection`; fall back to the full envelope.
+    let body = value.get("projection").cloned().unwrap_or(value);
+    Ok(Json(body))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

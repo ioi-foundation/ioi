@@ -892,6 +892,8 @@ test("thread route sends workflow, diagnostics, and snapshot controls through st
       segments: ["v1", "threads", "thread_route", "snapshots"],
       operation: "listWorkspaceSnapshots",
       args: ["thread_route"],
+      // Migrated to the Rust daemon (read-only projection). restore-* stay preserved.
+      retired: true,
     },
     {
       method: "POST",

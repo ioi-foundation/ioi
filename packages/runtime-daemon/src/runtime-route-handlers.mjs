@@ -195,6 +195,8 @@ export function createRuntimeRouteHandlers(deps) {
       // projects them. The POST .../control routes stay preserved (gated).
       (request.method === "GET" && action === "managed-sessions" && !segments[4]) ||
       (request.method === "GET" && action === "workspace-change-reviews" && !segments[4]) ||
+      // snapshots (GET list): read-only workspace-snapshot projection. restore-* preserved.
+      (request.method === "GET" && action === "snapshots" && !segments[4]) ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&

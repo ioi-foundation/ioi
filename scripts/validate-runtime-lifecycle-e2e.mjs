@@ -664,7 +664,17 @@ async function main() {
       assert.equal(reviews.body.operation_kind, "workspace_change.inspect");
     });
 
-    // RATCHET FRONTIER — next: GET /snapshots, GET/POST /artifacts.
+    // Step 14: GET /snapshots — read-only workspace-snapshot list projection.
+    await runStep("GET /v1/threads/:id/snapshots lists workspace snapshots", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const snapshots = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/snapshots`);
+      assert.equal(snapshots.status, 200);
+      assert.ok(Array.isArray(snapshots.body.snapshots), "projects a snapshots array");
+      assert.equal(snapshots.body.snapshot_count, 0, "untouched thread -> no snapshots");
+      assert.equal(snapshots.body.thread_id, createdThread.thread_id);
+    });
+
+    // RATCHET FRONTIER — next: GET/POST /artifacts.
   } finally {
     await rust.close();
   }
