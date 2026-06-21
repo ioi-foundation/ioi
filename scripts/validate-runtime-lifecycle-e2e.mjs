@@ -393,6 +393,21 @@ async function main() {
       assert.equal(cancel.body.lifecycle_status, "canceled");
     });
 
+    // Step 5h: subagent propagate-cancel — completes the subagent family.
+    await runStep("POST /v1/threads/:id/subagents/cancel propagates cancellation", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents`, { method: "POST", body: JSON.stringify({ prompt: "propagate child a" }) });
+      await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents`, { method: "POST", body: JSON.stringify({ prompt: "propagate child b" }) });
+      const prop = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/subagents/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "parent stopped" }),
+      });
+      assert.equal(prop.status, 200);
+      assert.equal(prop.body.object, "ioi.runtime_subagent_cancellation_propagation");
+      assert.equal(prop.body.status, "propagated");
+      assert.ok(prop.body.canceled_count >= 2, "should cancel the active children");
+    });
+
     // Step 5g: operator turn controls (interrupt/steer) on a fresh turn.
     await runStep("turn interrupt/steer are Rust-owned operator controls", async () => {
       const tid = encodeURIComponent(createdThread.thread_id);

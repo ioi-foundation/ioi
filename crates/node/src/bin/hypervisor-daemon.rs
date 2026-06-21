@@ -284,6 +284,10 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_subagents_list).post(lifecycle_routes::handle_subagent_spawn),
         )
         .route(
+            "/v1/threads/:id/subagents/cancel",
+            post(lifecycle_routes::handle_subagents_propagate_cancel),
+        )
+        .route(
             "/v1/threads/:id/subagents/:subagent_id/result",
             get(lifecycle_routes::handle_subagent_result),
         )

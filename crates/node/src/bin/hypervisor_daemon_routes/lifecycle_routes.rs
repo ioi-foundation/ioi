@@ -1105,6 +1105,87 @@ pub(crate) async fn handle_subagent_cancel(
     Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.cancel", subagent)?))
 }
 
+/// POST /v1/threads/:id/subagents/cancel — propagate cancellation to the thread's
+/// subagents (cancel each cancelable child + its run), returning a propagation summary.
+pub(crate) async fn handle_subagents_propagate_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let parent_agent_id = agent_id_for_thread(&thread_id);
+    let reason = body
+        .get("reason")
+        .or_else(|| body.get("cancellation_reason"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("parent_cancel")
+        .to_string();
+    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("agent_studio").to_string();
+    let now = iso_now();
+    let candidates: Vec<Value> = read_record_dir(&st.data_dir, "subagents")
+        .into_iter()
+        .filter(|sub| sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str()))
+        .collect();
+    let mut canceled = Vec::new();
+    let mut skipped = Vec::new();
+    for candidate in candidates {
+        let status = candidate
+            .get("status")
+            .or_else(|| candidate.get("lifecycle_status"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let run_id = candidate.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+        if candidate.get("subagent_id").and_then(|v| v.as_str()).is_none()
+            || status == "canceled"
+            || run_id.is_none()
+        {
+            skipped.push(candidate);
+            continue;
+        }
+        let run_id = run_id.unwrap();
+        if let Some(run) = read_record_dir(&st.data_dir, "runs")
+            .into_iter()
+            .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
+        {
+            if let Ok(request) = serde_json::from_value::<RunCancelStateUpdateRequest>(json!({
+                "schema_version": RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                "run_id": run_id,
+                "run": run,
+                "canceled_at": now,
+            })) {
+                if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
+                    let _ = persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run);
+                }
+            }
+        }
+        let mut updated = candidate;
+        if let Some(map) = updated.as_object_mut() {
+            map.insert("status".to_string(), json!("canceled"));
+            map.insert("lifecycle_status".to_string(), json!("canceled"));
+            map.insert("cancellation_reason".to_string(), json!(reason));
+            map.insert("cancellation_inherited".to_string(), json!(true));
+            map.insert("propagated_from_thread_id".to_string(), json!(thread_id));
+            map.insert("updated_at".to_string(), json!(now));
+        }
+        let saved = plan_and_persist_subagent(&st, &thread_id, "subagent.cancel.propagate", updated)?;
+        canceled.push(saved);
+    }
+    let status = if canceled.is_empty() { "noop" } else { "propagated" };
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.subagent-cancellation-propagation.v1",
+        "object": "ioi.runtime_subagent_cancellation_propagation",
+        "thread_id": thread_id,
+        "parent_agent_id": parent_agent_id,
+        "status": status,
+        "source": source,
+        "reason": reason,
+        "candidate_count": canceled.len() + skipped.len(),
+        "canceled_count": canceled.len(),
+        "skipped_count": skipped.len(),
+        "canceled_subagents": canceled,
+        "skipped_subagents": skipped,
+    })))
+}
+
 /// Shared input/resume: create a new child run, then advance the subagent record.
 fn subagent_run_control(
     st: &DaemonState,

@@ -1925,11 +1925,12 @@ test("thread route sends subagent controls through store-owned subagent API", as
       segments: testCase.segments,
     });
     // spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel on /:id)
-    // are migrated to the Rust daemon (retired here); propagate-cancel (/subagents/cancel)
-    // is preserved.
+    // + propagate-cancel (/subagents/cancel) are all migrated to the Rust daemon (retired here).
     const s = testCase.segments;
     const retired =
-      !s[4] || ["result", "wait", "input", "resume", "assign", "cancel"].includes(s[5]);
+      !s[4] ||
+      (s[4] === "cancel" && !s[5]) ||
+      ["result", "wait", "input", "resume", "assign", "cancel"].includes(s[5]);
     if (retired) {
       assert.equal(response.statusCode, 410);
       assert.equal(

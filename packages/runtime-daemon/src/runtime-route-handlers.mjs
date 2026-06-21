@@ -168,9 +168,10 @@ export function createRuntimeRouteHandlers(deps) {
       action === "thinking" ||
       action === "events" ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
-      // on /:id) are migrated; propagate-cancel (POST /subagents/cancel) is preserved.
+      // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&
         (!segments[4] ||
+          (segments[4] === "cancel" && !segments[5]) ||
           ["result", "wait", "input", "resume", "assign", "cancel"].includes(segments[5]))) ||
       // mcp: import, servers (add/remove/enable/disable), tools/search are migrated; serve,
       // validate, status, tools/:id (fetch), tools/:id/invoke are preserved.
