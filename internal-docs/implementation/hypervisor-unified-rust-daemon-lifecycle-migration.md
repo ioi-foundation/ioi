@@ -28,7 +28,7 @@ closeout. Each needs its **producer subsystem** migrated first, as its own delib
 | --- | --- | --- | --- |
 | `POST /v1/threads/:id/workspace-change-reviews/control` | a workspace-change-review record | git-diff review detection | ✅ **DONE** — real `git status` producer (`/workspace-change-reviews/detect`), commit `620d1cb27` |
 | `POST /v1/threads/:id/managed-sessions/control` | a prior `managed_session` event on the log | session-lifecycle production via the runtime→daemon event-log bridge | ✅ **DONE** — commits `c580bafde` + `bf5448b34` + `64aa01c50` |
-| `POST /v1/threads/:id/snapshots/{restore-preview,restore-apply}` | a captured snapshot | snapshot-capture production + real workspace FS | ⏳ remaining — clean daemon git-tree capture (the daemon can read git directly) |
+| `POST /v1/threads/:id/snapshots/{restore-preview,restore-apply}` | a captured snapshot | snapshot-capture production + real workspace FS | ✅ **DONE** — real git-tree capture (`/snapshots/capture`) + real-FS restore, commit `eb4c1ec9f` |
 
 ### Producer chapter 2 — the runtime → daemon event-log bridge (foundational)
 
@@ -53,12 +53,14 @@ broadcast receiver. So the foundational fix was a real **runtime → daemon even
 This bridge is foundational: **every** future turn-execution producer can reach the daemon
 log through it.
 
-Discipline (unchanged): do NOT seed fixture session/review/snapshot events to make a route
-"pass" — migrate the real producer. Remaining macro-cut: **snapshot capture** (a real
-git-tree capture over the workspace, the daemon-readable signal, like workspace-change).
+Discipline (held throughout): no fixture session/review/snapshot events were seeded to make a
+route "pass" — every gated family was fed by migrating its real producer. **All three producer
+cuts are now complete**: workspace-change (real `git status` detection), managed-sessions (the
+runtime→daemon event-log bridge), and snapshots (real git-tree capture + real-FS restore
+round-trip, commit `eb4c1ec9f`).
 
-This closeout does **not** claim terminal Hypervisor unification; the model-mount / snapshot
-subsystems remain their own owner boundaries.
+This closeout does **not** claim terminal Hypervisor unification; the model-mount subsystem and
+the broader kernel-substrate unification remain their own owner boundaries.
 
 ## Direction (user-set)
 
