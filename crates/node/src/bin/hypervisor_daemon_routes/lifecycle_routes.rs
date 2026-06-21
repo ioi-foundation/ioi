@@ -44,6 +44,11 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::approval::{
+    ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
+    APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -1417,6 +1422,137 @@ pub(crate) async fn handle_diagnostics_repair_execute(
     }
     let admitted = admit_and_persist_event(&st, event)?;
     Ok(Json(admitted))
+}
+
+/// POST /v1/threads/:id/approvals — request a thread approval. Two-phase: the kernel
+/// authorizes the approval (authorize_approval_request → lease) then plans the state
+/// update (plan_approval_request_state_update → the approval folded into the agent/run
+/// record). Approvals do NOT admit a runtime event — the embedded approval lives on
+/// the agent (or run) record. Default target is the agent; a `run_id` targets that run.
+pub(crate) async fn handle_approval_request(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let Some(approval_id) = body.get("approval_id").and_then(|v| v.as_str()).map(str::to_string) else {
+        return Err(AppError(StatusCode::BAD_REQUEST, "approval_id is required".to_string()));
+    };
+    let agent_id = agent
+        .get("id")
+        .or_else(|| agent.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| agent_id_for_thread(&thread_id));
+
+    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let run = requested_run_id.as_ref().and_then(|rid| {
+        read_record_dir(&st.data_dir, "runs")
+            .into_iter()
+            .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(rid.as_str()))
+    });
+    if requested_run_id.is_some() && run.is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("run not found: {}", requested_run_id.unwrap_or_default()),
+        ));
+    }
+    let target_kind = if run.is_some() { "run" } else { "agent" };
+    let now = iso_now();
+    let event_id = format!("event_{approval_id}_request");
+    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
+    let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let scope_reqs = body
+        .get("authority_scope_requirements")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    // --- phase 1: authorize the approval (lease issuance) ---
+    let authority_request: ApprovalRequestAuthorityRequest = serde_json::from_value(json!({
+        "schema_version": APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "approval_id": approval_id,
+        "target_kind": target_kind,
+        "run_id": requested_run_id,
+        "action": body.get("action").and_then(|v| v.as_str()),
+        "scope": body.get("scope").and_then(|v| v.as_str()),
+        "authority_scope_requirements": scope_reqs,
+        "actor_ref": body.get("actor_ref").and_then(|v| v.as_str()),
+        "source": source,
+        "lease_id": body.get("lease_id").and_then(|v| v.as_str()),
+        "lease_ttl_ms": body.get("lease_ttl_ms").and_then(|v| v.as_u64()),
+        "expires_at": body.get("expires_at").and_then(|v| v.as_str()),
+        "idempotency_key": body.get("idempotency_key").and_then(|v| v.as_str()),
+        // The authority receipt is client-supplied (a wallet/policy grant ref); the
+        // kernel rejects an empty receipt set with MissingAuthorityReceipt.
+        "receipt_refs": body.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "policy_decision_refs": body.get("policy_decision_refs").cloned().unwrap_or_else(|| json!([])),
+        "approval_manifest": body.get("approval_manifest").cloned().unwrap_or_else(|| json!({})),
+        "authority_context": body.get("authority_context").cloned().unwrap_or_else(|| json!({})),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let authority = RuntimeKernelService::new()
+        .authorize_approval_request(&authority_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let authority = serde_json::to_value(&authority)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- phase 2: plan the state update (fold the approval into the agent/run) ---
+    let state_request: ApprovalRequestStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "target_kind": target_kind,
+        "thread_id": thread_id,
+        "run_id": requested_run_id,
+        "state_dir": st.data_dir,
+        // Inline run/agent candidate transport is retired (RetiredCandidateTransport);
+        // the planner reads the target record from state_dir via thread_id/run_id.
+        "agent": Value::Null,
+        "run": Value::Null,
+        "event_id": event_id,
+        "seq": 1,
+        "created_at": now,
+        "approval_id": approval_id,
+        "lease_id": authority.get("lease_id"),
+        "lease_status": authority.get("lease_status"),
+        "approval_lease": authority.get("approval_lease").cloned().unwrap_or(Value::Null),
+        "source": source,
+        "reason": reason,
+        "receipt_refs": authority.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "policy_decision_refs": authority.get("policy_decision_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_record": authority,
+        "authority_hash": authority.get("authority_hash"),
+        "authority_receipt_refs": authority.get("authority_receipt_refs").cloned().unwrap_or_else(|| json!([])),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_approval_request_state_update(&state_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let mut response = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // --- commit the embedded approval onto the agent (or run) record ---
+    if target_kind == "run" {
+        if let (Some(run_id), Some(run_value)) =
+            (requested_run_id.as_ref(), response.get("run").filter(|v| v.is_object()))
+        {
+            persist_record(st.data_dir.as_str(), "runs", run_id, run_value)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        }
+    } else if let Some(agent_value) = response.get("agent").filter(|v| v.is_object()).cloned() {
+        let mut updated_agent = agent_value;
+        if let Some(map) = updated_agent.as_object_mut() {
+            dual_case_agent(map);
+        }
+        persist_record(st.data_dir.as_str(), "agents", &agent_id, &updated_agent)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
+    if let Some(map) = response.as_object_mut() {
+        map.insert("commit".to_string(), json!({ "persisted": true }));
+    }
+    Ok(Json(response))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

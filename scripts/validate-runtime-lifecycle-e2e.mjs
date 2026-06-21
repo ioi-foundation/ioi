@@ -571,7 +571,40 @@ async function main() {
       assert.equal(after.at(-1)?.event_kind, "diagnostics.repair_decision.execute", "repair event is on the log");
     });
 
-    // RATCHET FRONTIER — next: workspace-trust pair, approvals.
+    // Step 10: approvals — authority->state-update folded onto the agent (NO event admitted).
+    await runStep("POST /v1/threads/:id/approvals authorizes + folds the approval onto the agent", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+
+      const approval = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/approvals`, {
+        method: "POST",
+        body: JSON.stringify({
+          approval_id: "approval_e2e",
+          reason: "operator approval required",
+          receipt_refs: ["receipt_wallet_grant_e2e"],
+        }),
+      });
+      assert.equal(approval.status, 200);
+      assert.equal(approval.body.object, "ioi.runtime_approval_request_state_update");
+      assert.equal(approval.body.status, "planned");
+      assert.equal(approval.body.operation_kind, "approval.required");
+      assert.equal(approval.body.target_kind, "agent", "no run_id -> agent target");
+      assert.equal(approval.body.approval_id, "approval_e2e");
+      assert.equal(approval.body.lease_status, "pending");
+      assert.ok(approval.body.lease_id, "lease id issued");
+      assert.equal(approval.body.operator_control?.control, "approval_request");
+      assert.ok(approval.body.agent, "approval folded onto the agent record");
+
+      // Approvals do NOT admit a runtime event — the event log must be unchanged.
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.length, before.length, "approval request must not admit a runtime event");
+    });
+
+    // RATCHET FRONTIER — next: approval decide/revoke, workspace-trust pair.
   } finally {
     await rust.close();
   }

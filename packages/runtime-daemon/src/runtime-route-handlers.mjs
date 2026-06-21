@@ -179,6 +179,9 @@ export function createRuntimeRouteHandlers(deps) {
         segments[4] === "repair-decisions" &&
         segments[5] &&
         segments[6] === "execute") ||
+      // approvals create (POST /approvals): the Rust daemon authorizes + folds the
+      // approval onto the agent/run. GET (list) + decide/approve/reject/revoke stay preserved.
+      (request.method === "POST" && action === "approvals" && !segments[4]) ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&
