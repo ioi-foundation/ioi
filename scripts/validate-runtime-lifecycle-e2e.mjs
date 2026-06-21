@@ -566,6 +566,18 @@ async function main() {
       );
       const reloaded = await fetchJson(`${rust.endpoint}/v1/runs/${encodeURIComponent(turnRequestId)}`);
       assert.equal(reloaded.body.status, "canceled", "cancel should persist");
+      // The cancel re-commits the canonical bundle, so the tasks/ record reflects the
+      // cancel too — the bundle stays FAITHFUL across the run lifecycle, not just at create.
+      const canceledTask = fs
+        .readdirSync(path.join(stateDir, "tasks"))
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => JSON.parse(fs.readFileSync(path.join(stateDir, "tasks", f), "utf8")))
+        .find((record) => record.runId === turnRequestId);
+      assert.equal(
+        canceledTask?.runtimeTask?.status,
+        "canceled",
+        "the canonical bundle tasks record reflects the cancel (faithful across lifecycle)",
+      );
     });
 
     // Step 6: compaction-policy — first event-EMITTING route on the unified log.

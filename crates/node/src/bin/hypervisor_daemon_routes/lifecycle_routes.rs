@@ -426,7 +426,7 @@ fn operator_turn_control(
         let record = RuntimeKernelService::new()
             .plan_operator_interrupt_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-        persist_operator_run(st, &run_id, &record.run);
+        persist_operator_run(st, &run_id, kind, &record.run);
         serde_json::to_value(&record)
     } else {
         let guidance = body
@@ -451,20 +451,22 @@ fn operator_turn_control(
         let record = RuntimeKernelService::new()
             .plan_operator_steer_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-        persist_operator_run(st, &run_id, &record.run);
+        persist_operator_run(st, &run_id, kind, &record.run);
         serde_json::to_value(&record)
     }
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(record_value))
 }
 
-/// Persist the operator-control-updated run (keyed by the run's own id).
-fn persist_operator_run(st: &DaemonState, fallback_run_id: &str, run: &Value) {
+/// Persist the operator-control-updated run (keyed by the run's own id) and refresh its
+/// bundle. Best-effort: an interrupt/steer must not fail just because the bundle refresh
+/// did (persist_run_with_bundle still writes runs/<run>.json on a bundle-commit failure).
+fn persist_operator_run(st: &DaemonState, fallback_run_id: &str, kind: &str, run: &Value) {
     let run_id = run
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or(fallback_run_id);
-    let _ = persist_record(st.data_dir.as_str(), "runs", run_id, run);
+    let _ = persist_run_with_bundle(st, run_id, &format!("run.{kind}"), run);
 }
 
 /// POST /v1/threads/:id/turns/:turnId/interrupt — operator interrupt.
@@ -632,6 +634,26 @@ fn commit_run_state_bundle(
         .commit_runtime_run_state_to_dir(st.data_dir.as_str(), &request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(())
+}
+
+/// Persist a run AND refresh its canonical Agentgres bundle, keeping the bundle faithful
+/// across the WHOLE run lifecycle (not just create/cancel). Commits the full bundle via
+/// [`commit_run_state_bundle`]; if that fails — e.g. a run that lacks the embedded
+/// runtimeTask/Job/Checklist the bundle requires — it falls back to a plain
+/// `persist_record` so `runs/<run>.json` is ALWAYS written. The run record is durable; the
+/// bundle refresh is best-effort on top of it (validate() runs before any write, so a
+/// rejected commit leaves no partial bundle).
+fn persist_run_with_bundle(
+    st: &DaemonState,
+    run_id: &str,
+    operation_kind: &str,
+    run: &Value,
+) -> Result<(), AppError> {
+    if commit_run_state_bundle(st, run_id, operation_kind, run).is_ok() {
+        return Ok(());
+    }
+    persist_record(st.data_dir.as_str(), "runs", run_id, run)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 /// POST /v1/threads/:id/turns — submit a turn (create a run).
@@ -1596,8 +1618,7 @@ pub(crate) async fn handle_compact(
     let planned_agent = state_update.get("agent").cloned().unwrap_or(Value::Null);
     if target_kind == "run" {
         if let Some(run_id) = &run_id {
-            persist_record(st.data_dir.as_str(), "runs", run_id, &planned_run)
-                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            persist_run_with_bundle(&*st, run_id, "run.context_compaction", &planned_run)?;
         }
     } else {
         let mut updated_agent = planned_agent.clone();
@@ -1790,8 +1811,7 @@ pub(crate) async fn handle_approval_request(
         if let (Some(run_id), Some(run_value)) =
             (requested_run_id.as_ref(), response.get("run").filter(|v| v.is_object()))
         {
-            persist_record(st.data_dir.as_str(), "runs", run_id, run_value)
-                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            persist_run_with_bundle(&*st, run_id, "run.approval_request", run_value)?;
         }
     } else if let Some(agent_value) = response.get("agent").filter(|v| v.is_object()).cloned() {
         let mut updated_agent = agent_value;
@@ -1979,8 +1999,7 @@ fn commit_approval_record(
         if let (Some(run_id), Some(run_value)) =
             (run_id, response.get("run").filter(|v| v.is_object()))
         {
-            persist_record(st.data_dir.as_str(), "runs", run_id, run_value)
-                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            persist_run_with_bundle(st, run_id, "run.approval_decision", run_value)?;
         }
     } else if let Some(agent_value) = response.get("agent").filter(|v| v.is_object()).cloned() {
         let mut updated_agent = agent_value;
@@ -3445,8 +3464,7 @@ pub(crate) async fn handle_subagent_spawn(
     let planned_run = RuntimeKernelService::new()
         .plan_run_create_state_update(&plan_run)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "runs", &run_id, &planned_run.run)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_run_with_bundle(&*st, &run_id, "run.create", &planned_run.run)?;
 
     // --- subagent record ---
     let child_thread_id = thread_id_for_agent(&child_agent_id);
@@ -3612,7 +3630,7 @@ pub(crate) async fn handle_subagent_cancel(
                 "canceled_at": now,
             })) {
                 if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
-                    let _ = persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run);
+                    let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
             }
         }
@@ -3680,7 +3698,7 @@ pub(crate) async fn handle_subagents_propagate_cancel(
                 "canceled_at": now,
             })) {
                 if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
-                    let _ = persist_record(st.data_dir.as_str(), "runs", &run_id, &record.run);
+                    let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
             }
         }
@@ -3751,8 +3769,7 @@ fn subagent_run_control(
     let planned_run = RuntimeKernelService::new()
         .plan_run_create_state_update(&plan_run)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "runs", &run_id, &planned_run.run)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_run_with_bundle(&*st, &run_id, "run.create", &planned_run.run)?;
     if let Some(map) = subagent.as_object_mut() {
         map.insert("run_id".to_string(), json!(run_id));
         map.insert("status".to_string(), json!("completed"));
