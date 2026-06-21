@@ -258,6 +258,7 @@ async fn main() -> anyhow::Result<()> {
             "/v1/agents",
             get(lifecycle_routes::handle_agents_list).post(lifecycle_routes::handle_agent_create),
         )
+        .route("/v1/agents/:id/runs", post(lifecycle_routes::handle_agent_run_create))
         .route(
             "/v1/threads",
             get(lifecycle_routes::handle_threads_list).post(lifecycle_routes::handle_thread_create),

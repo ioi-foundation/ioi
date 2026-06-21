@@ -479,6 +479,21 @@ async function main() {
         Array.isArray(list.body) && list.body.some((a) => a.id === create.body.id),
         "agents list should include the created agent",
       );
+      // Agent run-create (the SDK send path): POST /v1/agents/:id/runs returns the RUN
+      // record (id=run_<uuid>), bootstrapping the thread from the agent (no prior thread).
+      const run = await fetchJson(`${rust.endpoint}/v1/agents/${encodeURIComponent(create.body.id)}/runs`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "send", prompt: "agent run-create probe" }),
+      });
+      assert.equal(run.status, 200);
+      assert.match(run.body.id, /^run_/, "agent run-create returns a run record");
+      assert.equal(run.body.agentId, create.body.id, "run is bound to the agent");
+      assert.equal(run.body.status, "completed");
+      assert.equal(run.body.trace?.canonicalState?.source, "agentgres_canonical_state_projection");
+      // The run's events are readable via /v1/runs/:id/events (the SDK run.stream()).
+      const runEvents = await fetch(`${rust.endpoint}/v1/runs/${encodeURIComponent(run.body.id)}/events`);
+      assert.equal(runEvents.status, 200);
+      assert.ok(parseSseEvents(await runEvents.text()).length >= 1, "agent run events project");
     });
 
     // Step 5e: subagents — spawn builds a child agent + run + subagent record (after the

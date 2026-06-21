@@ -313,7 +313,6 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
     request({ method: "POST", url: "/v1/agents/agent_route/resume" }),
     request({ method: "POST", url: "/v1/agents/agent_route/close" }),
     request({ method: "POST", url: "/v1/agents/agent_route/reload" }),
-    request({ method: "POST", url: "/v1/agents/agent_route/runs", body: { prompt: "ship it" } }),
   ];
 
   for (const req of requests) {
@@ -328,19 +327,35 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
       }),
       (error) =>
         error.code === "runtime_agent_status_control_rust_core_required" ||
-        error.code === "runtime_agent_delete_rust_core_required" ||
-        error.code === "runtime_run_create_rust_core_required",
+        error.code === "runtime_agent_delete_rust_core_required",
     );
   }
+
+  // Agent run-create (POST /runs) is Rust-owned (410), not a rust_core_required throw.
+  const runsResponse = responseRecorder();
+  await handleAgentRoute({
+    request: request({ method: "POST", url: "/v1/agents/agent_route/runs", body: { prompt: "ship it" } }),
+    response: runsResponse,
+    store,
+    contextPolicyCore,
+    url: new URL("/v1/agents/agent_route/runs", "http://daemon.test"),
+    segments: ["v1", "agents", "agent_route", "runs"],
+  });
+  assert.equal(runsResponse.statusCode, 410);
+  assert.equal(
+    JSON.parse(runsResponse.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.equal(
+    calls.some((call) => call.method === "createRun"),
+    false,
+    "Rust-owned agent run-create must not invoke the JS createLifecycleRun",
+  );
 
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.equal(calls.every((call) => call.deps.lifecycleAdmissionRunner === contextPolicyCore ||
     call.deps.statusStateUpdateRunner === contextPolicyCore ||
     call.deps.deleteStateUpdateRunner === contextPolicyCore), true);
-  assert.equal(
-    calls.find((call) => call.method === "createRun").deps.repositoryWorkflowProjector,
-    contextPolicyCore,
-  );
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
   assert.deepEqual(
     calls.map(({ method, agentId, status, operationKind, input }) => ({
@@ -357,7 +372,6 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
       { method: "updateAgent", agentId: "agent_route", status: "active", operationKind: "agent.resume", input: undefined },
       { method: "updateAgent", agentId: "agent_route", status: "closed", operationKind: "agent.close", input: undefined },
       { method: "updateAgent", agentId: "agent_route", status: null, operationKind: "agent.reload", input: undefined },
-      { method: "createRun", agentId: "agent_route", status: undefined, operationKind: undefined, input: { prompt: "ship it" } },
     ],
   );
 });

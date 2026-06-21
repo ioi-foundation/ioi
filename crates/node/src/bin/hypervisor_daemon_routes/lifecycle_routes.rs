@@ -673,6 +673,37 @@ fn persist_run_with_bundle(
 
 /// POST /v1/threads/:id/turns — submit a turn (create a run).
 ///
+/// Shared run-create flow for an agent — used by both turn-create (POST /v1/threads/:id/
+/// turns) and agent run-create (POST /v1/agents/:id/runs). Builds the deterministic run
+/// candidate, validates/materializes it via plan_run_create, commits the full Agentgres
+/// bundle, and admits+persists the turn events onto the thread log. thread.started is
+/// synthesized from the agent, so an agent created via POST /v1/agents (no explicit thread)
+/// still bootstraps the thread correctly. Returns the planned run record (a RuntimeRunRecord:
+/// id / agentId / status / mode / objective / events / trace / ...).
+fn create_agent_run(
+    st: &DaemonState,
+    agent: &Value,
+    thread_id: &str,
+    mode: &str,
+    prompt: &str,
+) -> Result<Value, AppError> {
+    let now = iso_now();
+    let run_id = format!("run_{}", uuid::Uuid::new_v4());
+    let run = build_run_candidate(agent, &run_id, mode, prompt, &now);
+    let plan_request: RunCreateStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "run": run,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let planned = RuntimeKernelService::new()
+        .plan_run_create_state_update(&plan_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    // Persist the run as the full canonical Agentgres bundle (not just runs/<run>.json).
+    commit_run_state_bundle(st, &run_id, "run.create", &planned.run)?;
+    persist_thread_events(st, thread_id)?;
+    Ok(planned.run)
+}
+
 /// Builds a deterministic run candidate from the thread's agent, validates/stamps
 /// via `plan_run_create_state_update` (which materializes the runtime
 /// task/job/checklist into the run), persists the run, and returns the kernel turn
@@ -688,30 +719,35 @@ pub(crate) async fn handle_turn_create(
             format!("thread not found: {thread_id}"),
         ));
     };
-    let now = iso_now();
-    let run_id = format!("run_{}", uuid::Uuid::new_v4());
-    let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send").to_string();
-    let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let run = build_run_candidate(&agent, &run_id, &mode, &prompt, &now);
-
-    let plan_request: RunCreateStateUpdateRequest = serde_json::from_value(json!({
-        "schema_version": RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-        "run": run,
-    }))
-    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned = RuntimeKernelService::new()
-        .plan_run_create_state_update(&plan_request)
-        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-
-    // Persist the run as the full canonical Agentgres bundle (runs + tasks/jobs/
-    // checklists/scorecards/ledgers/quality/projections/receipts/artifacts), not just
-    // runs/<run>.json — the kernel derives the bundle from the run's embedded records.
-    commit_run_state_bundle(&st, &run_id, "run.create", &planned.run)?;
-    // Admit+persist the turn's events on top of the persisted thread.started.
-    persist_thread_events(&st, &thread_id)?;
+    let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send");
+    let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
+    let run = create_agent_run(&st, &agent, &thread_id, mode, prompt)?;
+    let run_id = run.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
     let record = project_turn_record(&st, &thread_id, &run_id)?;
     Ok(Json(record))
+}
+
+/// POST /v1/agents/:id/runs — create a run for an agent directly (the SDK send / plan /
+/// dry_run / handoff path). Unlike POST /v1/threads/:id/turns (which returns the turn
+/// projection), this returns the run record itself (the SDK's RuntimeRunRecord), keyed by
+/// the run id the SDK then drives /v1/runs/:id/* against.
+pub(crate) async fn handle_agent_run_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_record_dir(&st.data_dir, "agents")
+        .into_iter()
+        .find(|record| record.get("id").and_then(|v| v.as_str()) == Some(agent_id.as_str()))
+    else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("agent not found: {agent_id}")));
+    };
+    let thread_id = thread_id_for_agent(&agent_id);
+    let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send");
+    let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
+    let run = create_agent_run(&st, &agent, &thread_id, mode, prompt)?;
+    Ok(Json(run))
 }
 
 /// Append admitted runtime events to the thread's persisted Agentgres event log

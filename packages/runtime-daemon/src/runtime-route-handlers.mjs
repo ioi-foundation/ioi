@@ -102,16 +102,21 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "runs") {
-      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.run_create");
-      writeJsonResponse(response, await createLifecycleRunDep(store, agentId, await readBody(request), {
-        approvalModeForThreadMode,
-        buildRun,
-        ensureProviderAvailable,
-        lifecycleAdmissionRunner: routeContextPolicyCore,
-        repositoryWorkflowProjector: routeContextPolicyCore,
-        runtimeError: lifecycleRuntimeError,
-        threadModeForRunMode,
-      }));
+      // Agent run-create is served by the Rust hypervisor-daemon (the SDK send/plan/
+      // dry_run/handoff path: handle_agent_run_create over the shared create_agent_run flow).
+      writeJsonResponse(
+        response,
+        {
+          error: {
+            code: "runtime_lifecycle_retired_served_by_rust_daemon",
+            message:
+              "Agent run-create is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+            retryable: false,
+            details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+          },
+        },
+        410,
+      );
       return;
     }
     if (request.method === "GET" && action === "runs") {
