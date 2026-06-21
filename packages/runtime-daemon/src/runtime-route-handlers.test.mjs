@@ -222,19 +222,21 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
       url: new URL("/v1/runs/run_route", "http://daemon.test"),
       segments: ["v1", "runs", "run_route"],
   });
-  for (const path of [
-    "/v1/runs/run_route/usage",
-    "/v1/runs/run_route/wait",
-    "/v1/runs/run_route/conversation",
-    "/v1/runs/run_route/events",
-    "/v1/runs/run_route/replay",
-    "/v1/runs/run_route/trace",
-    "/v1/runs/run_route/inspect",
-    "/v1/runs/run_route/computer-use/trace",
-    "/v1/runs/run_route/computer-use/trajectory",
-    "/v1/runs/run_route/scorecard",
-    "/v1/runs/run_route/artifacts",
-    "/v1/runs/run_route/artifacts/artifact_1",
+  // Read-only run projections + cancel/events are Rust-owned (410). Run-scoped replay
+  // (SSE) stays JS-served, so it still hits the store.
+  for (const { path, retired } of [
+    { path: "/v1/runs/run_route/usage", retired: true },
+    { path: "/v1/runs/run_route/wait", retired: true },
+    { path: "/v1/runs/run_route/conversation", retired: true },
+    { path: "/v1/runs/run_route/events", retired: true },
+    { path: "/v1/runs/run_route/replay" },
+    { path: "/v1/runs/run_route/trace", retired: true },
+    { path: "/v1/runs/run_route/inspect", retired: true },
+    { path: "/v1/runs/run_route/computer-use/trace", retired: true },
+    { path: "/v1/runs/run_route/computer-use/trajectory", retired: true },
+    { path: "/v1/runs/run_route/scorecard", retired: true },
+    { path: "/v1/runs/run_route/artifacts", retired: true },
+    { path: "/v1/runs/run_route/artifacts/artifact_1", retired: true },
   ]) {
     routeRequests.push({
       handler: handleRunRoute,
@@ -243,6 +245,7 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
       store,
       url: new URL(path, "http://daemon.test"),
       segments: path.split("/").filter(Boolean),
+      retired,
     });
   }
 
@@ -251,25 +254,15 @@ test("agent, thread, and run detail routes return store-owned lifecycle projecti
     assert.equal(routeRequest.response.statusCode, routeRequest.retired ? 410 : 200);
   }
 
-  // Retired thread lifecycle routes (GET /:id, events) are served by the Rust daemon.
+  // Retired thread + run lifecycle routes are served by the Rust daemon, so they never
+  // hit the store. Only the bare run get + the preserved run replay (SSE) remain JS.
   assert.deepEqual(calls, [
     { projectionKind: "agent", facts: { agent_id: "agent_route" } },
     { projectionKind: "agent_runs", facts: { agent_id: "agent_route" } },
     { projectionKind: "thread_turns", facts: { thread_id: "thread_route" } },
     { projectionKind: "thread_turn", facts: { thread_id: "thread_route", turn_id: "turn_1" } },
     { projectionKind: "run", facts: { run_id: "run_route" } },
-    { projectionKind: "run_usage", facts: { run_id: "run_route" } },
-    { projectionKind: "run_wait", facts: { run_id: "run_route" } },
-    { projectionKind: "run_conversation", facts: { run_id: "run_route" } },
-    { projectionKind: "run_events", facts: { run_id: "run_route" } },
     { projectionKind: "run_replay", facts: { run_id: "run_route" } },
-    { projectionKind: "run_trace", facts: { run_id: "run_route" } },
-    { projectionKind: "run_trace", facts: { run_id: "run_route" } },
-    { projectionKind: "run_computer_use_trace", facts: { run_id: "run_route" } },
-    { projectionKind: "run_computer_use_trajectory", facts: { run_id: "run_route" } },
-    { projectionKind: "run_scorecard", facts: { run_id: "run_route" } },
-    { projectionKind: "run_artifacts", facts: { run_id: "run_route" } },
-    { projectionKind: "run_artifact", facts: { run_id: "run_route", artifact_ref: "artifact_1" } },
   ]);
 });
 
@@ -1241,6 +1234,8 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/runs/run_route/cancel",
       operation: "cancelRun",
       args: ["run_route"],
+      // Migrated to the Rust daemon (handle_run_cancel via plan_run_cancel_state_update).
+      retired: true,
     },
   ];
 

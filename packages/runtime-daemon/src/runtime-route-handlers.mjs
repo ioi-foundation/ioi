@@ -695,6 +695,36 @@ export function createRuntimeRouteHandlers(deps) {
   async function handleRunRoute({ request, response, store, url, segments }) {
     const runId = decodeURIComponent(segments[2]);
     const action = segments[3];
+    // Run sub-routes owned by the Rust hypervisor-daemon: the read-only projections
+    // (usage/wait/conversation/trace/inspect/computer-use/scorecard/artifacts) replay via
+    // the kernel runtime-lifecycle projection; cancel + events are already Rust-served.
+    // Preserved (still JS): replay (SSE), run-scoped context-budget, coding-tool-budget-recovery.
+    if (
+      (request.method === "GET" &&
+        ["usage", "wait", "conversation", "trace", "inspect", "scorecard", "artifacts", "events"].includes(
+          action,
+        )) ||
+      (request.method === "GET" &&
+        action === "computer-use" &&
+        (segments[4] === "trace" || segments[4] === "trajectory") &&
+        !segments[5]) ||
+      (request.method === "POST" && action === "cancel")
+    ) {
+      writeJsonResponse(
+        response,
+        {
+          error: {
+            code: "runtime_lifecycle_retired_served_by_rust_daemon",
+            message:
+              "This run lifecycle route is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+            retryable: false,
+            details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+          },
+        },
+        410,
+      );
+      return;
+    }
     if (request.method === "GET" && !action) {
       writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run", { run_id: runId }));
       return;

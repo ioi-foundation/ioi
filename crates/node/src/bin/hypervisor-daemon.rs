@@ -447,6 +447,17 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/runs/:id", get(lifecycle_routes::handle_run_get))
         .route("/v1/runs/:id/cancel", post(lifecycle_routes::handle_run_cancel))
         .route("/v1/runs/:id/events", get(lifecycle_routes::handle_run_events))
+        // Read-only run sub-projections (pure kernel runtime-lifecycle replays).
+        .route("/v1/runs/:id/usage", get(lifecycle_routes::handle_run_usage))
+        .route("/v1/runs/:id/wait", get(lifecycle_routes::handle_run_wait))
+        .route("/v1/runs/:id/conversation", get(lifecycle_routes::handle_run_conversation))
+        .route("/v1/runs/:id/trace", get(lifecycle_routes::handle_run_trace))
+        .route("/v1/runs/:id/inspect", get(lifecycle_routes::handle_run_trace))
+        .route("/v1/runs/:id/computer-use/trace", get(lifecycle_routes::handle_run_computer_use_trace))
+        .route("/v1/runs/:id/computer-use/trajectory", get(lifecycle_routes::handle_run_computer_use_trajectory))
+        .route("/v1/runs/:id/scorecard", get(lifecycle_routes::handle_run_scorecard))
+        .route("/v1/runs/:id/artifacts", get(lifecycle_routes::handle_run_artifacts))
+        .route("/v1/runs/:id/artifacts/:ref", get(lifecycle_routes::handle_run_artifact))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;

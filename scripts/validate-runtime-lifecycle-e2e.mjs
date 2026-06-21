@@ -211,6 +211,37 @@ async function main() {
       assert.equal(missing.status, 404);
     });
 
+    // Step 3c: the read-only run sub-projections, all served by the Rust daemon via the
+    // kernel runtime-lifecycle projection (no JS daemon). The JS owners now return 410.
+    await runStep("GET /v1/runs/:id/{usage,wait,conversation,trace,scorecard,artifacts,...} project the run", async () => {
+      const runId = encodeURIComponent(turnRequestId);
+      const projections = await Promise.all(
+        [
+          "usage",
+          "wait",
+          "conversation",
+          "trace",
+          "inspect",
+          "computer-use/trace",
+          "computer-use/trajectory",
+          "scorecard",
+          "artifacts",
+          "artifacts/artifact_does_not_exist",
+        ].map(async (suffix) => [suffix, await fetchJson(`${rust.endpoint}/v1/runs/${runId}/${suffix}`)]),
+      );
+      for (const [suffix, { status }] of projections) {
+        assert.equal(status, 200, `run projection ${suffix} should be served by the Rust daemon`);
+      }
+      const bySuffix = Object.fromEntries(projections);
+      // run_wait returns the persisted run record; trace returns its trace object.
+      assert.equal(bySuffix.wait.body.id, turnRequestId, "run_wait projects the run record");
+      assert.ok(bySuffix.trace.body && typeof bySuffix.trace.body === "object", "run_trace projects the trace");
+      assert.equal(JSON.stringify(bySuffix.inspect.body), JSON.stringify(bySuffix.trace.body), "inspect aliases trace");
+      // conversation + artifacts are array projections (empty is fine for a minimal turn).
+      assert.ok(Array.isArray(bySuffix.conversation.body), "run_conversation is an array");
+      assert.ok(Array.isArray(bySuffix.artifacts.body), "run_artifacts is an array");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

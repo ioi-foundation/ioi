@@ -982,6 +982,98 @@ pub(crate) async fn handle_run_get(
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")))
 }
 
+/// Shared body for the read-only run sub-projections (usage/wait/conversation/trace/
+/// inspect/computer-use/scorecard/artifacts). Each is a PURE projection: the kernel
+/// `project_runtime_lifecycle` planner replays the run from `<state_dir>` and shapes the
+/// requested view — no daemon-side state, no event admission. This is the run-scoped twin
+/// of `handle_thread_usage`.
+fn run_projection_response(
+    st: &DaemonState,
+    run_id: &str,
+    projection_kind: &str,
+    artifact_ref: Option<&str>,
+) -> Result<Json<Value>, AppError> {
+    let request: RuntimeLifecycleProjectionRequest = serde_json::from_value(json!({
+        "operation": "runtime_lifecycle_projection",
+        "operation_kind": format!("runtime.lifecycle_projection.{projection_kind}"),
+        "projection_kind": projection_kind,
+        "run_id": run_id,
+        "artifact_ref": artifact_ref,
+        "state_dir": st.data_dir,
+        "source": "sdk_client",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_lifecycle(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
+}
+
+pub(crate) async fn handle_run_usage(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_usage", None)
+}
+
+pub(crate) async fn handle_run_wait(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_wait", None)
+}
+
+pub(crate) async fn handle_run_conversation(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_conversation", None)
+}
+
+/// Serves both GET /v1/runs/:id/trace and GET /v1/runs/:id/inspect (the JS daemon aliases
+/// `inspect` to the same `run_trace` projection).
+pub(crate) async fn handle_run_trace(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_trace", None)
+}
+
+pub(crate) async fn handle_run_computer_use_trace(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_computer_use_trace", None)
+}
+
+pub(crate) async fn handle_run_computer_use_trajectory(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_computer_use_trajectory", None)
+}
+
+pub(crate) async fn handle_run_scorecard(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_scorecard", None)
+}
+
+pub(crate) async fn handle_run_artifacts(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_artifacts", None)
+}
+
+pub(crate) async fn handle_run_artifact(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((run_id, artifact_ref)): AxumPath<(String, String)>,
+) -> Result<Json<Value>, AppError> {
+    run_projection_response(&st, &run_id, "run_artifact", Some(&artifact_ref))
+}
+
 /// Apply a non-live MCP control mutation (import/add/remove/enable/disable) via the
 /// kernel plan_mcp_control_agent_state_update planner, then dual-case + persist the
 /// updated agent (the MCP registry lives on the agent record).
