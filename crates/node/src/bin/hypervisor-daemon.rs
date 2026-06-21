@@ -140,6 +140,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/models", get(handle_models))
         .route("/v1/models/routes", get(handle_routes_list))
+        .route("/v1/account", get(handle_account))
+        .route("/v1/runtime/nodes", get(handle_runtime_nodes))
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
         .route("/v1/model-mount/server/restart", post(handle_server_restart))
@@ -596,6 +598,53 @@ async fn handle_models(State(st): State<Arc<DaemonState>>) -> Json<Value> {
         "routes": routes,
         "receipts": read_receipts(&st.data_dir),
     }))
+}
+
+/// GET /v1/account — the operator account summary (mirrors the JS tool catalog
+/// `runtimeAccount`). `source = ioi-daemon-agentgres` marks Agentgres-backed local truth.
+async fn handle_account() -> Json<Value> {
+    Json(json!({
+        "id": "local-operator",
+        "email": std::env::var("IOI_OPERATOR_EMAIL").ok(),
+        "authorityLevel": "local",
+        "privacyClass": "local_private",
+        "source": "ioi-daemon-agentgres",
+    }))
+}
+
+/// GET /v1/runtime/nodes — the runtime node inventory (mirrors the JS tool catalog
+/// `runtimeNodes`). `local-daemon-agentgres` is the Agentgres-backed local runtime;
+/// hosted / self-hosted are env-gated (available only when their endpoint is set).
+async fn handle_runtime_nodes() -> Json<Value> {
+    let env_endpoint = |key: &str| std::env::var(key).ok().filter(|value| !value.is_empty());
+    let hosted = env_endpoint("IOI_AGENT_SDK_HOSTED_ENDPOINT");
+    let self_hosted = env_endpoint("IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT");
+    Json(json!([
+        {
+            "id": "local-daemon-agentgres",
+            "kind": "local",
+            "status": "available",
+            "endpoint": "local",
+            "privacyClass": "local_private",
+            "evidence_refs": ["agentgres_canonical_state_projection", "ioi_daemon_public_runtime_api"],
+        },
+        {
+            "id": "hosted-provider",
+            "kind": "hosted",
+            "status": if hosted.is_some() { "available" } else { "blocked" },
+            "endpoint": hosted,
+            "privacyClass": "hosted",
+            "evidence_refs": ["IOI_AGENT_SDK_HOSTED_ENDPOINT"],
+        },
+        {
+            "id": "self-hosted-provider",
+            "kind": "self_hosted",
+            "status": if self_hosted.is_some() { "available" } else { "blocked" },
+            "endpoint": self_hosted,
+            "privacyClass": "workspace",
+            "evidence_refs": ["IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"],
+        },
+    ]))
 }
 
 /// Server status, projected by the kernel from Agentgres-admitted server-control

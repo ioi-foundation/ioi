@@ -4604,23 +4604,23 @@ test("public runtime account node and tool routes use mounted tool API", async (
     listTools: retiredRouteWrapper,
   };
 
-  const accountResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/account" }), response: accountResponse, store });
-  assert.deepEqual(JSON.parse(accountResponse.body), { account_id: "acct_route" });
-
-  const nodesResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/runtime/nodes" }), response: nodesResponse, store });
-  assert.deepEqual(JSON.parse(nodesResponse.body), { nodes: [] });
+  // Account summary + runtime node inventory are Rust-owned (410); the JS toolApi must not
+  // be invoked. /v1/tools stays JS-served.
+  for (const path of ["/v1/account", "/v1/runtime/nodes"]) {
+    const retiredResponse = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response: retiredResponse, store });
+    assert.equal(retiredResponse.statusCode, 410, `${path} should be retired`);
+    assert.equal(
+      JSON.parse(retiredResponse.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
 
   const toolsResponse = responseRecorder();
   await handleRequest({ request: request({ url: "/v1/tools?pack=coding" }), response: toolsResponse, store });
   assert.deepEqual(JSON.parse(toolsResponse.body), { tools: [], pack: "coding" });
 
-  assert.deepEqual(calls, [
-    { method: "getAccount" },
-    { method: "listRuntimeNodes" },
-    { method: "listTools", options: { pack: "coding" } },
-  ]);
+  assert.deepEqual(calls, [{ method: "listTools", options: { pack: "coding" } }]);
 });
 
 test("public runtime routes delegate thread subroutes unchanged", async () => {

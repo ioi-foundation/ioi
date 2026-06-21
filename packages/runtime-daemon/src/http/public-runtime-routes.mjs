@@ -1819,12 +1819,24 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.repositoryApi.listRepositories(store));
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/account") {
-        writeJsonResponse(response, store.toolApi.getAccount());
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/runtime/nodes") {
-        writeJsonResponse(response, store.toolApi.listRuntimeNodes());
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/v1/account" || url.pathname === "/v1/runtime/nodes")
+      ) {
+        // Account summary + runtime node inventory are served by the Rust hypervisor-daemon.
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "This route is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tools") {

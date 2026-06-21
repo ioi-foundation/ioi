@@ -274,6 +274,22 @@ async function main() {
       assert.equal(jobRecord.schemaVersion, "ioi.agent-runtime.job-record.v1", "job record schema");
     });
 
+    // Step 3e: the operator account summary + runtime node inventory, now Rust-owned with
+    // the canonical Agentgres identifiers the live contract asserts (the JS routes 410).
+    await runStep("GET /v1/account + /v1/runtime/nodes are Rust-owned", async () => {
+      const account = await fetchJson(`${rust.endpoint}/v1/account`);
+      assert.equal(account.status, 200);
+      assert.equal(account.body.source, "ioi-daemon-agentgres", "account source marks Agentgres-backed local truth");
+      assert.equal(account.body.authorityLevel, "local");
+      const nodes = await fetchJson(`${rust.endpoint}/v1/runtime/nodes`);
+      assert.equal(nodes.status, 200);
+      assert.ok(Array.isArray(nodes.body), "runtime nodes is an array");
+      assert.ok(
+        nodes.body.some((node) => node.id === "local-daemon-agentgres"),
+        "includes the local Agentgres runtime node",
+      );
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.
