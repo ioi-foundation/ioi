@@ -53,6 +53,12 @@ use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
+use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
+    RuntimeManagedSessionProjectionRequest, RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+};
+use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
+    RuntimeWorkspaceChangeProjectionRequest, RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -1698,6 +1704,93 @@ pub(crate) async fn handle_thread_usage(
         .project_runtime_lifecycle(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
+}
+
+/// GET /v1/threads/:id/managed-sessions — project the thread's managed sessions
+/// (read-only). The kernel projection record carries no `status`; the JS client asserts
+/// `status == "projected"`, so the envelope injects it (as the napi projection API does).
+pub(crate) async fn handle_managed_sessions(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "operation": "managed_session_inspection",
+        "operation_kind": "managed_session.inspect",
+        "projection_kind": "list",
+        "thread_id": thread_id,
+        "state_dir": st.data_dir,
+        "source": "runtime.managed_session_state",
+        "evidence_refs": [
+            "runtime_managed_session_projection_rust_owned",
+            "managed_session_inspection_js_facade_retired",
+            "agentgres_managed_session_truth_required",
+        ],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_managed_session_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.managed_session_projection.v1",
+        "object": "ioi.runtime_managed_session_projection",
+        "status": "projected",
+        "operation": record.operation,
+        "operation_kind": record.operation_kind,
+        "projection_kind": record.projection_kind,
+        "thread_id": record.thread_id,
+        "source": record.source,
+        "projection": record.projection,
+        "record_count": record.record_count,
+        "evidence_refs": record.evidence_refs,
+        "receipt_refs": record.receipt_refs,
+    })))
+}
+
+/// GET /v1/threads/:id/workspace-change-reviews — project the thread's workspace-change
+/// reviews (read-only; same status:"projected" envelope discipline as managed-sessions).
+pub(crate) async fn handle_workspace_change_reviews(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let request: RuntimeWorkspaceChangeProjectionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "operation": "workspace_change_inspection",
+        "operation_kind": "workspace_change.inspect",
+        "projection_kind": "list",
+        "thread_id": thread_id,
+        "state_dir": st.data_dir,
+        "source": "runtime.workspace_change_state",
+        "evidence_refs": [
+            "runtime_workspace_change_projection_rust_owned",
+            "workspace_change_inspection_js_facade_retired",
+            "agentgres_workspace_change_truth_required",
+        ],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_workspace_change_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.workspace_change_projection.v1",
+        "object": "ioi.runtime_workspace_change_projection",
+        "status": "projected",
+        "operation": record.operation,
+        "operation_kind": record.operation_kind,
+        "projection_kind": record.projection_kind,
+        "thread_id": record.thread_id,
+        "source": record.source,
+        "projection": record.projection,
+        "record_count": record.record_count,
+        "evidence_refs": record.evidence_refs,
+        "receipt_refs": record.receipt_refs,
+    })))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

@@ -1221,6 +1221,8 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/threads/thread_route/managed-sessions?projection=summary",
       operation: "inspectManagedSessionsForThread",
       args: ["thread_route", { projection: "summary" }],
+      // Migrated to the Rust daemon (read-only projection). control (POST) stays here.
+      retired: true,
     },
     {
       handler: handleThreadRoute,
@@ -1228,6 +1230,7 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       path: "/v1/threads/thread_route/workspace-change-reviews?scope=active",
       operation: "inspectWorkspaceChangeReviewsForThread",
       args: ["thread_route", { scope: "active" }],
+      retired: true,
     },
     {
       handler: handleThreadRoute,
@@ -1266,6 +1269,16 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
       url,
       segments: url.pathname.split("/").filter(Boolean),
     });
+    if (testCase.retired) {
+      // Migrated routes are retired in the JS daemon (served by the Rust daemon).
+      assert.equal(response.statusCode, 410);
+      assert.equal(
+        JSON.parse(response.body).error.code,
+        "runtime_lifecycle_retired_served_by_rust_daemon",
+      );
+      assert.equal(calls.length, 0, "retired route must not invoke the JS store");
+      continue;
+    }
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
     assert.equal(call.operation, testCase.operation);

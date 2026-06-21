@@ -648,7 +648,23 @@ async function main() {
       assert.ok(typeof usage.body.total_tokens === "number", "projects total_tokens");
     });
 
-    // RATCHET FRONTIER — next: more GET projections (artifacts/managed-sessions/snapshots).
+    // Step 13: managed-sessions + workspace-change-reviews — read-only projections
+    // (empty on a fresh thread) that must carry status:"projected" for JS clients.
+    await runStep("GET /v1/threads/:id/{managed-sessions,workspace-change-reviews} project (status projected)", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const sessions = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/managed-sessions`);
+      assert.equal(sessions.status, 200);
+      assert.equal(sessions.body.status, "projected", "client asserts status projected");
+      assert.equal(sessions.body.operation_kind, "managed_session.inspect");
+      assert.ok("projection" in sessions.body, "carries a projection");
+
+      const reviews = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/workspace-change-reviews`);
+      assert.equal(reviews.status, 200);
+      assert.equal(reviews.body.status, "projected");
+      assert.equal(reviews.body.operation_kind, "workspace_change.inspect");
+    });
+
+    // RATCHET FRONTIER — next: GET /snapshots, GET/POST /artifacts.
   } finally {
     await rust.close();
   }

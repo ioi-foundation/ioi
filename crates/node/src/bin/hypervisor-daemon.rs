@@ -363,6 +363,14 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_thread_usage),
         )
         .route(
+            "/v1/threads/:id/managed-sessions",
+            get(lifecycle_routes::handle_managed_sessions),
+        )
+        .route(
+            "/v1/threads/:id/workspace-change-reviews",
+            get(lifecycle_routes::handle_workspace_change_reviews),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )
