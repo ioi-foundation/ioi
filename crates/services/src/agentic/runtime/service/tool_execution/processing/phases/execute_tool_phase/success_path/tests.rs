@@ -651,3 +651,194 @@ fn workspace_change_lifecycle_receipt_details_reject_invalid_transition_payloads
 
     assert!(details.is_none());
 }
+
+/// Real end-to-end coverage of the managed-session producer chain with NO fixtures:
+/// the actual private producer `emit_managed_browser_session` (the exact function
+/// `handle_execution_success` invokes on a successful `browser__*` tool) records a
+/// managed browser session into real KV, rebuilds the snapshot, and emits a
+/// `KernelEvent::RuntimeThreadEvent` carrier; the real event-log bridge resolves the
+/// daemon thread and persists it onto `<state_dir>/events`; and the kernel
+/// managed-session projection (which `GET /v1/threads/:id/managed-sessions` delegates
+/// to verbatim) reads it back. Closes the producer->channel->bridge->jsonl->projection
+/// verification gap that the HTTP-only lifecycle ratchet cannot exercise in-process.
+mod managed_session_producer_e2e {
+    use crate::agentic::runtime::event_log_bridge::persist_runtime_thread_event_json;
+    use crate::agentic::runtime::kernel::runtime_managed_session_control::{
+        RuntimeManagedSessionProjectionCore, RuntimeManagedSessionProjectionRequest,
+        RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    };
+    use crate::agentic::runtime::service::RuntimeAgentService;
+    use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::inference::UnavailableInferenceRuntime;
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::terminal::TerminalDriver;
+    use ioi_state::primitives::hash::HashCommitmentScheme;
+    use ioi_state::tree::iavl::IAVLTree;
+    use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
+    use ioi_types::error::VmError;
+    use serde_json::json;
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+        async fn register_som_overlay(
+            &self,
+            _map: std::collections::HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    fn agent_state(session_id: [u8; 32]) -> AgentState {
+        AgentState {
+            session_id,
+            goal: "managed session producer e2e".to_string(),
+            runtime_route_frame: None,
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 1,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            execution_ledger: Default::default(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            work_graph_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            active_lens: None,
+            pending_search_completion: None,
+            planner_state: None,
+            command_history: Default::default(),
+        }
+    }
+
+    #[test]
+    fn real_browser_producer_bridges_a_managed_session_the_daemon_projection_serves() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().to_string_lossy().to_string();
+        let session_id = [0x38u8; 32];
+
+        // Daemon-side precondition: the agent record + runtime_session_id linkage the
+        // daemon persists when the runtime-bridge thread starts (RuntimeBridgeThreadStart).
+        let agents_dir = temp.path().join("agents");
+        std::fs::create_dir_all(&agents_dir).expect("agents dir");
+        std::fs::write(
+            agents_dir.join("agent_e2e.json"),
+            serde_json::to_string(&json!({
+                "id": "agent_e2e",
+                "object": "ioi.agent",
+                "thread_id": "thread_e2e",
+                "runtime_session_id": hex::encode(session_id),
+            }))
+            .expect("agent json"),
+        )
+        .expect("write agent record");
+
+        // A real service holding a real KernelEvent channel.
+        let (tx, mut rx) = tokio::sync::broadcast::channel::<KernelEvent>(16);
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let service = RuntimeAgentService::new(
+            gui,
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            Arc::new(UnavailableInferenceRuntime::new("test")),
+        )
+        .with_event_sender(tx);
+
+        let agent = agent_state(session_id);
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+
+        // Drive the REAL producer — the exact private fn handle_execution_success calls
+        // after a successful browser__* tool. No fixture event is seeded.
+        super::super::emit_managed_browser_session(
+            &service,
+            &mut state,
+            &agent,
+            "browser__inspect",
+            Some("{\"ok\":true}"),
+            None,
+            1000,
+        );
+
+        // The producer emitted a RuntimeThreadEvent carrier on the channel.
+        let event = rx.try_recv().expect("producer emitted a KernelEvent");
+        let (sent_session, event_json) = match event {
+            KernelEvent::RuntimeThreadEvent { session_id, event_json } => (session_id, event_json),
+            other => panic!("expected RuntimeThreadEvent, got {other:?}"),
+        };
+        assert_eq!(sent_session, session_id);
+
+        // The event-log bridge persists it onto the daemon log (the body of
+        // run_event_log_bridge's match arm).
+        let admitted = persist_runtime_thread_event_json(&state_dir, &session_id, &event_json)
+            .expect("bridge persists")
+            .expect("an event was admitted");
+        assert_eq!(admitted["event_kind"], "managed_session.projected");
+        assert_eq!(admitted["thread_id"], "thread_e2e");
+        assert!(admitted.get("seq").and_then(serde_json::Value::as_u64).is_some());
+
+        // The daemon's projection core (what GET /managed-sessions delegates to) serves it.
+        let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
+            "schema_version": RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "operation": "managed_session_inspection",
+            "operation_kind": "managed_session.inspect",
+            "projection_kind": "list",
+            "thread_id": "thread_e2e",
+            "state_dir": state_dir,
+            "source": "runtime.managed_session_state",
+        }))
+        .expect("projection request");
+        let record = RuntimeManagedSessionProjectionCore
+            .project(&request)
+            .expect("projection");
+        assert_eq!(record.record_count, 1, "the daemon projects the produced managed session");
+        let sessions = record.projection.as_array().expect("sessions array");
+        assert_eq!(sessions[0]["kind"], "sandbox_browser");
+    }
+}
