@@ -1836,17 +1836,14 @@ test("thread route sends workspace-trust acknowledgement through thread control 
     segments: ["v1", "threads", "thread_route", "workspace-trust", "warning_1", "acknowledge"],
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].threadId, "thread_route");
-  assert.equal(calls[0].warningId, "warning_1");
-  assert.deepEqual(calls[0].requestBody, body);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "blocked",
-    thread_id: "thread_route",
-    warning_id: "warning_1",
-    requested_control_kind: "workspace_trust_acknowledgement",
-  });
+  // Migrated to the Rust daemon (plans + admits the workspace.trust_acknowledged event;
+  // the warning is raised by the Rust mode route on review/yolo).
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.equal(calls.length, 0, "retired route must not invoke the JS store");
 });
 
 test("thread route sends subagent controls through store-owned subagent API", async () => {

@@ -375,6 +375,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_approval_revoke),
         )
         .route(
+            "/v1/threads/:id/workspace-trust/:warning_id/acknowledge",
+            post(lifecycle_routes::handle_workspace_trust_acknowledge),
+        )
+        .route(
             "/v1/threads/:id/usage",
             get(lifecycle_routes::handle_thread_usage),
         )

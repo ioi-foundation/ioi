@@ -206,6 +206,12 @@ export function createRuntimeRouteHandlers(deps) {
       ((request.method === "GET" || request.method === "POST") &&
         action === "artifacts" &&
         !segments[4]) ||
+      // workspace-trust acknowledge: the Rust daemon plans + admits the
+      // workspace.trust_acknowledged event (the warn is raised by the Rust mode route).
+      (request.method === "POST" &&
+        action === "workspace-trust" &&
+        segments[4] &&
+        segments[5] === "acknowledge") ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&

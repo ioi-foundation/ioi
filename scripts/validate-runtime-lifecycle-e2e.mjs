@@ -252,6 +252,42 @@ async function main() {
       assert.equal(body.event.component_kind, "model_router");
     });
 
+    // Step 4d: workspace-trust pair — entering review mode raises a trust warning on the
+    // unified log; the acknowledge route consumes it by id and emits an acknowledgement.
+    await runStep("mode=review raises a workspace-trust warning that acknowledge consumes", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const review = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/mode`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "review" }),
+      });
+      assert.equal(review.status, 200);
+      const warningId = review.body.workspace_trust_warning?.warning_id;
+      assert.ok(warningId, "review mode raises a workspace-trust warning");
+      assert.equal(review.body.workspace_trust_warning_event?.event_kind, "workspace.trust_warning");
+      assert.equal(review.body.workspace_trust_warning_event?.seq, beforeMax + 1, "warning lands on the log");
+
+      const ack = await fetchJson(
+        `${rust.endpoint}/v1/threads/${tid}/workspace-trust/${encodeURIComponent(warningId)}/acknowledge`,
+        { method: "POST", body: JSON.stringify({ reason: "operator trusts this workspace" }) },
+      );
+      assert.equal(ack.status, 200);
+      assert.equal(ack.body.object, "ioi.runtime_workspace_trust_control_state_update");
+      assert.equal(ack.body.event?.event_kind, "workspace.trust_acknowledged");
+      assert.equal(ack.body.event?.seq, beforeMax + 2, "acknowledgement follows the warning");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.at(-1)?.event_kind, "workspace.trust_acknowledged", "trust events are on the log");
+      const seqs = after.map((event) => event.seq);
+      assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
+    });
+
     // Step 5a: MCP family — the catalog/tool-search projection (the boundary that
     // originally 502'd thread-create) now runs as an internal Rust call.
     await runStep("GET /v1/threads/:id/mcp/tools/search projects the MCP catalog", async () => {

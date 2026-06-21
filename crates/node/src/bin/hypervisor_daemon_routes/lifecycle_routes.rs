@@ -32,8 +32,9 @@ use ioi_services::agentic::runtime::kernel::policy::{
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest,
     RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
-    AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
-    CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION, CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+    WorkspaceTrustControlStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    COMPACTION_POLICY_REQUEST_SCHEMA_VERSION, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
     CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -43,6 +44,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
@@ -2941,6 +2943,116 @@ fn apply_thread_control(
                 "control_kind": control_kind,
             }),
         );
+    }
+
+    // Entering review/yolo mode emits a workspace-trust WARNING onto the unified log
+    // (the kernel decides it is required from controls.mode). The acknowledge route
+    // later consumes that warning by id — the mode transition, not a separate route,
+    // is what raises the trust warning.
+    if control_kind == "mode" {
+        if let Some((warning, admitted)) =
+            emit_workspace_trust_warning(st, thread_id, &updated_agent, &controls, &now, &event_id)?
+        {
+            if let Some(map) = response.as_object_mut() {
+                map.insert("workspace_trust_warning".to_string(), warning);
+                map.insert("workspace_trust_warning_event".to_string(), admitted);
+            }
+        }
+    }
+    Ok(Json(response))
+}
+
+/// Emit the workspace-trust warning for a mode transition: plan it (kernel
+/// plan_workspace_trust_control_state_update op workspace_trust.warning — returns a
+/// not_required record for agent/plan modes) and, when required, admit the
+/// workspace.trust_warning event onto the unified log. Returns the warning object +
+/// the admitted event, or None when no warning is required for the mode.
+fn emit_workspace_trust_warning(
+    st: &DaemonState,
+    thread_id: &str,
+    agent: &Value,
+    controls: &Value,
+    now: &str,
+    source_event_id: &str,
+) -> Result<Option<(Value, Value)>, AppError> {
+    let request: WorkspaceTrustControlStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "operation_kind": "workspace_trust.warning",
+        "thread_id": thread_id,
+        "event_stream_id": format!("{thread_id}:events"),
+        // Inline agent is accepted by the workspace-trust planner (reads agent.id + cwd).
+        "agent": agent,
+        "controls": controls,
+        "source_event_id": source_event_id,
+        "source": "runtime_thread_control",
+        "actor": "operator",
+        "requested_by": "operator",
+        "workflow_node_id": "runtime.workspace-trust",
+        "state_dir": st.data_dir,
+        "created_at": now,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_workspace_trust_control_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let record = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if record.get("status").and_then(|v| v.as_str()) == Some("not_required") {
+        return Ok(None);
+    }
+    let Some(event) = record.get("event").filter(|v| v.is_object()).cloned() else {
+        return Ok(None);
+    };
+    let admitted = admit_and_persist_event(st, event)?;
+    let warning = record.get("workspace_trust_warning").cloned().unwrap_or(Value::Null);
+    Ok(Some((warning, admitted)))
+}
+
+/// POST /v1/threads/:id/workspace-trust/:warning_id/acknowledge — acknowledge a
+/// workspace-trust warning raised by a prior mode transition. The kernel planner reads
+/// the warning from the persisted event log by id and emits a workspace.trust_acknowledged
+/// event, which the daemon admits onto the unified log.
+pub(crate) async fn handle_workspace_trust_acknowledge(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, warning_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    };
+    let now = iso_now();
+    let request: WorkspaceTrustControlStateUpdateRequest = serde_json::from_value(json!({
+        "schema_version": WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+        "operation_kind": "workspace_trust.acknowledge",
+        "thread_id": thread_id,
+        "event_stream_id": format!("{thread_id}:events"),
+        "agent": agent,
+        "warning_id": warning_id,
+        "source_event_id": body.get("source_event_id").and_then(|v| v.as_str()),
+        "reason": body.get("reason").and_then(|v| v.as_str()),
+        "source": body.get("source").and_then(|v| v.as_str()).unwrap_or("runtime_thread_control"),
+        "actor": body.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "workflow_node_id": body.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.workspace-trust"),
+        "state_dir": st.data_dir,
+        "created_at": now,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_workspace_trust_control_state_update(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let mut response = serde_json::to_value(&record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let event = response.get("event").cloned().unwrap_or(Value::Null);
+    if !event.is_object() {
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "workspace-trust acknowledge planner returned no event".to_string(),
+        ));
+    }
+    let admitted = admit_and_persist_event(&st, event)?;
+    if let Some(map) = response.as_object_mut() {
+        map.insert("event".to_string(), admitted.clone());
+        map.insert("workspace_trust_acknowledgement_event".to_string(), admitted);
     }
     Ok(Json(response))
 }
