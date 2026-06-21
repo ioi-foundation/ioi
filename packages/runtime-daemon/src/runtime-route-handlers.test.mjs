@@ -592,9 +592,29 @@ test("agent and thread memory mutation routes use store-owned thread memory APIs
     );
   }
 
+  // memory/status + memory/validate are migrated to the Rust daemon (admit memory
+  // control events onto the unified log); the JS routes are retired here.
+  for (const path of [
+    "/v1/threads/thread_route/memory/status",
+    "/v1/threads/thread_route/memory/validate",
+  ]) {
+    const url = new URL(path, "http://daemon.test");
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({ method: "POST", url: path, body: {} }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
+
   const threadRoutes = [
-    { method: "POST", path: "/v1/threads/thread_route/memory/status", body: { source: "status" } },
-    { method: "POST", path: "/v1/threads/thread_route/memory/validate", body: { source: "validate" } },
     { method: "PATCH", path: "/v1/threads/thread_route/memory/policy", body: { read_only: false } },
     { method: "PUT", path: "/v1/threads/thread_route/memory/memory_1", body: { text: "edited" } },
     { method: "DELETE", path: "/v1/threads/thread_route/memory/memory_1", body: { reason: "stale" } },
@@ -621,8 +641,6 @@ test("agent and thread memory mutation routes use store-owned thread memory APIs
       { method: "updateMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { text: "edited" } },
       { method: "deleteMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { reason: "stale" } },
       { method: "rememberForAgentId", agentId: "agent_route", threadId: undefined, memoryId: undefined, input: { text: "remember" } },
-      { method: "recordThreadMemoryStatus", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { source: "status" } },
-      { method: "validateThreadMemory", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { source: "validate" } },
       { method: "setMemoryPolicyForThread", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { read_only: false } },
       { method: "updateMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { text: "edited" } },
       { method: "deleteMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { reason: "stale" } },

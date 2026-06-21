@@ -52,6 +52,12 @@ use ioi_services::agentic::runtime::kernel::approval::{
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
+    RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+};
+use ioi_services::agentic::runtime::kernel::runtime_memory_projection::{
+    RuntimeMemoryProjectionApiRequest, RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
     RuntimeThreadEventAdmissionRequest, RuntimeThreadEventProjectionRequest,
     RuntimeThreadEventReplayRequest, RuntimeThreadTurnProjectionRequest,
@@ -1553,6 +1559,119 @@ pub(crate) async fn handle_approval_request(
         map.insert("commit".to_string(), json!({ "persisted": true }));
     }
     Ok(Json(response))
+}
+
+/// Shared memory-control flow (status / validate): project the public memory snapshot
+/// (kernel project_runtime_memory_projection), then plan the control event (kernel
+/// plan_runtime_memory_control builds a memory.status / memory.validate runtime event
+/// with generated receipt_refs in record.payload), and admit it onto the unified log.
+fn admit_memory_control_event(
+    st: &DaemonState,
+    thread_id: &str,
+    projection_kind: &str,
+    operation_kind: &str,
+    control_kind: &str,
+    event_kind: &str,
+    source_event_kind: &str,
+    workflow_node_id: &str,
+    payload_schema_version: &str,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(st, thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let agent_id = agent_id_for_thread(thread_id);
+    let event_stream_id = format!("{thread_id}:events");
+
+    // step 1: project the public memory snapshot (read-only).
+    let projection_request: RuntimeMemoryProjectionApiRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "operation_kind": format!("runtime.memory_projection.{projection_kind}"),
+        "projection_kind": projection_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "state_dir": st.data_dir,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let projection_record = RuntimeKernelService::new()
+        .project_runtime_memory_projection(&projection_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let payload = projection_record.projection.clone();
+    // validate drives the event status from the projection's ok flag; status is always ok.
+    let status = if projection_kind == "validation" && payload.get("ok").and_then(|v| v.as_bool()) == Some(false) {
+        "failed"
+    } else {
+        "completed"
+    };
+
+    // step 2: plan the control event (the planner builds the runtime event in record.payload).
+    let control_request: RuntimeMemoryControlApiRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation_kind": operation_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "state_dir": st.data_dir,
+        "request": {
+            "control_kind": control_kind,
+            "event_stream_id": event_stream_id,
+            "event_kind": event_kind,
+            "source_event_kind": source_event_kind,
+            "component_kind": "memory_manager",
+            "workflow_node_id": workflow_node_id,
+            "payload_schema_version": payload_schema_version,
+            "status": status,
+            "policy_decision_kind": "read",
+            "payload": payload,
+        },
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_memory_control(&control_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let event = record.payload.clone();
+    if event.is_null() {
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "memory control planner returned no event".to_string(),
+        ));
+    }
+    let admitted = admit_and_persist_event(st, event)?;
+    Ok(Json(admitted))
+}
+
+/// POST /v1/threads/:id/memory/status — admit a memory.status control event.
+pub(crate) async fn handle_memory_status(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    admit_memory_control_event(
+        &st,
+        &thread_id,
+        "status",
+        "memory.status",
+        "memory_status",
+        "memory.status",
+        "OperatorControl.MemoryStatus",
+        "runtime.memory-manager.status",
+        "ioi.runtime.memory-status.v1",
+    )
+}
+
+/// POST /v1/threads/:id/memory/validate — admit a memory.validate control event.
+pub(crate) async fn handle_memory_validate(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    admit_memory_control_event(
+        &st,
+        &thread_id,
+        "validation",
+        "memory.validate",
+        "memory_validate",
+        "memory.validate",
+        "OperatorControl.MemoryValidate",
+        "runtime.memory-manager.validate",
+        "ioi.runtime.memory-validation.v1",
+    )
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

@@ -604,7 +604,40 @@ async function main() {
       assert.equal(after.length, before.length, "approval request must not admit a runtime event");
     });
 
-    // RATCHET FRONTIER — next: approval decide/revoke, workspace-trust pair.
+    // Step 11: memory status + validate — event-emitting (project -> control -> admit).
+    await runStep("POST /v1/threads/:id/memory/{status,validate} admit memory control events", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const status = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/status`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(status.status, 200);
+      assert.equal(status.body.event_kind, "memory.status");
+      assert.equal(status.body.component_kind, "memory_manager");
+      assert.equal(status.body.seq, beforeMax + 1, "memory.status lands after prior events");
+
+      const validate = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/validate`, {
+        method: "POST",
+        body: "{}",
+      });
+      assert.equal(validate.status, 200);
+      assert.equal(validate.body.event_kind, "memory.validate");
+      assert.equal(validate.body.seq, beforeMax + 2, "memory.validate follows memory.status");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      assert.equal(after.at(-1)?.event_kind, "memory.validate", "memory events are on the log");
+      const seqs = after.map((event) => event.seq);
+      assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
+    });
+
+    // RATCHET FRONTIER — next: GET projections (usage/artifacts/managed-sessions/snapshots).
   } finally {
     await rust.close();
   }

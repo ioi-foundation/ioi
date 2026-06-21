@@ -182,6 +182,12 @@ export function createRuntimeRouteHandlers(deps) {
       // approvals create (POST /approvals): the Rust daemon authorizes + folds the
       // approval onto the agent/run. GET (list) + decide/approve/reject/revoke stay preserved.
       (request.method === "POST" && action === "approvals" && !segments[4]) ||
+      // memory status/validate: the Rust daemon projects the memory snapshot + admits the
+      // memory.status/memory.validate event onto the unified log. Other memory routes preserved.
+      (request.method === "POST" &&
+        action === "memory" &&
+        (segments[4] === "status" || segments[4] === "validate") &&
+        !segments[5]) ||
       // subagents: spawn (POST) + list (GET) + result + tail (wait/input/resume/assign/cancel
       // on /:id) + propagate-cancel (POST /subagents/cancel) are all migrated.
       (action === "subagents" &&
