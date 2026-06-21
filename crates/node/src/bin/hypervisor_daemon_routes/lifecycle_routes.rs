@@ -26,10 +26,12 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::policy::{
-    AgentCreateStateUpdateRequest, McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
-    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest, RunCancelStateUpdateRequest,
-    RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
+    AgentCreateStateUpdateRequest, CompactionPolicyRequest, McpControlAgentStateUpdateRequest,
+    McpToolSearchProjectionRequest, OperatorInterruptStateUpdateRequest,
+    OperatorSteerStateUpdateRequest, RunCancelStateUpdateRequest, RunCreateStateUpdateRequest,
+    SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateRequest,
     ThreadCreateStateUpdateRequest, AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -40,8 +42,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
-    RuntimeThreadEventProjectionRequest, RuntimeThreadEventReplayRequest,
-    RuntimeThreadTurnProjectionRequest, RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    RuntimeThreadEventAdmissionRequest, RuntimeThreadEventProjectionRequest,
+    RuntimeThreadEventReplayRequest, RuntimeThreadTurnProjectionRequest,
+    RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+    RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
     RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
     RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
@@ -593,6 +597,32 @@ fn append_persisted_events(
     Ok(())
 }
 
+/// Admit a single custom runtime event (e.g. a context-policy / workspace-trust
+/// decision) onto the persisted log via the kernel admission planner — it reads the
+/// stream's `latest_seq` from `<state_dir>/events/*.jsonl` and assigns seq+1, so the
+/// event lands AFTER the thread.started + turn events already on the log — then
+/// append the admitted event. Returns the admitted event (with seq, event_id, refs).
+fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppError> {
+    let event_stream_id = event
+        .get("event_stream_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+        "event": event,
+        "state_dir": st.data_dir,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .admit_runtime_thread_event(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let admitted = serde_json::to_value(&record.event)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    append_persisted_events(st, &event_stream_id, std::slice::from_ref(&admitted))?;
+    Ok(admitted)
+}
+
 /// Unified-event-log writer: run the kernel thread-event projection (which admits
 /// the synthesized thread.started + run/turn/materializer events on top of the
 /// already-persisted log, skipping anything whose idempotency_key is present) and
@@ -976,6 +1006,207 @@ pub(crate) async fn handle_mcp_validate(
     let validation = payload.get("validation").cloned().unwrap_or(Value::Null);
     payload.insert("validation".to_string(), validation);
     apply_mcp_control(&st, &thread_id, "mcp_validate", Value::Object(payload))
+}
+
+/// POST /v1/threads/:id/compaction-policy — evaluate the compaction policy in the
+/// kernel and admit the resulting decision event onto the persisted event log.
+///
+/// First event-emitting route on the unified log: kernel evaluate_compaction_policy
+/// → build the runtime event (mirrors the JS admitContextPolicyRuntimeEvent shape)
+/// → admit_and_persist_event (seq lands after thread.started + turns) → return the
+/// JS contextPolicyResultEnvelope ({...policy, event, event_id, seq, ...}). The
+/// execute_compaction cascade to /compact is a separate (deferred) route, so
+/// context_compaction is reported null here.
+pub(crate) async fn handle_compaction_policy(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let obj = body.as_object().cloned().unwrap_or_default();
+    let policy_obj = obj
+        .get("policy")
+        .or_else(|| obj.get("compaction_policy"))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    // policy.<key> wins over the top-level request body, matching evaluateCompactionPolicyDecision.
+    let pick_str = |keys: &[&str]| -> Value {
+        for key in keys {
+            if let Some(value) = policy_obj.get(*key).and_then(|v| v.as_str()) {
+                return Value::from(value);
+            }
+            if let Some(value) = obj.get(*key).and_then(|v| v.as_str()) {
+                return Value::from(value);
+            }
+        }
+        Value::Null
+    };
+    let pick_bool = |keys: &[&str]| -> Value {
+        for key in keys {
+            if let Some(value) = policy_obj.get(*key).and_then(|v| v.as_bool()) {
+                return Value::from(value);
+            }
+            if let Some(value) = obj.get(*key).and_then(|v| v.as_bool()) {
+                return Value::from(value);
+            }
+        }
+        Value::Null
+    };
+    let request: CompactionPolicyRequest = serde_json::from_value(json!({
+        "schema_version": COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "turn_id": obj.get("turn_id").and_then(|v| v.as_str()),
+        "context_budget": obj.get("context_budget").or_else(|| obj.get("runtime_context_budget")).cloned().unwrap_or_else(|| json!({})),
+        "context_budget_status": obj.get("context_budget_status").and_then(|v| v.as_str()),
+        "actions": {
+            "ok_action": pick_str(&["ok_action"]),
+            "warn_action": pick_str(&["warn_action"]),
+            "blocked_action": pick_str(&["blocked_action"]),
+        },
+        "approval": {
+            "approval_required": pick_bool(&["approval_required"]),
+            "approval_granted": pick_bool(&["approval_granted", "approved"]),
+        },
+        "compact": {
+            "execute_compaction": pick_bool(&["execute_compaction"]),
+            "compact_workflow_node_id": pick_str(&["compact_workflow_node_id"]),
+            "compact_reason": pick_str(&["compact_reason", "reason"]),
+            "compact_scope": pick_str(&["compact_scope"]),
+        },
+        "workflow_graph_id": obj.get("workflow_graph_id").and_then(|v| v.as_str()),
+        "workflow_node_id": obj.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.compaction-policy"),
+        "source": obj.get("source").and_then(|v| v.as_str()).unwrap_or("react_flow"),
+        "actor": obj.get("actor").and_then(|v| v.as_str()).unwrap_or("operator"),
+        "event_kind": obj.get("event_kind").and_then(|v| v.as_str()).unwrap_or("RuntimeCompactionPolicy.Evaluate"),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let policy_record = RuntimeKernelService::new()
+        .evaluate_compaction_policy(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let policy = serde_json::to_value(&policy_record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    let evidence_refs = json!([
+        "compaction_policy_evaluation_rust_owned",
+        "rust_daemon_core_compaction_policy_event",
+        "agentgres_compaction_policy_event_truth_required",
+    ]);
+    let admitted = admit_and_persist_event(
+        &st,
+        build_context_policy_event(&st, &thread_id, "compaction_policy", &policy, &evidence_refs),
+    )?;
+
+    // contextPolicyResultEnvelope: {...policy, event, event_id, seq, refs..., context_compaction}.
+    let mut response = policy;
+    if let Some(map) = response.as_object_mut() {
+        let event_id = admitted.get("event_id").cloned().unwrap_or(Value::Null);
+        let seq = admitted.get("seq").cloned().unwrap_or(Value::Null);
+        let receipt_refs = merge_string_refs(&[map.get("receipt_refs"), admitted.get("receipt_refs")]);
+        let policy_decision_refs = merge_string_refs(&[map.get("policy_decision_refs"), admitted.get("policy_decision_refs")]);
+        map.insert("event".to_string(), admitted);
+        map.insert("event_id".to_string(), event_id);
+        map.insert("seq".to_string(), seq);
+        map.insert("receipt_refs".to_string(), Value::Array(receipt_refs));
+        map.insert("policy_decision_refs".to_string(), Value::Array(policy_decision_refs));
+        map.insert("evidence_refs".to_string(), evidence_refs);
+        map.insert("context_compaction".to_string(), Value::Null);
+    }
+    Ok(Json(response))
+}
+
+/// Build a runtime event from a context-policy decision record (mirrors the JS
+/// admitContextPolicyRuntimeEvent + contextPolicyEventPayload for the non-budget
+/// component kinds). Used by compaction-policy (and reusable for context-budget).
+fn build_context_policy_event(
+    _st: &DaemonState,
+    thread_id: &str,
+    component_kind: &str,
+    policy: &Value,
+    evidence_refs: &Value,
+) -> Value {
+    let now = iso_now();
+    let event_stream_id = format!("{thread_id}:events");
+    let s = |key: &str| policy.get(key).and_then(|v| v.as_str()).map(str::to_string);
+    let policy_decision_id = s("policy_decision_id").unwrap_or_default();
+    let event_id = format!(
+        "evt_{component_kind}_{thread_id}_{}_{}",
+        short_hash(&policy_decision_id),
+        short_hash(&now)
+    );
+    // The admission planner requires non-empty receipt_refs; fall back to the decision id.
+    let mut receipt_refs = policy
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    if receipt_refs.is_empty() {
+        receipt_refs.push(Value::from(format!("{component_kind}_decision:{policy_decision_id}")));
+    }
+    let payload = json!({
+        "status": policy.get("status"),
+        "action": policy.get("action"),
+        "selected_action": policy.get("selected_action"),
+        "budget_status": policy.get("budget_status"),
+        "summary": policy.get("summary"),
+        "policy_decision_id": policy.get("policy_decision_id"),
+        "context_budget": policy.get("context_budget"),
+        "approval_id": policy.get("approval_id"),
+        "approval_required": policy.get("approval_required"),
+        "approval_granted": policy.get("approval_granted"),
+        "approval_satisfied": policy.get("approval_satisfied"),
+        "execute_compaction": policy.get("execute_compaction"),
+        "compaction_requested": policy.get("compaction_requested"),
+        "compact_reason": policy.get("compact_reason"),
+        "compact_scope": policy.get("compact_scope"),
+        "continuation_allowed": policy.get("continuation_allowed"),
+    });
+    json!({
+        "event_stream_id": event_stream_id,
+        "event_id": event_id,
+        "thread_id": thread_id,
+        "turn_id": policy.get("turn_id"),
+        "item_id": policy.get("runtime_event_item_id"),
+        "idempotency_key": policy.get("runtime_event_idempotency_key"),
+        "source": policy.get("source"),
+        "source_event_kind": policy.get("event_kind"),
+        "event_kind": policy.get("runtime_event_kind"),
+        "status": policy.get("runtime_event_status"),
+        "actor": policy.get("actor"),
+        "workflow_graph_id": policy.get("workflow_graph_id"),
+        "workflow_node_id": policy.get("workflow_node_id"),
+        "component_kind": component_kind,
+        "payload_schema_version": policy.get("payload_schema_version"),
+        "payload": payload,
+        "receipt_refs": receipt_refs,
+        "policy_decision_refs": policy.get("policy_decision_refs"),
+        "artifact_refs": [],
+        "rollback_refs": [],
+        "redaction_profile": "internal",
+        "created_at": now,
+        "evidence_refs": evidence_refs,
+    })
+}
+
+/// Union string arrays, dropping blanks + duplicates (preserves first-seen order).
+fn merge_string_refs(sources: &[Option<&Value>]) -> Vec<Value> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for source in sources {
+        if let Some(Value::Array(items)) = source {
+            for item in items {
+                if let Some(text) = item.as_str() {
+                    let trimmed = text.trim();
+                    if !trimmed.is_empty() && seen.insert(trimmed.to_string()) {
+                        out.push(Value::from(trimmed));
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 /// POST /v1/threads/:id/subagents — spawn a subagent (child agent + run + record).

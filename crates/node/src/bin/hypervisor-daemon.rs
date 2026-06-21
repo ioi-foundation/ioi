@@ -339,6 +339,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_mcp_validate),
         )
         .route(
+            "/v1/threads/:id/compaction-policy",
+            post(lifecycle_routes::handle_compaction_policy),
+        )
+        .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),
         )

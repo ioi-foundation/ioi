@@ -460,7 +460,35 @@ async function main() {
       assert.equal(reloaded.body.status, "canceled", "cancel should persist");
     });
 
-    // RATCHET FRONTIER — next: turn control inheritance, subagents, tasks/jobs, MCP family.
+    // Step 6: compaction-policy — first event-EMITTING route on the unified log.
+    // The decision event is admitted with a seq ABOVE the synthesized turn events and
+    // shows up, merged and contiguous, in GET /events.
+    await runStep("POST /v1/threads/:id/compaction-policy admits a decision event", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const before = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const beforeMax = Math.max(0, ...before.map((event) => event.seq ?? 0));
+
+      const policy = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/compaction-policy`, {
+        method: "POST",
+        body: JSON.stringify({ policy: { warn_action: "warn" }, context_budget: { used: 10, limit: 100 } }),
+      });
+      assert.equal(policy.status, 200);
+      assert.equal(policy.body.component_kind, "compaction_policy");
+      assert.ok(policy.body.event_id, "envelope carries the admitted event id");
+      assert.equal(policy.body.seq, beforeMax + 1, "decision seq lands after the turn events");
+      assert.equal(policy.body.evidence_refs?.[0], "compaction_policy_evaluation_rust_owned");
+
+      const after = parseSseEvents(
+        await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events`)).text(),
+      );
+      const seqs = after.map((event) => event.seq);
+      assert.ok(seqs.every((seq, index) => (index === 0 ? seq === 1 : seq === seqs[index - 1] + 1)), "log stays contiguous");
+      assert.equal(after.at(-1)?.component_kind, "compaction_policy", "decision event is on the log");
+    });
+
+    // RATCHET FRONTIER — next: context-budget, compact, workspace-trust, approvals.
   } finally {
     await rust.close();
   }
