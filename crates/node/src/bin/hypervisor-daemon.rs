@@ -375,6 +375,10 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_snapshots),
         )
         .route(
+            "/v1/threads/:id/artifacts",
+            get(lifecycle_routes::handle_artifacts_list),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

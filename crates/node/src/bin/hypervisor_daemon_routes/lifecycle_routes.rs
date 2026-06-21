@@ -49,6 +49,7 @@ use ioi_services::agentic::runtime::kernel::approval::{
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -1819,6 +1820,35 @@ pub(crate) async fn handle_snapshots(
     // The JS owner returns the envelope's `projection`; fall back to the full envelope.
     let body = value.get("projection").cloned().unwrap_or(value);
     Ok(Json(body))
+}
+
+/// GET /v1/threads/:id/artifacts — list the thread's conversation artifacts (read-only).
+/// The kernel conversation-artifact projection returns an array in record.projection,
+/// which the JS owner returns directly; an untouched thread projects an empty array.
+pub(crate) async fn handle_artifacts_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(json!({
+        "operation": "conversation_artifact_inspection",
+        "operation_kind": "runtime.conversation_artifact_projection.list",
+        "projection_kind": "list",
+        "thread_id": thread_id,
+        "state_dir": st.data_dir,
+        "source": "runtime.conversation_artifact_state",
+        "evidence_refs": [
+            "runtime_conversation_artifact_projection_rust_owned",
+            "conversation_artifact_projection_js_facade_retired",
+        ],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_conversation_artifact_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

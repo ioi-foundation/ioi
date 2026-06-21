@@ -674,7 +674,16 @@ async function main() {
       assert.equal(snapshots.body.thread_id, createdThread.thread_id);
     });
 
-    // RATCHET FRONTIER — next: GET/POST /artifacts.
+    // Step 15: GET /artifacts — read-only conversation-artifact list projection (array).
+    await runStep("GET /v1/threads/:id/artifacts lists conversation artifacts", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const artifacts = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/artifacts`);
+      assert.equal(artifacts.status, 200);
+      assert.ok(Array.isArray(artifacts.body), "projects an array of artifacts");
+      assert.equal(artifacts.body.length, 0, "untouched thread -> no artifacts");
+    });
+
+    // RATCHET FRONTIER — next: POST /artifacts (create), workspace-trust/approval (gated).
   } finally {
     await rust.close();
   }
