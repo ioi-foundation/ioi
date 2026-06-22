@@ -192,6 +192,7 @@ async fn main() -> anyhow::Result<()> {
             "/v1/workflow-capability-preflights",
             get(lifecycle_routes::handle_authority_evidence),
         )
+        .route("/v1/studio/intent-frame", post(lifecycle_routes::handle_studio_intent_frame))
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
         .route("/v1/model-mount/server/restart", post(handle_server_restart))

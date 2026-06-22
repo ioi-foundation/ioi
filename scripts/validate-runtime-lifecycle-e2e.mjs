@@ -345,6 +345,18 @@ async function main() {
       const preflights = await fetchJson(`${rust.endpoint}/v1/workflow-capability-preflights`);
       assert.equal(preflights.status, 200);
       assert.equal(preflights.body.object, "ioi.authority_evidence_summary_list");
+      // POST /v1/studio/intent-frame: the Studio intent-frame projection (Rust-owned).
+      const intentFrame = await fetchJson(`${rust.endpoint}/v1/studio/intent-frame`, {
+        method: "POST",
+        body: JSON.stringify({ prompt: "inspect the runtime", execution_mode: "ask" }),
+      });
+      assert.equal(intentFrame.status, 200);
+      assert.ok(intentFrame.body.decision, "studio intent-frame returns a decision");
+      assert.equal(
+        intentFrame.body.decisionMaterial?.promptPreview,
+        "inspect the runtime",
+        "the intent frame reflects the prompt",
+      );
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

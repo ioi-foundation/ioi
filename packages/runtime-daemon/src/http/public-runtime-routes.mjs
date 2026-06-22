@@ -1112,22 +1112,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/studio/intent-frame") {
-        const body = await readBody(request);
-        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
-          contextPolicyCore,
-          "studio.intent_frame.projection",
-        );
+        // The Studio intent-frame projection is served by the Rust hypervisor-daemon.
         writeJsonResponse(
           response,
-          routeContextPolicyCore.projectStudioIntentFrame({
-            operation: "studio_intent_frame_projection",
-            operation_kind: "studio.intent_frame.projection",
-            prompt: body.prompt,
-            input: body.input,
-            query: body.query,
-            execution_mode: body.execution_mode,
-            source: "public_runtime_routes./v1/studio/intent-frame",
-          }).frame,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The Studio intent-frame projection is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

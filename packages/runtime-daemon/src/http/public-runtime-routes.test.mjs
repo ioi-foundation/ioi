@@ -4519,20 +4519,14 @@ test("public runtime provider vault token and catalog controls use stable model 
   ]);
 });
 
-test("public runtime studio intent route uses Rust daemon-core projection", async () => {
+test("public runtime studio intent route is retired (served by the Rust daemon)", async () => {
   const calls = [];
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const contextPolicyCore = {
     projectStudioIntentFrame(request) {
       calls.push({ method: "projectStudioIntentFrame", request });
-      return {
-        frame: {
-          object: "ioi.studio_intent_frame",
-          route_directive: "agent",
-          target: request.prompt,
-        },
-      };
+      return { frame: {} };
     },
   };
   const store = {
@@ -4550,26 +4544,12 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
     contextPolicyCore,
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(calls, [
-    {
-      method: "projectStudioIntentFrame",
-      request: {
-        operation: "studio_intent_frame_projection",
-        operation_kind: "studio.intent_frame.projection",
-        prompt: "inspect the runtime",
-        input: undefined,
-        query: undefined,
-        execution_mode: "ask",
-        source: "public_runtime_routes./v1/studio/intent-frame",
-      },
-    },
-  ]);
-  assert.deepEqual(JSON.parse(response.body), {
-    object: "ioi.studio_intent_frame",
-    route_directive: "agent",
-    target: "inspect the runtime",
-  });
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.deepEqual(calls, [], "the JS Studio intent-frame projection must not be invoked");
 });
 
 test("public runtime account node and tool routes use mounted tool API", async () => {

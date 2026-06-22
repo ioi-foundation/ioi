@@ -68,6 +68,7 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     RuntimeRunStateCommitRequest, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_doctor_report::RuntimeDoctorReportProjectionRequest;
+use ioi_services::agentic::runtime::kernel::studio_intent_frame::StudioIntentFrameProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
     RuntimeManagedSessionControlRequest, RuntimeManagedSessionProjectionRequest,
@@ -1275,6 +1276,28 @@ pub(crate) async fn handle_authority_evidence(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, AppError> {
     lifecycle_projection_response(&st, "authority_evidence_summary", &params)
+}
+
+/// POST /v1/studio/intent-frame — project a Studio intent frame from a prompt/input/query
+/// (the kernel studio_intent_frame projection). Returns the frame.
+pub(crate) async fn handle_studio_intent_frame(
+    State(_st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let request: StudioIntentFrameProjectionRequest = serde_json::from_value(json!({
+        "operation": "studio_intent_frame_projection",
+        "operation_kind": "studio.intent_frame.projection",
+        "prompt": body.get("prompt").and_then(|v| v.as_str()),
+        "input": body.get("input").and_then(|v| v.as_str()),
+        "query": body.get("query").and_then(|v| v.as_str()),
+        "execution_mode": body.get("execution_mode").and_then(|v| v.as_str()),
+        "source": "rust_daemon./v1/studio/intent-frame",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_studio_intent_frame(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, format!("{error:?}")))?;
+    Ok(Json(record.frame))
 }
 
 /// Apply a non-live MCP control mutation (import/add/remove/enable/disable) via the
