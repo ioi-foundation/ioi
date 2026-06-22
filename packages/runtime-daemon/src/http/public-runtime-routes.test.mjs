@@ -4723,68 +4723,32 @@ test("public runtime thread create route is retired (served by the Rust daemon)"
   assert.equal(lifecycleInvoked, false, "createLifecycleThread must not be invoked");
 });
 
-test("public runtime usage and authority evidence routes use store-owned lifecycle projection API", async () => {
+test("public runtime usage + authority-evidence routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
+  let projectionCalled = false;
   const store = {
-    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
-      calls.push({ projectionKind, facts });
-      if (projectionKind === "usage_list") {
-        return {
-          schema_version: "runtime.usage.telemetry.v1",
-          items: [{ run_id: "run_route" }],
-        };
-      }
-      if (projectionKind === "authority_evidence_summary") {
-        return {
-          schema_version: "authority.evidence.summary.v1",
-          filters: facts,
-        };
-      }
+    projectRuntimeLifecycleProjection() {
+      projectionCalled = true;
       return null;
     },
     listUsage: retiredRouteWrapper,
     authorityEvidenceSummary: retiredRouteWrapper,
   };
 
-  const usageResponse = responseRecorder();
-  await handleRequest({
-    request: request({ url: "/v1/usage?group_by=thread&agent_id=agent_route" }),
-    response: usageResponse,
-    store,
-  });
-
-  assert.equal(usageResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(usageResponse.body), {
-    payload: {
-      schema_version: "runtime.usage.telemetry.v1",
-      items: [{ run_id: "run_route" }],
-    },
-    metadata: { requestMetadata: true },
-  });
-
-  const evidenceResponse = responseRecorder();
-  await handleRequest({
-    request: request({ url: "/v1/authority-evidence?thread_id=thread_route" }),
-    response: evidenceResponse,
-    store,
-  });
-
-  assert.equal(evidenceResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(evidenceResponse.body), {
-    schema_version: "authority.evidence.summary.v1",
-    filters: { thread_id: "thread_route" },
-  });
-  assert.deepEqual(calls, [
-    {
-      projectionKind: "usage_list",
-      facts: { group_by: "thread", agent_id: "agent_route" },
-    },
-    {
-      projectionKind: "authority_evidence_summary",
-      facts: { thread_id: "thread_route" },
-    },
-  ]);
+  for (const path of [
+    "/v1/usage?group_by=thread&agent_id=agent_route",
+    "/v1/authority-evidence?thread_id=thread_route",
+    "/v1/workflow-capability-preflights",
+  ]) {
+    const response = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response, store });
+    assert.equal(response.statusCode, 410, `${path} should be retired`);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
+  assert.equal(projectionCalled, false, "the JS lifecycle projection must not be invoked");
 });
 
 test("public runtime top-level memory context routes are retired", async () => {

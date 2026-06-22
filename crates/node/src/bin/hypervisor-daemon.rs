@@ -186,6 +186,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/account", get(handle_account))
         .route("/v1/runtime/nodes", get(handle_runtime_nodes))
         .route("/v1/doctor", get(lifecycle_routes::handle_doctor))
+        .route("/v1/usage", get(lifecycle_routes::handle_usage_list))
+        .route("/v1/authority-evidence", get(lifecycle_routes::handle_authority_evidence))
+        .route(
+            "/v1/workflow-capability-preflights",
+            get(lifecycle_routes::handle_authority_evidence),
+        )
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
         .route("/v1/model-mount/server/restart", post(handle_server_restart))

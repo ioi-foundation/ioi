@@ -1081,29 +1081,26 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.projectRuntimeLifecycleProjection("threads"));
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/usage") {
-        writeJsonResponse(
-          response,
-          usageTelemetryWithRequestMetadata(
-            store.projectRuntimeLifecycleProjection("usage_list", Object.fromEntries(url.searchParams.entries())),
-            usageRequestMetadataFromUrl(url, {
-              runtimeUsageTelemetrySchemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-            }),
-          ),
-        );
-        return;
-      }
       if (
         request.method === "GET" &&
-        (url.pathname === "/v1/authority-evidence" ||
+        (url.pathname === "/v1/usage" ||
+          url.pathname === "/v1/authority-evidence" ||
           url.pathname === "/v1/workflow-capability-preflights")
       ) {
+        // Usage telemetry + authority-evidence summaries are served by the Rust daemon
+        // (the kernel usage_list / authority_evidence_summary projections).
         writeJsonResponse(
           response,
-          store.projectRuntimeLifecycleProjection(
-            "authority_evidence_summary",
-            Object.fromEntries(url.searchParams.entries()),
-          ),
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "This projection is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

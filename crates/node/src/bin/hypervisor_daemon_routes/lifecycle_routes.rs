@@ -1231,6 +1231,52 @@ pub(crate) async fn handle_doctor(State(st): State<Arc<DaemonState>>) -> Result<
     Ok(Json(record.report))
 }
 
+/// Shared body for the top-level runtime-lifecycle projections (usage_list /
+/// authority_evidence_summary). Pure kernel projection over the state_dir replay; the query
+/// params become projection filters (agent_id / since / group_by / ...). The twin of
+/// run_projection_response for the no-run-scope aggregates.
+fn lifecycle_projection_response(
+    st: &DaemonState,
+    projection_kind: &str,
+    params: &HashMap<String, String>,
+) -> Result<Json<Value>, AppError> {
+    let mut request_json = json!({
+        "operation": "runtime_lifecycle_projection",
+        "operation_kind": format!("runtime.lifecycle_projection.{projection_kind}"),
+        "projection_kind": projection_kind,
+        "state_dir": st.data_dir,
+        "source": "sdk_client",
+    });
+    if let Some(object) = request_json.as_object_mut() {
+        for (key, value) in params {
+            object.insert(key.clone(), json!(value));
+        }
+    }
+    let request: RuntimeLifecycleProjectionRequest = serde_json::from_value(request_json)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_lifecycle(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
+}
+
+/// GET /v1/usage — aggregate runtime usage telemetry (the usage_list projection).
+pub(crate) async fn handle_usage_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    lifecycle_projection_response(&st, "usage_list", &params)
+}
+
+/// GET /v1/authority-evidence (and /v1/workflow-capability-preflights) — the authority
+/// evidence summary projection (capability-preflight rows from the runtime event log).
+pub(crate) async fn handle_authority_evidence(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    lifecycle_projection_response(&st, "authority_evidence_summary", &params)
+}
+
 /// Apply a non-live MCP control mutation (import/add/remove/enable/disable) via the
 /// kernel plan_mcp_control_agent_state_update planner, then dual-case + persist the
 /// updated agent (the MCP registry lives on the agent record).

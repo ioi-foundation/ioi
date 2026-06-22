@@ -332,6 +332,19 @@ async function main() {
         doctor.body.checks?.every((c) => !c.required || c.status === "pass"),
         "all required doctor checks pass (model.routes + memory.store seeded)",
       );
+      // GET /v1/usage + /v1/authority-evidence + /v1/workflow-capability-preflights: the
+      // top-level runtime-lifecycle projections, now Rust-owned.
+      const usage = await fetchJson(`${rust.endpoint}/v1/usage`);
+      assert.equal(usage.status, 200);
+      assert.equal(usage.body.object, "ioi.runtime_usage_list");
+      assert.ok(Array.isArray(usage.body.usage), "usage projection lists usage entries");
+      const authority = await fetchJson(`${rust.endpoint}/v1/authority-evidence`);
+      assert.equal(authority.status, 200);
+      assert.equal(authority.body.object, "ioi.authority_evidence_summary_list");
+      assert.ok(Array.isArray(authority.body.items), "authority-evidence lists rows");
+      const preflights = await fetchJson(`${rust.endpoint}/v1/workflow-capability-preflights`);
+      assert.equal(preflights.status, 200);
+      assert.equal(preflights.body.object, "ioi.authority_evidence_summary_list");
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
