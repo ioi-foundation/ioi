@@ -45,6 +45,7 @@ pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
 pub mod runtime_harness_session_binding_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
+pub mod runtime_managed_worker_instance_lifecycle_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
 pub mod runtime_physical_action_intent_admission;
@@ -770,6 +771,22 @@ impl RuntimeKernelService {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionError,
     > {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a managed-worker-instance lifecycle-transition governance admission
+    /// (pure: asserts the transition is permitted by the canonical state machine and its per-state
+    /// authority / archive / restore / export / deletion / payment-lapse controls + policies +
+    /// receipts are bound).
+    pub fn admit_managed_worker_instance_lifecycle_transition(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_managed_worker_instance_lifecycle_admission::RuntimeManagedWorkerInstanceLifecycleAdmissionError,
+    > {
+        runtime_managed_worker_instance_lifecycle_admission::RuntimeManagedWorkerInstanceLifecycleAdmissionCore
             .admit(request, now_iso)
     }
 

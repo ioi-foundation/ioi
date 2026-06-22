@@ -1090,6 +1090,66 @@ async function main() {
       assert.equal(badInstall.body.error.code, "worker_package_install_install_id_invalid");
     });
 
+    // Step 3s: the managed-worker-instance lifecycle-transition governance admission (Rust-owned
+    // via the kernel admit_managed_worker_instance_lifecycle_transition planner — canonical state
+    // machine + per-state authority/archive/restore/export/deletion/payment-lapse policies; 400
+    // field-shape / 403 lifecycle-policy).
+    await runStep("POST /v1/hypervisor/managed-worker-lifecycle-admissions gates the state machine", async () => {
+      const base = (overrides = {}) => ({
+        lifecycle_id: "lifecycle:agent_123",
+        worker_instance_id: "agent://agent_123",
+        owner_ref: "wallet://user_123",
+        from_state: "active",
+        to_state: "payment_past_due",
+        persistence_profile: "persistent",
+        payment_status: "past_due",
+        authority_scope_refs: ["scope:worker.lifecycle"],
+        receipt_refs: ["receipt://worker-lifecycle/payment-past-due"],
+        agentgres_operation_refs: ["agentgres://operation/worker-lifecycle/payment-past-due"],
+        required_controls: ["freeze_new_billable_work", "pause_high_risk_standing_orders"],
+        new_billable_work_blocked: true,
+        high_risk_orders_paused: true,
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/managed-worker-lifecycle-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid payment-past-due transition is admitted with 202");
+      assert.equal(ok.body.state, "payment_past_due");
+      assert.equal(ok.body.freezes_new_billable_work, true);
+      assert.equal(
+        ok.body.transition_id,
+        "managed-worker-lifecycle:lifecycle_agent_123:active-payment_past_due",
+      );
+
+      // 403: an off-machine transition is rejected.
+      const offMachine = await admit(base({ from_state: "active", to_state: "discover" }));
+      assert.equal(offMachine.status, 403);
+      assert.equal(offMachine.body.error.code, "managed_worker_lifecycle_transition_invalid");
+
+      // 403: payment-lapse cannot silently delete user-owned worker context.
+      const lapseDelete = await admit({
+        ...base(),
+        from_state: "payment_past_due",
+        to_state: "deleted",
+        transition_reason: "payment_lapse",
+        authority_scope_refs: ["scope:worker.delete"],
+        wallet_approval_ref: "approval://wallet/delete",
+        deletion_policy: { delete_runtime_state: true },
+      });
+      assert.equal(lapseDelete.status, 403);
+      assert.equal(lapseDelete.body.error.code, "managed_worker_lifecycle_lapse_delete_blocked");
+
+      // 400: a non-scope authority ref is rejected during extraction.
+      const badScope = await admit(base({ authority_scope_refs: ["worker.lifecycle"] }));
+      assert.equal(badScope.status, 400);
+      assert.equal(badScope.body.error.code, "managed_worker_lifecycle_scope_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

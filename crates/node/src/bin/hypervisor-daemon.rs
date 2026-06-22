@@ -576,6 +576,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_worker_package_install_admission),
         )
         .route(
+            "/v1/hypervisor/managed-worker-lifecycle-admissions",
+            post(lifecycle_routes::handle_managed_worker_lifecycle_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )
