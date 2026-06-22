@@ -545,7 +545,13 @@ fn record_payload(
                 .unwrap_or_else(|| "operator_delete".to_string())),
         );
     } else {
+        // Editing/writing a record CLEARS any tombstone carried over from a prior delete in the
+        // replayed current_record. The projection's memory_record_is_active filters on BOTH
+        // status=="deleted" AND a present deleted_at, so leaving the stale deleted_at would keep an
+        // edited-after-delete record permanently filtered out even with status flipped to active.
         record.insert("status".to_string(), json!("active"));
+        record.remove("deleted_at");
+        record.remove("deletion_reason");
     }
     Value::Object(record)
 }
@@ -1203,6 +1209,52 @@ mod tests {
         assert_eq!(record.payload["memory_key"], "deploy.window");
         assert_eq!(record.payload["created_at"], "2026-06-11T10:00:00.000Z");
         assert_eq!(record.payload["status"], "active");
+    }
+
+    #[test]
+    fn rust_memory_edit_clears_prior_delete_tombstone() {
+        // A previously-deleted record (status=deleted + deleted_at) that is edited must come back
+        // active with the tombstone cleared, else the projection's memory_record_is_active filter
+        // (status!=deleted AND deleted_at absent) keeps it permanently hidden.
+        let state_dir = temp_state_dir("edit-resurrect");
+        write_state_record(
+            &state_dir,
+            "memory-records",
+            "memory_1",
+            json!({
+                "schema_version": AGENT_MEMORY_SCHEMA_VERSION,
+                "object": "ioi.agent_memory_record",
+                "id": "memory_1",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1",
+                "workspace": "/workspace",
+                "fact": "Remember deployment window",
+                "scope": "thread",
+                "memory_key": "deploy.window",
+                "source": "operator_remember",
+                "created_at": "2026-06-11T10:00:00.000Z",
+                "status": "deleted",
+                "deleted_at": "2026-06-11T11:00:00.000Z",
+                "deletion_reason": "operator_delete",
+                "receipt_refs": ["receipt_memory_write_seed"]
+            }),
+        );
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("edit".to_string());
+        request.operation_kind = Some("memory.edit".to_string());
+        request.thread_id = None;
+        request.agent_id = None;
+        request.workspace_root = None;
+        request.memory_id = Some("memory_1".to_string());
+        request.request = json!({ "text": "Resurrected fact" });
+
+        let record = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect("memory edit planned");
+        assert_eq!(record.payload["status"], "active");
+        assert!(record.payload.get("deleted_at").is_none(), "deleted_at tombstone cleared");
+        assert!(record.payload.get("deletion_reason").is_none(), "deletion_reason cleared");
+        assert_eq!(record.payload["fact"], "Resurrected fact");
     }
 
     #[test]
