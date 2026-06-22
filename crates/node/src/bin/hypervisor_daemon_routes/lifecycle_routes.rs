@@ -3903,6 +3903,30 @@ fn cancel_run_record(st: &DaemonState, run: Value) -> Result<Value, AppError> {
         .plan_run_cancel_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     commit_run_state_bundle(st, &run_id, "run.cancel", &record.run)?;
+    // Admit the cancel-specific events (job_canceled + the canceled terminal) onto the
+    // thread log so GET /v1/threads/:id/events reflects the cancel. The turn's other events
+    // are already on the log from turn-create; admitting the whole turn again would
+    // duplicate them (the cancel re-projection uses different event ids), so we admit only
+    // the new cancel events. admit_and_persist_event is idempotency-keyed, so a re-cancel
+    // (or a job/task cancel after a run cancel) is a no-op.
+    let agent_id = record
+        .run
+        .get("agentId")
+        .or_else(|| record.run.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    let thread_id = thread_id_for_agent(agent_id);
+    for event in project_runtime_events(st, "run", &thread_id, Some(&run_id))? {
+        let is_cancel_event = event
+            .get("payload_summary")
+            .and_then(|p| p.get("event_kind"))
+            .and_then(|v| v.as_str())
+            == Some("JobCanceled")
+            || event.get("event_kind").and_then(|v| v.as_str()) == Some("turn.canceled");
+        if is_cancel_event {
+            admit_and_persist_event(st, event)?;
+        }
+    }
     Ok(record.run)
 }
 

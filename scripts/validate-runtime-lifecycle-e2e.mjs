@@ -652,6 +652,18 @@ async function main() {
       assert.equal(taskCancel.body.status, "canceled");
       const missingJob = await fetchJson(`${rust.endpoint}/v1/jobs/job_does_not_exist/cancel`, { method: "POST", body: "{}" });
       assert.equal(missingJob.status, 404, "job cancel 404s on an unknown job");
+      // The cancel admits the JobCanceled + turn.canceled events onto the thread log (no
+      // duplication of the materialized items).
+      const tid = encodeURIComponent(createdThread.thread_id);
+      const cancelEvents = parseSseEvents(await (await fetch(`${rust.endpoint}/v1/threads/${tid}/events?since_seq=0`)).text());
+      const jobCanceledEvents = cancelEvents.filter((e) => e.payload_summary?.event_kind === "JobCanceled");
+      assert.ok(jobCanceledEvents.length >= 1, "the thread log carries the JobCanceled event after cancel");
+      assert.equal(jobCanceledEvents[0].payload_summary.lifecycle_status, "canceled");
+      assert.ok(jobCanceledEvents[0].artifact_refs.includes("runtime-job.json"));
+      assert.ok(cancelEvents.some((e) => e.event_kind === "turn.canceled"), "the canceled terminal is on the log");
+      // Idempotent: the run + job + task cancel calls (all canceling this run) admit the
+      // JobCanceled event exactly once, not three times.
+      assert.equal(jobCanceledEvents.length, 1, "cancel admits JobCanceled once (idempotent across cancel calls)");
     });
 
     // Step 6: compaction-policy — first event-EMITTING route on the unified log.

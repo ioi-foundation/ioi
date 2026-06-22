@@ -139,6 +139,31 @@ test("Rust hypervisor-daemon satisfies the canonical lifecycle contract via the 
     const replay = await collect(canceled.replay());
     assert.ok(replay.length >= 1, "run.replay() yields events after cancel");
 
+    // After cancel, the thread log carries the JobCanceled event + the turn.canceled
+    // terminal (admitted by the cancel path), WITHOUT duplicating the materialized items.
+    const afterCancelText = await (
+      await fetch(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`)
+    ).text();
+    const afterCancel = afterCancelText
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const line = block.split("\n").find((l) => l.startsWith("data: "));
+        return line ? JSON.parse(line.slice(6)) : null;
+      })
+      .filter(Boolean);
+    const jobCanceled = afterCancel.find((e) => e.payload_summary?.event_kind === "JobCanceled");
+    assert.ok(jobCanceled, "thread log carries the JobCanceled event after cancel");
+    assert.equal(jobCanceled.payload_summary.lifecycle_status, "canceled");
+    assert.equal(jobCanceled.component_kind, "runtime_job");
+    assert.ok(jobCanceled.artifact_refs.includes("runtime-job.json"), "JobCanceled carries artifact_refs");
+    assert.equal(afterCancel.at(-1).event_kind, "turn.canceled", "turn.canceled is the last event after cancel");
+    assert.equal(
+      afterCancel.filter((e) => e.payload_summary?.event_kind === "RuntimeTaskRecord").length,
+      1,
+      "the cancel does not duplicate the materialized item events",
+    );
+
     // --- jobs/tasks endpoints (embedded in the run; canceled with it; SDK + raw) ---
     const jobs = await client.listJobs({ agentId: run.agentId });
     assert.equal(jobs.length, 1, "one runtime job for the run");

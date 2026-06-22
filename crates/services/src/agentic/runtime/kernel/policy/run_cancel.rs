@@ -161,15 +161,15 @@ impl RunCancelStateUpdateCore {
                 Some("runtime_task") => {
                     let mut data = object_value(&runtime_task).unwrap_or_default();
                     data.insert(
-                        "receiptId".to_string(),
+                        "receipt_id".to_string(),
                         Value::String(format!("receipt_{run_id}_runtime_task")),
                     );
                     data.insert(
-                        "eventKind".to_string(),
+                        "event_kind".to_string(),
                         Value::String("RuntimeTaskRecord".to_string()),
                     );
                     data.insert(
-                        "workflowNodeId".to_string(),
+                        "workflow_node_id".to_string(),
                         Value::String("runtime.runtime-task".to_string()),
                     );
                     if let Some(object) = event.as_object_mut() {
@@ -179,15 +179,15 @@ impl RunCancelStateUpdateCore {
                 Some("runtime_checklist") => {
                     let mut data = object_value(&runtime_checklist).unwrap_or_default();
                     data.insert(
-                        "receiptId".to_string(),
+                        "receipt_id".to_string(),
                         Value::String(runtime_checklist_receipt_id.clone()),
                     );
                     data.insert(
-                        "eventKind".to_string(),
+                        "event_kind".to_string(),
                         Value::String("RuntimeChecklistRecord".to_string()),
                     );
                     data.insert(
-                        "workflowNodeId".to_string(),
+                        "workflow_node_id".to_string(),
                         Value::String("runtime.runtime-checklist".to_string()),
                     );
                     if let Some(object) = event.as_object_mut() {
@@ -200,15 +200,15 @@ impl RunCancelStateUpdateCore {
         if !has_runtime_task_event {
             let mut data = object_value(&runtime_task).unwrap_or_default();
             data.insert(
-                "receiptId".to_string(),
+                "receipt_id".to_string(),
                 Value::String(format!("receipt_{run_id}_runtime_task")),
             );
             data.insert(
-                "eventKind".to_string(),
+                "event_kind".to_string(),
                 Value::String("RuntimeTaskRecord".to_string()),
             );
             data.insert(
-                "workflowNodeId".to_string(),
+                "workflow_node_id".to_string(),
                 Value::String("runtime.runtime-task".to_string()),
             );
             canceled_events.push(make_run_event(
@@ -224,15 +224,15 @@ impl RunCancelStateUpdateCore {
         if !has_runtime_checklist_event {
             let mut data = object_value(&runtime_checklist).unwrap_or_default();
             data.insert(
-                "receiptId".to_string(),
+                "receipt_id".to_string(),
                 Value::String(runtime_checklist_receipt_id.clone()),
             );
             data.insert(
-                "eventKind".to_string(),
+                "event_kind".to_string(),
                 Value::String("RuntimeChecklistRecord".to_string()),
             );
             data.insert(
-                "workflowNodeId".to_string(),
+                "workflow_node_id".to_string(),
                 Value::String("runtime.runtime-checklist".to_string()),
             );
             canceled_events.push(make_run_event(
@@ -247,21 +247,22 @@ impl RunCancelStateUpdateCore {
         }
         let mut job_data = object_value(&runtime_job).unwrap_or_default();
         job_data.insert(
-            "lifecycleStatus".to_string(),
+            "lifecycle_status".to_string(),
             Value::String("canceled".to_string()),
         );
         job_data.insert(
-            "receiptId".to_string(),
+            "receipt_id".to_string(),
             Value::String(format!("receipt_{run_id}_runtime_job")),
         );
         job_data.insert(
-            "eventKind".to_string(),
+            "event_kind".to_string(),
             Value::String("JobCanceled".to_string()),
         );
         job_data.insert(
-            "workflowNodeId".to_string(),
+            "workflow_node_id".to_string(),
             Value::String("runtime.runtime-job".to_string()),
         );
+        job_data.insert("artifact_refs".to_string(), json!(["runtime-job.json"]));
         canceled_events.push(make_run_event(
             &run_id,
             &agent_id,
@@ -280,6 +281,7 @@ impl RunCancelStateUpdateCore {
             json!({
                 "reason": "operator_cancel",
                 "priorStatus": optional_json_string(&Value::Object(run.clone()), "status").unwrap_or_default(),
+                "receipt_id": format!("receipt_{run_id}_run_canceled"),
             }),
             &request.canceled_at,
         ));
