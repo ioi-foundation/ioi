@@ -40,7 +40,6 @@ import {
   loadHypervisorLaunchedSessionProjections,
   mergeHypervisorLaunchedSessionProjection,
   persistHypervisorLaunchedSessionProjections,
-  updateHypervisorLaunchedSessionTerminalAttach,
 } from "./hypervisorLaunchedSessionPersistence";
 import {
   HYPERVISOR_DEFAULT_AGENT_SELECTION_REF,
@@ -52,11 +51,6 @@ import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   buildHypervisorNewSessionLaunchRequest,
   buildHypervisorNewSessionLaunchSummary,
-  buildHypervisorHarnessSessionBindingAdmissionFailure,
-  buildHypervisorHarnessSessionLaunchFailure,
-  buildHypervisorHarnessSessionReadinessFailure,
-  buildHypervisorHarnessSessionSpawnFailure,
-  buildHypervisorHarnessSessionTerminalAttachFailure,
   buildHypervisorSessionLaunchRecipeAdmissionFailure,
   buildHypervisorSessionLaunchRecipeAdmissionRequest,
   buildHypervisorCodeEditorAdapterAdmissionFailure,
@@ -68,18 +62,16 @@ import {
   isHypervisorSurfaceId,
   requestCodeEditorAdapterLaunchPlanAdmission,
   requestHypervisorSessionLaunchRecipeAdmission,
-  requestHarnessSessionBindingAdmission,
-  requestHarnessSessionLaunch,
-  requestHarnessSessionReadiness,
-  requestHarnessSessionSpawn,
-  requestHarnessSessionTerminalAttach,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
+import {
+  HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
+  requestHypervisorSessionCreate,
+} from "./hypervisorSessionOperationsModel";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
-import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
 import {
   HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
   HYPERVISOR_FIRST_SESSION_AGENT_ADAPTER_IDS,
@@ -88,8 +80,6 @@ import {
   getHarnessSelectionOption,
   getHarnessSelectionRef,
   modelRouteSupportsHypervisorMountFromInventory,
-  observeHarnessTerminalTranscriptRead,
-  type HypervisorHarnessSessionTerminalAttach,
 } from "./harnessAdapterModel";
 import type {
   HypervisorProjectStateProjection,
@@ -122,7 +112,6 @@ export interface HypervisorReceiptEvidenceTarget {
   receiptRef?: string | null;
 }
 const appliedHypervisorLaunchIds = new Set<string>();
-const HYPERVISOR_HARNESS_TERMINAL_TRANSCRIPT_POLL_INTERVAL_MS = 120;
 const SCRATCH_PROJECT_SCOPE: ProjectScope = {
   id: "scratch:local",
   name: "From scratch",
@@ -130,15 +119,6 @@ const SCRATCH_PROJECT_SCOPE: ProjectScope = {
   environment: "Local replay",
   rootPath: ".",
 };
-
-function waitForHarnessTerminalTranscriptPoll(): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(
-      resolve,
-      HYPERVISOR_HARNESS_TERMINAL_TRANSCRIPT_POLL_INTERVAL_MS,
-    );
-  });
-}
 
 function projectScopeFromProjectStateRecord(
   record: HypervisorProjectStateRecord,
@@ -499,110 +479,6 @@ export function useHypervisorShellController() {
     });
   }, []);
 
-  const persistHarnessTerminalTranscriptProjection = (
-    sessionRef: string,
-    terminalAttach: HypervisorHarnessSessionTerminalAttach,
-  ) => {
-    setLaunchedSessionProjections((current) => {
-      const next = updateHypervisorLaunchedSessionTerminalAttach(
-        current,
-        sessionRef,
-        terminalAttach,
-      );
-      persistHypervisorLaunchedSessionProjections({
-        storage: hypervisorBrowserStorage(),
-        projections: next,
-      });
-      return next;
-    });
-  };
-
-  const pollHarnessSessionTerminalTranscript = async ({
-    sessionRef,
-    terminalSessionId,
-    terminalAttach: initialTerminalAttach,
-  }: {
-    sessionRef: string;
-    terminalSessionId: string;
-    terminalAttach: HypervisorHarnessSessionTerminalAttach;
-  }) => {
-    const pollKey = `${sessionRef}:${terminalSessionId}`;
-    if (hypervisorHarnessTerminalPollingRef.current.has(pollKey)) {
-      return;
-    }
-    hypervisorHarnessTerminalPollingRef.current.add(pollKey);
-    let terminalAttach = initialTerminalAttach;
-    let cursor = terminalAttach.terminal_transcript_projection.cursor;
-    try {
-      while (
-        !hypervisorHarnessTerminalPollingCancelledRef.current &&
-        terminalAttach.terminal_transcript_projection.transcript_state !==
-          "closed"
-      ) {
-        await waitForHarnessTerminalTranscriptPoll();
-        if (hypervisorHarnessTerminalPollingCancelledRef.current) {
-          break;
-        }
-        const transcriptReadResult =
-          await hostWorkspaceAdapter.readTerminalSession(
-            terminalSessionId,
-            cursor,
-          );
-        terminalAttach = observeHarnessTerminalTranscriptRead(
-          terminalAttach,
-          transcriptReadResult,
-        );
-        cursor = terminalAttach.terminal_transcript_projection.cursor;
-        persistHarnessTerminalTranscriptProjection(sessionRef, terminalAttach);
-        if (transcriptReadResult.chunks.length > 0) {
-          await recordHypervisorLaunchReceipt(
-            "hypervisor_harness_terminal_transcript_observed",
-            {
-              sessionRef,
-              attachId: terminalAttach.attach_id,
-              terminalId: terminalSessionId,
-              transcriptStreamRef:
-                terminalAttach.client_attach_contract.transcript_stream_ref,
-              cursor,
-              transcriptState:
-                terminalAttach.terminal_transcript_projection.transcript_state,
-              transcriptChunkCount: transcriptReadResult.chunks.length,
-            },
-          );
-        }
-        if (!transcriptReadResult.running) {
-          await recordHypervisorLaunchReceipt(
-            "hypervisor_harness_terminal_transcript_closed",
-            {
-              sessionRef,
-              attachId: terminalAttach.attach_id,
-              terminalId: terminalSessionId,
-              transcriptStreamRef:
-                terminalAttach.client_attach_contract.transcript_stream_ref,
-              cursor,
-              exitCode: transcriptReadResult.exitCode,
-            },
-          );
-          break;
-        }
-      }
-    } catch (error) {
-      await recordHypervisorLaunchReceipt(
-        "hypervisor_harness_terminal_transcript_poll_failed",
-        {
-          sessionRef,
-          attachId: terminalAttach.attach_id,
-          terminalId: terminalSessionId,
-          transcriptStreamRef:
-            terminalAttach.client_attach_contract.transcript_stream_ref,
-          cursor,
-          error: error instanceof Error ? error.message : String(error ?? ""),
-        },
-      );
-    } finally {
-      hypervisorHarnessTerminalPollingRef.current.delete(pollKey);
-    }
-  };
 
   const launchNewSession = async (
     request: HypervisorNewSessionLaunchRequest,
@@ -647,8 +523,6 @@ export function useHypervisorShellController() {
           projectNameFromLaunchRequest(request),
         rootPath: request.project_context?.root_path || ".",
       };
-    const selectedModelName =
-      request.model_garden_configuration?.model_name.trim() || "qwen";
     const codeEditorAdapter = getCodeEditorAdapterPreferenceByRef(
       request.adapter_preference_ref,
     );
@@ -695,220 +569,35 @@ export function useHypervisorShellController() {
               "Attach a Hypervisor Daemon endpoint before requesting session launch recipe admission.",
             ),
           });
-    const harnessSessionBindingAdmission =
+    // Provision the real Rust session (Lane A). The Rust hypervisor-daemon owns
+    // workspace provisioning + the wallet-gated host-spawn lane + the served
+    // preview; the cockpit subscribes the returned session_ref's /events stream
+    // for the real environment_status / terminal / diffs / ports / receipts. The
+    // retired JS harness launch/spawn/readiness/terminal-attach chain is gone.
+    const hypervisorSession =
       sessionLaunchRecipeAdmission.decision === "admitted" &&
       shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+        HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
       )
-        ? await requestHarnessSessionBindingAdmission(
-            request.launch_summary.harness_session_binding,
-          ).catch((error: unknown) =>
-            buildHypervisorHarnessSessionBindingAdmissionFailure({
-              binding: request.launch_summary.harness_session_binding,
-              error,
-            }),
-          )
-        : buildHypervisorHarnessSessionBindingAdmissionFailure({
-            binding: request.launch_summary.harness_session_binding,
-            error: new Error(
-              "Session launch recipe was not admitted for harness binding.",
-            ),
-          });
-    const harnessSessionLaunch =
-      harnessSessionBindingAdmission.decision === "admitted" &&
-      shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
-      )
-        ? await requestHarnessSessionLaunch(harnessSessionBindingAdmission, {
-            workspaceRef: `workspace:${request.project_id}`,
-            terminalSessionRef: `terminal-session:${request.project_id}/${request.recipe_id}`,
-          }).catch((error: unknown) =>
-            buildHypervisorHarnessSessionLaunchFailure({
-              binding: request.launch_summary.harness_session_binding,
-              bindingAdmission: harnessSessionBindingAdmission,
-              error,
-            }),
-          )
-        : buildHypervisorHarnessSessionLaunchFailure({
-            binding: request.launch_summary.harness_session_binding,
-            bindingAdmission: harnessSessionBindingAdmission,
-            error: new Error(
-              "Harness session binding was not admitted for launch.",
-            ),
-          });
-    const harnessSessionSpawn =
-      harnessSessionLaunch.decision === "admitted" &&
-      shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
-      )
-        ? await requestHarnessSessionSpawn(harnessSessionLaunch, {
-            workspaceRoot: project.rootPath,
-            modelName: selectedModelName,
-          }).catch((error: unknown) =>
-            buildHypervisorHarnessSessionSpawnFailure({
-              binding: request.launch_summary.harness_session_binding,
-              sessionLaunch: harnessSessionLaunch,
-              error,
-            }),
-          )
-        : buildHypervisorHarnessSessionSpawnFailure({
-            binding: request.launch_summary.harness_session_binding,
-            sessionLaunch: harnessSessionLaunch,
-            error: new Error(
-              "Harness session launch was not admitted for spawn.",
-            ),
-          });
-    const harnessSessionReadiness =
-      harnessSessionSpawn.decision === "admitted" &&
-      shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
-      )
-        ? await requestHarnessSessionReadiness(harnessSessionSpawn, {
-            modelName: selectedModelName,
-          }).catch(
-            (error: unknown) =>
-              buildHypervisorHarnessSessionReadinessFailure({
-                binding: request.launch_summary.harness_session_binding,
-                sessionSpawn: harnessSessionSpawn,
-                error,
-              }),
-          )
-        : buildHypervisorHarnessSessionReadinessFailure({
-            binding: request.launch_summary.harness_session_binding,
-            sessionSpawn: harnessSessionSpawn,
-            error: new Error(
-              "Harness session spawn was not ready for host readiness verification.",
-            ),
-          });
-    let harnessSessionTerminalAttach =
-      harnessSessionSpawn.decision === "admitted" &&
-      harnessSessionReadiness.decision === "ready" &&
-      shouldAttemptHypervisorDaemonProjectionFetch(
-        HYPERVISOR_CODE_EDITOR_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
-      )
-        ? await requestHarnessSessionTerminalAttach(
-            harnessSessionSpawn,
-            harnessSessionReadiness,
-          ).catch((error: unknown) =>
-            buildHypervisorHarnessSessionTerminalAttachFailure({
-              binding: request.launch_summary.harness_session_binding,
-              sessionSpawn: harnessSessionSpawn,
-              sessionReadiness: harnessSessionReadiness,
-              error,
-            }),
-          )
-        : buildHypervisorHarnessSessionTerminalAttachFailure({
-            binding: request.launch_summary.harness_session_binding,
-            sessionSpawn: harnessSessionSpawn,
-            sessionReadiness: harnessSessionReadiness,
-            error: new Error(
-              "Harness session readiness was not admitted for terminal attach.",
-            ),
-          });
-    let harnessTerminalPollingSeed: {
-      terminalSessionId: string;
-      terminalAttach: HypervisorHarnessSessionTerminalAttach;
-    } | null = null;
-    if (
-      harnessSessionSpawn.decision === "admitted" &&
-      harnessSessionReadiness.decision === "ready" &&
-      harnessSessionTerminalAttach.decision === "admitted" &&
-      isHypervisorClientRuntime()
-    ) {
-      try {
-        const terminal = await hostWorkspaceAdapter.createTerminalSession(
-          harnessSessionTerminalAttach.client_attach_contract.root,
-          harnessSessionTerminalAttach.client_attach_contract.cols,
-          harnessSessionTerminalAttach.client_attach_contract.rows,
-        );
-        await hostWorkspaceAdapter.writeTerminalSession(
-          terminal.sessionId,
-          harnessSessionTerminalAttach.client_attach_contract.initial_write,
-        );
-        let transcriptChunkCount = 0;
-        let transcriptCursor =
-          harnessSessionTerminalAttach.terminal_transcript_projection.cursor;
-        let transcriptState =
-          harnessSessionTerminalAttach.terminal_transcript_projection
-            .transcript_state;
-        try {
-          const transcriptReadResult =
-            await hostWorkspaceAdapter.readTerminalSession(
-              terminal.sessionId,
-              transcriptCursor,
-            );
-          transcriptChunkCount = transcriptReadResult.chunks.length;
-          harnessSessionTerminalAttach = observeHarnessTerminalTranscriptRead(
-            harnessSessionTerminalAttach,
-            transcriptReadResult,
-          );
-          transcriptCursor =
-            harnessSessionTerminalAttach.terminal_transcript_projection.cursor;
-          transcriptState =
-            harnessSessionTerminalAttach.terminal_transcript_projection
-              .transcript_state;
-        } catch (transcriptError) {
-          await recordHypervisorLaunchReceipt(
-            "hypervisor_harness_terminal_transcript_observation_failed",
-            {
-              spawnId: harnessSessionSpawn.spawn_id,
-              attachId: harnessSessionTerminalAttach.attach_id,
-              terminalId: terminal.sessionId,
-              transcriptStreamRef:
-                harnessSessionTerminalAttach.client_attach_contract
-                  .transcript_stream_ref,
-              error:
-                transcriptError instanceof Error
-                  ? transcriptError.message
-                  : String(transcriptError ?? ""),
-            },
-          );
-        }
-        await recordHypervisorLaunchReceipt(
-          "hypervisor_harness_session_terminal_attach_admitted",
-          {
-            spawnId: harnessSessionSpawn.spawn_id,
-            attachId: harnessSessionTerminalAttach.attach_id,
-            terminalId: terminal.sessionId,
-            root: harnessSessionTerminalAttach.client_attach_contract.root,
-            commandRef: harnessSessionTerminalAttach.command_contract_ref,
-            transcriptStreamRef:
-              harnessSessionTerminalAttach.client_attach_contract
-                .transcript_stream_ref,
-            transcriptCursor,
-            transcriptState,
-            transcriptChunkCount,
-          },
-        );
-        harnessTerminalPollingSeed = {
-          terminalSessionId: terminal.sessionId,
-          terminalAttach: harnessSessionTerminalAttach,
-        };
-      } catch (error) {
-        await recordHypervisorLaunchReceipt(
-          "hypervisor_harness_session_terminal_attach_failed",
-          {
-            spawnId: harnessSessionSpawn.spawn_id,
-            attachId:
-              harnessSessionTerminalAttach.decision === "admitted"
-                ? harnessSessionTerminalAttach.attach_id
-                : null,
-            error: error instanceof Error ? error.message : String(error ?? ""),
-          },
-        );
-      }
-    }
+        ? await requestHypervisorSessionCreate({
+            project_ref: request.project_id,
+            workspace_mount_policy: "public_trunk",
+          }).catch((error: unknown) => {
+            void recordHypervisorLaunchReceipt("hypervisor_session_create_failed", {
+              projectRef: request.project_id,
+              error: error instanceof Error ? error.message : String(error ?? ""),
+            });
+            return null;
+          })
+        : null;
+
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
       projectLabel: project.name,
       codeEditorAdapterAdmission,
       sessionLaunchRecipeAdmission,
-      harnessSessionBindingAdmission,
-      harnessSessionLaunch,
-      harnessSessionSpawn,
-      harnessSessionReadiness,
-      harnessSessionTerminalAttach,
+      hypervisorSession,
       displayMeta: {
         branchLabel: "master",
         relativeTimeLabel: "Starting...",
@@ -931,18 +620,6 @@ export function useHypervisorShellController() {
       });
       return next;
     });
-    if (
-      harnessTerminalPollingSeed &&
-      launchedSession.admission_state === "daemon_admitted" &&
-      harnessTerminalPollingSeed.terminalAttach.terminal_transcript_projection
-        .transcript_state !== "closed"
-    ) {
-      void pollHarnessSessionTerminalTranscript({
-        sessionRef: launchedSession.session_ref,
-        terminalSessionId: harnessTerminalPollingSeed.terminalSessionId,
-        terminalAttach: harnessTerminalPollingSeed.terminalAttach,
-      });
-    }
 
     setActiveView(recipe.surface_id);
     return launchedSession;

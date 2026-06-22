@@ -1296,9 +1296,13 @@ test("code editor adapter launch admission posts canonical plans to the daemon",
     harnessSessionSpawn: harnessSpawn,
     harnessSessionReadiness: harnessReadiness,
     harnessSessionTerminalAttach: harnessTerminalAttach,
+    // Lane A is owned by the Rust daemon: a launch is daemon-admitted once the
+    // governance admissions pass AND the daemon provisions a real session.
+    hypervisorSession: { session_ref: "session:hyp-launch-1718001" },
   });
 
   assert.equal(launchedSession.admission_state, "daemon_admitted");
+  assert.equal(launchedSession.session_ref, "session:hyp-launch-1718001");
   assert.equal(
     launchedSession.code_editor_adapter_admission_ref,
     "code-editor-adapter-launch:embedded-host",
@@ -1614,4 +1618,29 @@ test("source text rejects external-harness-as-runtime shortcuts", () => {
   assert.doesNotMatch(source, /Codex = Default Harness/);
   assert.doesNotMatch(source, /Claude Code = Default Harness/);
   assert.doesNotMatch(source, /external harness.*runtime truth/i);
+});
+
+test("the live cockpit controller drives the Rust session flow, not the retired harness routes", () => {
+  const controller = readFileSync(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+    "utf8",
+  );
+  // No live cockpit path may name the retired JS harness execution routes.
+  assert.doesNotMatch(controller, /\/v1\/hypervisor\/harness-session-/);
+  // The retired harness execution client must not be called from the cockpit.
+  for (const retired of [
+    "requestHarnessSessionLaunch",
+    "requestHarnessSessionSpawn",
+    "requestHarnessSessionReadiness",
+    "requestHarnessSessionTerminalAttach",
+    "requestHarnessSessionBindingAdmission",
+  ]) {
+    assert.doesNotMatch(
+      controller,
+      new RegExp(retired),
+      `cockpit controller must not call retired ${retired}`,
+    );
+  }
+  // The cockpit launches via the Rust daemon session-create flow instead.
+  assert.match(controller, /requestHypervisorSessionCreate/);
 });

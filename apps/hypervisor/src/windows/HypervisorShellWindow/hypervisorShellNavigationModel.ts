@@ -793,6 +793,7 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionSpawn = null,
   harnessSessionReadiness = null,
   harnessSessionTerminalAttach = null,
+  hypervisorSession = null,
   displayMeta = {},
 }: {
   request: HypervisorNewSessionLaunchRequest;
@@ -808,6 +809,11 @@ export function buildHypervisorLaunchedSessionProjection({
   harnessSessionTerminalAttach?:
     | HypervisorHarnessSessionTerminalAttachRecord
     | null;
+  // The Rust daemon session (POST /v1/hypervisor/sessions). When present, its
+  // `session_ref` is the canonical session the cockpit subscribes events to and
+  // the launch is daemon-admitted (Lane A is owned by the Rust daemon, which
+  // wallet-gates execution; the JS harness launch/spawn/readiness chain is gone).
+  hypervisorSession?: { session_ref?: string } | null;
   displayMeta?: {
     branchLabel?: string | null;
     relativeTimeLabel?: string | null;
@@ -820,29 +826,29 @@ export function buildHypervisorLaunchedSessionProjection({
     safeLaunchId(request.recipe_id),
     safeLaunchId(launchedAtMs),
   ].join("/");
+  // Governance admissions that still gate the launch (all Rust-served, none are
+  // `/v1/hypervisor/harness-session-*`): code-editor adapter + session-launch
+  // recipe. Provisioning/execution authority moved to the Rust session flow.
   const admissionDecisions = [
     codeEditorAdapterAdmission?.decision,
     sessionLaunchRecipeAdmission?.decision,
-    harnessSessionBindingAdmission?.decision,
-    harnessSessionLaunch?.decision,
-    harnessSessionSpawn?.decision,
-    harnessSessionReadiness?.decision,
-    harnessSessionTerminalAttach?.decision,
   ];
+  const hypervisorSessionRef =
+    typeof hypervisorSession?.session_ref === "string" && hypervisorSession.session_ref
+      ? hypervisorSession.session_ref
+      : null;
   const admissionState =
     admissionDecisions.includes("blocked")
       ? "daemon_blocked"
       : admissionDecisions.includes("daemon_unavailable")
         ? "daemon_unavailable"
-        : admissionDecisions.every(
-              (decision) => decision === "admitted" || decision === "ready",
-            ) && harnessSessionReadiness?.decision === "ready"
-              && harnessSessionTerminalAttach?.decision === "admitted"
+        : admissionDecisions.every((decision) => decision === "admitted") &&
+            hypervisorSessionRef !== null
           ? "daemon_admitted"
           : "pending_daemon_admission";
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
-    session_ref: `session:launch/${routeId}`,
+    session_ref: hypervisorSessionRef ?? `session:launch/${routeId}`,
     launch_receipt_ref: `receipt://hypervisor/new-session/${routeId}`,
     recipe_ref: request.recipe_id,
     recipe_kind: recipe.kind,

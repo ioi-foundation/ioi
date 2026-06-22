@@ -1184,6 +1184,143 @@ export function readHypervisorSessionOperationsDaemonEndpoint(): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Rust hypervisor-daemon session-execution client (Lane A).
+//
+// The cockpit launch flow uses these instead of the retired JS harness routes:
+//   POST /v1/hypervisor/sessions          — provision a real workspace
+//   GET  /v1/hypervisor/sessions/:id/events — SSE (handled by the subscription)
+//   POST /v1/hypervisor/sessions/:id/execute — wallet-gated host-spawn lane
+// The daemon derives the wallet policy/request hashes; a no-grant execute is a
+// 403 challenge exposing them so a wallet can mint a bound grant and retry.
+// ---------------------------------------------------------------------------
+
+export const HYPERVISOR_SESSION_CREATE_PATH = "/v1/hypervisor/sessions";
+
+export interface HypervisorSessionCreateRequest {
+  project_ref?: string;
+  session_ref?: string;
+  workspace_mount_policy?: string;
+  context_url?: string;
+  git?: { remote_uri?: string; clone_target?: string; target_mode?: string };
+  authority_scope_refs?: string[];
+}
+
+export interface HypervisorSessionCreateResult {
+  schema_version: string;
+  session_ref: string;
+  environment_ref: string;
+  environment_status: HypervisorEnvironmentStatus;
+  workspace_initializer: HypervisorWorkspaceInitializer;
+  receipt_ref: string;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HypervisorSessionExecuteRequest {
+  intent?: string;
+  messages?: Array<{ role: string; content: string }>;
+  lane?: string;
+  wallet_approval_grant?: unknown;
+}
+
+export interface HypervisorSessionExecuteResponse {
+  status: number;
+  body: Record<string, unknown>;
+}
+
+function resolveSessionDaemonEndpoint(endpoint?: string): string {
+  return (endpoint ?? readHypervisorSessionOperationsDaemonEndpoint()).replace(/\/+$/, "");
+}
+
+function resolveSessionFetch(fetchImpl?: FetchLike): FetchLike {
+  const impl = fetchImpl ?? (globalThis.fetch as unknown as FetchLike | undefined);
+  if (!impl) {
+    throw new Error("fetch unavailable for the hypervisor session client");
+  }
+  return impl;
+}
+
+/**
+ * Provision a real Rust session (POST /v1/hypervisor/sessions). Returns the
+ * daemon-derived `session_ref` the cockpit subscribes its events to.
+ */
+export async function requestHypervisorSessionCreate(
+  request: HypervisorSessionCreateRequest,
+  options: { endpoint?: string; fetchImpl?: FetchLike } = {},
+): Promise<HypervisorSessionCreateResult> {
+  const endpoint = resolveSessionDaemonEndpoint(options.endpoint);
+  const fetchImpl = resolveSessionFetch(options.fetchImpl);
+  const response = await fetchImpl(`${endpoint}${HYPERVISOR_SESSION_CREATE_PATH}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(request),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `hypervisor session create failed (${response.status}): ${text.slice(0, 400)}`,
+    );
+  }
+  return JSON.parse(text) as HypervisorSessionCreateResult;
+}
+
+/**
+ * Run the wallet-gated Lane A execution (POST /v1/hypervisor/sessions/:id/execute).
+ * Returns the raw {status, body}; the caller branches:
+ *   403 + reason "execution_authority_required" → read body.approval.{policy_hash,
+ *       request_hash}, obtain a wallet grant bound to them, and retry with
+ *       `wallet_approval_grant`;
+ *   503 → an honest substrate block (no_model_route / harness_unavailable / …);
+ *   200 → executed/failed with real changed_file_groups / terminal_events /
+ *       environment_ports / capability_lease_ref.
+ */
+export async function requestHypervisorSessionExecute(
+  sessionRef: string,
+  request: HypervisorSessionExecuteRequest,
+  options: { endpoint?: string; fetchImpl?: FetchLike } = {},
+): Promise<HypervisorSessionExecuteResponse> {
+  const endpoint = resolveSessionDaemonEndpoint(options.endpoint);
+  const fetchImpl = resolveSessionFetch(options.fetchImpl);
+  const id = encodeURIComponent(sessionRef);
+  const response = await fetchImpl(`${endpoint}/v1/hypervisor/sessions/${id}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(request),
+  });
+  const text = await response.text();
+  let body: Record<string, unknown>;
+  try {
+    body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    body = { error: text };
+  }
+  return { status: response.status, body };
+}
+
+/** The daemon-derived challenge a 403 execute returns (to mint a wallet grant against). */
+export interface HypervisorExecutionAuthorityChallenge {
+  policy_hash: string;
+  request_hash: string;
+  required_scopes: string[];
+}
+
+/** Read the wallet challenge from a 403 execute response, or null when not a challenge. */
+export function readHypervisorExecutionAuthorityChallenge(
+  response: HypervisorSessionExecuteResponse,
+): HypervisorExecutionAuthorityChallenge | null {
+  if (response.status !== 403) return null;
+  if (response.body?.reason !== "execution_authority_required") return null;
+  const approval = objectRecord(response.body.approval);
+  const policyHash = typeof approval.policy_hash === "string" ? approval.policy_hash : "";
+  const requestHash = typeof approval.request_hash === "string" ? approval.request_hash : "";
+  if (!policyHash || !requestHash) return null;
+  return {
+    policy_hash: policyHash,
+    request_hash: requestHash,
+    required_scopes: stringList(response.body.required_scopes, []),
+  };
+}
+
 export function normalizeHypervisorSessionOperationsProjection(
   snapshot: unknown,
   options: NormalizeSessionOperationsProjectionOptions = {},
