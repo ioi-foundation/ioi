@@ -564,6 +564,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_harness_session_binding_admission),
         )
         .route(
+            "/v1/hypervisor/private-workspace-mount-admissions",
+            post(lifecycle_routes::handle_private_workspace_mount_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

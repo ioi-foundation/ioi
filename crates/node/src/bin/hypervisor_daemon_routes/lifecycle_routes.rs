@@ -4306,6 +4306,28 @@ pub(crate) async fn handle_harness_session_binding_admission(
     }
 }
 
+/// POST /v1/hypervisor/private-workspace-mount-admissions — admit a private-workspace mount
+/// (pure kernel planner: custody-class / mount-target / execution-privacy lane + required controls
+/// / scopes / attestation / wallet / declassification refs). 202 + record, or the structured
+/// {error:{code,message,details}} shape with status (400 field-shape / 403 custody-lane policy).
+pub(crate) async fn handle_private_workspace_mount_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_private_workspace_mount(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

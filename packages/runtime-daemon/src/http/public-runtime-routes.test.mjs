@@ -892,90 +892,25 @@ test("public runtime model-weight custody admission route is retired (served by 
   );
 });
 
-test("public runtime routes expose private workspace mount admissions", async () => {
+test("public runtime private workspace mount admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/private-workspace-mount-admissions",
-      body: {
-        workspace_ref: "workspace://ioi",
-        mount_ref: "mount://workspace/redacted",
-        segment_ref: "workspace-segment:redacted-projection",
-        provider_ref: "provider:akash/gpu-market",
-        custody_class: "redacted_projection",
-        mount_target: "rented_gpu",
-        execution_privacy_posture: "ctee_split",
-        provider_root_can_read_plaintext: true,
-        protected_plaintext_requested: false,
-        required_controls: ["redaction_verified"],
-        authority_scope_refs: [],
-        agentgres_operation_refs: [
-          "agentgres://operation/privacy/mount/redacted",
-        ],
-        artifact_refs: ["artifact://workspace/redacted-projection"],
-        state_root_ref: "agentgres://state-root/workspace/ioi",
-      },
+      body: { workspace_ref: "workspace://ioi", custody_class: "redacted_projection" },
     }),
     response,
-    store,
+    store: {},
   });
 
-  assert.equal(response.statusCode, 202);
-  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    payload.schema_version,
-    "ioi.runtime.private_workspace_mount_admission.v1",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
-  assert.equal(payload.decision, "admitted");
-  assert.equal(payload.custody_class, "redacted_projection");
-  assert.equal(payload.provider_root_can_read_plaintext, true);
-  assert.equal(payload.protected_plaintext_exposed_to_provider_root, false);
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
-});
-
-test("public runtime private workspace mount route blocks unsafe plaintext without wallet declassification", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/private-workspace-mount-admissions",
-      body: {
-        workspace_ref: "workspace://ioi",
-        mount_ref: "mount://workspace/unsafe-private-head",
-        segment_ref: "workspace-segment:private-head",
-        provider_ref: "provider:akash/gpu-market",
-        custody_class: "unsafe_plaintext_mount",
-        mount_target: "rented_gpu",
-        execution_privacy_posture: "unsafe_plaintext_mount",
-        provider_root_can_read_plaintext: true,
-        protected_plaintext_requested: true,
-        required_controls: ["explicit_unsafe_plaintext_acceptance"],
-        authority_scope_refs: ["scope:privacy.unsafe_plaintext_mount"],
-        agentgres_operation_refs: [
-          "agentgres://operation/privacy/mount/unsafe",
-        ],
-        artifact_refs: ["artifact://workspace/private-head"],
-        state_root_ref: "agentgres://state-root/workspace/ioi",
-      },
-    }),
-    response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), {
-    error: "private_workspace_mount_required_ref_missing",
-  });
 });
 
 test("public runtime routes expose managed worker lifecycle admissions", async () => {

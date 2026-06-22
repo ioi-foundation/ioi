@@ -900,6 +900,73 @@ async function main() {
       assert.equal(aliased.body.error.code, "harness_session_binding_request_aliases_retired");
     });
 
+    // Step 3p: the private-workspace-mount governance admission (Rust-owned via the kernel
+    // admit_private_workspace_mount planner — custody-class / mount-target / execution-privacy
+    // lane + required controls/scopes/attestation/wallet/declassification refs; 400 field-shape /
+    // 403 custody-lane policy; decisions admitted / admitted_declassification / admitted_unsafe).
+    await runStep("POST /v1/hypervisor/private-workspace-mount-admissions gates the custody lane", async () => {
+      const base = (overrides = {}) => ({
+        workspace_ref: "workspace://ioi",
+        mount_ref: "mount://workspace/public-trunk",
+        segment_ref: "workspace-segment:public-trunk",
+        provider_ref: "provider:akash/gpu-market",
+        custody_class: "public_trunk",
+        mount_target: "rented_gpu",
+        execution_privacy_posture: "ctee_split",
+        provider_root_can_read_plaintext: true,
+        protected_plaintext_requested: false,
+        required_controls: [],
+        authority_scope_refs: [],
+        agentgres_operation_refs: ["agentgres://operation/privacy/mount"],
+        artifact_refs: ["artifact://workspace/public-trunk"],
+        state_root_ref: "agentgres://state-root/workspace/ioi",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/private-workspace-mount-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      // public_trunk admits and does not treat provider-readable public bytes as private custody.
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "public-trunk mount is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.protects_workspace_plaintext_from_provider_root, true);
+
+      // admitted_declassification for a cTEE private-head handle on a rented GPU.
+      const privateHead = await admit(
+        base({
+          custody_class: "private_head",
+          provider_root_can_read_plaintext: false,
+          required_controls: ["ctee_private_head_handle"],
+          authority_scope_refs: ["scope:ctee.private-head.evaluate"],
+        }),
+      );
+      assert.equal(privateHead.status, 202);
+      assert.equal(privateHead.body.decision, "admitted_declassification");
+
+      // 403: an unsafe-plaintext exception missing its wallet approval ref.
+      const unsafe = await admit(
+        base({
+          custody_class: "unsafe_plaintext_mount",
+          execution_privacy_posture: "unsafe_plaintext_mount",
+          protected_plaintext_requested: true,
+          required_controls: ["explicit_unsafe_plaintext_acceptance"],
+          authority_scope_refs: ["scope:privacy.unsafe_plaintext_mount"],
+          user_disclosure_ref: "disclosure://privacy/unsafe-mount",
+          provider_trust_acceptance_ref: "approval://provider-trust/unsafe-mount",
+        }),
+      );
+      assert.equal(unsafe.status, 403);
+      assert.equal(unsafe.body.error.code, "private_workspace_mount_required_ref_missing");
+
+      // 400: a non-prefixed workspace ref (field-shape) is rejected before the lane policy.
+      const badRef = await admit(base({ workspace_ref: "nope://x" }));
+      assert.equal(badRef.status, 400);
+      assert.equal(badRef.body.error.code, "private_workspace_mount_ref_prefix_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

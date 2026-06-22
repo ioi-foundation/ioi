@@ -47,6 +47,7 @@ pub mod runtime_harness_session_binding_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
+pub mod runtime_private_workspace_mount_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
@@ -721,6 +722,21 @@ impl RuntimeKernelService {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
     > {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a private-workspace-mount governance admission (pure: asserts the
+    /// custody-class / mount-target / execution-privacy lane is admissible and the required
+    /// controls / scopes / attestation / wallet / declassification refs are bound).
+    pub fn admit_private_workspace_mount(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionError,
+    > {
+        runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionCore
             .admit(request, now_iso)
     }
 

@@ -17,7 +17,6 @@ import { deriveWorkspaceInitializer } from "../runtime-environment-status-projec
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
-import { admitPrivateWorkspaceMount } from "../runtime-private-workspace-mount-admission.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 import { admitWorkerPackageInstall } from "../runtime-worker-package-install-admission.mjs";
 import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter-launch-plan-admission.mjs";
@@ -932,16 +931,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/private-workspace-mount-admissions"
       ) {
-        const body = await readBody(request);
+        // The private-workspace-mount governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_private_workspace_mount planner).
         writeJsonResponse(
           response,
-          admitPrivateWorkspaceMount({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/private-workspace-mount-admissions",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The private-workspace-mount admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }
