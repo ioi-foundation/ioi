@@ -222,9 +222,14 @@ impl RuntimeConversationArtifactControlCore {
 
         let receipt_refs = receipt_refs(request, &artifact_id_seed, &operation_kind);
         let mut artifact = artifact;
-        set_array_strings(&mut artifact, "receipt_refs", &receipt_refs);
-        set_array_strings(&mut artifact, "policy_refs", &policy_decision_refs);
-        set_array_strings(&mut artifact, "evidence_refs", &evidence_refs);
+        // MERGE (accumulate), not replace: action/export/promote must not clobber the create-time
+        // (and prior-operation) receipt/policy/evidence provenance. This-operation refs come first,
+        // then any prior artifact refs not already present — so create stays byte-identical (the
+        // create artifact's refs are a subset of the computed set) while later operations
+        // accumulate, matching how export_refs/promotion_refs already push_unique_string-accumulate.
+        merge_array_strings(&mut artifact, "receipt_refs", &receipt_refs);
+        merge_array_strings(&mut artifact, "policy_refs", &policy_decision_refs);
+        merge_array_strings(&mut artifact, "evidence_refs", &evidence_refs);
 
         Ok(RuntimeConversationArtifactControlRecord {
             operation,
@@ -571,6 +576,31 @@ fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
     }
 }
 
+/// Union the freshly-computed `values` (first, in order) with any existing string entries already
+/// at `key` (appended if not already present), then store the deduped result. Unlike
+/// `set_array_strings` this ACCUMULATES provenance across operations instead of clobbering it.
+fn merge_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    let existing: Vec<String> = value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut merged: Vec<String> = Vec::new();
+    for candidate in values.iter().chain(existing.iter()) {
+        if !merged.contains(candidate) {
+            merged.push(candidate.clone());
+        }
+    }
+    if let Value::Object(record) = value {
+        record.insert(key.to_string(), Value::Array(merged.into_iter().map(Value::String).collect()));
+    }
+}
+
 fn push_unique_string(value: &mut Value, key: &str, text: String) {
     let mut values = value
         .get(key)
@@ -730,6 +760,51 @@ mod tests {
             .expect("promote planned");
         assert_eq!(promoted.result["status"], "promoted");
         assert!(promoted.artifact["promotion_refs"].is_array());
+    }
+
+    #[test]
+    fn rust_action_accumulates_not_clobbers_create_time_provenance() {
+        // Seed an artifact carrying create-time receipt/policy/evidence provenance, then run an
+        // action. The prior provenance must survive (merge, not clobber).
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_artifact_record(
+            temp.path(),
+            "artifact-prov.json",
+            json!({
+                "schema_version": CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+                "object": "ioi.conversation_artifact",
+                "id": "artifact-prov",
+                "artifact_id": "artifact-prov",
+                "thread_id": "thread-one",
+                "title": "Draft",
+                "status": "active",
+                "updated_at": "2026-06-12T00:00:00.000Z",
+                "revisions": [],
+                "receipt_refs": ["receipt://create/prov"],
+                "policy_refs": ["policy://create/prov"],
+                "evidence_refs": ["evidence://create/prov"]
+            }),
+        );
+        let action = RuntimeConversationArtifactControlCore
+            .plan(&RuntimeConversationArtifactControlRequest {
+                operation_kind: Some("artifact.conversation.action".to_string()),
+                artifact_id: Some("artifact-prov".to_string()),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
+                request: json!({ "created_at": "2026-06-12T01:00:00.000Z", "action_kind": "edit" }),
+                ..Default::default()
+            })
+            .expect("action planned");
+        let receipts: Vec<&str> = action.artifact["receipt_refs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert!(receipts.contains(&"receipt://create/prov"), "create receipt provenance survives the action: {receipts:?}");
+        assert!(action.artifact["policy_refs"].as_array().unwrap().iter().any(|v| v == "policy://create/prov"));
+        assert!(action.artifact["evidence_refs"].as_array().unwrap().iter().any(|v| v == "evidence://create/prov"));
+        // The action's own receipt is also present (the merge unions, not replaces).
+        assert!(receipts.len() >= 2, "the action contributes its own receipt alongside the prior one");
     }
 
     #[test]
