@@ -275,6 +275,34 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (
+        request.method === "POST" &&
+        (url.pathname === "/v1/hypervisor/automation-runs/proposals" ||
+          url.pathname === "/v1/hypervisor/provider-operations" ||
+          url.pathname === "/v1/hypervisor/session-operations/proposals" ||
+          url.pathname === "/v1/hypervisor/project-operations")
+      ) {
+        // These hypervisor operation proposals are retired from the JS daemon. Like the
+        // read-projections they are stub-backed (contextPolicyCore.projectRuntimeLifecycle
+        // throws unconfigured in production) with no live consumer; a real Rust admission
+        // path is a future feature. (Unreachable per-route blocks below are removed when the
+        // JS daemon is deleted.) The store-backed governance admissions + approved-operations
+        // + harness lanes are NOT retired here — they are real and await Rust migration.
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "This Hypervisor operation proposal is retired from the JS daemon; it had no real producer and no live consumer.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/automation-runs/proposals") {
         const body = await readBody(request);
         const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(

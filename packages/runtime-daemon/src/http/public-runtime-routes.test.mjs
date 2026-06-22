@@ -203,105 +203,23 @@ test("public runtime Hypervisor automation compositor projection route is retire
   );
 });
 
-test("public runtime routes dispatch Hypervisor automation run proposals through lifecycle admission proposal", async () => {
+test("public runtime Hypervisor automation run proposal operation route is retired", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const calls = [];
-  const automationRunProposal = {
-    schema_version: "ioi.hypervisor.automation_run_proposal.v1",
-    proposal_ref: "automation-run:daemon/mission",
-    source: "daemon-automation-run-proposal",
-    selected_project_id: "project:ioi",
-    template_ref: "workflow-template:test",
-    run_recipe_ref: "run-recipe:test/manual",
-    graph_ref: "workflow://graph/test",
-    launch_action_ref: "action://workflow/test/launch",
-    operation_kind: "run_now",
-    admission_state: "ready_for_daemon_admission",
-    wallet_lease_ref: "lease:wallet/automation/test",
-    required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
-    action_proposal_ref: "action://workflow/test/launch",
-    agentgres_operation_ref: "agentgres://operation/automation/test/run",
-    receipt_ref: "receipt://automation/test/run",
-    state_root_ref: "agentgres://state-root/automation/test",
-    context_chamber_refs: ["chamber://workflow/test"],
-    artifact_refs: ["artifact://workflow/test/graph"],
-    latest_receipt_refs: ["receipt://workflow/test"],
-    run_boundary_invariant:
-      "Workflow compositor proposes; daemon admits; Agentgres records.",
-  };
-  const contextPolicyCore = {
-    projectRuntimeLifecycle(request) {
-      calls.push({ method: "projectRuntimeLifecycle", request });
-      return { proposal: automationRunProposal };
-    },
-  };
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/automation-runs/proposals",
-      body: {
-        selected_project_id: "project:ioi",
-        template_ref: "workflow-template:test",
-        run_recipe_ref: "run-recipe:test/manual",
-        graph_ref: "workflow://graph/test",
-        launch_action_ref: "action://workflow/test/launch",
-        operation_kind: "run_now",
-        required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
-        model_route_policy_ref: "model-route-policy:test",
-        receipt_policy_ref: "receipt-policy:workflow/test",
-        context_chamber_refs: ["chamber://workflow/test"],
-        artifact_refs: ["artifact://workflow/test/graph"],
-        latest_receipt_refs: ["receipt://workflow/test"],
-        state_root_ref: "agentgres://state-root/automation/test",
-      },
+      body: {},
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: { projectRuntimeLifecycleProjection: retiredRouteWrapper },
   });
-
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), automationRunProposal);
-  assert.deepEqual(calls, [
-    {
-      method: "projectRuntimeLifecycle",
-      request: {
-        operation: "hypervisor_automation_run_proposal",
-        operation_kind:
-          "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
-        projection_kind: "hypervisor_automation_run_proposal",
-        base_url: "http://daemon.test",
-        workspace_root: "/workspace",
-        state_dir: "/state",
-        home_dir: "/home/operator",
-        runtime_schema_version: "ioi.agentgres.runtime.v0",
-        project_id: "project:ioi",
-        template_ref: "workflow-template:test",
-        run_recipe_ref: "run-recipe:test/manual",
-        graph_ref: "workflow://graph/test",
-        launch_action_ref: "action://workflow/test/launch",
-        requested_operation: "run_now",
-        required_scope_refs: ["scope:workflow.run", "scope:receipt.write"],
-        model_route_policy_ref: "model-route-policy:test",
-        receipt_policy_ref: "receipt-policy:workflow/test",
-        context_chamber_refs: ["chamber://workflow/test"],
-        artifact_refs: ["artifact://workflow/test/graph"],
-        latest_receipt_refs: ["receipt://workflow/test"],
-        state_root_ref: "agentgres://state-root/automation/test",
-        source:
-          "public_runtime_routes./v1/hypervisor/automation-runs/proposals",
-      },
-    },
-  ]);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
 });
 
 test("public runtime Hypervisor agents projection route is retired (served by fixtures)", async () => {
@@ -379,275 +297,61 @@ test("public runtime Hypervisor receipt evidence projection route is retired (se
   );
 });
 
-test("public runtime routes dispatch Hypervisor provider operations through lifecycle admission proposal", async () => {
+test("public runtime Hypervisor provider operation route is retired", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const calls = [];
-  const providerOperationProposal = {
-    schema_version: "ioi.hypervisor.provider_operation_proposal.v1",
-    proposal_ref: "provider-operation:daemon/zero-to-idle",
-    source: "daemon-provider-operation-proposal",
-    project_ref: "project:ioi",
-    candidate_ref: "provider-candidate:akash-gpu",
-    direct_provider_ref: "provider:akash/gpu-market",
-    operation_kind: "zero_to_idle",
-    admission_state: "requires_wallet_lease",
-    wallet_lease_ref: "lease:wallet/provider/akash/zero-to-idle",
-    required_scope_refs: ["scope:provider.spend", "scope:receipt.write"],
-    agentgres_operation_ref:
-      "agentgres://operation/provider/akash/zero-to-idle",
-    receipt_ref: "receipt://provider/akash/zero-to-idle",
-    state_root_ref: "agentgres://state-root/provider/akash",
-    archive_ref: "storage-policy:agentgres-encrypted-refs-only",
-    restore_ref: "agentgres://restore/akash/latest",
-    custody_invariant:
-      "wallet.network grants; Agentgres admits provider lifecycle truth.",
-  };
-  const contextPolicyCore = {
-    projectRuntimeLifecycle(request) {
-      calls.push({ method: "projectRuntimeLifecycle", request });
-      return { proposal: providerOperationProposal };
-    },
-  };
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/provider-operations",
-      body: {
-        project_ref: "project:ioi",
-        candidate_ref: "provider-candidate:akash-gpu",
-        direct_provider_ref: "provider:akash/gpu-market",
-        operation_kind: "zero_to_idle",
-        wallet_authority_scope_refs: [
-          "scope:provider.spend",
-          "scope:receipt.write",
-        ],
-        storage_policy_ref: "storage-policy:agentgres-encrypted-refs-only",
-        restore_policy_ref: "agentgres://restore/akash/latest",
-      },
+      body: {},
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: { projectRuntimeLifecycleProjection: retiredRouteWrapper },
   });
-
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), providerOperationProposal);
-  assert.deepEqual(calls, [
-    {
-      method: "projectRuntimeLifecycle",
-      request: {
-        operation: "hypervisor_provider_operation_proposal",
-        operation_kind:
-          "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
-        projection_kind: "hypervisor_provider_operation_proposal",
-        base_url: "http://daemon.test",
-        workspace_root: "/workspace",
-        state_dir: "/state",
-        home_dir: "/home/operator",
-        runtime_schema_version: "ioi.agentgres.runtime.v0",
-        project_id: "project:ioi",
-        candidate_ref: "provider-candidate:akash-gpu",
-        direct_provider_ref: "provider:akash/gpu-market",
-        requested_operation: "zero_to_idle",
-        wallet_authority_scope_refs: [
-          "scope:provider.spend",
-          "scope:receipt.write",
-        ],
-        storage_policy_ref: "storage-policy:agentgres-encrypted-refs-only",
-        restore_policy_ref: "agentgres://restore/akash/latest",
-        source: "public_runtime_routes./v1/hypervisor/provider-operations",
-      },
-    },
-  ]);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
 });
 
-test("public runtime routes dispatch Hypervisor session operations through lifecycle admission proposal", async () => {
+test("public runtime Hypervisor session operation route is retired", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const calls = [];
-  const sessionOperationProposal = {
-    schema_version: "ioi.hypervisor.session_operation_proposal.v1",
-    proposal_ref: "session-operation:daemon/restore",
-    source: "daemon-session-operation-proposal",
-    project_ref: "project:ioi",
-    session_ref: "session:ioi",
-    environment_ref: "environment:ioi",
-    provider_candidate_ref: "provider:local-workstation",
-    operation_kind: "restore_session",
-    target_ref: "agentgres://restore/ioi/latest",
-    admission_state: "requires_wallet_lease",
-    wallet_lease_ref: "lease:wallet/session/restore",
-    required_scope_refs: ["scope:restore.apply"],
-    agentgres_operation_ref: "agentgres://operation/session/ioi/restore",
-    receipt_ref: "receipt://session/ioi/restore",
-    state_root_ref: "agentgres://state-root/session/ioi",
-    archive_ref: "artifact://agentgres/archive/ioi/latest",
-    restore_ref: "agentgres://restore/ioi/latest",
-    custody_invariant:
-      "wallet.network grants; Agentgres admits session lifecycle truth.",
-  };
-  const contextPolicyCore = {
-    projectRuntimeLifecycle(request) {
-      calls.push({ method: "projectRuntimeLifecycle", request });
-      return { proposal: sessionOperationProposal };
-    },
-  };
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/session-operations/proposals",
-      body: {
-        project_ref: "project:ioi",
-        session_ref: "session:ioi",
-        environment_ref: "environment:ioi",
-        provider_candidate_ref: "provider:local-workstation",
-        operation_kind: "restore_session",
-        target_ref: "agentgres://restore/ioi/latest",
-        authority_scope_refs: ["scope:restore.apply"],
-        access_lease_ref: "lease:access/ioi",
-        log_lease_ref: "lease:logs/ioi",
-        archive_ref: "artifact://agentgres/archive/ioi/latest",
-        restore_ref: "agentgres://restore/ioi/latest",
-      },
+      body: {},
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: { projectRuntimeLifecycleProjection: retiredRouteWrapper },
   });
-
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), sessionOperationProposal);
-  assert.deepEqual(calls, [
-    {
-      method: "projectRuntimeLifecycle",
-      request: {
-        operation: "hypervisor_session_operation_proposal",
-        operation_kind:
-          "runtime.lifecycle_operation.hypervisor_session_operation_proposal",
-        projection_kind: "hypervisor_session_operation_proposal",
-        base_url: "http://daemon.test",
-        workspace_root: "/workspace",
-        state_dir: "/state",
-        home_dir: "/home/operator",
-        runtime_schema_version: "ioi.agentgres.runtime.v0",
-        project_id: "project:ioi",
-        session_ref: "session:ioi",
-        environment_ref: "environment:ioi",
-        provider_candidate_ref: "provider:local-workstation",
-        requested_operation: "restore_session",
-        target_ref: "agentgres://restore/ioi/latest",
-        authority_scope_refs: ["scope:restore.apply"],
-        access_lease_ref: "lease:access/ioi",
-        log_lease_ref: "lease:logs/ioi",
-        archive_ref: "artifact://agentgres/archive/ioi/latest",
-        restore_ref: "agentgres://restore/ioi/latest",
-        source:
-          "public_runtime_routes./v1/hypervisor/session-operations/proposals",
-      },
-    },
-  ]);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
 });
 
-test("public runtime routes dispatch Hypervisor project operations through lifecycle admission proposal", async () => {
+test("public runtime Hypervisor project operation route is retired", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const calls = [];
-  const projectOperationProposal = {
-    schema_version: "ioi.hypervisor.project_operation_proposal.v1",
-    proposal_ref: "project-operation:daemon/restore",
-    source: "daemon-project-operation-proposal",
-    project_id: "project:ioi",
-    workspace_ref: "workspace://ioi",
-    operation_kind: "restore",
-    admission_state: "requires_wallet_lease",
-    wallet_lease_ref: "lease:wallet/project/ioi/restore",
-    required_scope_refs: ["scope:agentgres.restore", "scope:artifact.decrypt"],
-    agentgres_operation_ref: "agentgres://operation/project/ioi/restore",
-    receipt_ref: "receipt://project/ioi/restore",
-    state_root_ref: "agentgres://state-root/project:ioi",
-    archive_ref: "artifact://agentgres/archive/ioi/latest",
-    restore_ref: "agentgres://restore/ioi/latest",
-    custody_invariant:
-      "wallet.network grants; Agentgres admits project archive/restore truth.",
-  };
-  const contextPolicyCore = {
-    projectRuntimeLifecycle(request) {
-      calls.push({ method: "projectRuntimeLifecycle", request });
-      return { proposal: projectOperationProposal };
-    },
-  };
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/project-operations",
-      body: {
-        project_id: "project:ioi",
-        workspace_ref: "workspace://ioi",
-        operation_kind: "restore",
-        agentgres_object_head_ref: "agentgres://object-head/project:ioi",
-        state_root_ref: "agentgres://state-root/project:ioi",
-        archive_ref: "artifact://agentgres/archive/ioi/latest",
-        restore_ref: "agentgres://restore/ioi/latest",
-        latest_receipt_refs: ["receipt://project/ioi/state"],
-      },
+      body: {},
     }),
     response,
-    store,
-    contextPolicyCore,
+    store: { projectRuntimeLifecycleProjection: retiredRouteWrapper },
   });
-
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), projectOperationProposal);
-  assert.deepEqual(calls, [
-    {
-      method: "projectRuntimeLifecycle",
-      request: {
-        operation: "hypervisor_project_operation_proposal",
-        operation_kind:
-          "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
-        projection_kind: "hypervisor_project_operation_proposal",
-        base_url: "http://daemon.test",
-        workspace_root: "/workspace",
-        state_dir: "/state",
-        home_dir: "/home/operator",
-        runtime_schema_version: "ioi.agentgres.runtime.v0",
-        project_id: "project:ioi",
-        workspace_ref: "workspace://ioi",
-        requested_operation: "restore",
-        agentgres_object_head_ref: "agentgres://object-head/project:ioi",
-        state_root_ref: "agentgres://state-root/project:ioi",
-        archive_ref: "artifact://agentgres/archive/ioi/latest",
-        restore_ref: "agentgres://restore/ioi/latest",
-        latest_receipt_refs: ["receipt://project/ioi/state"],
-        source: "public_runtime_routes./v1/hypervisor/project-operations",
-      },
-    },
-  ]);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
 });
 
 test("public runtime routes admit approved Hypervisor operations after wallet and Agentgres refs", async () => {
