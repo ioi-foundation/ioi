@@ -7,18 +7,38 @@
 // core of that coverage onto the Rust true-north so it survives the JS daemon's retirement.
 //
 // Scope: the deterministic, offline-safe coding tools (workspace.status, git.diff,
-// file.inspect, file.apply_patch). The env-dependent tools (test.run / lsp.diagnostics =
-// node/tsc spawns, computer_use.request_lease, artifact.read / tool.retrieve_result =
-// receipt replay) are follow-on cuts.
+// file.inspect, file.apply_patch, computer_use.request_lease) PLUS:
+//   * test.run / lsp.diagnostics — real node/tsc spawns, env-gated (skip honestly when the
+//     tool is absent). The Rust result uses snake_case (test_status / diagnostic_status).
+//   * artifact.read / tool.retrieve_result — assert the FAIL-CLOSED contract: without a
+//     daemon-provided data-plane payload they 400 (data_plane_payload_required). Wiring the
+//     daemon data-plane is a separate (non-route) cut; here we prove the boundary fails closed.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, test } from "node:test";
 
 import { startRustHypervisorDaemon } from "./rust-hypervisor-daemon.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const rootTsc = path.join(repoRoot, "node_modules", ".bin", "tsc");
+
+function nodeAvailable() {
+  try {
+    execFileSync(process.execPath, ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tscAvailable() {
+  return fs.existsSync(rootTsc);
+}
 
 let daemon;
 let stateDir;
@@ -149,6 +169,92 @@ test("Rust computer_use.request_lease/invoke returns an approval-gated lease req
   assert.ok(result.lease_request, "carries a lease_request");
   assert.ok(result.wallet_network_authority_boundary, "carries the wallet.network authority boundary");
   assert.equal(result.shell_fallback_used, false);
+});
+
+test("Rust test.run/invoke runs the node test runner against the thread workspace", { skip: nodeAvailable() ? false : "node unavailable" }, async () => {
+  const threadId = await createThread();
+  // A passing node:test with a large stdout marker so a small maxOutputBytes truncates it.
+  fs.writeFileSync(
+    path.join(workspace, "sample.test.mjs"),
+    "import test from 'node:test';\n" +
+      "import assert from 'node:assert/strict';\n" +
+      "const marker = `START ${'x'.repeat(4096)} END`;\n" +
+      "test('runtime coding test proof', () => { console.log(marker); assert.equal(2 + 2, 4); });\n",
+  );
+  const r = await invoke(threadId, "test.run", {
+    commandId: "node.test",
+    path: "sample.test.mjs",
+    maxOutputBytes: 128,
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const result = toolResult(r.body, "test.run");
+  assert.equal(result.command_id, "node.test");
+  assert.equal(result.test_status, "passed");
+  assert.equal(result.exit_code, 0);
+  assert.equal(result.truncated, true, "a 128-byte cap truncates the 4KB marker");
+  assert.ok(Array.isArray(result.allowed_command_ids) && result.allowed_command_ids.includes("node.test"));
+});
+
+test("Rust test.run/invoke fails closed for a non-allowlisted command id (400)", async () => {
+  const threadId = await createThread();
+  const r = await invoke(threadId, "test.run", { commandId: "rm.rf", path: "sample.test.mjs" });
+  assert.equal(r.status, 400, JSON.stringify(r.body));
+});
+
+test("Rust lsp.diagnostics/invoke runs the node syntax check (clean) against the workspace", { skip: nodeAvailable() ? false : "node unavailable" }, async () => {
+  const threadId = await createThread();
+  fs.writeFileSync(path.join(workspace, "diagnostic-target.mjs"), "export const value = 1;\n");
+  const r = await invoke(threadId, "lsp.diagnostics", {
+    commandId: "node.check",
+    path: "diagnostic-target.mjs",
+    maxOutputBytes: 4096,
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const result = toolResult(r.body, "lsp.diagnostics");
+  assert.equal(result.diagnostic_status, "clean");
+  assert.equal(result.diagnostic_count, 0);
+  assert.equal(result.resolved_command_id, "node.check");
+});
+
+test("Rust lsp.diagnostics/invoke runs project-aware TypeScript diagnostics (clean)", { skip: tscAvailable() ? false : "repo-local tsc unavailable" }, async () => {
+  const threadId = await createThread();
+  // Mirror the JS setup: a tsconfig + a typed source + a workspace tsc symlinked from the repo.
+  fs.writeFileSync(
+    path.join(workspace, "tsconfig.json"),
+    JSON.stringify(
+      { compilerOptions: { strict: true, target: "ES2022", module: "ESNext", noEmit: true }, include: ["src/**/*.ts"] },
+      null,
+      2,
+    ),
+  );
+  fs.mkdirSync(path.join(workspace, "src"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, "src", "project-target.ts"), "export const typed: number = 1;\n");
+  fs.mkdirSync(path.join(workspace, "node_modules", ".bin"), { recursive: true });
+  fs.symlinkSync(rootTsc, path.join(workspace, "node_modules", ".bin", "tsc"));
+
+  const r = await invoke(threadId, "lsp.diagnostics", {
+    commandId: "typescript.check",
+    path: "src/project-target.ts",
+    maxOutputBytes: 4096,
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const result = toolResult(r.body, "lsp.diagnostics");
+  assert.equal(result.resolved_command_id, "typescript.check");
+  assert.equal(result.backend_status, "available");
+  assert.equal(result.diagnostic_status, "clean");
+});
+
+test("Rust artifact.read/tool.retrieve_result fail closed without a daemon data-plane payload (400)", async () => {
+  const threadId = await createThread();
+  // The tool-invoke route does not (yet) supply a StepModuleDataPlaneHandle, so the receipt-
+  // replay tools fail closed rather than fabricating an empty payload.
+  const artifact = await invoke(threadId, "artifact.read", { artifactId: "artifact_missing" });
+  assert.equal(artifact.status, 400, JSON.stringify(artifact.body));
+  assert.match(JSON.stringify(artifact.body), /data_plane_payload_required/);
+
+  const retrieve = await invoke(threadId, "tool.retrieve_result", { toolCallId: "tc_missing" });
+  assert.equal(retrieve.status, 400, JSON.stringify(retrieve.body));
+  assert.match(JSON.stringify(retrieve.body), /data_plane_payload_required/);
 });
 
 test("Rust tool-invoke fails closed: unknown thread → 404, unsupported tool → 400", async () => {
