@@ -568,6 +568,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_private_workspace_mount_admission),
         )
         .route(
+            "/v1/hypervisor/physical-action-intent-admissions",
+            post(lifecycle_routes::handle_physical_action_intent_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

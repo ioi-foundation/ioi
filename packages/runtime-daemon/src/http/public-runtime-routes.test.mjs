@@ -1012,126 +1012,25 @@ test("public runtime managed worker lifecycle route blocks payment-lapse deletio
   });
 });
 
-test("public runtime routes expose physical action intent admissions", async () => {
+test("public runtime physical action intent admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/physical-action-intent-admissions",
-      body: {
-        intent_id: "intent://physical/carwash/prep-vehicle-001",
-        actor_id: "worker:carwash-prep-humanoid",
-        task_id: "task://carwash/prep-vehicle-001",
-        domain_ref: "domain://carwash/vehicle-prep",
-        target_system_ref: "robot://bay-3/humanoid-1",
-        action_kind: "manipulation",
-        risk_class: "physical_action",
-        execution_phase: "command_issued",
-        requested_primitives: ["prim:physical.actuate"],
-        requested_scopes: ["scope:physical.actuate"],
-        physical_action_policy_ref: "policy://physical/carwash-prep",
-        safety_envelope_ref: "safety://carwash/bay-3",
-        human_supervision_policy_ref: "supervision://carwash/on-loop",
-        supervision_mode: "human_on_loop",
-        human_supervisor_refs: ["user://operator/bay-3"],
-        emergency_stop_authority_ref: "estop://carwash/bay-3",
-        emergency_stop_tested: true,
-        emergency_stop_max_latency_ms: 250,
-        sensor_evidence_receipt_refs: ["receipt://sensor/bay-3/preflight"],
-        actuator_command_receipt_refs: [
-          "receipt://actuator/bay-3/prep-command",
-        ],
-        incident_policy_ref: "policy://physical/incidents/carwash",
-        wallet_approval_ref: "approval://wallet/physical-action/carwash",
-        authority_ref: "grant://wallet/physical-action/carwash",
-        policy_refs: [
-          "policy://physical/carwash-prep",
-          "policy://physical/incidents/carwash",
-        ],
-        receipt_refs: [
-          "receipt://sensor/bay-3/preflight",
-          "receipt://actuator/bay-3/prep-command",
-        ],
-        agentgres_operation_refs: [
-          "agentgres://operation/physical-action/carwash/prep-vehicle-001",
-        ],
-        artifact_refs: ["artifact://sensor-video/bay-3/preflight"],
-        state_root: "state_root:physical:carwash:001",
-        execution_channel: "physical_action_adapter",
-      },
+      body: { intent_id: "intent://physical/carwash/prep-vehicle-001" },
     }),
     response,
-    store,
+    store: {},
   });
 
-  const payload = JSON.parse(response.body);
-  assert.equal(response.statusCode, 202);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    payload.schema_version,
-    "ioi.runtime.physical_action_intent_admission.v1",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
-  assert.equal(payload.risk_class, "physical_action");
-  assert.equal(payload.decision, "admitted");
-  assert.equal(payload.requiresDaemonGate, true);
-  assert.equal(payload.generic_tool_call_blocked, true);
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
-});
-
-test("public runtime physical action route blocks generic actuator tool calls", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/physical-action-intent-admissions",
-      body: {
-        intent_id: "intent://physical/carwash/prep-vehicle-001",
-        actor_id: "worker:carwash-prep-humanoid",
-        target_system_ref: "robot://bay-3/humanoid-1",
-        action_kind: "manipulation",
-        risk_class: "physical_action",
-        execution_phase: "command_issued",
-        requested_primitives: ["prim:physical.actuate"],
-        requested_scopes: ["scope:physical.actuate"],
-        physical_action_policy_ref: "policy://physical/carwash-prep",
-        safety_envelope_ref: "safety://carwash/bay-3",
-        supervision_mode: "human_on_loop",
-        human_supervisor_refs: ["user://operator/bay-3"],
-        emergency_stop_authority_ref: "estop://carwash/bay-3",
-        emergency_stop_tested: true,
-        emergency_stop_max_latency_ms: 250,
-        sensor_evidence_receipt_refs: ["receipt://sensor/bay-3/preflight"],
-        actuator_command_receipt_refs: [
-          "receipt://actuator/bay-3/prep-command",
-        ],
-        incident_policy_ref: "policy://physical/incidents/carwash",
-        wallet_approval_ref: "approval://wallet/physical-action/carwash",
-        authority_ref: "grant://wallet/physical-action/carwash",
-        policy_refs: ["policy://physical/carwash-prep"],
-        receipt_refs: ["receipt://actuator/bay-3/prep-command"],
-        agentgres_operation_refs: [
-          "agentgres://operation/physical-action/carwash/prep-vehicle-001",
-        ],
-        execution_channel: "tool.invoke",
-        generic_tool_call: true,
-      },
-    }),
-    response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), {
-    error: "physical_action_generic_tool_call_blocked",
-  });
 });
 
 test("public runtime routes expose worker package install admissions", async () => {

@@ -16,7 +16,6 @@ import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
 import { deriveWorkspaceInitializer } from "../runtime-environment-status-projection.mjs";
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
-import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 import { admitWorkerPackageInstall } from "../runtime-worker-package-install-admission.mjs";
 import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter-launch-plan-admission.mjs";
@@ -969,16 +968,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/physical-action-intent-admissions"
       ) {
-        const body = await readBody(request);
+        // The physical-action-intent governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_physical_action_intent planner).
         writeJsonResponse(
           response,
-          admitPhysicalActionIntent({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/physical-action-intent-admissions",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The physical-action-intent admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

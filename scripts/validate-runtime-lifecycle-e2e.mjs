@@ -967,6 +967,67 @@ async function main() {
       assert.equal(badRef.body.error.code, "private_workspace_mount_ref_prefix_invalid");
     });
 
+    // Step 3q: the physical-action-intent governance admission (Rust-owned via the kernel
+    // admit_physical_action_intent planner — daemon-owned safety/supervision/emergency-stop/
+    // receipt envelope; never a generic tool call). Exercises the optionalPositiveInteger JS
+    // Number() coercion (true→1, "0x10"→16) and the 400 field-shape / 403 policy split.
+    await runStep("POST /v1/hypervisor/physical-action-intent-admissions gates the safety envelope", async () => {
+      const base = (overrides = {}) => ({
+        intent_id: "intent://physical/carwash/prep-vehicle-001",
+        actor_id: "worker:carwash-prep-humanoid",
+        target_system_ref: "robot://bay-3/humanoid-1",
+        action_kind: "manipulation",
+        risk_class: "physical_action",
+        execution_phase: "command_issued",
+        requested_primitives: ["prim:physical.actuate"],
+        requested_scopes: ["scope:physical.actuate"],
+        physical_action_policy_ref: "policy://physical/carwash-prep",
+        safety_envelope_ref: "safety://carwash/bay-3",
+        supervision_mode: "human_on_loop",
+        human_supervisor_refs: ["user://operator/bay-3"],
+        emergency_stop_authority_ref: "estop://carwash/bay-3",
+        emergency_stop_tested: true,
+        emergency_stop_max_latency_ms: "0x10",
+        sensor_evidence_receipt_refs: ["receipt://sensor/bay-3/preflight"],
+        actuator_command_receipt_refs: ["receipt://actuator/bay-3/prep-command"],
+        incident_policy_ref: "policy://physical/incidents/carwash",
+        wallet_approval_ref: "approval://wallet/physical-action/carwash",
+        authority_ref: "grant://wallet/physical-action/carwash",
+        policy_refs: ["policy://physical/carwash-prep"],
+        receipt_refs: ["receipt://actuator/bay-3/prep-command"],
+        agentgres_operation_refs: ["agentgres://operation/physical-action/carwash/prep"],
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/physical-action-intent-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid physical action is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.risk_class, "physical_action");
+      assert.equal(ok.body.generic_tool_call_blocked, true);
+      // "0x10" coerces to 16 (JS Number() hex), matching the JS optionalPositiveInteger.
+      assert.equal(ok.body.emergency_stop_max_latency_ms, 16);
+
+      // 403: an actuator command routed as a generic tool call is blocked.
+      const generic = await admit(base({ execution_channel: "tool.invoke", generic_tool_call: true }));
+      assert.equal(generic.status, 403);
+      assert.equal(generic.body.error.code, "physical_action_generic_tool_call_blocked");
+
+      // 400: a non-positive-integer emergency-stop latency (field-shape) is rejected.
+      const badLatency = await admit(base({ emergency_stop_max_latency_ms: 2.5 }));
+      assert.equal(badLatency.status, 400);
+      assert.equal(badLatency.body.error.code, "physical_action_emergency_stop_max_latency_ms_invalid");
+
+      // 400: a retired camelCase alias is rejected before any field validation.
+      const aliased = await admit({ ...base(), intentId: "legacy" });
+      assert.equal(aliased.status, 400);
+      assert.equal(aliased.body.error.code, "physical_action_request_aliases_retired");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

@@ -47,6 +47,7 @@ pub mod runtime_harness_session_binding_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
+pub mod runtime_physical_action_intent_admission;
 pub mod runtime_private_workspace_mount_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
@@ -722,6 +723,21 @@ impl RuntimeKernelService {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
     > {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a physical-action-intent governance admission (pure: actuator-
+    /// affecting work is admitted only through the daemon-owned safety / supervision / emergency-
+    /// stop / receipt envelope, never as a generic tool call).
+    pub fn admit_physical_action_intent(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_physical_action_intent_admission::RuntimePhysicalActionIntentAdmissionError,
+    > {
+        runtime_physical_action_intent_admission::RuntimePhysicalActionIntentAdmissionCore
             .admit(request, now_iso)
     }
 

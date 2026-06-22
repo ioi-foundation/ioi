@@ -4328,6 +4328,28 @@ pub(crate) async fn handle_private_workspace_mount_admission(
     }
 }
 
+/// POST /v1/hypervisor/physical-action-intent-admissions — admit a physical-action intent (pure
+/// kernel planner: daemon-owned safety / supervision / emergency-stop / receipt envelope; never a
+/// generic tool call). 202 + record, or {error:{code,message,details}} with status (400 field-shape
+/// / 403 policy-authority).
+pub(crate) async fn handle_physical_action_intent_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_physical_action_intent(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {
