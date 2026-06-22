@@ -140,6 +140,17 @@ test("Rust file.apply_patch/invoke is dry-run-safe and mutates the workspace on 
   assert.ok(!after.includes("Initial line."));
 });
 
+test("Rust computer_use.request_lease/invoke returns an approval-gated lease request with a wallet authority boundary", async () => {
+  const threadId = await createThread();
+  const r = await invoke(threadId, "computer_use.request_lease", { prompt: "lease proof" });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const result = toolResult(r.body, "computer_use.request_lease");
+  assert.equal(typeof result.approval_required_before_execution, "boolean");
+  assert.ok(result.lease_request, "carries a lease_request");
+  assert.ok(result.wallet_network_authority_boundary, "carries the wallet.network authority boundary");
+  assert.equal(result.shell_fallback_used, false);
+});
+
 test("Rust tool-invoke fails closed: unknown thread → 404, unsupported tool → 400", async () => {
   const threadId = await createThread();
   const missing = await invoke("thread_does_not_exist", "workspace.status", {});
