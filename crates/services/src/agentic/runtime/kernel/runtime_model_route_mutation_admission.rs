@@ -452,9 +452,11 @@ fn unique_strings(value: Option<&Value>) -> Vec<String> {
         return out;
     };
     for item in items {
+        // Mirror JS normalizeArray's filter(Boolean): drop falsy items (null, false, "", 0)
+        // BEFORE stringifying, so a numeric 0 does not survive as "0".
         let candidate = match item {
             Value::String(value) if !value.is_empty() => value.clone(),
-            Value::Number(number) => number.to_string(),
+            Value::Number(number) if number.as_f64() != Some(0.0) => number.to_string(),
             Value::Bool(true) => "true".to_string(),
             _ => continue,
         };
@@ -475,11 +477,12 @@ fn push_unique(refs: &mut Vec<String>, candidate: String) {
 }
 
 /// Mirror JS `safeId`: collapse runs of characters outside [A-Za-z0-9_.-] to a single `_`.
+/// (JS substitutes "runtime" only for null/undefined; an empty string maps to "" — and
+/// every call site here passes a validated non-empty ref, so the null case is unreachable.)
 fn safe_id(value: &str) -> String {
-    let source = if value.is_empty() { "runtime" } else { value };
-    let mut out = String::with_capacity(source.len());
+    let mut out = String::with_capacity(value.len());
     let mut in_run = false;
-    for ch in source.chars() {
+    for ch in value.chars() {
         if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-') {
             out.push(ch);
             in_run = false;
@@ -571,6 +574,27 @@ mod tests {
             .admit(&request, "now")
             .expect_err("missing attestation");
         assert!(error.message.contains("attestation"));
+    }
+
+    #[test]
+    fn falsy_number_in_ref_array_is_dropped_like_filter_boolean() {
+        // JS normalizeArray's filter(Boolean) drops a numeric 0 before stringifying, so the
+        // request still admits on the surviving valid scope ref.
+        let mut request = base_request();
+        request["authority_scope_refs"] = json!([0, "scope:model.route.mutate"]);
+        let admission = RuntimeModelRouteMutationAdmissionCore
+            .admit(&request, "now")
+            .expect("0 is dropped, valid scope survives");
+        assert_eq!(
+            admission["authority_scope_refs"],
+            json!(["scope:model.route.mutate"])
+        );
+    }
+
+    #[test]
+    fn safe_id_of_empty_is_empty() {
+        assert_eq!(safe_id(""), "");
+        assert_eq!(safe_id("a//b"), "a_b");
     }
 
     #[test]
