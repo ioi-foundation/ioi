@@ -1376,6 +1376,100 @@ pub(crate) async fn handle_mcp_add(
 /// git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read,
 /// tool.retrieve_result, computer_use.request_lease). The tool id is the path `:name`; the body's
 /// `input` (+ optional workflow_graph_id/workflow_node_id/run_id/task_id/idempotency_key)
+/// Dispatch an `ioi.computer_use.*` projection tool (browser_discovery / provider_registry)
+/// through the CANONICAL kernel `RuntimeComputerUseProjectionCore::project`, emit the
+/// `computer_use.<kind>` runtime event onto the thread stream, and shape the agent-sdk
+/// thread-tool result. Deterministic (no Chromium): browser discovery runs over an empty
+/// process row set unless the caller supplies one. Ports the agent-sdk computer-use spine's
+/// projection tools onto the Rust true-north.
+fn handle_computer_use_projection_tool(
+    st: &DaemonState,
+    thread_id: &str,
+    tool_name: &str,
+    projection_kind: &str,
+    body: &Value,
+) -> Result<Json<Value>, AppError> {
+    let input = body.get("input").cloned().unwrap_or_else(|| json!({}));
+    let workflow_graph_id = coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
+    let workflow_node_id = coalesce_str(body, &["workflow_node_id", "workflowNodeId"]).map(str::to_string);
+    let source = coalesce_str(body, &["source"]).unwrap_or("react_flow").to_string();
+
+    // Build the projection request from the tool input (deterministic process rows by default).
+    let mut request_json = json!({
+        "projection_kind": projection_kind,
+        "source": source,
+    });
+    if let (Some(map), Some(input_map)) = (request_json.as_object_mut(), input.as_object()) {
+        for key in ["platform", "discovered_at", "process_rows", "include_cdp_probe", "include_tab_metadata", "reveal_tab_titles", "probe_timeout_ms"] {
+            if let Some(value) = input_map.get(key) {
+                map.insert(key.to_string(), value.clone());
+            }
+        }
+        if !input_map.contains_key("process_rows") {
+            map.insert("process_rows".to_string(), json!([]));
+        }
+    }
+    let request: ioi_services::agentic::runtime::kernel::runtime_computer_use::RuntimeComputerUseProjectionRequest =
+        serde_json::from_value(request_json)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = ioi_services::agentic::runtime::kernel::runtime_computer_use::RuntimeComputerUseProjectionCore
+        ::default()
+        .project(request)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
+    let (report, payload_key, result_object) = match projection_kind {
+        "browser_discovery" => (
+            record.browser_discovery.clone().unwrap_or_else(|| json!({})),
+            "browser_discovery_report",
+            "ioi.runtime_computer_use_browser_discovery_result",
+        ),
+        _ => (
+            record.provider_registry.clone().unwrap_or_else(|| json!({})),
+            "provider_registry",
+            "ioi.runtime_computer_use_provider_registry_result",
+        ),
+    };
+
+    // Emit the computer_use.<kind> runtime event onto the thread stream.
+    let event_stream_id = format!("{thread_id}:events");
+    let now = iso_now();
+    let event_hash = short_hash(&format!("{thread_id}:{tool_name}:{now}"));
+    let event = json!({
+        "event_id": format!("event_computer_use_{projection_kind}_{event_hash}"),
+        "event_stream_id": event_stream_id,
+        "thread_id": thread_id,
+        "turn_id": "",
+        "item_id": format!("{thread_id}:item:computer_use:{projection_kind}:{event_hash}"),
+        "idempotency_key": format!("thread:{thread_id}:computer_use.{projection_kind}:{event_hash}"),
+        "source": source,
+        "source_event_kind": "ComputerUse.Projection",
+        "event_kind": format!("computer_use.{projection_kind}"),
+        "status": "completed",
+        "actor": "operator",
+        "workspace_root": "",
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "component_kind": "computer_use_harness",
+        "payload_schema_version": "ioi.computer_use.projection.v1",
+        "payload": { payload_key: report.clone() },
+        "receipt_refs": record.receipt_refs,
+        "policy_decision_refs": [],
+        "artifact_refs": [],
+        "rollback_refs": [],
+        "evidence_refs": record.evidence_refs,
+    });
+    let admitted = admit_and_persist_event(st, event)?;
+
+    Ok(Json(json!({
+        "status": "completed",
+        "object": result_object,
+        "tool_pack": "computer_use",
+        "tool_name": tool_name,
+        "workflow_node_id": workflow_node_id,
+        "result": report,
+        "event": admitted,
+    })))
+}
+
 /// parameterizes it; the workspace_root is resolved from the thread's agent record. Ports the
 /// JS daemon's coding-tool invocation surface onto the Rust true-north.
 pub(crate) async fn handle_coding_tool_invoke(
@@ -1386,6 +1480,15 @@ pub(crate) async fn handle_coding_tool_invoke(
     let agent = read_agent_for_thread(&st, &thread_id).ok_or_else(|| {
         AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}"))
     })?;
+
+    // Computer-use projection tools dispatch through the kernel computer-use projection
+    // (browser_discovery / provider_registry) rather than the coding-tool step module.
+    if let Some(projection_kind) = tool_name.strip_prefix("ioi.computer_use.") {
+        if matches!(projection_kind, "browser_discovery" | "provider_registry") {
+            return handle_computer_use_projection_tool(&st, &thread_id, &tool_name, projection_kind, &body);
+        }
+    }
+
     let workspace_root = memory_agent_cwd(&agent);
 
     let request_json = json!({
