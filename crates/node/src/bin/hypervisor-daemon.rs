@@ -645,6 +645,11 @@ async fn main() -> anyhow::Result<()> {
             "/v1/hypervisor/sessions/:id",
             delete(lifecycle_routes::handle_session_teardown),
         )
+        // Phase 5A — RuntimeAgentService host substrate (lifecycle/state/events only).
+        .route(
+            "/v1/hypervisor/runtime-host/sessions",
+            post(lifecycle_routes::runtime_host::handle_runtime_host_session),
+        )
         .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),

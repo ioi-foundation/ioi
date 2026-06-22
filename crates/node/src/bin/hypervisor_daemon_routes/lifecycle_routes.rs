@@ -7175,3 +7175,427 @@ pub(crate) async fn handle_session_teardown(
         })),
     )
 }
+
+// ===========================================================================
+// Phase 5A — RuntimeAgentService host substrate.
+//
+// Makes the Rust daemon a legitimate host for the CANONICAL `RuntimeAgentService`
+// for LIFECYCLE ops only (`start@v1` + `post_message@v1`), with a file-backed
+// StateAccess over the daemon state dir, a deterministic (mock) inference, a
+// synthetic TxContext, and the event-log bridge wired into the existing /events.
+//
+// This is the load-bearing bridge toward true Lane B. It deliberately does NOT
+// drive browser / shell / model tools, mutate the workspace, or run `step@v1`
+// (that is Phase 5B/5C). Drivers are constructed but never invoked: the GUI
+// driver is a no-op, the browser driver is lazy (no Chromium until a page is
+// demanded), the terminal driver is idle, and the lifecycle ops never call
+// inference.
+// ===========================================================================
+pub(crate) mod runtime_host {
+    use std::collections::HashMap;
+    use std::sync::{Arc, OnceLock};
+
+    use async_trait::async_trait;
+    use axum::extract::State;
+    use axum::http::StatusCode;
+    use axum::Json;
+    use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
+    use tokio::sync::broadcast;
+
+    use ioi_api::services::access::ServiceDirectory;
+    use ioi_api::services::BlockchainService;
+    use ioi_api::state::{StateAccess, StateScanIter};
+    use ioi_api::transaction::context::TxContext;
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::inference::mock::MockInferenceRuntime;
+    use ioi_api::vm::inference::InferenceRuntime;
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::terminal::TerminalDriver;
+    use ioi_memory::MemoryRuntime;
+    use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
+    use ioi_services::agentic::runtime::service::RuntimeAgentService;
+    use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams};
+    use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
+    use ioi_types::codec;
+    use ioi_types::error::{StateError, VmError};
+
+    use super::DaemonState;
+
+    /// File-backed StateAccess over `<data_dir>/runtime-host-state/`. Each KV pair is
+    /// a file named `hex(key)` whose bytes are the value. Loads existing keys on
+    /// construction and write-throughs on insert/delete, so runtime state writes are
+    /// persistent + inspectable. Single-request use (Phase 5A foothold).
+    pub(crate) struct DaemonHostStateAccess {
+        dir: std::path::PathBuf,
+        data: HashMap<Vec<u8>, Vec<u8>>,
+    }
+
+    impl DaemonHostStateAccess {
+        pub(crate) fn open(data_dir: &str) -> Self {
+            let dir = std::path::Path::new(data_dir).join("runtime-host-state");
+            let _ = std::fs::create_dir_all(&dir);
+            let mut data = HashMap::new();
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if let Ok(key) = hex_decode(&name) {
+                        if let Ok(value) = std::fs::read(entry.path()) {
+                            data.insert(key, value);
+                        }
+                    }
+                }
+            }
+            Self { dir, data }
+        }
+
+        pub(crate) fn key_count(&self) -> usize {
+            self.data.len()
+        }
+
+        fn persist_key(&self, key: &[u8], value: &[u8]) {
+            let _ = std::fs::write(self.dir.join(hex_encode(key)), value);
+        }
+
+        fn remove_key(&self, key: &[u8]) {
+            let _ = std::fs::remove_file(self.dir.join(hex_encode(key)));
+        }
+    }
+
+    impl StateAccess for DaemonHostStateAccess {
+        fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+            Ok(self.data.get(key).cloned())
+        }
+        fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+            self.persist_key(key, value);
+            self.data.insert(key.to_vec(), value.to_vec());
+            Ok(())
+        }
+        fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+            self.remove_key(key);
+            self.data.remove(key);
+            Ok(())
+        }
+        fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+            for (key, value) in updates {
+                self.insert(key, value)?;
+            }
+            Ok(())
+        }
+        fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+            let mut out = Vec::with_capacity(keys.len());
+            for key in keys {
+                out.push(self.get(key)?);
+            }
+            Ok(out)
+        }
+        fn batch_apply(
+            &mut self,
+            inserts: &[(Vec<u8>, Vec<u8>)],
+            deletes: &[Vec<u8>],
+        ) -> Result<(), StateError> {
+            for key in deletes {
+                self.delete(key)?;
+            }
+            for (key, value) in inserts {
+                self.insert(key, value)?;
+            }
+            Ok(())
+        }
+        fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+            let results: Vec<_> = self
+                .data
+                .iter()
+                .filter(|(key, _)| key.starts_with(prefix))
+                .map(|(key, value)| Ok((Arc::from(key.as_slice()), Arc::from(value.as_slice()))))
+                .collect();
+            Ok(Box::new(results.into_iter()))
+        }
+    }
+
+    /// A GUI driver that does nothing — the host never drives a GUI in Phase 5A.
+    /// Capture/input calls error (so any accidental GUI use is loud, not silent).
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(&self, _crop: Option<(i32, i32, u32, u32)>) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        }
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        }
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        }
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        }
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        }
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+        async fn register_som_overlay(
+            &self,
+            _map: HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    /// The runtime-thread-event bridge sender, initialized once. `run_event_log_bridge`
+    /// runs in a background task persisting `KernelEvent::RuntimeThreadEvent`s emitted on
+    /// this channel into the daemon's `<data_dir>/events` log (the same log /events reads).
+    static RUNTIME_HOST_BRIDGE: OnceLock<broadcast::Sender<KernelEvent>> = OnceLock::new();
+
+    fn runtime_host_bridge_sender(data_dir: &str) -> broadcast::Sender<KernelEvent> {
+        RUNTIME_HOST_BRIDGE
+            .get_or_init(|| {
+                let (tx, rx) = broadcast::channel::<KernelEvent>(256);
+                let state_dir = data_dir.to_string();
+                tokio::spawn(async move {
+                    run_event_log_bridge(state_dir, rx).await;
+                });
+                tx
+            })
+            .clone()
+    }
+
+    /// Construct the canonical RuntimeAgentService as a deterministic, headless host:
+    /// no-op GUI, lazy (uninitialized) browser, idle terminal, deterministic mock
+    /// inference, the session workspace path, and the runtime-thread-event sender wired
+    /// to the bridge. No driver is invoked by the lifecycle ops.
+    fn build_runtime_agent_host(
+        workspace_path: &str,
+        memory: Arc<MemoryRuntime>,
+        bridge: broadcast::Sender<KernelEvent>,
+    ) -> RuntimeAgentService {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        RuntimeAgentService::new(gui, terminal, browser, inference)
+            .with_workspace_path(workspace_path.to_string())
+            .with_memory_runtime(memory)
+            .with_runtime_thread_event_sender(bridge)
+    }
+
+    /// Build a synthetic, non-chain TxContext bound to a freshly-created ServiceDirectory.
+    /// The caller owns the directory so the borrow outlives the call.
+    fn synthetic_service_directory() -> ServiceDirectory {
+        ServiceDirectory::new(vec![])
+    }
+
+    fn synthetic_tx_context<'a>(services: &'a ServiceDirectory, now_ns: u64) -> TxContext<'a> {
+        TxContext {
+            block_height: 1,
+            block_timestamp: now_ns,
+            chain_id: ioi_types::app::ChainId(0),
+            signer_account_id: ioi_types::app::AccountId::default(),
+            services,
+            simulation: false,
+            is_internal: false,
+        }
+    }
+
+    fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(session_ref.as_bytes());
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&hasher.finalize());
+        out
+    }
+
+    fn hex_encode(bytes: &[u8]) -> String {
+        let mut out = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            out.push_str(&format!("{byte:02x}"));
+        }
+        out
+    }
+
+    fn hex_decode(text: &str) -> Result<Vec<u8>, ()> {
+        if text.len() % 2 != 0 {
+            return Err(());
+        }
+        (0..text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&text[i..i + 2], 16).map_err(|_| ()))
+            .collect()
+    }
+
+    /// A short filesystem-safe id suffix for a session_ref (for the agent/thread linkage).
+    fn host_suffix(session_ref: &str) -> String {
+        super::short_hash(session_ref)
+    }
+
+    /// POST /v1/hypervisor/runtime-host/sessions — Phase 5A: host the canonical
+    /// RuntimeAgentService lifecycle (`start@v1` + optional `post_message@v1`) against a
+    /// file-backed StateAccess, write the session→thread linkage, and emit a host
+    /// lifecycle `RuntimeThreadEvent` through the wired bridge so it lands in /events.
+    /// No tools, no model, no workspace mutation.
+    pub(crate) async fn handle_runtime_host_session(
+        State(st): State<Arc<DaemonState>>,
+        Json(body): Json<Value>,
+    ) -> (StatusCode, Json<Value>) {
+        let now = super::iso_now();
+        let session_ref = body
+            .get("session_ref")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("runtime-host-session:{}", super::short_hash(&now)));
+        let goal = body
+            .get("goal")
+            .and_then(Value::as_str)
+            .unwrap_or("Phase 5A runtime-host lifecycle exercise")
+            .to_string();
+        let message = body.get("message").and_then(Value::as_str).map(str::to_string);
+
+        let session_id = session_id_for_ref(&session_ref);
+        let session_id_hex = hex_encode(&session_id);
+        let suffix = host_suffix(&session_ref);
+        let agent_id = format!("agent_{suffix}");
+        let thread_id = format!("thread_{suffix}");
+
+        // session → thread linkage so the bridge resolves the event log target.
+        let agent_record = json!({
+            "id": agent_id,
+            "object": "ioi.agent",
+            "runtime_session_id": session_id_hex,
+            "thread_id": thread_id,
+            "runtime_host_status": "hosted",
+            "created_at": now,
+        });
+        let _ = super::persist_record(&st.data_dir, "agents", &agent_id, &agent_record);
+
+        // A real (empty) session workspace path; Phase 5A never mutates it.
+        let workspace_path = std::path::Path::new(&st.data_dir)
+            .join("runtime-host-workspaces")
+            .join(&suffix);
+        let _ = std::fs::create_dir_all(&workspace_path);
+        let workspace_path = workspace_path.to_string_lossy().into_owned();
+
+        // Persistent transcript/memory runtime (the lifecycle ops append the seed +
+        // posted messages to the session transcript via the SCS).
+        let memory_path = std::path::Path::new(&st.data_dir).join("runtime-host-memory.sqlite");
+        let memory = match MemoryRuntime::open_sqlite(&memory_path) {
+            Ok(runtime) => Arc::new(runtime),
+            Err(error) => return host_error(&session_ref, "memory_runtime", &format!("{error:?}")),
+        };
+        let bridge = runtime_host_bridge_sender(&st.data_dir);
+        let host = build_runtime_agent_host(&workspace_path, memory, bridge.clone());
+        let mut state = DaemonHostStateAccess::open(&st.data_dir);
+        let services = synthetic_service_directory();
+        let now_ns = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0);
+        let mut ctx = synthetic_tx_context(&services, now_ns);
+
+        // start@v1 (canonical lifecycle op; deterministic — no inference).
+        let start_params = StartAgentParams {
+            session_id,
+            goal: goal.clone(),
+            runtime_route_frame: None,
+            max_steps: 8,
+            parent_session_id: None,
+            initial_budget: 0,
+            mode: AgentMode::Agent,
+        };
+        let start_bytes = match codec::to_bytes_canonical(&start_params) {
+            Ok(bytes) => bytes,
+            Err(error) => return host_error(&session_ref, "encode_start_params", &error),
+        };
+        if let Err(error) = host.handle_service_call(&mut state, "start@v1", &start_bytes, &mut ctx).await {
+            return host_error(&session_ref, "start_v1", &format!("{error:?}"));
+        }
+
+        // post_message@v1 (optional; deterministic — no inference).
+        let mut message_posted = false;
+        if let Some(content) = message.as_ref() {
+            let post_params = PostMessageParams {
+                session_id,
+                role: "user".to_string(),
+                content: content.clone(),
+            };
+            let post_bytes = match codec::to_bytes_canonical(&post_params) {
+                Ok(bytes) => bytes,
+                Err(error) => return host_error(&session_ref, "encode_post_message_params", &error),
+            };
+            if let Err(error) = host.handle_service_call(&mut state, "post_message@v1", &post_bytes, &mut ctx).await {
+                return host_error(&session_ref, "post_message_v1", &format!("{error:?}"));
+            }
+            message_posted = true;
+        }
+
+        let state_keys_written = state.key_count();
+
+        // Emit a host lifecycle RuntimeThreadEvent through the wired bridge. The bridge
+        // resolves session→thread and admits it to the daemon's /events log (the same
+        // channel step@v1 will use in Phase 5B). event_json omits thread_id/event_stream_id
+        // (the bridge fills them from the session lookup).
+        let event_hash = super::short_hash(&format!("{thread_id}:{now}:runtime_host_session"));
+        let event_json = json!({
+            "event_id": format!("event_runtime_host_session_started_{event_hash}"),
+            "idempotency_key": format!("thread:{thread_id}:runtime_host.session.started:{event_hash}"),
+            "source_event_kind": "RuntimeHost.SessionStarted",
+            "event_kind": "runtime_host.session.started",
+            "payload_schema_version": "ioi.runtime.runtime-host-session.v1",
+            "payload": {
+                "session_ref": session_ref,
+                "runtime_session_id": session_id_hex,
+                "goal": goal,
+                "message_posted": message_posted,
+                "host": "rust_runtime_agent_service",
+            },
+            "receipt_refs": [format!("receipt_runtime_host_session_{event_hash}")],
+        })
+        .to_string();
+        let _ = bridge.send(KernelEvent::RuntimeThreadEvent { session_id, event_json });
+
+        (
+            StatusCode::OK,
+            Json(json!({
+                "schema_version": "ioi.hypervisor.runtime_host_session.v1",
+                "session_ref": session_ref,
+                "runtime_session_id": session_id_hex,
+                "thread_id": thread_id,
+                "agent_id": agent_id,
+                "lifecycle": "hosted",
+                "ops": if message_posted { json!(["start@v1", "post_message@v1"]) } else { json!(["start@v1"]) },
+                "state_keys_written": state_keys_written,
+                "workspace_path": workspace_path,
+                // Phase 5A invariants: the host is constructed but drives nothing.
+                "host": {
+                    "service": "RuntimeAgentService",
+                    "gui": "noop",
+                    "browser": "lazy_uninitialized",
+                    "terminal": "idle",
+                    "inference": "deterministic_mock",
+                    "model_invoked": false,
+                    "workspace_mutated": false,
+                    "tool_execution_invoked": false,
+                },
+                "events_path": format!("/v1/threads/{thread_id}/events"),
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        )
+    }
+
+    fn host_error(session_ref: &str, code: &str, detail: &str) -> (StatusCode, Json<Value>) {
+        (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": {
+                    "code": format!("runtime_host_{code}_failed"),
+                    "message": format!("Runtime host lifecycle op failed at {code}."),
+                    "detail": detail,
+                    "session_ref": session_ref,
+                },
+            })),
+        )
+    }
+}
