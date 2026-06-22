@@ -1197,6 +1197,57 @@ async function main() {
       assert.equal(badRef.body.error.code, "code_editor_adapter_launch_launch_plan_ref_prefix_invalid");
     });
 
+    // Step 3u: the service-composition-receipt-bundle governance admission (Rust-owned via the
+    // kernel admit_service_composition_receipt_bundle planner — contribution/verifier/policy/
+    // routing/dispute/Agentgres/receipt refs + delivery evidence + unsafe-plaintext gates).
+    await runStep("POST /v1/hypervisor/service-composition-receipt-bundles gates the bundle", async () => {
+      const base = (overrides = {}) => ({
+        service_ref: "service:carwash/detailing",
+        delivery_ref: "delivery:carwash/order-42",
+        composition_graph_ref: "composition-graph:carwash/order-42",
+        private_data_posture: "public_only",
+        delivery_status: "delivered",
+        contribution_receipt_refs: ["receipt://contribution/a"],
+        verifier_receipt_refs: ["receipt://verifier/a"],
+        policy_receipt_refs: ["receipt://policy/a"],
+        routing_receipt_refs: ["receipt://routing/a"],
+        dispute_evidence_refs: ["receipt://dispute/a"],
+        agentgres_operation_refs: ["agentgres://operation/a"],
+        artifact_refs: ["artifact://delivery/a"],
+        receipt_refs: ["receipt://bundle/a"],
+        state_root: "state_root:carwash/order-42",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/service-composition-receipt-bundles`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid delivered bundle is admitted with 202");
+      assert.equal(ok.body.settlement_ready, true);
+      assert.equal(
+        ok.body.bundle_ref,
+        "service-composition-bundle:delivery_carwash_order-42:state_root_carwash_order-42",
+      );
+
+      // 403: an unsafe-plaintext exception without wallet approval + exception ref.
+      const unsafe = await admit(base({ private_data_posture: "unsafe_plaintext_exception" }));
+      assert.equal(unsafe.status, 403);
+      assert.equal(unsafe.body.error.code, "service_composition_unsafe_plaintext_exception_unapproved");
+
+      // 403: delivery with no artifact or payload evidence.
+      const noEvidence = await admit(base({ artifact_refs: [], payload_refs: [] }));
+      assert.equal(noEvidence.status, 403);
+      assert.equal(noEvidence.body.error.code, "service_composition_delivery_payload_or_artifact_required");
+
+      // 400: a non-prefixed state_root (field-shape).
+      const badRoot = await admit(base({ state_root: "nope:x" }));
+      assert.equal(badRoot.status, 400);
+      assert.equal(badRoot.body.error.code, "service_composition_state_root_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

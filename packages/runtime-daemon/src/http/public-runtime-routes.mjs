@@ -15,7 +15,6 @@ import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
 import { deriveWorkspaceInitializer } from "../runtime-environment-status-projection.mjs";
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
-import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -1032,16 +1031,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/service-composition-receipt-bundles"
       ) {
-        const body = await readBody(request);
+        // The service-composition-receipt-bundle governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_service_composition_receipt_bundle planner).
         writeJsonResponse(
           response,
-          admitServiceCompositionReceiptBundle({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/service-composition-receipt-bundles",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The service-composition-receipt-bundle admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

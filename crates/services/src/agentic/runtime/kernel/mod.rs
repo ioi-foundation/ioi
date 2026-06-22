@@ -51,6 +51,7 @@ pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
 pub mod runtime_physical_action_intent_admission;
 pub mod runtime_private_workspace_mount_admission;
+pub mod runtime_service_composition_receipt_bundle_admission;
 pub mod runtime_worker_package_install_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
@@ -772,6 +773,22 @@ impl RuntimeKernelService {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionError,
     > {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a service-composition-receipt-bundle governance admission (pure:
+    /// asserts the contribution/verifier/policy/routing/dispute/Agentgres/receipt refs + delivery
+    /// evidence are bound, provider logs are not the sole dispute truth, and unsafe-plaintext
+    /// exceptions are wallet-approved + never auto settlement-ready).
+    pub fn admit_service_composition_receipt_bundle(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionError,
+    > {
+        runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
             .admit(request, now_iso)
     }
 
