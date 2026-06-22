@@ -106,6 +106,30 @@ test("Cockpit equipped smoke: app client launches a real Rust session + runs the
     const preview = await fetch(previewPort.url);
     assert.equal(preview.status, 200);
     assert.match(await preview.text(), /quantum/i, "the cockpit preview URL serves the real site");
+
+    // 5) port revoke actually stops the real listener.
+    const revoke = await fetch(
+      `${endpoint}/v1/hypervisor/sessions/${encodeURIComponent(created.session_ref)}/ports/revoke`,
+      { method: "POST", headers: { "content-type": "application/json" } },
+    );
+    assert.equal(revoke.status, 200);
+    assert.equal((await revoke.json()).revoked_port, previewPort.port, "revoke reports the real revoked port");
+    let stillServing = true;
+    try {
+      await fetch(previewPort.url, { signal: AbortSignal.timeout(2000) });
+    } catch {
+      stillServing = false;
+    }
+    assert.equal(stillServing, false, "the revoked preview listener no longer serves");
+
+    // 6) teardown removes the real workspace.
+    const teardown = await fetch(
+      `${endpoint}/v1/hypervisor/sessions/${encodeURIComponent(created.session_ref)}`,
+      { method: "DELETE" },
+    );
+    assert.equal(teardown.status, 200);
+    assert.equal((await teardown.json()).workspace_removed, true);
+    assert.equal(fs.existsSync(workspaceRoot), false, "teardown removed the real workspace");
   } finally {
     await daemon.close();
     for (const [key, value] of [

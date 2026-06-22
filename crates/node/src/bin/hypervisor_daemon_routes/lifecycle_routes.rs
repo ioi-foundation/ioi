@@ -5965,17 +5965,26 @@ async fn run_host_spawn_lane(
 /// port serving `workspace_root`. Returns the bound port + an abort handle for the
 /// serving task. Opening this listener exposes workspace bytes — it is only ever
 /// called after the execution authority gate admits `port_exposure`.
-async fn start_preview_server(workspace_root: String) -> std::io::Result<(u16, tokio::task::AbortHandle)> {
+async fn start_preview_server(
+    workspace_root: String,
+) -> std::io::Result<(u16, tokio::sync::oneshot::Sender<()>, tokio::task::JoinHandle<()>)> {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
     let port = listener.local_addr()?.port();
     let app = axum::Router::new()
         .route("/", axum::routing::get(serve_preview_root))
         .route("/*preview_path", axum::routing::get(serve_preview_path))
         .with_state(workspace_root);
-    let task = tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    // Graceful shutdown so a revoke/teardown deterministically closes the socket:
+    // once signalled, axum::serve stops accepting and its listener is dropped.
+    let join = tokio::spawn(async move {
+        let _ = axum::serve(listener, app)
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx.await;
+            })
+            .await;
     });
-    Ok((port, task.abort_handle()))
+    Ok((port, shutdown_tx, join))
 }
 
 async fn serve_preview_root(State(root): State<String>) -> Response {
@@ -6033,9 +6042,10 @@ async fn open_session_preview_port(
     workspace_root: &str,
     capability_lease_ref: &str,
 ) -> Option<Value> {
-    let (port, handle) = start_preview_server(workspace_root.to_string()).await.ok()?;
+    let (port, shutdown, join) = start_preview_server(workspace_root.to_string()).await.ok()?;
     let url = format!("http://127.0.0.1:{port}/");
-    // Replace any prior listener for this session (abort the old serving task).
+    // Replace any prior listener for this session (signal the old one to shut down;
+    // the new listener binds a fresh port, so we don't need to await the old close).
     if let Ok(mut servers) = st.preview_servers.lock() {
         if let Some(previous) = servers.insert(
             session_ref.to_string(),
@@ -6044,10 +6054,12 @@ async fn open_session_preview_port(
                 url: url.clone(),
                 capability_lease_ref: capability_lease_ref.to_string(),
                 workspace_root: workspace_root.to_string(),
-                handle,
+                shutdown,
+                join,
             },
         ) {
-            previous.handle.abort();
+            let _ = previous.shutdown.send(());
+            previous.join.abort();
         }
     }
     Some(json!({
@@ -6846,6 +6858,179 @@ pub(crate) async fn handle_session_execute(
             "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
             "started_at": started_at,
             "finished_at": finished_at,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+// ===========================================================================
+// Session lifecycle teardown + preview-port revoke.
+//
+// A served preview opens a real listener exposing workspace bytes (Cut #4); it
+// must be revocable and torn down, not only abort-on-re-execute / die-with-daemon.
+// ===========================================================================
+
+/// Revoke a session's preview listener: remove it from the registry, signal a
+/// graceful shutdown, and await the serve task so the socket is CLOSED before
+/// returning. Returns the revoked port, or None when no listener was running.
+/// The registry lock is never held across the await.
+async fn revoke_session_preview(st: &DaemonState, session_ref: &str) -> Option<u16> {
+    let server = {
+        let mut servers = st.preview_servers.lock().ok()?;
+        servers.remove(session_ref)?
+    };
+    let port = server.port;
+    let _ = server.shutdown.send(());
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(3), server.join).await;
+    Some(port)
+}
+
+/// Remove a provisioned session workspace from disk — ONLY when it lives under the
+/// sessions root (never an arbitrary path). Returns whether a dir was removed.
+fn remove_session_workspace(workspace_root: &str) -> bool {
+    if workspace_root.is_empty() {
+        return false;
+    }
+    let root = sessions_root();
+    let target = std::path::Path::new(workspace_root);
+    let under_sessions_root = target.starts_with(&root) && target != root;
+    if !under_sessions_root {
+        return false;
+    }
+    std::fs::remove_dir_all(target).is_ok()
+}
+
+/// Mark every recorded environment port as `revoked` (the listener is gone).
+fn mark_session_ports_revoked(record: &Value) -> Vec<Value> {
+    record
+        .get("environment_ports")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|mut port| {
+            if let Some(object) = port.as_object_mut() {
+                object.insert("exposure_state".into(), json!("revoked"));
+            }
+            port
+        })
+        .collect()
+}
+
+/// POST /v1/hypervisor/sessions/:id/ports/revoke — stop the session's preview
+/// listener and mark its ports `revoked`. Idempotent: a session with no live
+/// listener returns `revoked_port: null` (no fabricated effect). The session
+/// itself stays; only the port exposure is revoked.
+pub(crate) async fn handle_session_ports_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(session_id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(record) = load_session_record(&st, &session_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+        );
+    };
+    let revoked_port = revoke_session_preview(&st, &session_id).await;
+    let ports = mark_session_ports_revoked(&record);
+
+    let receipt_ref = format!("receipt://hypervisor/session-port-revoke/{}", safe_session_tag(&session_id));
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.port_revoke",
+        "session_ref": session_id,
+        "revoked_port": revoked_port,
+        "created_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+
+    let mut receipt_refs: Vec<Value> = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+        receipt_refs.push(json!(receipt_ref));
+    }
+
+    let mut updated = record.clone();
+    if let Some(object) = updated.as_object_mut() {
+        object.insert("environment_ports".into(), json!(ports));
+        object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
+    }
+    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+            "session_ref": session_id,
+            "decision": "ports_revoked",
+            "revoked_port": revoked_port,
+            "environment_ports": ports,
+            "latest_receipt_refs": receipt_refs,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// DELETE /v1/hypervisor/sessions/:id — tear a session down: revoke its preview
+/// listener, remove the provisioned workspace from disk (only under the sessions
+/// root), mark the session `torn_down` with its ports cleared, and emit a
+/// teardown receipt. 404 if the session is unknown.
+pub(crate) async fn handle_session_teardown(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(session_id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(record) = load_session_record(&st, &session_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+        );
+    };
+    let revoked_port = revoke_session_preview(&st, &session_id).await;
+    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("").to_string();
+    let workspace_removed = remove_session_workspace(&workspace_root);
+
+    let receipt_ref = format!("receipt://hypervisor/session-teardown/{}", safe_session_tag(&session_id));
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.teardown",
+        "session_ref": session_id,
+        "revoked_port": revoked_port,
+        "workspace_removed": workspace_removed,
+        "created_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+
+    let mut receipt_refs: Vec<Value> = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+        receipt_refs.push(json!(receipt_ref));
+    }
+
+    let mut updated = record.clone();
+    if let Some(object) = updated.as_object_mut() {
+        object.insert("lifecycle_state".into(), json!("torn_down"));
+        object.insert("environment_ports".into(), json!([]));
+        object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
+    }
+    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+            "session_ref": session_id,
+            "decision": "torn_down",
+            "revoked_port": revoked_port,
+            "workspace_removed": workspace_removed,
+            "latest_receipt_refs": receipt_refs,
             "runtimeTruthSource": "daemon-runtime",
         })),
     )

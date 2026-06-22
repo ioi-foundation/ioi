@@ -230,6 +230,63 @@ test("Cut #1: clones a REAL git repo and surfaces a REAL git diff", async () => 
   }
 });
 
+test("Teardown: DELETE removes the workspace, marks torn_down, emits a receipt", async () => {
+  const create = await fetch(`${daemon.endpoint}/v1/hypervisor/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ session_ref: "session:cut1-teardown" }),
+  });
+  const workspaceRoot = (await create.json()).environment_status.components.workspace_content.workspace_root;
+  assert.ok(fs.existsSync(workspaceRoot), "workspace exists before teardown");
+
+  const teardown = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:cut1-teardown")}`,
+    { method: "DELETE" },
+  );
+  assert.equal(teardown.status, 200);
+  const body = await teardown.json();
+  assert.equal(body.decision, "torn_down");
+  assert.equal(body.workspace_removed, true);
+  assert.ok(
+    body.latest_receipt_refs.some((ref) => ref.startsWith("receipt://hypervisor/session-teardown/")),
+    "a teardown receipt is emitted",
+  );
+  assert.equal(fs.existsSync(workspaceRoot), false, "the workspace dir is removed from disk");
+
+  // The events projection now reflects the torn-down session (no fabricated ports).
+  const events = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:cut1-teardown")}/events`,
+    { headers: { accept: "text/event-stream" } },
+  );
+  const status = new Map(parseSse(await events.text()).map((f) => [f.event, f.data])).get("environment_status");
+  assert.deepEqual(status.ports, [], "no ports surface after teardown");
+});
+
+test("Teardown: port-revoke with no live listener is an idempotent no-op", async () => {
+  await fetch(`${daemon.endpoint}/v1/hypervisor/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ session_ref: "session:cut1-revoke" }),
+  });
+  const revoke = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:cut1-revoke")}/ports/revoke`,
+    { method: "POST", headers: { "content-type": "application/json" } },
+  );
+  assert.equal(revoke.status, 200);
+  const body = await revoke.json();
+  assert.equal(body.decision, "ports_revoked");
+  assert.equal(body.revoked_port, null, "no live listener → null revoked_port (no fabricated effect)");
+});
+
+test("Teardown: DELETE on an unknown session is 404", async () => {
+  const teardown = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:nope")}`,
+    { method: "DELETE" },
+  );
+  assert.equal(teardown.status, 404);
+  assert.equal((await teardown.json()).error.code, "session_not_found");
+});
+
 test("Cut #1: execute on an unknown session is 404, not a fake run", async () => {
   const execute = await fetch(
     `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:does-not-exist")}/execute`,

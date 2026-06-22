@@ -93,13 +93,16 @@ pub(crate) struct DaemonState {
 }
 
 /// A real running preview listener for a session (a static file server bound to
-/// a free localhost port, serving the provisioned workspace).
+/// a free localhost port, serving the provisioned workspace). Shutdown is
+/// deterministic: signal `shutdown` and await `join` so the socket is closed
+/// before a revoke/teardown returns.
 pub(crate) struct PreviewServer {
     pub(crate) port: u16,
     pub(crate) url: String,
     pub(crate) capability_lease_ref: String,
     pub(crate) workspace_root: String,
-    pub(crate) handle: tokio::task::AbortHandle,
+    pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
+    pub(crate) join: tokio::task::JoinHandle<()>,
 }
 
 // Error responses render as JSON so OpenAI-compatible/model-mount clients (and
@@ -633,6 +636,14 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/sessions/:id/execute",
             post(lifecycle_routes::handle_session_execute),
+        )
+        .route(
+            "/v1/hypervisor/sessions/:id/ports/revoke",
+            post(lifecycle_routes::handle_session_ports_revoke),
+        )
+        .route(
+            "/v1/hypervisor/sessions/:id",
+            delete(lifecycle_routes::handle_session_teardown),
         )
         .route(
             "/v1/threads/:id/memory/status",
