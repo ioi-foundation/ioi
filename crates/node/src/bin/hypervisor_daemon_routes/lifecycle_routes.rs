@@ -62,6 +62,7 @@ use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_contro
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
 use ioi_services::agentic::runtime::kernel::repository_workflow::RepositoryWorkflowProjectionRequest;
+use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
 use ioi_services::agentic::runtime::kernel::skill_hook_registry::SkillHookRegistryProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -3769,6 +3770,29 @@ pub(crate) async fn handle_github_pr_create_plan(
         "repository_workflow.projection.github_pr_create_plan",
         "github_pr_create_plan",
     )?))
+}
+
+/// GET /v1/tools — project the runtime tool catalog (a bare array of tool contracts),
+/// optionally filtered by ?pack=. The kernel projection is pure/static, so the daemon
+/// needs no state. Returns the unwrapped tools array, matching the retired JS facade.
+pub(crate) async fn handle_tools(
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let mut request_json = json!({
+        "operation": "runtime_tool_catalog",
+        "operation_kind": "runtime.tool_catalog.projection.tools",
+        "projection_kind": "tools",
+        "source": "hypervisor_daemon./v1/tools",
+    });
+    if let (Some(object), Some(pack)) = (request_json.as_object_mut(), params.get("pack")) {
+        object.insert("pack".to_string(), json!(pack.to_lowercase()));
+    }
+    let request: RuntimeToolCatalogProjectionRequest = serde_json::from_value(request_json)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_tool_catalog(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(Value::Array(record.tools.clone())))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

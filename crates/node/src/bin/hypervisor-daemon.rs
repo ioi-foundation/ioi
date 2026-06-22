@@ -542,6 +542,7 @@ async fn main() -> anyhow::Result<()> {
             "/v1/github/pr-create-plan",
             get(lifecycle_routes::handle_github_pr_create_plan),
         )
+        .route("/v1/tools", get(lifecycle_routes::handle_tools))
         .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),

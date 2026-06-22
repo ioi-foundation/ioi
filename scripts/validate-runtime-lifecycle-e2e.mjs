@@ -503,6 +503,26 @@ async function main() {
       assert.equal(prPlan.body.object, "ioi.github_pr_create_plan");
     });
 
+    // Step 3i: the runtime tool catalog (Rust-owned via the pure/static kernel
+    // runtime_tool_catalog projection). GET /v1/tools is a bare array, ?pack= filters it.
+    await runStep("GET /v1/tools projects the runtime tool catalog (bare array, pack filter)", async () => {
+      const all = await fetchJson(`${rust.endpoint}/v1/tools`);
+      assert.equal(all.status, 200);
+      assert.ok(Array.isArray(all.body) && all.body.length >= 1, "tools projects a non-empty array");
+      assert.ok(
+        all.body.every((tool) => typeof tool.stable_tool_id === "string" && typeof tool.pack === "string"),
+        "each tool carries stable_tool_id + pack",
+      );
+      const coding = await fetchJson(`${rust.endpoint}/v1/tools?pack=coding`);
+      assert.equal(coding.status, 200);
+      assert.ok(Array.isArray(coding.body), "pack-filtered tools is an array");
+      assert.ok(coding.body.every((tool) => tool.pack === "coding"), "pack filter restricts to the coding pack");
+      assert.ok(
+        coding.body.some((tool) => tool.stable_tool_id === "file.apply_patch"),
+        "the coding pack includes file.apply_patch",
+      );
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

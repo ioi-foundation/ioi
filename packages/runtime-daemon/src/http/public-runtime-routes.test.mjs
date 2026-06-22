@@ -4491,32 +4491,22 @@ test("public runtime studio intent route is retired (served by the Rust daemon)"
   assert.deepEqual(calls, [], "the JS Studio intent-frame projection must not be invoked");
 });
 
-test("public runtime account node and tool routes use mounted tool API", async () => {
+test("public runtime account node and tool routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
   const store = {
     toolApi: {
-      getAccount() {
-        calls.push({ method: "getAccount" });
-        return { account_id: "acct_route" };
-      },
-      listRuntimeNodes() {
-        calls.push({ method: "listRuntimeNodes" });
-        return { nodes: [] };
-      },
-      listTools(options) {
-        calls.push({ method: "listTools", options });
-        return { tools: [], pack: options.pack };
-      },
+      getAccount: retiredRouteWrapper,
+      listRuntimeNodes: retiredRouteWrapper,
+      listTools: retiredRouteWrapper,
     },
     getAccount: retiredRouteWrapper,
     listRuntimeNodes: retiredRouteWrapper,
     listTools: retiredRouteWrapper,
   };
 
-  // Account summary + runtime node inventory are Rust-owned (410); the JS toolApi must not
-  // be invoked. /v1/tools stays JS-served.
-  for (const path of ["/v1/account", "/v1/runtime/nodes"]) {
+  // Account summary, runtime node inventory, and the tool catalog are all Rust-owned (410);
+  // the JS toolApi must not be invoked.
+  for (const path of ["/v1/account", "/v1/runtime/nodes", "/v1/tools?pack=coding"]) {
     const retiredResponse = responseRecorder();
     await handleRequest({ request: request({ url: path }), response: retiredResponse, store });
     assert.equal(retiredResponse.statusCode, 410, `${path} should be retired`);
@@ -4525,12 +4515,6 @@ test("public runtime account node and tool routes use mounted tool API", async (
       "runtime_lifecycle_retired_served_by_rust_daemon",
     );
   }
-
-  const toolsResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/tools?pack=coding" }), response: toolsResponse, store });
-  assert.deepEqual(JSON.parse(toolsResponse.body), { tools: [], pack: "coding" });
-
-  assert.deepEqual(calls, [{ method: "listTools", options: { pack: "coding" } }]);
 });
 
 test("public runtime routes delegate thread subroutes unchanged", async () => {

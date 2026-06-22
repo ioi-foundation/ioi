@@ -1808,7 +1808,21 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tools") {
-        writeJsonResponse(response, store.toolApi.listTools(Object.fromEntries(url.searchParams.entries())));
+        // The runtime tool catalog is served by the Rust hypervisor-daemon (kernel
+        // runtime_tool_catalog projection).
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The runtime tool catalog is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
         return;
       }
       throw notFound("Public daemon route not found.", {
