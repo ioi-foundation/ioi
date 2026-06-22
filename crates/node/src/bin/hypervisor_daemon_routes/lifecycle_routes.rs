@@ -4394,6 +4394,28 @@ pub(crate) async fn handle_managed_worker_lifecycle_admission(
     }
 }
 
+/// POST /v1/hypervisor/code-editor-adapter-launch-plans — admit a code-editor adapter launch plan
+/// (pure kernel planner: refs/connection/control metadata match + no durable secret release + no
+/// adapter runtime-truth claim). 202 + record, or {error:{code,message,details}} with status (400
+/// field-shape / 403 policy).
+pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_code_editor_adapter_launch_plan(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

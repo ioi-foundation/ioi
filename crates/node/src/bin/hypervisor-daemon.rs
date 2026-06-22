@@ -580,6 +580,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_managed_worker_lifecycle_admission),
         )
         .route(
+            "/v1/hypervisor/code-editor-adapter-launch-plans",
+            post(lifecycle_routes::handle_code_editor_adapter_launch_plan_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

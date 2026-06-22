@@ -1150,6 +1150,53 @@ async function main() {
       assert.equal(badScope.body.error.code, "managed_worker_lifecycle_scope_invalid");
     });
 
+    // Step 3t: the code-editor-adapter-launch-plan governance admission (Rust-owned via the kernel
+    // admit_code_editor_adapter_launch_plan planner — refs/connection/control metadata match the
+    // connection kind, no durable secret release, no adapter runtime-truth claim; 400/403 split).
+    await runStep("POST /v1/hypervisor/code-editor-adapter-launch-plans gates the launch contract", async () => {
+      const base = (overrides = {}) => ({
+        launch_plan_ref: "code-editor-adapter:vscode/launch",
+        adapter_ref: "code-editor-adapter:vscode",
+        target_ref: "adapter-target:vscode",
+        launch_mode: "embedded",
+        connection_kind: "embedded_host",
+        connection_contract_ref: "connection-contract:code-editor-adapter/vscode",
+        executor_lane: "embedded_code_editor_host",
+        control_action: "open_embedded_code_editor",
+        control_channel_ref: "control-channel:code-editor-adapter/vscode",
+        required_access_lease_refs: ["lease:workspace/read"],
+        required_authority_scope_refs: ["scope:workspace.read"],
+        required_receipt_refs: ["receipt-policy:code-editor/launch"],
+        custody_posture: "local_projection",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/code-editor-adapter-launch-plans`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid embedded launch is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.adapter_runtime_truth_claimed, false);
+
+      // 403: the control metadata must match the connection kind.
+      const mismatch = await admit(base({ control_action: "open_desktop_editor" }));
+      assert.equal(mismatch.status, 403);
+      assert.equal(mismatch.body.error.code, "code_editor_adapter_control_contract_mismatch");
+
+      // 403: an adapter cannot claim runtime truth.
+      const claim = await admit(base({ adapter_runtime_truth_claimed: true }));
+      assert.equal(claim.status, 403);
+      assert.equal(claim.body.error.code, "code_editor_adapter_runtime_truth_claim_blocked");
+
+      // 400: a non-prefixed launch plan ref (field-shape).
+      const badRef = await admit(base({ launch_plan_ref: "nope:x" }));
+      assert.equal(badRef.status, 400);
+      assert.equal(badRef.body.error.code, "code_editor_adapter_launch_launch_plan_ref_prefix_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

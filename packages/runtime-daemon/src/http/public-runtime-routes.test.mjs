@@ -976,7 +976,7 @@ test("public runtime worker package install admission route is retired (served b
   );
 });
 
-test("public runtime routes expose code editor adapter launch plan admissions", async () => {
+test("public runtime code editor adapter launch plan admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
 
@@ -984,57 +984,17 @@ test("public runtime routes expose code editor adapter launch plan admissions", 
     request: request({
       method: "POST",
       url: "/v1/hypervisor/code-editor-adapter-launch-plans",
-      body: {
-        launch_plan_ref: "code-editor-adapter:external_editor/launch-plan",
-        adapter_ref: "code-editor-adapter:external_editor",
-        target_ref: "adapter-target:external-editor",
-        launch_mode: "external",
-        connection_kind: "desktop_editor",
-        connection_contract_ref:
-          "connection-contract:code-editor-adapter/desktop-context",
-        executor_lane: "desktop_editor",
-        control_action: "open_desktop_editor",
-        control_channel_ref:
-          "control-channel:code-editor-adapter/desktop-context",
-        required_access_lease_refs: [
-          "lease:code-editor-adapter/desktop-context",
-        ],
-        required_authority_scope_refs: [
-          "scope:workspace.read",
-          "scope:workspace.patch",
-          "scope:receipt.write",
-        ],
-        required_receipt_refs: [
-          "receipt-policy:code-editor-adapter/desktop-context",
-        ],
-        custody_posture: "redacted_projection",
-        secret_release_policy: "no_durable_secret_release",
-        agentgres_operation_refs: [
-          "agentgres://operation/code-editor-adapter/admit",
-        ],
-        receipt_refs: ["receipt://code-editor-adapter/admit"],
-      },
+      body: { launch_plan_ref: "code-editor-adapter:external_editor/launch-plan" },
     }),
     response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
+    store: {},
   });
 
-  const payload = JSON.parse(response.body);
-  assert.equal(response.statusCode, 202);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    payload.schema_version,
-    "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
-  assert.equal(payload.connection_kind, "desktop_editor");
-  assert.equal(payload.executor_lane, "desktop_editor");
-  assert.equal(payload.control_action, "open_desktop_editor");
-  assert.equal(
-    payload.control_channel_ref,
-    "control-channel:code-editor-adapter/desktop-context",
-  );
-  assert.equal(payload.secret_release_policy, "no_durable_secret_release");
-  assert.equal(payload.requiresDaemonGate, true);
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
 
 test("public runtime Hypervisor session launch recipe admission route is retired (served by the Rust daemon)", async () => {
@@ -1793,43 +1753,6 @@ test("public runtime harness session launch route blocks unsupported harnesses",
   assert.equal(response.statusCode, 403);
   assert.deepEqual(JSON.parse(response.body), {
     error: "harness_session_launch_harness_unsupported",
-  });
-});
-
-test("public runtime code editor adapter launch route rejects provider workspace targets", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/code-editor-adapter-launch-plans",
-      body: {
-        launch_plan_ref: "code-editor-adapter:remote_vm/launch-plan",
-        adapter_ref: "code-editor-adapter:remote_vm",
-        target_ref: "adapter-target:remote-vm-workspace",
-        launch_mode: "remote_url",
-        connection_kind: "provider_workspace",
-        connection_contract_ref:
-          "connection-contract:code-editor-adapter/provider-workspace",
-        executor_lane: "provider_environment",
-        control_action: "attach_provider_workspace",
-        control_channel_ref:
-          "control-channel:code-editor-adapter/provider-workspace",
-        required_access_lease_refs: ["lease:provider/workspace-access"],
-        required_authority_scope_refs: ["scope:provider.workspace.attach"],
-        required_receipt_refs: ["receipt-policy:code-editor-adapter/provider"],
-        custody_posture: "provider_session",
-        secret_release_policy: "no_durable_secret_release",
-      },
-    }),
-    response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  assert.equal(response.statusCode, 400);
-  assert.deepEqual(JSON.parse(response.body), {
-    error: "code_editor_adapter_launch_connection_kind_invalid",
   });
 });
 

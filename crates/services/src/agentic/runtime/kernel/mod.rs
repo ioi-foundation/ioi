@@ -44,6 +44,7 @@ pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
 pub mod runtime_harness_session_binding_admission;
+pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
 pub mod runtime_model_route_mutation_admission;
@@ -771,6 +772,21 @@ impl RuntimeKernelService {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionError,
     > {
         runtime_private_workspace_mount_admission::RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a code-editor-adapter-launch-plan governance admission (pure:
+    /// asserts the refs / connection / control metadata match the connection kind, no durable
+    /// secret release, and the adapter claims no runtime truth).
+    pub fn admit_code_editor_adapter_launch_plan(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_code_editor_adapter_launch_plan_admission::RuntimeCodeEditorAdapterLaunchPlanAdmissionError,
+    > {
+        runtime_code_editor_adapter_launch_plan_admission::RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
             .admit(request, now_iso)
     }
 

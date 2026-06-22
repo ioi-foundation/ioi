@@ -16,7 +16,6 @@ import { deriveWorkspaceInitializer } from "../runtime-environment-status-projec
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
-import { admitCodeEditorAdapterLaunchPlan } from "../runtime-code-editor-adapter-launch-plan-admission.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -1012,16 +1011,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/code-editor-adapter-launch-plans"
       ) {
-        const body = await readBody(request);
+        // The code-editor-adapter-launch-plan governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_code_editor_adapter_launch_plan planner).
         writeJsonResponse(
           response,
-          admitCodeEditorAdapterLaunchPlan({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/code-editor-adapter-launch-plans",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The code-editor-adapter-launch-plan admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }
