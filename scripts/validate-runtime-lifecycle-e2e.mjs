@@ -538,6 +538,21 @@ async function main() {
       assert.equal(written.body.status, "committed", "write commits");
       assert.equal(written.body.memory_state_kind, "record", "write produces a record");
       assert.equal(written.body.commit?.persisted, true, "write persists the record");
+      // The commit carries the canonical Agentgres memory-state receipt (not just persisted:true).
+      assert.equal(
+        written.body.commit?.schema_version,
+        "ioi.runtime_memory_state_commit.v1",
+        "write commit carries the canonical Agentgres memory-state receipt",
+      );
+      assert.ok(
+        typeof written.body.commit?.commit_hash === "string" &&
+          written.body.commit.commit_hash.startsWith("sha256:"),
+        "write commit derives a sha256 commit_hash",
+      );
+      assert.ok(
+        written.body.commit?.record?.admission?.admission_hash?.startsWith("sha256:"),
+        "write commit binds a storage-write admission hash",
+      );
       const memoryId = written.body.memory_id;
       assert.ok(memoryId, "write returns a memory_id");
 

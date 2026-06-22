@@ -68,7 +68,8 @@ use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    RuntimeRunStateCommitRequest, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+    RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRequest,
+    RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_doctor_report::RuntimeDoctorReportProjectionRequest;
 use ioi_services::agentic::runtime::kernel::studio_intent_frame::StudioIntentFrameProjectionRequest;
@@ -2293,6 +2294,32 @@ fn handle_memory_control_route(
     persist_record(st.data_dir.as_str(), dir, &record.state_id, &record.payload)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
+    // Canonical Agentgres memory commit receipt (admission_hash / content_hash / commit_hash),
+    // matching what the retired JS daemon produced via commit_runtime_memory_state — replacing the
+    // bare {persisted:true} shortcut. The `persisted:true` flag is retained alongside (the public
+    // commit contract). Best-effort: if the canonical commit can't be derived we still report the
+    // persisted write rather than failing the already-durable memory mutation.
+    let commit = match RuntimeKernelService::new().commit_runtime_memory_state(
+        &RuntimeMemoryStateCommitRequest {
+            schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            memory_state_kind: record.memory_state_kind.clone(),
+            state_id: record.state_id.clone(),
+            operation_kind: record.operation_kind.clone(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            payload: record.payload.clone(),
+            receipt_refs: record.receipt_refs.clone(),
+        },
+    ) {
+        Ok(commit) => {
+            let mut commit = serde_json::to_value(commit).unwrap_or_else(|_| json!({}));
+            if let Some(map) = commit.as_object_mut() {
+                map.insert("persisted".to_string(), json!(true));
+            }
+            commit
+        }
+        Err(_) => json!({ "persisted": true }),
+    };
+
     // Re-project the public view after the commit, exactly as the JS facade did (records
     // projection for record mutations, policy projection for a policy update).
     let projection = if record.memory_state_kind == "policy" {
@@ -2334,7 +2361,7 @@ fn handle_memory_control_route(
         "projection": projection,
         "receipt_refs": record.receipt_refs,
         "evidence_refs": record.evidence_refs,
-        "commit": { "persisted": true },
+        "commit": commit,
     })))
 }
 
