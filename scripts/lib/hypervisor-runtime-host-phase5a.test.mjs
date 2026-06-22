@@ -356,3 +356,35 @@ test("Phase 5 (shell): the constrained shell run is deterministic (same directiv
   assert.equal(a.host.workspace_mutated, true);
   assert.equal(b.host.workspace_mutated, true);
 });
+
+// Consolidation proof: ONE daemon-hosted RuntimeAgentService drives DISTINCT real tool
+// families (NativeOsDriver file write + TerminalDriver/bwrap shell) through the same
+// canonical handle_step — each governed by its own constrained policy. (Browser is the
+// equipped gate; offline here covers file + shell.)
+test("Phase 5 (consolidation): one hosted runtime drives distinct real tool families through the canonical handle_step", { skip: bwrapAvailable() ? false : "bwrap not available" }, async () => {
+  const fileRun = await grantedRun({
+    session_ref: "session:p5-consol-file",
+    goal: "write the workspace file",
+    step: true,
+    file_write: { path: "from-file-tool.txt", content: "consolidated" },
+  });
+  const fileAction = fileRun.body.step.events.find((e) => e.kind === "AgentActionResult");
+  assert.equal(fileAction.tool_name, "file__write");
+  assert.deepEqual(fileRun.body.workspace_files_after, ["from-file-tool.txt"]);
+  assert.equal(fs.readFileSync(path.join(fileRun.body.workspace_path, "from-file-tool.txt"), "utf8"), "consolidated");
+
+  const shellRun = await grantedRun({
+    session_ref: "session:p5-consol-shell",
+    goal: "execute the workspace command",
+    step: true,
+    shell_run: { argv: ["touch", "from-shell-tool.txt"] },
+  });
+  const shellAction = shellRun.body.step.events.find((e) => e.kind === "AgentActionResult");
+  assert.equal(shellAction.tool_name, "shell__run");
+  assert.deepEqual(shellRun.body.workspace_files_after, ["from-shell-tool.txt"]);
+
+  // Neither step was intercepted — both executed under their persisted Allow decisions.
+  for (const r of [fileRun, shellRun]) {
+    assert.ok(!r.body.step.events.some((e) => e.kind === "FirewallInterception"));
+  }
+});

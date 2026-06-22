@@ -6805,8 +6805,10 @@ pub(crate) async fn handle_session_execute(
 
     // Lane B (Phase-5 foothold): a Rust-native DETERMINISTIC/offline decision step —
     // no external harness, no model route, no container. Still wallet-gated (it
-    // writes the workspace). The canonical RuntimeAgentService::handle_step is the
-    // true-north that supersedes this foothold once the daemon hosts the full runtime.
+    // writes the workspace). The canonical RuntimeAgentService::handle_step true-north
+    // is now REALIZED on POST /v1/hypervisor/runtime-host/sessions (the daemon hosts
+    // the full runtime and runs constrained file/shell/browser tools through
+    // handle_step); this lightweight foothold is retained for offline/no-driver use.
     if lane == "native_local" {
         let capability_lease_ref = match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
             Ok(lease) => lease,
@@ -7177,19 +7179,29 @@ pub(crate) async fn handle_session_teardown(
 }
 
 // ===========================================================================
-// Phase 5A — RuntimeAgentService host substrate.
+// Phase 5 — RuntimeAgentService host substrate (CONSOLIDATED).
 //
 // Makes the Rust daemon a legitimate host for the CANONICAL `RuntimeAgentService`
-// for LIFECYCLE ops only (`start@v1` + `post_message@v1`), with a file-backed
-// StateAccess over the daemon state dir, a deterministic (mock) inference, a
-// synthetic TxContext, and the event-log bridge wired into the existing /events.
+// over a file-backed StateAccess (the daemon state dir), a deterministic (mock)
+// inference, a synthetic TxContext, and the event-log bridge wired into /events.
+// This is the realized Lane B true-north: the daemon runs the canonical
+// `decision_loop::handle_step`, not a placeholder.
 //
-// This is the load-bearing bridge toward true Lane B. It deliberately does NOT
-// drive browser / shell / model tools, mutate the workspace, or run `step@v1`
-// (that is Phase 5B/5C). Drivers are constructed but never invoked: the GUI
-// driver is a no-op, the browser driver is lazy (no Chromium until a page is
-// demanded), the terminal driver is idle, and the lifecycle ops never call
-// inference.
+// Phases, all live on POST /v1/hypervisor/runtime-host/sessions:
+//   5A: lifecycle ops (start@v1 + post_message@v1) — no tools, no model.
+//   5B: a wallet-gated step@v1 runs the REAL cognition, constrained (no side effect).
+//   5C: a `file_write` directive → a constrained file__write mutates the workspace
+//       (NativeOsDriver), under a persisted Allow policy decision.
+//   5 (shell):   a `shell_run` directive → a constrained shell__run executes through
+//       the real TerminalDriver (bwrap sandbox, network-unshared, workspace cwd).
+//   5 (browser): a `browser_navigate` directive → a constrained browser__navigate
+//       launches the real BrowserDriver (Chromium) against a benign local page.
+//
+// The GUI driver is a no-op (the host never drives a GUI); the terminal/browser
+// drivers are real and invoked on demand. Every consequential tool is governed by
+// a per-directive constrained ActionRules policy (default RequireApproval) plus the
+// per-capability hard guards (workspace boundary / command allowlist + bwrap / PII
+// egress firewall) — and the whole step is wallet-execution-authority gated.
 // ===========================================================================
 pub(crate) mod runtime_host {
     use std::collections::HashMap;
