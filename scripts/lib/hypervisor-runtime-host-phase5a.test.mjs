@@ -275,3 +275,84 @@ test("Phase 5C: the constrained file write is deterministic (same directive → 
   );
   assert.equal(fs.readFileSync(path.join(a.workspace_path, "result.txt"), "utf8"), "deterministic-5c");
 });
+
+// ---------------------------------------------------------------------------
+// Phase 5 (shell consolidation) — the canonical handle_step now drives the REAL
+// TerminalDriver: a wallet-gated step@v1 with a `shell_run` directive
+// deterministically dispatches a constrained shell__run that runs through bwrap
+// (network-unshared, workspace-bound cwd). Requires bwrap on the host; the test
+// skips honestly if absent.
+// ---------------------------------------------------------------------------
+
+import { execFileSync } from "node:child_process";
+function bwrapAvailable() {
+  try {
+    execFileSync("bwrap", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("Phase 5 (shell): a shell_run directive REALLY executes a constrained shell__run that mutates the workspace via the TerminalDriver", { skip: bwrapAvailable() ? false : "bwrap not available" }, async () => {
+  const request = {
+    session_ref: "session:p5-shell-touch",
+    goal: "execute the workspace command",
+    step: true,
+    shell_run: { argv: ["touch", "shell-made-this.txt"] },
+  };
+  const run = await grantedRun(request);
+  assert.equal(run.status, 200);
+  const body = run.body;
+
+  assert.equal(body.step.ran, true, `step ran (error=${JSON.stringify(body.step.error)})`);
+  assert.equal(body.step.error, null);
+  const action = body.step.events.find((event) => event.kind === "AgentActionResult");
+  assert.ok(action, `step produced an AgentActionResult: ${JSON.stringify(body.step.events.map((e) => e.kind))}`);
+  assert.equal(action.tool_name, "shell__run", "the executed tool was the constrained shell run");
+  assert.equal(action.error_class, null, "the shell command executed without error");
+  assert.ok(
+    !body.step.events.some((event) => event.kind === "FirewallInterception"),
+    "no firewall interception — the constrained shell command was policy-allowed",
+  );
+
+  // The real subprocess (under bwrap, cwd = workspace) created the file on disk.
+  assert.equal(body.host.workspace_mutated, true, "the shell command mutated the workspace");
+  assert.deepEqual(body.workspace_files_after, ["shell-made-this.txt"]);
+  assert.ok(fs.existsSync(path.join(body.workspace_path, "shell-made-this.txt")), "the shell-created file exists");
+});
+
+test("Phase 5 (shell): the constraint holds — a hard-denied interpreter (bash) is NOT executed even when the directive requests it", { skip: bwrapAvailable() ? false : "bwrap not available" }, async () => {
+  // allow_commands lists "bash", but the policy engine hard-denies interpreter/shell
+  // binaries regardless — so the command is intercepted, never executed, no mutation.
+  const request = {
+    session_ref: "session:p5-shell-deny",
+    goal: "execute the workspace command",
+    step: true,
+    shell_run: { argv: ["bash", "-lc", "touch pwned.txt"] },
+  };
+  const run = await grantedRun(request);
+  assert.equal(run.status, 200);
+  assert.equal(run.body.step.ran, true);
+  assert.ok(
+    run.body.step.events.some((event) => event.kind === "FirewallInterception"),
+    "the hard-denied interpreter was intercepted by policy",
+  );
+  assert.ok(
+    !run.body.step.events.some((event) => event.kind === "AgentActionResult"),
+    "no tool action result — bash never executed",
+  );
+  assert.equal(run.body.host.workspace_mutated, false, "the denied command mutated nothing");
+  assert.ok(!fs.existsSync(path.join(run.body.workspace_path, "pwned.txt")), "no file was created");
+});
+
+test("Phase 5 (shell): the constrained shell run is deterministic (same directive → same workspace mutation)", { skip: bwrapAvailable() ? false : "bwrap not available" }, async () => {
+  const run = (ref) =>
+    grantedRun({ session_ref: ref, goal: "execute the workspace command", step: true, shell_run: { argv: ["touch", "made.txt"] } });
+  const a = (await run("session:p5-shell-det-a")).body;
+  const b = (await run("session:p5-shell-det-b")).body;
+  assert.deepEqual(a.workspace_files_after, ["made.txt"]);
+  assert.deepEqual(b.workspace_files_after, ["made.txt"]);
+  assert.equal(a.host.workspace_mutated, true);
+  assert.equal(b.host.workspace_mutated, true);
+});

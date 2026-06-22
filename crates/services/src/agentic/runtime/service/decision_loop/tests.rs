@@ -752,6 +752,38 @@ fn typed_runtime_file_write_frame_survives_scale_round_trip_and_dispatches() {
     assert!(tool_call.contains("hello from phase 5c"));
 }
 
+// PROBE (Phase 5 shell): the daemon-hosted command frame must survive the SCALE
+// persist→hydrate at start@v1/step@v1 and still deterministically dispatch shell__run.
+#[test]
+fn typed_runtime_shell_frame_survives_scale_round_trip_and_dispatches() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame("command.exec", "shell_command"));
+
+    let bytes = codec::to_bytes_canonical(&state).expect("agent state encodes");
+    let mut rehydrated: AgentState =
+        codec::from_bytes_canonical(&bytes).expect("agent state decodes");
+
+    let frame = rehydrated
+        .runtime_route_frame
+        .as_ref()
+        .expect("command frame survives the SCALE round-trip");
+    assert_eq!(frame.intent_id, "command.exec");
+    assert_eq!(frame.route_family, "command_execution");
+    let argv = &frame
+        .runtime_action
+        .as_ref()
+        .expect("runtime_action survives")
+        .command_plan
+        .as_ref()
+        .expect("command_plan survives")
+        .argv;
+    assert_eq!(argv.first().map(String::as_str), Some("bash"));
+
+    let tool_call = maybe_typed_runtime_shell_run_tool_call(&mut rehydrated)
+        .expect("rehydrated command frame still dispatches shell__run");
+    assert!(tool_call.contains("\"name\":\"shell__run\""));
+}
+
 #[test]
 fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
     let mut state = test_agent_state();

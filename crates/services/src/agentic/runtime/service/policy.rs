@@ -1,4 +1,4 @@
-use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
+use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use crate::agentic::runtime::keys::AGENT_POLICY_PREFIX;
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_api::state::StateAccess;
@@ -11,44 +11,96 @@ pub(crate) fn action_policy_key(session_id: &[u8; 32]) -> Vec<u8> {
     [AGENT_POLICY_PREFIX, session_id.as_slice()].concat()
 }
 
-/// Persist a constrained session policy whose only consequential allowance is a
-/// workspace-scoped file write (`fs::write`); every other capability — network,
-/// shell, browser/host mutation, software install — falls through to the default
-/// `RequireApproval` gate. The lifecycle meta-tools are allowed so the agent can
-/// conclude the step.
-///
-/// This is the runtime POLICY DECISION (an `Allow` verdict), not an approval-token
-/// bypass: the firewall executes the write because the persisted policy permits the
-/// constrained capability, and the workspace-boundary check still hard-guards the
-/// path. Callers are expected to have already established the user's `workspace_write`
-/// authority at their own admission boundary (e.g. the Hypervisor daemon's wallet
-/// execution-authority gate) before installing this allow.
-pub fn install_constrained_workspace_write_policy(
-    state: &mut dyn StateAccess,
-    session_id: [u8; 32],
-) -> Result<(), TransactionError> {
+/// The lifecycle meta-tools a constrained host session must always allow so the agent
+/// can conclude the step (every other capability stays under the default gate).
+fn constrained_lifecycle_rules() -> Vec<Rule> {
     let allow = |rule_id: &str, target: &str| Rule {
         rule_id: Some(rule_id.to_string()),
         target: target.to_string(),
         conditions: Default::default(),
         action: Verdict::Allow,
     };
-    let rules = ActionRules {
-        policy_id: "hypervisor-runtime-host-workspace-write".to_string(),
+    vec![
+        allow("allow-complete", "agent__complete"),
+        allow("allow-pause", "agent__pause"),
+        allow("allow-chat-reply", "chat__reply"),
+    ]
+}
+
+/// Persist a constrained session policy: the supplied `consequential_rules` are the
+/// only allowed consequential capabilities, the lifecycle meta-tools are allowed so
+/// the agent can conclude, and every OTHER capability falls through to the default
+/// `RequireApproval` gate.
+///
+/// This is the runtime POLICY DECISION (an `Allow` verdict), not an approval-token
+/// bypass: the firewall executes the action because the persisted policy permits the
+/// constrained capability, and the per-capability hard guards (workspace boundary for
+/// `fs::write`, command allowlist + bwrap sandbox for `sys::exec`) still apply. Callers
+/// are expected to have already established the user's authority at their own admission
+/// boundary (e.g. the Hypervisor daemon's wallet execution-authority gate) first.
+fn install_constrained_session_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    policy_id: &str,
+    consequential_rules: Vec<Rule>,
+) -> Result<(), TransactionError> {
+    let mut rules = consequential_rules;
+    rules.extend(constrained_lifecycle_rules());
+    let action_rules = ActionRules {
+        policy_id: policy_id.to_string(),
         defaults: DefaultPolicy::RequireApproval,
-        rules: vec![
-            allow("allow-fs-write", "fs::write"),
-            allow("allow-complete", "agent__complete"),
-            allow("allow-pause", "agent__pause"),
-            allow("allow-chat-reply", "chat__reply"),
-        ],
+        rules,
         ontology_policy: Default::default(),
         pii_controls: Default::default(),
     };
     let key = action_policy_key(&session_id);
-    let bytes = codec::to_bytes_canonical(&rules)?;
+    let bytes = codec::to_bytes_canonical(&action_rules)?;
     state.insert(&key, &bytes).map_err(TransactionError::State)?;
     Ok(())
+}
+
+/// Constrained session policy whose only consequential allowance is a workspace-scoped
+/// file write (`fs::write`). The workspace-boundary check still hard-guards the path.
+pub fn install_constrained_workspace_write_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    install_constrained_session_policy(
+        state,
+        session_id,
+        "hypervisor-runtime-host-workspace-write",
+        vec![Rule {
+            rule_id: Some("allow-fs-write".to_string()),
+            target: "fs::write".to_string(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        }],
+    )
+}
+
+/// Constrained session policy whose only consequential allowance is a single shell
+/// command (`sys::exec` limited to `command` via the policy command allowlist). The
+/// policy engine still hard-denies interpreter/shell binaries (sh/bash/…) regardless,
+/// and the bwrap sandbox (network-unshared, workspace-bound) still confines execution.
+pub fn install_constrained_shell_exec_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    command: &str,
+) -> Result<(), TransactionError> {
+    install_constrained_session_policy(
+        state,
+        session_id,
+        "hypervisor-runtime-host-shell-exec",
+        vec![Rule {
+            rule_id: Some("allow-sys-exec".to_string()),
+            target: "sys::exec".to_string(),
+            conditions: RuleConditions {
+                allow_commands: Some(vec![command.to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    )
 }
 
 fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {

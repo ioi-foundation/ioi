@@ -10,7 +10,9 @@ pub mod mcp_live_backend;
 pub mod output;
 pub mod planning;
 pub(crate) mod policy;
-pub use self::policy::install_constrained_workspace_write_policy;
+pub use self::policy::{
+    install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
+};
 pub mod queue;
 pub mod recovery;
 pub mod tool_execution;

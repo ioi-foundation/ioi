@@ -7215,11 +7215,13 @@ pub(crate) mod runtime_host {
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
     use ioi_services::agentic::runtime::service::{
-        install_constrained_workspace_write_policy, RuntimeAgentService,
+        install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
+        RuntimeAgentService,
     };
     use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams, StepAgentParams};
     use ioi_types::app::agentic::{
-        FileMutationPlanRef, RequiredCapability, RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
+        CommandExecutionPlanRef, FileMutationPlanRef, RequiredCapability, RuntimeActionFrame,
+        RuntimeIntentEvidence, RuntimeRouteFrame,
     };
     use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
     use ioi_types::codec;
@@ -7484,6 +7486,62 @@ pub(crate) mod runtime_host {
         }
     }
 
+    /// A pre-resolved `RuntimeRouteFrame` that deterministically dispatches a constrained
+    /// `shell__run` of `argv` (argv[0] is the command, the rest are args) via the canonical
+    /// `maybe_typed_runtime_shell_run_tool_call`. `intent_id`/`route_family` are the command
+    /// family (NOT workspace, so the frame resolves to the shell-command intent rather than
+    /// workspace-context). The command runs through the real `TerminalDriver` (bwrap sandbox,
+    /// network-unshared, workspace-bound cwd) — no shell/browser/model tool selection.
+    fn shell_run_route_frame(argv: &[String]) -> RuntimeRouteFrame {
+        let command = argv.first().cloned().unwrap_or_default();
+        RuntimeRouteFrame {
+            intent_id: "command.exec".to_string(),
+            route_family: "command_execution".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: command.clone(),
+            target_kind: Some("shell_command".to_string()),
+            host_mutation: true,
+            required_capabilities: vec!["command.exec".to_string()],
+            typed_evidence: vec![RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: argv.join(" "),
+                source: "runtime_host".to_string(),
+                confidence: Some(95),
+            }],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "command.exec".to_string(),
+                reason: Some("phase 5 constrained shell run".to_string()),
+            }],
+            host_mutation_scope: None,
+            runtime_action: Some(RuntimeActionFrame {
+                intent_class: "local_runtime_action".to_string(),
+                action_family: "shell".to_string(),
+                target_text: argv.join(" "),
+                target_kind: "shell_command".to_string(),
+                host_mutation: true,
+                required_capabilities: vec![RequiredCapability {
+                    capability_id: "command.exec".to_string(),
+                    reason: Some("phase 5 constrained shell run".to_string()),
+                }],
+                browser_plan: None,
+                command_plan: Some(CommandExecutionPlanRef {
+                    plan_ref: "command.exec:runtime-host".to_string(),
+                    argv: argv.to_vec(),
+                    shell_policy: "bounded".to_string(),
+                    cwd: None,
+                    env: Vec::new(),
+                    approval_scope: None,
+                    expected_receipt: Some("command_receipt".to_string()),
+                }),
+                file_plan: None,
+                provenance: Some("runtime_host".to_string()),
+            }),
+            install_request: None,
+            provenance: Some("runtime_host".to_string()),
+        }
+    }
+
     fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(session_ref.as_bytes());
@@ -7604,12 +7662,36 @@ pub(crate) mod runtime_host {
             Some(file_write_route_frame(path, content))
         });
 
-        // start@v1 (canonical lifecycle op; deterministic — no inference).
+        // Phase 5 (shell): a `shell_run` directive supplies a pre-resolved command frame so
+        // the step deterministically dispatches a constrained `shell__run` through the REAL
+        // TerminalDriver (bwrap sandbox, network-unshared, workspace-bound cwd). argv[0] is
+        // the command; the policy command allowlist + the bwrap sandbox bound it.
+        let shell_run_argv: Option<Vec<String>> =
+            body.get("shell_run").and_then(Value::as_object).and_then(|sr| {
+                let argv: Vec<String> = sr
+                    .get("argv")
+                    .and_then(Value::as_array)?
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(|s| s.to_string())
+                    .collect();
+                if argv.is_empty() || argv[0].trim().is_empty() {
+                    return None;
+                }
+                Some(argv)
+            });
+        let shell_run_frame = shell_run_argv.as_deref().map(shell_run_route_frame);
+
+        // Exactly one pre-resolved tool frame may drive the constrained step (file write
+        // wins if both are present). Without a directive the step runs unconstrained cognition.
         let has_file_write_directive = file_write_frame.is_some();
+        let route_frame = file_write_frame.or(shell_run_frame);
+
+        // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
             session_id,
             goal: goal.clone(),
-            runtime_route_frame: file_write_frame,
+            runtime_route_frame: route_frame,
             max_steps: 8,
             parent_session_id: None,
             initial_budget: 0,
@@ -7623,14 +7705,20 @@ pub(crate) mod runtime_host {
             return host_error(&session_ref, "start_v1", &format!("{error:?}"));
         }
 
-        // Phase 5C: install the constrained session policy that ALLOWS the workspace-scoped
-        // file write (and the lifecycle meta-tools) while leaving every other capability
-        // under the default RequireApproval gate. The wallet execution-authority gate above
-        // already established the user's `workspace_write` authority; this is the runtime
-        // POLICY DECISION (an `Allow` verdict) that lets the constrained, workspace-bounded
-        // write execute deterministically — not an approval-token bypass.
+        // Phase 5: install the constrained session policy matching the directive — the runtime
+        // POLICY DECISION (an `Allow` verdict, NOT an approval-token bypass) that lets the one
+        // constrained capability execute while leaving every other under the default
+        // RequireApproval gate. The wallet execution-authority gate above already established
+        // the user's authority; the per-capability hard guards (workspace boundary / command
+        // allowlist + bwrap) still apply.
         if has_file_write_directive {
             if let Err(error) = install_constrained_workspace_write_policy(&mut state, session_id) {
+                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+            }
+        } else if let Some(argv) = shell_run_argv.as_ref() {
+            if let Err(error) =
+                install_constrained_shell_exec_policy(&mut state, session_id, &argv[0])
+            {
                 return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
             }
         }
