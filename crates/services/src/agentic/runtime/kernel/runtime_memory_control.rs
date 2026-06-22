@@ -765,11 +765,27 @@ fn policy_id(
 }
 
 fn memory_policy_id(target_type: &str, target_id: &str) -> String {
-    format!(
-        "memory_policy_{}_{}",
-        safe_id(target_type),
-        safe_id(target_id)
-    )
+    // MUST match runtime_memory_projection::policy_id (the reader): raw target_type +
+    // safe_file_id(target_id). The previous safe_id() form trimmed leading/trailing `_` and fell
+    // back to "memory" on empty, so a target_id with leading/trailing special chars was WRITTEN
+    // under one id but LOOKED UP under another by the projection — silently losing the policy
+    // update. (Identical for normal thread_<uuid>/agent_<uuid> ids, so this is byte-compatible.)
+    format!("memory_policy_{target_type}_{}", safe_file_id(target_id))
+}
+
+/// Mirror runtime_memory_projection::safe_file_id (NO trim, NO empty-fallback) so the policy id
+/// written here matches the id the projection computes when reading the persisted policy back.
+fn safe_file_id(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn memory_receipt_refs(
@@ -1054,6 +1070,19 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_memory_policy_control_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn memory_policy_id_matches_projection_reader_formula() {
+        // The projection reads policies by `memory_policy_{target_type}_{safe_file_id(target_id)}`.
+        // Normal ids are byte-identical to the old safe_id form.
+        assert_eq!(memory_policy_id("thread", "thread_1"), "memory_policy_thread_thread_1");
+        assert_eq!(memory_policy_id("agent", "agent_42"), "memory_policy_agent_agent_42");
+        // A leading special char: safe_file_id keeps the underscore (no trim) so the written id
+        // matches the projection's lookup id — the previous safe_id form trimmed it and lost the
+        // policy on read.
+        assert_eq!(memory_policy_id("thread", "@weird"), "memory_policy_thread__weird");
+        assert_eq!(memory_policy_id("agent", "a/b c"), "memory_policy_agent_a_b_c");
     }
 
     #[test]
