@@ -47,6 +47,19 @@ async function fetchJson(url, opts = {}) {
 
 async function main() {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lifecycle-e2e-state-"));
+  // Seed a workspace with a skill + hook so the skill/hook registry projection (Rust-owned,
+  // scans workspace_root/.claude/{skills,hooks.json}) has real sources to discover.
+  const skillHookWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lifecycle-e2e-skills-"));
+  fs.mkdirSync(path.join(skillHookWorkspace, ".claude/skills/ratchet-skill"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skillHookWorkspace, ".claude/skills/ratchet-skill/SKILL.md"),
+    "---\nname: ratchet-skill\ndescription: A skill seeded by the lifecycle ratchet\n---\nbody\n",
+  );
+  fs.writeFileSync(
+    path.join(skillHookWorkspace, ".claude/hooks.json"),
+    JSON.stringify({ hooks: { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: "echo ratchet" }] }] } }),
+  );
+  process.env.IOI_HYPERVISOR_WORKSPACE_ROOT = skillHookWorkspace;
   const rust = await startRustHypervisorDaemon({ stateDir });
   try {
     // Step 0 (foundation): the lifecycle route family is served by the Rust daemon and
@@ -421,6 +434,28 @@ async function main() {
       const final = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}`);
       assert.ok(Array.isArray(final.body.export_refs) && final.body.export_refs.length >= 1, "export_ref persisted");
       assert.ok(Array.isArray(final.body.promotion_refs) && final.body.promotion_refs.length >= 1, "promotion_ref persisted");
+    });
+
+    // Step 3g: the skill + hook registry projections (Rust-owned via the kernel
+    // skill_hook_registry projection scanning workspace_root/.claude/{skills,hooks.json}).
+    await runStep("GET /v1/skills + /v1/hooks project the workspace skill/hook registry", async () => {
+      const skills = await fetchJson(`${rust.endpoint}/v1/skills`);
+      assert.equal(skills.status, 200);
+      assert.equal(skills.body.schemaVersion, "ioi.agent-runtime.skills.v1", "skills projection carries the skills schema");
+      assert.ok(typeof skills.body.skillCount === "number", "skills projection carries skillCount");
+      assert.ok(Array.isArray(skills.body.skills), "skills projection lists skills");
+      assert.ok(skills.body.redaction, "skills projection carries the redaction marker");
+      assert.ok(
+        skills.body.skills.some((skill) => JSON.stringify(skill).includes("ratchet-skill")),
+        "the seeded workspace skill is discovered",
+      );
+
+      const hooks = await fetchJson(`${rust.endpoint}/v1/hooks`);
+      assert.equal(hooks.status, 200);
+      assert.equal(hooks.body.schemaVersion, "ioi.agent-runtime.hooks.v1", "hooks projection carries the hooks schema");
+      assert.ok(typeof hooks.body.hookCount === "number", "hooks projection carries hookCount");
+      assert.ok(Array.isArray(hooks.body.hooks), "hooks projection lists hooks");
+      assert.ok(hooks.body.hookCount >= 1, "the seeded workspace hook is discovered");
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

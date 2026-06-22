@@ -1001,12 +1001,25 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/skills") {
-        writeJsonResponse(response, store.skillHookApi.listSkills({ cwd: store.defaultCwd }));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/hooks") {
-        writeJsonResponse(response, store.skillHookApi.listHooks({ cwd: store.defaultCwd }));
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/v1/skills" || url.pathname === "/v1/hooks")
+      ) {
+        // The skill/hook registry projection is served by the Rust hypervisor-daemon
+        // (kernel skill_hook_registry projection over the workspace + user sources).
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The skill/hook registry projection is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repository-context") {

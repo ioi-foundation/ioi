@@ -61,6 +61,7 @@ use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_contro
     RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
+use ioi_services::agentic::runtime::kernel::skill_hook_registry::SkillHookRegistryProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -3611,6 +3612,41 @@ pub(crate) async fn handle_conversation_artifact_promote(
         body,
     )
     .await
+}
+
+/// Project the skill/hook registry for the given `registry_kind` ("skills" | "hooks" |
+/// "catalog") by scanning the daemon's workspace_root + home_dir (.claude/{skills,hooks})
+/// through the kernel skill_hook_registry projection.
+fn skill_hook_registry_projection(
+    st: &Arc<DaemonState>,
+    registry_kind: &str,
+) -> Result<Value, AppError> {
+    let request: SkillHookRegistryProjectionRequest = serde_json::from_value(json!({
+        "operation_kind": format!("skill_hook.registry.{registry_kind}"),
+        "registry_kind": registry_kind,
+        "workspace_root": st.workspace_root,
+        "home_dir": st.home_dir,
+        "source": "hypervisor_daemon.skill_hook_registry",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_skill_hook_registry(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(record.projection.clone())
+}
+
+/// GET /v1/skills — project the workspace + user skill registry.
+pub(crate) async fn handle_skills(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(skill_hook_registry_projection(&st, "skills")?))
+}
+
+/// GET /v1/hooks — project the workspace + user hook registry.
+pub(crate) async fn handle_hooks(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(skill_hook_registry_projection(&st, "hooks")?))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

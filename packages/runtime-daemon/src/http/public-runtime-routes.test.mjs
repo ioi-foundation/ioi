@@ -3859,51 +3859,25 @@ test("public runtime repository workflow routes use mounted repository API", asy
   assert.equal(calls.every((call) => call.apiStore === store), true);
 });
 
-test("public runtime skill and hook routes use mounted skill hook API", async () => {
+test("public runtime skill and hook routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
   const store = {
     defaultCwd: "/workspace/canonical",
     skillHookApi: {
-      listSkills(request) {
-        calls.push({ method: "listSkills", request });
-        return {
-          skills: [{ id: "skill.route" }],
-          rust_core_boundary: "runtime.skill_hook_registry",
-        };
-      },
-      listHooks(request) {
-        calls.push({ method: "listHooks", request });
-        return {
-          hooks: [{ id: "hook.route" }],
-          rust_core_boundary: "runtime.skill_hook_registry",
-        };
-      },
+      listSkills: retiredRouteWrapper,
+      listHooks: retiredRouteWrapper,
     },
-    listSkills: retiredRouteWrapper,
-    listHooks: retiredRouteWrapper,
   };
 
-  const skillsResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/skills" }), response: skillsResponse, store });
-  assert.equal(skillsResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(skillsResponse.body), {
-    skills: [{ id: "skill.route" }],
-    rust_core_boundary: "runtime.skill_hook_registry",
-  });
-
-  const hooksResponse = responseRecorder();
-  await handleRequest({ request: request({ url: "/v1/hooks" }), response: hooksResponse, store });
-  assert.equal(hooksResponse.statusCode, 200);
-  assert.deepEqual(JSON.parse(hooksResponse.body), {
-    hooks: [{ id: "hook.route" }],
-    rust_core_boundary: "runtime.skill_hook_registry",
-  });
-
-  assert.deepEqual(calls, [
-    { method: "listSkills", request: { cwd: "/workspace/canonical" } },
-    { method: "listHooks", request: { cwd: "/workspace/canonical" } },
-  ]);
+  for (const path of ["/v1/skills", "/v1/hooks"]) {
+    const response = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response, store });
+    assert.equal(response.statusCode, 410, `${path} should be retired`);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
+  }
 });
 
 test("public runtime model catalog routes use mounted model projection surface", async () => {

@@ -69,6 +69,11 @@ pub(crate) struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
     pub(crate) data_dir: String,
+    // The workspace the daemon projects skills/hooks + repository context against (real
+    // filesystem + git scans). Defaults to the daemon's cwd.
+    pub(crate) workspace_root: String,
+    // The operator home dir for user-scoped skill/hook sources (~/.claude/...).
+    pub(crate) home_dir: String,
     pub(crate) base_url: String,
     // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
     token_expiry: Mutex<HashMap<String, i64>>,
@@ -159,10 +164,23 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(25);
 
+    let workspace_root = std::env::var("IOI_HYPERVISOR_WORKSPACE_ROOT")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .or_else(|| std::env::current_dir().ok().map(|path| path.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| ".".to_string());
+    let home_dir = std::env::var("IOI_HYPERVISOR_HOME_DIR")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .or_else(|| std::env::var("HOME").ok())
+        .unwrap_or_default();
+
     let state = Arc::new(DaemonState {
         inference,
         model_name,
         data_dir,
+        workspace_root,
+        home_dir,
         base_url: format!("http://{addr}"),
         token_expiry: Mutex::new(HashMap::new()),
         stream_frame_delay_ms,
@@ -502,6 +520,8 @@ async fn main() -> anyhow::Result<()> {
             "/v1/conversation-artifacts/:id/promote",
             post(lifecycle_routes::handle_conversation_artifact_promote),
         )
+        .route("/v1/skills", get(lifecycle_routes::handle_skills))
+        .route("/v1/hooks", get(lifecycle_routes::handle_hooks))
         .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
