@@ -214,7 +214,8 @@ export function createRuntimeRouteHandlers(deps) {
             (segments[5] === "restore-preview" || segments[5] === "restore-apply") &&
             !segments[6]))) ||
       // artifacts (GET list projection + POST create): the Rust daemon projects the list
-      // and plans+persists the created artifact. GET /:id stays preserved.
+      // and plans+persists the created artifact. There is no thread-scoped artifact-by-id
+      // route; fetch-by-id lives at /v1/conversation-artifacts/:id (also Rust-owned).
       ((request.method === "GET" || request.method === "POST") &&
         action === "artifacts" &&
         !segments[4]) ||
@@ -271,18 +272,8 @@ export function createRuntimeRouteHandlers(deps) {
       );
       return;
     }
-    if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.listConversationArtifacts({ thread_id: threadId }));
-      return;
-    }
-    if (request.method === "POST" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(
-        response,
-        store.createConversationArtifact(threadId, await readBody(request)),
-        201,
-      );
-      return;
-    }
+    // GET/POST /artifacts (list + create) are retired above (served by the Rust daemon
+    // via the kernel conversation_artifact projection + control).
     if (request.method === "POST" && action === "compaction-policy" && !segments[4]) {
       writeJsonResponse(
         response,

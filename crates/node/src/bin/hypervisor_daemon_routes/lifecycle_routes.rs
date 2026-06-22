@@ -57,7 +57,7 @@ use ioi_services::agentic::runtime::kernel::approval::{
     APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_control::{
-    RuntimeConversationArtifactControlRequest,
+    RuntimeConversationArtifactControlRecord, RuntimeConversationArtifactControlRequest,
     RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
@@ -3410,14 +3410,207 @@ pub(crate) async fn handle_artifact_create(
     let artifact = record.artifact.clone();
     persist_record(st.data_dir.as_str(), "artifacts", &artifact_id, &artifact)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok((
+        StatusCode::CREATED,
+        Json(conversation_artifact_control_response(&record)),
+    ))
+}
+
+/// Build the conversation-artifact control response (mirrors the retired JS
+/// commitConversationArtifactControl): the operation result plus the artifact_id /
+/// operation_kind / persisted artifact / the kernel's receipt, policy-decision, and
+/// evidence refs / the commit marker. The three ref arrays are part of the JS contract,
+/// so consumers reading them off a create/action/export/promote response still see them.
+fn conversation_artifact_control_response(
+    record: &RuntimeConversationArtifactControlRecord,
+) -> Value {
     let mut response = record.result.clone();
     if let Some(map) = response.as_object_mut() {
-        map.insert("artifact_id".to_string(), json!(artifact_id));
+        map.insert("artifact_id".to_string(), json!(record.artifact_id));
         map.insert("operation_kind".to_string(), json!(record.operation_kind));
-        map.insert("artifact".to_string(), artifact);
+        map.insert("artifact".to_string(), record.artifact.clone());
+        map.insert("receipt_refs".to_string(), json!(record.receipt_refs));
+        map.insert(
+            "policy_decision_refs".to_string(),
+            json!(record.policy_decision_refs),
+        );
+        map.insert("evidence_refs".to_string(), json!(record.evidence_refs));
         map.insert("commit".to_string(), json!({ "persisted": true }));
     }
-    Ok((StatusCode::CREATED, Json(response)))
+    response
+}
+
+/// GET /v1/conversation-artifacts — list conversation artifacts across the daemon (the
+/// top-level, non-thread-scoped twin of handle_artifacts_list). thread_id is an optional
+/// filter from the query.
+pub(crate) async fn handle_conversation_artifacts_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let mut request_json = json!({
+        "operation": "conversation_artifact_inspection",
+        "operation_kind": "runtime.conversation_artifact_projection.list",
+        "projection_kind": "list",
+        "state_dir": st.data_dir,
+        "source": "runtime.conversation_artifact_state",
+    });
+    if let (Some(object), Some(thread_id)) = (request_json.as_object_mut(), params.get("thread_id")) {
+        object.insert("thread_id".to_string(), json!(thread_id));
+    }
+    let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(request_json)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_conversation_artifact_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
+}
+
+/// POST /v1/conversation-artifacts — create a conversation artifact (the top-level twin of
+/// handle_artifact_create). thread_id is read from the body when present.
+pub(crate) async fn handle_conversation_artifact_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), AppError> {
+    let request: RuntimeConversationArtifactControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": "conversation_artifact_create",
+        "operation_kind": "artifact.conversation.create",
+        // The top-level route admits thread-less artifacts; the JS facade bound them to a
+        // synthetic "thread_standalone" thread, so mirror that default exactly.
+        "thread_id": body.get("thread_id").and_then(|v| v.as_str()).unwrap_or("thread_standalone"),
+        "artifact_id": body.get("artifact_id").and_then(|v| v.as_str()),
+        "state_dir": st.data_dir,
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_conversation_artifact_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let artifact_id = record.artifact_id.clone();
+    let artifact = record.artifact.clone();
+    persist_record(st.data_dir.as_str(), "artifacts", &artifact_id, &artifact)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok((
+        StatusCode::CREATED,
+        Json(conversation_artifact_control_response(&record)),
+    ))
+}
+
+/// GET /v1/conversation-artifacts/:id — fetch one conversation artifact (projection "get").
+pub(crate) async fn handle_conversation_artifact_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(artifact_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(json!({
+        "operation": "conversation_artifact_inspection",
+        "operation_kind": "runtime.conversation_artifact_projection.get",
+        "projection_kind": "get",
+        "artifact_id": artifact_id,
+        "state_dir": st.data_dir,
+        "source": "runtime.conversation_artifact_state",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_conversation_artifact_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
+}
+
+/// GET /v1/conversation-artifacts/:id/revisions — list an artifact's revisions.
+pub(crate) async fn handle_conversation_artifact_revisions(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(artifact_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(json!({
+        "operation": "conversation_artifact_inspection",
+        "operation_kind": "runtime.conversation_artifact_projection.revisions",
+        "projection_kind": "revisions",
+        "artifact_id": artifact_id,
+        "state_dir": st.data_dir,
+        "source": "runtime.conversation_artifact_state",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_conversation_artifact_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.projection.clone()))
+}
+
+/// Shared control mutation for action/export/promote: the kernel reads the existing
+/// artifact from state_dir, applies the mutation, and returns the updated artifact; the
+/// daemon persists it back and returns the result (200, mirroring the JS facade).
+async fn conversation_artifact_control_mutation(
+    st: &Arc<DaemonState>,
+    artifact_id: String,
+    operation: &str,
+    operation_kind: &str,
+    body: Value,
+) -> Result<Json<Value>, AppError> {
+    let request: RuntimeConversationArtifactControlRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": operation,
+        "operation_kind": operation_kind,
+        "artifact_id": artifact_id,
+        "state_dir": st.data_dir,
+        "request": body,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_conversation_artifact_control(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let artifact_id = record.artifact_id.clone();
+    let artifact = record.artifact.clone();
+    persist_record(st.data_dir.as_str(), "artifacts", &artifact_id, &artifact)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(conversation_artifact_control_response(&record)))
+}
+
+/// POST /v1/conversation-artifacts/:id/actions — apply an action to an artifact.
+pub(crate) async fn handle_conversation_artifact_action(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(artifact_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    conversation_artifact_control_mutation(
+        &st,
+        artifact_id,
+        "conversation_artifact_action",
+        "artifact.conversation.action",
+        body,
+    )
+    .await
+}
+
+/// POST /v1/conversation-artifacts/:id/export — export an artifact.
+pub(crate) async fn handle_conversation_artifact_export(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(artifact_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    conversation_artifact_control_mutation(
+        &st,
+        artifact_id,
+        "conversation_artifact_export",
+        "artifact.conversation.export",
+        body,
+    )
+    .await
+}
+
+/// POST /v1/conversation-artifacts/:id/promote — promote an artifact.
+pub(crate) async fn handle_conversation_artifact_promote(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(artifact_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    conversation_artifact_control_mutation(
+        &st,
+        artifact_id,
+        "conversation_artifact_promote",
+        "artifact.conversation.promote",
+        body,
+    )
+    .await
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,

@@ -359,6 +359,70 @@ async function main() {
       );
     });
 
+    // Step 3f: the top-level conversation-artifacts family (list/create/get/revisions/
+    // action/export/promote), now Rust-owned via the kernel conversation_artifact
+    // projection + control. Thread-less create binds to the synthetic thread_standalone.
+    await runStep("GET/POST /v1/conversation-artifacts owns the artifact lifecycle", async () => {
+      const created = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts`, {
+        method: "POST",
+        body: JSON.stringify({ title: "Ratchet artifact", kind: "note", content: "hello" }),
+      });
+      assert.equal(created.status, 201);
+      const artifactId = created.body.artifact_id;
+      assert.ok(artifactId, "create returns an artifact_id");
+      assert.equal(created.body.artifact?.thread_id, "thread_standalone", "thread-less create binds to thread_standalone");
+      assert.equal(created.body.commit?.persisted, true, "create persists the artifact");
+      // The control response carries the kernel's top-level ref arrays (JS contract parity).
+      assert.ok(Array.isArray(created.body.receipt_refs) && created.body.receipt_refs.length >= 1, "create exposes receipt_refs");
+      assert.ok(Array.isArray(created.body.policy_decision_refs) && created.body.policy_decision_refs.length >= 1, "create exposes policy_decision_refs");
+      assert.ok(Array.isArray(created.body.evidence_refs) && created.body.evidence_refs.length >= 1, "create exposes evidence_refs");
+
+      const fetched = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}`);
+      assert.equal(fetched.status, 200);
+      assert.equal(fetched.body.artifact_id, artifactId, "get returns the created artifact");
+
+      const list = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts`);
+      assert.equal(list.status, 200);
+      assert.ok(
+        Array.isArray(list.body) && list.body.some((entry) => entry.artifact_id === artifactId),
+        "list includes the created artifact",
+      );
+
+      const action = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}/actions`, {
+        method: "POST",
+        body: JSON.stringify({ action_kind: "update", patch: { title: "Updated" } }),
+      });
+      assert.equal(action.status, 200);
+      assert.equal(action.body.status, "completed", "action completes");
+
+      const exported = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}/export`, {
+        method: "POST",
+        body: JSON.stringify({ export_format: "markdown" }),
+      });
+      assert.equal(exported.status, 200);
+      assert.equal(exported.body.status, "exported", "export completes");
+      assert.ok(exported.body.export_ref, "export returns an export_ref");
+      assert.ok(Array.isArray(exported.body.receipt_refs), "export exposes top-level receipt_refs");
+      assert.ok(Array.isArray(exported.body.policy_decision_refs), "export exposes top-level policy_decision_refs");
+      assert.ok(Array.isArray(exported.body.evidence_refs), "export exposes top-level evidence_refs");
+
+      const promoted = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}/promote`, {
+        method: "POST",
+        body: JSON.stringify({ promotion_target: "runtime" }),
+      });
+      assert.equal(promoted.status, 200);
+      assert.equal(promoted.body.status, "promoted", "promote completes");
+
+      const revisions = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}/revisions`);
+      assert.equal(revisions.status, 200);
+      assert.ok(Array.isArray(revisions.body), "revisions returns an array");
+
+      // The export/promote refs persisted (the mutations wrote back through state_dir).
+      const final = await fetchJson(`${rust.endpoint}/v1/conversation-artifacts/${encodeURIComponent(artifactId)}`);
+      assert.ok(Array.isArray(final.body.export_refs) && final.body.export_refs.length >= 1, "export_ref persisted");
+      assert.ok(Array.isArray(final.body.promotion_refs) && final.body.promotion_refs.length >= 1, "promotion_ref persisted");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

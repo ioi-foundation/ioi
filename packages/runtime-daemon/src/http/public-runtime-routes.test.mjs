@@ -4780,161 +4780,37 @@ test("public runtime top-level memory context routes are retired", async () => {
   }
 });
 
-test("public conversation artifact routes use store-owned Rust artifact API", async () => {
+test("public conversation artifact routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
   const store = {
-    listConversationArtifacts(query) {
-      calls.push({ method: "listConversationArtifacts", query });
-      return [{ id: "artifact_route", thread_id: query.thread_id }];
-    },
-    createConversationArtifact(threadId, input) {
-      calls.push({ method: "createConversationArtifact", threadId, input });
-      return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
-    },
-    getConversationArtifact(artifactId) {
-      calls.push({ method: "getConversationArtifact", artifactId });
-      return { id: artifactId, thread_id: "thread_route" };
-    },
-    listConversationArtifactRevisions(artifactId) {
-      calls.push({ method: "listConversationArtifactRevisions", artifactId });
-      return [{ revision_id: "revision_route", artifact_id: artifactId }];
-    },
-    performConversationArtifactAction(artifactId, input) {
-      calls.push({ method: "performConversationArtifactAction", artifactId, input });
-      return { artifact_id: artifactId, action_kind: input.action_kind, commit_hash: "commit-action" };
-    },
-    exportConversationArtifact(artifactId, input) {
-      calls.push({ method: "exportConversationArtifact", artifactId, input });
-      return { artifact_id: artifactId, export_format: input.export_format, commit_hash: "commit-export" };
-    },
-    promoteConversationArtifact(artifactId, input) {
-      calls.push({ method: "promoteConversationArtifact", artifactId, input });
-      return { artifact_id: artifactId, promotion_target: input.promotion_target, commit_hash: "commit-promote" };
-    },
+    listConversationArtifacts: retiredRouteWrapper,
+    createConversationArtifact: retiredRouteWrapper,
+    getConversationArtifact: retiredRouteWrapper,
+    listConversationArtifactRevisions: retiredRouteWrapper,
+    performConversationArtifactAction: retiredRouteWrapper,
+    exportConversationArtifact: retiredRouteWrapper,
+    promoteConversationArtifact: retiredRouteWrapper,
   };
 
   const requests = [
-    {
-      req: request({ url: "/v1/conversation-artifacts?thread_id=thread_route" }),
-      status: 200,
-      body: [{ id: "artifact_route", thread_id: "thread_route" }],
-    },
-    {
-      req: request({
-      method: "POST",
-      url: "/v1/conversation-artifacts",
-      body: { thread_id: "thread_route", title: "Draft" },
-      }),
-      status: 201,
-      body: { artifact_id: "artifact_created", thread_id: "thread_route", input: { thread_id: "thread_route", title: "Draft" }, commit_hash: "commit-created" },
-    },
-    {
-      req: request({ url: "/v1/conversation-artifacts/artifact_route" }),
-      status: 200,
-      body: { id: "artifact_route", thread_id: "thread_route" },
-    },
-    {
-      req: request({ url: "/v1/conversation-artifacts/artifact_route/revisions" }),
-      status: 200,
-      body: [{ revision_id: "revision_route", artifact_id: "artifact_route" }],
-    },
-    {
-      req: request({
-      method: "POST",
-      url: "/v1/conversation-artifacts/artifact_route/actions",
-      body: { action_kind: "edit" },
-      }),
-      status: 200,
-      body: { artifact_id: "artifact_route", action_kind: "edit", commit_hash: "commit-action" },
-    },
-    {
-      req: request({
-      method: "POST",
-      url: "/v1/conversation-artifacts/artifact_route/export",
-      body: { export_format: "zip" },
-      }),
-      status: 200,
-      body: { artifact_id: "artifact_route", export_format: "zip", commit_hash: "commit-export" },
-    },
-    {
-      req: request({
-      method: "POST",
-      url: "/v1/conversation-artifacts/artifact_route/promote",
-      body: { promotion_target: "canvas" },
-      }),
-      status: 200,
-      body: { artifact_id: "artifact_route", promotion_target: "canvas", commit_hash: "commit-promote" },
-    },
+    { method: "GET", url: "/v1/conversation-artifacts?thread_id=thread_route" },
+    { method: "POST", url: "/v1/conversation-artifacts", body: { thread_id: "thread_route", title: "Draft" } },
+    { method: "GET", url: "/v1/conversation-artifacts/artifact_route" },
+    { method: "GET", url: "/v1/conversation-artifacts/artifact_route/revisions" },
+    { method: "POST", url: "/v1/conversation-artifacts/artifact_route/actions", body: { action_kind: "edit" } },
+    { method: "POST", url: "/v1/conversation-artifacts/artifact_route/export", body: { export_format: "zip" } },
+    { method: "POST", url: "/v1/conversation-artifacts/artifact_route/promote", body: { promotion_target: "canvas" } },
   ];
 
-  for (const { req, status, body } of requests) {
+  for (const { method, url, body } of requests) {
     const response = responseRecorder();
-    await handleRequest({ request: req, response, store });
-    assert.equal(response.statusCode, status);
-    assert.deepEqual(JSON.parse(response.body), body);
+    await handleRequest({ request: request({ method, url, body }), response, store });
+    assert.equal(response.statusCode, 410, `${method} ${url} should be retired`);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
   }
-
-  assert.deepEqual(
-    calls.map(({ method, query, threadId, artifactId, input }) => ({
-      method,
-      query,
-      threadId,
-      artifactId,
-      input,
-    })),
-    [
-      {
-        method: "listConversationArtifacts",
-        query: { thread_id: "thread_route" },
-        threadId: undefined,
-        artifactId: undefined,
-        input: undefined,
-      },
-      {
-        method: "createConversationArtifact",
-        query: undefined,
-        threadId: "thread_route",
-        artifactId: undefined,
-        input: { thread_id: "thread_route", title: "Draft" },
-      },
-      {
-        method: "getConversationArtifact",
-        query: undefined,
-        threadId: undefined,
-        artifactId: "artifact_route",
-        input: undefined,
-      },
-      {
-        method: "listConversationArtifactRevisions",
-        query: undefined,
-        threadId: undefined,
-        artifactId: "artifact_route",
-        input: undefined,
-      },
-      {
-        method: "performConversationArtifactAction",
-        query: undefined,
-        threadId: undefined,
-        artifactId: "artifact_route",
-        input: { action_kind: "edit" },
-      },
-      {
-        method: "exportConversationArtifact",
-        query: undefined,
-        threadId: undefined,
-        artifactId: "artifact_route",
-        input: { export_format: "zip" },
-      },
-      {
-        method: "promoteConversationArtifact",
-        query: undefined,
-        threadId: undefined,
-        artifactId: "artifact_route",
-        input: { promotion_target: "canvas" },
-      },
-    ],
-  );
 });
 
 test("public runtime task and job routes use store-owned task job API directly", async () => {

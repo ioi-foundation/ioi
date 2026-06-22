@@ -1128,59 +1128,23 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/conversation-artifacts") {
+      if (segments[0] === "v1" && segments[1] === "conversation-artifacts") {
+        // Conversation-artifact list/create/get/revisions/actions/export/promote are served
+        // by the Rust hypervisor-daemon (kernel conversation_artifact projection + control).
         writeJsonResponse(
           response,
-          store.listConversationArtifacts(Object.fromEntries(url.searchParams.entries())),
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "Conversation artifacts are served by the Rust hypervisor-daemon; the JS daemon no longer owns them.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
-      }
-      if (request.method === "POST" && url.pathname === "/v1/conversation-artifacts") {
-        const body = await readBody(request);
-        writeJsonResponse(
-          response,
-          store.createConversationArtifact(
-            optionalString(body.thread_id) ?? "thread_standalone",
-            body,
-          ),
-          201,
-        );
-        return;
-      }
-      if (segments[0] === "v1" && segments[1] === "conversation-artifacts" && segments[2]) {
-        const artifactId = decodeURIComponent(segments[2]);
-        if (request.method === "GET" && !segments[3]) {
-          writeJsonResponse(response, store.getConversationArtifact(artifactId));
-          return;
-        }
-        if (request.method === "GET" && segments[3] === "revisions" && !segments[4]) {
-          writeJsonResponse(
-            response,
-            store.listConversationArtifactRevisions(artifactId),
-          );
-          return;
-        }
-        if (request.method === "POST" && segments[3] === "actions" && !segments[4]) {
-          writeJsonResponse(
-            response,
-            store.performConversationArtifactAction(artifactId, await readBody(request)),
-          );
-          return;
-        }
-        if (request.method === "POST" && segments[3] === "export" && !segments[4]) {
-          writeJsonResponse(
-            response,
-            store.exportConversationArtifact(artifactId, await readBody(request)),
-          );
-          return;
-        }
-        if (request.method === "POST" && segments[3] === "promote" && !segments[4]) {
-          writeJsonResponse(
-            response,
-            store.promoteConversationArtifact(artifactId, await readBody(request)),
-          );
-          return;
-        }
       }
       if (
         segments[0] === "v1" &&

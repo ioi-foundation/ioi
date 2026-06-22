@@ -478,6 +478,31 @@ async fn main() -> anyhow::Result<()> {
                 .post(lifecycle_routes::handle_artifact_create),
         )
         .route(
+            "/v1/conversation-artifacts",
+            get(lifecycle_routes::handle_conversation_artifacts_list)
+                .post(lifecycle_routes::handle_conversation_artifact_create),
+        )
+        .route(
+            "/v1/conversation-artifacts/:id",
+            get(lifecycle_routes::handle_conversation_artifact_get),
+        )
+        .route(
+            "/v1/conversation-artifacts/:id/revisions",
+            get(lifecycle_routes::handle_conversation_artifact_revisions),
+        )
+        .route(
+            "/v1/conversation-artifacts/:id/actions",
+            post(lifecycle_routes::handle_conversation_artifact_action),
+        )
+        .route(
+            "/v1/conversation-artifacts/:id/export",
+            post(lifecycle_routes::handle_conversation_artifact_export),
+        )
+        .route(
+            "/v1/conversation-artifacts/:id/promote",
+            post(lifecycle_routes::handle_conversation_artifact_promote),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

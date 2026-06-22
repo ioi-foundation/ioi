@@ -668,7 +668,7 @@ test("thread conversation artifact routes use store-owned artifact API", async (
   };
 
   // GET /artifacts (list projection) + POST /artifacts (create) are migrated to the
-  // Rust daemon and retired here; GET /artifacts/:id stays store-owned.
+  // Rust daemon and retired here. There is no thread-scoped artifact-by-id route.
   for (const method of ["GET", "POST"]) {
     const response = responseRecorder();
     await handleThreadRoute({
