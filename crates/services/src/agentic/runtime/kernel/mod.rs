@@ -44,6 +44,7 @@ pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
 pub mod runtime_harness_session_binding_admission;
+pub mod runtime_harness_session_terminal_attach_admission;
 pub mod runtime_artifact_availability_incident_admission;
 pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
@@ -790,6 +791,21 @@ impl RuntimeKernelService {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionError,
     > {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a harness-session-terminal-attach governance admission (pure:
+    /// validates the daemon-admitted spawn + readiness records and composes the client-attach
+    /// contract + transcript projection; the client may create/write the host PTY only after this).
+    pub fn admit_harness_session_terminal_attach(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_harness_session_terminal_attach_admission::RuntimeHarnessSessionTerminalAttachAdmissionError,
+    > {
+        runtime_harness_session_terminal_attach_admission::RuntimeHarnessSessionTerminalAttachAdmissionCore
             .admit(request, now_iso)
     }
 

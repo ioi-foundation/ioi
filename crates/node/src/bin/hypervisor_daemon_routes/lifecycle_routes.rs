@@ -4461,6 +4461,28 @@ pub(crate) async fn handle_artifact_availability_incident_admission(
     }
 }
 
+/// POST /v1/hypervisor/harness-session-terminal-attachments — admit a client PTY attach (pure
+/// kernel planner: validates the daemon-admitted spawn + readiness records and composes the
+/// client-attach contract + transcript projection). 202 + record, or {error:{code,message,
+/// details}} with status (400 field-shape / 403 spawn-or-readiness boundary).
+pub(crate) async fn handle_harness_session_terminal_attach_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_harness_session_terminal_attach(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

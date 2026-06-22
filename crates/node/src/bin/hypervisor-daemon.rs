@@ -592,6 +592,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_artifact_availability_incident_admission),
         )
         .route(
+            "/v1/hypervisor/harness-session-terminal-attachments",
+            post(lifecycle_routes::handle_harness_session_terminal_attach_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

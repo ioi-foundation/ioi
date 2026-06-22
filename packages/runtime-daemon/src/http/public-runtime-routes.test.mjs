@@ -1222,145 +1222,25 @@ test("public runtime routes expose Codex OSS harness session spawn contracts", a
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
 });
 
-test("public runtime routes expose harness session terminal attach contracts", async () => {
+test("public runtime harness session terminal attach admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const launchResponse = responseRecorder();
+  const response = responseRecorder();
 
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/harness-session-launches",
-      body: {
-        binding_admission: {
-          schema_version: "ioi.runtime.harness_session_binding_admission.v1",
-          admission_id:
-            "harness-session-binding-admission:harness-session-binding-session-route-sessions-mission-default-project-ioi-agent-harness-adapter-codex_cli-model-config-local-codex-oss-qwen",
-          decision: "admitted",
-          admission_state: "admitted_for_harness_launch",
-          session_binding_ref:
-            "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-codex_cli:model-config-local-codex-oss-qwen",
-          session_route_ref: "session-route:sessions/mission.default/project:ioi",
-          harness_selection_ref: "agent-harness-adapter:codex_cli",
-          harness_selection_kind: "agent_harness_adapter",
-          harness_truth_boundary: "proposal_source_only",
-          harness_launch_route_ref: "harness-route:codex-cli/local-model",
-          agent_harness_adapter_id: "codex_cli",
-          harness_profile_ref: null,
-          model_configuration_ref: "model-config:local/codex-oss-qwen",
-          model_route_ref: "model-route:hypervisor/default-local",
-          model_route_policy: "hypervisor_model_mount",
-          model_route_availability_state: "daemon_verified",
-          model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
-          model_route_loaded_instance_refs: [
-            "model-instance:hypervisor/default-local",
-          ],
-          workspace_mount_policy: "redacted_projection",
-          privacy_posture_ref: "privacy:redacted-projection",
-          authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
-          receipt_policy_ref: "receipt-policy:harness-adapter/default",
-          receipt_preview_ref: "receipt-preview:new-session/admitted",
-          expected_receipt_refs: [
-            "receipt-preview:new-session/admitted",
-            "receipt-policy:harness-adapter/default",
-          ],
-          agentgres_operation_refs: [
-            "agentgres://operation/harness-session-binding/admit",
-          ],
-          receipt_refs: ["receipt://harness-session-binding/admit"],
-          state_root: "agentgres://state-root/harness-session-binding/admit",
-          harness_runtime_truth_claimed: false,
-          requiresDaemonGate: true,
-          runtimeTruthSource: "daemon-runtime",
-          admitted_at: "2026-06-18T12:00:00.000Z",
-        },
-        workspace_ref: "workspace://local/ioi",
-      },
-    }),
-    response: launchResponse,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  const spawnResponse = responseRecorder();
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/harness-session-spawns",
-      body: {
-        session_launch: JSON.parse(launchResponse.body),
-        workspace_root: ".",
-      },
-    }),
-    response: spawnResponse,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  const spawn = JSON.parse(spawnResponse.body);
-  const readiness = {
-    schema_version: "ioi.runtime.harness_session_readiness.v1",
-    readiness_id: `harness-session-readiness:${spawn.spawn_id}`,
-    decision: "ready",
-    readiness_state: "ready_for_harness_pty_attach",
-    spawn_id: spawn.spawn_id,
-    launch_id: spawn.launch_id,
-    session_binding_ref: spawn.session_binding_ref,
-    session_route_ref: spawn.session_route_ref,
-    harness_selection_ref: spawn.harness_selection_ref,
-    agent_harness_adapter_id: spawn.agent_harness_adapter_id,
-    model_configuration_ref: spawn.model_configuration_ref,
-    model_route_ref: spawn.model_route_ref,
-    model_name: spawn.model_name,
-    provider: "ollama",
-    harness_binary: "codex",
-    provider_binary: "ollama",
-    available_model_names: ["qwen"],
-    checks: [],
-    operator_next_action:
-      "Attach the client PTY using the daemon-resolved command contract.",
-    receipt_refs: ["receipt://harness-session-readiness/admitted"],
-    agentgres_operation_refs: [
-      "agentgres://operation/harness-session-readiness/admitted",
-    ],
-    state_root: "agentgres://state-root/harness-session-readiness/admitted",
-    checked_at: "2026-06-18T12:40:00.000Z",
-    requiresDaemonGate: true,
-    runtimeTruthSource: "daemon-runtime",
-  };
-
-  const attachResponse = responseRecorder();
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/harness-session-terminal-attachments",
-      body: {
-        session_spawn: spawn,
-        session_readiness: readiness,
-      },
+      body: { session_spawn: {}, session_readiness: {} },
     }),
-    response: attachResponse,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
+    response,
+    store: {},
   });
 
-  const attach = JSON.parse(attachResponse.body);
-  assert.equal(attachResponse.statusCode, 202);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    attach.schema_version,
-    "ioi.runtime.harness_session_terminal_attach.v1",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
-  assert.equal(attach.decision, "admitted");
-  assert.equal(attach.attach_state, "client_pty_attach_admitted");
-  assert.equal(attach.attach_lane, "hypervisor_client_terminal_adapter");
-  assert.equal(attach.spawn_id, spawn.spawn_id);
-  assert.equal(attach.readiness_id, readiness.readiness_id);
-  assert.equal(
-    attach.client_attach_contract.initial_write,
-    `${spawn.terminal_attach_contract.command_line}\n`,
-  );
-  assert.equal(
-    attach.terminal_transcript_projection.transcript_state,
-    "awaiting_client_stream",
-  );
-  assert.equal(attach.requiresDaemonGate, true);
-  assert.equal(attach.runtimeTruthSource, "daemon-runtime");
 });
 
 test("public runtime routes expose DeepSeek TUI local harness session spawn contracts", async () => {

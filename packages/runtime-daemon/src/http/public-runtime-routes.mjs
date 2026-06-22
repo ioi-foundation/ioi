@@ -13,7 +13,6 @@ import { buildHarnessSessionReadiness } from "../runtime-harness-session-readine
 import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
 import { deriveWorkspaceInitializer } from "../runtime-environment-status-projection.mjs";
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
-import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -821,16 +820,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-terminal-attachments"
       ) {
-        const body = await readBody(request);
+        // The harness-session-terminal-attach governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_harness_session_terminal_attach planner).
         writeJsonResponse(
           response,
-          admitHarnessSessionTerminalAttach({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/harness-session-terminal-attachments",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The harness-session-terminal-attach admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

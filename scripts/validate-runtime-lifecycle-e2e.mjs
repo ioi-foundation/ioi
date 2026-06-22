@@ -1297,6 +1297,78 @@ async function main() {
       assert.equal(badRef.body.error.code, "artifact_availability_artifact_ref_invalid");
     });
 
+    // Step 3w: the harness-session-terminal-attach governance admission (Rust-owned via the kernel
+    // admit_harness_session_terminal_attach planner — validates the daemon-admitted spawn +
+    // readiness records and composes the client-attach contract + transcript projection).
+    await runStep("POST /v1/hypervisor/harness-session-terminal-attachments composes the PTY attach", async () => {
+      const spawn = (overrides = {}) => ({
+        schema_version: "ioi.runtime.harness_session_spawn.v1",
+        decision: "admitted",
+        spawn_state: "ready_for_client_pty_attach",
+        requiresDaemonGate: true,
+        runtimeTruthSource: "daemon-runtime",
+        spawn_id: "spawn:1",
+        launch_id: "launch:1",
+        session_binding_ref: "harness-session-binding:b/1",
+        command_contract: { pty_transport: "hypervisor_client_terminal_adapter" },
+        terminal_attach_contract: { command_line: "codex --foo", rows: 40 },
+        authority_scope_refs: ["scope:workspace.read"],
+        receipt_refs: ["receipt://spawn/1"],
+        agentgres_operation_refs: ["agentgres://operation/spawn/1"],
+        ...overrides,
+      });
+      const readiness = (overrides = {}) => ({
+        schema_version: "ioi.runtime.harness_session_readiness.v1",
+        decision: "ready",
+        readiness_state: "ready_for_harness_pty_attach",
+        readiness_id: "readiness:1",
+        spawn_id: "spawn:1",
+        launch_id: "launch:1",
+        session_binding_ref: "harness-session-binding:b/1",
+        requiresDaemonGate: true,
+        runtimeTruthSource: "daemon-runtime",
+        receipt_refs: ["receipt://readiness/1"],
+        agentgres_operation_refs: ["agentgres://operation/readiness/1"],
+        ...overrides,
+      });
+      const attach = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/harness-session-terminal-attachments`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await attach({ session_spawn: spawn(), session_readiness: readiness() });
+      assert.equal(ok.status, 202, "valid spawn + readiness compose the attach with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.attach_state, "client_pty_attach_admitted");
+      assert.equal(ok.body.client_attach_contract.initial_write, "codex --foo\n");
+      assert.equal(ok.body.terminal_transcript_projection.transcript_state, "awaiting_client_stream");
+
+      // 403: a spawn that is not ready for client PTY attach.
+      const notReady = await attach({
+        session_spawn: spawn({ spawn_state: "provisioning" }),
+        session_readiness: readiness(),
+      });
+      assert.equal(notReady.status, 403);
+      assert.equal(notReady.body.error.code, "harness_session_terminal_attach_spawn_boundary_invalid");
+
+      // 403: readiness bound to a different spawn.
+      const mismatch = await attach({
+        session_spawn: spawn(),
+        session_readiness: readiness({ spawn_id: "spawn:OTHER" }),
+      });
+      assert.equal(mismatch.status, 403);
+      assert.equal(mismatch.body.error.code, "harness_session_terminal_attach_readiness_boundary_invalid");
+
+      // 400: a spawn missing the daemon-resolved command line.
+      const noCommand = await attach({
+        session_spawn: spawn({ terminal_attach_contract: { rows: 40 } }),
+        session_readiness: readiness(),
+      });
+      assert.equal(noCommand.status, 400);
+      assert.equal(noCommand.body.error.code, "harness_session_terminal_attach_command_required");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.
