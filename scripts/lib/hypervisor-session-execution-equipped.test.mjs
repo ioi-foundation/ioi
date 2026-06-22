@@ -232,11 +232,33 @@ test("Equipped gate — a valid wallet grant authorizes the real Lane A loop", {
   );
   assert.ok(execReceiptRef, "execute receipt present");
 
-  // The events SSE surfaces the real transcript as terminal_chunk.
+  // A REAL wallet-gated preview port was opened, exposing the served site.
+  const previewPort = (result.body.environment_ports ?? [])[0];
+  assert.ok(previewPort, "a preview port was exposed for the served site");
+  assert.equal(previewPort.exposure_state, "open");
+  assert.equal(
+    previewPort.capability_lease_ref,
+    result.body.capability_lease_ref,
+    "the preview port carries the admitted capability lease (port_exposure is gated)",
+  );
+  assert.match(String(previewPort.url), /^http:\/\/127\.0\.0\.1:\d+\/$/, `preview url: ${previewPort.url}`);
+  assert.ok(result.body.authority_scope_refs.includes("port_exposure"), "port_exposure scope admitted");
+
+  // The served preview returns the REAL index.html bytes over the real listener.
+  const preview = await fetch(previewPort.url);
+  assert.equal(preview.status, 200, "preview listener serves 200");
+  assert.match(await preview.text(), /quantum/i, "served preview is the real index.html");
+
+  // The events SSE surfaces the real transcript (terminal_chunk) + the port.
   const events = await fetch(
     `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/events`,
     { headers: { accept: "text/event-stream" } },
   );
   const frames = parseSse(await events.text());
   assert.ok(frames.some((frame) => frame.event === "terminal_chunk"), "events surface real terminal_chunk frames");
+  const envStatus = frames.find((frame) => frame.event === "environment_status")?.data;
+  assert.ok(
+    (envStatus?.ports ?? []).some((p) => p.url === previewPort.url && p.capability_lease_ref),
+    "environment_status surfaces the wallet-gated preview port",
+  );
 });

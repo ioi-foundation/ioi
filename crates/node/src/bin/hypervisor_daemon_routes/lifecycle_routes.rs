@@ -112,7 +112,7 @@ use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 use super::{
     build_route_decision, debug_string, iso_now, persist_record, read_record_dir, route_selection,
-    sha256_hex_str, short_hash, AppError, DaemonState,
+    sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
 };
 
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
@@ -5961,6 +5961,105 @@ async fn run_host_spawn_lane(
     }
 }
 
+/// Start a REAL preview listener: a static file server bound to a free localhost
+/// port serving `workspace_root`. Returns the bound port + an abort handle for the
+/// serving task. Opening this listener exposes workspace bytes — it is only ever
+/// called after the execution authority gate admits `port_exposure`.
+async fn start_preview_server(workspace_root: String) -> std::io::Result<(u16, tokio::task::AbortHandle)> {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
+    let port = listener.local_addr()?.port();
+    let app = axum::Router::new()
+        .route("/", axum::routing::get(serve_preview_root))
+        .route("/*preview_path", axum::routing::get(serve_preview_path))
+        .with_state(workspace_root);
+    let task = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    Ok((port, task.abort_handle()))
+}
+
+async fn serve_preview_root(State(root): State<String>) -> Response {
+    serve_preview_file(&root, "index.html")
+}
+
+async fn serve_preview_path(State(root): State<String>, AxumPath(rel): AxumPath<String>) -> Response {
+    serve_preview_file(&root, &rel)
+}
+
+/// Serve a file from the preview workspace with a real traversal guard: the
+/// resolved (canonicalized) target must stay under the canonicalized workspace
+/// root. Real bytes, real content-type; 404 when absent or escaping.
+fn serve_preview_file(root: &str, rel: &str) -> Response {
+    let base = std::path::Path::new(root);
+    let Ok(canon_base) = base.canonicalize() else {
+        return (StatusCode::NOT_FOUND, "preview workspace unavailable").into_response();
+    };
+    let target = canon_base.join(rel.trim_start_matches('/'));
+    let Ok(canon_target) = target.canonicalize() else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    if !canon_target.starts_with(&canon_base) {
+        return (StatusCode::FORBIDDEN, "path escapes workspace").into_response();
+    }
+    let Ok(bytes) = std::fs::read(&canon_target) else {
+        return (StatusCode::NOT_FOUND, "not found").into_response();
+    };
+    let content_type = preview_content_type(&canon_target);
+    ([(header::CONTENT_TYPE, content_type)], bytes).into_response()
+}
+
+fn preview_content_type(path: &std::path::Path) -> &'static str {
+    match path.extension().and_then(|ext| ext.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("html") | Some("htm") => "text/html; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("js") | Some("mjs") => "text/javascript; charset=utf-8",
+        Some("json") => "application/json",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("ico") => "image/x-icon",
+        Some("txt") | Some("md") => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Open (or replace) the session's preview listener for `workspace_root`, bound
+/// under the admitted `capability_lease_ref`, and return the canonical
+/// `HypervisorEnvironmentPort` value. Returns None if no listener could bind.
+async fn open_session_preview_port(
+    st: &DaemonState,
+    session_ref: &str,
+    workspace_root: &str,
+    capability_lease_ref: &str,
+) -> Option<Value> {
+    let (port, handle) = start_preview_server(workspace_root.to_string()).await.ok()?;
+    let url = format!("http://127.0.0.1:{port}/");
+    // Replace any prior listener for this session (abort the old serving task).
+    if let Ok(mut servers) = st.preview_servers.lock() {
+        if let Some(previous) = servers.insert(
+            session_ref.to_string(),
+            PreviewServer {
+                port,
+                url: url.clone(),
+                capability_lease_ref: capability_lease_ref.to_string(),
+                workspace_root: workspace_root.to_string(),
+                handle,
+            },
+        ) {
+            previous.handle.abort();
+        }
+    }
+    Some(json!({
+        "port": port,
+        "protocol": "http",
+        "access_policy": "session_lease",
+        "capability_lease_ref": capability_lease_ref,
+        "url": url,
+        "exposure_state": "open",
+    }))
+}
+
 /// Root for provisioned session workspaces: `{IOI_HYPERVISOR_SESSIONS_ROOT or tmp}/ioi-hypervisor-sessions`.
 fn sessions_root() -> std::path::PathBuf {
     let base = std::env::var("IOI_HYPERVISOR_SESSIONS_ROOT")
@@ -6109,6 +6208,7 @@ fn safe_session_tag(session_ref: &str) -> String {
 
 /// Build the real environment-status projection for a session from its stored
 /// provisioning facts + a fresh substrate probe.
+#[allow(clippy::too_many_arguments)]
 fn project_session_environment_status(
     environment_ref: &str,
     workspace_root: &str,
@@ -6117,6 +6217,7 @@ fn project_session_environment_status(
     workspace_artifact_ref: &str,
     component_phases: &Value,
     substrate: &ExecutionSubstrate,
+    ports: &Value,
 ) -> Value {
     RuntimeKernelService::new().project_hypervisor_environment_status(&json!({
         "environmentRef": environment_ref,
@@ -6127,6 +6228,7 @@ fn project_session_environment_status(
         "workspaceArtifactRef": workspace_artifact_ref,
         "componentPhases": component_phases,
         "readinessChecks": substrate.readiness_checks(),
+        "ports": ports,
     }))
 }
 
@@ -6276,6 +6378,8 @@ pub(crate) async fn handle_session_create(
         &provision.workspace_artifact_ref,
         &provision.component_phases,
         &substrate,
+        // No preview port at provision time — a session has not executed yet.
+        &json!([]),
     );
 
     // Real provisioning receipt (id + kind so it passes the receipt reader).
@@ -6353,6 +6457,8 @@ pub(crate) async fn handle_session_events(
     let workspace_artifact_ref = record.get("workspace_artifact_ref").and_then(Value::as_str).unwrap_or("");
     let component_phases = record.get("component_phases").cloned().unwrap_or_else(|| json!({}));
     let receipt_refs = record.get("latest_receipt_refs").cloned().unwrap_or_else(|| json!([]));
+    // Real preview ports opened by a prior execution (with capability_lease_ref).
+    let environment_ports = record.get("environment_ports").cloned().unwrap_or_else(|| json!([]));
 
     let substrate = ExecutionSubstrate::probe();
     let environment_status = project_session_environment_status(
@@ -6363,6 +6469,7 @@ pub(crate) async fn handle_session_events(
         workspace_artifact_ref,
         &component_phases,
         &substrate,
+        &environment_ports,
     );
     let workspace_diff = project_session_workspace_diff(workspace_root);
     let gate = execution_gate_decision(&session_id, &substrate);
@@ -6431,12 +6538,12 @@ fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) ->
     })
 }
 
-/// Consequential scopes a session execution exercises. `workspace_write` (the
-/// harness edits the workspace) and `command_exec` (the daemon spawns a process)
-/// are gated today; `port_exposure` joins this set when the served preview port
-/// lands, so the preview is gated under the SAME wallet authority — never an
-/// ungated effect surface. Kept sorted so the derived hashes are stable.
-const EXECUTION_AUTHORITY_SCOPES: &[&str] = &["command_exec", "workspace_write"];
+/// Consequential scopes a session execution exercises, gated as one capability
+/// envelope: `command_exec` (the daemon spawns a process), `port_exposure` (the
+/// run may open a real preview listener exposing workspace bytes), and
+/// `workspace_write` (the harness edits the workspace). Kept sorted so the
+/// daemon-derived policy/request hashes are stable.
+const EXECUTION_AUTHORITY_SCOPES: &[&str] = &["command_exec", "port_exposure", "workspace_write"];
 
 /// Daemon-derived POLICY hash an execution grant must carry: binds the grant to
 /// this session + workspace + the exact scope set (the policy context). NEVER
@@ -6640,6 +6747,18 @@ pub(crate) async fn handle_session_execute(
         .map(|(index, (stream, text))| json!({ "sequence": index + 1, "stream": stream, "text": text }))
         .collect();
 
+    // Served preview (port_exposure): if the run produced a servable index.html,
+    // open a REAL preview listener exposing the workspace, admitted under the same
+    // grant's capability lease. Honest: no listener when there is no index.html.
+    let mut environment_ports: Vec<Value> = Vec::new();
+    if outcome.ok && std::path::Path::new(&workspace_root).join("index.html").is_file() {
+        if let Some(port) =
+            open_session_preview_port(&st, &session_id, &workspace_root, &capability_lease_ref).await
+        {
+            environment_ports.push(port);
+        }
+    }
+
     // Real lane execution receipt.
     let exit_status = if outcome.ok { "success" } else { "failure" };
     let lane_receipt_ref = format!("receipt://hypervisor/session-execute/{}", safe_session_tag(&session_id));
@@ -6694,6 +6813,7 @@ pub(crate) async fn handle_session_execute(
             }),
         );
         object.insert("latest_receipt_refs".into(), json!(receipt_refs));
+        object.insert("environment_ports".into(), json!(environment_ports));
     }
     let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
 
@@ -6719,6 +6839,7 @@ pub(crate) async fn handle_session_execute(
             "files_written": outcome.files_written,
             "changed_file_groups": changed_file_groups,
             "terminal_events": terminal_events,
+            "environment_ports": environment_ports,
             "latest_receipt_refs": receipt_refs,
             // Admitted wallet authority that gated this consequential run.
             "capability_lease_ref": capability_lease_ref,

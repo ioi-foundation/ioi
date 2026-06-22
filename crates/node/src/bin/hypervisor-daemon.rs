@@ -85,6 +85,21 @@ pub(crate) struct DaemonState {
     // Vault-ref hashes whose plaintext material was bound THIS boot. Plaintext is
     // never persisted, so after a restart the set is empty -> requiresRebind.
     vault_bound: Mutex<HashSet<String>>,
+    // Real per-session preview listeners (Lane A served preview), keyed by
+    // session_ref. Opening one exposes workspace bytes, so it is wallet-gated by
+    // the execution authority (the `port_exposure` scope). Aborted/replaced on
+    // re-execute; the tasks die with the daemon process.
+    pub(crate) preview_servers: Mutex<HashMap<String, PreviewServer>>,
+}
+
+/// A real running preview listener for a session (a static file server bound to
+/// a free localhost port, serving the provisioned workspace).
+pub(crate) struct PreviewServer {
+    pub(crate) port: u16,
+    pub(crate) url: String,
+    pub(crate) capability_lease_ref: String,
+    pub(crate) workspace_root: String,
+    pub(crate) handle: tokio::task::AbortHandle,
 }
 
 // Error responses render as JSON so OpenAI-compatible/model-mount clients (and
@@ -186,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
         stream_frame_delay_ms,
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
         vault_bound: Mutex::new(HashSet::new()),
+        preview_servers: Mutex::new(HashMap::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the
