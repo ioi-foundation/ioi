@@ -2030,20 +2030,15 @@ pub(crate) async fn handle_coding_tool_invoke(
 
 /// Plan a workflow-edit control event via the CANONICAL kernel
 /// `RuntimeWorkflowEditControlCore::plan` and admit it onto the thread's runtime event log
-/// (idempotent via `admit_and_persist_event`). Mirrors the JS daemon's
-/// `proposeWorkflowEdit`/`applyWorkflowEditProposal` module (plan + append the
-/// workflow.edit_proposed / workflow.edit.apply event). The richer approval-gated mutation
-/// orchestration is a higher layer; this ports the event-control module faithfully.
-fn workflow_edit_control_event(
+/// (idempotent via `admit_and_persist_event`). Returns the admitted event
+/// (`workflow.edit_proposed` / `workflow.edit.apply`, component_kind `workflow_edit`).
+fn plan_and_admit_workflow_edit_event(
     st: &DaemonState,
     thread_id: &str,
     operation_kind: &str,
-    proposal_id: Option<String>,
+    proposal_id: Option<&str>,
     body: &Value,
-) -> Result<Json<Value>, AppError> {
-    if read_agent_for_thread(st, thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
-    }
+) -> Result<Value, AppError> {
     let event_stream_id = format!("{thread_id}:events");
     let request_json = json!({
         "schema_version": ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -2052,11 +2047,11 @@ fn workflow_edit_control_event(
         "event_stream_id": event_stream_id,
         "proposal_id": proposal_id,
         "turn_id": body.get("turn_id").and_then(Value::as_str),
-        "workflow_graph_id": body.get("workflow_graph_id").and_then(Value::as_str),
-        "workflow_node_id": body.get("workflow_node_id").and_then(Value::as_str),
-        "workflow_path": body.get("workflow_path").and_then(Value::as_str),
-        "workspace_root": body.get("workspace_root").and_then(Value::as_str),
-        "source": body.get("source").and_then(Value::as_str),
+        "workflow_graph_id": coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]),
+        "workflow_node_id": coalesce_str(body, &["workflow_node_id", "workflowNodeId"]),
+        "workflow_path": coalesce_str(body, &["workflow_path", "workflowPath"]),
+        "workspace_root": coalesce_str(body, &["workspace_root", "workspaceRoot"]),
+        "source": coalesce_str(body, &["source"]),
         "request": body,
     });
     let request: ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RuntimeWorkflowEditControlRequest =
@@ -2066,27 +2061,204 @@ fn workflow_edit_control_event(
         ::default()
         .plan(&request)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
-    admit_and_persist_event(st, record.event).map(Json)
+    admit_and_persist_event(st, record.event)
 }
 
-/// POST /v1/threads/:id/workflow-edit-proposals — propose a React Flow workflow edit
-/// (plans + admits the `workflow.edit_proposed` event).
+/// Read a persisted workflow-edit proposal-approval record (decision-gating state) by its
+/// proposal id (`state_dir/workflow_edit_proposals/<proposal_id>.json`).
+fn read_workflow_edit_proposal(st: &DaemonState, thread_id: &str, proposal_id: &str) -> Option<Value> {
+    read_record_dir(&st.data_dir, "workflow_edit_proposals")
+        .into_iter()
+        .find(|record| {
+            record.get("proposal_id").and_then(Value::as_str) == Some(proposal_id)
+                && record.get("thread_id").and_then(Value::as_str) == Some(thread_id)
+        })
+}
+
+/// Mutate the workflow file with the proposal's `workflow_patch` (resolving a relative
+/// `workflow_path` against the thread workspace). No-op when the proposal carries no path/patch.
+fn mutate_workflow_edit_file(record: &Value) -> Result<(), AppError> {
+    let path = record
+        .get("workflow_path")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty());
+    let patch = record.get("workflow_patch").cloned().unwrap_or(Value::Null);
+    let (Some(path), false) = (path, patch.is_null()) else {
+        return Ok(());
+    };
+    let workspace_root = record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let resolved = if Path::new(path).is_absolute() {
+        Path::new(path).to_path_buf()
+    } else {
+        Path::new(workspace_root).join(path)
+    };
+    let content = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&patch).unwrap_or_default()
+    );
+    fs::write(&resolved, content).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("workflow-edit file mutation failed: {error}"),
+        )
+    })
+}
+
+/// Record a workflow-edit proposal decision (approve/reject) on the persisted proposal-approval
+/// record if `approval_id` belongs to a workflow-edit proposal on this thread. Returns the
+/// decision response, or `None` to let the caller fall through to the wallet-gated approval path.
+/// This is a lighter, proposal-scoped authority surface (bounded React-Flow edits) — distinct
+/// from the wallet-signed run/agent approval grant, which is left untouched.
+fn workflow_edit_proposal_decision(
+    st: &DaemonState,
+    thread_id: &str,
+    approval_id: &str,
+    decision: &str,
+) -> Option<Json<Value>> {
+    let mut record = read_record_dir(&st.data_dir, "workflow_edit_proposals")
+        .into_iter()
+        .find(|record| {
+            record.get("approval_id").and_then(Value::as_str) == Some(approval_id)
+                && record.get("thread_id").and_then(Value::as_str) == Some(thread_id)
+        })?;
+    let proposal_id = record
+        .get("proposal_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    record["decision"] = json!(decision);
+    let _ = persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &record);
+    Some(Json(json!({
+        "decision": decision,
+        "approval_id": approval_id,
+        "proposal_id": proposal_id,
+        "status": if decision == "approve" { "approved" } else { "rejected" },
+    })))
+}
+
+/// POST /v1/threads/:id/workflow-edit-proposals — propose a React Flow workflow edit. Plans +
+/// admits the `workflow.edit_proposed` event AND registers a proposal-approval record gating the
+/// mutation. Returns `{status:"waiting_for_approval", approval_required, mutation_executed:false,
+/// approval_id}` — NO file mutation occurs until the proposal is approved.
 pub(crate) async fn handle_workflow_edit_propose(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    workflow_edit_control_event(&st, &thread_id, "workflow.edit_proposed", None, &body)
+    let agent = read_agent_for_thread(&st, &thread_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")))?;
+    let workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
+    let proposal_id = coalesce_str(&body, &["proposal_id", "proposalId"])
+        .unwrap_or("proposal")
+        .to_string();
+    let approval_id = format!(
+        "approval_workflow_edit_{}",
+        short_hash(&format!("{thread_id}:{proposal_id}"))
+    );
+    let proposal_record = json!({
+        "proposal_id": proposal_id,
+        "approval_id": approval_id,
+        "thread_id": thread_id,
+        "decision": "pending",
+        "applied_event_id": Value::Null,
+        "workflow_path": coalesce_str(&body, &["workflow_path", "workflowPath"]),
+        "workflow_patch": body.get("workflow_patch").or_else(|| body.get("workflowPatch")).cloned(),
+        "workspace_root": workspace_root,
+        "workflow_graph_id": coalesce_str(&body, &["workflow_graph_id", "workflowGraphId"]),
+        "workflow_node_id": coalesce_str(&body, &["workflow_node_id", "workflowNodeId"]),
+    });
+    persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &proposal_record)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let event = plan_and_admit_workflow_edit_event(&st, &thread_id, "workflow.edit_proposed", Some(&proposal_id), &body)?;
+    Ok(Json(json!({
+        "status": "waiting_for_approval",
+        "approval_required": true,
+        "mutation_executed": false,
+        "approval_id": approval_id,
+        "proposal_id": proposal_id,
+        "event": event,
+    })))
 }
 
-/// POST /v1/threads/:id/workflow-edit-proposals/:proposal_id/apply — apply a proposed edit
-/// (plans + admits the `workflow.edit.apply` event; idempotent on re-apply).
+/// POST /v1/threads/:id/workflow-edit-proposals/:proposal_id/apply — apply a proposed edit,
+/// GATED on the recorded approval decision: pending → `blocked` (approval_required); rejected →
+/// `blocked` (reason `approval_rejected`); approved → MUTATE the workflow file + admit the
+/// `workflow.edit.apply` event + `completed` (mutation_executed). Re-apply is an idempotent replay
+/// (`idempotent_replay`, same event_id, no re-mutation). No file mutation occurs unless approved.
 pub(crate) async fn handle_workflow_edit_apply(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, proposal_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    workflow_edit_control_event(&st, &thread_id, "workflow.edit.apply", Some(proposal_id), &body)
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let Some(mut record) = read_workflow_edit_proposal(&st, &thread_id, &proposal_id) else {
+        return Ok(Json(json!({
+            "status": "blocked",
+            "approval_required": true,
+            "mutation_executed": false,
+            "reason": "proposal_not_found",
+            "proposal_id": proposal_id,
+        })));
+    };
+    let decision = record.get("decision").and_then(Value::as_str).unwrap_or("pending");
+    let approval_id = record.get("approval_id").cloned().unwrap_or(Value::Null);
+    match decision {
+        "approve" => {
+            let already_applied = record
+                .get("applied_event_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let event = plan_and_admit_workflow_edit_event(&st, &thread_id, "workflow.edit.apply", Some(&proposal_id), &body)?;
+            let event_id = event
+                .get("event_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if already_applied.is_some() {
+                // The mutation already landed; admission is idempotent (same event_id).
+                return Ok(Json(json!({
+                    "status": "completed",
+                    "mutation_executed": true,
+                    "idempotent_replay": true,
+                    "approval_id": approval_id,
+                    "proposal_id": proposal_id,
+                    "event": event,
+                })));
+            }
+            mutate_workflow_edit_file(&record)?;
+            record["applied_event_id"] = json!(event_id);
+            persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &record)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            Ok(Json(json!({
+                "status": "completed",
+                "mutation_executed": true,
+                "idempotent_replay": false,
+                "approval_id": approval_id,
+                "proposal_id": proposal_id,
+                "event": event,
+            })))
+        }
+        "reject" => Ok(Json(json!({
+            "status": "blocked",
+            "approval_required": true,
+            "mutation_executed": false,
+            "reason": "approval_rejected",
+            "approval_id": approval_id,
+            "proposal_id": proposal_id,
+        }))),
+        _ => Ok(Json(json!({
+            "status": "blocked",
+            "approval_required": true,
+            "mutation_executed": false,
+            "approval_id": approval_id,
+            "proposal_id": proposal_id,
+        }))),
+    }
 }
 
 /// DELETE /v1/threads/:id/mcp/servers/:server_id — remove an MCP server.
@@ -3453,6 +3625,11 @@ pub(crate) async fn handle_approval_decision(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let decision = body.get("decision").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if matches!(decision.as_str(), "approve" | "reject") {
+        if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, &decision) {
+            return Ok(response);
+        }
+    }
     apply_approval_decision(&st, &thread_id, &approval_id, &decision, &body)
 }
 
@@ -3462,6 +3639,11 @@ pub(crate) async fn handle_approval_approve(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    // A workflow-edit proposal approval is a lighter, proposal-scoped decision (recorded here);
+    // a run/agent approval falls through to the wallet-signed decision authority.
+    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "approve") {
+        return Ok(response);
+    }
     apply_approval_decision(&st, &thread_id, &approval_id, "approve", &body)
 }
 
@@ -3471,6 +3653,9 @@ pub(crate) async fn handle_approval_reject(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "reject") {
+        return Ok(response);
+    }
     apply_approval_decision(&st, &thread_id, &approval_id, "reject", &body)
 }
 

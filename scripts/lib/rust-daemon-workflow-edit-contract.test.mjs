@@ -5,14 +5,13 @@
 //   POST /v1/threads/:id/workflow-edit-proposals                       (propose)
 //   POST /v1/threads/:id/workflow-edit-proposals/:proposal_id/apply    (apply)
 // wiring the CANONICAL kernel RuntimeWorkflowEditControlCore::plan and admitting the
-// planned runtime event (idempotently) onto the thread's event log. This re-homes the
-// workflow-edit EVENT-CONTROL coverage onto the Rust true-north.
+// planned runtime event onto the thread's event log. This re-homes the workflow-edit
+// EVENT-CONTROL coverage onto the Rust true-north.
 //
-// Scope: the event-control module (plan + admit the workflow.edit_proposed /
-// workflow.edit.apply events + idempotent replay). The richer approval-GATED mutation
-// orchestration (waiting_for_approval → approval decision → file mutation / blocked /
-// completed, from the live-contract test's React-Flow flow) is a higher layer and remains
-// a follow-on cut.
+// Scope: the propose event-control + the approval GATE (propose -> waiting_for_approval +
+// admitted workflow.edit_proposed event; apply WITHOUT an approval decision -> blocked, no
+// mutation). The full approve/reject -> file-mutation / idempotent-replay flow lives in
+// rust-daemon-workflow-edit-approval-contract.test.mjs.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -54,7 +53,7 @@ async function createThread() {
   return r.body.thread_id || r.body.id;
 }
 
-test("Rust workflow-edit-proposals propose plans + admits a workflow.edit_proposed event", async () => {
+test("Rust workflow-edit-proposals propose waits for approval + admits a workflow.edit_proposed event", async () => {
   const threadId = await createThread();
   const r = await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     workflow_graph_id: "workflow.react-flow.edit-proposal-proof",
@@ -64,48 +63,47 @@ test("Rust workflow-edit-proposals propose plans + admits a workflow.edit_propos
     workflow_patch: { version: "1", metadata: { name: "Proposed edit" } },
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(r.body.event_kind, "workflow.edit_proposed");
-  assert.equal(r.body.status, "pending_approval");
-  assert.equal(r.body.component_kind, "workflow_edit");
-  assert.equal(r.body.payload.proposal_id, "proposal-a");
-  assert.equal(r.body.payload.workflow_patch_present, true);
-  assert.ok(typeof r.body.seq === "number");
+  assert.equal(r.body.status, "waiting_for_approval");
+  assert.equal(r.body.approval_required, true);
+  assert.equal(r.body.mutation_executed, false);
+  assert.ok(typeof r.body.approval_id === "string" && r.body.approval_id.length > 0);
+  // The admitted workflow.edit_proposed event is embedded under `event`.
+  assert.equal(r.body.event.event_kind, "workflow.edit_proposed");
+  assert.equal(r.body.event.status, "pending_approval");
+  assert.equal(r.body.event.component_kind, "workflow_edit");
+  assert.equal(r.body.event.payload.proposal_id, "proposal-a");
+  assert.equal(r.body.event.payload.workflow_patch_present, true);
+  assert.ok(typeof r.body.event.seq === "number");
 });
 
-test("Rust workflow-edit apply plans + admits a workflow.edit.apply event (idempotent on replay)", async () => {
+test("Rust workflow-edit apply is BLOCKED without an approval decision (no mutation)", async () => {
   const threadId = await createThread();
   await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     proposal_id: "proposal-a",
     workflow_patch: { version: "1" },
   });
 
-  const applyUrl = `${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals/proposal-a/apply`;
-  const first = await post(applyUrl, { workflow_graph_id: "wf.g", approval_id: "appr-a" });
-  assert.equal(first.status, 200, JSON.stringify(first.body));
-  assert.equal(first.body.event_kind, "workflow.edit.apply");
-  assert.equal(first.body.status, "applied");
-  assert.equal(first.body.payload.proposal_id, "proposal-a");
-
-  // Re-apply with the same logical request → admission is idempotent (same event_id).
-  const replay = await post(applyUrl, { workflow_graph_id: "wf.g", approval_id: "appr-a" });
-  assert.equal(replay.status, 200);
-  assert.equal(replay.body.event_id, first.body.event_id, "idempotent replay returns the prior event");
+  // Client-asserted approval flags can never self-grant — only a recorded decision unblocks.
+  const blocked = await post(
+    `${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals/proposal-a/apply`,
+    { approved: true, approvalGranted: true },
+  );
+  assert.equal(blocked.status, 200, JSON.stringify(blocked.body));
+  assert.equal(blocked.body.status, "blocked");
+  assert.equal(blocked.body.approval_required, true);
+  assert.equal(blocked.body.mutation_executed, false);
 });
 
-test("Rust workflow-edit events land on the thread event stream", async () => {
+test("Rust workflow-edit proposed event lands on the thread event stream", async () => {
   const threadId = await createThread();
   await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     proposal_id: "proposal-stream",
     workflow_patch: { version: "1" },
   });
-  await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals/proposal-stream/apply`, {
-    approval_id: "appr-stream",
-  });
   const events = await (
     await fetch(`${daemon.endpoint}/v1/threads/${threadId}/events`, { headers: { accept: "text/event-stream" } })
   ).text();
   assert.ok(events.includes("workflow.edit_proposed"), "proposed event is on the stream");
-  assert.ok(events.includes("workflow.edit.apply"), "apply event is on the stream");
 });
 
 test("Rust workflow-edit fails closed for an unknown thread (404)", async () => {
