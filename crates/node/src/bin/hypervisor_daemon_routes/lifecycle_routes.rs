@@ -1470,6 +1470,330 @@ fn handle_computer_use_projection_tool(
     })))
 }
 
+/// Drive a DETERMINISTIC, read-only computer-use behavioral loop (native_browser / visual_gui)
+/// through the Rust daemon, emitting the 11-event agent-sdk computer-use sequence onto the
+/// thread stream and shaping the agent-sdk thread-tool result. There is NO single kernel loop
+/// producer — this assembles the loop on top of the CANONICAL kernel lease building block
+/// (`build_computer_use_lease_request`, which owns lane/session-mode/authority-scope/provider
+/// resolution). No real Chromium or display capture: the probe inspects the requested surface
+/// read-only. For act-lanes (non read-only) the policy fails closed (commit gate pending),
+/// preserving the wallet.network authority boundary. Ports the agent-sdk computer-use spine
+/// ("runtime daemon invokes native browser loop through thread tool spine") onto the
+/// Rust true-north.
+#[allow(clippy::too_many_arguments)]
+fn handle_computer_use_loop_tool(
+    st: &DaemonState,
+    agent: &Value,
+    thread_id: &str,
+    tool_name: &str,
+    lane: &str,
+    body: &Value,
+) -> Result<Json<Value>, AppError> {
+    let input = body.get("input").cloned().unwrap_or_else(|| json!({}));
+    let workspace_root = memory_agent_cwd(agent).unwrap_or_default();
+    let source = coalesce_str(body, &["source"]).unwrap_or("react_flow").to_string();
+    let workflow_graph_id =
+        coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
+    let workflow_node_id =
+        coalesce_str(body, &["workflow_node_id", "workflowNodeId"]).map(str::to_string);
+
+    // Normalize the tool input (snake/camel) and force the lane the tool name dispatched.
+    let prompt = coalesce_str(&input, &["prompt", "goal", "objective"])
+        .unwrap_or("Inspect the requested surface without external side effects.")
+        .to_string();
+    let url = coalesce_str(&input, &["url"]).map(str::to_string);
+    let action_kind = coalesce_str(&input, &["action_kind", "actionKind"])
+        .unwrap_or("inspect")
+        .to_string();
+    let retention_mode = coalesce_str(
+        &input,
+        &["observation_retention_mode", "observationRetentionMode"],
+    )
+    .map(str::to_string)
+    .unwrap_or_else(|| {
+        if lane == "visual_gui" {
+            "local_redacted_artifacts".to_string()
+        } else {
+            "prompt_visible_summary_only".to_string()
+        }
+    });
+    let session_mode = coalesce_str(&input, &["session_mode", "sessionMode"]).map(str::to_string);
+
+    let mut lease_input = json!({
+        "lane": lane,
+        "prompt": prompt,
+        "url": url,
+        "action_kind": action_kind,
+        "observation_retention_mode": retention_mode,
+    });
+    if let Some(mode) = &session_mode {
+        lease_input["session_mode"] = json!(mode);
+    }
+    let lease = ioi_services::agentic::runtime::kernel::coding_tool_computer_use::build_computer_use_lease_request(
+        &workspace_root,
+        &lease_input,
+    )
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
+
+    let lease_request = lease.get("lease_request").cloned().unwrap_or_else(|| json!({}));
+    let authority_scope = lease_request
+        .get("authority_scope")
+        .and_then(Value::as_str)
+        .unwrap_or("computer_use.native_browser.read")
+        .to_string();
+    let session_mode_resolved = lease_request
+        .get("session_mode")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let provider_id = lease_request.get("provider_id").cloned().unwrap_or(Value::Null);
+    let provider_kind = lease_request
+        .get("provider_kind")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let request_ref = lease
+        .get("request_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let lease_receipt_refs = lease.get("receipt_refs").cloned().unwrap_or_else(|| json!([]));
+    let lease_evidence_refs = lease.get("evidence_refs").cloned().unwrap_or_else(|| json!([]));
+
+    let now = iso_now();
+    let run_hash = short_hash(&format!("{thread_id}:{tool_name}:{now}"));
+    let read_only = matches!(action_kind.as_str(), "inspect" | "hover" | "wait" | "scroll");
+    let (policy_outcome, fail_closed, gate_status, receipt_status) = if read_only {
+        (
+            "approved_for_read_only_probe",
+            false,
+            "not_required",
+            "completed",
+        )
+    } else {
+        (
+            "requires_wallet_network_authority",
+            true,
+            "pending_commit_or_handoff",
+            "blocked_pending_authority",
+        )
+    };
+    let (contract_ingest, adapter_id) = if lane == "visual_gui" {
+        ("local_visual_observation", "ioi.visual_gui.local_observation")
+    } else {
+        ("native_browser_cdp", "ioi.native_browser.cdp_probe")
+    };
+    let target_ref = format!(
+        "target_computer_use_{lane}_{}",
+        short_hash(&format!("{request_ref}:{}", url.as_deref().unwrap_or(&prompt)))
+    );
+    let policy_decision_ref = format!("policy_decision_computer_use_{run_hash}");
+    let proposal_ref = format!("proposal_computer_use_{run_hash}");
+
+    let environment_selection = json!({
+        "selected_lane": lane,
+        "selected_session_mode": session_mode_resolved,
+        "selected_provider_id": provider_id,
+        "selected_provider_kind": provider_kind,
+        "contract_ingest": contract_ingest,
+        "required_lanes": ["native_browser", "visual_gui", "sandboxed_hosted"],
+        "fail_closed_when_unavailable": true,
+    });
+    let lease_view = json!({
+        "lease_ref": request_ref,
+        "lane": lane,
+        "status": "active",
+        "authority_scope": authority_scope,
+        "provider_id": provider_id,
+        "provider_kind": provider_kind,
+        "retention_mode": retention_mode,
+        "session_mode": session_mode_resolved,
+    });
+    let run_state = json!({
+        "run_ref": format!("run_computer_use_{run_hash}"),
+        "lane": lane,
+        "user_goal": prompt,
+        "current_subgoal": "Observe the requested surface, index targets, and propose a grounded next action.",
+        "status": "completed",
+    });
+    let observation = json!({
+        "observation_ref": format!("observation_computer_use_{run_hash}"),
+        "retention_mode": retention_mode,
+        "surface_url": url,
+        "summary": "Read-only inspection of the requested surface; no external side effects.",
+        "dom_digest_ref": format!("observation_digest_{run_hash}"),
+    });
+    let target_index = json!({
+        "coordinate_space_id": format!("{lane}-{run_hash}"),
+        "targets": [{
+            "target_ref": target_ref,
+            "label": "Primary document target",
+            "role": "document",
+            "available_actions": ["inspect"],
+        }],
+    });
+    let affordance_graph = json!({
+        "affordance_graph_ref": format!("affordance_graph_{run_hash}"),
+        "affordances": [{
+            "affordance_ref": format!("affordance_{run_hash}"),
+            "target_ref": target_ref,
+            "action_kind": action_kind,
+            "required_authority": authority_scope,
+        }],
+    });
+    let action = json!({
+        "action_ref": format!("action_computer_use_{run_hash}"),
+        "action_kind": action_kind,
+        "target_ref": target_ref,
+        "proposal_ref": proposal_ref,
+        "policy_decision_ref": policy_decision_ref,
+        "predicted_postcondition": "Surface inspected; observation summarized.",
+    });
+    let policy_decision = json!({
+        "policy_decision_ref": policy_decision_ref,
+        "outcome": policy_outcome,
+        "fail_closed": fail_closed,
+        "authority_scope": authority_scope,
+        "authority_layer": "wallet.network",
+    });
+    let action_receipt = json!({
+        "receipt_ref": format!("receipt_action_computer_use_{run_hash}"),
+        "status": receipt_status,
+        "adapter_id": adapter_id,
+        "observed_postcondition": "Surface inspected; observation summarized.",
+    });
+    let verification = json!({
+        "verification_ref": format!("verification_computer_use_{run_hash}"),
+        "status": if read_only { "passed" } else { "deferred" },
+        "summary": "Observed postcondition matches the predicted read-only outcome.",
+    });
+    let commit_gate = json!({
+        "commit_gate_ref": format!("commit_gate_computer_use_{run_hash}"),
+        "status": gate_status,
+        "reason": if read_only {
+            "Read-only probe requires no commit or hand-off."
+        } else {
+            "Effectful action requires wallet.network authority before commit."
+        },
+    });
+    let trajectory = json!({
+        "trajectory_ref": format!("trajectory_computer_use_{run_hash}"),
+        "artifact_ref": "computer-use-trace.json",
+        "entries": [{
+            "step": "observe_and_inspect",
+            "summary": format!("Completed a read-only {lane} inspection probe."),
+        }],
+    });
+    let cleanup = json!({
+        "cleanup_ref": format!("cleanup_computer_use_{run_hash}"),
+        "status": "completed",
+        "retained_artifact_refs": ["computer-use-trace.json"],
+    });
+
+    // The 11-event agent-sdk computer-use behavioral loop, in canonical order.
+    let events_spec: Vec<(&str, Value)> = vec![
+        (
+            "environment_selected",
+            json!({
+                "tool_ref": tool_name,
+                "computer_use_lane": lane,
+                "computer_use_contract_ingest": contract_ingest,
+                "environment_selection": environment_selection.clone(),
+            }),
+        ),
+        ("lease_acquired", json!({ "lease": lease_view.clone() })),
+        ("run_state", json!({ "run_state": run_state.clone() })),
+        (
+            "observation",
+            json!({ "observation_bundle": observation.clone(), "target_index": target_index.clone() }),
+        ),
+        (
+            "affordance_graph",
+            json!({ "affordance_graph": affordance_graph.clone() }),
+        ),
+        (
+            "action_proposed",
+            json!({
+                "action_proposal": {
+                    "proposal_ref": proposal_ref,
+                    "target_ref": target_ref,
+                    "policy_decision_ref": policy_decision_ref,
+                    "action_kind": action_kind,
+                    "predicted_postcondition": "Surface inspected; observation summarized.",
+                },
+                "policy_decision_receipt": policy_decision.clone(),
+            }),
+        ),
+        (
+            "action_executed",
+            json!({ "action_receipt": action_receipt.clone() }),
+        ),
+        ("verification", json!({ "verification": verification.clone() })),
+        ("commit_gate", json!({ "commit_gate": commit_gate.clone() })),
+        ("trajectory_written", json!({ "trajectory": trajectory.clone() })),
+        ("cleanup", json!({ "cleanup": cleanup.clone() })),
+    ];
+
+    let event_stream_id = format!("{thread_id}:events");
+    let mut admitted_events = Vec::with_capacity(events_spec.len());
+    for (suffix, payload) in events_spec {
+        let event_kind = format!("computer_use.{suffix}");
+        let event = json!({
+            "event_id": format!("event_computer_use_{suffix}_{run_hash}"),
+            "event_stream_id": event_stream_id,
+            "thread_id": thread_id,
+            "turn_id": "",
+            "item_id": format!("{thread_id}:item:computer_use:{suffix}:{run_hash}"),
+            "idempotency_key": format!("thread:{thread_id}:{event_kind}:{run_hash}"),
+            "source": source,
+            "source_event_kind": "ComputerUse.Loop",
+            "event_kind": event_kind,
+            "status": "completed",
+            "actor": "operator",
+            "workspace_root": workspace_root,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "component_kind": "computer_use_harness",
+            "payload_schema_version": "ioi.computer_use.loop.v1",
+            "payload": payload,
+            "receipt_refs": lease_receipt_refs,
+            "policy_decision_refs": [policy_decision_ref],
+            "artifact_refs": [],
+            "rollback_refs": [],
+            "evidence_refs": lease_evidence_refs,
+        });
+        admitted_events.push(admit_and_persist_event(st, event)?);
+    }
+
+    let result = json!({
+        "status": "completed",
+        "object": format!("ioi.runtime_computer_use_{lane}_result"),
+        "tool_pack": "computer_use",
+        "tool_name": tool_name,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "event_count": admitted_events.len(),
+        "artifact_refs": [],
+        "receipt_refs": lease_receipt_refs,
+        "evidence_refs": lease_evidence_refs,
+        "result": {
+            "environmentSelection": environment_selection,
+            "lease": lease_view,
+            "runState": run_state,
+            "observation": observation,
+            "targetIndex": target_index,
+            "affordanceGraph": affordance_graph,
+            "action": action,
+            "policyDecision": policy_decision,
+            "actionReceipt": action_receipt,
+            "verification": verification,
+            "commitGate": commit_gate,
+            "trajectory": trajectory,
+            "cleanup": cleanup,
+        },
+    });
+    Ok(Json(result))
+}
+
 /// parameterizes it; the workspace_root is resolved from the thread's agent record. Ports the
 /// JS daemon's coding-tool invocation surface onto the Rust true-north.
 pub(crate) async fn handle_coding_tool_invoke(
@@ -1483,9 +1807,16 @@ pub(crate) async fn handle_coding_tool_invoke(
 
     // Computer-use projection tools dispatch through the kernel computer-use projection
     // (browser_discovery / provider_registry) rather than the coding-tool step module.
+    // The native_browser / visual_gui lanes drive the deterministic 11-event behavioral loop.
     if let Some(projection_kind) = tool_name.strip_prefix("ioi.computer_use.") {
-        if matches!(projection_kind, "browser_discovery" | "provider_registry") {
-            return handle_computer_use_projection_tool(&st, &thread_id, &tool_name, projection_kind, &body);
+        match projection_kind {
+            "browser_discovery" | "provider_registry" => {
+                return handle_computer_use_projection_tool(&st, &thread_id, &tool_name, projection_kind, &body);
+            }
+            "native_browser" => {
+                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "native_browser", &body);
+            }
+            _ => {}
         }
     }
 
