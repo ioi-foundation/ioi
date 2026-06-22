@@ -10,7 +10,6 @@ import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-ru
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
 import { dispatchHypervisorApprovedOperationPlan } from "../runtime-hypervisor-approved-operation-dispatch.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
-import { admitHarnessSessionBinding } from "../runtime-harness-session-binding-admission.mjs";
 import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs";
 import { buildHarnessSessionReadiness } from "../runtime-harness-session-readiness.mjs";
 import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
@@ -730,16 +729,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-binding-admissions"
       ) {
-        const body = await readBody(request);
+        // The harness-session-binding governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_harness_session_binding planner).
         writeJsonResponse(
           response,
-          admitHarnessSessionBinding({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/harness-session-binding-admissions",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The harness-session-binding admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

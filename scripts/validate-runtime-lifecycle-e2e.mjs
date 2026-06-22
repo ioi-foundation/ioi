@@ -822,6 +822,84 @@ async function main() {
       assert.equal(badScope.body.error.code, "hypervisor_session_launch_recipe_ref_prefix_invalid");
     });
 
+    // Step 3o: the harness-session-binding governance admission (Rust-owned via the kernel
+    // admit_harness_session_binding planner — harness selection / model route / workspace-mount /
+    // privacy / authority / receipts + daemon-gate boundary; mixed 400 field-shape / 403 policy).
+    await runStep("POST /v1/hypervisor/harness-session-binding-admissions admits + gates the boundary", async () => {
+      const base = (overrides = {}) => ({
+        schema_version: "ioi.hypervisor.harness_session_binding.v1",
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-default_harness_profile:model-config-local-codex-oss-qwen",
+        session_route_ref: "session-route:sessions/mission.default/project:ioi",
+        harness_selection_ref: "harness-profile:default_harness_profile",
+        harness_selection_kind: "harness_profile",
+        harness_truth_boundary: "daemon-owned",
+        harness_launch_route_ref: "harness-route:default-harness-profile/local-model",
+        harness_profile_ref: "default_harness_profile",
+        model_configuration_ref: "model-config:local/codex-oss-qwen",
+        model_route_ref: "model-route:hypervisor/default-local",
+        model_route_policy: "hypervisor_model_mount",
+        model_route_availability_state: "daemon_verified",
+        model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+        model_route_loaded_instance_refs: ["model-instance:hypervisor/default-local"],
+        workspace_mount_policy: "ctee_private_workspace",
+        privacy_posture_ref: "privacy:ctee-private-workspace",
+        authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+        receipt_policy_ref: "receipt-policy:harness-profile/default",
+        receipt_preview_ref: "receipt-preview:new-session/admitted",
+        expected_receipt_refs: [
+          "receipt-preview:new-session/admitted",
+          "receipt-policy:harness-profile/default",
+        ],
+        requires_daemon_gate: true,
+        runtimeTruthSource: "daemon-runtime",
+        agentgres_operation_refs: ["agentgres://operation/harness-session-binding/admit"],
+        receipt_refs: ["receipt://harness-session-binding/admit"],
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/harness-session-binding-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid harness binding is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.admission_state, "admitted_for_harness_launch");
+      assert.equal(ok.body.harness_runtime_truth_claimed, false);
+      assert.ok(
+        ok.body.receipt_refs.includes(
+          "receipt://harness-session-binding/harness-session-binding_session-route-sessions-mission-default-project-ioi_harness-profile-default_harness_profile_model-config-local-codex-oss-qwen/admitted",
+        ),
+        "the admission derives the canonical admission receipt ref",
+      );
+
+      // 403: an external adapter cannot mount cTEE private-workspace custody.
+      const ctee = await admit({
+        ...base(),
+        session_binding_ref:
+          "harness-session-binding:session-route-sessions-mission-default-project-ioi:agent-harness-adapter-codex_cli",
+        harness_selection_ref: "agent-harness-adapter:codex_cli",
+        harness_selection_kind: "agent_harness_adapter",
+        harness_truth_boundary: "proposal_source_only",
+        agent_harness_adapter_id: "codex_cli",
+        harness_profile_ref: undefined,
+      });
+      assert.equal(ctee.status, 403);
+      assert.equal(ctee.body.error.code, "harness_session_binding_external_ctee_custody_blocked");
+
+      // 403: an adapter cannot claim runtime truth.
+      const claim = await admit(base({ harness_runtime_truth_claimed: true }));
+      assert.equal(claim.status, 403);
+      assert.equal(claim.body.error.code, "harness_session_binding_runtime_truth_claim_blocked");
+
+      // 400: a retired camelCase alias is rejected before any field validation.
+      const aliased = await admit({ ...base(), sessionBindingRef: "legacy" });
+      assert.equal(aliased.status, 400);
+      assert.equal(aliased.body.error.code, "harness_session_binding_request_aliases_retired");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

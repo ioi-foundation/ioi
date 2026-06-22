@@ -43,6 +43,7 @@ pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
+pub mod runtime_harness_session_binding_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
@@ -720,6 +721,21 @@ impl RuntimeKernelService {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
     > {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a harness-session-binding governance admission (pure: asserts the
+    /// harness selection, model route, workspace-mount policy, privacy posture, authority scopes,
+    /// receipts, and daemon runtime-truth boundary are bound before harness launch).
+    pub fn admit_harness_session_binding(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_harness_session_binding_admission::RuntimeHarnessSessionBindingAdmissionError,
+    > {
+        runtime_harness_session_binding_admission::RuntimeHarnessSessionBindingAdmissionCore
             .admit(request, now_iso)
     }
 

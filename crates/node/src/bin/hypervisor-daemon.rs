@@ -560,6 +560,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_session_launch_recipe_admission),
         )
         .route(
+            "/v1/hypervisor/harness-session-binding-admissions",
+            post(lifecycle_routes::handle_harness_session_binding_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )
