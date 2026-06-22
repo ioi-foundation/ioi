@@ -6605,16 +6605,177 @@ fn session_execute_intent(body: &Value) -> Option<String> {
     None
 }
 
-/// POST /v1/hypervisor/sessions/:id/execute — Lane A execution.
+/// The wallet authority gate for a consequential execution. Daemon-derives the
+/// policy/request hashes (never from the body) and verifies a bound grant. Returns
+/// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
+/// so a wallet can mint a bound grant. Lane-independent (both Lane A and Lane B
+/// gate execution identically).
+fn execute_authority_gate(
+    body: &Value,
+    session_id: &str,
+    workspace_root: &str,
+    intent: &str,
+) -> Result<String, Value> {
+    let policy_hash = execution_policy_hash(session_id, workspace_root, EXECUTION_AUTHORITY_SCOPES);
+    let request_hash = execution_request_hash(session_id, intent, EXECUTION_AUTHORITY_SCOPES);
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let now_ms = daemon_now_ms_fail_closed();
+    let result = if grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+            .map(|binding| binding.grant_ref)
+    };
+    result.map_err(|reason| {
+        json!({
+            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+            "session_ref": session_id,
+            "decision": "blocked",
+            "reason": "execution_authority_required",
+            "message": format!(
+                "Consequential execution requires a wallet capability grant ({reason}). \
+                 Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
+            ),
+            "required_scopes": EXECUTION_AUTHORITY_SCOPES,
+            "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+            // Blocked before any work: nothing ran, nothing fabricated.
+            "changed_file_groups": [],
+            "terminal_events": [],
+            "runtimeTruthSource": "daemon-runtime",
+        })
+    })
+}
+
+/// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.
+/// It derives a deterministic decision from the intent (sha256-seeded, mirroring
+/// the model_mount native-local backend's determinism — no external model, no
+/// harness, no container) and writes a real artifact into the provisioned
+/// workspace. Returns `(files_written, transcript)`. This is the honest foothold
+/// toward routing execution through the canonical `RuntimeAgentService::handle_step`
+/// once the daemon hosts the full agentic runtime + drivers.
+fn run_native_local_decision_step(workspace_root: &str, intent: &str) -> (Vec<String>, Vec<(String, String)>) {
+    let digest: String = sha256_hex_str(intent).chars().take(12).collect();
+    let rel_dir = "lane-b-native-local";
+    let rel_path = format!("{rel_dir}/decision-step.md");
+    let mut transcript: Vec<(String, String)> = Vec::new();
+    transcript.push(("stdout".to_string(), format!("[lane-b:native_local] perceiving workspace {workspace_root}")));
+    transcript.push((
+        "stdout".to_string(),
+        format!("[lane-b:native_local] deterministic decision (input_hash={digest})"),
+    ));
+
+    let mut files_written: Vec<String> = Vec::new();
+    let dir = std::path::Path::new(workspace_root).join(rel_dir);
+    let target = std::path::Path::new(workspace_root).join(&rel_path);
+    let contents = format!(
+        "# Lane B — native-local decision step (Phase 5 foothold)\n\n\
+         intent: {intent}\n\
+         native_local_response: Hypervisor native local model response. input_hash={digest}\n\n\
+         This artifact was written by the Rust-native DETERMINISTIC Lane B execution\n\
+         mode (no external harness, model, or container). The canonical decision_loop\n\
+         (RuntimeAgentService::handle_step) is the true-north that supersedes this\n\
+         foothold once the daemon hosts the full agentic runtime + drivers.\n",
+    );
+    if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&target, contents).is_ok() {
+        files_written.push(rel_path.clone());
+        transcript.push(("stdout".to_string(), format!("[lane-b:native_local] wrote {rel_path}")));
+    } else {
+        transcript.push(("stderr".to_string(), format!("[lane-b:native_local] failed to write {rel_path}")));
+    }
+    transcript.push(("stdout".to_string(), "[lane-b:native_local] step complete".to_string()));
+    (files_written, transcript)
+}
+
+/// Run the Lane B (native-local) foothold step end to end: deterministic step +
+/// real `changed_file_groups` diff + real terminal transcript + Agentgres receipt,
+/// persisted onto the session so the events SSE surfaces it. Wallet-admitted.
+fn run_native_local_lane(
+    st: &DaemonState,
+    session_id: &str,
+    workspace_root: &str,
+    intent: &str,
+    record: &Value,
+    capability_lease_ref: &str,
+) -> (StatusCode, Json<Value>) {
+    let started_at = iso_now();
+    let (files_written, transcript) = run_native_local_decision_step(workspace_root, intent);
+    let finished_at = iso_now();
+    let ok = !files_written.is_empty();
+
+    let diff = project_session_workspace_diff(workspace_root);
+    let changed_file_groups = diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([]));
+    let terminal_events: Vec<Value> = transcript
+        .iter()
+        .enumerate()
+        .map(|(index, (stream, text))| json!({ "sequence": index + 1, "stream": stream, "text": text }))
+        .collect();
+
+    let exit_status = if ok { "success" } else { "failure" };
+    let receipt_ref = format!("receipt://hypervisor/session-lane-b/{}", safe_session_tag(session_id));
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.lane_b_native_local_step",
+        "session_ref": session_id,
+        "lane": "native_local",
+        "deterministic": true,
+        "exit_status": exit_status,
+        "files_written": files_written,
+        "capability_lease_ref": capability_lease_ref,
+        "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+
+    let mut receipt_refs: Vec<Value> = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+        receipt_refs.push(json!(receipt_ref));
+    }
+
+    let mut updated = record.clone();
+    if let Some(object) = updated.as_object_mut() {
+        object.insert("lifecycle_state".into(), json!(if ok { "executed_native_local" } else { "execution_failed" }));
+        object.insert("terminal_events".into(), json!(terminal_events));
+        object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
+    }
+    let _ = persist_record(&st.data_dir, "sessions", session_id, &updated);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+            "session_ref": session_id,
+            "decision": if ok { "executed" } else { "failed" },
+            "lane": "native_local_decision_step",
+            "deterministic": true,
+            "exit_status": exit_status,
+            "files_written": files_written,
+            "changed_file_groups": changed_file_groups,
+            "terminal_events": terminal_events,
+            "capability_lease_ref": capability_lease_ref,
+            "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
+            "latest_receipt_refs": receipt_refs,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/sessions/:id/execute — session execution (Lane A or Lane B).
 ///
-/// FAILS CLOSED with an honest reason (`no_model_route` / `harness_unavailable` /
-/// `container_unavailable`) when the execution substrate is absent — no fabricated
-/// work. When a model route + a host harness are present this runs the REAL Lane A
-/// loop (Cut #2): it spawns the `generic-cli-local` harness in the provisioned
-/// workspace bound to the local model, delivers the intent, and reports the
-/// harness's real file writes, a real `changed_file_groups` diff (git/walk), the
-/// real terminal transcript, and Agentgres receipts. Failure paths stay honest:
-/// the diff and transcript reflect whatever truly happened; nothing is invented.
+/// Lane A (default `host_spawn`): FAILS CLOSED with an honest reason
+/// (`no_model_route` / `harness_unavailable` / `container_unavailable`) when the
+/// substrate is absent; otherwise spawns the `generic-cli-local` harness in the
+/// provisioned workspace, delivers the intent, and reports the harness's real file
+/// writes + diff + transcript + receipts. Lane B (`native_local`): a Rust-native
+/// deterministic/offline decision step (Phase-5 foothold) — no substrate needed.
+/// Both lanes are wallet-gated; failure paths stay honest (nothing invented).
 pub(crate) async fn handle_session_execute(
     State(st): State<Arc<DaemonState>>,
     AxumPath(session_id): AxumPath<String>,
@@ -6628,9 +6789,36 @@ pub(crate) async fn handle_session_execute(
     };
     let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("").to_string();
     let lane = body.get("lane").and_then(Value::as_str).unwrap_or("host_spawn").to_string();
-    let substrate = ExecutionSubstrate::probe();
 
-    // Honest fail-closed ordering: model → harness → (container, if requested).
+    let Some(intent) = session_execute_intent(&body) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": "session_execute_intent_required", "message": "Execute requires a task intent (`intent` or `messages`)." } })),
+        );
+    };
+    if workspace_root.is_empty() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": { "code": "session_workspace_absent", "message": "Session has no provisioned workspace to execute in." } })),
+        );
+    }
+
+    // Lane B (Phase-5 foothold): a Rust-native DETERMINISTIC/offline decision step —
+    // no external harness, no model route, no container. Still wallet-gated (it
+    // writes the workspace). The canonical RuntimeAgentService::handle_step is the
+    // true-north that supersedes this foothold once the daemon hosts the full runtime.
+    if lane == "native_local" {
+        let capability_lease_ref = match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
+            Ok(lease) => lease,
+            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+        };
+        return run_native_local_lane(&st, &session_id, &workspace_root, &intent, &record, &capability_lease_ref);
+    }
+
+    // Lane A (host_spawn / container): honest fail-closed substrate checks FIRST so
+    // an absent model/harness surfaces as no_model_route / harness_unavailable
+    // BEFORE the authority gate (the offline contract), then the wallet gate, then spawn.
+    let substrate = ExecutionSubstrate::probe();
     let blocked = if !substrate.model_route {
         Some((
             "no_model_route",
@@ -6671,57 +6859,11 @@ pub(crate) async fn handle_session_execute(
         );
     }
 
-    let Some(intent) = session_execute_intent(&body) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "session_execute_intent_required", "message": "Execute requires a task intent (`intent` or `messages`)." } })),
-        );
-    };
-    if workspace_root.is_empty() {
-        return (
-            StatusCode::CONFLICT,
-            Json(json!({ "error": { "code": "session_workspace_absent", "message": "Session has no provisioned workspace to execute in." } })),
-        );
-    }
-
-    // --- Wallet authority gate (consequential effects: workspace_write + command_exec) ---
-    // Execution mutates the workspace and spawns a process, so it is wallet-gated. The
-    // policy/request hashes are DAEMON-DERIVED (never the POST body); a no-grant call is a
-    // 403 challenge that exposes them so a wallet can mint a bound grant. The grant is then
-    // verified cryptographically (signature + structural) and bound to expiry + both hashes
-    // by `verify_wallet_approval_grant_binding`. This runs BEFORE any spawn.
-    let policy_hash = execution_policy_hash(&session_id, &workspace_root, EXECUTION_AUTHORITY_SCOPES);
-    let request_hash = execution_request_hash(&session_id, &intent, EXECUTION_AUTHORITY_SCOPES);
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
-    let now_ms = daemon_now_ms_fail_closed();
-    let authority = if grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
-    };
-    let capability_lease_ref = match authority {
-        Ok(binding) => binding.grant_ref,
-        Err(reason) => {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(json!({
-                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
-                    "session_ref": session_id,
-                    "decision": "blocked",
-                    "reason": "execution_authority_required",
-                    "message": format!(
-                        "Consequential execution requires a wallet capability grant ({reason}). \
-                         Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
-                    ),
-                    "required_scopes": EXECUTION_AUTHORITY_SCOPES,
-                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
-                    // Blocked before spawn: nothing ran, nothing fabricated.
-                    "changed_file_groups": [],
-                    "terminal_events": [],
-                    "runtimeTruthSource": "daemon-runtime",
-                })),
-            );
-        }
+    // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
+    // AFTER the substrate check (offline contract) and BEFORE any spawn.
+    let capability_lease_ref = match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
+        Ok(lease) => lease,
+        Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
     };
 
     // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
@@ -6787,8 +6929,6 @@ pub(crate) async fn handle_session_execute(
         // Admitted authority: the wallet capability grant that authorized this run.
         "capability_lease_ref": capability_lease_ref,
         "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
-        "policy_hash": policy_hash,
-        "request_hash": request_hash,
         "started_at": started_at,
         "finished_at": finished_at,
         "runtimeTruthSource": "daemon-runtime",
