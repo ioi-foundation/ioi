@@ -6431,6 +6431,38 @@ fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) ->
     })
 }
 
+/// Consequential scopes a session execution exercises. `workspace_write` (the
+/// harness edits the workspace) and `command_exec` (the daemon spawns a process)
+/// are gated today; `port_exposure` joins this set when the served preview port
+/// lands, so the preview is gated under the SAME wallet authority — never an
+/// ungated effect surface. Kept sorted so the derived hashes are stable.
+const EXECUTION_AUTHORITY_SCOPES: &[&str] = &["command_exec", "workspace_write"];
+
+/// Daemon-derived POLICY hash an execution grant must carry: binds the grant to
+/// this session + workspace + the exact scope set (the policy context). NEVER
+/// from the POST body.
+fn execution_policy_hash(session_ref: &str, workspace_root: &str, scopes: &[&str]) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.session.execute.policy.v1",
+        "session_ref": session_ref,
+        "workspace_root": workspace_root,
+        "scopes": scopes,
+    }))
+}
+
+/// Daemon-derived REQUEST hash an execution grant must carry: the stable identity
+/// of "run THIS intent in THIS session under THESE scopes". Reproducible at
+/// challenge time and retry time (same intent → same hash), and distinct from any
+/// other operation's request hash so a grant can never be replayed across intents.
+fn execution_request_hash(session_ref: &str, intent: &str, scopes: &[&str]) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.session.execute.request.v1",
+        "session_ref": session_ref,
+        "intent": intent,
+        "scopes": scopes,
+    }))
+}
+
 /// Resolve the task intent for an execute request: `intent`, else the joined
 /// `messages[].content`. None when neither carries text.
 fn session_execute_intent(body: &Value) -> Option<String> {
@@ -6533,6 +6565,46 @@ pub(crate) async fn handle_session_execute(
         );
     }
 
+    // --- Wallet authority gate (consequential effects: workspace_write + command_exec) ---
+    // Execution mutates the workspace and spawns a process, so it is wallet-gated. The
+    // policy/request hashes are DAEMON-DERIVED (never the POST body); a no-grant call is a
+    // 403 challenge that exposes them so a wallet can mint a bound grant. The grant is then
+    // verified cryptographically (signature + structural) and bound to expiry + both hashes
+    // by `verify_wallet_approval_grant_binding`. This runs BEFORE any spawn.
+    let policy_hash = execution_policy_hash(&session_id, &workspace_root, EXECUTION_AUTHORITY_SCOPES);
+    let request_hash = execution_request_hash(&session_id, &intent, EXECUTION_AUTHORITY_SCOPES);
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let now_ms = daemon_now_ms_fail_closed();
+    let authority = if grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+    };
+    let capability_lease_ref = match authority {
+        Ok(binding) => binding.grant_ref,
+        Err(reason) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                    "session_ref": session_id,
+                    "decision": "blocked",
+                    "reason": "execution_authority_required",
+                    "message": format!(
+                        "Consequential execution requires a wallet capability grant ({reason}). \
+                         Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
+                    ),
+                    "required_scopes": EXECUTION_AUTHORITY_SCOPES,
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    // Blocked before spawn: nothing ran, nothing fabricated.
+                    "changed_file_groups": [],
+                    "terminal_events": [],
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            );
+        }
+    };
+
     // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
     // the intent. The harness drives the local model and edits the workspace.
     let model = resolve_harness_model();
@@ -6581,6 +6653,11 @@ pub(crate) async fn handle_session_execute(
         "files_written": outcome.files_written,
         "summary": outcome.summary,
         "error": outcome.error,
+        // Admitted authority: the wallet capability grant that authorized this run.
+        "capability_lease_ref": capability_lease_ref,
+        "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
         "started_at": started_at,
         "finished_at": finished_at,
         "runtimeTruthSource": "daemon-runtime",
@@ -6643,6 +6720,9 @@ pub(crate) async fn handle_session_execute(
             "changed_file_groups": changed_file_groups,
             "terminal_events": terminal_events,
             "latest_receipt_refs": receipt_refs,
+            // Admitted wallet authority that gated this consequential run.
+            "capability_lease_ref": capability_lease_ref,
+            "authority_scope_refs": EXECUTION_AUTHORITY_SCOPES,
             "started_at": started_at,
             "finished_at": finished_at,
             "runtimeTruthSource": "daemon-runtime",

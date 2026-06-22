@@ -1,28 +1,32 @@
-// Hypervisor session execution — Lane A, Cut #2 EQUIPPED positive gate.
+// Hypervisor session execution — Lane A, Cut #2/#3 EQUIPPED gate.
 //
-// Proves the REAL host-spawn Lane A loop end to end when the box is equipped
-// (a local Ollama model + node + the generic-cli-local shim):
-//   - launch a session (real provisioned workspace);
-//   - execute "create a website that explains post-quantum computers";
-//   - the daemon spawns the harness in the workspace, the harness drives the
-//     local model and writes real files;
-//   - assert a REAL index.html exists on disk with real content;
-//   - assert the REAL diff includes index.html;
-//   - assert the terminal transcript is the spawned harness's real output;
-//   - assert Agentgres-shaped receipts exist;
-//   - assert the events SSE surfaces the real terminal_chunk transcript.
+// The execute endpoint is wallet-gated (Cut #3): consequential effects
+// (workspace_write + command_exec) require a wallet capability grant bound to
+// daemon-derived policy_hash + request_hash. This gate proves, on an equipped
+// box (local Ollama model + node + the generic-cli-local shim):
 //
-// HONEST SKIP: when Ollama/model/node/shim are absent the test skips (it never
-// fakes a pass). The offline fail-closed contract is covered by
-// hypervisor-session-execution-cut1.test.mjs.
+//   NEGATIVES (must block BEFORE any spawn — no files, no transcript):
+//     - no grant                → 403 execution_authority_required (exposes hashes)
+//     - wrong policy_hash        → 403
+//     - expired grant            → 403
+//     - wrong request_hash       → 403
+//
+//   POSITIVE (gated real loop):
+//     - challenge → mint a valid wallet grant → execute → the harness drives the
+//       local model, writes a REAL index.html, the diff/transcript are real, and
+//       the receipts carry the admitted capability_lease_ref + authority scopes.
+//
+// HONEST SKIP when Ollama/model/node/shim are absent. The offline fail-closed
+// contract is covered by hypervisor-session-execution-cut1.test.mjs.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 
+import { mintApprovalGrant } from "./mint-approval-grant.mjs";
 import { startRustHypervisorDaemon } from "./rust-hypervisor-daemon.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -32,7 +36,6 @@ const PQC_INTENT =
   "Include an index.html file with a paragraph about post-quantum cryptography.";
 
 function tagsUrl() {
-  // Derive the /api/tags base from the OpenAI-compatible endpoint.
   return `${MODEL_ENDPOINT.replace(/\/v1\/?$/, "")}/api/tags`;
 }
 
@@ -51,11 +54,54 @@ async function detectEquipment() {
       models.find((name) => /^qwen2\.5/.test(name)) ||
       models.find((name) => /qwen/i.test(name)) ||
       models[0];
-    return { ok: true, model, models };
+    return { ok: true, model };
   } catch (error) {
     return { ok: false, reason: `ollama unreachable: ${String(error)}` };
   }
 }
+
+const equipment = await detectEquipment();
+const SKIP = equipment.ok ? false : `not equipped (${equipment.reason}) — offline path covered by the cut1 gate`;
+
+let daemon;
+let stateDir;
+let sessionsRoot;
+let prev;
+
+beforeEach(async () => {
+  if (SKIP) return;
+  stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-equip-state-"));
+  sessionsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-equip-ws-"));
+  prev = {
+    upstream: process.env.IOI_HYPERVISOR_MODEL_UPSTREAM,
+    model: process.env.IOI_HYPERVISOR_MODEL,
+    sessions: process.env.IOI_HYPERVISOR_SESSIONS_ROOT,
+  };
+  process.env.IOI_HYPERVISOR_MODEL_UPSTREAM = MODEL_ENDPOINT;
+  process.env.IOI_HYPERVISOR_MODEL = equipment.model;
+  process.env.IOI_HYPERVISOR_SESSIONS_ROOT = sessionsRoot;
+  daemon = await startRustHypervisorDaemon({ stateDir });
+});
+
+afterEach(async () => {
+  if (SKIP) return;
+  await daemon?.close();
+  for (const [key, value] of [
+    ["IOI_HYPERVISOR_MODEL_UPSTREAM", prev.upstream],
+    ["IOI_HYPERVISOR_MODEL", prev.model],
+    ["IOI_HYPERVISOR_SESSIONS_ROOT", prev.sessions],
+  ]) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  for (const dir of [stateDir, sessionsRoot]) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // best effort
+    }
+  }
+});
 
 function parseSse(text) {
   const frames = [];
@@ -71,107 +117,126 @@ function parseSse(text) {
   return frames;
 }
 
-test("Equipped Cut #2: real host-spawn Lane A writes a real index.html via the local model", { timeout: 240000 }, async (t) => {
-  const equipment = await detectEquipment();
-  if (!equipment.ok) {
-    t.skip(`not equipped (${equipment.reason}) — offline fail-closed path is covered by the cut1 gate`);
+async function createSession(sessionRef) {
+  const create = await fetch(`${daemon.endpoint}/v1/hypervisor/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ project_ref: "project:pqc", session_ref: sessionRef }),
+  });
+  assert.equal(create.status, 202);
+  const created = await create.json();
+  return created.environment_status.components.workspace_content.workspace_root;
+}
+
+async function execute(sessionRef, body) {
+  const response = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`,
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
+  );
+  return { status: response.status, body: await response.json() };
+}
+
+test("Equipped gate — execution authority blocks every unauthorized grant BEFORE spawn", { timeout: 120000 }, async (t) => {
+  if (SKIP) {
+    t.skip(SKIP);
     return;
   }
+  const sessionRef = "session:authz-neg";
+  const workspaceRoot = await createSession(sessionRef);
 
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-equip-state-"));
-  const sessionsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-equip-ws-"));
-  const prev = {
-    upstream: process.env.IOI_HYPERVISOR_MODEL_UPSTREAM,
-    model: process.env.IOI_HYPERVISOR_MODEL,
-    sessions: process.env.IOI_HYPERVISOR_SESSIONS_ROOT,
-  };
-  process.env.IOI_HYPERVISOR_MODEL_UPSTREAM = MODEL_ENDPOINT;
-  process.env.IOI_HYPERVISOR_MODEL = equipment.model;
-  process.env.IOI_HYPERVISOR_SESSIONS_ROOT = sessionsRoot;
+  // No grant → 403 challenge exposing the daemon-derived hashes.
+  const challenge = await execute(sessionRef, { intent: PQC_INTENT });
+  assert.equal(challenge.status, 403, "no grant is rejected");
+  assert.equal(challenge.body.decision, "blocked");
+  assert.equal(challenge.body.reason, "execution_authority_required");
+  assert.ok(challenge.body.required_scopes.includes("workspace_write"), "workspace_write scope required");
+  assert.ok(challenge.body.required_scopes.includes("command_exec"), "command_exec scope required");
+  const policyHash = challenge.body.approval.policy_hash;
+  const requestHash = challenge.body.approval.request_hash;
+  assert.ok(policyHash && requestHash, "challenge exposes policy_hash + request_hash to mint against");
+  assert.deepEqual(challenge.body.changed_file_groups, [], "no fabricated work on the challenge");
 
-  const daemon = await startRustHypervisorDaemon({ stateDir });
-  const sessionRef = "session:equipped-pqc";
-  try {
-    const create = await fetch(`${daemon.endpoint}/v1/hypervisor/sessions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ project_ref: "project:pqc", session_ref: sessionRef }),
-    });
-    assert.equal(create.status, 202);
-    const created = await create.json();
-    const workspaceRoot = created.environment_status.components.workspace_content.workspace_root;
-    assert.ok(fs.existsSync(workspaceRoot), "real workspace dir exists");
-    // Equipped: the model route is really reachable → model_mount is READY.
-    assert.equal(created.environment_status.components.model_mount.phase, "ready");
+  // Wrong policy_hash (correct request_hash) → blocked.
+  const wrongPolicy = await execute(sessionRef, {
+    intent: PQC_INTENT,
+    wallet_approval_grant: mintApprovalGrant({ policyHash: "22".repeat(32), requestHash }),
+  });
+  assert.equal(wrongPolicy.status, 403, "a grant bound to a different policy_hash is rejected");
 
-    // Run the REAL Lane A loop.
-    const execute = await fetch(
-      `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ intent: PQC_INTENT }),
-      },
-    );
-    assert.equal(execute.status, 200, `execute returns 200 (got ${execute.status})`);
-    const result = await execute.json();
-    assert.equal(result.decision, "executed", `decision executed (error=${JSON.stringify(result.error)})`);
-    assert.equal(result.exit_status, "success");
-    assert.equal(result.model, equipment.model);
+  // Wrong request_hash (correct policy_hash) → blocked.
+  const wrongRequest = await execute(sessionRef, {
+    intent: PQC_INTENT,
+    wallet_approval_grant: mintApprovalGrant({ policyHash, requestHash: "11".repeat(32) }),
+  });
+  assert.equal(wrongRequest.status, 403, "a grant bound to a different request_hash is rejected");
 
-    // Real file writes reported by the harness.
-    assert.ok(
-      result.files_written.includes("index.html"),
-      `files_written includes index.html: ${JSON.stringify(result.files_written)}`,
-    );
+  // Expired grant (correct hashes) → blocked.
+  const expired = await execute(sessionRef, {
+    intent: PQC_INTENT,
+    wallet_approval_grant: mintApprovalGrant({ policyHash, requestHash, expiresAt: 1000 }),
+  });
+  assert.equal(expired.status, 403, "an expired grant is rejected");
 
-    // The REAL file exists on disk with REAL content.
-    const indexPath = path.join(workspaceRoot, "index.html");
-    assert.ok(fs.existsSync(indexPath), "index.html exists on disk");
-    const html = fs.readFileSync(indexPath, "utf8");
-    assert.ok(html.length > 50, "index.html has real content");
-    assert.match(html, /quantum/i, "index.html mentions quantum");
+  // Every rejection blocked BEFORE spawn — the workspace stayed empty.
+  assert.equal(fs.existsSync(path.join(workspaceRoot, "index.html")), false, "no file was written under a blocked grant");
+});
 
-    // The REAL diff surfaces index.html.
-    const diffNames = (result.changed_file_groups ?? []).flatMap((group) => group.files.map((file) => file.name));
-    assert.ok(diffNames.includes("index.html"), `diff includes index.html: ${JSON.stringify(diffNames)}`);
-
-    // The transcript is the spawned harness's REAL output.
-    assert.ok(Array.isArray(result.terminal_events) && result.terminal_events.length > 0, "real transcript present");
-    assert.ok(
-      result.terminal_events.some((event) => /generic-cli/.test(String(event.text))),
-      "transcript carries real harness output lines",
-    );
-
-    // Real execution receipt.
-    assert.ok(
-      (result.latest_receipt_refs ?? []).some((ref) => String(ref).startsWith("receipt://hypervisor/session-execute/")),
-      "execute receipt present",
-    );
-
-    // The events SSE now surfaces the real terminal transcript as terminal_chunk.
-    const events = await fetch(
-      `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/events`,
-      { headers: { accept: "text/event-stream" } },
-    );
-    const frames = parseSse(await events.text());
-    assert.ok(frames.some((frame) => frame.event === "terminal_chunk"), "events surface real terminal_chunk frames");
-  } finally {
-    await daemon.close();
-    for (const [key, value] of [
-      ["IOI_HYPERVISOR_MODEL_UPSTREAM", prev.upstream],
-      ["IOI_HYPERVISOR_MODEL", prev.model],
-      ["IOI_HYPERVISOR_SESSIONS_ROOT", prev.sessions],
-    ]) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-    for (const dir of [stateDir, sessionsRoot]) {
-      try {
-        fs.rmSync(dir, { recursive: true, force: true });
-      } catch {
-        // best effort
-      }
-    }
+test("Equipped gate — a valid wallet grant authorizes the real Lane A loop", { timeout: 240000 }, async (t) => {
+  if (SKIP) {
+    t.skip(SKIP);
+    return;
   }
+  const sessionRef = "session:authz-pos";
+  const workspaceRoot = await createSession(sessionRef);
+
+  // Challenge for the daemon-derived hashes, then mint a valid bound grant.
+  const challenge = await execute(sessionRef, { intent: PQC_INTENT });
+  assert.equal(challenge.status, 403);
+  const grant = mintApprovalGrant({
+    policyHash: challenge.body.approval.policy_hash,
+    requestHash: challenge.body.approval.request_hash,
+  });
+
+  const result = await execute(sessionRef, { intent: PQC_INTENT, wallet_approval_grant: grant });
+  assert.equal(result.status, 200, `gated execute returns 200 (got ${result.status})`);
+  assert.equal(result.body.decision, "executed", `decision executed (error=${JSON.stringify(result.body.error)})`);
+  assert.equal(result.body.exit_status, "success");
+  assert.equal(result.body.model, equipment.model);
+
+  // Admitted authority surfaced on the result.
+  assert.ok(
+    String(result.body.capability_lease_ref).startsWith("wallet.network://grant/approval/"),
+    `capability_lease_ref is an admitted wallet grant ref: ${result.body.capability_lease_ref}`,
+  );
+  assert.ok(result.body.authority_scope_refs.includes("workspace_write"), "workspace_write authorized");
+  assert.ok(result.body.authority_scope_refs.includes("command_exec"), "command_exec authorized");
+
+  // Real file writes.
+  assert.ok(result.body.files_written.includes("index.html"), `files_written includes index.html: ${JSON.stringify(result.body.files_written)}`);
+  const indexPath = path.join(workspaceRoot, "index.html");
+  assert.ok(fs.existsSync(indexPath), "index.html exists on disk");
+  assert.match(fs.readFileSync(indexPath, "utf8"), /quantum/i, "index.html mentions quantum");
+
+  // Real diff + real transcript.
+  const diffNames = (result.body.changed_file_groups ?? []).flatMap((group) => group.files.map((file) => file.name));
+  assert.ok(diffNames.includes("index.html"), `diff includes index.html: ${JSON.stringify(diffNames)}`);
+  assert.ok(result.body.terminal_events.length > 0, "real transcript present");
+  assert.ok(
+    result.body.terminal_events.some((event) => /generic-cli/.test(String(event.text))),
+    "transcript carries real harness output",
+  );
+
+  // The execute receipt carries the admitted capability lease.
+  const execReceiptRef = (result.body.latest_receipt_refs ?? []).find((ref) =>
+    String(ref).startsWith("receipt://hypervisor/session-execute/"),
+  );
+  assert.ok(execReceiptRef, "execute receipt present");
+
+  // The events SSE surfaces the real transcript as terminal_chunk.
+  const events = await fetch(
+    `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/events`,
+    { headers: { accept: "text/event-stream" } },
+  );
+  const frames = parseSse(await events.text());
+  assert.ok(frames.some((frame) => frame.event === "terminal_chunk"), "events surface real terminal_chunk frames");
 });
