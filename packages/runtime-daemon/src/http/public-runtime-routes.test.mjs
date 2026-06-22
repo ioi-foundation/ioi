@@ -850,104 +850,24 @@ test("public runtime harness fixture route preserves private workspace mount gua
   });
 });
 
-test("public runtime routes expose model route mutation admissions", async () => {
+test("public runtime model route mutation admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-  };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/model-route-mutation-admissions",
-      body: {
-        mutation_kind: "bind_session_route",
-        route_ref: "model-route:local/default",
-        project_ref: "project:ioi",
-        session_ref: "session:ioi",
-        provider_ref: "provider:local",
-        provider_kind: "local",
-        endpoint_refs: ["model-endpoint:local/default"],
-        loaded_instance_refs: ["model-instance:local/default"],
-        credential_posture: "no_credentials_required",
-        authority_scope_refs: ["scope:model.route.mutate"],
-        credential_scope_refs: [],
-        wallet_approval_ref: "approval://wallet/model-route/local",
-        wallet_lease_ref: "lease:wallet/model-route/local",
-        model_weight_custody_admission_ref:
-          "model-weight-custody-admission:model-route_local_default",
-        privacy_posture_ref: "privacy-posture:private-native",
-        agentgres_operation_refs: [
-          "agentgres://operation/model-route/local/bind-session",
-        ],
-        receipt_refs: ["receipt://model-route/local/bind-session"],
-        state_root_ref: "agentgres://state-root/model-route/local",
-      },
+      body: { mutation_kind: "bind_session_route" },
     }),
     response,
-    store,
+    store: {},
   });
 
-  assert.equal(response.statusCode, 202);
-  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    payload.schema_version,
-    "ioi.runtime.model_route_mutation_admission.v1",
-  );
-  assert.equal(payload.admission_state, "admitted_for_model_router");
-  assert.equal(payload.route_ref, "model-route:local/default");
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
-});
-
-test("public runtime model route mutation route blocks credentialed providers without leases", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-  };
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/model-route-mutation-admissions",
-      body: {
-        mutation_kind: "bind_session_route",
-        route_ref: "model-route:hosted/default",
-        project_ref: "project:ioi",
-        session_ref: "session:ioi",
-        provider_ref: "provider:hosted-api",
-        provider_kind: "hosted_api",
-        endpoint_refs: ["model-endpoint:hosted/default"],
-        credential_posture: "wallet_credential_lease",
-        authority_scope_refs: ["scope:model.route.mutate"],
-        credential_scope_refs: ["scope:secret.use"],
-        wallet_approval_ref: "approval://wallet/model-route/hosted",
-        wallet_lease_ref: "lease:wallet/model-route/hosted",
-        model_weight_custody_admission_ref:
-          "model-weight-custody-admission:model-route_hosted_default",
-        privacy_posture_ref: "privacy-posture:provider-trust",
-        agentgres_operation_refs: [
-          "agentgres://operation/model-route/hosted/bind-session",
-        ],
-        receipt_refs: ["receipt://model-route/hosted/bind-session"],
-        state_root_ref: "agentgres://state-root/model-route/hosted",
-      },
-    }),
-    response,
-    store,
-  });
-
-  assert.equal(response.statusCode, 403);
-  assert.equal(
-    response.error.code,
-    "model_route_mutation_provider_credential_lease_required",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
 });
 

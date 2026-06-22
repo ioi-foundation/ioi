@@ -18,7 +18,6 @@ import { deriveWorkspaceInitializer } from "../runtime-environment-status-projec
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 import { admitHypervisorSessionLaunchRecipe } from "../runtime-hypervisor-session-launch-recipe-admission.mjs";
-import { admitModelRouteMutation } from "../runtime-model-route-mutation-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
 import { admitPrivateWorkspaceMount } from "../runtime-private-workspace-mount-admission.mjs";
@@ -691,16 +690,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/model-route-mutation-admissions"
       ) {
-        const body = await readBody(request);
+        // The model-route-mutation governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_model_route_mutation planner).
         writeJsonResponse(
           response,
-          admitModelRouteMutation({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/model-route-mutation-admissions",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The model-route-mutation admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

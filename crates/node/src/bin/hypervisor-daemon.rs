@@ -548,6 +548,10 @@ async fn main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_core_taxonomy),
         )
         .route(
+            "/v1/hypervisor/model-route-mutation-admissions",
+            post(lifecycle_routes::handle_model_route_mutation_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

@@ -43,6 +43,7 @@ pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
+pub mod runtime_model_route_mutation_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
@@ -690,6 +691,20 @@ impl RuntimeKernelService {
         request: &RepositoryWorkflowProjectionRequest,
     ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionError> {
         RepositoryWorkflowProjectionCore::default().project(request.clone())
+    }
+
+    /// Validate + canonicalize a model-route-mutation governance admission (pure: asserts the
+    /// caller bound the required wallet/credential/custody/privacy/receipt refs).
+    pub fn admit_model_route_mutation(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionError,
+    > {
+        runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionCore
+            .admit(request, now_iso)
     }
 
     pub fn project_runtime_tool_catalog(

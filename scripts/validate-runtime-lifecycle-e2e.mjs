@@ -615,6 +615,73 @@ async function main() {
       );
     });
 
+    // Step 3l: the model-route-mutation governance admission (Rust-owned via the kernel
+    // admit_model_route_mutation planner — pure validation + canonicalization). Admits a
+    // valid request (202) and rejects missing authority/credential refs with the structured
+    // {error:{code}} shape (400 validation / 403 authority).
+    await runStep("POST /v1/hypervisor/model-route-mutation-admissions admits + gates by authority", async () => {
+      const base = (overrides = {}) => ({
+        mutation_kind: "bind_session_route",
+        route_ref: "model-route:local/default",
+        project_ref: "project:ioi",
+        session_ref: "session:ioi",
+        provider_ref: "provider:local",
+        provider_kind: "local",
+        endpoint_refs: ["model-endpoint:local/default"],
+        loaded_instance_refs: ["model-instance:local/default"],
+        credential_posture: "no_credentials_required",
+        authority_scope_refs: ["scope:model.route.mutate"],
+        credential_scope_refs: [],
+        wallet_approval_ref: "approval://wallet/model-route/local",
+        wallet_lease_ref: "lease:wallet/model-route/local",
+        model_weight_custody_admission_ref: "model-weight-custody-admission:model-route_local_default",
+        privacy_posture_ref: "privacy-posture:private-native",
+        agentgres_operation_refs: ["agentgres://operation/model-route/local/bind-session"],
+        receipt_refs: ["receipt://model-route/local/bind-session"],
+        state_root_ref: "agentgres://state-root/model-route/local",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/model-route-mutation-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid mutation is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.admission_state, "admitted_for_model_router");
+      assert.ok(
+        ok.body.receipt_refs.includes(
+          "receipt://model-route-mutation/model-route_local_default/bind_session_route",
+        ),
+        "the admission derives the canonical mutation receipt ref",
+      );
+
+      // 403: authority scope present but lacking scope:model.route.mutate.
+      const noScope = await admit(base({ authority_scope_refs: ["scope:other.capability"] }));
+      assert.equal(noScope.status, 403, "missing scope:model.route.mutate is rejected 403");
+      assert.equal(noScope.body.error.code, "model_route_mutation_required_scope_missing");
+
+      // 403: credentialed provider without a credential lease.
+      const noLease = await admit(
+        base({
+          provider_ref: "provider:hosted-api",
+          provider_kind: "hosted_api",
+          endpoint_refs: ["model-endpoint:hosted/default"],
+          credential_posture: "wallet_credential_lease",
+          credential_scope_refs: ["scope:secret.use"],
+        }),
+      );
+      assert.equal(noLease.status, 403);
+      assert.equal(noLease.body.error.code, "model_route_mutation_provider_credential_lease_required");
+
+      // 400: a retired camelCase alias is rejected before authority checks.
+      const aliased = await admit({ ...base(), routeRef: "model-route:local/default" });
+      assert.equal(aliased.status, 400);
+      assert.equal(aliased.body.error.code, "model_route_mutation_request_aliases_retired");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.
