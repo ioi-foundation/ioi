@@ -5665,12 +5665,21 @@ struct ExecutionSubstrate {
 
 impl ExecutionSubstrate {
     fn probe() -> Self {
-        Self {
-            model_route: model_route_reachable(),
-            harness_binary: HARNESS_BINARIES
+        // Host-spawn Lane A: the primary harness is the repo's `generic-cli-local`
+        // node shim (driven against Ollama), resolved when `node` + the shim file
+        // are present. Fall back to a PATH harness binary (e.g. codex) for display.
+        let harness_binary = if generic_cli_local_shim_path().is_some() && binary_on_path("node").is_some()
+        {
+            Some("generic-cli-local".to_string())
+        } else {
+            HARNESS_BINARIES
                 .iter()
                 .find(|name| binary_on_path(name).is_some())
-                .map(|name| (*name).to_string()),
+                .map(|name| (*name).to_string())
+        };
+        Self {
+            model_route: model_route_reachable(),
+            harness_binary,
             container_runtime: CONTAINER_RUNTIMES
                 .iter()
                 .find(|name| binary_on_path(name).is_some())
@@ -5739,6 +5748,217 @@ fn binary_on_path(name: &str) -> Option<String> {
         return Some(candidate.to_string_lossy().into_owned());
     }
     None
+}
+
+/// Resolve the `generic-cli-local` harness shim (a node script shipped in the repo).
+/// `IOI_HYPERVISOR_HARNESS_SHIM` overrides; otherwise it is the well-known path
+/// relative to the daemon's working directory. None when the file is absent.
+fn generic_cli_local_shim_path() -> Option<String> {
+    if let Some(explicit) = std::env::var("IOI_HYPERVISOR_HARNESS_SHIM")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return std::path::Path::new(&explicit).is_file().then_some(explicit);
+    }
+    let cwd = std::env::current_dir().ok()?;
+    let candidate = cwd.join("packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs");
+    candidate.is_file().then(|| candidate.to_string_lossy().into_owned())
+}
+
+/// The model name the host harness mounts (mirrors the daemon's `resolve_inference`).
+fn resolve_harness_model() -> String {
+    std::env::var("IOI_HYPERVISOR_MODEL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "qwen2.5-coder".to_string())
+}
+
+/// Build the resolved host-spawn argv for the `generic-cli-local` adapter:
+/// `node <shim> --provider ollama --model <model> --cd <workspace> --harness-label ...`.
+/// None when `node` or the shim is unavailable.
+fn resolve_host_harness_argv(model: &str, workspace_root: &str) -> Option<Vec<String>> {
+    let node = binary_on_path("node")?;
+    let shim = generic_cli_local_shim_path()?;
+    Some(vec![
+        node,
+        shim,
+        "--provider".to_string(),
+        "ollama".to_string(),
+        "--model".to_string(),
+        model.to_string(),
+        "--cd".to_string(),
+        workspace_root.to_string(),
+        "--harness-label".to_string(),
+        "Generic CLI Harness".to_string(),
+    ])
+}
+
+const HARNESS_RESULT_SENTINEL: &str = "__HYPERVISOR_HARNESS_RESULT__";
+const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 180;
+
+/// Outcome of one real host-spawn lane run (truthful — failure reflects reality).
+struct HostLaneOutcome {
+    ok: bool,
+    exit_code: Option<i32>,
+    timed_out: bool,
+    spawn_error: Option<String>,
+    error: Option<String>,
+    summary: String,
+    files_written: Vec<String>,
+    /// (stream, line) transcript in emission order.
+    transcript: Vec<(String, String)>,
+}
+
+/// Run one real Lane A execution: spawn the admitted host harness over its
+/// resolved argv in the provisioned workspace, deliver the user intent after the
+/// harness signals `ready`, stream its real stdout, and parse its final
+/// `__HYPERVISOR_HARNESS_RESULT__ {json}` line. The harness drives the model and
+/// edits the workspace; the daemon owns the spawn and reads the real output. No
+/// fabrication: the outcome (files, transcript, error) reflects what truly happened.
+async fn run_host_spawn_lane(
+    argv: &[String],
+    workspace_root: &str,
+    intent: &str,
+    model_endpoint: Option<&str>,
+) -> HostLaneOutcome {
+    use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _};
+
+    // Each stdin line is one task to the interactive harness; keep it single-line.
+    let intent_line = intent.replace(['\r', '\n'], " ");
+
+    // Minimal, secret-free child env: enough to run node + reach the local model.
+    let mut command = tokio::process::Command::new(&argv[0]);
+    command
+        .args(&argv[1..])
+        .current_dir(workspace_root)
+        .env_clear()
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    if let Some(path) = std::env::var_os("PATH") {
+        command.env("PATH", path);
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        command.env("HOME", home);
+    }
+    if let Some(endpoint) = model_endpoint {
+        command.env("IOI_HYPERVISOR_MODEL_UPSTREAM", endpoint);
+    }
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            return HostLaneOutcome {
+                ok: false,
+                exit_code: None,
+                timed_out: false,
+                spawn_error: Some(error.to_string()),
+                error: Some("harness_spawn_failed".to_string()),
+                summary: String::new(),
+                files_written: Vec::new(),
+                transcript: Vec::new(),
+            };
+        }
+    };
+
+    let mut stdin = child.stdin.take();
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    // Collect the harness's stderr concurrently.
+    let stderr_task = tokio::spawn(async move {
+        let mut collected: Vec<String> = Vec::new();
+        if let Some(stderr) = stderr {
+            let mut lines = tokio::io::BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                collected.push(line);
+            }
+        }
+        collected
+    });
+
+    let mut transcript: Vec<(String, String)> = Vec::new();
+    let mut result_json: Option<Value> = None;
+
+    let drive = async {
+        let Some(stdout) = stdout else { return };
+        let mut lines = tokio::io::BufReader::new(stdout).lines();
+        let mut intent_sent = false;
+        while let Ok(Some(line)) = lines.next_line().await {
+            transcript.push(("stdout".to_string(), line.clone()));
+            if let Some(rest) = line.strip_prefix(HARNESS_RESULT_SENTINEL) {
+                result_json = serde_json::from_str(rest.trim()).ok();
+                if let Some(stdin) = stdin.as_mut() {
+                    let _ = stdin.write_all(b"/exit\n").await;
+                    let _ = stdin.flush().await;
+                }
+            } else if line.contains("ready:") && !intent_sent {
+                intent_sent = true;
+                if let Some(stdin) = stdin.as_mut() {
+                    let _ = stdin.write_all(format!("{intent_line}\n").as_bytes()).await;
+                    let _ = stdin.flush().await;
+                }
+            }
+        }
+    };
+
+    let timed_out = tokio::time::timeout(
+        std::time::Duration::from_secs(HOST_SPAWN_LANE_TIMEOUT_SECS),
+        drive,
+    )
+    .await
+    .is_err();
+    // Dropping stdin closes the harness's input so it exits even without /exit.
+    drop(stdin);
+    if timed_out {
+        let _ = child.start_kill();
+    }
+    let exit_code = child.wait().await.ok().and_then(|status| status.code());
+    for line in stderr_task.await.unwrap_or_default() {
+        transcript.push(("stderr".to_string(), line));
+    }
+
+    let files_written = result_json
+        .as_ref()
+        .and_then(|value| value.get("files_written"))
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(|item| item.as_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    let summary = result_json
+        .as_ref()
+        .and_then(|value| value.get("summary"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let result_ok = result_json
+        .as_ref()
+        .and_then(|value| value.get("ok"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let result_error = result_json
+        .as_ref()
+        .and_then(|value| value.get("error"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let ok = result_ok && !timed_out;
+    let error = if ok {
+        None
+    } else if timed_out {
+        Some("harness_timed_out".to_string())
+    } else {
+        Some(result_error.unwrap_or_else(|| "harness_lane_incomplete".to_string()))
+    };
+
+    HostLaneOutcome {
+        ok,
+        exit_code,
+        timed_out,
+        spawn_error: None,
+        error,
+        summary,
+        files_written,
+        transcript,
+    }
 }
 
 /// Root for provisioned session workspaces: `{IOI_HYPERVISOR_SESSIONS_ROOT or tmp}/ioi-hypervisor-sessions`.
@@ -6112,9 +6332,9 @@ pub(crate) async fn handle_session_create(
 ///
 /// Emits REAL signals only: `environment_status` (re-projected from provisioning
 /// facts + a fresh probe), `workspace_change` (real `changed_file_groups`),
-/// `readiness` (the honest gate decision), `receipt_projection`. No
-/// `terminal_chunk` is emitted in Cut #1 — nothing has executed, so faking a
-/// transcript is forbidden. 404 if the session is unknown.
+/// `readiness` (the honest gate decision), `receipt_projection`, and
+/// `terminal_chunk` frames replaying the real harness transcript IFF a prior
+/// execution persisted one (never fabricated). 404 if the session is unknown.
 pub(crate) async fn handle_session_events(
     State(st): State<Arc<DaemonState>>,
     AxumPath(session_id): AxumPath<String>,
@@ -6147,7 +6367,7 @@ pub(crate) async fn handle_session_events(
     let workspace_diff = project_session_workspace_diff(workspace_root);
     let gate = execution_gate_decision(&session_id, &substrate);
 
-    let frames: Vec<(&str, Value)> = vec![
+    let mut frames: Vec<(&str, Value)> = vec![
         ("environment_status", environment_status),
         (
             "workspace_change",
@@ -6156,6 +6376,21 @@ pub(crate) async fn handle_session_events(
         ("readiness", gate),
         ("receipt_projection", json!({ "latest_receipt_refs": receipt_refs })),
     ];
+    // Real terminal transcript from a prior execution (Cut #2). Emitted ONLY when a
+    // real run persisted `terminal_events` — never fabricated. Bounded to the tail.
+    if let Some(events) = record.get("terminal_events").and_then(Value::as_array) {
+        let tail: Vec<&Value> = events.iter().rev().take(300).collect();
+        for event in tail.into_iter().rev() {
+            frames.push((
+                "terminal_chunk",
+                json!({
+                    "sequence": event.get("sequence").cloned().unwrap_or(Value::Null),
+                    "stream": event.get("stream").cloned().unwrap_or_else(|| json!("stdout")),
+                    "text": event.get("text").cloned().unwrap_or_else(|| json!("")),
+                }),
+            ));
+        }
+    }
     session_events_response(&frames)
 }
 
@@ -6180,7 +6415,7 @@ fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) ->
         (
             "ready",
             "execution_substrate_present",
-            "Model route and harness binary present; the Lane A execution loop lands in the equipped-box cut (Cut #2).",
+            "Model route and host harness present; POST /v1/hypervisor/sessions/:id/execute runs the real Lane A loop.",
         )
     };
     json!({
@@ -6196,38 +6431,64 @@ fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) ->
     })
 }
 
-/// POST /v1/hypervisor/sessions/:id/execute — Lane A execution trigger.
+/// Resolve the task intent for an execute request: `intent`, else the joined
+/// `messages[].content`. None when neither carries text.
+fn session_execute_intent(body: &Value) -> Option<String> {
+    if let Some(intent) = body.get("intent").and_then(Value::as_str) {
+        let trimmed = intent.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    if let Some(messages) = body.get("messages").and_then(Value::as_array) {
+        let joined = messages
+            .iter()
+            .filter_map(|message| message.get("content").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let trimmed = joined.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    None
+}
+
+/// POST /v1/hypervisor/sessions/:id/execute — Lane A execution.
 ///
-/// FAILS CLOSED in Cut #1: it probes the real substrate and returns an honest
-/// blocked decision (`no_model_route` / `harness_unavailable` /
-/// `container_unavailable`), emitting NO files, NO diffs, NO terminal transcript.
-/// When the substrate IS present it still returns `execution_engine_pending`
-/// rather than faking work — the real harness spawn → real files → real terminal
-/// transcript → preview port loop is the EQUIPPED-BOX (Cut #2) deliverable.
+/// FAILS CLOSED with an honest reason (`no_model_route` / `harness_unavailable` /
+/// `container_unavailable`) when the execution substrate is absent — no fabricated
+/// work. When a model route + a host harness are present this runs the REAL Lane A
+/// loop (Cut #2): it spawns the `generic-cli-local` harness in the provisioned
+/// workspace bound to the local model, delivers the intent, and reports the
+/// harness's real file writes, a real `changed_file_groups` diff (git/walk), the
+/// real terminal transcript, and Agentgres receipts. Failure paths stay honest:
+/// the diff and transcript reflect whatever truly happened; nothing is invented.
 pub(crate) async fn handle_session_execute(
     State(st): State<Arc<DaemonState>>,
     AxumPath(session_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    if load_session_record(&st, &session_id).is_none() {
+    let Some(record) = load_session_record(&st, &session_id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
         );
-    }
-    let lane = body.get("lane").and_then(Value::as_str).unwrap_or("host_pty");
+    };
+    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("").to_string();
+    let lane = body.get("lane").and_then(Value::as_str).unwrap_or("host_spawn").to_string();
     let substrate = ExecutionSubstrate::probe();
 
     // Honest fail-closed ordering: model → harness → (container, if requested).
     let blocked = if !substrate.model_route {
         Some((
             "no_model_route",
-            "No reachable model route. Start a local model or set IOI_HYPERVISOR_MODEL_UPSTREAM.",
+            "No reachable model route. Start a local model (e.g. `ollama serve` + a model) or set IOI_HYPERVISOR_MODEL_UPSTREAM.",
         ))
     } else if substrate.harness_binary.is_none() {
         Some((
             "harness_unavailable",
-            "No harness binary on PATH (codex / generic-cli-local).",
+            "No host harness available (the generic-cli-local node shim, or a PATH harness binary).",
         ))
     } else if lane == "container" && substrate.container_runtime.is_none() {
         Some((
@@ -6237,34 +6498,153 @@ pub(crate) async fn handle_session_execute(
     } else {
         None
     };
+    if let Some((reason, message)) = blocked {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                "session_ref": session_id,
+                "decision": "blocked",
+                "reason": reason,
+                "message": message,
+                "lane": lane,
+                "checks": substrate.readiness_checks(),
+                "model_route": substrate.model_route,
+                "harness_binary": substrate.harness_binary.clone(),
+                "container_runtime": substrate.container_runtime.clone(),
+                // No execution happened: these are honestly empty, never fabricated.
+                "changed_file_groups": [],
+                "terminal_events": [],
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        );
+    }
 
-    // EQUIPPED-BOX (Cut #2): when `blocked` is None the substrate is present.
-    // Implement the REAL Lane A loop HERE — spawn the harness in the provisioned
-    // workspace bound to the model, stream the PTY transcript as `terminal_chunk`
-    // events, collect real file writes, emit `workspace_change` diffs + a preview
-    // port + Agentgres receipts. Until then we MUST NOT fabricate any of that:
-    // return an honest `execution_engine_pending` decision (no fake work).
-    let (reason, message) = blocked.unwrap_or((
-        "execution_engine_pending",
-        "Substrate present; the real Lane A execution loop lands in the equipped-box cut (Cut #2). No work was fabricated.",
-    ));
+    let Some(intent) = session_execute_intent(&body) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": "session_execute_intent_required", "message": "Execute requires a task intent (`intent` or `messages`)." } })),
+        );
+    };
+    if workspace_root.is_empty() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": { "code": "session_workspace_absent", "message": "Session has no provisioned workspace to execute in." } })),
+        );
+    }
 
+    // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
+    // the intent. The harness drives the local model and edits the workspace.
+    let model = resolve_harness_model();
+    let Some(argv) = resolve_host_harness_argv(&model, &workspace_root) else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                "session_ref": session_id,
+                "decision": "blocked",
+                "reason": "harness_unavailable",
+                "message": "Host harness argv could not be resolved (node / shim missing).",
+                "changed_file_groups": [],
+                "terminal_events": [],
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        );
+    };
+    let model_endpoint = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM").ok().filter(|value| !value.is_empty());
+    let started_at = iso_now();
+    let outcome = run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
+    let finished_at = iso_now();
+
+    // Real workspace diff — whatever the harness actually wrote (git or walk).
+    let diff = project_session_workspace_diff(&workspace_root);
+    let changed_file_groups = diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([]));
+
+    // Real terminal transcript → terminal_events (the harness's actual output).
+    let terminal_events: Vec<Value> = outcome
+        .transcript
+        .iter()
+        .enumerate()
+        .map(|(index, (stream, text))| json!({ "sequence": index + 1, "stream": stream, "text": text }))
+        .collect();
+
+    // Real lane execution receipt.
+    let exit_status = if outcome.ok { "success" } else { "failure" };
+    let lane_receipt_ref = format!("receipt://hypervisor/session-execute/{}", safe_session_tag(&session_id));
+    let lane_receipt = json!({
+        "id": lane_receipt_ref,
+        "kind": "hypervisor.session.execute",
+        "session_ref": session_id,
+        "model": model,
+        "exit_status": exit_status,
+        "exit_code": outcome.exit_code,
+        "files_written": outcome.files_written,
+        "summary": outcome.summary,
+        "error": outcome.error,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &lane_receipt_ref, &lane_receipt);
+
+    let mut receipt_refs: Vec<Value> = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(lane_receipt_ref.as_str())) {
+        receipt_refs.push(json!(lane_receipt_ref));
+    }
+
+    // Persist the execution outcome onto the session record so the events SSE
+    // surfaces the real transcript + receipts.
+    let mut updated = record.clone();
+    if let Some(object) = updated.as_object_mut() {
+        object.insert("lifecycle_state".into(), json!(if outcome.ok { "executed" } else { "execution_failed" }));
+        object.insert("terminal_events".into(), json!(terminal_events));
+        object.insert(
+            "last_execution".into(),
+            json!({
+                "intent": intent,
+                "model": model,
+                "exit_status": exit_status,
+                "exit_code": outcome.exit_code,
+                "timed_out": outcome.timed_out,
+                "summary": outcome.summary,
+                "files_written": outcome.files_written,
+                "error": outcome.error,
+                "finished_at": finished_at,
+            }),
+        );
+        object.insert("latest_receipt_refs".into(), json!(receipt_refs));
+    }
+    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+
+    let status_code = if outcome.spawn_error.is_some() {
+        StatusCode::BAD_GATEWAY
+    } else {
+        StatusCode::OK
+    };
     (
-        StatusCode::SERVICE_UNAVAILABLE,
+        status_code,
         Json(json!({
             "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
             "session_ref": session_id,
-            "decision": "blocked",
-            "reason": reason,
-            "message": message,
-            "lane": lane,
-            "checks": substrate.readiness_checks(),
-            "model_route": substrate.model_route,
-            "harness_binary": substrate.harness_binary,
-            "container_runtime": substrate.container_runtime,
-            // No execution happened: these are honestly empty, never fabricated.
-            "changed_file_groups": [],
-            "terminal_events": [],
+            "decision": if outcome.ok { "executed" } else { "failed" },
+            "lane": "host_spawn_session",
+            "model": model,
+            "exit_status": exit_status,
+            "exit_code": outcome.exit_code,
+            "timed_out": outcome.timed_out,
+            "spawn_error": outcome.spawn_error,
+            "error": outcome.error,
+            "summary": outcome.summary,
+            "files_written": outcome.files_written,
+            "changed_file_groups": changed_file_groups,
+            "terminal_events": terminal_events,
+            "latest_receipt_refs": receipt_refs,
+            "started_at": started_at,
+            "finished_at": finished_at,
             "runtimeTruthSource": "daemon-runtime",
         })),
     )

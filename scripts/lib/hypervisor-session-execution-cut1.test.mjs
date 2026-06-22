@@ -30,6 +30,7 @@ let daemon;
 let stateDir;
 let sessionsRoot;
 let priorSessionsRoot;
+let priorUpstream;
 
 beforeEach(async () => {
   stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-cut1-state-"));
@@ -37,6 +38,11 @@ beforeEach(async () => {
   // Isolate provisioned workspaces under the test dir for deterministic cleanup.
   priorSessionsRoot = process.env.IOI_HYPERVISOR_SESSIONS_ROOT;
   process.env.IOI_HYPERVISOR_SESSIONS_ROOT = sessionsRoot;
+  // Force the model route UNREACHABLE so this offline gate is deterministic even
+  // when the ambient shell has a live model exported. (The harness shim itself
+  // may still resolve — the honest offline signal here is "no model route".)
+  priorUpstream = process.env.IOI_HYPERVISOR_MODEL_UPSTREAM;
+  process.env.IOI_HYPERVISOR_MODEL_UPSTREAM = "http://127.0.0.1:1/v1";
   daemon = await startRustHypervisorDaemon({ stateDir });
 });
 
@@ -44,6 +50,8 @@ afterEach(async () => {
   await daemon?.close();
   if (priorSessionsRoot === undefined) delete process.env.IOI_HYPERVISOR_SESSIONS_ROOT;
   else process.env.IOI_HYPERVISOR_SESSIONS_ROOT = priorSessionsRoot;
+  if (priorUpstream === undefined) delete process.env.IOI_HYPERVISOR_MODEL_UPSTREAM;
+  else process.env.IOI_HYPERVISOR_MODEL_UPSTREAM = priorUpstream;
   for (const dir of [stateDir, sessionsRoot]) {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -93,11 +101,12 @@ test("Cut #1: provisions a real workspace + projects honest degraded status", as
   assert.ok(workspaceRoot.startsWith(sessionsRoot), `workspace under sessions root: ${workspaceRoot}`);
   assert.ok(fs.existsSync(workspaceRoot) && fs.statSync(workspaceRoot).isDirectory(), "workspace dir exists");
 
-  // Honest degraded substrate — NOT a fake "running".
+  // Honest status with the model route forced unreachable — never a fake "running".
+  // (The harness may be available via the repo shim; the deterministic offline
+  // signal is a degraded model_mount, which drives the aggregate to "updating".)
   assert.equal(status.components.provisioner.phase, "ready");
   assert.equal(status.components.workspace_content.phase, "ready");
   assert.equal(status.components.model_mount.phase, "degraded");
-  assert.equal(status.components.harness.phase, "degraded");
   assert.equal(status.phase, "updating");
 
   assert.ok(body.receipt_ref?.startsWith("receipt://hypervisor/session-provision/"));

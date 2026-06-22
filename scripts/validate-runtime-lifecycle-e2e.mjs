@@ -74,6 +74,10 @@ async function main() {
   // Isolate Lane A provisioned session workspaces (step 3z) under a dedicated root.
   const sessionsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lifecycle-e2e-sessions-"));
   process.env.IOI_HYPERVISOR_SESSIONS_ROOT = sessionsRoot;
+  // Offline lifecycle gate: force the model route UNREACHABLE so step 3z is
+  // deterministic (`no_model_route`) even when the ambient shell exports a live
+  // model endpoint for the equipped Cut #2 gate.
+  process.env.IOI_HYPERVISOR_MODEL_UPSTREAM = "http://127.0.0.1:1/v1";
   const rust = await startRustHypervisorDaemon({ stateDir });
   try {
     // Step 0 (foundation): the lifecycle route family is served by the Rust daemon and
@@ -1506,9 +1510,10 @@ async function main() {
         workspaceRoot && fs.existsSync(workspaceRoot) && fs.statSync(workspaceRoot).isDirectory(),
         "a real workspace dir exists on disk",
       );
-      // Honest degraded substrate (no model route, no harness) — never a fake "running".
+      // Model route forced unreachable → honest degraded model_mount, aggregate
+      // "updating" — never a fake "running". (The harness may be available via the
+      // repo shim; the deterministic offline signal is the degraded model_mount.)
       assert.equal(status.components.model_mount.phase, "degraded");
-      assert.equal(status.components.harness.phase, "degraded");
       assert.equal(status.phase, "updating");
 
       // A real file in the scratch workspace shows up in the events diff (real signal).

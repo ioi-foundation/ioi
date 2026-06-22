@@ -146,7 +146,15 @@ function parseManifest(content) {
   const text = String(content).trim();
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const jsonText = fenced ? fenced[1] : sliceFirstJsonObject(text);
-  const parsed = JSON.parse(jsonText);
+  // Small local models routinely emit file `content` with RAW newlines/tabs
+  // inside the JSON string (which is invalid JSON). Try strict parse first,
+  // then a targeted repair that escapes only control chars inside strings.
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    parsed = JSON.parse(escapeControlCharsInStrings(jsonText));
+  }
   const files = Array.isArray(parsed.files) ? parsed.files : [];
   return {
     summary: typeof parsed.summary === "string" ? parsed.summary : "",
@@ -157,6 +165,48 @@ function parseManifest(content) {
         content: String(file.content ?? ""),
       })),
   };
+}
+
+// Escape raw control characters (newlines/tabs/etc.) that appear INSIDE JSON
+// string literals — the #1 way small local models produce not-quite-valid JSON
+// when emitting multi-line file content. Structure outside strings is untouched.
+function escapeControlCharsInStrings(text) {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const ch = text[index];
+    const code = text.charCodeAt(index);
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      out += ch;
+      inString = false;
+      continue;
+    }
+    if (code < 0x20) {
+      if (ch === "\n") out += "\\n";
+      else if (ch === "\r") out += "\\r";
+      else if (ch === "\t") out += "\\t";
+      else out += `\\u${code.toString(16).padStart(4, "0")}`;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 function sliceFirstJsonObject(text) {
