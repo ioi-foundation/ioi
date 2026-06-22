@@ -148,6 +148,39 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/v1/hypervisor/home-cockpit" ||
+          url.pathname === "/v1/hypervisor/session-operations" ||
+          url.pathname === "/v1/hypervisor/project-state" ||
+          url.pathname === "/v1/hypervisor/automation-compositor" ||
+          url.pathname === "/v1/hypervisor/agents" ||
+          url.pathname === "/v1/hypervisor/model-infrastructure" ||
+          url.pathname === "/v1/hypervisor/privacy-posture" ||
+          url.pathname === "/v1/hypervisor/provider-placement" ||
+          url.pathname === "/v1/hypervisor/receipt-evidence")
+      ) {
+        // These hypervisor read-projections are retired from the JS daemon. They never had a
+        // real producer: the contextPolicyCore.projectRuntimeLifecycle(hypervisor_*) path
+        // throws unconfigured in production, and the Hypervisor app renders TS fixtures (no
+        // live consumer fetches these GETs). A real Rust kernel projection for each is a
+        // future feature requiring app rewiring; until then they are not daemon-served.
+        // (The unreachable per-route blocks below are removed when the JS daemon is deleted.)
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "This Hypervisor read-projection is retired from the JS daemon; the Hypervisor app renders fixtures and no live consumer fetches it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/hypervisor/home-cockpit") {
         const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
           contextPolicyCore,
