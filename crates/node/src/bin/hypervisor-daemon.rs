@@ -544,6 +544,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/tools", get(lifecycle_routes::handle_tools))
         .route(
+            "/v1/hypervisor/core-taxonomy",
+            get(lifecycle_routes::handle_core_taxonomy),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

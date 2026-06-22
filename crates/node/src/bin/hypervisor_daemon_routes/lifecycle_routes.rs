@@ -4206,6 +4206,19 @@ pub(crate) async fn handle_tools(
     Ok(Json(Value::Array(record.tools.clone())))
 }
 
+/// GET /v1/hypervisor/core-taxonomy — the canonical Hypervisor Core taxonomy (static
+/// doctrine: clients/surfaces/adapters/truth-boundaries). The structure is embedded
+/// verbatim from the retired JS `buildHypervisorCoreTaxonomy`; only `generated_at` is
+/// stamped at request time.
+pub(crate) async fn handle_core_taxonomy() -> Result<Json<Value>, AppError> {
+    let mut taxonomy: Value = serde_json::from_str(include_str!("hypervisor_core_taxonomy.json"))
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(object) = taxonomy.as_object_mut() {
+        object.insert("generated_at".to_string(), json!(iso_now()));
+    }
+    Ok(Json(taxonomy))
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

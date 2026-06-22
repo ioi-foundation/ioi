@@ -597,6 +597,24 @@ async function main() {
       assert.ok(policyFiles.length >= 1, "memory policy persisted to <state_dir>/memory-policies");
     });
 
+    // Step 3k: the Hypervisor Core taxonomy (Rust-owned static doctrine; only generated_at
+    // is stamped per request).
+    await runStep("GET /v1/hypervisor/core-taxonomy serves the canonical Core taxonomy", async () => {
+      const taxonomy = await fetchJson(`${rust.endpoint}/v1/hypervisor/core-taxonomy`);
+      assert.equal(taxonomy.status, 200);
+      assert.equal(taxonomy.body.schema_version, "ioi.runtime.hypervisor_core_taxonomy.v1");
+      assert.equal(taxonomy.body.core.execution_owner, "hypervisor-daemon");
+      assert.ok(typeof taxonomy.body.generated_at === "string", "taxonomy carries a stamped generated_at");
+      assert.deepEqual(
+        taxonomy.body.first_class_clients.map((client) => client.kind),
+        ["app", "web", "cli_headless"],
+      );
+      assert.ok(
+        taxonomy.body.adapter_target_families.some((family) => family.id === "code_editor"),
+        "taxonomy lists the code_editor adapter family",
+      );
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

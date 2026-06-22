@@ -365,52 +365,20 @@ test("public runtime routes dispatch Hypervisor project state through lifecycle 
   ]);
 });
 
-test("public runtime routes expose Hypervisor Core taxonomy", async () => {
+test("public runtime Hypervisor Core taxonomy route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
 
   await handleRequest({
     request: request({ url: "/v1/hypervisor/core-taxonomy" }),
     response,
-    store: {
-      defaultCwd: "/workspace",
-      homeDir: "/home/operator",
-      schemaVersion: "ioi.agentgres.runtime.v0",
-      stateDir: "/state",
-      projectRuntimeLifecycleProjection: retiredRouteWrapper,
-    },
+    store: { projectRuntimeLifecycleProjection: retiredRouteWrapper },
   });
 
-  assert.equal(response.statusCode, 200);
-  const taxonomy = JSON.parse(response.body);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    taxonomy.schema_version,
-    "ioi.runtime.hypervisor_core_taxonomy.v1",
-  );
-  assert.equal(taxonomy.core.execution_owner, "hypervisor-daemon");
-  assert.deepEqual(
-    taxonomy.first_class_clients.map((client) => client.kind),
-    ["app", "web", "cli_headless"],
-  );
-  assert.ok(
-    taxonomy.application_surfaces.some((surface) => surface.id === "workbench"),
-  );
-  assert.ok(
-    taxonomy.adapter_target_families.some(
-      (family) => family.id === "code_editor",
-    ),
-  );
-  assert.deepEqual(taxonomy.retired_surface_aliases, [
-    {
-      alias: "fleet",
-      replacement: "sessions/providers/environments",
-      reason:
-        "Fleet posture is folded into Hypervisor session, provider, and environment management instead of a separate app surface.",
-    },
-  ]);
-  assert.equal(
-    taxonomy.agent_harness_adapters[0].authority,
-    "proposal_source_only",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
 });
 
