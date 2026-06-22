@@ -522,6 +522,26 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/v1/skills", get(lifecycle_routes::handle_skills))
         .route("/v1/hooks", get(lifecycle_routes::handle_hooks))
+        .route("/v1/repositories", get(lifecycle_routes::handle_repositories))
+        .route(
+            "/v1/repository-context",
+            get(lifecycle_routes::handle_repository_context),
+        )
+        .route("/v1/branch-policy", get(lifecycle_routes::handle_branch_policy))
+        .route(
+            "/v1/github-context",
+            get(lifecycle_routes::handle_github_context),
+        )
+        .route("/v1/pr-attempts", get(lifecycle_routes::handle_pr_attempts))
+        .route(
+            "/v1/issue-context",
+            get(lifecycle_routes::handle_issue_context),
+        )
+        .route("/v1/review-gate", get(lifecycle_routes::handle_review_gate))
+        .route(
+            "/v1/github/pr-create-plan",
+            get(lifecycle_routes::handle_github_pr_create_plan),
+        )
         .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),

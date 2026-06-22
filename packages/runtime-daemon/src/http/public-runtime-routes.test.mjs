@@ -3790,45 +3790,9 @@ test("public runtime computer-use routes dispatch through Rust daemon-core proje
   ]);
 });
 
-test("public runtime repository workflow routes use mounted repository API", async () => {
+test("public runtime repository workflow routes are retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
-  const calls = [];
   const repositoryApi = {
-    listRepositories(apiStore) {
-      calls.push({ method: "listRepositories", apiStore });
-      return { repositories: [] };
-    },
-    repositoryContext(apiStore) {
-      calls.push({ method: "repositoryContext", apiStore });
-      return { context_id: "repo_context" };
-    },
-    branchPolicy(apiStore) {
-      calls.push({ method: "branchPolicy", apiStore });
-      return { policy_id: "branch_policy" };
-    },
-    githubContext(apiStore) {
-      calls.push({ method: "githubContext", apiStore });
-      return { context_id: "github_context" };
-    },
-    prAttempts(apiStore) {
-      calls.push({ method: "prAttempts", apiStore });
-      return { attempts: [] };
-    },
-    issueContext(apiStore) {
-      calls.push({ method: "issueContext", apiStore });
-      return { issue_id: "issue_context" };
-    },
-    reviewGate(apiStore) {
-      calls.push({ method: "reviewGate", apiStore });
-      return { gate_id: "review_gate" };
-    },
-    githubPrCreatePlan(apiStore) {
-      calls.push({ method: "githubPrCreatePlan", apiStore });
-      return { plan_id: "pr_plan" };
-    },
-  };
-  const store = {
-    repositoryApi,
     listRepositories: retiredRouteWrapper,
     repositoryContext: retiredRouteWrapper,
     branchPolicy: retiredRouteWrapper,
@@ -3838,25 +3802,26 @@ test("public runtime repository workflow routes use mounted repository API", asy
     reviewGate: retiredRouteWrapper,
     githubPrCreatePlan: retiredRouteWrapper,
   };
-  const routes = [
-    ["/v1/repositories", "listRepositories"],
-    ["/v1/repository-context", "repositoryContext"],
-    ["/v1/branch-policy", "branchPolicy"],
-    ["/v1/github-context", "githubContext"],
-    ["/v1/pr-attempts", "prAttempts"],
-    ["/v1/issue-context", "issueContext"],
-    ["/v1/review-gate", "reviewGate"],
-    ["/v1/github/pr-create-plan", "githubPrCreatePlan"],
-  ];
+  const store = { repositoryApi };
 
-  for (const [url] of routes) {
+  for (const url of [
+    "/v1/repositories",
+    "/v1/repository-context",
+    "/v1/branch-policy",
+    "/v1/github-context",
+    "/v1/pr-attempts",
+    "/v1/issue-context",
+    "/v1/review-gate",
+    "/v1/github/pr-create-plan",
+  ]) {
     const response = responseRecorder();
     await handleRequest({ request: request({ url }), response, store });
-    assert.equal(response.statusCode, 200);
+    assert.equal(response.statusCode, 410, `${url} should be retired`);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
+    );
   }
-
-  assert.deepEqual(calls.map((call) => call.method), routes.map(([, method]) => method));
-  assert.equal(calls.every((call) => call.apiStore === store), true);
 });
 
 test("public runtime skill and hook routes are retired (served by the Rust daemon)", async () => {

@@ -1022,32 +1022,34 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/repository-context") {
-        writeJsonResponse(response, store.repositoryApi.repositoryContext(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/branch-policy") {
-        writeJsonResponse(response, store.repositoryApi.branchPolicy(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/github-context") {
-        writeJsonResponse(response, store.repositoryApi.githubContext(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/pr-attempts") {
-        writeJsonResponse(response, store.repositoryApi.prAttempts(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/issue-context") {
-        writeJsonResponse(response, store.repositoryApi.issueContext(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/review-gate") {
-        writeJsonResponse(response, store.repositoryApi.reviewGate(store));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/github/pr-create-plan") {
-        writeJsonResponse(response, store.repositoryApi.githubPrCreatePlan(store));
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/v1/repositories" ||
+          url.pathname === "/v1/repository-context" ||
+          url.pathname === "/v1/branch-policy" ||
+          url.pathname === "/v1/github-context" ||
+          url.pathname === "/v1/pr-attempts" ||
+          url.pathname === "/v1/issue-context" ||
+          url.pathname === "/v1/review-gate" ||
+          url.pathname === "/v1/github/pr-create-plan")
+      ) {
+        // The repository-workflow projections (real-git repository context, branch policy,
+        // GitHub context, PR attempts, issue context, review gate, PR-create plan, and the
+        // repository list) are served by the Rust hypervisor-daemon (kernel
+        // repository_workflow projection over `git -C <workspace_root>`).
+        writeJsonResponse(
+          response,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The repository-workflow projection is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
+        );
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -1783,10 +1785,8 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.getReceipt(decodeURIComponent(segments[3])));
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/repositories") {
-        writeJsonResponse(response, store.repositoryApi.listRepositories(store));
-        return;
-      }
+      // GET /v1/repositories is retired above with the rest of the repository-workflow
+      // family (served by the Rust hypervisor-daemon).
       if (
         request.method === "GET" &&
         (url.pathname === "/v1/account" || url.pathname === "/v1/runtime/nodes")

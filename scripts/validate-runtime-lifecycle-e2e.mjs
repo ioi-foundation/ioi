@@ -59,6 +59,17 @@ async function main() {
     path.join(skillHookWorkspace, ".claude/hooks.json"),
     JSON.stringify({ hooks: { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: "echo ratchet" }] }] } }),
   );
+  // Make the workspace a real git repo with a GitHub remote so the repository-workflow
+  // projections (Rust-owned, `git -C <workspace_root>`) have real facts to project.
+  const wsGit = (...gitArgs) =>
+    execFileSync("git", ["-C", skillHookWorkspace, ...gitArgs], { stdio: "pipe" });
+  wsGit("init", "-q");
+  wsGit("config", "user.email", "ratchet@ioi.test");
+  wsGit("config", "user.name", "ratchet");
+  wsGit("remote", "add", "origin", "https://github.com/ioi-foundation/ratchet-fixture.git");
+  fs.writeFileSync(path.join(skillHookWorkspace, "README.md"), "# ratchet fixture\n");
+  wsGit("add", ".");
+  wsGit("commit", "-q", "-m", "seed");
   process.env.IOI_HYPERVISOR_WORKSPACE_ROOT = skillHookWorkspace;
   const rust = await startRustHypervisorDaemon({ stateDir });
   try {
@@ -456,6 +467,40 @@ async function main() {
       assert.ok(typeof hooks.body.hookCount === "number", "hooks projection carries hookCount");
       assert.ok(Array.isArray(hooks.body.hooks), "hooks projection lists hooks");
       assert.ok(hooks.body.hookCount >= 1, "the seeded workspace hook is discovered");
+    });
+
+    // Step 3h: the repository-workflow projections (Rust-owned via the kernel
+    // repository_workflow projection running real `git -C <workspace_root>` over the
+    // seeded git repo; GitHub context is derived from remotes + token env, no network IO).
+    await runStep("GET /v1/repository-context + the repository-workflow family project real git", async () => {
+      const context = await fetchJson(`${rust.endpoint}/v1/repository-context`);
+      assert.equal(context.status, 200);
+      assert.equal(context.body.object, "ioi.repository_context", "repository-context object shape");
+      assert.equal(context.body.isGitRepository, true, "the seeded workspace is a git repo");
+      assert.ok(context.body.headSha, "repository-context carries the real HEAD sha");
+
+      const github = await fetchJson(`${rust.endpoint}/v1/github-context`);
+      assert.equal(github.status, 200);
+      assert.equal(github.body.object, "ioi.github_context");
+      assert.equal(github.body.repoFullName, "ioi-foundation/ratchet-fixture", "owner/repo parsed from the git remote");
+
+      const branchPolicy = await fetchJson(`${rust.endpoint}/v1/branch-policy`);
+      assert.equal(branchPolicy.status, 200);
+      assert.equal(branchPolicy.body.object, "ioi.branch_policy_decision");
+
+      // pr-attempts + repositories project as arrays (unwrapped, matching the JS facade).
+      const prAttempts = await fetchJson(`${rust.endpoint}/v1/pr-attempts`);
+      assert.equal(prAttempts.status, 200);
+      assert.ok(Array.isArray(prAttempts.body), "pr-attempts projects an array");
+      const repositories = await fetchJson(`${rust.endpoint}/v1/repositories`);
+      assert.equal(repositories.status, 200);
+      assert.ok(Array.isArray(repositories.body), "repositories projects an array");
+
+      // review-gate + issue-context + github/pr-create-plan project their decision objects.
+      const reviewGate = await fetchJson(`${rust.endpoint}/v1/review-gate`);
+      assert.equal(reviewGate.body.object, "ioi.review_gate_decision");
+      const prPlan = await fetchJson(`${rust.endpoint}/v1/github/pr-create-plan`);
+      assert.equal(prPlan.body.object, "ioi.github_pr_create_plan");
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

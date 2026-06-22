@@ -61,6 +61,7 @@ use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_contro
     RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
+use ioi_services::agentic::runtime::kernel::repository_workflow::RepositoryWorkflowProjectionRequest;
 use ioi_services::agentic::runtime::kernel::skill_hook_registry::SkillHookRegistryProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -3647,6 +3648,127 @@ pub(crate) async fn handle_hooks(
     State(st): State<Arc<DaemonState>>,
 ) -> Result<Json<Value>, AppError> {
     Ok(Json(skill_hook_registry_projection(&st, "hooks")?))
+}
+
+/// Project a repository-workflow view over real git in the daemon's workspace_root. The
+/// kernel shells `git -C <workspace_root>` and derives GitHub context purely from remote
+/// URLs + GITHUB_TOKEN/GH_TOKEN env presence — no network IO (every projection is a
+/// dry-run preview). Returns the UNWRAPPED projection (array for repository_list/pr_attempts,
+/// object otherwise) exactly as the retired JS facade did.
+fn repository_workflow_projection(
+    st: &Arc<DaemonState>,
+    operation: &str,
+    operation_kind: &str,
+    projection_kind: &str,
+) -> Result<Value, AppError> {
+    let request: RepositoryWorkflowProjectionRequest = serde_json::from_value(json!({
+        "operation": operation,
+        "operation_kind": operation_kind,
+        "projection_kind": projection_kind,
+        "workspace_root": st.workspace_root,
+        "source": "hypervisor_daemon.repository_workflow",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_repository_workflow(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(record.projection.clone())
+}
+
+/// GET /v1/repositories — list the workspace repositories.
+pub(crate) async fn handle_repositories(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_repository_list",
+        "repository_workflow.projection.repository_list",
+        "repository_list",
+    )?))
+}
+
+/// GET /v1/repository-context — project the workspace git repository context.
+pub(crate) async fn handle_repository_context(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_repository_context",
+        "repository_workflow.projection.repository_context",
+        "repository_context",
+    )?))
+}
+
+/// GET /v1/branch-policy — project the branch-policy decision.
+pub(crate) async fn handle_branch_policy(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_branch_policy",
+        "repository_workflow.projection.branch_policy",
+        "branch_policy",
+    )?))
+}
+
+/// GET /v1/github-context — project the GitHub context (from git remotes + token env).
+pub(crate) async fn handle_github_context(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_github_context",
+        "repository_workflow.projection.github_context",
+        "github_context",
+    )?))
+}
+
+/// GET /v1/pr-attempts — project the PR-attempt previews (array).
+pub(crate) async fn handle_pr_attempts(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_pr_attempts",
+        "repository_workflow.projection.pr_attempts",
+        "pr_attempts",
+    )?))
+}
+
+/// GET /v1/issue-context — project the issue context.
+pub(crate) async fn handle_issue_context(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_issue_context",
+        "repository_workflow.projection.issue_context",
+        "issue_context",
+    )?))
+}
+
+/// GET /v1/review-gate — project the review-gate decision.
+pub(crate) async fn handle_review_gate(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_review_gate",
+        "repository_workflow.projection.review_gate",
+        "review_gate",
+    )?))
+}
+
+/// GET /v1/github/pr-create-plan — project the GitHub PR-create plan (dry-run preview).
+pub(crate) async fn handle_github_pr_create_plan(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    Ok(Json(repository_workflow_projection(
+        &st,
+        "repository_workflow_github_pr_create_plan",
+        "repository_workflow.projection.github_pr_create_plan",
+        "github_pr_create_plan",
+    )?))
 }
 
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
