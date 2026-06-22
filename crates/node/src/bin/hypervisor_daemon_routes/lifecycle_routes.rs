@@ -4438,6 +4438,29 @@ pub(crate) async fn handle_service_composition_receipt_bundle_admission(
     }
 }
 
+/// POST /v1/hypervisor/artifact-availability-incidents — admit an artifact-availability incident
+/// (pure kernel planner: artifact/payload/backend + Agentgres/incident/affected-object refs,
+/// kind-specific hash/CID evidence, lifecycle-state material, no silent payload mutation; returns
+/// the incident + a derived agentgres_operation). 202 + record, or {error:{code,message,details}}
+/// with status (400 field-shape / 403 incident-policy).
+pub(crate) async fn handle_artifact_availability_incident_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_artifact_availability_incident(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

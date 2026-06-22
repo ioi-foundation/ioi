@@ -44,6 +44,7 @@ pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
 pub mod runtime_harness_session_binding_admission;
+pub mod runtime_artifact_availability_incident_admission;
 pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
@@ -789,6 +790,22 @@ impl RuntimeKernelService {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionError,
     > {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize an artifact-availability-incident governance admission (pure:
+    /// asserts the artifact/payload/backend + Agentgres/incident/affected-object refs are bound,
+    /// kind-specific hash/CID evidence is present, lifecycle-state material is bound, and payload
+    /// bytes are never silently mutated; returns the incident + a derived agentgres_operation).
+    pub fn admit_artifact_availability_incident(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_artifact_availability_incident_admission::RuntimeArtifactAvailabilityIncidentAdmissionError,
+    > {
+        runtime_artifact_availability_incident_admission::RuntimeArtifactAvailabilityIncidentAdmissionCore
             .admit(request, now_iso)
     }
 

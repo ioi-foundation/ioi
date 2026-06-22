@@ -4,7 +4,6 @@ import {
   createAgent as createLifecycleAgent,
   createThread as createLifecycleThread,
 } from "../runtime-agent-run-lifecycle.mjs";
-import { admitArtifactAvailabilityIncident } from "../runtime-artifact-availability-incident.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
 import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
@@ -1052,16 +1051,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/artifact-availability-incidents"
       ) {
-        const body = await readBody(request);
+        // The artifact-availability-incident governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_artifact_availability_incident planner).
         writeJsonResponse(
           response,
-          admitArtifactAvailabilityIncident({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/artifact-availability-incidents",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The artifact-availability-incident admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

@@ -1248,6 +1248,55 @@ async function main() {
       assert.equal(badRoot.body.error.code, "service_composition_state_root_invalid");
     });
 
+    // Step 3v: the artifact-availability-incident governance admission (Rust-owned via the kernel
+    // admit_artifact_availability_incident planner — artifact/payload/backend + Agentgres/incident/
+    // affected-object refs + kind-specific evidence + lifecycle material + no silent payload
+    // mutation; returns the incident + a derived agentgres_operation).
+    await runStep("POST /v1/hypervisor/artifact-availability-incidents gates the incident", async () => {
+      const base = (overrides = {}) => ({
+        artifact_ref: "artifact://a/1",
+        payload_ref: "payload://a/1",
+        backend_ref: "storage://ipfs/a",
+        incident_kind: "missing",
+        lifecycle_state: "opened",
+        agentgres_operation_refs: ["agentgres://operation/a"],
+        incident_receipt_refs: ["receipt://incident/a"],
+        affected_object_refs: ["object://a"],
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/artifact-availability-incidents`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid incident is admitted with 202");
+      assert.equal(ok.body.incident_id, "artifact-availability-incident:artifact_a_1:missing");
+      // The admitted record carries the derived Agentgres operation envelope.
+      assert.equal(
+        ok.body.agentgres_operation.schema_version,
+        "ioi.agentgres.artifact_availability_incident_operation.v1",
+      );
+      assert.equal(ok.body.agentgres_operation.operation_ref, "agentgres://operation/a");
+      assert.equal(ok.body.agentgres_operation.restore_validity, "no_restore_import");
+
+      // 403: payload bytes cannot be silently mutated without a repair receipt.
+      const mutated = await admit(base({ payload_bytes_mutated: true }));
+      assert.equal(mutated.status, 403);
+      assert.equal(mutated.body.error.code, "artifact_availability_silent_payload_mutation_blocked");
+
+      // 403: invalid-hash incidents require hash evidence.
+      const noHash = await admit(base({ incident_kind: "invalid_hash" }));
+      assert.equal(noHash.status, 403);
+      assert.equal(noHash.body.error.code, "artifact_availability_hash_evidence_required");
+
+      // 400: a non-prefixed artifact ref (field-shape).
+      const badRef = await admit(base({ artifact_ref: "nope://x" }));
+      assert.equal(badRef.status, 400);
+      assert.equal(badRef.body.error.code, "artifact_availability_artifact_ref_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

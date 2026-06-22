@@ -588,6 +588,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_service_composition_receipt_bundle_admission),
         )
         .route(
+            "/v1/hypervisor/artifact-availability-incidents",
+            post(lifecycle_routes::handle_artifact_availability_incident_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )
