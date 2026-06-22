@@ -40,7 +40,7 @@
     "hypervisor-conformance:candidates": "node scripts/conformance/hypervisor-conformance.mjs candidates",
     "test:cursor-sdk-reference": "node --test scripts/lib/cursor-sdk-reference-contract.test.mjs",
     "test:daemon-runtime-api": "node --test scripts/lib/live-runtime-daemon-contract.test.mjs scripts/lib/architectural-improvements-broad-contract.test.mjs scripts/lib/model-mounting-daemon-contract.test.mjs scripts/lib/model-mounting-ui-contract.test.mjs",
-    "test:rust-daemon-runtime-api": "node --test scripts/lib/rust-daemon-lifecycle-contract.test.mjs scripts/lib/rust-daemon-doctor-authority-contract.test.mjs scripts/lib/rust-daemon-coding-tools-contract.test.mjs scripts/lib/rust-daemon-workflow-edit-contract.test.mjs scripts/lib/rust-daemon-mcp-control-contract.test.mjs scripts/lib/rust-daemon-computer-use-contract.test.mjs scripts/lib/rust-daemon-computer-use-native-browser-contract.test.mjs",
+    "test:rust-daemon-runtime-api": "node --test scripts/lib/rust-daemon-lifecycle-contract.test.mjs scripts/lib/rust-daemon-doctor-authority-contract.test.mjs scripts/lib/rust-daemon-coding-tools-contract.test.mjs scripts/lib/rust-daemon-workflow-edit-contract.test.mjs scripts/lib/rust-daemon-mcp-control-contract.test.mjs scripts/lib/rust-daemon-computer-use-contract.test.mjs scripts/lib/rust-daemon-computer-use-native-browser-contract.test.mjs scripts/lib/rust-daemon-computer-use-visual-gui-contract.test.mjs",
     "test:sdk-live-daemon": "npm test --workspace=@ioi/agent-sdk",
     "test:runtime-events": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
     "test:mcp-skills-hooks": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",

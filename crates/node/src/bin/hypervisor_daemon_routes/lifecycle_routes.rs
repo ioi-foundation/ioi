@@ -1470,6 +1470,46 @@ fn handle_computer_use_projection_tool(
     })))
 }
 
+/// Normalize a caller-supplied visual target (agent-ide camelCase or canonical snake_case) to
+/// the canonical snake_case target-index shape the agent-sdk contract reads (target_ref, role,
+/// label, som_id, confidence, available_actions, bounds.coordinate_space_id).
+fn normalize_visual_target(target: &Value) -> Value {
+    let mut normalized = serde_json::Map::new();
+    if let Some(target_ref) = coalesce_str(target, &["target_ref", "targetRef"]) {
+        normalized.insert("target_ref".to_string(), json!(target_ref));
+    }
+    for (canonical, keys) in [
+        ("label", &["label"][..]),
+        ("role", &["role"][..]),
+    ] {
+        if let Some(value) = coalesce_str(target, keys) {
+            normalized.insert(canonical.to_string(), json!(value));
+        }
+    }
+    if let Some(som_id) = target.get("som_id").or_else(|| target.get("somId")) {
+        normalized.insert("som_id".to_string(), som_id.clone());
+    }
+    if let Some(confidence) = target.get("confidence") {
+        normalized.insert("confidence".to_string(), confidence.clone());
+    }
+    if let Some(actions) = target
+        .get("available_actions")
+        .or_else(|| target.get("availableActions"))
+    {
+        normalized.insert("available_actions".to_string(), actions.clone());
+    }
+    if let Some(bounds) = target.get("bounds") {
+        let mut bounds_out = bounds.clone();
+        if let Some(map) = bounds_out.as_object_mut() {
+            if let Some(space) = map.remove("coordinateSpaceId") {
+                map.entry("coordinate_space_id").or_insert(space);
+            }
+        }
+        normalized.insert("bounds".to_string(), bounds_out);
+    }
+    Value::Object(normalized)
+}
+
 /// Drive a DETERMINISTIC, read-only computer-use behavioral loop (native_browser / visual_gui)
 /// through the Rust daemon, emitting the 11-event agent-sdk computer-use sequence onto the
 /// thread stream and shaping the agent-sdk thread-tool result. There is NO single kernel loop
@@ -1487,6 +1527,7 @@ fn handle_computer_use_loop_tool(
     thread_id: &str,
     tool_name: &str,
     lane: &str,
+    observe: bool,
     body: &Value,
 ) -> Result<Json<Value>, AppError> {
     let input = body.get("input").cloned().unwrap_or_else(|| json!({}));
@@ -1496,15 +1537,23 @@ fn handle_computer_use_loop_tool(
         coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
     let workflow_node_id =
         coalesce_str(body, &["workflow_node_id", "workflowNodeId"]).map(str::to_string);
+    let tool_call_id = coalesce_str(body, &["tool_call_id", "toolCallId"])
+        .unwrap_or("observe")
+        .to_string();
 
     // Normalize the tool input (snake/camel) and force the lane the tool name dispatched.
     let prompt = coalesce_str(&input, &["prompt", "goal", "objective"])
         .unwrap_or("Inspect the requested surface without external side effects.")
         .to_string();
     let url = coalesce_str(&input, &["url"]).map(str::to_string);
-    let action_kind = coalesce_str(&input, &["action_kind", "actionKind"])
-        .unwrap_or("inspect")
-        .to_string();
+    // The observe broker is strictly read-only (capture + index for later visual runs).
+    let action_kind = if observe {
+        "inspect".to_string()
+    } else {
+        coalesce_str(&input, &["action_kind", "actionKind"])
+            .unwrap_or("inspect")
+            .to_string()
+    };
     let retention_mode = coalesce_str(
         &input,
         &["observation_retention_mode", "observationRetentionMode"],
@@ -1518,6 +1567,35 @@ fn handle_computer_use_loop_tool(
         }
     });
     let session_mode = coalesce_str(&input, &["session_mode", "sessionMode"]).map(str::to_string);
+
+    // visual_gui-lane projection inputs (observation refs + indexed visual targets). Deterministic:
+    // the daemon echoes governed observation refs and indexes the caller-supplied visual targets;
+    // real-display capture + path→artifact retention ride the artifact data-plane (separate cut).
+    let mut screenshot_ref =
+        coalesce_str(&input, &["screenshot_ref", "screenshotRef"]).map(str::to_string);
+    let som_ref = coalesce_str(&input, &["som_ref", "somRef"]).map(str::to_string);
+    let mut ax_ref = coalesce_str(&input, &["ax_ref", "axRef"]).map(str::to_string);
+    let app_name =
+        coalesce_str(&input, &["app_name", "appName", "capture_app_name", "captureAppName"])
+            .map(str::to_string);
+    let window_title = coalesce_str(
+        &input,
+        &["window_title", "windowTitle", "capture_window_title", "captureWindowTitle"],
+    )
+    .map(str::to_string);
+    let mut coordinate_space_id =
+        coalesce_str(&input, &["coordinate_space_id", "coordinateSpaceId"]).map(str::to_string);
+    let mut visual_targets = input
+        .get("visualTargets")
+        .or_else(|| input.get("visual_targets"))
+        .and_then(Value::as_array)
+        .cloned();
+    let capture_provider =
+        coalesce_str(&input, &["capture_provider", "captureProvider"]).map(str::to_string);
+    let capture_fixture_present = input
+        .get("captureFixturePngBase64")
+        .or_else(|| input.get("capture_fixture_png_base64"))
+        .is_some();
 
     let mut lease_input = json!({
         "lane": lane,
@@ -1561,6 +1639,51 @@ fn handle_computer_use_loop_tool(
 
     let now = iso_now();
     let run_hash = short_hash(&format!("{thread_id}:{tool_name}:{now}"));
+
+    // The observe broker brokers a read-only capture for later visual runs. With no real-display
+    // capture, it surfaces governed observation artifact refs (deterministic) and indexes either
+    // the caller-supplied visual targets or a single capture-bounds target. The base64-fixture →
+    // artifact bytes (served via artifact.read) ride the artifact data-plane (separate cut); here
+    // we project the broker contract and the governed refs.
+    let observation_broker = if observe {
+        let governed_screenshot = format!("artifact_computer_use_visual_screenshot_{run_hash}");
+        let governed_ax = format!("artifact_computer_use_visual_ax_{run_hash}");
+        screenshot_ref = Some(governed_screenshot.clone());
+        ax_ref = Some(governed_ax.clone());
+        let capture_space = format!("screen_{tool_call_id}_local_capture");
+        if coordinate_space_id.is_none() {
+            coordinate_space_id = Some(capture_space.clone());
+        }
+        if visual_targets.is_none() {
+            visual_targets = Some(vec![json!({
+                "target_ref": format!("target_capture_{run_hash}"),
+                "label": window_title.clone().unwrap_or_else(|| "Captured surface".to_string()),
+                "role": "window",
+                "available_actions": ["inspect"],
+                "bounds": {
+                    "coordinate_space_id": coordinate_space_id.clone().unwrap_or(capture_space),
+                    "x": 0,
+                    "y": 0,
+                    "width": 1,
+                    "height": 1,
+                },
+            })]);
+        }
+        Some(json!({
+            "object": "ioi.computer_use.visual_gui_observation_broker",
+            "capture_receipt": {
+                "status": "captured",
+                "provider_id": capture_provider.clone().unwrap_or_else(|| "fixture".to_string()),
+                "source_path_included": false,
+                "screenshot_ref": governed_screenshot,
+                "ax_ref": governed_ax,
+                "fixture": capture_fixture_present,
+            },
+        }))
+    } else {
+        None
+    };
+
     let read_only = matches!(action_kind.as_str(), "inspect" | "hover" | "wait" | "scroll");
     let (policy_outcome, fail_closed, gate_status, receipt_status) = if read_only {
         (
@@ -1582,10 +1705,19 @@ fn handle_computer_use_loop_tool(
     } else {
         ("native_browser_cdp", "ioi.native_browser.cdp_probe")
     };
-    let target_ref = format!(
-        "target_computer_use_{lane}_{}",
-        short_hash(&format!("{request_ref}:{}", url.as_deref().unwrap_or(&prompt)))
-    );
+    // The action grounds onto the first indexed visual target when supplied; otherwise a
+    // synthesized primary document target derived from the lease + surface.
+    let first_visual_target_ref = visual_targets
+        .as_ref()
+        .and_then(|targets| targets.first())
+        .and_then(|target| coalesce_str(target, &["target_ref", "targetRef"]))
+        .map(str::to_string);
+    let target_ref = first_visual_target_ref.clone().unwrap_or_else(|| {
+        format!(
+            "target_computer_use_{lane}_{}",
+            short_hash(&format!("{request_ref}:{}", url.as_deref().unwrap_or(&prompt)))
+        )
+    });
     let policy_decision_ref = format!("policy_decision_computer_use_{run_hash}");
     let proposal_ref = format!("proposal_computer_use_{run_hash}");
 
@@ -1615,22 +1747,45 @@ fn handle_computer_use_loop_tool(
         "current_subgoal": "Observe the requested surface, index targets, and propose a grounded next action.",
         "status": "completed",
     });
-    let observation = json!({
+    let mut observation = json!({
         "observation_ref": format!("observation_computer_use_{run_hash}"),
         "retention_mode": retention_mode,
         "surface_url": url,
         "summary": "Read-only inspection of the requested surface; no external side effects.",
         "dom_digest_ref": format!("observation_digest_{run_hash}"),
     });
-    let target_index = json!({
-        "coordinate_space_id": format!("{lane}-{run_hash}"),
-        "targets": [{
-            "target_ref": target_ref,
-            "label": "Primary document target",
-            "role": "document",
-            "available_actions": ["inspect"],
-        }],
-    });
+    let coordinate_space =
+        coordinate_space_id.clone().unwrap_or_else(|| format!("{lane}-{run_hash}"));
+    let target_index = if let Some(targets) = visual_targets.clone() {
+        let normalized: Vec<Value> = targets.iter().map(normalize_visual_target).collect();
+        json!({ "coordinate_space_id": coordinate_space, "targets": normalized })
+    } else {
+        json!({
+            "coordinate_space_id": coordinate_space,
+            "targets": [{
+                "target_ref": target_ref,
+                "label": "Primary document target",
+                "role": "document",
+                "available_actions": ["inspect"],
+            }],
+        })
+    };
+    // Retained observation artifacts (visual_gui echoes governed observation refs into cleanup).
+    let mut retained_artifact_refs = vec![json!("computer-use-trace.json")];
+    if lane == "visual_gui" {
+        if let Some(map) = observation.as_object_mut() {
+            map.insert("screenshot_ref".to_string(), json!(screenshot_ref));
+            map.insert("som_ref".to_string(), json!(som_ref));
+            map.insert("ax_ref".to_string(), json!(ax_ref));
+            map.insert("app_name".to_string(), json!(app_name));
+            map.insert("window_title".to_string(), json!(window_title));
+        }
+        for governed in [&screenshot_ref, &som_ref, &ax_ref] {
+            if let Some(reference) = governed {
+                retained_artifact_refs.push(json!(reference));
+            }
+        }
+    }
     let affordance_graph = json!({
         "affordance_graph_ref": format!("affordance_graph_{run_hash}"),
         "affordances": [{
@@ -1686,8 +1841,17 @@ fn handle_computer_use_loop_tool(
     let cleanup = json!({
         "cleanup_ref": format!("cleanup_computer_use_{run_hash}"),
         "status": "completed",
-        "retained_artifact_refs": ["computer-use-trace.json"],
+        "retained_artifact_refs": retained_artifact_refs,
     });
+    // Governed observation artifacts the run surfaced (excludes the trajectory trace).
+    let artifact_refs: Vec<Value> = if lane == "visual_gui" {
+        [&screenshot_ref, &som_ref, &ax_ref]
+            .into_iter()
+            .filter_map(|reference| reference.clone().map(Value::from))
+            .collect()
+    } else {
+        vec![]
+    };
 
     // The 11-event agent-sdk computer-use behavioral loop, in canonical order.
     let events_spec: Vec<(&str, Value)> = vec![
@@ -1764,32 +1928,41 @@ fn handle_computer_use_loop_tool(
         admitted_events.push(admit_and_persist_event(st, event)?);
     }
 
+    let object = if observe {
+        "ioi.runtime_computer_use_visual_gui_observe_result".to_string()
+    } else {
+        format!("ioi.runtime_computer_use_{lane}_result")
+    };
+    let mut result_projection = json!({
+        "environmentSelection": environment_selection,
+        "lease": lease_view,
+        "runState": run_state,
+        "observation": observation,
+        "targetIndex": target_index,
+        "affordanceGraph": affordance_graph,
+        "action": action,
+        "policyDecision": policy_decision,
+        "actionReceipt": action_receipt,
+        "verification": verification,
+        "commitGate": commit_gate,
+        "trajectory": trajectory,
+        "cleanup": cleanup,
+    });
+    if let (Some(broker), Some(map)) = (observation_broker, result_projection.as_object_mut()) {
+        map.insert("observationBroker".to_string(), broker);
+    }
     let result = json!({
         "status": "completed",
-        "object": format!("ioi.runtime_computer_use_{lane}_result"),
+        "object": object,
         "tool_pack": "computer_use",
         "tool_name": tool_name,
         "workflow_graph_id": workflow_graph_id,
         "workflow_node_id": workflow_node_id,
         "event_count": admitted_events.len(),
-        "artifact_refs": [],
+        "artifact_refs": artifact_refs,
         "receipt_refs": lease_receipt_refs,
         "evidence_refs": lease_evidence_refs,
-        "result": {
-            "environmentSelection": environment_selection,
-            "lease": lease_view,
-            "runState": run_state,
-            "observation": observation,
-            "targetIndex": target_index,
-            "affordanceGraph": affordance_graph,
-            "action": action,
-            "policyDecision": policy_decision,
-            "actionReceipt": action_receipt,
-            "verification": verification,
-            "commitGate": commit_gate,
-            "trajectory": trajectory,
-            "cleanup": cleanup,
-        },
+        "result": result_projection,
     });
     Ok(Json(result))
 }
@@ -1814,7 +1987,13 @@ pub(crate) async fn handle_coding_tool_invoke(
                 return handle_computer_use_projection_tool(&st, &thread_id, &tool_name, projection_kind, &body);
             }
             "native_browser" => {
-                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "native_browser", &body);
+                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "native_browser", false, &body);
+            }
+            "visual_gui" => {
+                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "visual_gui", false, &body);
+            }
+            "visual_gui.observe" => {
+                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "visual_gui", true, &body);
             }
             _ => {}
         }
