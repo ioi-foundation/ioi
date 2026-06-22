@@ -43,6 +43,7 @@ pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
+pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
 pub mod runtime_memory_control;
@@ -719,6 +720,21 @@ impl RuntimeKernelService {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
     > {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a Hypervisor session-launch-recipe governance admission (pure:
+    /// asserts the recipe + target binding agree, bind the route/model/privacy/authority/
+    /// receipt/Agentgres refs, and require daemon gates + daemon-runtime truth).
+    pub fn admit_hypervisor_session_launch_recipe(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_hypervisor_session_launch_recipe_admission::RuntimeHypervisorSessionLaunchRecipeAdmissionError,
+    > {
+        runtime_hypervisor_session_launch_recipe_admission::RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(request, now_iso)
     }
 

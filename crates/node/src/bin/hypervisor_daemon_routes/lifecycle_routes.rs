@@ -4262,6 +4262,28 @@ pub(crate) async fn handle_model_weight_custody_admission(
     }
 }
 
+/// POST /v1/hypervisor/session-launch-recipe-admissions — admit a Hypervisor New-Session
+/// launch recipe (pure kernel planner: recipe/target-binding agreement + route/model/privacy/
+/// authority/receipt/Agentgres refs + daemon-gate/runtime-truth assertion). 202 + record, or
+/// the structured {error:{code,message,details}} shape with status (all 400 validation).
+pub(crate) async fn handle_session_launch_recipe_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_hypervisor_session_launch_recipe(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

@@ -735,6 +735,93 @@ async function main() {
       assert.equal(badScope.body.error.code, "model_weight_custody_scope_invalid");
     });
 
+    // Step 3n: the Hypervisor session-launch-recipe governance admission (Rust-owned via the
+    // kernel admit_hypervisor_session_launch_recipe planner — recipe/target-binding agreement
+    // + route/model/privacy/authority/receipt/Agentgres refs + daemon-gate assertion).
+    await runStep("POST /v1/hypervisor/session-launch-recipe-admissions admits + gates the recipe binding", async () => {
+      const recipe = (overrides = {}) => ({
+        schema_version: "ioi.hypervisor.session_launch_recipe.v1",
+        recipe_id: "workbench.default",
+        kind: "workbench",
+        surface_id: "workbench",
+        required_inputs: ["project", "model_route", "privacy_posture"],
+        model_mount_policy: "inherit",
+        harness_profile_policy: "select",
+        authority_scope_templates: ["scope:workspace.read", "scope:workspace.patch"],
+        privacy_posture_templates: ["public_trunk", "redacted_projection"],
+        ...overrides,
+      });
+      const targetBinding = (overrides = {}) => ({
+        schema_version: "ioi.hypervisor.new_session_target_binding.v1",
+        target_binding_ref: "target-binding:new-session/workbench-default/ioi",
+        recipe_ref: "workbench.default",
+        target_kind: "workbench",
+        surface_id: "workbench",
+        project_ref: "project:ioi",
+        operator_intent_ref: "target-binding:new-session/workbench.default/ioi/operator-intent",
+        session_route_ref: "session-route:workbench/workbench-default/ioi",
+        code_editor_adapter_target_ref: "code-editor-target:vscode",
+        runtimeTruthSource: "daemon-runtime",
+        ...overrides,
+      });
+      const base = (overrides = {}) => ({
+        schema_version: "ioi.hypervisor.session_launch_recipe_admission_request.v1",
+        recipe: recipe(),
+        target_binding: targetBinding(),
+        model_route_ref: "model-route:hypervisor/default-local",
+        privacy_posture_ref: "privacy:redacted-projection",
+        authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+        receipt_preview_ref: "receipt-preview:new-session/workbench",
+        expected_receipt_refs: [
+          "receipt-preview:new-session/workbench",
+          "receipt-policy:harness-adapter/default",
+        ],
+        agentgres_operation_refs: ["agentgres://operation/hypervisor/session-launch-recipe/workbench"],
+        receipt_refs: ["receipt://hypervisor/session-launch-recipe/workbench"],
+        requires_daemon_gate: true,
+        runtimeTruthSource: "daemon-runtime",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/session-launch-recipe-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid recipe binding is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.admission_state, "admitted_for_session_binding");
+      assert.equal(ok.body.recipe_ref, "workbench.default");
+      assert.equal(ok.body.session_route_ref, "session-route:workbench/workbench-default/ioi");
+      assert.ok(
+        ok.body.receipt_refs.includes(
+          "receipt://hypervisor/session-launch-recipe/target-binding_new-session_workbench-default_ioi/admitted",
+        ),
+        "the admission derives the canonical admission receipt ref",
+      );
+
+      // 400: a workbench recipe whose target binding drops the code-editor adapter.
+      const noAdapter = await admit(
+        base({ target_binding: targetBinding({ code_editor_adapter_target_ref: null }) }),
+      );
+      assert.equal(noAdapter.status, 400);
+      assert.equal(
+        noAdapter.body.error.code,
+        "hypervisor_session_launch_recipe_workbench_adapter_required",
+      );
+
+      // 400: a retired camelCase alias is rejected before any field validation.
+      const aliased = await admit({ ...base(), recipeRef: "legacy" });
+      assert.equal(aliased.status, 400);
+      assert.equal(aliased.body.error.code, "hypervisor_session_launch_recipe_retired_aliases");
+
+      // 400: an authority primitive masquerade (non-scope: ref) is rejected.
+      const badScope = await admit(base({ authority_scope_refs: ["prim:shell.exec"] }));
+      assert.equal(badScope.status, 400);
+      assert.equal(badScope.body.error.code, "hypervisor_session_launch_recipe_ref_prefix_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.
