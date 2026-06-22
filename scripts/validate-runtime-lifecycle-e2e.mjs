@@ -682,6 +682,59 @@ async function main() {
       assert.equal(aliased.body.error.code, "model_route_mutation_request_aliases_retired");
     });
 
+    // Step 3m: the model-weight-custody governance admission (Rust-owned via the kernel
+    // admit_model_weight_custody planner — weight-class lane validation).
+    await runStep("POST /v1/hypervisor/model-weight-custody-admissions gates the weight-class lane", async () => {
+      const custody = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/model-weight-custody-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      // A user-local private weight on a local device with the local_only control admits.
+      const ok = await custody({
+        route_ref: "model-route:local/default",
+        model_ref: "model:local/qwen",
+        weight_class: "user_local_private_weight",
+        mount_target: "local_device",
+        execution_privacy_posture: "private_native",
+        remote_provider_can_read_weights: false,
+        authority_scope_refs: ["scope:model.mount"],
+        required_controls: ["local_only"],
+      });
+      assert.equal(ok.status, 202);
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.protects_model_weights_from_provider_root, true);
+      assert.equal(
+        ok.body.receipt_ref,
+        "receipt://model-weight-custody/model-route_local_default/user_local_private_weight",
+      );
+
+      // 403: a forbidden plaintext mount is blocked by default.
+      const forbidden = await custody({
+        route_ref: "model-route:local/default",
+        model_ref: "model:local/qwen",
+        weight_class: "forbidden_plaintext_mount",
+        mount_target: "local_device",
+        execution_privacy_posture: "private_native",
+      });
+      assert.equal(forbidden.status, 403);
+      assert.equal(forbidden.body.error.code, "model_weight_custody_forbidden_plaintext_mount_blocked");
+
+      // 400: a non-scope authority ref is rejected.
+      const badScope = await custody({
+        route_ref: "model-route:local/default",
+        model_ref: "model:local/qwen",
+        weight_class: "user_local_private_weight",
+        mount_target: "local_device",
+        execution_privacy_posture: "private_native",
+        authority_scope_refs: ["model.mount"],
+        required_controls: ["local_only"],
+      });
+      assert.equal(badScope.status, 400);
+      assert.equal(badScope.body.error.code, "model_weight_custody_scope_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

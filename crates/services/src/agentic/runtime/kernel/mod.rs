@@ -44,6 +44,7 @@ pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
 pub mod runtime_memory_command;
 pub mod runtime_model_route_mutation_admission;
+pub mod runtime_model_weight_custody_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
@@ -704,6 +705,20 @@ impl RuntimeKernelService {
         runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionError,
     > {
         runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a model-weight-custody governance admission (pure: asserts the
+    /// weight-class lane + required controls/scopes/attestation/customer-boundary refs).
+    pub fn admit_model_weight_custody(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
+    > {
+        runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
             .admit(request, now_iso)
     }
 

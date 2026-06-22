@@ -552,6 +552,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_model_route_mutation_admission),
         )
         .route(
+            "/v1/hypervisor/model-weight-custody-admissions",
+            post(lifecycle_routes::handle_model_weight_custody_admission),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

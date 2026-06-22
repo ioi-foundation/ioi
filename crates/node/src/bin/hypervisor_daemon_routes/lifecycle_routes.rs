@@ -4242,6 +4242,26 @@ pub(crate) async fn handle_model_route_mutation_admission(
     }
 }
 
+/// POST /v1/hypervisor/model-weight-custody-admissions — admit a model-weight custody route
+/// (pure kernel planner: weight-class lane + required controls/scopes/attestation refs).
+pub(crate) async fn handle_model_weight_custody_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_model_weight_custody(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

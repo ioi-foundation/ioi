@@ -871,62 +871,7 @@ test("public runtime model route mutation admission route is retired (served by 
   );
 });
 
-test("public runtime routes expose model-weight custody admissions", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/model-weight-custody-admissions",
-      body: {
-        route_ref: "model-route:confidential/h100",
-        model_ref: "model:org/private",
-        provider_ref: "provider:customer-cloud",
-        weight_class: "tee_or_customer_cloud_mount",
-        mount_target: "tee_session",
-        execution_privacy_posture: "confidential_compute",
-        remote_provider_can_read_weights: false,
-        required_controls: ["tee_attestation"],
-        authority_scope_refs: ["scope:cloud.deploy", "scope:secret.release"],
-        tee_attestation_ref: "attestation://confidential-gpu/session",
-        agentgres_operation_refs: ["agentgres://operation/model-weight/admit"],
-        artifact_refs: ["artifact://model-weight/admission"],
-      },
-    }),
-    response,
-    store,
-  });
-
-  const payload = JSON.parse(response.body);
-  assert.equal(response.statusCode, 202);
-  assert.equal(
-    payload.schema_version,
-    "ioi.runtime.model_weight_custody_admission.v1",
-  );
-  assert.equal(payload.route_ref, "model-route:confidential/h100");
-  assert.equal(payload.weight_class, "tee_or_customer_cloud_mount");
-  assert.equal(payload.mount_target, "tee_session");
-  assert.equal(payload.decision, "admitted");
-  assert.equal(payload.protects_model_weights_from_provider_root, true);
-  assert.equal(payload.protects_workspace_state, true);
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
-  assert.deepEqual(payload.authority_scope_refs, [
-    "scope:cloud.deploy",
-    "scope:secret.release",
-  ]);
-  assert.equal(
-    payload.receipt_ref,
-    "receipt://model-weight-custody/model-route_confidential_h100/tee_or_customer_cloud_mount",
-  );
-});
-
-test("public runtime model-weight custody route blocks provider-readable private weights", async () => {
+test("public runtime model-weight custody admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
 
@@ -934,26 +879,17 @@ test("public runtime model-weight custody route blocks provider-readable private
     request: request({
       method: "POST",
       url: "/v1/hypervisor/model-weight-custody-admissions",
-      body: {
-        route_ref: "model-route:rented-gpu/private",
-        model_ref: "model:org/private",
-        provider_ref: "provider:rented-gpu",
-        weight_class: "user_local_private_weight",
-        mount_target: "rented_gpu",
-        execution_privacy_posture: "ctee_split",
-        remote_provider_can_read_weights: true,
-        required_controls: ["local_only"],
-        authority_scope_refs: ["scope:model.local_mount"],
-      },
+      body: { route_ref: "model-route:local/default", weight_class: "user_local_private_weight" },
     }),
     response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
+    store: {},
   });
 
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), {
-    error: "model_weight_custody_plaintext_private_weight_blocked",
-  });
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
 });
 
 test("public runtime routes expose private workspace mount admissions", async () => {

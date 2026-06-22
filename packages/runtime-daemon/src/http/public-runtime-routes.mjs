@@ -18,7 +18,6 @@ import { deriveWorkspaceInitializer } from "../runtime-environment-status-projec
 import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
 import { admitHarnessSessionTerminalAttach } from "../runtime-harness-session-terminal-attach.mjs";
 import { admitHypervisorSessionLaunchRecipe } from "../runtime-hypervisor-session-launch-recipe-admission.mjs";
-import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
 import { admitPrivateWorkspaceMount } from "../runtime-private-workspace-mount-admission.mjs";
 import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
@@ -906,16 +905,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/model-weight-custody-admissions"
       ) {
-        const body = await readBody(request);
+        // The model-weight-custody admission is served by the Rust hypervisor-daemon
+        // (kernel admit_model_weight_custody planner).
         writeJsonResponse(
           response,
-          admitModelWeightCustodyRoute({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/model-weight-custody-admissions",
-          }),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The model-weight-custody admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }
