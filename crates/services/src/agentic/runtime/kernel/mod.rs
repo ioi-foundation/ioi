@@ -48,6 +48,7 @@ pub mod runtime_harness_session_terminal_attach_admission;
 pub mod runtime_artifact_availability_incident_admission;
 pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_approved_operation_admission;
+pub mod runtime_hypervisor_project_create;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
 pub mod runtime_model_route_mutation_admission;
@@ -793,6 +794,19 @@ impl RuntimeKernelService {
     > {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
             .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a Hypervisor project-create request into a project-state record
+    /// (pure: the daemon persists it + assembles the project-state projection over all projects).
+    pub fn plan_hypervisor_project_create(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_hypervisor_project_create::RuntimeHypervisorProjectCreateError,
+    > {
+        runtime_hypervisor_project_create::RuntimeHypervisorProjectCreateCore.plan(request, now_iso)
     }
 
     /// Validate + canonicalize a Hypervisor approved-operation governance admission (pure: asserts

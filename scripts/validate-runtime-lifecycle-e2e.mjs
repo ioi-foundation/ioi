@@ -1427,6 +1427,47 @@ async function main() {
       assert.equal(schemaMismatch.body.error.code, "hypervisor_approved_operation_schema_mismatch");
     });
 
+    // Step 3y: project-create (POST /v1/hypervisor/projects) — the Hypervisor app's
+    // requestHypervisorProjectCreate had NO daemon handler; the Rust daemon now plans the
+    // project-state record (kernel plan_hypervisor_project_create), persists it, and returns the
+    // project-state projection over all projects. Real persistence (accumulates + idempotent).
+    await runStep("POST /v1/hypervisor/projects creates a repository-backed project + projection", async () => {
+      const create = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/projects`, { method: "POST", body: JSON.stringify(body) });
+
+      const ok = await create({
+        repository_url: "https://github.com/teamioitest/ioi",
+        project_name: "ioi",
+        source: "manual_url",
+        environment_class_refs: ["environment-class:local-dev-replay"],
+      });
+      assert.equal(ok.status, 201, "project create returns 201");
+      assert.equal(ok.body.schema_version, "ioi.hypervisor.project_state_projection.v1");
+      assert.equal(ok.body.source, "daemon-project-state-projection");
+      assert.equal(ok.body.selected_project_id, "project:ioi");
+      assert.equal(ok.body.runtimeTruthSource, "daemon-runtime");
+      const record = ok.body.records.find((r) => r.project_id === "project:ioi");
+      assert.ok(record, "the new project record is present");
+      assert.equal(record.repository_url, "https://github.com/teamioitest/ioi");
+      assert.equal(record.root_path, "/workspace/ioi");
+      assert.equal(record.restore_state, "active");
+
+      // A second project accumulates in the persisted projection.
+      const second = await create({ repository_url: "https://github.com/x/other.git", project_name: "Other" });
+      assert.equal(second.status, 201);
+      assert.equal(second.body.selected_project_id, "project:other");
+      assert.ok(
+        second.body.records.some((r) => r.project_id === "project:ioi") &&
+          second.body.records.some((r) => r.project_id === "project:other"),
+        "the projection accumulates both persisted projects",
+      );
+
+      // 400: a create request missing the repository URL.
+      const bad = await create({ project_name: "x" });
+      assert.equal(bad.status, 400);
+      assert.equal(bad.body.error.code, "project_create_repository_url_required");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

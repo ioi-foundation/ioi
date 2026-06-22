@@ -600,6 +600,10 @@ async fn main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_approved_operation_admission),
         )
         .route(
+            "/v1/hypervisor/projects",
+            post(lifecycle_routes::handle_project_create),
+        )
+        .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),
         )

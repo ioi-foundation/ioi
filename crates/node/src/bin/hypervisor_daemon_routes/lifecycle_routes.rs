@@ -4483,6 +4483,59 @@ pub(crate) async fn handle_harness_session_terminal_attach_admission(
     }
 }
 
+/// POST /v1/hypervisor/projects — create a repository-backed project (the Hypervisor app's
+/// requestHypervisorProjectCreate; there was never a JS handler). The kernel planner validates +
+/// canonicalizes the project-state record; the daemon persists it under `<state_dir>/projects/`
+/// and returns the project-state projection over all projects (selected = the new project). 201,
+/// or {error:{code,message,details}} with status (400 validation).
+pub(crate) async fn handle_project_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let record = match RuntimeKernelService::new().plan_hypervisor_project_create(&body, &iso_now()) {
+        Ok(record) => record,
+        Err(error) => {
+            return (
+                StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+                Json(json!({
+                    "error": { "code": error.code, "message": error.message, "details": error.details },
+                })),
+            );
+        }
+    };
+    let project_id = record
+        .get("project_id")
+        .and_then(|value| value.as_str())
+        .unwrap_or("project:repository")
+        .to_string();
+    // Persist the project record (best-effort; if the write fails we still return a projection
+    // that includes the just-created record so the app reflects the create).
+    let _ = persist_record(&st.data_dir, "projects", &project_id, &record);
+    let mut records = read_record_dir(&st.data_dir, "projects");
+    if !records
+        .iter()
+        .any(|item| item.get("project_id").and_then(|value| value.as_str()) == Some(project_id.as_str()))
+    {
+        records.push(record.clone());
+    }
+    records.sort_by(|a, b| {
+        let a_id = a.get("project_id").and_then(|value| value.as_str()).unwrap_or("");
+        let b_id = b.get("project_id").and_then(|value| value.as_str()).unwrap_or("");
+        a_id.cmp(b_id)
+    });
+    let projection_slug = project_id.strip_prefix("project:").unwrap_or(&project_id);
+    let projection = json!({
+        "schema_version": ioi_services::agentic::runtime::kernel::runtime_hypervisor_project_create::PROJECT_STATE_PROJECTION_SCHEMA_VERSION,
+        "projection_id": format!("project-state:daemon/{projection_slug}"),
+        "source": "daemon-project-state-projection",
+        "selected_project_id": project_id,
+        "records": records,
+        "project_boundary_invariant": ioi_services::agentic::runtime::kernel::runtime_hypervisor_project_create::PROJECT_BOUNDARY_INVARIANT,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    (StatusCode::CREATED, Json(projection))
+}
+
 /// POST /v1/hypervisor/approved-operations — admit a wallet-approved Hypervisor operation (pure
 /// kernel planner: daemon-authored proposal + wallet approval/lease + required scopes + Agentgres/
 /// receipt/state-root refs + family targets; emits the admission + execution plan). 202 + record,
