@@ -133,22 +133,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/doctor") {
-        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
-          contextPolicyCore,
-          "runtime.doctor_report.projection",
-        );
+        // The redacted runtime-readiness report is served by the Rust hypervisor-daemon.
         writeJsonResponse(
           response,
-          routeContextPolicyCore.projectRuntimeDoctorReport({
-            operation: "runtime_doctor_report_projection",
-            operation_kind: "runtime.doctor_report.projection",
-            base_url: baseUrlForRequest(request),
-            workspace_root: store.defaultCwd,
-            state_dir: store.stateDir,
-            home_dir: store.homeDir,
-            runtime_schema_version: store.schemaVersion,
-            source: "public_runtime_routes./v1/doctor",
-          }).report,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The doctor report is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

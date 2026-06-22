@@ -97,14 +97,14 @@ test("public runtime routes answer CORS preflight without store access", async (
   assert.match(response.headers["x-request-id"], /^req_/);
 });
 
-test("public runtime routes dispatch top-level daemon projections", async () => {
+test("public runtime /v1/doctor is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const calls = [];
   const contextPolicyCore = {
     projectRuntimeDoctorReport(request) {
       calls.push({ method: "projectRuntimeDoctorReport", request });
-      return { report: { ok: true, baseUrl: request.base_url } };
+      return { report: {} };
     },
   };
   const store = {
@@ -118,21 +118,12 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
 
   await handleRequest({ request: request({ url: "/v1/doctor" }), response, store, contextPolicyCore });
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), { ok: true, baseUrl: "http://daemon.test" });
-  assert.deepEqual(calls, [{
-    method: "projectRuntimeDoctorReport",
-    request: {
-      operation: "runtime_doctor_report_projection",
-      operation_kind: "runtime.doctor_report.projection",
-      base_url: "http://daemon.test",
-      workspace_root: "/workspace",
-      state_dir: "/state",
-      home_dir: "/home/operator",
-      runtime_schema_version: "ioi.agentgres.runtime.v0",
-      source: "public_runtime_routes./v1/doctor",
-    },
-  }]);
+  assert.equal(response.statusCode, 410);
+  assert.equal(
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
+  );
+  assert.deepEqual(calls, [], "the JS doctor projection must not be invoked");
 });
 
 test("public runtime routes dispatch Hypervisor home cockpit through lifecycle projection", async () => {

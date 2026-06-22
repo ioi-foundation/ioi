@@ -314,6 +314,21 @@ async function main() {
       });
       assert.equal(modelsAuth.status, 200);
       assert.equal(modelsAuth.body.object, "list", "authenticated /v1/models is the OpenAI-compat aggregate");
+      // GET /v1/doctor: the Rust daemon serves the redacted runtime-readiness report via the
+      // kernel doctor projection. (readiness reflects the daemon's ACTUAL state — a fresh
+      // daemon with no model-routes/memory-store is honestly "blocked"; the JS contract's
+      // "ready" needs daemon startup state-seeding, a separate cut.)
+      const doctor = await fetchJson(`${rust.endpoint}/v1/doctor`);
+      assert.equal(doctor.status, 200);
+      assert.equal(doctor.body.schemaVersion, "ioi.agent-runtime.doctor.v1");
+      assert.equal(doctor.body.object, "ioi.agent_runtime_doctor_report");
+      assert.equal(doctor.body.redaction?.secretValuesIncluded, false, "doctor redacts secret values");
+      assert.equal(doctor.body.redaction?.endpointValuesHashed, true, "doctor hashes endpoint values");
+      assert.equal(doctor.body.workflow?.doctorNodeType, "runtime_doctor");
+      assert.ok(
+        doctor.body.checks?.some((c) => c.id === "daemon.public_api" && c.status === "pass"),
+        "doctor reports the public API check as pass",
+      );
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

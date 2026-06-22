@@ -69,7 +69,7 @@ pub(crate) struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
     pub(crate) data_dir: String,
-    base_url: String,
+    pub(crate) base_url: String,
     // Expiry enforcement (execution semantics): token_hash -> unix-seconds, 0 = none.
     token_expiry: Mutex<HashMap<String, i64>>,
     // Inter-frame delay for streaming SSE so clients can abort mid-stream.
@@ -142,6 +142,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/models/routes", get(handle_routes_list))
         .route("/v1/account", get(handle_account))
         .route("/v1/runtime/nodes", get(handle_runtime_nodes))
+        .route("/v1/doctor", get(lifecycle_routes::handle_doctor))
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
         .route("/v1/model-mount/server/restart", post(handle_server_restart))

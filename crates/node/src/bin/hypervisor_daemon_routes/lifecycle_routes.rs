@@ -67,6 +67,7 @@ use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     RuntimeRunStateCommitRequest, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_doctor_report::RuntimeDoctorReportProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
     RuntimeManagedSessionControlRequest, RuntimeManagedSessionProjectionRequest,
@@ -1205,6 +1206,29 @@ pub(crate) async fn handle_run_artifact(
     AxumPath((run_id, artifact_ref)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
     run_projection_response(&st, &run_id, "run_artifact", Some(&artifact_ref))
+}
+
+/// GET /v1/doctor — the redacted runtime-readiness report. The kernel
+/// project_runtime_doctor_report planner builds the whole report (checks, provider keys
+/// with hashed/redacted values, runtime nodes, workflow activation) from the daemon-derived
+/// inputs; nothing is read from the request body. Returns the report (the JS daemon's
+/// /v1/doctor `.report`), so the canonical doctor contract holds against the Rust daemon.
+pub(crate) async fn handle_doctor(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+    let request: RuntimeDoctorReportProjectionRequest = serde_json::from_value(json!({
+        "operation": "runtime_doctor_report_projection",
+        "operation_kind": "runtime.doctor_report.projection",
+        "base_url": st.base_url,
+        "workspace_root": st.data_dir,
+        "state_dir": st.data_dir,
+        "home_dir": std::env::var("HOME").ok(),
+        "runtime_schema_version": "ioi.runtime.v1",
+        "source": "rust_daemon./v1/doctor",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_doctor_report(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(Json(record.report))
 }
 
 /// Apply a non-live MCP control mutation (import/add/remove/enable/disable) via the
