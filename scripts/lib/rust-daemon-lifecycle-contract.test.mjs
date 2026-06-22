@@ -98,6 +98,41 @@ test("Rust hypervisor-daemon satisfies the canonical lifecycle contract via the 
       assert.ok(fs.existsSync(path.join(stateDir, dir)), `state bundle dir ${dir}/ exists`);
     }
 
+    // --- thread event log: the materialized item events carry the canonical
+    // payload_summary.event_kind + component_kind + workflow_node_id + artifact_refs
+    // (test-386:537-562). NOTE: the JobCanceled-on-thread-log gap (cancel doesn't yet
+    // admit its events) is the remaining thread-event parity item, asserted after cancel.
+    const threadId = `thread_${agent.id.slice("agent_".length)}`;
+    const threadEventsText = await (
+      await fetch(`${daemon.endpoint}/v1/threads/${threadId}/events?since_seq=0`)
+    ).text();
+    const threadEvents = threadEventsText
+      .split("\n\n")
+      .filter(Boolean)
+      .map((block) => {
+        const line = block.split("\n").find((l) => l.startsWith("data: "));
+        return line ? JSON.parse(line.slice(6)) : null;
+      })
+      .filter(Boolean);
+    const byEventKind = (k) => threadEvents.find((e) => e.payload_summary?.event_kind === k);
+    const taskEvent = byEventKind("RuntimeTaskRecord");
+    assert.ok(taskEvent, "thread log carries the RuntimeTaskRecord event");
+    assert.equal(taskEvent.component_kind, "runtime_task");
+    assert.equal(taskEvent.workflow_node_id, "runtime.runtime-task");
+    assert.equal(taskEvent.payload_summary.prompt_included, false);
+    assert.ok(taskEvent.artifact_refs.includes("runtime-task.json"), "task event carries artifact_refs");
+    const checklistEvent = byEventKind("RuntimeChecklistRecord");
+    assert.ok(checklistEvent, "thread log carries the RuntimeChecklistRecord event");
+    assert.equal(checklistEvent.workflow_node_id, "runtime.runtime-checklist");
+    assert.ok(checklistEvent.artifact_refs.includes("runtime-checklist.json"), "checklist event carries artifact_refs");
+    for (const kind of ["JobQueued", "JobStarted", "JobCompleted"]) {
+      const jobEvent = byEventKind(kind);
+      assert.ok(jobEvent, `thread log carries the ${kind} event`);
+      assert.equal(jobEvent.component_kind, "runtime_job");
+      assert.equal(jobEvent.workflow_node_id, "runtime.runtime-job");
+      assert.ok(jobEvent.artifact_refs.includes("runtime-job.json"), `${kind} carries artifact_refs`);
+    }
+
     // --- run.cancel() -> the run + its bundle reflect the cancel ---
     const canceled = await run.cancel();
     assert.equal(await canceled.status(), "canceled", "run.cancel() cancels the run");

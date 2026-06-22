@@ -3340,6 +3340,7 @@ fn runtime_task_job_events(
                 "prompt_included": false,
                 "receipt_id": receipts[0]["id"],
                 "workflow_node_id": "runtime.runtime-task",
+                "artifact_refs": ["runtime-task.json"],
                 "redaction": runtime_task["redaction"],
                 "rust_daemon_core_materialized": true,
             },
@@ -3389,6 +3390,7 @@ fn runtime_task_job_events(
                 "replayable": true,
                 "receipt_id": receipts[2]["id"],
                 "workflow_node_id": "runtime.runtime-checklist",
+                "artifact_refs": ["runtime-checklist.json"],
                 "redaction": runtime_checklist["redaction"],
                 "rust_daemon_core_materialized": true,
             },
@@ -3443,6 +3445,7 @@ fn runtime_job_event_data(
         "progress": runtime_job["progress"],
         "receipt_id": receipt["id"],
         "workflow_node_id": "runtime.runtime-job",
+        "artifact_refs": ["runtime-job.json"],
         "redaction": runtime_job["redaction"],
         "rust_daemon_core_materialized": true,
     })
