@@ -425,6 +425,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/tools/search",
             get(lifecycle_routes::handle_mcp_tool_search),
         )
+        .route("/v1/mcp/servers", get(lifecycle_routes::handle_mcp_discover_servers))
+        .route("/v1/mcp/tools", get(lifecycle_routes::handle_mcp_discover_tools))
+        .route("/v1/mcp/resources", get(lifecycle_routes::handle_mcp_discover_resources))
+        .route("/v1/mcp/prompts", get(lifecycle_routes::handle_mcp_discover_prompts))
+        .route("/v1/mcp", get(lifecycle_routes::handle_mcp_discover_status))
         .route("/v1/threads/:id/mcp/import", post(lifecycle_routes::handle_mcp_import))
         .route("/v1/threads/:id/mcp/servers", post(lifecycle_routes::handle_mcp_add))
         .route(

@@ -28,7 +28,8 @@ use serde_json::{json, Value};
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateRequest, CompactionPolicyRequest, ContextBudgetPolicyRequest,
     ContextCompactionPlanRequest, ContextCompactionStateUpdateRequest,
-    McpControlAgentStateUpdateRequest, McpToolSearchProjectionRequest,
+    McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionRequest,
+    McpServerValidationInputRequest, McpToolSearchProjectionRequest,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateRequest,
     RunCancelStateUpdateRequest, RunCreateStateUpdateRequest, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateRequest,
@@ -37,6 +38,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
     CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+    MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -5819,6 +5822,209 @@ pub(crate) async fn handle_subagent_resume(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     subagent_run_control(&st, &thread_id, &subagent_id, &body, "subagent.resume")
+}
+
+/// Rewrite the camelCase MCP-config keys the kernel reads in snake_case (`allowedTools` ->
+/// `allowed_tools`, `serverUrl` -> `server_url`, …) on a single server config, so a `.cursor`
+/// (camelCase) config and an `.ioi` (snake_case) config normalize identically.
+fn normalize_mcp_config_keys(config: &mut Value) {
+    let Some(map) = config.as_object_mut() else {
+        return;
+    };
+    for (camel, snake) in [
+        ("allowedTools", "allowed_tools"),
+        ("allowedResources", "allowed_resources"),
+        ("allowedPrompts", "allowed_prompts"),
+        ("serverUrl", "server_url"),
+        ("allowNetworkEgress", "allow_network_egress"),
+        ("allowChildProcesses", "allow_child_processes"),
+        ("containmentMode", "containment_mode"),
+    ] {
+        if map.contains_key(camel) && !map.contains_key(snake) {
+            if let Some(value) = map.remove(camel) {
+                map.insert(snake.to_string(), value);
+            }
+        }
+    }
+}
+
+/// Read an MCP config file (`.cursor/mcp.json` / `~/.ioi/mcp.json`) and normalize its
+/// `mcpServers` through the CANONICAL kernel validation-input projection — assigning
+/// `mcp.<id>`, the config source/scope, and surfacing env/header secrets as vault refs (never
+/// inlined values). Missing or unparseable files yield no servers (fail-soft). The
+/// `config_compatibility` tag is stamped per source-format (cursor / ioi). Read-only, offline
+/// config discovery.
+fn read_mcp_config_servers(
+    path: &str,
+    workspace_root: Option<&str>,
+    source: &str,
+    source_scope: &str,
+    config_compatibility: &str,
+) -> Vec<Value> {
+    let Ok(text) = fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    let Ok(parsed) = serde_json::from_str::<Value>(&text) else {
+        return Vec::new();
+    };
+    let mut mcp_servers = parsed
+        .get("mcpServers")
+        .or_else(|| parsed.get("mcp_servers"))
+        .or_else(|| parsed.get("servers"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    match &mut mcp_servers {
+        Value::Object(map) => map.values_mut().for_each(normalize_mcp_config_keys),
+        Value::Array(items) => items.iter_mut().for_each(normalize_mcp_config_keys),
+        _ => {}
+    }
+    let request: McpServerValidationInputRequest = match serde_json::from_value(json!({
+        "schema_version": MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
+        "input": {
+            "mcp_json": { "mcp_servers": mcp_servers },
+            "source": source,
+            "source_scope": source_scope,
+            "source_path": path,
+        },
+        "workspace_root": workspace_root,
+    })) {
+        Ok(request) => request,
+        Err(_) => return Vec::new(),
+    };
+    let Ok(record) = RuntimeKernelService::new().project_mcp_server_validation_input(&request) else {
+        return Vec::new();
+    };
+    let mut servers = record.servers;
+    for server in &mut servers {
+        if let Some(map) = server.as_object_mut() {
+            map.insert("config_compatibility".to_string(), json!(config_compatibility));
+        }
+    }
+    servers
+}
+
+/// Discover MCP servers for a thread from the workspace `.cursor/mcp.json` (scope `workspace`,
+/// `cursor` config compatibility) and the operator-home `~/.ioi/mcp.json` (scope `global`,
+/// `ioi`), then project the tools/resources/prompts catalog through the CANONICAL kernel
+/// `plan_mcp_manager_catalog_projection` (workflow-node ids `runtime.mcp-{tool,resource,prompt}.<server>.<x>`).
+/// `mcp_config_source_mode` (`workspace` / `global`) filters the discovered sources. Ports the
+/// JS daemon's `.cursor/mcp.json` discovery + tools/resources/prompts catalog onto the Rust
+/// true-north. Live remote-MCP catalog fetch (HTTP/SSE header auth) is a network-bound follow-on.
+fn discover_mcp_catalog(
+    st: &DaemonState,
+    thread_id: &str,
+    source_mode: Option<&str>,
+) -> Result<Value, AppError> {
+    let agent = read_agent_for_thread(st, thread_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")))?;
+    let workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
+    let want_workspace = source_mode.is_none_or(|mode| mode == "workspace");
+    let want_global = source_mode.is_none_or(|mode| mode == "global");
+    let mut servers = Vec::new();
+    if want_workspace && !workspace_root.is_empty() {
+        servers.extend(read_mcp_config_servers(
+            &format!("{workspace_root}/.cursor/mcp.json"),
+            Some(&workspace_root),
+            ".cursor/mcp.json",
+            "workspace",
+            "cursor",
+        ));
+    }
+    if want_global && !st.home_dir.is_empty() {
+        servers.extend(read_mcp_config_servers(
+            &format!("{}/.ioi/mcp.json", st.home_dir),
+            Some(&workspace_root),
+            "global.ioi/mcp.json",
+            "global",
+            "ioi",
+        ));
+    }
+    let request: McpManagerCatalogProjectionRequest = serde_json::from_value(json!({
+        "schema_version": MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "servers": servers,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let catalog = RuntimeKernelService::new()
+        .plan_mcp_manager_catalog_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    serde_json::to_value(&catalog)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
+fn catalog_slice(catalog: &Value, key: &str) -> Vec<Value> {
+    catalog
+        .get(key)
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// GET /v1/mcp/servers?thread_id=&mcp_config_source_mode= — discover the MCP servers for a
+/// thread's workspace `.cursor/mcp.json` (+ the operator-home `~/.ioi/mcp.json`).
+pub(crate) async fn handle_mcp_discover_servers(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let thread_id = params
+        .get("thread_id")
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
+    let catalog = discover_mcp_catalog(&st, thread_id, params.get("mcp_config_source_mode").map(String::as_str))?;
+    Ok(Json(json!(catalog_slice(&catalog, "servers"))))
+}
+
+/// GET /v1/mcp/tools?thread_id= — the discovered MCP tool catalog (runtime.mcp-tool.* node ids).
+pub(crate) async fn handle_mcp_discover_tools(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let thread_id = params
+        .get("thread_id")
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
+    let catalog = discover_mcp_catalog(&st, thread_id, None)?;
+    Ok(Json(json!(catalog_slice(&catalog, "tools"))))
+}
+
+/// GET /v1/mcp/resources?thread_id= — the discovered MCP resource catalog.
+pub(crate) async fn handle_mcp_discover_resources(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let thread_id = params
+        .get("thread_id")
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
+    let catalog = discover_mcp_catalog(&st, thread_id, None)?;
+    Ok(Json(json!(catalog_slice(&catalog, "resources"))))
+}
+
+/// GET /v1/mcp/prompts?thread_id= — the discovered MCP prompt catalog.
+pub(crate) async fn handle_mcp_discover_prompts(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let thread_id = params
+        .get("thread_id")
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
+    let catalog = discover_mcp_catalog(&st, thread_id, None)?;
+    Ok(Json(json!(catalog_slice(&catalog, "prompts"))))
+}
+
+/// GET /v1/mcp?thread_id= — the discovered MCP manager status (server/tool/resource/prompt counts).
+pub(crate) async fn handle_mcp_discover_status(
+    State(st): State<Arc<DaemonState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    let thread_id = params
+        .get("thread_id")
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
+    let catalog = discover_mcp_catalog(&st, thread_id, None)?;
+    Ok(Json(json!({
+        "status": "ready",
+        "server_count": catalog.get("server_count").cloned().unwrap_or(json!(0)),
+        "tool_count": catalog.get("tool_count").cloned().unwrap_or(json!(0)),
+        "resource_count": catalog.get("resource_count").cloned().unwrap_or(json!(0)),
+        "prompt_count": catalog.get("prompt_count").cloned().unwrap_or(json!(0)),
+        "servers": catalog_slice(&catalog, "servers"),
+    })))
 }
 
 /// GET /v1/threads/:id/mcp/tools/search — project the thread's MCP tool catalog.
