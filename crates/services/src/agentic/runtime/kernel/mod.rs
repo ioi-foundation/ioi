@@ -48,8 +48,10 @@ pub mod runtime_harness_session_terminal_attach_admission;
 pub mod runtime_artifact_availability_incident_admission;
 pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_approved_operation_admission;
+pub mod runtime_hypervisor_environment_status_projection;
 pub mod runtime_hypervisor_project_create;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
+pub mod runtime_hypervisor_workspace_diff_projection;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
@@ -807,6 +809,47 @@ impl RuntimeKernelService {
         runtime_hypervisor_project_create::RuntimeHypervisorProjectCreateError,
     > {
         runtime_hypervisor_project_create::RuntimeHypervisorProjectCreateCore.plan(request, now_iso)
+    }
+
+    /// Project a canonical `HypervisorEnvironmentStatus` from real transitions (pure: the daemon
+    /// gathers the component phases + readiness checks and this canonicalizes the shape).
+    pub fn project_hypervisor_environment_status(&self, input: &serde_json::Value) -> serde_json::Value {
+        runtime_hypervisor_environment_status_projection::build_hypervisor_environment_status(input)
+    }
+
+    /// Derive a typed `HypervisorWorkspaceInitializer` from an initializer spec request (pure).
+    pub fn derive_hypervisor_workspace_initializer(&self, input: &serde_json::Value) -> serde_json::Value {
+        runtime_hypervisor_environment_status_projection::derive_workspace_initializer(input)
+    }
+
+    /// Project a workspace-diff (`changed_file_groups`) from `git status` + `git diff --numstat`
+    /// output (pure parse + folder grouping; the daemon runs git).
+    pub fn project_hypervisor_workspace_diff_from_git(
+        &self,
+        workspace_root: &str,
+        numstat_stdout: &str,
+        status_stdout: &str,
+    ) -> serde_json::Value {
+        runtime_hypervisor_workspace_diff_projection::workspace_diff_from_git(
+            workspace_root,
+            numstat_stdout,
+            status_stdout,
+        )
+    }
+
+    /// Project a workspace-diff from daemon-walked filesystem records (pure folder grouping).
+    pub fn project_hypervisor_workspace_diff_from_records(
+        &self,
+        workspace_root: &str,
+        source: &str,
+        records: &[serde_json::Value],
+    ) -> serde_json::Value {
+        runtime_hypervisor_workspace_diff_projection::workspace_diff_from_records(workspace_root, source, records)
+    }
+
+    /// Workspace-diff projection for a session with no workspace yet (no fake work).
+    pub fn project_hypervisor_workspace_diff_absent(&self) -> serde_json::Value {
+        runtime_hypervisor_workspace_diff_projection::workspace_diff_absent()
     }
 
     /// Validate + canonicalize a Hypervisor approved-operation governance admission (pure: asserts

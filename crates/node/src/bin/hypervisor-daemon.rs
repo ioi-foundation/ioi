@@ -603,6 +603,21 @@ async fn main() -> anyhow::Result<()> {
             "/v1/hypervisor/projects",
             post(lifecycle_routes::handle_project_create),
         )
+        // Hypervisor session execution surface (Lane A, Cut #1): real workspace
+        // provisioning + environment-status/diff/readiness/receipt surfacing +
+        // fail-closed honest gates. The positive execution loop is Cut #2.
+        .route(
+            "/v1/hypervisor/sessions",
+            post(lifecycle_routes::handle_session_create),
+        )
+        .route(
+            "/v1/hypervisor/sessions/:id/events",
+            get(lifecycle_routes::handle_session_events),
+        )
+        .route(
+            "/v1/hypervisor/sessions/:id/execute",
+            post(lifecycle_routes::handle_session_execute),
+        )
         .route(
             "/v1/threads/:id/memory/status",
             post(lifecycle_routes::handle_memory_status),

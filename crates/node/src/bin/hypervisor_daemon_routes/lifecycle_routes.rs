@@ -21,7 +21,7 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -5625,4 +5625,647 @@ pub(crate) async fn handle_threads_list(State(st): State<Arc<DaemonState>>) -> J
         }
     }
     Json(json!(threads))
+}
+
+// ===========================================================================
+// Hypervisor session execution surface — Lane A, Cut #1 (provisioning +
+// surfacing + fail-closed honest gates).
+//
+// The Rust daemon takes ownership of the Lane A *surface*: it provisions a real
+// isolated workspace (mkdtemp / clone-deferred), projects a real
+// `HypervisorEnvironmentStatus`, surfaces real `changed_file_groups` + readiness
+// + receipts over SSE, and FAILS CLOSED with an honest reason when the execution
+// substrate (model route / harness binary / container runtime) is absent — it
+// never fabricates files, diffs, or a terminal transcript.
+//
+// The positive execution path (real harness spawn → real files → real terminal
+// transcript → preview port) is the EQUIPPED-BOX (Cut #2) work; see
+// `handle_session_execute`. Per the master guide, external harnesses stay
+// adapters; Lane B (the native Rust decision_loop) is the eventual true-north.
+// ===========================================================================
+
+const SESSION_RECORD_SCHEMA_VERSION: &str = "ioi.hypervisor.session_record.v1";
+const SESSION_CREATE_PROJECTION_SCHEMA_VERSION: &str = "ioi.hypervisor.session_create_projection.v1";
+const SESSION_EXECUTE_DECISION_SCHEMA_VERSION: &str = "ioi.hypervisor.session_execute_decision.v1";
+
+/// Harness binaries the Lane A adapter can drive (host-PTY lane). Probed on PATH.
+const HARNESS_BINARIES: &[&str] = &["codex", "generic-cli-local", "deepseek", "claude-code-example"];
+/// Container runtimes the container lane can use. Probed on PATH.
+const CONTAINER_RUNTIMES: &[&str] = &["docker", "podman"];
+
+const WALK_IGNORED_DIRS: &[&str] = &[".git", "node_modules", ".cache", "dist"];
+const MAX_WALK_FILES: usize = 500;
+
+/// The real execution substrate, probed honestly (no fake "available").
+struct ExecutionSubstrate {
+    model_route: bool,
+    harness_binary: Option<String>,
+    container_runtime: Option<String>,
+}
+
+impl ExecutionSubstrate {
+    fn probe() -> Self {
+        Self {
+            model_route: model_route_reachable(),
+            harness_binary: HARNESS_BINARIES
+                .iter()
+                .find(|name| binary_on_path(name).is_some())
+                .map(|name| (*name).to_string()),
+            container_runtime: CONTAINER_RUNTIMES
+                .iter()
+                .find(|name| binary_on_path(name).is_some())
+                .map(|name| (*name).to_string()),
+        }
+    }
+
+    /// Real readiness checks for the environment-status projection.
+    fn readiness_checks(&self) -> Value {
+        json!([
+            { "id": "harness_binary", "status": if self.harness_binary.is_some() { "pass" } else { "fail" } },
+            { "id": "ollama_provider", "status": if self.model_route { "pass" } else { "fail" } },
+        ])
+    }
+}
+
+/// Honest reachability probe: can we TCP-connect to the configured model upstream
+/// (Ollama / OpenAI-compatible) within a short timeout? Offline → false (no fake).
+fn model_route_reachable() -> bool {
+    use std::net::{TcpStream, ToSocketAddrs};
+    let upstream = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:11434".to_string());
+    let (host, port) = parse_host_port(&upstream);
+    let Ok(mut addrs) = format!("{host}:{port}").to_socket_addrs() else {
+        return false;
+    };
+    let Some(addr) = addrs.next() else { return false };
+    TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300)).is_ok()
+}
+
+/// Parse `host`/`port` from a URL-ish upstream; default port 11434 (Ollama).
+fn parse_host_port(upstream: &str) -> (String, u16) {
+    let without_scheme = upstream
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(upstream);
+    let authority = without_scheme.split(['/', '?', '#']).next().unwrap_or(without_scheme);
+    // Strip any userinfo.
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    match authority.rsplit_once(':') {
+        Some((host, port)) if !host.is_empty() => {
+            (host.to_string(), port.parse().unwrap_or(11434))
+        }
+        _ => (authority.to_string(), 11434),
+    }
+}
+
+/// `which`-style PATH lookup for an executable (no process spawn). None if absent.
+fn binary_on_path(name: &str) -> Option<String> {
+    let path = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(name);
+        let Ok(meta) = std::fs::metadata(&candidate) else { continue };
+        if !meta.is_file() {
+            continue;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if meta.permissions().mode() & 0o111 == 0 {
+                continue;
+            }
+        }
+        return Some(candidate.to_string_lossy().into_owned());
+    }
+    None
+}
+
+/// Root for provisioned session workspaces: `{IOI_HYPERVISOR_SESSIONS_ROOT or tmp}/ioi-hypervisor-sessions`.
+fn sessions_root() -> std::path::PathBuf {
+    let base = std::env::var("IOI_HYPERVISOR_SESSIONS_ROOT")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("ioi-hypervisor-sessions")
+}
+
+/// Real `mkdtemp`-equivalent: create a fresh unique dir `{tag}-{token}` under the
+/// sessions root, retrying on collision. Returns the absolute workspace path.
+fn mkdtemp_session(session_tag: &str) -> std::io::Result<std::path::PathBuf> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let root = sessions_root();
+    std::fs::create_dir_all(&root)?;
+    let pid = std::process::id();
+    for _ in 0..64 {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let token = format!("{pid:x}{nanos:x}{seq:x}");
+        let candidate = root.join(format!("{session_tag}-{token}"));
+        match std::fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "exhausted unique workspace name attempts",
+    ))
+}
+
+struct ProvisionOutcome {
+    workspace_root: String,
+    workspace_artifact_ref: String,
+    component_phases: Value,
+    realized_specs: Vec<Value>,
+    custody_posture: String,
+    initializer: Value,
+}
+
+/// Provision a REAL isolated session workspace from a typed initializer. mkdtemp
+/// an isolated dir, then realize git specs by shallow-cloning when a remote is
+/// given and the clone succeeds; otherwise record the spec deferred (no fake
+/// clone). Mirrors `runtime-workspace-provisioner.mjs`.
+fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result<ProvisionOutcome, AppError> {
+    let custody_posture = initializer
+        .get("custody_posture")
+        .and_then(Value::as_str)
+        .unwrap_or("public_trunk")
+        .to_string();
+    let session_tag: String = safe_session_tag(session_ref);
+    let workspace_path = mkdtemp_session(&session_tag).map_err(|error| {
+        AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("workspace mkdtemp failed: {error}"))
+    })?;
+
+    // Never operate on a filesystem root.
+    if workspace_path.parent().is_none() {
+        return Err(AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "workspace_provision_root_forbidden".to_string(),
+        ));
+    }
+    let workspace_root = workspace_path.to_string_lossy().into_owned();
+
+    let mut workspace_content_phase = "ready";
+    let mut realized_specs: Vec<Value> = Vec::new();
+    if let Some(specs) = initializer.get("specs").and_then(Value::as_array) {
+        for spec in specs {
+            if let Some(git) = spec.get("git").and_then(Value::as_object) {
+                let remote_uri = git.get("remote_uri").and_then(Value::as_str).unwrap_or("");
+                if remote_uri.is_empty() {
+                    continue;
+                }
+                let clone_target = git.get("clone_target").and_then(Value::as_str).unwrap_or(".");
+                let clone_into = if clone_target == "." {
+                    workspace_root.clone()
+                } else {
+                    workspace_path.join(clone_target).to_string_lossy().into_owned()
+                };
+                let cloned = std::process::Command::new("git")
+                    .args(["clone", "--depth", "1", remote_uri, clone_into.as_str()])
+                    .output()
+                    .map(|output| output.status.success())
+                    .unwrap_or(false);
+                if cloned {
+                    realized_specs.push(json!({ "git": remote_uri, "realized": true }));
+                } else {
+                    // No fake clone: record deferred, leave a real scratch workspace.
+                    workspace_content_phase = "initializing";
+                    realized_specs.push(json!({ "git": remote_uri, "realized": false }));
+                }
+                continue;
+            }
+            if let Some(context_url) = spec.get("context_url").and_then(Value::as_str) {
+                // Context-URL realization is a later phase: record it deferred.
+                workspace_content_phase = "initializing";
+                realized_specs.push(json!({ "context_url": context_url, "realized": false }));
+            }
+        }
+    }
+
+    let artifact_digest = {
+        let payload = format!("{workspace_root}\n{}", serde_json::to_string(initializer).unwrap_or_default());
+        let hex = sha256_hex_str(&payload);
+        hex.chars().take(24).collect::<String>()
+    };
+
+    Ok(ProvisionOutcome {
+        workspace_root,
+        workspace_artifact_ref: format!("agentgres://artifact/workspace/{artifact_digest}"),
+        component_phases: json!({
+            "provisioner": "ready",
+            "workspace_content": workspace_content_phase,
+        }),
+        realized_specs,
+        custody_posture,
+        initializer: initializer.clone(),
+    })
+}
+
+/// A filesystem-safe, length-bounded session tag for the workspace dir name.
+fn safe_session_tag(session_ref: &str) -> String {
+    let mut out = String::with_capacity(session_ref.len());
+    let mut in_run = false;
+    for ch in session_ref.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-') {
+            out.push(ch);
+            in_run = false;
+        } else if !in_run {
+            out.push('_');
+            in_run = true;
+        }
+    }
+    if out.is_empty() {
+        out.push_str("session");
+    }
+    out.chars().take(48).collect()
+}
+
+/// Build the real environment-status projection for a session from its stored
+/// provisioning facts + a fresh substrate probe.
+fn project_session_environment_status(
+    environment_ref: &str,
+    workspace_root: &str,
+    custody_posture: &str,
+    initializer_ref: &str,
+    workspace_artifact_ref: &str,
+    component_phases: &Value,
+    substrate: &ExecutionSubstrate,
+) -> Value {
+    RuntimeKernelService::new().project_hypervisor_environment_status(&json!({
+        "environmentRef": environment_ref,
+        "workspaceRoot": workspace_root,
+        "workspaceMountPolicy": custody_posture,
+        "initializerRef": initializer_ref,
+        "modelRouteRef": "model-route:hypervisor-local-ollama",
+        "workspaceArtifactRef": workspace_artifact_ref,
+        "componentPhases": component_phases,
+        "readinessChecks": substrate.readiness_checks(),
+    }))
+}
+
+/// Real workspace-diff projection (`changed_file_groups`) over the session
+/// workspace: `git` deltas for a work tree, a real file walk for scratch, or the
+/// honest `absent` projection when there is no workspace. No fixtures.
+fn project_session_workspace_diff(workspace_root: &str) -> Value {
+    let service = RuntimeKernelService::new();
+    if workspace_root.is_empty() {
+        return service.project_hypervisor_workspace_diff_absent();
+    }
+    let inside_work_tree = git_capture(workspace_root, &["rev-parse", "--is-inside-work-tree"])
+        .map(|stdout| stdout.trim() == "true")
+        .unwrap_or(false);
+    if inside_work_tree {
+        let numstat = git_capture(workspace_root, &["diff", "--numstat", "HEAD"]).unwrap_or_default();
+        let status = git_capture(workspace_root, &["status", "--porcelain"]).unwrap_or_default();
+        service.project_hypervisor_workspace_diff_from_git(workspace_root, &numstat, &status)
+    } else {
+        let records = walk_workspace_records(workspace_root);
+        service.project_hypervisor_workspace_diff_from_records(workspace_root, "filesystem", &records)
+    }
+}
+
+/// Run a git subcommand in `cwd`, returning stdout on success.
+fn git_capture(cwd: &str, args: &[&str]) -> Option<String> {
+    let mut command = std::process::Command::new("git");
+    command.args(["-C", cwd]);
+    command.args(args);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Real file walk of a scratch workspace → `{relPath, delta, status:"added"}`
+/// records (the kernel groups them). Mirrors `walkWorkspace` in the JS projection.
+fn walk_workspace_records(root: &str) -> Vec<Value> {
+    fn walk(dir: &Path, rel: &str, out: &mut Vec<Value>) {
+        if out.len() >= MAX_WALK_FILES {
+            return;
+        }
+        let Ok(read) = std::fs::read_dir(dir) else { return };
+        let mut entries: Vec<_> = read.flatten().collect();
+        entries.sort_by_key(std::fs::DirEntry::file_name);
+        for entry in entries {
+            if out.len() >= MAX_WALK_FILES {
+                return;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Ok(file_type) = entry.file_type() else { continue };
+            let child_rel = if rel.is_empty() { name.clone() } else { format!("{rel}/{name}") };
+            if file_type.is_dir() {
+                if WALK_IGNORED_DIRS.contains(&name.as_str()) {
+                    continue;
+                }
+                walk(&entry.path(), &child_rel, out);
+            } else if file_type.is_file() {
+                let lines = std::fs::read_to_string(entry.path())
+                    .map(|content| if content.is_empty() { 0 } else { content.split('\n').count() })
+                    .unwrap_or(0);
+                out.push(json!({ "relPath": child_rel, "delta": format!("+{lines}"), "status": "added" }));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(Path::new(root), "", &mut out);
+    out
+}
+
+/// Load a persisted session record by session_ref.
+fn load_session_record(st: &DaemonState, session_ref: &str) -> Option<Value> {
+    read_record_dir(&st.data_dir, "sessions")
+        .into_iter()
+        .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))
+}
+
+/// Build a one-shot `text/event-stream` response from canonical session-event frames.
+fn session_events_response(frames: &[(&str, Value)]) -> Response {
+    let mut body = String::from(": hypervisor session events\n\n");
+    for (event, data) in frames {
+        let encoded = serde_json::to_string(data).unwrap_or_else(|_| "{}".to_string());
+        body.push_str(&format!("event: {event}\ndata: {encoded}\n\n"));
+    }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::from(body))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+/// POST /v1/hypervisor/sessions — create + provision a real session workspace.
+///
+/// Body: `{ project_ref?, session_ref?, workspace_mount_policy?, context_url?,
+/// git?:{remote_uri,clone_target,target_mode}, authority_scope_refs? }`.
+/// Provisions a REAL workspace (mkdtemp / clone-deferred), projects a real
+/// `HypervisorEnvironmentStatus` (model_mount/harness honestly degraded with no
+/// substrate), persists the session + a provisioning receipt, and returns 202.
+pub(crate) async fn handle_session_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let now = iso_now();
+    let project_ref = body.get("project_ref").and_then(Value::as_str).map(str::to_string);
+    let session_ref = body
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            let seed = format!("{}:{now}", project_ref.as_deref().unwrap_or("session"));
+            format!("session:hyp-{}", short_hash(&seed))
+        });
+    let environment_ref = format!("environment:{}", safe_session_tag(&session_ref));
+
+    // Typed workspace initializer (camelCase input mirrors the JS builder args).
+    let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
+        "contextUrl": body.get("context_url"),
+        "gitSpec": body.get("git"),
+        "workspaceMountPolicy": body.get("workspace_mount_policy"),
+        "authorityScopeRefs": body.get("authority_scope_refs"),
+    }));
+    let initializer_ref = initializer
+        .get("initializer_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("workspace-initializer:session")
+        .to_string();
+
+    let provision = match provision_session_workspace(&session_ref, &initializer) {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            return (
+                error.0,
+                Json(json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } })),
+            );
+        }
+    };
+
+    let substrate = ExecutionSubstrate::probe();
+    let environment_status = project_session_environment_status(
+        &environment_ref,
+        &provision.workspace_root,
+        &provision.custody_posture,
+        &initializer_ref,
+        &provision.workspace_artifact_ref,
+        &provision.component_phases,
+        &substrate,
+    );
+
+    // Real provisioning receipt (id + kind so it passes the receipt reader).
+    let receipt_ref = format!("receipt://hypervisor/session-provision/{}", safe_session_tag(&session_ref));
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.provision",
+        "session_ref": session_ref,
+        "environment_ref": environment_ref,
+        "workspace_root": provision.workspace_root,
+        "workspace_artifact_ref": provision.workspace_artifact_ref,
+        "state_root_ref": environment_status.get("state_root_ref").cloned().unwrap_or(Value::Null),
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+
+    let record = json!({
+        "schema_version": SESSION_RECORD_SCHEMA_VERSION,
+        "session_ref": session_ref,
+        "project_ref": project_ref,
+        "environment_ref": environment_ref,
+        "lifecycle_state": "provisioned",
+        "cwd": provision.workspace_root,
+        "workspace_root": provision.workspace_root,
+        "workspace_artifact_ref": provision.workspace_artifact_ref,
+        "custody_posture": provision.custody_posture,
+        "initializer": provision.initializer,
+        "initializer_ref": initializer_ref,
+        "component_phases": provision.component_phases,
+        "realized_specs": provision.realized_specs,
+        "environment_status": environment_status,
+        "latest_receipt_refs": [receipt_ref],
+        "created_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "sessions", &session_ref, &record);
+
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "schema_version": SESSION_CREATE_PROJECTION_SCHEMA_VERSION,
+            "session_ref": session_ref,
+            "environment_ref": environment_ref,
+            "environment_status": environment_status,
+            "workspace_initializer": provision.initializer,
+            "receipt_ref": receipt_ref,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/sessions/:id/events — canonical session-events SSE.
+///
+/// Emits REAL signals only: `environment_status` (re-projected from provisioning
+/// facts + a fresh probe), `workspace_change` (real `changed_file_groups`),
+/// `readiness` (the honest gate decision), `receipt_projection`. No
+/// `terminal_chunk` is emitted in Cut #1 — nothing has executed, so faking a
+/// transcript is forbidden. 404 if the session is unknown.
+pub(crate) async fn handle_session_events(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Response {
+    let Some(record) = load_session_record(&st, &session_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+        )
+            .into_response();
+    };
+    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("");
+    let environment_ref = record.get("environment_ref").and_then(Value::as_str).unwrap_or("environment:hypervisor-session");
+    let custody_posture = record.get("custody_posture").and_then(Value::as_str).unwrap_or("public_trunk");
+    let initializer_ref = record.get("initializer_ref").and_then(Value::as_str).unwrap_or("workspace-initializer:session");
+    let workspace_artifact_ref = record.get("workspace_artifact_ref").and_then(Value::as_str).unwrap_or("");
+    let component_phases = record.get("component_phases").cloned().unwrap_or_else(|| json!({}));
+    let receipt_refs = record.get("latest_receipt_refs").cloned().unwrap_or_else(|| json!([]));
+
+    let substrate = ExecutionSubstrate::probe();
+    let environment_status = project_session_environment_status(
+        environment_ref,
+        workspace_root,
+        custody_posture,
+        initializer_ref,
+        workspace_artifact_ref,
+        &component_phases,
+        &substrate,
+    );
+    let workspace_diff = project_session_workspace_diff(workspace_root);
+    let gate = execution_gate_decision(&session_id, &substrate);
+
+    let frames: Vec<(&str, Value)> = vec![
+        ("environment_status", environment_status),
+        (
+            "workspace_change",
+            json!({ "changed_file_groups": workspace_diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([])) }),
+        ),
+        ("readiness", gate),
+        ("receipt_projection", json!({ "latest_receipt_refs": receipt_refs })),
+    ];
+    session_events_response(&frames)
+}
+
+/// The honest readiness/gate decision for a session given the probed substrate.
+/// `decision` is `ready` only when a model route AND a harness binary are present
+/// (the host-PTY lane); otherwise it is `blocked` with the specific missing
+/// substrate as `reason`.
+fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) -> Value {
+    let (decision, reason, message) = if !substrate.model_route {
+        (
+            "blocked",
+            "no_model_route",
+            "No reachable model route. Start a local model (e.g. `ollama serve` + a coding model) or set IOI_HYPERVISOR_MODEL_UPSTREAM.",
+        )
+    } else if substrate.harness_binary.is_none() {
+        (
+            "blocked",
+            "harness_unavailable",
+            "No harness binary on PATH (codex / generic-cli-local). Install a harness adapter to run the Lane A execution loop.",
+        )
+    } else {
+        (
+            "ready",
+            "execution_substrate_present",
+            "Model route and harness binary present; the Lane A execution loop lands in the equipped-box cut (Cut #2).",
+        )
+    };
+    json!({
+        "readiness_id": format!("readiness:{}", safe_session_tag(session_ref)),
+        "decision": decision,
+        "reason": reason,
+        "message": message,
+        "checks": substrate.readiness_checks(),
+        "model_route": substrate.model_route,
+        "harness_binary": substrate.harness_binary,
+        "container_runtime": substrate.container_runtime,
+        "runtimeTruthSource": "daemon-runtime",
+    })
+}
+
+/// POST /v1/hypervisor/sessions/:id/execute — Lane A execution trigger.
+///
+/// FAILS CLOSED in Cut #1: it probes the real substrate and returns an honest
+/// blocked decision (`no_model_route` / `harness_unavailable` /
+/// `container_unavailable`), emitting NO files, NO diffs, NO terminal transcript.
+/// When the substrate IS present it still returns `execution_engine_pending`
+/// rather than faking work — the real harness spawn → real files → real terminal
+/// transcript → preview port loop is the EQUIPPED-BOX (Cut #2) deliverable.
+pub(crate) async fn handle_session_execute(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(session_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if load_session_record(&st, &session_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+        );
+    }
+    let lane = body.get("lane").and_then(Value::as_str).unwrap_or("host_pty");
+    let substrate = ExecutionSubstrate::probe();
+
+    // Honest fail-closed ordering: model → harness → (container, if requested).
+    let blocked = if !substrate.model_route {
+        Some((
+            "no_model_route",
+            "No reachable model route. Start a local model or set IOI_HYPERVISOR_MODEL_UPSTREAM.",
+        ))
+    } else if substrate.harness_binary.is_none() {
+        Some((
+            "harness_unavailable",
+            "No harness binary on PATH (codex / generic-cli-local).",
+        ))
+    } else if lane == "container" && substrate.container_runtime.is_none() {
+        Some((
+            "container_unavailable",
+            "Container lane requested but no container runtime (docker / podman) on PATH.",
+        ))
+    } else {
+        None
+    };
+
+    // EQUIPPED-BOX (Cut #2): when `blocked` is None the substrate is present.
+    // Implement the REAL Lane A loop HERE — spawn the harness in the provisioned
+    // workspace bound to the model, stream the PTY transcript as `terminal_chunk`
+    // events, collect real file writes, emit `workspace_change` diffs + a preview
+    // port + Agentgres receipts. Until then we MUST NOT fabricate any of that:
+    // return an honest `execution_engine_pending` decision (no fake work).
+    let (reason, message) = blocked.unwrap_or((
+        "execution_engine_pending",
+        "Substrate present; the real Lane A execution loop lands in the equipped-box cut (Cut #2). No work was fabricated.",
+    ));
+
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({
+            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+            "session_ref": session_id,
+            "decision": "blocked",
+            "reason": reason,
+            "message": message,
+            "lane": lane,
+            "checks": substrate.readiness_checks(),
+            "model_route": substrate.model_route,
+            "harness_binary": substrate.harness_binary,
+            "container_runtime": substrate.container_runtime,
+            // No execution happened: these are honestly empty, never fabricated.
+            "changed_file_groups": [],
+            "terminal_events": [],
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
 }
