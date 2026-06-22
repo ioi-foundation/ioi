@@ -354,113 +354,24 @@ test("public runtime Hypervisor project operation route is retired", async () =>
   );
 });
 
-test("public runtime routes admit approved Hypervisor operations after wallet and Agentgres refs", async () => {
+test("public runtime approved operation admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/approved-operations",
-      body: {
-        operation_family: "session",
-        proposal_ref: "session-operation:daemon/restore",
-        proposal_schema_version: "ioi.hypervisor.session_operation_proposal.v1",
-        proposal_source: "daemon-session-operation-proposal",
-        project_ref: "project:ioi",
-        session_ref: "session:ioi",
-        environment_ref: "environment:ioi",
-        provider_candidate_ref: "provider:local-workstation",
-        operation_kind: "restore_session",
-        target_ref: "agentgres://restore/ioi/latest",
-        wallet_approval_ref: "approval://wallet/session/restore",
-        wallet_lease_ref: "lease:wallet/session/restore",
-        required_scope_refs: ["scope:restore.apply"],
-        authority_receipt_refs: ["receipt://wallet/session/restore"],
-        agentgres_operation_ref: "agentgres://operation/session/ioi/restore",
-        receipt_ref: "receipt://session/ioi/restore",
-        state_root_ref: "agentgres://state-root/session/ioi",
-        archive_ref: "artifact://agentgres/archive/ioi/latest",
-        restore_ref: "agentgres://restore/ioi/latest",
-      },
+      body: { operation_family: "session" },
     }),
     response,
-    store,
+    store: {},
   });
 
-  assert.equal(response.statusCode, 202);
-  const result = JSON.parse(response.body);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    result.schema_version,
-    "ioi.runtime.hypervisor_approved_operation_admission.v1",
-  );
-  assert.equal(result.decision, "admitted");
-  assert.equal(result.execution_status, "admitted_for_execution");
-  assert.equal(result.executor_kind, "session_lifecycle_adapter");
-  assert.match(result.execution_plan_ref, /^execution-plan:\/\/hypervisor\/session\//);
-  assert.match(result.execution_dispatch_ref, /^dispatch:\/\/hypervisor\/session\//);
-  assert.equal(
-    result.execution_plan.schema_version,
-    "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
-  );
-  assert.equal(result.execution_plan.dispatch_status, "awaiting_executor");
-  assert.equal(result.execution_plan.executor_kind, "session_lifecycle_adapter");
-  assert.equal(result.execution_plan.wallet_lease_ref, result.wallet_lease_ref);
-  assert.equal(result.wallet_approval_ref, "approval://wallet/session/restore");
-  assert.deepEqual(result.agentgres_operation_refs, [
-    "agentgres://operation/session/ioi/restore",
-  ]);
-  assert.equal(result.runtimeTruthSource, "daemon-runtime");
-});
-
-test("public runtime routes reject fixture Hypervisor operation execution admission", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    homeDir: "/home/operator",
-    schemaVersion: "ioi.agentgres.runtime.v0",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/approved-operations",
-      body: {
-        operation_family: "provider",
-        proposal_ref: "provider-operation:fixture/archive",
-        proposal_schema_version: "ioi.hypervisor.provider_operation_proposal.v1",
-        proposal_source: "fixture",
-        project_ref: "project:ioi",
-        candidate_ref: "provider-candidate:akash-gpu",
-        direct_provider_ref: "provider:akash/gpu-market",
-        operation_kind: "archive",
-        wallet_approval_ref: "approval://wallet/provider/archive",
-        wallet_lease_ref: "lease:wallet/provider/archive",
-        required_scope_refs: ["scope:archive.write"],
-        agentgres_operation_ref: "agentgres://operation/provider/archive",
-        receipt_ref: "receipt://provider/archive",
-        state_root_ref: "agentgres://state-root/provider/archive",
-        archive_ref: "artifact://agentgres/archive/provider/latest",
-      },
-    }),
-    response,
-    store,
-  });
-
-  assert.equal(response.statusCode, 403);
-  assert.equal(
-    response.error.code,
-    "hypervisor_approved_operation_proposal_source_not_admissible",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
 });
 

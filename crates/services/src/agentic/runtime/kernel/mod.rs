@@ -47,6 +47,7 @@ pub mod runtime_harness_session_binding_admission;
 pub mod runtime_harness_session_terminal_attach_admission;
 pub mod runtime_artifact_availability_incident_admission;
 pub mod runtime_code_editor_adapter_launch_plan_admission;
+pub mod runtime_hypervisor_approved_operation_admission;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
 pub mod runtime_model_route_mutation_admission;
@@ -791,6 +792,21 @@ impl RuntimeKernelService {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionError,
     > {
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a Hypervisor approved-operation governance admission (pure: asserts
+    /// a daemon-authored proposal carries wallet approval/lease + required scopes + Agentgres/
+    /// receipt/state-root refs + family-specific targets, and emits the admission + execution plan).
+    pub fn admit_hypervisor_approved_operation(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionError,
+    > {
+        runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionCore
             .admit(request, now_iso)
     }
 

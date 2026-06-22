@@ -6,7 +6,6 @@ import {
 } from "../runtime-agent-run-lifecycle.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
-import { admitHypervisorApprovedOperation } from "../runtime-hypervisor-approved-operation-admission.mjs";
 import { dispatchHypervisorApprovedOperationPlan } from "../runtime-hypervisor-approved-operation-dispatch.mjs";
 import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs";
 import { buildHarnessSessionReadiness } from "../runtime-harness-session-readiness.mjs";
@@ -620,11 +619,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/approved-operations") {
-        const body = await readBody(request);
+        // The approved-operation governance admission is served by the Rust
+        // hypervisor-daemon (kernel admit_hypervisor_approved_operation planner).
         writeJsonResponse(
           response,
-          admitHypervisorApprovedOperation(body),
-          202,
+          {
+            error: {
+              code: "runtime_lifecycle_retired_served_by_rust_daemon",
+              message:
+                "The approved-operation admission is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              retryable: false,
+              details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+            },
+          },
+          410,
         );
         return;
       }

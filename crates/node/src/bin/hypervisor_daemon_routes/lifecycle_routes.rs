@@ -4483,6 +4483,28 @@ pub(crate) async fn handle_harness_session_terminal_attach_admission(
     }
 }
 
+/// POST /v1/hypervisor/approved-operations — admit a wallet-approved Hypervisor operation (pure
+/// kernel planner: daemon-authored proposal + wallet approval/lease + required scopes + Agentgres/
+/// receipt/state-root refs + family targets; emits the admission + execution plan). 202 + record,
+/// or {error:{code,message,details}} with status (400 field-shape / 403 wallet-authority).
+pub(crate) async fn handle_approved_operation_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_hypervisor_approved_operation(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

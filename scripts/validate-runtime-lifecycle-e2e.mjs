@@ -1369,6 +1369,64 @@ async function main() {
       assert.equal(noCommand.body.error.code, "harness_session_terminal_attach_command_required");
     });
 
+    // Step 3x: the Hypervisor approved-operation governance admission (Rust-owned via the kernel
+    // admit_hypervisor_approved_operation planner — daemon-authored proposal + wallet approval/
+    // lease + required scopes + Agentgres/receipt/state-root refs + family targets; emits the
+    // admission + a daemon-owned execution plan; 400 field-shape / 403 wallet-authority).
+    await runStep("POST /v1/hypervisor/approved-operations admits + emits the execution plan", async () => {
+      const base = (overrides = {}) => ({
+        operation_family: "session",
+        proposal_schema_version: "ioi.hypervisor.session_operation_proposal.v1",
+        proposal_source: "daemon-session-operation-proposal",
+        proposal_ref: "proposal:session/1",
+        project_ref: "project:ioi",
+        operation_kind: "start_session",
+        wallet_approval_ref: "approval://wallet/session/1",
+        wallet_lease_ref: "lease:wallet/session/1",
+        required_scope_refs: ["scope:session.start"],
+        agentgres_operation_refs: ["agentgres://operation/session/1"],
+        receipt_refs: ["receipt://session/1"],
+        state_root_ref: "agentgres://state-root/session/1",
+        session_ref: "session:1",
+        environment_ref: "environment:1",
+        provider_candidate_ref: "provider-candidate:1",
+        target_ref: "session:1",
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/approved-operations`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid session operation is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.executor_kind, "session_lifecycle_adapter");
+      assert.equal(
+        ok.body.execution_plan.schema_version,
+        "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+      );
+      assert.equal(ok.body.execution_plan_ref, ok.body.execution_plan.execution_plan_ref);
+
+      // 403: a non-daemon proposal source is not admissible.
+      const fixture = await admit(base({ proposal_source: "local-fixture" }));
+      assert.equal(fixture.status, 403);
+      assert.equal(fixture.body.error.code, "hypervisor_approved_operation_proposal_source_not_admissible");
+
+      // 403: a wallet approval ref with the wrong prefix.
+      const badApproval = await admit(base({ wallet_approval_ref: "approval://other/1" }));
+      assert.equal(badApproval.status, 403);
+      assert.equal(badApproval.body.error.code, "hypervisor_approved_operation_ref_prefix_invalid");
+
+      // 400: the proposal schema must match the operation family.
+      const schemaMismatch = await admit(
+        base({ proposal_schema_version: "ioi.hypervisor.provider_operation_proposal.v1" }),
+      );
+      assert.equal(schemaMismatch.status, 400);
+      assert.equal(schemaMismatch.body.error.code, "hypervisor_approved_operation_schema_mismatch");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.
