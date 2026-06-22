@@ -94,6 +94,48 @@ impl IntoResponse for AppError {
     }
 }
 
+/// Seed the canonical default state a fresh daemon needs to report runtime readiness (the
+/// doctor model.routes + memory.store required checks): the memory store dirs + a default
+/// local-first model route. Idempotent — creates the memory dirs unconditionally (empty is
+/// fine) and seeds the default route ONLY when no route exists yet, so it never clobbers an
+/// operator- or test-authored route. The seeded route carries no `fallback`, so it does not
+/// change route resolution (resolve_route_endpoint still defaults to the native-local
+/// endpoint) — it is display + readiness state only.
+fn seed_default_state(data_dir: &str) {
+    let root = std::path::Path::new(data_dir);
+    let _ = std::fs::create_dir_all(root.join("memory-records"));
+    let _ = std::fs::create_dir_all(root.join("memory-policies"));
+    let routes_dir = root.join("model-routes");
+    let _ = std::fs::create_dir_all(&routes_dir);
+    let has_route = std::fs::read_dir(&routes_dir)
+        .map(|entries| {
+            entries.flatten().any(|entry| {
+                entry.path().extension().map(|ext| ext == "json").unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+    if !has_route {
+        let route = json!({
+            "id": "route.local-first",
+            "object": "ioi.model_mount_route",
+            "role": "default",
+            "status": "active",
+            "updatedAt": "2026-06-15T00:00:00.000Z",
+            "receiptRefs": ["receipt://model-mount/route-control/local-first"],
+            "routeControl": {
+                "rust_core_boundary": "model_mount.route_control",
+                "evidence_refs": [
+                    "model_mount_route_control_rust_owned",
+                    "rust_daemon_core_route_control_plan",
+                    "agentgres_route_truth_required"
+                ]
+            }
+        });
+        let body = serde_json::to_string_pretty(&route).unwrap_or_default();
+        let _ = std::fs::write(routes_dir.join("route.local-first.json"), format!("{body}\n"));
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let _ = ioi_telemetry::init::init_tracing();
@@ -110,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
     let data_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
         .unwrap_or_else(|_| "./hypervisor-data".to_string());
     let _ = std::fs::create_dir_all(&data_dir);
+    seed_default_state(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
