@@ -986,9 +986,10 @@ impl AgentgresAdmissionCore {
             AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
         })?;
         let file_content = format!("{payload}\n");
-        fs::write(&target, file_content.as_bytes()).map_err(|error| {
-            AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
-        })?;
+        // Atomic write: stream to a sibling temp file, fsync it, then rename over the target so a
+        // crash mid-commit can never leave a torn/partial record (the reader sees either the prior
+        // bytes or the full new bytes). Replaces a bare fs::write (truncate-then-write, non-atomic).
+        write_runtime_state_record_atomically(&target, file_content.as_bytes())?;
         Ok(RuntimeStateWrittenRecord {
             record_path: record.record_path.clone(),
             absolute_path: target.to_string_lossy().into_owned(),
@@ -2751,6 +2752,60 @@ fn runtime_state_projection_watermark(
     Ok(format!("runtime-state:{watermark}"))
 }
 
+/// Per-process monotonic token making each temp record filename unique across concurrent writers.
+static RUNTIME_STATE_TEMP_TOKEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Write `contents` to `target` atomically: stream into a sibling temp file, fsync it, then rename
+/// over the target (atomic on the same filesystem) and best-effort fsync the parent directory so
+/// the rename is durable. A crash at any point leaves either the prior file or the full new file —
+/// never a torn/partial record. Replaces a bare truncate-then-write fs::write.
+fn write_runtime_state_record_atomically(
+    target: &Path,
+    contents: &[u8],
+) -> Result<(), AgentgresAdmissionError> {
+    use std::io::Write;
+
+    let parent = target.parent().ok_or_else(|| {
+        AgentgresAdmissionError::RuntimeStatePersistenceFailed(format!(
+            "runtime state record has no parent directory: {}",
+            target.display()
+        ))
+    })?;
+    let file_name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .ok_or_else(|| {
+            AgentgresAdmissionError::RuntimeStatePersistenceFailed(format!(
+                "runtime state record has no file name: {}",
+                target.display()
+            ))
+        })?;
+    let token = RUNTIME_STATE_TEMP_TOKEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // Hidden temp sibling, unique per (process, writer) so concurrent commits never collide.
+    let temp_path = parent.join(format!(".{file_name}.{}.{token}.tmp", std::process::id()));
+
+    let write_result = (|| -> std::io::Result<()> {
+        let mut file = fs::File::create(&temp_path)?;
+        file.write_all(contents)?;
+        file.sync_all()?;
+        Ok(())
+    })();
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temp_path);
+        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string()));
+    }
+    if let Err(error) = fs::rename(&temp_path, target) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string()));
+    }
+    // Best-effort durability of the rename in the directory entry (ignored on platforms that
+    // disallow directory fsync).
+    if let Ok(dir) = fs::File::open(parent) {
+        let _ = dir.sync_all();
+    }
+    Ok(())
+}
+
 fn runtime_state_record_path(
     root: &Path,
     record_path: &str,
@@ -4468,6 +4523,24 @@ mod tests {
             "sha256:retired-previous-state-root"
         );
         assert!(record.transition.state_root_before.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn atomic_record_write_replaces_and_leaves_no_temp() {
+        let state_dir = unique_state_dir("agentgres-atomic-write");
+        let target = state_dir.join("runs/run_atomic.json");
+        std::fs::create_dir_all(target.parent().unwrap()).expect("parent dir");
+        std::fs::write(&target, b"{\"old\":true}\n").expect("seed prior content");
+        super::write_runtime_state_record_atomically(&target, b"{\"new\":true}\n")
+            .expect("atomic write");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "{\"new\":true}\n");
+        // No leftover temp sibling files remain after the rename.
+        let leftovers: Vec<_> = std::fs::read_dir(target.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "no temp files should linger: {leftovers:?}");
     }
 
     #[test]
