@@ -428,6 +428,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route("/v1/threads/:id/mcp/import", post(lifecycle_routes::handle_mcp_import))
         .route("/v1/threads/:id/mcp/servers", post(lifecycle_routes::handle_mcp_add))
         .route(
+            "/v1/threads/:id/tools/:name/invoke",
+            post(lifecycle_routes::handle_coding_tool_invoke),
+        )
+        .route(
             "/v1/threads/:id/mcp/servers/:server_id",
             delete(lifecycle_routes::handle_mcp_remove),
         )

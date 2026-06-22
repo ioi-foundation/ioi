@@ -1371,6 +1371,47 @@ pub(crate) async fn handle_mcp_add(
     apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": body }))
 }
 
+/// POST /v1/threads/:id/tools/:name/invoke — invoke a coding-tool-pack tool against the
+/// thread's workspace via the CANONICAL kernel `run_coding_tool_step_module` (workspace.status,
+/// git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read,
+/// tool.retrieve_result, computer_use.request_lease). The tool id is the path `:name`; the body's
+/// `input` (+ optional workflow_graph_id/workflow_node_id/run_id/task_id/idempotency_key)
+/// parameterizes it; the workspace_root is resolved from the thread's agent record. Ports the
+/// JS daemon's coding-tool invocation surface onto the Rust true-north.
+pub(crate) async fn handle_coding_tool_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, tool_name)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let agent = read_agent_for_thread(&st, &thread_id).ok_or_else(|| {
+        AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}"))
+    })?;
+    let workspace_root = memory_agent_cwd(&agent);
+
+    let request_json = json!({
+        "schema_version": ioi_services::agentic::runtime::kernel::coding_tool_step_module::CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
+        "tool_id": tool_name,
+        "workspace_root": workspace_root,
+        "input": body.get("input").cloned().unwrap_or_else(|| json!({})),
+        "thread_id": thread_id,
+        "run_id": body.get("run_id").and_then(Value::as_str),
+        "task_id": body.get("task_id").and_then(Value::as_str),
+        "workflow_graph_id": body.get("workflow_graph_id").and_then(Value::as_str),
+        "workflow_node_id": body.get("workflow_node_id").and_then(Value::as_str),
+        "idempotency_key": body.get("idempotency_key").and_then(Value::as_str),
+    });
+    let request: ioi_services::agentic::runtime::kernel::coding_tool_step_module::CodingToolStepModuleRunRequest =
+        serde_json::from_value(request_json)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    match ioi_services::agentic::runtime::kernel::coding_tool_step_module::run_coding_tool_step_module(request) {
+        Ok(value) => Ok(Json(value)),
+        Err(error) => Err(AppError(
+            StatusCode::BAD_REQUEST,
+            format!("{}: {}", error.code(), error.message()),
+        )),
+    }
+}
+
 /// DELETE /v1/threads/:id/mcp/servers/:server_id — remove an MCP server.
 pub(crate) async fn handle_mcp_remove(
     State(st): State<Arc<DaemonState>>,
