@@ -4,14 +4,26 @@ import {
   createAgent as createLifecycleAgent,
   createThread as createLifecycleThread,
 } from "../runtime-agent-run-lifecycle.mjs";
-import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
-import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
 import { dispatchHypervisorApprovedOperationPlan } from "../runtime-hypervisor-approved-operation-dispatch.mjs";
-import { buildHarnessSessionLaunch } from "../runtime-harness-session-launch.mjs";
-import { buildHarnessSessionReadiness } from "../runtime-harness-session-readiness.mjs";
-import { buildHarnessSessionSpawn } from "../runtime-harness-session-spawn.mjs";
-import { deriveWorkspaceInitializer } from "../runtime-environment-status-projection.mjs";
-import { createHarnessReceiptSink } from "../runtime-harness-receipt-sink.mjs";
+
+// Harness Lane A execution (container lanes, public fixture runs, session
+// launch / spawn / readiness / turn-lanes) is RETIRED from the JS daemon: the
+// Rust hypervisor-daemon owns the real workspace provisioning, the wallet-gated
+// host-spawn lane, and the served preview. These routes return 410 and point at
+// the Rust session flow so a JS harness-execution surface cannot silently return.
+function harnessExecutionRetired(url) {
+  return {
+    error: {
+      code: "harness_execution_retired_served_by_rust_daemon",
+      message:
+        "Harness Lane A execution is served by the Rust hypervisor-daemon; the JS daemon no longer owns it. " +
+        "Use POST /v1/hypervisor/sessions, GET /v1/hypervisor/sessions/:id/events, and " +
+        "POST /v1/hypervisor/sessions/:id/execute (the wallet-gated host-spawn lane + served preview).",
+      retryable: false,
+      details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
+    },
+  };
+}
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -22,8 +34,6 @@ export function createPublicRuntimeRequestHandler(deps) {
     createLifecycleThread: createLifecycleThreadDep = createLifecycleThread,
     ensureProviderAvailable = null,
     executeApprovedOperationPlan = null,
-    executeHarnessContainerLane = null,
-    executeHarnessSpawnLane = null,
     eventStreamIdForThread = null,
     handleAgentRoute,
     handleModelMountingNativeRoute,
@@ -36,7 +46,6 @@ export function createPublicRuntimeRequestHandler(deps) {
     normalizeBooleanOption,
     notFound,
     optionalString,
-    provisionSessionWorkspace = null,
     readBody,
     runtimeError = null,
     runtimeModeForOptions = null,
@@ -648,39 +657,11 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-container-lanes") {
-        const body = await readBody(request);
-        writeJsonResponse(
-          response,
-          planHarnessAdapterContainerLane({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/harness-container-lanes",
-          }),
-          202,
-        );
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-public-fixture-runs") {
-        const body = await readBody(request);
-        writeJsonResponse(
-          response,
-          await runHarnessPublicFixtureRun(
-            {
-              ...body,
-              source:
-                optionalString(body.source) ??
-                "public_runtime_routes./v1/hypervisor/harness-public-fixture-runs",
-            },
-            {
-              executeContainerLane:
-                typeof executeHarnessContainerLane === "function"
-                  ? executeHarnessContainerLane
-                  : undefined,
-            },
-          ),
-          202,
-        );
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (
@@ -750,78 +731,21 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-launches"
       ) {
-        const body = await readBody(request);
-        writeJsonResponse(
-          response,
-          buildHarnessSessionLaunch({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/harness-session-launches",
-          }),
-          202,
-        );
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-spawns"
       ) {
-        const body = await readBody(request);
-        const spawnRequest = {
-          ...body,
-          source:
-            optionalString(body.source) ??
-            "public_runtime_routes./v1/hypervisor/harness-session-spawns",
-        };
-        // Phase 1: provision a REAL isolated workspace before resolving the
-        // spawn contract, so a harness never edits the daemon cwd / repo. The
-        // spawn builder stays synchronous; provisioning is the async route
-        // concern (and is a no-op when the dep is not injected, e.g. in the
-        // offline shell-contract mock daemon).
-        if (typeof provisionSessionWorkspace === "function") {
-          const launchContract =
-            body && typeof body.session_launch === "object" && body.session_launch
-              ? body.session_launch
-              : null;
-          const provision = await provisionSessionWorkspace({
-            initializer: deriveWorkspaceInitializer({
-              workspaceMountPolicy: launchContract?.workspace_mount_policy,
-              contextUrl: body.context_url,
-              gitSpec: body.git ?? body.git_spec,
-              authorityScopeRefs: launchContract?.authority_scope_refs,
-            }),
-            sessionRef: launchContract?.session_route_ref,
-            baseWorkspaceRoot: store.defaultCwd,
-          });
-          spawnRequest.workspace_root = provision.workspace_root;
-          spawnRequest.workspace_provision = provision;
-        }
-        writeJsonResponse(
-          response,
-          buildHarnessSessionSpawn(spawnRequest, {
-            baseWorkspaceRoot: store.defaultCwd,
-            defaultWorkspaceRoot: store.defaultCwd,
-          }),
-          202,
-        );
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-readiness"
       ) {
-        const body = await readBody(request);
-        writeJsonResponse(
-          response,
-          await buildHarnessSessionReadiness({
-            ...body,
-            source:
-              optionalString(body.source) ??
-              "public_runtime_routes./v1/hypervisor/harness-session-readiness",
-          }),
-          202,
-        );
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (
@@ -849,66 +773,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         request.method === "POST" &&
         url.pathname === "/v1/hypervisor/harness-session-turn-lanes"
       ) {
-        const body = await readBody(request);
-        if (typeof executeHarnessSpawnLane !== "function") {
-          writeJsonResponse(
-            response,
-            {
-              error: {
-                code: "harness_spawn_lane_executor_unconfigured",
-                message:
-                  "The daemon was started without a harness spawn lane executor.",
-              },
-            },
-            501,
-          );
-          return;
-        }
-        const spawnContract =
-          body && typeof body.spawn === "object" && body.spawn
-            ? body.spawn
-            : {};
-        // Phase 4: gate the workspace-mutating lane on the wallet capability
-        // lease the spawn carries BEFORE running — a missing lease is a 403
-        // step-up, not a silent proceed.
-        if (agentgresAdmissionClient) {
-          agentgresAdmissionClient.assertCapabilityLease({
-            operationKind: "workspace_write",
-            authorityScopeRefs: spawnContract.authority_scope_refs,
-          });
-        }
-        // Phase 2: run one real execution lane — spawn the admitted harness in
-        // the provisioned workspace, feed the task intent, and report the files
-        // it wrote. The harness drives the model; the daemon owns the spawn.
-        const laneResult = await executeHarnessSpawnLane({
-          spawn: body.spawn,
-          intent:
-            optionalString(body.intent) ?? optionalString(body.seed_intent),
-          model_endpoint: optionalString(body.model_endpoint),
-        });
-        // Phase 4: admit each consequential write as Agentgres truth and emit
-        // real receipts for the Receipts/Replay surface.
-        if (
-          agentgresAdmissionClient &&
-          laneResult.exit_status === "success" &&
-          Array.isArray(laneResult.files_written)
-        ) {
-          const receiptSink = createHarnessReceiptSink(
-            spawnContract.session_route_ref,
-          );
-          for (const file of laneResult.files_written) {
-            receiptSink.record(
-              await agentgresAdmissionClient.admitOperation({
-                operation_kind: "workspace_write",
-                session_ref: spawnContract.session_route_ref,
-                authority_scope_refs: spawnContract.authority_scope_refs,
-                payload: { workspace_root: laneResult.workspace_root, file },
-              }),
-            );
-          }
-          laneResult.governance = receiptSink.projection();
-        }
-        writeJsonResponse(response, laneResult, 200);
+        writeJsonResponse(response, harnessExecutionRetired(url), 410);
         return;
       }
       if (
