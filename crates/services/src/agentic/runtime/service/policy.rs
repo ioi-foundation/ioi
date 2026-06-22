@@ -1,4 +1,4 @@
-use crate::agentic::rules::ActionRules;
+use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use crate::agentic::runtime::keys::AGENT_POLICY_PREFIX;
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_api::state::StateAccess;
@@ -9,6 +9,46 @@ pub(crate) const GLOBAL_POLICY_SESSION_ID: [u8; 32] = [0u8; 32];
 
 pub(crate) fn action_policy_key(session_id: &[u8; 32]) -> Vec<u8> {
     [AGENT_POLICY_PREFIX, session_id.as_slice()].concat()
+}
+
+/// Persist a constrained session policy whose only consequential allowance is a
+/// workspace-scoped file write (`fs::write`); every other capability — network,
+/// shell, browser/host mutation, software install — falls through to the default
+/// `RequireApproval` gate. The lifecycle meta-tools are allowed so the agent can
+/// conclude the step.
+///
+/// This is the runtime POLICY DECISION (an `Allow` verdict), not an approval-token
+/// bypass: the firewall executes the write because the persisted policy permits the
+/// constrained capability, and the workspace-boundary check still hard-guards the
+/// path. Callers are expected to have already established the user's `workspace_write`
+/// authority at their own admission boundary (e.g. the Hypervisor daemon's wallet
+/// execution-authority gate) before installing this allow.
+pub fn install_constrained_workspace_write_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    let allow = |rule_id: &str, target: &str| Rule {
+        rule_id: Some(rule_id.to_string()),
+        target: target.to_string(),
+        conditions: Default::default(),
+        action: Verdict::Allow,
+    };
+    let rules = ActionRules {
+        policy_id: "hypervisor-runtime-host-workspace-write".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        rules: vec![
+            allow("allow-fs-write", "fs::write"),
+            allow("allow-complete", "agent__complete"),
+            allow("allow-pause", "agent__pause"),
+            allow("allow-chat-reply", "chat__reply"),
+        ],
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+    };
+    let key = action_policy_key(&session_id);
+    let bytes = codec::to_bytes_canonical(&rules)?;
+    state.insert(&key, &bytes).map_err(TransactionError::State)?;
+    Ok(())
 }
 
 fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {

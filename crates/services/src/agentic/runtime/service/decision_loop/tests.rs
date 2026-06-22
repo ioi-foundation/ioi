@@ -714,6 +714,44 @@ fn typed_runtime_file_write_frame_dispatches_file_write_before_shell() {
     assert!(maybe_typed_runtime_workspace_context_tool_call(&mut state).is_none());
 }
 
+// PROBE: the daemon-hosted path persists the AgentState (with its route frame) via the
+// SCALE codec at start@v1 and re-hydrates it at step@v1. This asserts the frame survives
+// that exact round-trip AND still deterministically dispatches file__write — isolating
+// whether a serialization gap is why the hosted step falls through to cognition.
+#[test]
+fn typed_runtime_file_write_frame_survives_scale_round_trip_and_dispatches() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame =
+        Some(typed_file_write_frame("phase5c.txt", "hello from phase 5c\n"));
+
+    let bytes = codec::to_bytes_canonical(&state).expect("agent state encodes");
+    let mut rehydrated: AgentState =
+        codec::from_bytes_canonical(&bytes).expect("agent state decodes");
+
+    let frame = rehydrated
+        .runtime_route_frame
+        .as_ref()
+        .expect("route frame survives the SCALE round-trip");
+    assert_eq!(frame.output_intent, "tool_execution");
+    assert_eq!(frame.route_family, "workspace");
+    assert!(!frame.direct_answer_allowed);
+    let file_plan = frame
+        .runtime_action
+        .as_ref()
+        .expect("runtime_action survives")
+        .file_plan
+        .as_ref()
+        .expect("file_plan survives");
+    assert_eq!(file_plan.mutation_kind, "write");
+    assert_eq!(file_plan.path, "phase5c.txt");
+
+    let tool_call = maybe_typed_runtime_file_write_tool_call(&mut rehydrated)
+        .expect("rehydrated frame still dispatches file__write");
+    assert!(tool_call.contains("\"name\":\"file__write\""));
+    assert!(tool_call.contains("phase5c.txt"));
+    assert!(tool_call.contains("hello from phase 5c"));
+}
+
 #[test]
 fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
     let mut state = test_agent_state();

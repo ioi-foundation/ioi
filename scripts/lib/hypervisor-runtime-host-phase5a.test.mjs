@@ -183,3 +183,95 @@ test("Phase 5B: the step decision is deterministic (same goal → same constrain
   const second = await run("session:5b-det-b");
   assert.equal(first, second, "the deterministic cognition emits the same event kinds for the same goal");
 });
+
+// ---------------------------------------------------------------------------
+// Phase 5C — the first REAL, constrained tool execution: a wallet-gated step@v1
+// that deterministically runs a `file__write` mutating the provisioned workspace.
+//
+//   - a pre-resolved route frame (`file_write` directive) makes the step
+//     deterministically dispatch `file__write` (no model tool selection);
+//   - a constrained session ActionRules ALLOWS `fs::write` (default RequireApproval
+//     for everything else) so the runtime's policy DECISION is `Allow` — the write
+//     executes under a persisted policy decision, NOT an approval-token bypass;
+//   - the workspace-boundary guard still hard-constrains the path.
+// Fully offline/deterministic (mock cognition, no Ollama / harness / container).
+// ---------------------------------------------------------------------------
+
+async function grantedRun(request) {
+  const challenge = await postRuntimeHost(request);
+  assert.equal(challenge.status, 403, `step is wallet-gated (got ${challenge.status})`);
+  const grant = mintApprovalGrant({
+    policyHash: challenge.body.approval.policy_hash,
+    requestHash: challenge.body.approval.request_hash,
+  });
+  return postRuntimeHost({ ...request, wallet_approval_grant: grant });
+}
+
+test("Phase 5C: a granted, file_write-directed step REALLY executes a constrained file__write that mutates the workspace", async () => {
+  const request = {
+    session_ref: "session:5c-write",
+    goal: "write the workspace file",
+    step: true,
+    file_write: { path: "phase5c.txt", content: "phase-5c-constrained-write" },
+  };
+  const run = await grantedRun(request);
+  assert.equal(run.status, 200);
+  const body = run.body;
+
+  // The canonical step@v1 ran end to end and concluded with a real file__write action.
+  assert.equal(body.step.ran, true, `step ran (error=${JSON.stringify(body.step.error)})`);
+  assert.equal(body.step.error, null);
+  const action = body.step.events.find((event) => event.kind === "AgentActionResult");
+  assert.ok(action, `step produced an AgentActionResult: ${JSON.stringify(body.step.events.map((e) => e.kind))}`);
+  assert.equal(action.tool_name, "file__write", "the executed tool was the constrained file write");
+  assert.equal(action.error_class, null, "the file write executed without error");
+
+  // It executed under an `Allow` policy decision — NOT intercepted for approval.
+  assert.ok(
+    !body.step.events.some((event) => event.kind === "FirewallInterception"),
+    `no firewall interception — the constrained write was policy-allowed: ${JSON.stringify(
+      body.step.events.map((e) => e.kind),
+    )}`,
+  );
+
+  // The workspace was REALLY mutated: the file exists on disk with the exact content.
+  assert.equal(body.host.workspace_mutated, true, "the file write mutated the workspace");
+  assert.deepEqual(body.workspace_files_after, ["phase5c.txt"]);
+  const target = path.join(body.workspace_path, "phase5c.txt");
+  assert.ok(fs.existsSync(target), "the workspace file exists");
+  assert.equal(fs.readFileSync(target, "utf8"), "phase-5c-constrained-write", "exact content written");
+
+  // The host lifecycle event still reaches /events via the bridge.
+  const events = await pollThreadEventsFor(body.thread_id, "runtime_host.session.started");
+  assert.match(events, /runtime_host\.session\.started/);
+});
+
+test("Phase 5C: the constraint holds — a goal-only step (no file_write directive) does NOT mutate the workspace", async () => {
+  // Same wallet gate, but no pre-resolved file-write frame and no constrained allow:
+  // the default RequireApproval policy keeps any model-selected tool from mutating.
+  const run = await grantedRun({ session_ref: "session:5c-constrained", goal: "investigate the workspace", step: true });
+  assert.equal(run.status, 200);
+  assert.equal(run.body.step.ran, true);
+  assert.equal(run.body.host.workspace_mutated, false, "no constrained allow → workspace untouched");
+  assert.deepEqual(run.body.workspace_files_after, []);
+});
+
+test("Phase 5C: the constrained file write is deterministic (same directive → same file + content)", async () => {
+  const run = (ref) =>
+    grantedRun({
+      session_ref: ref,
+      goal: "write the workspace file",
+      step: true,
+      file_write: { path: "result.txt", content: "deterministic-5c" },
+    });
+  const a = (await run("session:5c-det-a")).body;
+  const b = (await run("session:5c-det-b")).body;
+  assert.equal(a.host.workspace_mutated, true);
+  assert.equal(b.host.workspace_mutated, true);
+  assert.equal(
+    fs.readFileSync(path.join(a.workspace_path, "result.txt"), "utf8"),
+    fs.readFileSync(path.join(b.workspace_path, "result.txt"), "utf8"),
+    "the same directive writes identical content across sessions",
+  );
+  assert.equal(fs.readFileSync(path.join(a.workspace_path, "result.txt"), "utf8"), "deterministic-5c");
+});

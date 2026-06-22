@@ -7214,8 +7214,13 @@ pub(crate) mod runtime_host {
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
-    use ioi_services::agentic::runtime::service::RuntimeAgentService;
+    use ioi_services::agentic::runtime::service::{
+        install_constrained_workspace_write_policy, RuntimeAgentService,
+    };
     use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams, StepAgentParams};
+    use ioi_types::app::agentic::{
+        FileMutationPlanRef, RequiredCapability, RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
+    };
     use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
     use ioi_types::codec;
     use ioi_types::error::{StateError, VmError};
@@ -7419,6 +7424,66 @@ pub(crate) mod runtime_host {
         }
     }
 
+    /// A pre-resolved `RuntimeRouteFrame` that deterministically dispatches a constrained
+    /// `file__write` of `content` to the workspace-relative `path` (mirrors the canonical
+    /// `typed_file_write_frame` recipe). The frame's `filesystem.write` capability seeds the
+    /// resolved intent so the file tool passes the precheck — no shell, no browser, no model
+    /// tool selection. This is the Phase 5C constrained, deterministic tool driver.
+    fn file_write_route_frame(path: &str, content: &str) -> RuntimeRouteFrame {
+        RuntimeRouteFrame {
+            intent_id: "workspace.mutate".to_string(),
+            route_family: "workspace".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: path.to_string(),
+            target_kind: Some("workspace_path".to_string()),
+            host_mutation: true,
+            required_capabilities: vec!["filesystem.write".to_string()],
+            typed_evidence: vec![
+                RuntimeIntentEvidence {
+                    evidence_kind: "workspace_path".to_string(),
+                    value: path.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(95),
+                },
+                RuntimeIntentEvidence {
+                    evidence_kind: "file_write_content".to_string(),
+                    value: content.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(90),
+                },
+            ],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "filesystem.write".to_string(),
+                reason: Some("phase 5c constrained file write".to_string()),
+            }],
+            host_mutation_scope: None,
+            runtime_action: Some(RuntimeActionFrame {
+                intent_class: "workspace.mutate".to_string(),
+                action_family: "file".to_string(),
+                target_text: path.to_string(),
+                target_kind: "workspace_path".to_string(),
+                host_mutation: true,
+                required_capabilities: vec![RequiredCapability {
+                    capability_id: "filesystem.write".to_string(),
+                    reason: Some("phase 5c constrained file write".to_string()),
+                }],
+                browser_plan: None,
+                command_plan: None,
+                file_plan: Some(FileMutationPlanRef {
+                    plan_ref: "file.write:runtime-host".to_string(),
+                    path: path.to_string(),
+                    observed_hash: String::new(),
+                    mutation_kind: "write".to_string(),
+                    verification_command: None,
+                }),
+                provenance: Some("runtime_host".to_string()),
+            }),
+            install_request: None,
+            provenance: Some("runtime_host".to_string()),
+        }
+    }
+
     fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(session_ref.as_bytes());
@@ -7527,11 +7592,24 @@ pub(crate) mod runtime_host {
             }
         }
 
+        // Phase 5C: a `file_write` directive supplies a pre-resolved route frame so the step
+        // deterministically dispatches a constrained `file__write` (no model tool selection,
+        // no shell/browser). Path is workspace-relative + traversal-guarded.
+        let file_write_frame = body.get("file_write").and_then(Value::as_object).and_then(|fw| {
+            let path = fw.get("path").and_then(Value::as_str)?.trim();
+            let content = fw.get("content").and_then(Value::as_str).unwrap_or("");
+            if path.is_empty() || path.starts_with('/') || path.split('/').any(|seg| seg == "..") {
+                return None;
+            }
+            Some(file_write_route_frame(path, content))
+        });
+
         // start@v1 (canonical lifecycle op; deterministic — no inference).
+        let has_file_write_directive = file_write_frame.is_some();
         let start_params = StartAgentParams {
             session_id,
             goal: goal.clone(),
-            runtime_route_frame: None,
+            runtime_route_frame: file_write_frame,
             max_steps: 8,
             parent_session_id: None,
             initial_budget: 0,
@@ -7543,6 +7621,18 @@ pub(crate) mod runtime_host {
         };
         if let Err(error) = host.handle_service_call(&mut state, "start@v1", &start_bytes, &mut ctx).await {
             return host_error(&session_ref, "start_v1", &format!("{error:?}"));
+        }
+
+        // Phase 5C: install the constrained session policy that ALLOWS the workspace-scoped
+        // file write (and the lifecycle meta-tools) while leaving every other capability
+        // under the default RequireApproval gate. The wallet execution-authority gate above
+        // already established the user's `workspace_write` authority; this is the runtime
+        // POLICY DECISION (an `Allow` verdict) that lets the constrained, workspace-bounded
+        // write execute deterministically — not an approval-token bypass.
+        if has_file_write_directive {
+            if let Err(error) = install_constrained_workspace_write_policy(&mut state, session_id) {
+                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+            }
         }
 
         // post_message@v1 (optional; deterministic — no inference).
