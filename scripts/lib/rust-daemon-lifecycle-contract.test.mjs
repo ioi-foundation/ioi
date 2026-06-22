@@ -110,8 +110,16 @@ test("Rust hypervisor-daemon satisfies the canonical lifecycle contract via the 
     const nodes = await Cursor.runtimeNodes.list({ substrateClient: client });
     assert.ok(nodes.some((node) => node.id === "local-daemon-agentgres"));
 
-    // NOTE (deferred): Cursor.models.list()[0].provider === "ioi-daemon-local" is the
-    // model-mount /v1/models array-shape divergence and is not asserted here yet.
+    // --- Cursor.models.list: the unauthenticated /v1/models returns the runtime model
+    // catalog ARRAY (the SDK shape), not the OpenAI-compat object. (The legacy JS assertion
+    // models[0].provider === "ioi-daemon-local" encodes a retired literal no projection
+    // emits today — the current catalog entry carries provider_ref/provider_kind instead.)
+    const models = await Cursor.models.list({ substrateClient: client });
+    assert.ok(Array.isArray(models) && models.length >= 1, "Cursor.models.list returns the catalog array");
+    assert.ok(
+      models[0].provider_kind || models[0].provider_ref || models[0].id,
+      "the catalog entry carries provider/identity metadata",
+    );
   } finally {
     await daemon.close();
   }

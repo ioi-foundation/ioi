@@ -304,6 +304,16 @@ async function main() {
         nodes.body.some((node) => node.id === "local-daemon-agentgres"),
         "includes the local Agentgres runtime node",
       );
+      // GET /v1/models is auth-keyed: the SDK (unauthenticated) gets the catalog ARRAY;
+      // OpenAI-compat / CLI (authenticated) gets the {object:"list",data,...} aggregate.
+      const modelsUnauth = await fetchJson(`${rust.endpoint}/v1/models`);
+      assert.equal(modelsUnauth.status, 200);
+      assert.ok(Array.isArray(modelsUnauth.body), "unauthenticated /v1/models is the catalog array");
+      const modelsAuth = await fetchJson(`${rust.endpoint}/v1/models`, {
+        headers: { authorization: "Bearer lifecycle-e2e" },
+      });
+      assert.equal(modelsAuth.status, 200);
+      assert.equal(modelsAuth.body.object, "list", "authenticated /v1/models is the OpenAI-compat aggregate");
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

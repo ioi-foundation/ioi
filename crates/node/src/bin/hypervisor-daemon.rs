@@ -575,11 +575,19 @@ async fn handle_dev_replay_status() -> Json<Value> {
     }))
 }
 
-/// GET /v1/models — the registry aggregate the CLI `models ls` reads (artifacts,
-/// endpoints, instances, providers, routes, receipts), plus the OpenAI model list
-/// under `data` so OpenAI-compatible clients still work. Artifacts/instances carry
-/// camelCase modelId.
-async fn handle_models(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+/// GET /v1/models — auth-keyed dual shape (mirrors the JS daemon). UNAUTHENTICATED
+/// requests (the SDK `Cursor.models.list` / runtime catalog clients) get the
+/// `RuntimeModelCatalogEntry` ARRAY projection; AUTHENTICATED requests (OpenAI-compatible
+/// clients + the CLI `models ls`) get the `{object:"list", data, artifacts, endpoints,
+/// instances, providers, routes, receipts}` aggregate. This lets both the SDK contract and
+/// the OpenAI-compat contract pass against the Rust daemon with the same route.
+async fn handle_models(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> Json<Value> {
+    let authenticated =
+        headers.contains_key(header::AUTHORIZATION) || headers.contains_key("x-api-key");
+    if !authenticated {
+        // The runtime model-catalog projection (the array Cursor.models.list reads).
+        return project_kind(&st, "runtime_model_catalog").unwrap_or_else(|_| Json(json!([])));
+    }
     let endpoints = project_kind(&st, "endpoints").map(|j| j.0).unwrap_or(json!([]));
     let providers = project_kind(&st, "providers").map(|j| j.0).unwrap_or(json!([]));
     let routes = json!(read_record_dir(&st.data_dir, "model-routes"));
