@@ -104,6 +104,30 @@ test("Rust hypervisor-daemon satisfies the canonical lifecycle contract via the 
     const replay = await collect(canceled.replay());
     assert.ok(replay.length >= 1, "run.replay() yields events after cancel");
 
+    // --- jobs/tasks endpoints (embedded in the run; canceled with it; SDK + raw) ---
+    const jobs = await client.listJobs({ agentId: run.agentId });
+    assert.equal(jobs.length, 1, "one runtime job for the run");
+    assert.equal(jobs[0].jobId, trace.runtimeJob.jobId);
+    assert.equal(jobs[0].schemaVersion, "ioi.agent-runtime.job-record.v1");
+    assert.equal(jobs[0].status, "canceled");
+    assert.equal(jobs[0].checklistStatus, "canceled");
+    assert.equal(jobs[0].endpoints.self, `/v1/jobs/${jobs[0].jobId}`);
+    assert.equal(jobs[0].endpoints.cancel, `/v1/jobs/${jobs[0].jobId}/cancel`);
+    assert.equal((await client.getJob(jobs[0].jobId)).runId, run.id);
+    const tasks = await client.listTasks({ agentId: run.agentId });
+    assert.equal(tasks.length, 1, "one runtime task for the run");
+    assert.equal(tasks[0].taskId, trace.runtimeTask.taskId);
+    assert.equal(tasks[0].status, "canceled");
+    assert.equal(tasks[0].promptIncluded, false);
+    assert.equal((await client.getTask(tasks[0].taskId)).runId, run.id);
+    // POST /v1/jobs|tasks/:id/cancel (idempotent over the already-canceled run).
+    const jobCancel = await client.cancelJob(jobs[0].jobId);
+    assert.equal(jobCancel.jobId, jobs[0].jobId);
+    assert.equal(jobCancel.status, "canceled");
+    const taskCancel = await client.cancelTask(tasks[0].taskId);
+    assert.equal(taskCancel.taskId, tasks[0].taskId);
+    assert.equal(taskCancel.status, "canceled");
+
     // --- Cursor.account + runtimeNodes (canonical Agentgres identifiers) ---
     const account = await Cursor.account.get({ substrateClient: client });
     assert.equal(account.source, "ioi-daemon-agentgres");

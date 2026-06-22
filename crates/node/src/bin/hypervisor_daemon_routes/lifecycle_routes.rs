@@ -3887,16 +3887,11 @@ pub(crate) async fn handle_mcp_tool_search(
 }
 
 /// POST /v1/runs/:id/cancel — cancel a run via plan_run_cancel_state_update.
-pub(crate) async fn handle_run_cancel(
-    State(st): State<Arc<DaemonState>>,
-    AxumPath(run_id): AxumPath<String>,
-) -> Result<Json<Value>, AppError> {
-    let Some(run) = read_record_dir(&st.data_dir, "runs")
-        .into_iter()
-        .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
-    else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")));
-    };
+/// Cancel a loaded run (plan_run_cancel + re-commit the full bundle so tasks/jobs/
+/// checklists reflect the cancel). Returns the canceled run record. Shared by run cancel
+/// and the job/task cancel routes (a job/task is canceled by canceling its owning run).
+fn cancel_run_record(st: &DaemonState, run: Value) -> Result<Value, AppError> {
+    let run_id = run.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     let request: RunCancelStateUpdateRequest = serde_json::from_value(json!({
         "schema_version": RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
         "run_id": run_id,
@@ -3907,10 +3902,51 @@ pub(crate) async fn handle_run_cancel(
     let record = RuntimeKernelService::new()
         .plan_run_cancel_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    // Re-commit the canceled run as the full bundle so tasks/jobs/checklists reflect
-    // the cancel (run.cancel transition), not just runs/<run>.json.
-    commit_run_state_bundle(&st, &run_id, "run.cancel", &record.run)?;
-    Ok(Json(record.run))
+    commit_run_state_bundle(st, &run_id, "run.cancel", &record.run)?;
+    Ok(record.run)
+}
+
+pub(crate) async fn handle_run_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(run_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(run) = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
+    else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")));
+    };
+    Ok(Json(cancel_run_record(&st, run)?))
+}
+
+/// POST /v1/jobs/:id/cancel — cancel a runtime job by canceling its owning run; returns
+/// the canceled runtimeJob (status/lifecycle/cancellation), embedded in the run record.
+pub(crate) async fn handle_job_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(job_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(run) = read_record_dir(&st.data_dir, "runs").into_iter().find(|run| {
+        run.get("runtimeJob").and_then(|j| j.get("jobId")).and_then(|v| v.as_str()) == Some(job_id.as_str())
+    }) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("job not found: {job_id}")));
+    };
+    let canceled = cancel_run_record(&st, run)?;
+    Ok(Json(canceled.get("runtimeJob").cloned().unwrap_or(Value::Null)))
+}
+
+/// POST /v1/tasks/:id/cancel — cancel a runtime task by canceling its owning run; returns
+/// the canceled runtimeTask.
+pub(crate) async fn handle_task_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(task_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(run) = read_record_dir(&st.data_dir, "runs").into_iter().find(|run| {
+        run.get("runtimeTask").and_then(|t| t.get("taskId")).and_then(|v| v.as_str()) == Some(task_id.as_str())
+    }) else {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("task not found: {task_id}")));
+    };
+    let canceled = cancel_run_record(&st, run)?;
+    Ok(Json(canceled.get("runtimeTask").cloned().unwrap_or(Value::Null)))
 }
 
 /// GET /v1/runs — list persisted run records (optionally filtered by ?agent_id=).

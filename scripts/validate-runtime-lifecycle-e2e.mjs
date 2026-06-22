@@ -637,6 +637,21 @@ async function main() {
         "canceled",
         "the canonical bundle tasks record reflects the cancel (faithful across lifecycle)",
       );
+      // POST /v1/jobs|tasks/:id/cancel cancel the job/task by canceling the owning run.
+      const jobsList = await fetchJson(`${rust.endpoint}/v1/jobs`);
+      const jobId = jobsList.body.find((j) => j.runId === turnRequestId)?.jobId;
+      assert.ok(jobId, "the run has a job record");
+      const jobCancel = await fetchJson(`${rust.endpoint}/v1/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST", body: "{}" });
+      assert.equal(jobCancel.status, 200);
+      assert.equal(jobCancel.body.jobId, jobId);
+      assert.equal(jobCancel.body.status, "canceled");
+      const tasksList = await fetchJson(`${rust.endpoint}/v1/tasks`);
+      const taskId = tasksList.body.find((t) => t.runId === turnRequestId)?.taskId;
+      const taskCancel = await fetchJson(`${rust.endpoint}/v1/tasks/${encodeURIComponent(taskId)}/cancel`, { method: "POST", body: "{}" });
+      assert.equal(taskCancel.status, 200);
+      assert.equal(taskCancel.body.status, "canceled");
+      const missingJob = await fetchJson(`${rust.endpoint}/v1/jobs/job_does_not_exist/cancel`, { method: "POST", body: "{}" });
+      assert.equal(missingJob.status, 404, "job cancel 404s on an unknown job");
     });
 
     // Step 6: compaction-policy — first event-EMITTING route on the unified log.
