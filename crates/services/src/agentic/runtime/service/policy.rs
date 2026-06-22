@@ -103,6 +103,27 @@ pub fn install_constrained_shell_exec_policy(
     )
 }
 
+/// Constrained session policy whose only consequential allowance is browser navigation
+/// (`browser::interact`). The PII egress firewall still inspects the navigated URL (a
+/// URL carrying PII is intercepted regardless), and a `file://`/localhost URL is treated
+/// as local processing.
+pub fn install_constrained_browser_navigation_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    install_constrained_session_policy(
+        state,
+        session_id,
+        "hypervisor-runtime-host-browser-navigation",
+        vec![Rule {
+            rule_id: Some("allow-browser-interact".to_string()),
+            target: "browser::interact".to_string(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        }],
+    )
+}
+
 fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {
     codec::from_bytes_canonical::<ActionRules>(bytes).ok()
 }

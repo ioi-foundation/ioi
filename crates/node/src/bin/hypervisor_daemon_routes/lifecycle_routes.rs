@@ -7215,13 +7215,13 @@ pub(crate) mod runtime_host {
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
     use ioi_services::agentic::runtime::service::{
-        install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
-        RuntimeAgentService,
+        install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
+        install_constrained_workspace_write_policy, RuntimeAgentService,
     };
     use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams, StepAgentParams};
     use ioi_types::app::agentic::{
-        CommandExecutionPlanRef, FileMutationPlanRef, RequiredCapability, RuntimeActionFrame,
-        RuntimeIntentEvidence, RuntimeRouteFrame,
+        BrowserActionPlanRef, CommandExecutionPlanRef, FileMutationPlanRef, RequiredCapability,
+        RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
     };
     use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
     use ioi_types::codec;
@@ -7542,6 +7542,59 @@ pub(crate) mod runtime_host {
         }
     }
 
+    /// A pre-resolved `RuntimeRouteFrame` that deterministically dispatches a constrained
+    /// `browser__navigate` to `url` via the canonical `maybe_typed_runtime_browser_navigate_tool_call`.
+    /// The navigation runs through the real `BrowserDriver` (Chromium); the PII egress firewall
+    /// still inspects the URL. Intended for benign/local (`file://`) URLs — no model selection.
+    fn browser_navigate_route_frame(url: &str) -> RuntimeRouteFrame {
+        RuntimeRouteFrame {
+            intent_id: "browser.interact".to_string(),
+            route_family: "browser".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: url.to_string(),
+            target_kind: Some("browser_target".to_string()),
+            host_mutation: false,
+            required_capabilities: vec!["browser.interact".to_string()],
+            typed_evidence: vec![RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: url.to_string(),
+                source: "runtime_host".to_string(),
+                confidence: Some(95),
+            }],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "browser.interact".to_string(),
+                reason: Some("phase 5 constrained browser navigation".to_string()),
+            }],
+            host_mutation_scope: None,
+            runtime_action: Some(RuntimeActionFrame {
+                intent_class: "local_runtime_action".to_string(),
+                action_family: "browser".to_string(),
+                target_text: url.to_string(),
+                target_kind: "browser_target".to_string(),
+                host_mutation: false,
+                required_capabilities: vec![RequiredCapability {
+                    capability_id: "browser.interact".to_string(),
+                    reason: Some("phase 5 constrained browser navigation".to_string()),
+                }],
+                browser_plan: Some(BrowserActionPlanRef {
+                    plan_ref: format!("browser.navigate:{url}"),
+                    action: "navigate".to_string(),
+                    url: url.to_string(),
+                    observation_required: true,
+                    observation_ref: None,
+                    coordinate_space_id: None,
+                    semantic_id: None,
+                }),
+                command_plan: None,
+                file_plan: None,
+                provenance: Some("runtime_host".to_string()),
+            }),
+            install_request: None,
+            provenance: Some("runtime_host".to_string()),
+        }
+    }
+
     fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(session_ref.as_bytes());
@@ -7682,10 +7735,23 @@ pub(crate) mod runtime_host {
             });
         let shell_run_frame = shell_run_argv.as_deref().map(shell_run_route_frame);
 
-        // Exactly one pre-resolved tool frame may drive the constrained step (file write
-        // wins if both are present). Without a directive the step runs unconstrained cognition.
+        // Phase 5 (browser): a `browser_navigate` directive supplies a pre-resolved browser
+        // frame so the step deterministically dispatches a constrained `browser__navigate`
+        // through the REAL BrowserDriver (Chromium). Intended for benign/local `file://` URLs.
+        let browser_navigate_url: Option<String> = body
+            .get("browser_navigate")
+            .and_then(Value::as_object)
+            .and_then(|bn| bn.get("url").and_then(Value::as_str))
+            .map(|u| u.trim().to_string())
+            .filter(|u| !u.is_empty());
+        let browser_navigate_frame = browser_navigate_url
+            .as_deref()
+            .map(browser_navigate_route_frame);
+
+        // Exactly one pre-resolved tool frame may drive the constrained step (precedence:
+        // file write → shell → browser). Without a directive the step runs unconstrained cognition.
         let has_file_write_directive = file_write_frame.is_some();
-        let route_frame = file_write_frame.or(shell_run_frame);
+        let route_frame = file_write_frame.or(shell_run_frame).or(browser_navigate_frame);
 
         // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
@@ -7719,6 +7785,10 @@ pub(crate) mod runtime_host {
             if let Err(error) =
                 install_constrained_shell_exec_policy(&mut state, session_id, &argv[0])
             {
+                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+            }
+        } else if browser_navigate_url.is_some() {
+            if let Err(error) = install_constrained_browser_navigation_policy(&mut state, session_id) {
                 return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
             }
         }

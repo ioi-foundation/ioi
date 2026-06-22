@@ -784,6 +784,37 @@ fn typed_runtime_shell_frame_survives_scale_round_trip_and_dispatches() {
     assert!(tool_call.contains("\"name\":\"shell__run\""));
 }
 
+// PROBE (Phase 5 browser): the daemon-hosted browser frame must survive the SCALE
+// persist→hydrate at start@v1/step@v1 and still deterministically dispatch
+// browser__navigate (the real Chromium navigation is covered by the equipped gate).
+#[test]
+fn typed_runtime_browser_frame_survives_scale_round_trip_and_dispatches() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame("browser.interact", "browser_target"));
+
+    let bytes = codec::to_bytes_canonical(&state).expect("agent state encodes");
+    let mut rehydrated: AgentState =
+        codec::from_bytes_canonical(&bytes).expect("agent state decodes");
+
+    let frame = rehydrated
+        .runtime_route_frame
+        .as_ref()
+        .expect("browser frame survives the SCALE round-trip");
+    assert_eq!(frame.intent_id, "browser.interact");
+    let browser_plan = frame
+        .runtime_action
+        .as_ref()
+        .expect("runtime_action survives")
+        .browser_plan
+        .as_ref()
+        .expect("browser_plan survives");
+    assert_eq!(browser_plan.action, "navigate");
+
+    let tool_call = maybe_typed_runtime_browser_navigate_tool_call(&mut rehydrated)
+        .expect("rehydrated browser frame still dispatches browser__navigate");
+    assert!(tool_call.contains("\"name\":\"browser__navigate\""));
+}
+
 #[test]
 fn typed_runtime_workspace_frame_dispatches_explicit_path_read() {
     let mut state = test_agent_state();

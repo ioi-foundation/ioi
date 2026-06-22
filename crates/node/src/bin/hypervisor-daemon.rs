@@ -159,8 +159,27 @@ fn seed_default_state(data_dir: &str) {
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+/// The agentic runtime decision loop is deeply nested (handle_step → execution →
+/// drivers → chromiumoxide CDP for browser navigation), so the daemon's tokio worker
+/// threads need a much larger stack than the 2 MiB default — the same posture the
+/// canonical local runtime (`ioi-local`) uses. Configurable, floored at 4 MiB.
+fn hypervisor_daemon_thread_stack_size_bytes() -> usize {
+    std::env::var("IOI_HYPERVISOR_TOKIO_STACK_SIZE_BYTES")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= 4 * 1024 * 1024)
+        .unwrap_or(32 * 1024 * 1024)
+}
+
+fn main() -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(hypervisor_daemon_thread_stack_size_bytes())
+        .build()?
+        .block_on(async_main())
+}
+
+async fn async_main() -> anyhow::Result<()> {
     let _ = ioi_telemetry::init::init_tracing();
 
     let addr_str = std::env::var("IOI_HYPERVISOR_DAEMON_ADDR")

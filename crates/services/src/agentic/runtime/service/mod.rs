@@ -11,7 +11,8 @@ pub mod output;
 pub mod planning;
 pub(crate) mod policy;
 pub use self::policy::{
-    install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
+    install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
+    install_constrained_workspace_write_policy,
 };
 pub mod queue;
 pub mod recovery;
