@@ -71,6 +71,9 @@ async function main() {
   wsGit("add", ".");
   wsGit("commit", "-q", "-m", "seed");
   process.env.IOI_HYPERVISOR_WORKSPACE_ROOT = skillHookWorkspace;
+  // Isolate Lane A provisioned session workspaces (step 3z) under a dedicated root.
+  const sessionsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lifecycle-e2e-sessions-"));
+  process.env.IOI_HYPERVISOR_SESSIONS_ROOT = sessionsRoot;
   const rust = await startRustHypervisorDaemon({ stateDir });
   try {
     // Step 0 (foundation): the lifecycle route family is served by the Rust daemon and
@@ -1481,6 +1484,73 @@ async function main() {
       const bad = await create({ project_name: "x" });
       assert.equal(bad.status, 400);
       assert.equal(bad.body.error.code, "project_create_repository_url_required");
+    });
+
+    // Step 3z: Hypervisor session execution surface (Lane A, Cut #1). The Rust daemon
+    // provisions a REAL workspace, surfaces real environment-status / diff / readiness /
+    // receipts over SSE, and FAILS CLOSED with an honest reason when no execution substrate
+    // is present — fabricating no files, diffs, or terminal transcript. (The positive
+    // execution loop is the equipped-box Cut #2.)
+    await runStep("POST /v1/hypervisor/sessions provisions a real workspace + fails closed honestly", async () => {
+      const sessionRef = "session:ratchet-lane-a";
+      const create = await fetchJson(`${rust.endpoint}/v1/hypervisor/sessions`, {
+        method: "POST",
+        body: JSON.stringify({ project_ref: "project:pqc", session_ref: sessionRef, workspace_mount_policy: "public_trunk" }),
+      });
+      assert.equal(create.status, 202, "session create returns 202");
+      assert.equal(create.body.schema_version, "ioi.hypervisor.session_create_projection.v1");
+      const status = create.body.environment_status;
+      assert.equal(status.schema_version, "ioi.hypervisor.environment_status.v1");
+      const workspaceRoot = status.components.workspace_content.workspace_root;
+      assert.ok(
+        workspaceRoot && fs.existsSync(workspaceRoot) && fs.statSync(workspaceRoot).isDirectory(),
+        "a real workspace dir exists on disk",
+      );
+      // Honest degraded substrate (no model route, no harness) — never a fake "running".
+      assert.equal(status.components.model_mount.phase, "degraded");
+      assert.equal(status.components.harness.phase, "degraded");
+      assert.equal(status.phase, "updating");
+
+      // A real file in the scratch workspace shows up in the events diff (real signal).
+      fs.writeFileSync(path.join(workspaceRoot, "index.html"), "<!doctype html><title>PQC</title>\n");
+      const eventsResponse = await fetch(
+        `${rust.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/events`,
+        { headers: { accept: "text/event-stream" } },
+      );
+      assert.equal(eventsResponse.status, 200, "session events return 200");
+      const byEvent = new Map();
+      for (const block of (await eventsResponse.text()).split("\n\n")) {
+        let event = null;
+        let data = null;
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event: ")) event = line.slice("event: ".length);
+          else if (line.startsWith("data: ")) data = line.slice("data: ".length);
+        }
+        if (event && data) byEvent.set(event, JSON.parse(data));
+      }
+      assert.ok(byEvent.has("environment_status"), "environment_status event present");
+      const names = (byEvent.get("workspace_change")?.changed_file_groups ?? []).flatMap((g) =>
+        g.files.map((f) => f.name),
+      );
+      assert.ok(names.includes("index.html"), `real diff includes index.html: ${JSON.stringify(names)}`);
+      assert.equal(byEvent.get("readiness").decision, "blocked");
+      assert.equal(byEvent.get("readiness").reason, "no_model_route");
+      assert.ok(
+        (byEvent.get("receipt_projection").latest_receipt_refs ?? []).length >= 1,
+        "receipt projection carries the provisioning receipt",
+      );
+      assert.equal(byEvent.has("terminal_chunk"), false, "no fabricated terminal transcript");
+
+      // Execute fails closed with an honest reason + zero fabricated work.
+      const execute = await fetchJson(
+        `${rust.endpoint}/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`,
+        { method: "POST", body: JSON.stringify({ intent: "create a website that explains post-quantum computers" }) },
+      );
+      assert.equal(execute.status, 503, "execute fails closed (503)");
+      assert.equal(execute.body.decision, "blocked");
+      assert.equal(execute.body.reason, "no_model_route");
+      assert.deepEqual(execute.body.changed_file_groups, [], "no fabricated changed files");
+      assert.deepEqual(execute.body.terminal_events, [], "no fabricated terminal events");
     });
 
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the

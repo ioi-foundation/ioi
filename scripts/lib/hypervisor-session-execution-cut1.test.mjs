@@ -18,6 +18,7 @@
 // can regress in.
 
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -169,6 +170,55 @@ test("Cut #1: execute fails closed with an honest reason and NO fabricated work"
   // Fail-closed: zero fabricated work.
   assert.deepEqual(body.changed_file_groups, []);
   assert.deepEqual(body.terminal_events, []);
+});
+
+test("Cut #1: clones a REAL git repo and surfaces a REAL git diff", async () => {
+  // Build a real source repo so the provisioner exercises its real
+  // `git clone --depth 1` path and the diff projection's `source: "git"` branch.
+  const srcRepo = fs.mkdtempSync(path.join(os.tmpdir(), "hyp-cut1-src-"));
+  try {
+    execFileSync("git", ["init", "-q", srcRepo]);
+    fs.writeFileSync(path.join(srcRepo, "README.md"), "# seed\n");
+    execFileSync("git", ["-C", srcRepo, "add", "."]);
+    execFileSync("git", [
+      "-C", srcRepo,
+      "-c", "user.email=cut1@ioi.test",
+      "-c", "user.name=cut1",
+      "commit", "-q", "-m", "seed",
+    ]);
+
+    const create = await fetch(`${daemon.endpoint}/v1/hypervisor/sessions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        session_ref: "session:cut1-clone",
+        git: { remote_uri: `file://${srcRepo}` },
+      }),
+    });
+    assert.equal(create.status, 202);
+    const created = await create.json();
+    const workspaceRoot = created.environment_status.components.workspace_content.workspace_root;
+
+    // The clone really happened: the committed file is on disk + content ready.
+    assert.ok(fs.existsSync(path.join(workspaceRoot, "README.md")), "cloned README.md present on disk");
+    assert.equal(created.environment_status.components.workspace_content.phase, "ready");
+
+    // Modify a tracked file → the events diff is a REAL `git diff` (not a walk).
+    fs.writeFileSync(path.join(workspaceRoot, "README.md"), "# seed\nmore\n");
+    const events = await fetch(
+      `${daemon.endpoint}/v1/hypervisor/sessions/${encodeURIComponent("session:cut1-clone")}/events`,
+      { headers: { accept: "text/event-stream" } },
+    );
+    const frames = parseSse(await events.text());
+    const change = new Map(frames.map((frame) => [frame.event, frame.data])).get("workspace_change");
+    const files = (change.changed_file_groups ?? []).flatMap((group) => group.files);
+    const readme = files.find((file) => file.name === "README.md");
+    assert.ok(readme, `git diff includes README.md: ${JSON.stringify(files.map((f) => f.name))}`);
+    assert.equal(readme.status, "modified");
+    assert.match(readme.delta, /^\+\d+\/-\d+$/, `git numstat delta shape: ${readme.delta}`);
+  } finally {
+    fs.rmSync(srcRepo, { recursive: true, force: true });
+  }
 });
 
 test("Cut #1: execute on an unknown session is 404, not a fake run", async () => {
