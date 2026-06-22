@@ -1412,6 +1412,67 @@ pub(crate) async fn handle_coding_tool_invoke(
     }
 }
 
+/// Plan a workflow-edit control event via the CANONICAL kernel
+/// `RuntimeWorkflowEditControlCore::plan` and admit it onto the thread's runtime event log
+/// (idempotent via `admit_and_persist_event`). Mirrors the JS daemon's
+/// `proposeWorkflowEdit`/`applyWorkflowEditProposal` module (plan + append the
+/// workflow.edit_proposed / workflow.edit.apply event). The richer approval-gated mutation
+/// orchestration is a higher layer; this ports the event-control module faithfully.
+fn workflow_edit_control_event(
+    st: &DaemonState,
+    thread_id: &str,
+    operation_kind: &str,
+    proposal_id: Option<String>,
+    body: &Value,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(st, thread_id).is_none() {
+        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+    }
+    let event_stream_id = format!("{thread_id}:events");
+    let request_json = json!({
+        "schema_version": ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation_kind": operation_kind,
+        "thread_id": thread_id,
+        "event_stream_id": event_stream_id,
+        "proposal_id": proposal_id,
+        "turn_id": body.get("turn_id").and_then(Value::as_str),
+        "workflow_graph_id": body.get("workflow_graph_id").and_then(Value::as_str),
+        "workflow_node_id": body.get("workflow_node_id").and_then(Value::as_str),
+        "workflow_path": body.get("workflow_path").and_then(Value::as_str),
+        "workspace_root": body.get("workspace_root").and_then(Value::as_str),
+        "source": body.get("source").and_then(Value::as_str),
+        "request": body,
+    });
+    let request: ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RuntimeWorkflowEditControlRequest =
+        serde_json::from_value(request_json)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RuntimeWorkflowEditControlCore
+        ::default()
+        .plan(&request)
+        .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
+    admit_and_persist_event(st, record.event).map(Json)
+}
+
+/// POST /v1/threads/:id/workflow-edit-proposals — propose a React Flow workflow edit
+/// (plans + admits the `workflow.edit_proposed` event).
+pub(crate) async fn handle_workflow_edit_propose(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    workflow_edit_control_event(&st, &thread_id, "workflow.edit_proposed", None, &body)
+}
+
+/// POST /v1/threads/:id/workflow-edit-proposals/:proposal_id/apply — apply a proposed edit
+/// (plans + admits the `workflow.edit.apply` event; idempotent on re-apply).
+pub(crate) async fn handle_workflow_edit_apply(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, proposal_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    workflow_edit_control_event(&st, &thread_id, "workflow.edit.apply", Some(proposal_id), &body)
+}
+
 /// DELETE /v1/threads/:id/mcp/servers/:server_id — remove an MCP server.
 pub(crate) async fn handle_mcp_remove(
     State(st): State<Arc<DaemonState>>,

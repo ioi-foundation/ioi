@@ -432,6 +432,14 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_coding_tool_invoke),
         )
         .route(
+            "/v1/threads/:id/workflow-edit-proposals",
+            post(lifecycle_routes::handle_workflow_edit_propose),
+        )
+        .route(
+            "/v1/threads/:id/workflow-edit-proposals/:proposal_id/apply",
+            post(lifecycle_routes::handle_workflow_edit_apply),
+        )
+        .route(
             "/v1/threads/:id/mcp/servers/:server_id",
             delete(lifecycle_routes::handle_mcp_remove),
         )
