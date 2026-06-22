@@ -2087,6 +2087,417 @@ pub(crate) async fn handle_memory_validate(
     )
 }
 
+// ---------------------------------------------------------------------------
+// Memory CRUD (top-level: thread-scoped + agent-scoped). The memory.status /
+// memory.validate control-event handlers above stay separate (they admit an event
+// onto the unified log); these mutate the Agentgres memory state (memory-records /
+// memory-policies) and re-project the public view, mirroring the retired JS
+// `commitMemoryControl` + `projectPublicMemory` (thread-memory-state.mjs).
+// ---------------------------------------------------------------------------
+
+/// Resolve the memory-route identity (thread_id, agent_id, workspace_root) for a
+/// scope. THREAD: thread_id from the path, agent_id derived, workspace from the agent's
+/// cwd; 404 if the thread's agent record is absent. AGENT: agent_id from the path,
+/// thread_id from the body's `thread_id` (else derived), workspace from the agent's
+/// cwd; 404 if the agent record is absent.
+fn resolve_memory_identity(
+    st: &DaemonState,
+    scope: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(Option<String>, Option<String>, Option<String>), AppError> {
+    if scope == "thread" {
+        let Some(agent) = read_agent_for_thread(st, id) else {
+            return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {id}")));
+        };
+        let agent_id = agent
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| agent_id_for_thread(id));
+        let workspace_root = memory_agent_cwd(&agent);
+        Ok((Some(id.to_string()), Some(agent_id), workspace_root))
+    } else {
+        let Some(agent) = read_record_dir(&st.data_dir, "agents")
+            .into_iter()
+            .find(|record| record.get("id").and_then(|v| v.as_str()) == Some(id))
+        else {
+            return Err(AppError(StatusCode::NOT_FOUND, format!("agent not found: {id}")));
+        };
+        let thread_id = body
+            .get("thread_id")
+            .and_then(|v| v.as_str())
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| thread_id_for_agent(id));
+        let workspace_root = memory_agent_cwd(&agent);
+        Ok((Some(thread_id), Some(id.to_string()), workspace_root))
+    }
+}
+
+/// Read the agent's workspace cwd (top-level `cwd`, falling back to `options.local.cwd`
+/// then `workspace_root`), mirroring the JS `agent?.cwd` plumbing.
+fn memory_agent_cwd(agent: &Value) -> Option<String> {
+    agent
+        .get("cwd")
+        .and_then(|v| v.as_str())
+        .or_else(|| {
+            agent
+                .get("options")
+                .and_then(|local| local.get("local"))
+                .and_then(|local| local.get("cwd"))
+                .and_then(|v| v.as_str())
+        })
+        .or_else(|| agent.get("workspace_root").and_then(|v| v.as_str()))
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+}
+
+/// Project the public memory view for a route (records / policy / path). Mirrors the JS
+/// `projectPublicMemory`: builds a `RuntimeMemoryProjectionApiRequest` over `state_dir`
+/// and returns the kernel projection's `projection` value unwrapped.
+fn memory_public_projection(
+    st: &DaemonState,
+    thread_id: Option<&str>,
+    agent_id: Option<&str>,
+    workspace_root: Option<&str>,
+    projection_kind: &str,
+    filters: Value,
+) -> Result<Value, AppError> {
+    let request: RuntimeMemoryProjectionApiRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "operation": "runtime_memory_projection",
+        "operation_kind": format!("runtime.memory_projection.{projection_kind}"),
+        "projection_kind": projection_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "workspace_root": workspace_root,
+        "state_dir": st.data_dir,
+        "filters": filters,
+        "source": "runtime.thread_memory_state.public_projection",
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .project_runtime_memory_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    Ok(record.projection.clone())
+}
+
+/// Shared read handler for a memory projection route (records / policy / path). Resolves
+/// the scope identity (404 if the owner record is absent), then projects over state_dir.
+/// `query` carries the route's query-string as the projection filters.
+fn handle_memory_projection_route(
+    st: &DaemonState,
+    scope: &str,
+    id: &str,
+    projection_kind: &str,
+    query: &HashMap<String, String>,
+) -> Result<Json<Value>, AppError> {
+    let (thread_id, agent_id, workspace_root) =
+        resolve_memory_identity(st, scope, id, &Value::Null)?;
+    let filters = Value::Object(
+        query
+            .iter()
+            .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+            .collect(),
+    );
+    let projection = memory_public_projection(
+        st,
+        thread_id.as_deref(),
+        agent_id.as_deref(),
+        workspace_root.as_deref(),
+        projection_kind,
+        filters,
+    )?;
+    Ok(Json(projection))
+}
+
+/// Shared write handler for a memory control route (write / edit / delete / policy):
+/// resolve identity, plan the control (kernel `plan_runtime_memory_control` builds the
+/// record/policy payload + receipt/evidence refs), persist the payload to the Agentgres
+/// state dir (`memory-records` or `memory-policies`), re-project the public view, and
+/// return the shaped result. Mirrors the retired JS `commitMemoryControl`.
+fn handle_memory_control_route(
+    st: &DaemonState,
+    scope: &str,
+    id: &str,
+    op: &str,
+    operation_kind: &str,
+    memory_id: Option<&str>,
+    body: Value,
+) -> Result<Json<Value>, AppError> {
+    let (thread_id, agent_id, workspace_root) = resolve_memory_identity(st, scope, id, &body)?;
+    let target_type = if op == "policy" {
+        Some(
+            body.get("target_type")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| if scope == "thread" { "thread" } else { "agent" }.to_string()),
+        )
+    } else {
+        None
+    };
+    let target_id = if op == "policy" {
+        Some(
+            body.get("target_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| id.to_string()),
+        )
+    } else {
+        None
+    };
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| "agent_studio".to_string());
+
+    let control_request: RuntimeMemoryControlApiRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+        "operation": op,
+        "operation_kind": operation_kind,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "memory_id": memory_id,
+        "workspace_root": workspace_root,
+        "state_dir": st.data_dir,
+        "target_type": target_type,
+        "target_id": target_id,
+        "source": source,
+        "now": iso_now(),
+        "request": body,
+        "evidence_refs": [
+            "runtime_memory_control_rust_owned",
+            "runtime_memory_state_store_js_mutation_retired",
+            "agentgres_thread_memory_state_truth_required",
+        ],
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .plan_runtime_memory_control(&control_request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+
+    // The planner resolves thread_id/agent_id/workspace_root from the replayed record on
+    // edit/delete (when the path-scoped identity was not supplied); trust the record.
+    let resolved_thread_id = record.thread_id.clone().or(thread_id);
+    let resolved_agent_id = record.agent_id.clone().or(agent_id);
+    let resolved_workspace_root = record.workspace_root.clone().or(workspace_root);
+
+    let dir = if record.memory_state_kind == "record" {
+        "memory-records"
+    } else {
+        "memory-policies"
+    };
+    persist_record(st.data_dir.as_str(), dir, &record.state_id, &record.payload)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    // Re-project the public view after the commit, exactly as the JS facade did (records
+    // projection for record mutations, policy projection for a policy update).
+    let projection = if record.memory_state_kind == "policy" {
+        memory_public_projection(
+            st,
+            resolved_thread_id.as_deref(),
+            resolved_agent_id.as_deref(),
+            resolved_workspace_root.as_deref(),
+            "policy",
+            Value::Object(serde_json::Map::new()),
+        )?
+    } else {
+        memory_public_projection(
+            st,
+            resolved_thread_id.as_deref(),
+            resolved_agent_id.as_deref(),
+            resolved_workspace_root.as_deref(),
+            "records",
+            Value::Object(serde_json::Map::new()),
+        )?
+    };
+
+    let is_record = record.memory_state_kind == "record";
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.memory-control-result.v1",
+        "object": "ioi.runtime_memory_control_result",
+        "status": "committed",
+        "operation": record.operation,
+        "operation_kind": record.operation_kind,
+        "memory_state_kind": record.memory_state_kind,
+        "state_id": record.state_id,
+        "memory_id": if is_record { Value::String(record.state_id.clone()) } else { Value::Null },
+        "thread_id": resolved_thread_id,
+        "agent_id": resolved_agent_id,
+        "workspace_root": resolved_workspace_root,
+        "payload": record.payload,
+        "record": if is_record { record.payload.clone() } else { Value::Null },
+        "policy": if record.memory_state_kind == "policy" { record.payload.clone() } else { Value::Null },
+        "projection": projection,
+        "receipt_refs": record.receipt_refs,
+        "evidence_refs": record.evidence_refs,
+        "commit": { "persisted": true },
+    })))
+}
+
+/// GET /v1/threads/:id/memory — project the thread's public memory records.
+pub(crate) async fn handle_thread_memory_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "thread", &thread_id, "records", &params)
+}
+
+/// POST /v1/threads/:id/memory — write (remember) a thread memory record.
+pub(crate) async fn handle_thread_memory_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(&st, "thread", &thread_id, "write", "memory.write", None, body)
+}
+
+/// GET /v1/threads/:id/memory/policy — project the thread's effective memory policy.
+pub(crate) async fn handle_thread_memory_policy_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "thread", &thread_id, "policy", &params)
+}
+
+/// PUT|PATCH /v1/threads/:id/memory/policy — set the thread's memory policy.
+pub(crate) async fn handle_thread_memory_policy_set(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(&st, "thread", &thread_id, "policy", "memory.policy", None, body)
+}
+
+/// GET /v1/threads/:id/memory/path — project the thread's memory path locations.
+pub(crate) async fn handle_thread_memory_path_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "thread", &thread_id, "path", &params)
+}
+
+/// PATCH|PUT /v1/threads/:id/memory/:memory_id — edit a thread memory record.
+pub(crate) async fn handle_thread_memory_edit(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, memory_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(
+        &st,
+        "thread",
+        &thread_id,
+        "edit",
+        "memory.edit",
+        Some(&memory_id),
+        body,
+    )
+}
+
+/// DELETE /v1/threads/:id/memory/:memory_id — delete a thread memory record.
+pub(crate) async fn handle_thread_memory_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, memory_id)): AxumPath<(String, String)>,
+    body: Option<Json<Value>>,
+) -> Result<Json<Value>, AppError> {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    handle_memory_control_route(
+        &st,
+        "thread",
+        &thread_id,
+        "delete",
+        "memory.delete",
+        Some(&memory_id),
+        body,
+    )
+}
+
+/// GET /v1/agents/:id/memory — project the agent's public memory records.
+pub(crate) async fn handle_agent_memory_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "agent", &agent_id, "records", &params)
+}
+
+/// POST /v1/agents/:id/memory — write (remember) an agent memory record.
+pub(crate) async fn handle_agent_memory_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(&st, "agent", &agent_id, "write", "memory.write", None, body)
+}
+
+/// GET /v1/agents/:id/memory/policy — project the agent's effective memory policy.
+pub(crate) async fn handle_agent_memory_policy_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "agent", &agent_id, "policy", &params)
+}
+
+/// PUT|PATCH /v1/agents/:id/memory/policy — set the agent's memory policy.
+pub(crate) async fn handle_agent_memory_policy_set(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(&st, "agent", &agent_id, "policy", "memory.policy", None, body)
+}
+
+/// GET /v1/agents/:id/memory/path — project the agent's memory path locations.
+pub(crate) async fn handle_agent_memory_path_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(agent_id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_projection_route(&st, "agent", &agent_id, "path", &params)
+}
+
+/// PATCH|PUT /v1/agents/:id/memory/:memory_id — edit an agent memory record.
+pub(crate) async fn handle_agent_memory_edit(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((agent_id, memory_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    handle_memory_control_route(
+        &st,
+        "agent",
+        &agent_id,
+        "edit",
+        "memory.edit",
+        Some(&memory_id),
+        body,
+    )
+}
+
+/// DELETE /v1/agents/:id/memory/:memory_id — delete an agent memory record.
+pub(crate) async fn handle_agent_memory_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((agent_id, memory_id)): AxumPath<(String, String)>,
+    body: Option<Json<Value>>,
+) -> Result<Json<Value>, AppError> {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    handle_memory_control_route(
+        &st,
+        "agent",
+        &agent_id,
+        "delete",
+        "memory.delete",
+        Some(&memory_id),
+        body,
+    )
+}
+
 /// GET /v1/threads/:id/usage — project the thread's runtime usage (read-only). The
 /// kernel runtime-lifecycle projection sums usage_telemetry.total_tokens over the
 /// thread's runs in state_dir and returns {thread_id, agent_id, run_count, total_tokens}.

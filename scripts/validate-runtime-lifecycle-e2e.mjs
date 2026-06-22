@@ -523,6 +523,80 @@ async function main() {
       );
     });
 
+    // Step 3j: memory CRUD (Rust-owned via the kernel memory projection + control). Write,
+    // list, policy get/set, path, edit, delete — thread-scoped and agent-scoped — with the
+    // payload persisted to <state_dir>/memory-records + memory-policies.
+    await runStep("memory CRUD (write/list/policy/path/edit/delete) is Rust-owned + persisted", async () => {
+      const tid = encodeURIComponent(createdThread.thread_id);
+
+      // POST write -> a record is committed + persisted.
+      const written = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory`, {
+        method: "POST",
+        body: JSON.stringify({ fact: "the ratchet remembers", memory_key: "ratchet.key", scope: "thread" }),
+      });
+      assert.equal(written.status, 200);
+      assert.equal(written.body.status, "committed", "write commits");
+      assert.equal(written.body.memory_state_kind, "record", "write produces a record");
+      assert.equal(written.body.commit?.persisted, true, "write persists the record");
+      const memoryId = written.body.memory_id;
+      assert.ok(memoryId, "write returns a memory_id");
+
+      // GET list -> the written record is projected.
+      const list = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory`);
+      assert.equal(list.status, 200);
+      const records = Array.isArray(list.body.records) ? list.body.records : [];
+      assert.ok(
+        records.some((record) => JSON.stringify(record).includes("the ratchet remembers")),
+        "the written memory is listed",
+      );
+
+      // GET + PUT policy.
+      const policyGet = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/policy`);
+      assert.equal(policyGet.status, 200);
+      const policySet = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/policy`, {
+        method: "PUT",
+        body: JSON.stringify({ policy: { autoCapture: false } }),
+      });
+      assert.equal(policySet.status, 200);
+      assert.equal(policySet.body.memory_state_kind, "policy", "policy update produces a policy");
+      assert.equal(policySet.body.commit?.persisted, true, "policy update persists");
+
+      // GET path.
+      const pathGet = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/path`);
+      assert.equal(pathGet.status, 200);
+
+      // PATCH edit -> same state_id, then DELETE.
+      const edited = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/${encodeURIComponent(memoryId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fact: "the ratchet remembers (edited)" }),
+      });
+      assert.equal(edited.status, 200);
+      assert.equal(edited.body.state_id, memoryId, "edit preserves the state_id");
+      const deleted = await fetchJson(`${rust.endpoint}/v1/threads/${tid}/memory/${encodeURIComponent(memoryId)}`, {
+        method: "DELETE",
+      });
+      assert.equal(deleted.status, 200);
+
+      // Agent-scoped write twin projects + persists too.
+      const aid = encodeURIComponent(createdThread.agent_id);
+      const agentWrite = await fetchJson(`${rust.endpoint}/v1/agents/${aid}/memory`, {
+        method: "POST",
+        body: JSON.stringify({ fact: "agent-scoped memory", memory_key: "agent.key" }),
+      });
+      assert.equal(agentWrite.status, 200);
+      assert.equal(agentWrite.body.commit?.persisted, true, "agent-scoped write persists");
+
+      // The payloads are durable on the Agentgres state dir.
+      const recordFiles = fs.existsSync(path.join(stateDir, "memory-records"))
+        ? fs.readdirSync(path.join(stateDir, "memory-records")).filter((file) => file.endsWith(".json"))
+        : [];
+      assert.ok(recordFiles.length >= 1, "memory records persisted to <state_dir>/memory-records");
+      const policyFiles = fs.existsSync(path.join(stateDir, "memory-policies"))
+        ? fs.readdirSync(path.join(stateDir, "memory-policies")).filter((file) => file.endsWith(".json"))
+        : [];
+      assert.ok(policyFiles.length >= 1, "memory policy persisted to <state_dir>/memory-policies");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

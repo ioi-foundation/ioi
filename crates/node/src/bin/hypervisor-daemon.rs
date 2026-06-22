@@ -551,6 +551,51 @@ async fn main() -> anyhow::Result<()> {
             "/v1/threads/:id/memory/validate",
             post(lifecycle_routes::handle_memory_validate),
         )
+        // Memory CRUD (thread-scoped). The /memory/policy + /memory/path literals are
+        // registered before /memory/:memory_id so the param route does not shadow them.
+        .route(
+            "/v1/threads/:id/memory/policy",
+            get(lifecycle_routes::handle_thread_memory_policy_get)
+                .put(lifecycle_routes::handle_thread_memory_policy_set)
+                .patch(lifecycle_routes::handle_thread_memory_policy_set),
+        )
+        .route(
+            "/v1/threads/:id/memory/path",
+            get(lifecycle_routes::handle_thread_memory_path_get),
+        )
+        .route(
+            "/v1/threads/:id/memory/:memory_id",
+            patch(lifecycle_routes::handle_thread_memory_edit)
+                .put(lifecycle_routes::handle_thread_memory_edit)
+                .delete(lifecycle_routes::handle_thread_memory_delete),
+        )
+        .route(
+            "/v1/threads/:id/memory",
+            get(lifecycle_routes::handle_thread_memory_list)
+                .post(lifecycle_routes::handle_thread_memory_create),
+        )
+        // Memory CRUD (agent-scoped twins).
+        .route(
+            "/v1/agents/:id/memory/policy",
+            get(lifecycle_routes::handle_agent_memory_policy_get)
+                .put(lifecycle_routes::handle_agent_memory_policy_set)
+                .patch(lifecycle_routes::handle_agent_memory_policy_set),
+        )
+        .route(
+            "/v1/agents/:id/memory/path",
+            get(lifecycle_routes::handle_agent_memory_path_get),
+        )
+        .route(
+            "/v1/agents/:id/memory/:memory_id",
+            patch(lifecycle_routes::handle_agent_memory_edit)
+                .put(lifecycle_routes::handle_agent_memory_edit)
+                .delete(lifecycle_routes::handle_agent_memory_delete),
+        )
+        .route(
+            "/v1/agents/:id/memory",
+            get(lifecycle_routes::handle_agent_memory_list)
+                .post(lifecycle_routes::handle_agent_memory_create),
+        )
         .route(
             "/v1/threads/:id/events",
             get(lifecycle_routes::handle_thread_events),

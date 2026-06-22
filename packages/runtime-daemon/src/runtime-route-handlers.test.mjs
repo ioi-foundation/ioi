@@ -376,20 +376,12 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
   );
 });
 
-test("agent and thread memory read routes use store-owned thread memory APIs", async () => {
+test("agent and thread memory read routes are retired (served by the Rust daemon)", async () => {
   const { handleAgentRoute, handleThreadRoute } = routeHandlers();
-  const calls = [];
-  const rustCoreRequired = (details = {}) => {
-    const error = new Error("thread memory control requires Rust core");
-    error.status = 501;
-    error.code = "runtime_thread_memory_control_rust_core_required";
-    error.details = {
-      rust_core_boundary: "runtime.thread_memory_control",
-      ...details,
-    };
-    throw error;
-  };
-  const threadMemorySurface = {
+  // The Rust hypervisor-daemon owns memory list/policy/path projection over the unified
+  // state dir. The JS store memory methods are wrapped so a regression that re-routes a
+  // memory read through the store throws instead of silently delegating.
+  const store = {
     publicMemoryPolicyForAgent: retiredRouteWrapper,
     publicMemoryPathForAgent: retiredRouteWrapper,
     publicListMemoryForAgent: retiredRouteWrapper,
@@ -397,130 +389,58 @@ test("agent and thread memory read routes use store-owned thread memory APIs", a
     publicMemoryPathForThread: retiredRouteWrapper,
     publicListMemoryForThread: retiredRouteWrapper,
   };
-  const store = {
-    threadMemorySurface,
-    publicMemoryPolicyForAgent(agentId, options) {
-      calls.push({ method: "publicMemoryPolicyForAgent", agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_policy_projection", agent_id: agentId });
-    },
-    publicMemoryPathForAgent(agentId, options) {
-      calls.push({ method: "publicMemoryPathForAgent", agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_path_projection", agent_id: agentId });
-    },
-    publicListMemoryForAgent(agentId, options) {
-      calls.push({ method: "publicListMemoryForAgent", agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_read_projection", agent_id: agentId });
-    },
-    publicMemoryPolicyForThread(threadId, options) {
-      calls.push({ method: "publicMemoryPolicyForThread", threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_policy_projection", thread_id: threadId });
-    },
-    publicMemoryPathForThread(threadId, options) {
-      calls.push({ method: "publicMemoryPathForThread", threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_path_projection", thread_id: threadId });
-    },
-    publicListMemoryForThread(threadId, options) {
-      calls.push({ method: "publicListMemoryForThread", threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_read_projection", thread_id: threadId });
-    },
-    listMemoryForAgent: retiredRouteWrapper,
-    memoryPolicyForAgent: retiredRouteWrapper,
-    memoryPathForAgent: retiredRouteWrapper,
-    listMemoryForThread: retiredRouteWrapper,
-    memoryPolicyForThread: retiredRouteWrapper,
-    memoryPathForThread: retiredRouteWrapper,
-  };
 
-  for (const path of [
+  const agentPaths = [
     "/v1/agents/agent_route/memory/policy?thread_id=thread_custom",
     "/v1/agents/agent_route/memory/path?thread_id=thread_custom",
     "/v1/agents/agent_route/memory?query=deploy",
-  ]) {
-    await assert.rejects(
-      () => handleAgentRoute({
-        request: request({ url: path }),
-        response: responseRecorder(),
-        store,
-        url: new URL(path, "http://daemon.test"),
-        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
-      }),
-      { code: "runtime_thread_memory_control_rust_core_required" },
+  ];
+  for (const path of agentPaths) {
+    const url = new URL(path, "http://daemon.test");
+    const response = responseRecorder();
+    await handleAgentRoute({
+      request: request({ url: path }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
     );
   }
-  for (const path of [
+
+  const threadPaths = [
     "/v1/threads/thread_route/memory/policy?redaction=summary",
     "/v1/threads/thread_route/memory/path",
     "/v1/threads/thread_route/memory?query=deploy",
-  ]) {
-    await assert.rejects(
-      () => handleThreadRoute({
-        request: request({ url: path }),
-        response: responseRecorder(),
-        store,
-        url: new URL(path, "http://daemon.test"),
-        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
-      }),
-      { code: "runtime_thread_memory_control_rust_core_required" },
+  ];
+  for (const path of threadPaths) {
+    const url = new URL(path, "http://daemon.test");
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({ url: path }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
     );
   }
-
-  assert.deepEqual(
-    calls.map(({ method, agentId, threadId, options }) => ({ method, agentId, threadId, options })),
-    [
-      {
-        method: "publicMemoryPolicyForAgent",
-        agentId: "agent_route",
-        threadId: undefined,
-        options: { thread_id: "thread_custom" },
-      },
-      {
-        method: "publicMemoryPathForAgent",
-        agentId: "agent_route",
-        threadId: undefined,
-        options: { thread_id: "thread_custom" },
-      },
-      {
-        method: "publicListMemoryForAgent",
-        agentId: "agent_route",
-        threadId: undefined,
-        options: { query: "deploy" },
-      },
-      {
-        method: "publicMemoryPolicyForThread",
-        agentId: undefined,
-        threadId: "thread_route",
-        options: { redaction: "summary" },
-      },
-      {
-        method: "publicMemoryPathForThread",
-        agentId: undefined,
-        threadId: "thread_route",
-        options: {},
-      },
-      {
-        method: "publicListMemoryForThread",
-        agentId: undefined,
-        threadId: "thread_route",
-        options: { query: "deploy" },
-      },
-    ],
-  );
 });
 
-test("agent and thread memory mutation routes use store-owned thread memory APIs", async () => {
+test("agent and thread memory mutation routes are retired (served by the Rust daemon)", async () => {
   const { handleAgentRoute, handleThreadRoute } = routeHandlers();
-  const calls = [];
-  const rustCoreRequired = (details = {}) => {
-    const error = new Error("thread memory control requires Rust core");
-    error.status = 501;
-    error.code = "runtime_thread_memory_control_rust_core_required";
-    error.details = {
-      rust_core_boundary: "runtime.thread_memory_control",
-      ...details,
-    };
-    throw error;
-  };
-  const threadMemorySurface = {
+  // The Rust hypervisor-daemon owns memory write/edit/delete/policy control over the
+  // unified state dir. The JS store memory methods are wrapped so a regression that
+  // re-routes a memory mutation through the store throws instead of silently delegating.
+  const store = {
     setMemoryPolicyForAgent: retiredRouteWrapper,
     updateMemoryForAgentId: retiredRouteWrapper,
     deleteMemoryForAgentId: retiredRouteWrapper,
@@ -532,49 +452,6 @@ test("agent and thread memory mutation routes use store-owned thread memory APIs
     deleteMemoryForThread: retiredRouteWrapper,
     rememberForThread: retiredRouteWrapper,
   };
-  const store = {
-    threadMemorySurface,
-    setMemoryPolicyForAgent(agentId, input) {
-      calls.push({ method: "setMemoryPolicyForAgent", agentId, input });
-      rustCoreRequired({ requested_control_kind: "memory_policy", agent_id: agentId });
-    },
-    updateMemoryForAgentId(agentId, memoryId, input) {
-      calls.push({ method: "updateMemoryForAgentId", agentId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_edit", agent_id: agentId, memory_id: memoryId });
-    },
-    deleteMemoryForAgentId(agentId, memoryId, input) {
-      calls.push({ method: "deleteMemoryForAgentId", agentId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_delete", agent_id: agentId, memory_id: memoryId });
-    },
-    rememberForAgentId(agentId, input) {
-      calls.push({ method: "rememberForAgentId", agentId, input });
-      rustCoreRequired({ requested_control_kind: "memory_write", agent_id: agentId });
-    },
-    recordThreadMemoryStatus(threadId, input) {
-      calls.push({ method: "recordThreadMemoryStatus", threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_status", thread_id: threadId });
-    },
-    validateThreadMemory(threadId, input) {
-      calls.push({ method: "validateThreadMemory", threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_validate", thread_id: threadId });
-    },
-    setMemoryPolicyForThread(threadId, input) {
-      calls.push({ method: "setMemoryPolicyForThread", threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_policy", thread_id: threadId });
-    },
-    updateMemoryForThread(threadId, memoryId, input) {
-      calls.push({ method: "updateMemoryForThread", threadId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_edit", thread_id: threadId, memory_id: memoryId });
-    },
-    deleteMemoryForThread(threadId, memoryId, input) {
-      calls.push({ method: "deleteMemoryForThread", threadId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_delete", thread_id: threadId, memory_id: memoryId });
-    },
-    rememberForThread(threadId, input) {
-      calls.push({ method: "rememberForThread", threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_write", thread_id: threadId });
-    },
-  };
 
   const agentRoutes = [
     { method: "PUT", path: "/v1/agents/agent_route/memory/policy", body: { read_only: true } },
@@ -584,20 +461,23 @@ test("agent and thread memory mutation routes use store-owned thread memory APIs
   ];
   for (const route of agentRoutes) {
     const url = new URL(route.path, "http://daemon.test");
-    await assert.rejects(
-      () => handleAgentRoute({
-        request: request({ method: route.method, url: route.path, body: route.body }),
-        response: responseRecorder(),
-        store,
-        url,
-        segments: url.pathname.split("/").filter(Boolean),
-      }),
-      { code: "runtime_thread_memory_control_rust_core_required" },
+    const response = responseRecorder();
+    await handleAgentRoute({
+      request: request({ method: route.method, url: route.path, body: route.body }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
     );
   }
 
   // memory/status + memory/validate are migrated to the Rust daemon (admit memory
-  // control events onto the unified log); the JS routes are retired here.
+  // control events onto the unified log); the JS routes are retired here too.
   for (const path of [
     "/v1/threads/thread_route/memory/status",
     "/v1/threads/thread_route/memory/validate",
@@ -626,31 +506,20 @@ test("agent and thread memory mutation routes use store-owned thread memory APIs
   ];
   for (const route of threadRoutes) {
     const url = new URL(route.path, "http://daemon.test");
-    await assert.rejects(
-      () => handleThreadRoute({
-        request: request({ method: route.method, url: route.path, body: route.body }),
-        response: responseRecorder(),
-        store,
-        url,
-        segments: url.pathname.split("/").filter(Boolean),
-      }),
-      { code: "runtime_thread_memory_control_rust_core_required" },
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({ method: route.method, url: route.path, body: route.body }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    assert.equal(response.statusCode, 410);
+    assert.equal(
+      JSON.parse(response.body).error.code,
+      "runtime_lifecycle_retired_served_by_rust_daemon",
     );
   }
-
-  assert.deepEqual(
-    calls.map(({ method, agentId, threadId, memoryId, input }) => ({ method, agentId, threadId, memoryId, input })),
-    [
-      { method: "setMemoryPolicyForAgent", agentId: "agent_route", threadId: undefined, memoryId: undefined, input: { read_only: true } },
-      { method: "updateMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { text: "edited" } },
-      { method: "deleteMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { reason: "stale" } },
-      { method: "rememberForAgentId", agentId: "agent_route", threadId: undefined, memoryId: undefined, input: { text: "remember" } },
-      { method: "setMemoryPolicyForThread", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { read_only: false } },
-      { method: "updateMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { text: "edited" } },
-      { method: "deleteMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { reason: "stale" } },
-      { method: "rememberForThread", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { text: "remember" } },
-    ],
-  );
 });
 
 test("thread conversation artifact routes use store-owned artifact API", async () => {

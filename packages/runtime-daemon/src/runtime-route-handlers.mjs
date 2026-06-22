@@ -93,16 +93,22 @@ export function createRuntimeRouteHandlers(deps) {
       }));
       return;
     }
-    if (request.method === "POST" && action === "runs") {
+    if (
       // Agent run-create is served by the Rust hypervisor-daemon (the SDK send/plan/
       // dry_run/handoff path: handle_agent_run_create over the shared create_agent_run flow).
+      (request.method === "POST" && action === "runs") ||
+      // memory CRUD (list/create + policy GET/set + path GET + edit/delete): the Rust
+      // daemon plans+persists the memory record/policy and re-projects the public view.
+      // (memory status/validate are thread-scoped only and stay Rust-owned via that path.)
+      action === "memory"
+    ) {
       writeJsonResponse(
         response,
         {
           error: {
             code: "runtime_lifecycle_retired_served_by_rust_daemon",
             message:
-              "Agent run-create is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
+              "This agent lifecycle route is served by the Rust hypervisor-daemon; the JS daemon no longer owns it.",
             retryable: false,
             details: { path: url.pathname, rust_daemon_endpoint: "http://127.0.0.1:8765" },
           },
@@ -115,34 +121,9 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, store.projectRuntimeLifecycleProjection("agent_runs", { agent_id: agentId }));
       return;
     }
-    if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.publicMemoryPolicyForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
-    if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.setMemoryPolicyForAgent(agentId, await readBody(request)));
-      return;
-    }
-    if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.publicMemoryPathForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
-    if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.updateMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "DELETE" && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.deleteMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.publicListMemoryForAgent(agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
-      return;
-    }
-    if (request.method === "POST" && action === "memory") {
-      writeJsonResponse(response, store.rememberForAgentId(agentId, await readBody(request)));
-      return;
-    }
+    // Agent memory CRUD routes (list/create + policy + path + edit/delete) are retired
+    // above (served by the Rust hypervisor-daemon via the kernel memory projection +
+    // control over the unified state dir).
     throw notFound("Agent route not found.", { agentId, action, method: request.method });
   }
 
@@ -184,11 +165,17 @@ export function createRuntimeRouteHandlers(deps) {
         (!segments[4] ||
           ["decision", "approve", "reject", "revoke"].includes(segments[5]))) ||
       // memory status/validate: the Rust daemon projects the memory snapshot + admits the
-      // memory.status/memory.validate event onto the unified log. Other memory routes preserved.
+      // memory.status/memory.validate event onto the unified log.
       (request.method === "POST" &&
         action === "memory" &&
         (segments[4] === "status" || segments[4] === "validate") &&
         !segments[5]) ||
+      // memory CRUD (list/create + policy GET/set + path GET + edit/delete): the Rust
+      // daemon plans+persists the memory record/policy and re-projects the public view.
+      // status/validate are carved above; everything else under /memory is now Rust-owned.
+      (action === "memory" &&
+        segments[4] !== "status" &&
+        segments[4] !== "validate") ||
       // usage (thread-scoped GET): the Rust daemon projects run usage via the kernel
       // runtime-lifecycle projection. Run-scoped GET /runs/:id/usage stays preserved.
       (request.method === "GET" && action === "usage" && !segments[4]) ||
@@ -649,34 +636,9 @@ export function createRuntimeRouteHandlers(deps) {
       writeSse(response, store.projectRuntimeLifecycleProjection("thread_events", { thread_id: threadId }));
       return;
     }
-    if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.publicMemoryPolicyForThread(threadId, Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
-    if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.setMemoryPolicyForThread(threadId, await readBody(request)));
-      return;
-    }
-    if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.publicMemoryPathForThread(threadId, Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
-    if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.updateMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "DELETE" && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.deleteMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.publicListMemoryForThread(threadId, Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
-    if (request.method === "POST" && action === "memory") {
-      writeJsonResponse(response, store.rememberForThread(threadId, await readBody(request)));
-      return;
-    }
+    // Thread memory CRUD routes (list/create + policy + path + edit/delete) are retired
+    // above (served by the Rust hypervisor-daemon via the kernel memory projection +
+    // control over the unified state dir). memory status/validate stay handled above.
     throw notFound("Thread route not found.", { threadId, action, method: request.method });
   }
 
