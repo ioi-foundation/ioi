@@ -4350,6 +4350,28 @@ pub(crate) async fn handle_physical_action_intent_admission(
     }
 }
 
+/// POST /v1/hypervisor/worker-package-install-admissions — admit a worker-package install (pure
+/// kernel planner: manifest/ontology/surfaces/requirements/policy/receipt/evidence/artifact refs
+/// + wallet approval + mode-specific gates + physical-action safety envelope). 202 + record, or
+/// {error:{code,message,details}} with status (400 field-shape / 403 policy-authority).
+pub(crate) async fn handle_worker_package_install_admission(
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match RuntimeKernelService::new().admit_worker_package_install(&body, &iso_now()) {
+        Ok(record) => (StatusCode::ACCEPTED, Json(record)),
+        Err(error) => (
+            StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
+            Json(json!({
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                },
+            })),
+        ),
+    }
+}
+
 /// Build the JS contextPolicyResultEnvelope: {...policy, event, event_id, seq,
 /// receipt_refs, policy_decision_refs, evidence_refs} over an admitted decision event.
 fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Value) -> Value {

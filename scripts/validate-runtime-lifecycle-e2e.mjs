@@ -1028,6 +1028,68 @@ async function main() {
       assert.equal(aliased.body.error.code, "physical_action_request_aliases_retired");
     });
 
+    // Step 3r: the worker-package-install governance admission (Rust-owned via the kernel
+    // admit_worker_package_install planner — manifest/ontology/surfaces/requirements/policy/
+    // receipt/evidence/artifact refs + wallet approval + mode/physical-action safety gates;
+    // 400 field-shape / 403 policy).
+    await runStep("POST /v1/hypervisor/worker-package-install-admissions gates the install lane", async () => {
+      const base = (overrides = {}) => ({
+        install_id: "install://aiagent/carwash-prep/heath/default",
+        worker_package_ref: "package://aiagent/robotics.carwash_prep@1",
+        worker_manifest_ref: "manifest://aiagent/robotics.carwash_prep@1",
+        owner_ref: "wallet://user/heath",
+        install_mode: "managed_instance_initialization",
+        base_ontology_ref: "ontology:aiagent.base.v1",
+        vertical_pack_refs: ["vertical_pack:robotics.carwash_prep.v1"],
+        integration_surface_refs: ["integration_surface:robotics_physical"],
+        primitive_capability_requirements: ["prim:physical.actuate"],
+        authority_scope_requirements: ["scope:physical.actuate"],
+        risk_classes: ["physical_action"],
+        policy_profile_refs: ["policy://aiagent/worker-install", "policy://ctee/private-workspace"],
+        receipt_policy_ref: "receipt_policy://aiagent/worker-install",
+        evidence_requirement_refs: ["evidence_requirement:physical.preflight.v1"],
+        runtime_profile: "private_workspace_ctee",
+        persistence_profile: "zero_to_idle",
+        memory_policy_ref: "policy://memory/worker-instance",
+        archive_policy_ref: "policy://archive/worker-instance",
+        package_artifact_refs: ["artifact://package/robotics.carwash-prep/v1"],
+        wallet_approval_ref: "approval://wallet/worker-install/carwash",
+        install_right_ref: "license://aiagent/install/carwash-prep",
+        managed_instance_ref: "agent://carwash-prep/heath/default",
+        physical_action_policy_refs: ["policy://physical/carwash-prep"],
+        safety_envelope_refs: ["safety://carwash/bay-3"],
+        emergency_stop_authority_refs: ["estop://carwash/bay-3"],
+        agentgres_operation_refs: ["agentgres://operation/worker-install/carwash-prep"],
+        receipt_refs: ["receipt://worker-install/carwash-prep"],
+        ...overrides,
+      });
+      const admit = (body) =>
+        fetchJson(`${rust.endpoint}/v1/hypervisor/worker-package-install-admissions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+      const ok = await admit(base());
+      assert.equal(ok.status, 202, "valid worker install is admitted with 202");
+      assert.equal(ok.body.decision, "admitted");
+      assert.equal(ok.body.runtime_profile, "private_workspace_ctee");
+
+      // 403: a physical-action package missing its physical-action policy refs.
+      const noPolicy = await admit(base({ physical_action_policy_refs: [] }));
+      assert.equal(noPolicy.status, 403);
+      assert.equal(noPolicy.body.error.code, "worker_package_install_physical_action_policy_refs_required");
+
+      // 403: a prim:* masquerading as a wallet authority scope.
+      const masquerade = await admit(base({ authority_scope_requirements: ["prim:physical.actuate"] }));
+      assert.equal(masquerade.status, 403);
+      assert.equal(masquerade.body.error.code, "worker_package_install_primitive_scope_masquerade_blocked");
+
+      // 400: a non-prefixed install id (field-shape) before the policy gates.
+      const badInstall = await admit(base({ install_id: "nope://x" }));
+      assert.equal(badInstall.status, 400);
+      assert.equal(badInstall.body.error.code, "worker_package_install_install_id_invalid");
+    });
+
     // Step 4b: thread controls (mode / model / thinking). The Rust daemon owns the
     // controls via plan_thread_control_agent_state_update; the dual-cased agent persist
     // makes the projection reflect the new controls.

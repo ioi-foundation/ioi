@@ -49,6 +49,7 @@ pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
 pub mod runtime_physical_action_intent_admission;
 pub mod runtime_private_workspace_mount_admission;
+pub mod runtime_worker_package_install_admission;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
@@ -723,6 +724,22 @@ impl RuntimeKernelService {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionError,
     > {
         runtime_model_weight_custody_admission::RuntimeModelWeightCustodyAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a worker-package-install governance admission (pure: asserts the
+    /// manifest / ontology / surfaces / primitive + authority requirements / policy + receipt +
+    /// evidence + artifact refs / wallet approval / mode-specific install-right + managed-instance
+    /// + physical-action safety envelope are bound and no vertical pack forks runtime truth).
+    pub fn admit_worker_package_install(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_worker_package_install_admission::RuntimeWorkerPackageInstallAdmissionError,
+    > {
+        runtime_worker_package_install_admission::RuntimeWorkerPackageInstallAdmissionCore
             .admit(request, now_iso)
     }
 

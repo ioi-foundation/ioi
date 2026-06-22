@@ -1033,144 +1033,25 @@ test("public runtime physical action intent admission route is retired (served b
   );
 });
 
-test("public runtime routes expose worker package install admissions", async () => {
+test("public runtime worker package install admission route is retired (served by the Rust daemon)", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
-  const store = {
-    defaultCwd: "/workspace",
-    stateDir: "/state",
-    projectRuntimeLifecycleProjection: retiredRouteWrapper,
-  };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/hypervisor/worker-package-install-admissions",
-      body: {
-        install_id: "install://aiagent/carwash-prep/heath/default",
-        worker_package_ref: "package://aiagent/robotics.carwash_prep@1",
-        worker_manifest_ref: "manifest://aiagent/robotics.carwash_prep@1",
-        owner_ref: "wallet://user/heath",
-        install_mode: "managed_instance_initialization",
-        base_ontology_ref: "ontology:aiagent.base.v1",
-        vertical_pack_refs: ["vertical_pack:robotics.carwash_prep.v1"],
-        integration_surface_refs: [
-          "integration_surface:robotics_physical",
-          "integration_surface:embodied_humanoid",
-        ],
-        primitive_capability_requirements: [
-          "prim:physical.actuate",
-          "prim:sensor.stream",
-        ],
-        authority_scope_requirements: [
-          "scope:physical.actuate",
-          "scope:worker.lifecycle",
-        ],
-        risk_classes: ["physical_action"],
-        policy_profile_refs: [
-          "policy://aiagent/worker-install",
-          "policy://ctee/private-workspace",
-        ],
-        receipt_policy_ref: "receipt_policy://aiagent/worker-install",
-        evidence_requirement_refs: [
-          "evidence_requirement:physical.preflight.v1",
-        ],
-        benchmark_profile_refs: [
-          "benchmark://aiagent/robotics.carwash_prep.v1",
-        ],
-        runtime_profile: "private_workspace_ctee",
-        persistence_profile: "zero_to_idle",
-        memory_policy_ref: "policy://memory/worker-instance",
-        archive_policy_ref: "policy://archive/worker-instance",
-        package_artifact_refs: [
-          "artifact://package/robotics.carwash-prep/v1",
-        ],
-        wallet_approval_ref: "approval://wallet/worker-install/carwash",
-        install_right_ref: "license://aiagent/install/carwash-prep",
-        managed_instance_ref: "agent://carwash-prep/heath/default",
-        physical_action_policy_refs: ["policy://physical/carwash-prep"],
-        safety_envelope_refs: ["safety://carwash/bay-3"],
-        emergency_stop_authority_refs: ["estop://carwash/bay-3"],
-        agentgres_operation_refs: [
-          "agentgres://operation/worker-install/carwash-prep",
-        ],
-        receipt_refs: ["receipt://worker-install/carwash-prep"],
-        state_root: "state_root:worker-install:carwash-prep",
-      },
+      body: { install_id: "install://aiagent/carwash-prep/heath/default" },
     }),
     response,
-    store,
+    store: {},
   });
 
-  const payload = JSON.parse(response.body);
-  assert.equal(response.statusCode, 202);
+  assert.equal(response.statusCode, 410);
   assert.equal(
-    payload.schema_version,
-    "ioi.runtime.worker_package_install_admission.v1",
+    JSON.parse(response.body).error.code,
+    "runtime_lifecycle_retired_served_by_rust_daemon",
   );
-  assert.equal(payload.worker_package_ref, "package://aiagent/robotics.carwash_prep@1");
-  assert.equal(payload.base_ontology_ref, "ontology:aiagent.base.v1");
-  assert.equal(payload.runtime_profile, "private_workspace_ctee");
-  assert.equal(payload.decision, "admitted");
-  assert.equal(payload.requiresDaemonGate, true);
-  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
-});
-
-test("public runtime worker package install route blocks physical packages without safety refs", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/hypervisor/worker-package-install-admissions",
-      body: {
-        install_id: "install://aiagent/carwash-prep/heath/default",
-        worker_package_ref: "package://aiagent/robotics.carwash_prep@1",
-        worker_manifest_ref: "manifest://aiagent/robotics.carwash_prep@1",
-        owner_ref: "wallet://user/heath",
-        install_mode: "managed_instance_initialization",
-        base_ontology_ref: "ontology:aiagent.base.v1",
-        vertical_pack_refs: ["vertical_pack:robotics.carwash_prep.v1"],
-        integration_surface_refs: ["integration_surface:robotics_physical"],
-        primitive_capability_requirements: ["prim:physical.actuate"],
-        authority_scope_requirements: ["scope:physical.actuate"],
-        risk_classes: ["physical_action"],
-        policy_profile_refs: [
-          "policy://aiagent/worker-install",
-          "policy://ctee/private-workspace",
-        ],
-        receipt_policy_ref: "receipt_policy://aiagent/worker-install",
-        evidence_requirement_refs: [
-          "evidence_requirement:physical.preflight.v1",
-        ],
-        runtime_profile: "private_workspace_ctee",
-        persistence_profile: "zero_to_idle",
-        memory_policy_ref: "policy://memory/worker-instance",
-        archive_policy_ref: "policy://archive/worker-instance",
-        package_artifact_refs: [
-          "artifact://package/robotics.carwash-prep/v1",
-        ],
-        wallet_approval_ref: "approval://wallet/worker-install/carwash",
-        install_right_ref: "license://aiagent/install/carwash-prep",
-        managed_instance_ref: "agent://carwash-prep/heath/default",
-        physical_action_policy_refs: [],
-        safety_envelope_refs: ["safety://carwash/bay-3"],
-        emergency_stop_authority_refs: ["estop://carwash/bay-3"],
-        agentgres_operation_refs: [
-          "agentgres://operation/worker-install/carwash-prep",
-        ],
-        receipt_refs: ["receipt://worker-install/carwash-prep"],
-      },
-    }),
-    response,
-    store: { defaultCwd: "/workspace", stateDir: "/state" },
-  });
-
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), {
-    error: "worker_package_install_physical_action_policy_refs_required",
-  });
 });
 
 test("public runtime routes expose code editor adapter launch plan admissions", async () => {
