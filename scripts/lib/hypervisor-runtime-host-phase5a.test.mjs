@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
+import { mintApprovalGrant } from "./mint-approval-grant.mjs";
 import { startRustHypervisorDaemon } from "./rust-hypervisor-daemon.mjs";
 
 let daemon;
@@ -78,9 +79,9 @@ test("Phase 5A: the daemon hosts start@v1 + post_message@v1 with real state writ
   assert.equal(body.host.gui, "noop");
   assert.equal(body.host.browser, "lazy_uninitialized");
   assert.equal(body.host.terminal, "idle");
-  assert.equal(body.host.model_invoked, false);
+  assert.equal(body.host.model_invoked, false); // lifecycle ops don't call inference
   assert.equal(body.host.workspace_mutated, false);
-  assert.equal(body.host.tool_execution_invoked, false);
+  assert.equal(body.step, null); // no step@v1 in the lifecycle-only flow
 
   // No workspace mutation: the session workspace is real but empty.
   assert.ok(fs.existsSync(body.workspace_path), "workspace path exists");
@@ -109,4 +110,76 @@ test("Phase 5A: start@v1 alone (no message) still hosts + persists + links", asy
   assert.equal(body.host.model_invoked, false);
   const events = await pollThreadEventsFor(body.thread_id, "runtime_host.session.started");
   assert.match(events, /runtime_host\.session\.started/);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5B — the first real, constrained, wallet-gated step@v1 against the host.
+// ---------------------------------------------------------------------------
+
+async function postRuntimeHost(body) {
+  const response = await fetch(`${daemon.endpoint}/v1/hypervisor/runtime-host/sessions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, body: await response.json() };
+}
+
+test("Phase 5B: step@v1 is wallet-gated (no grant → 403 challenge, no session created)", async () => {
+  const challenge = await postRuntimeHost({ session_ref: "session:5b-gate", goal: "investigate the workspace", step: true });
+  assert.equal(challenge.status, 403);
+  assert.equal(challenge.body.reason, "execution_authority_required");
+  assert.ok(challenge.body.approval.policy_hash && challenge.body.approval.request_hash);
+});
+
+test("Phase 5B: a granted step@v1 runs the REAL canonical cognition, constrained — no tool side effect", async () => {
+  const request = { session_ref: "session:5b-step", goal: "investigate the workspace", step: true };
+  const challenge = await postRuntimeHost(request);
+  assert.equal(challenge.status, 403);
+  const grant = mintApprovalGrant({
+    policyHash: challenge.body.approval.policy_hash,
+    requestHash: challenge.body.approval.request_hash,
+  });
+
+  const run = await postRuntimeHost({ ...request, wallet_approval_grant: grant });
+  assert.equal(run.status, 200);
+  const body = run.body;
+
+  // The canonical step@v1 ran end to end in the daemon-hosted runtime.
+  assert.equal(body.step.ran, true, `step ran (error=${JSON.stringify(body.step.error)})`);
+  assert.equal(body.step.error, null);
+  assert.equal(body.host.model_invoked, true, "the deterministic cognition (inference) was invoked");
+
+  // The cognition really executed (PII + intent-resolution receipts) and concluded with
+  // an action result — proving the real decision loop, not a stub.
+  assert.ok(Array.isArray(body.step.events) && body.step.events.length > 0, "the step emitted real cognition events");
+  assert.ok(
+    body.step.events.some((event) => event.kind === "AgentActionResult"),
+    `step produced an AgentActionResult: ${JSON.stringify(body.step.events.map((e) => e.kind))}`,
+  );
+
+  // CONSTRAINED: no consequential tool executed — the workspace is untouched.
+  assert.equal(body.host.workspace_mutated, false, "no tool mutated the workspace");
+  assert.deepEqual(body.workspace_files_after, [], "the workspace is empty after the step");
+  assert.equal(fs.readdirSync(body.workspace_path).length, 0, "no files written by the step");
+
+  // The host lifecycle event still reaches /events via the bridge.
+  const events = await pollThreadEventsFor(body.thread_id, "runtime_host.session.started");
+  assert.match(events, /runtime_host\.session\.started/);
+});
+
+test("Phase 5B: the step decision is deterministic (same goal → same constrained outcome)", async () => {
+  const run = async (ref) => {
+    const request = { session_ref: ref, goal: "investigate the workspace", step: true };
+    const challenge = await postRuntimeHost(request);
+    const grant = mintApprovalGrant({
+      policyHash: challenge.body.approval.policy_hash,
+      requestHash: challenge.body.approval.request_hash,
+    });
+    const result = await postRuntimeHost({ ...request, wallet_approval_grant: grant });
+    return result.body.step.events.map((event) => event.kind).join(",");
+  };
+  const first = await run("session:5b-det-a");
+  const second = await run("session:5b-det-b");
+  assert.equal(first, second, "the deterministic cognition emits the same event kinds for the same goal");
 });

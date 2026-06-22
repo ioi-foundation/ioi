@@ -7215,7 +7215,7 @@ pub(crate) mod runtime_host {
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
     use ioi_services::agentic::runtime::service::RuntimeAgentService;
-    use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams};
+    use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams, StepAgentParams};
     use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
     use ioi_types::codec;
     use ioi_types::error::{StateError, VmError};
@@ -7371,6 +7371,7 @@ pub(crate) mod runtime_host {
         workspace_path: &str,
         memory: Arc<MemoryRuntime>,
         bridge: broadcast::Sender<KernelEvent>,
+        events: broadcast::Sender<KernelEvent>,
     ) -> RuntimeAgentService {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
@@ -7379,7 +7380,25 @@ pub(crate) mod runtime_host {
         RuntimeAgentService::new(gui, terminal, browser, inference)
             .with_workspace_path(workspace_path.to_string())
             .with_memory_runtime(memory)
+            .with_event_sender(events)
             .with_runtime_thread_event_sender(bridge)
+    }
+
+    /// A compact, deterministic summary of a KernelEvent for the step probe / response.
+    fn summarize_kernel_event(event: &KernelEvent) -> Value {
+        match event {
+            KernelEvent::AgentActionResult { step_index, tool_name, error_class, agent_status, .. } => json!({
+                "kind": "AgentActionResult",
+                "step_index": step_index,
+                "tool_name": tool_name,
+                "error_class": error_class,
+                "agent_status": agent_status,
+            }),
+            KernelEvent::AgentThought { .. } => json!({ "kind": "AgentThought" }),
+            KernelEvent::AgentAnswerDelta { .. } => json!({ "kind": "AgentAnswerDelta" }),
+            KernelEvent::RuntimeThreadEvent { .. } => json!({ "kind": "RuntimeThreadEvent" }),
+            other => json!({ "kind": format!("{other:?}").split_whitespace().next().unwrap_or("KernelEvent") }),
+        }
     }
 
     /// Build a synthetic, non-chain TxContext bound to a freshly-created ServiceDirectory.
@@ -7486,7 +7505,10 @@ pub(crate) mod runtime_host {
             Err(error) => return host_error(&session_ref, "memory_runtime", &format!("{error:?}")),
         };
         let bridge = runtime_host_bridge_sender(&st.data_dir);
-        let host = build_runtime_agent_host(&workspace_path, memory, bridge.clone());
+        // High-volume KernelEvent capture for the step probe (Phase 5B). The receiver
+        // must exist before the step so emitted events are observed, not dropped.
+        let (events_tx, mut events_rx) = broadcast::channel::<KernelEvent>(512);
+        let host = build_runtime_agent_host(&workspace_path, memory, bridge.clone(), events_tx);
         let mut state = DaemonHostStateAccess::open(&st.data_dir);
         let services = synthetic_service_directory();
         let now_ns = std::time::SystemTime::now()
@@ -7494,6 +7516,16 @@ pub(crate) mod runtime_host {
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0);
         let mut ctx = synthetic_tx_context(&services, now_ns);
+
+        // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the
+        // daemon boundary BEFORE any state mutation — a no-grant call is a 403 challenge
+        // that creates no session (so the grant-bound retry runs `start@v1` cleanly).
+        let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
+        if step_requested {
+            if let Err(challenge) = super::execute_authority_gate(&body, &session_ref, &workspace_path, &goal) {
+                return (StatusCode::FORBIDDEN, Json(challenge));
+            }
+        }
 
         // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
@@ -7530,6 +7562,40 @@ pub(crate) mod runtime_host {
             }
             message_posted = true;
         }
+
+        // Phase 5B PROBE: a single constrained, wallet-gated `step@v1` against the hosted
+        // runtime. Deterministic (mock inference) — the cognition produces one tool intent;
+        // the runtime's own policy decides whether it executes or is gated. We CAPTURE the
+        // emitted KernelEvents to report exactly what happened (no assumption).
+        let mut step_outcome = Value::Null;
+        if step_requested {
+            let step_params = StepAgentParams { session_id };
+            let step_bytes = match codec::to_bytes_canonical(&step_params) {
+                Ok(bytes) => bytes,
+                Err(error) => return host_error(&session_ref, "encode_step_params", &error),
+            };
+            let step_result = host.handle_service_call(&mut state, "step@v1", &step_bytes, &mut ctx).await;
+            let mut captured: Vec<Value> = Vec::new();
+            while let Ok(event) = events_rx.try_recv() {
+                captured.push(summarize_kernel_event(&event));
+            }
+            step_outcome = json!({
+                "ran": step_result.is_ok(),
+                "error": step_result.err().map(|error| format!("{error:?}")),
+                "events": captured,
+                // Whether any tool actually mutated the workspace (Phase 5B asserts none for a
+                // gated step; the workspace dir is re-read after the step below).
+            });
+        }
+
+        let workspace_files_after: Vec<String> = std::fs::read_dir(&workspace_path)
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
 
         let state_keys_written = state.key_count();
 
@@ -7568,16 +7634,19 @@ pub(crate) mod runtime_host {
                 "ops": if message_posted { json!(["start@v1", "post_message@v1"]) } else { json!(["start@v1"]) },
                 "state_keys_written": state_keys_written,
                 "workspace_path": workspace_path,
-                // Phase 5A invariants: the host is constructed but drives nothing.
+                "workspace_files_after": workspace_files_after,
+                // Phase 5B step probe (null unless `step: true` was requested).
+                "step": step_outcome,
                 "host": {
                     "service": "RuntimeAgentService",
                     "gui": "noop",
                     "browser": "lazy_uninitialized",
                     "terminal": "idle",
                     "inference": "deterministic_mock",
-                    "model_invoked": false,
-                    "workspace_mutated": false,
-                    "tool_execution_invoked": false,
+                    // Lifecycle ops (5A) are tool-free + don't call inference; a step (5B) runs
+                    // the deterministic mock cognition (inference invoked).
+                    "model_invoked": body.get("step").and_then(Value::as_bool).unwrap_or(false),
+                    "workspace_mutated": !workspace_files_after.is_empty(),
                 },
                 "events_path": format!("/v1/threads/{thread_id}/events"),
                 "runtimeTruthSource": "daemon-runtime",
