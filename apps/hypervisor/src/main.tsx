@@ -5,7 +5,15 @@ import { useEffect } from "react";
 
 import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
-import "./styles/global.css"; // Hypervisor client theme overrides
+// Parity foundation: vendored IOI demo-reference design tokens (Phase A). Imported
+// before global.css so the 8 overlapping token names keep current values until
+// surfaces are ported; the other reference tokens become available for parity work.
+import "./styles/reference/tokens.css";
+import "./styles/global.css"; // Hypervisor client theme overrides (retired per surface as parity ports land)
+// Reference utility/component classes (class-scoped, preflight-stripped) — additive
+// and non-breaking: no current surface uses these class names (verified zero
+// collision). Ported surfaces emit these reference classes for bit-for-bit parity.
+import "./styles/reference/utilities.css";
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,
