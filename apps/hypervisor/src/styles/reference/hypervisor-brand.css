@@ -41,6 +41,17 @@
   flex-shrink: 0;
   overflow: visible;
 }
+/* The brand mark is decorative (aria-hidden); it must never intercept pointer events
+   (e.g. it sits near the collapse control in the cramped header). The logo anchor that
+   wraps it keeps its own hit area. */
+.hypervisor-activity-brand {
+  pointer-events: none;
+}
+/* When the rail is collapsed to icon width, hide the wordmark/brand so it doesn't
+   overlap the collapse control (mirrors the reference's collapsed rail). */
+[data-sidebar-container="true"]:has([style*="width: 48px"]) .hypervisor-activity-brand {
+  display: none;
+}
 .hypervisor-logo-home-link {
   color: var(--content-primary, currentColor);
   gap: 8px;

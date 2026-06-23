@@ -6,12 +6,73 @@
 // HypervisorReferenceSidebar stays a prop-compatible drop-in for the activity rail
 // (activeView/onViewChange/onOpenNewSession): when onViewChange is provided it routes
 // via the controller; otherwise the reference hrefs navigate.
-import { useEffect, useState } from "react";
-import type { MouseEventHandler, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, MouseEventHandler, ReactNode, RefObject } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import type { PrimaryView } from "../parityShellTypes";
 import { HypervisorReferenceApplicationsModal } from "../Applications/HypervisorReferenceApplicationsModal";
 import { APPLICATION_CATALOG } from "../Applications/applicationsCatalog";
 import { useSelectedApplicationId } from "../Applications/selectedApplication";
+import {
+  OrgSwitcherMenu,
+  SessionsFilterMenu,
+  WhatsNewDialog,
+  IoiEnvironmentsGrid,
+} from "./HypervisorReferenceSidebarMenus";
+
+// Close an open popover/menu on Escape (outside-click is handled by a transparent
+// backdrop rendered alongside the menu, mirroring the launcher modal pattern).
+function useEscapeToClose(open: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+}
+
+// Lightweight popover: renders its menu/dialog in a portal positioned from the
+// trigger's rect (so the sidebar's overflow-hidden never clips it), with a
+// transparent backdrop for outside-click dismissal. We don't depend on Radix.
+function SidebarPopover({
+  open,
+  onClose,
+  anchorRef,
+  side = "bottom",
+  align = "start",
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  anchorRef: RefObject<HTMLElement | null>;
+  side?: "top" | "bottom";
+  align?: "start" | "end";
+  children: ReactNode;
+}) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    setRect(open && anchorRef.current ? anchorRef.current.getBoundingClientRect() : null);
+  }, [open, anchorRef]);
+  useEscapeToClose(open, onClose);
+  if (!open || !rect) return null;
+  const gap = 4;
+  const style: CSSProperties = {
+    position: "fixed",
+    zIndex: 50,
+    ...(align === "end" ? { right: window.innerWidth - rect.right } : { left: rect.left }),
+    ...(side === "top" ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
+  };
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden="true" />
+      <div style={style}>{children}</div>
+    </>,
+    document.body,
+  );
+}
 
 // ---- exact reference SVGs (verbatim paths from :9228) ----
 const HomeGlyph = () => (
@@ -88,13 +149,14 @@ function NavLink({ href, label, icon, active, onActivate, extra }: NavLinkProps)
   );
 }
 
-function SessionGroup({ label, withCreate }: { label: string; withCreate?: boolean }) {
+function SessionGroup({ label, withCreate, children }: { label: string; withCreate?: boolean; children?: ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div data-state="closed" className="flex flex-col">
+    <div data-state={open ? "open" : "closed"} className="flex flex-col">
       <div className="group flex h-9 w-full flex-row content-center items-center justify-between rounded-lg hover:bg-surface-hover has-[>button:focus-visible]:outline has-[>button:focus-visible]:outline-1 has-[>button:focus-visible]:outline-offset-0 has-[>button:focus-visible]:outline-content-primary">
-        <button aria-expanded="false" className="mr-2 flex min-w-0 grow flex-row content-center items-center focus:ring-0" aria-label="Toggle Environment Group" title={label} data-tracking-id-none="true">
+        <button aria-expanded={open} className="mr-2 flex min-w-0 grow flex-row content-center items-center focus:ring-0" aria-label="Toggle Environment Group" title={label} data-tracking-id-none="true" type="button" onClick={() => setOpen((o) => !o)}>
           <div className="flex shrink-0 pl-1">
-            <div className="flex size-6 items-center justify-center transition-transform duration-150 ease-in-out rotate-0"><ChevronGroupGlyph /></div>
+            <div className={`flex size-6 items-center justify-center transition-transform duration-150 ease-in-out ${open ? "rotate-90" : "rotate-0"}`}><ChevronGroupGlyph /></div>
           </div>
           <div className="flex min-w-0 pl-1 text-sm font-medium text-content-muted" translate="no">
             <span className="inline-block max-w-full truncate text-content-muted">{label}</span>
@@ -110,7 +172,11 @@ function SessionGroup({ label, withCreate }: { label: string; withCreate?: boole
           </div>
         ) : null}
       </div>
-      <div data-state="closed" hidden className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown animate-none" />
+      {open ? (
+        <div data-state="open" className="overflow-hidden">{children}</div>
+      ) : (
+        <div data-state="closed" hidden className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown animate-none" />
+      )}
     </div>
   );
 }
@@ -122,25 +188,36 @@ interface ReferenceSidebarProps {
 }
 
 export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, onOpenNewSession }: ReferenceSidebarProps) {
+  const navigate = useNavigate();
   const selectedAppId = useSelectedApplicationId();
   const selectedApp = selectedAppId ? APPLICATION_CATALOG.find((a) => a.id === selectedAppId) : undefined;
+  const [collapsed, setCollapsed] = useState(false);
+  // Only one sidebar popover is open at a time (org switcher, sessions filter, what's new).
+  const [menu, setMenu] = useState<null | "org" | "filter" | "whatsnew">(null);
+  const orgRef = useRef<HTMLButtonElement>(null);
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const whatsNewRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = () => setMenu(null);
+  const toggleMenu = (which: "org" | "filter" | "whatsnew") => () =>
+    setMenu((current) => (current === which ? null : which));
   const go = (view: PrimaryView): MouseEventHandler => (e) => {
     if (onViewChange) {
       e.preventDefault();
       onViewChange(view);
     }
   };
+  // New Session opens the home composer (the reference's "what do you want to get
+  // done today?" surface), matching :9228.
   const onNewSession: MouseEventHandler = (e) => {
-    if (onOpenNewSession) {
-      e.preventDefault();
-      onOpenNewSession();
-    }
+    e.preventDefault();
+    onOpenNewSession?.();
+    navigate("/");
   };
 
   return (
     <div data-sidebar-container="true" className="relative flex-shrink-0 overflow-hidden">
       <div className="h-full overflow-hidden pt-2" data-track-location="sidebar">
-        <div className="relative h-full" style={{ width: "300px" }}>
+        <div className="relative h-full" style={{ width: collapsed ? "48px" : "300px" }}>
           <div data-testid="sidebar" className="flex size-full flex-col pb-[6px]">
             {/* header: brand + collapse */}
             <div className="flex items-center justify-between px-2 pb-0 pt-1">
@@ -156,7 +233,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 text-base size-8 rounded-[4px] border-0 p-0 transition-opacity duration-200 ease-out opacity-100" aria-label="Collapse sidebar" aria-expanded="true" data-tracking-id="toggle-sidebar-collapse" data-state="closed" type="button">
+                <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 text-base size-8 rounded-[4px] border-0 p-0 transition-opacity duration-200 ease-out opacity-100" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} data-tracking-id="toggle-sidebar-collapse" data-state="closed" type="button" onClick={() => setCollapsed((c) => !c)}>
                   <CollapseGlyph />
                 </button>
               </div>
@@ -209,12 +286,12 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="truncate text-sm text-content-secondary" data-testid="sessions-filter-label">Project</span>
-                    <button className="select-none font-medium whitespace-nowrap transition-colors border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 text-base flex h-8 w-8 items-center justify-center rounded-md p-0 hover:bg-surface-button-clear-accent data-[state=open]:bg-surface-button-clear-accent" aria-label="Filter sessions" data-testid="sessions-filter-button" data-tracking-id="sessions-filter-button" type="button" aria-haspopup="menu" aria-expanded="false" data-state="closed"><FilterGlyph /></button>
+                    <button ref={filterRef} className="select-none font-medium whitespace-nowrap transition-colors border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 text-base flex h-8 w-8 items-center justify-center rounded-md p-0 hover:bg-surface-button-clear-accent data-[state=open]:bg-surface-button-clear-accent" aria-label="Filter sessions" data-testid="sessions-filter-button" data-tracking-id="sessions-filter-button" type="button" aria-haspopup="menu" aria-expanded={menu === "filter"} data-state={menu === "filter" ? "open" : "closed"} onClick={toggleMenu("filter")}><FilterGlyph /></button>
                   </div>
                 </div>
                 <div role="tabpanel" aria-label="Sessions" className="min-h-0 flex-1 flex-col flex">
                   <div className="contents" data-testid="environments-list" data-track-location="sidebar_environment_list">
-                    <SessionGroup label="ioi" withCreate />
+                    <SessionGroup label="ioi" withCreate><IoiEnvironmentsGrid /></SessionGroup>
                     <SessionGroup label="From scratch" />
                   </div>
                 </div>
@@ -229,7 +306,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
                 </div>
                 <div className="flex w-full items-center gap-1">
                   <div className="min-w-0 flex-1">
-                    <button className="select-none items-center font-medium whitespace-nowrap transition-colors disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand text-base h-[48px] w-full flex gap-2 border-0 p-2 bg-transparent rounded-lg group focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-content-primary focus-visible:!ring-offset-0 justify-between hover:bg-surface-hover data-[state=open]:bg-surface-hover" aria-label="Switch organization. Currently in Levi Josman's Workspace 320" aria-expanded="false" aria-haspopup="menu" data-testid="org-switcher" type="button" data-state="closed">
+                    <button className="select-none items-center font-medium whitespace-nowrap transition-colors disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand text-base h-[48px] w-full flex gap-2 border-0 p-2 bg-transparent rounded-lg group focus-visible:!outline-none focus-visible:!ring-1 focus-visible:!ring-content-primary focus-visible:!ring-offset-0 justify-between hover:bg-surface-hover data-[state=open]:bg-surface-hover" ref={orgRef} aria-label="Switch organization. Currently in Levi Josman's Workspace 320" aria-expanded={menu === "org"} aria-haspopup="menu" data-testid="org-switcher" type="button" data-state={menu === "org" ? "open" : "closed"} onClick={toggleMenu("org")}>
                       <div className="flex w-full min-w-0 items-center gap-2 transform-gpu transition-all duration-200 ease-out translate-x-0">
                         <div className="relative flex-shrink-0 rounded-lg" data-testid="org-switcher-icon">
                           <span data-slot="avatar" className="relative flex shrink-0 overflow-hidden size-8 rounded-lg">
@@ -245,7 +322,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
                     </button>
                   </div>
                   <div>
-                    <button type="button" className="flex flex-row items-center rounded-lg h-8 min-w-0 hover:bg-surface-hover shrink-0" aria-label="What's new" data-tracking-id="open-changelog-expanded" data-testid="changelog-button" aria-haspopup="dialog" aria-expanded="false" data-state="closed">
+                    <button ref={whatsNewRef} type="button" className="flex flex-row items-center rounded-lg h-8 min-w-0 hover:bg-surface-hover shrink-0" aria-label="What's new" data-tracking-id="open-changelog-expanded" data-testid="changelog-button" aria-haspopup="dialog" aria-expanded={menu === "whatsnew"} data-state={menu === "whatsnew" ? "open" : "closed"} onClick={toggleMenu("whatsnew")}>
                       <div className="relative h-8 w-8 shrink-0">
                         <span className="transform-gpu transition-transform duration-200 ease-out flex size-full items-center justify-center" aria-hidden="true"><WhatsNewGlyph /></span>
                       </div>
@@ -258,6 +335,9 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
         </div>
       </div>
       <button className="absolute right-0 w-1 cursor-ew-resize rounded-full transition-colors duration-150 hover:bg-surface-03 active:bg-surface-04 top-4 mr-[1px] h-[calc(100%-32px)]" data-tracking-id-none="true" type="button" aria-hidden="true" />
+      <SidebarPopover open={menu === "org"} onClose={closeMenu} anchorRef={orgRef} side="top" align="start"><OrgSwitcherMenu /></SidebarPopover>
+      <SidebarPopover open={menu === "filter"} onClose={closeMenu} anchorRef={filterRef} side="bottom" align="end"><SessionsFilterMenu /></SidebarPopover>
+      <SidebarPopover open={menu === "whatsnew"} onClose={closeMenu} anchorRef={whatsNewRef} side="top" align="end"><WhatsNewDialog /></SidebarPopover>
     </div>
   );
 }
