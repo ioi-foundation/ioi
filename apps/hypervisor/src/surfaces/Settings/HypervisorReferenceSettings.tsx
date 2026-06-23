@@ -62,7 +62,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners"]);
 
 function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect: (key: string) => void }) {
   return (
@@ -300,12 +300,64 @@ function SecretsContent() {
   );
 }
 
+const CloudGlyph = ({ cls }: { cls: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cls}><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /></svg>
+);
+const Ellipsis = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-ellipsis size-5 text-content-primary"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+);
+const PlusRound = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.25 5V10.25M10.25 10.25V15.5M10.25 10.25H5M10.25 10.25H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+);
+
+function RunnersContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Runners" />
+      <div className="flex flex-col gap-6">
+        <p className="text-base text-content-secondary">Manage where environments run for your organization.</p>
+        <div className="flex justify-between"><h3 className="text-lg font-bold text-content-primary">Self-hosted runners</h3></div>
+        <div data-testid="runners-list">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div data-testid="add-new-runner-card" className="min-h-40 rounded-lg text-content-secondary">
+              <button type="button" className="select-none items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg focus:ring-0 hover:text-content-accent px-4 py-2 text-base flex size-full flex-col gap-0 border-0.5 border-border-light bg-surface-primary text-content-secondary hover:bg-surface-hover"><PlusRound /><span className="truncate">Set up a new runner</span></button>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-between"><h3 className="text-lg font-bold text-content-primary">Hosted by Hypervisor Cloud</h3></div>
+        <div data-testid="runners-list">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div role="button" tabIndex={0} className="flex flex-col gap-2 rounded-xl border-0.5 border-solid border-border-base bg-surface-glass px-5 py-4 text-left text-xs cursor-pointer hover:outline hover:outline-1 hover:outline-border-brand" aria-label="View details for Hypervisor Cloud (US01)">
+              <div className="flex grow"><div className="flex grow flex-col gap-0.5">
+                <div className="flex flex-row"><div className="grow"><CloudGlyph cls="lucide lucide-cloud h-8 w-8 text-content-primary" /></div><div><button type="button" className="select-none inline-flex items-center justify-center transition-colors rounded-lg bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent gap-2 text-base size-6 p-0" aria-label="More actions"><Ellipsis /></button></div></div>
+                <div className="flex items-center gap-2"><p className="min-w-0 flex-shrink truncate text-base font-bold text-content-primary max-w-48">Hypervisor Cloud (US01)</p></div>
+              </div></div>
+              <div className="flex flex-row gap-2"><span className="inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-success-subtle text-content-success dark:text-content-success-subtle px-2 py-1 text-sm"><span>Online</span></span></div>
+              <div className="flex flex-col gap-1"><div className="flex flex-col"><p className="text-sm text-content-primary">Created <span title="2026-06-16T11:22:19.089Z">1 week ago</span></p><div data-testid="creator" className="text-sm text-content-primary"><span>by <span>You</span></span></div></div></div>
+            </div>
+            <div className="flex flex-col gap-2 rounded-xl border-0.5 border-solid border-border-base bg-surface-glass px-5 py-4 text-left text-xs cursor-default" aria-label="Available Runner Manager">
+              <div className="flex grow"><div className="flex grow flex-col gap-0.5">
+                <div className="flex flex-row"><div className="grow opacity-60"><CloudGlyph cls="lucide lucide-cloud h-8 w-8 text-content-primary" /></div><div><button type="button" className={BTN_SECONDARY}><span className="truncate">Enable</span></button></div></div>
+                <div className="opacity-60"><p className="min-w-0 flex-shrink truncate text-base font-bold text-content-primary max-w-48">Hypervisor Cloud (EU01)</p></div>
+                <div className="opacity-60"><div className="flex grow text-sm text-content-primary">Hypervisor Cloud</div></div>
+              </div></div>
+              <div className="flex flex-row gap-2"><span className="inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-muted text-content-strong px-2 py-1 text-sm"><span>Disabled</span></span></div>
+              <div className="flex flex-col"><div className="text-xs text-content-tertiary">Region: eu-central-1</div><div className="text-xs text-content-tertiary">by Hypervisor</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
     case "security/oidc": return <OidcContent />;
+    case "runners": return <RunnersContent />;
     default: return <GeneralContent />;
   }
 }
