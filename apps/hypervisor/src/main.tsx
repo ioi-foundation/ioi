@@ -14,6 +14,13 @@ import "./styles/global.css"; // Hypervisor client theme overrides (retired per 
 // and non-breaking: no current surface uses these class names (verified zero
 // collision). Ported surfaces emit these reference classes for bit-for-bit parity.
 import "./styles/reference/utilities.css";
+// Vendored hypervisor-* brand/Applications rules the reference server injects at
+// serve time (logo mark, Applications sidebar section, launcher modal). Required
+// for the ported shell to render bit-for-bit vs :9228.
+import "./styles/reference/hypervisor-brand.css";
+// Scoped preflight reset (under `.ona`, set by the parity shell) re-adding the
+// reference's anchor/heading/form resets that utilities.css strips.
+import "./styles/reference/parity-preflight.css";
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,
