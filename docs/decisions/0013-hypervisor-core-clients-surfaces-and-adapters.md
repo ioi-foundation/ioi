@@ -69,12 +69,18 @@ IOI L1 settles only selected public/economic/cross-domain commitments.
 
 - Retired Tauri code and native desktop Rust paths must not be recreated as an active
   product path.
-- The old root `ide/` artifact path is retired; adapter-host metadata and local
-  editor build conventions live under `code-editor-adapters/`.
+- The old root `ide/` artifact path is retired; the editor-target registry
+  metadata and local host build conventions live under `code-editor-adapters/`
+  (`editor-targets.manifest.json`). Editor adapter source lives in the package
+  graph under `packages/hypervisor-adapter-targets/`.
 - Documentation must not use "Hypervisor IDE" as the live parent product.
   `Hypervisor Workbench` is the code/systems/workspace surface.
-- Electron/VS Code is one current Code editor adapter-host implementation, not
-  the product identity.
+- The App orchestrates a multi-family editor-target registry — VS Code-family
+  hosts (VS Code, VS Code Insiders, Cursor, Windsurf, Devin), VS Code Browser,
+  JetBrains Gateway, and SSH — exposed as a per-environment "Open in <editor>"
+  picker with a default-editor preference. The customized Electron/VS Code is the
+  flagship VS Code-family target, one entry in that registry, not the product
+  identity.
 - Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workbench, Foundry,
   Fleet, external harness adapters, and provider integrations must share daemon
   and domain contracts.

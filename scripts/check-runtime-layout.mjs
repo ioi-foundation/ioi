@@ -98,7 +98,7 @@ const codeEditorAdapterHostPaths = read(
 );
 const codeEditorAdaptersReadme = read("code-editor-adapters/README.md");
 const codeEditorAdapterHostManifest = read(
-  "code-editor-adapters/code-editor-adapter-host.manifest.json",
+  "code-editor-adapters/editor-targets.manifest.json",
 );
 const codeEditorAdapterPackage = read(
   "packages/hypervisor-adapter-targets/code-editors/vscode-extension/package.json",
@@ -924,9 +924,12 @@ assert(
   "code-editor-adapter-fork-sync-target-only",
   /code-editor-adapters\/vscode\/\n/.test(rootGitignore) &&
     /code-editor-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"adapterSource":\s*"packages\/hypervisor-adapter-targets\/code-editors\/vscode-extension"/.test(
+    /"defaultEditorId":\s*"vscode"/.test(codeEditorAdapterHostManifest) &&
+    /"adapterModule":\s*"packages\/hypervisor-adapter-targets\/code-editors\/vscode-extension"/.test(
       codeEditorAdapterHostManifest,
     ) &&
+    codeEditorAdapterHostManifest.includes('"jetbrains-gateway"') &&
+    codeEditorAdapterHostManifest.includes('"vscode-browser"') &&
     /"optionalForRuntimeLaunch":\s*true/.test(codeEditorAdapterHostManifest) &&
     codeEditorAdaptersReadme.includes(
       "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
@@ -947,7 +950,7 @@ assert(
   [
     ".gitignore",
     "code-editor-adapters/README.md",
-    "code-editor-adapters/code-editor-adapter-host.manifest.json",
+    "code-editor-adapters/editor-targets.manifest.json",
     "scripts/lib/hypervisor-code-editor-adapter-host-paths.mjs",
   ],
   "Ignored VS Code fork/build trees must stay sync targets copied from the canonical code editor adapter source, not duplicate tracked JS truth paths.",

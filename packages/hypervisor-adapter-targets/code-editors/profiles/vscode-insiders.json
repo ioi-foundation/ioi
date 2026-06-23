@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
+  "target": "vscode-insiders",
+  "displayName": "VS Code Insiders",
+  "family": "vscode-family",
+  "launchKind": "electron-host",
+  "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
+  "installedExtensionDirName": "hypervisor-vscode-extension",
+  "hostProfile": "vscode-electron-packaged-host",
+  "divergentModule": false,
+  "notes": "VS Code-family host (Insiders channel). Reuses the shared vscode-extension module; split only after target-specific behavior appears."
+}

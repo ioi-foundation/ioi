@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "ioi.hypervisor.editor_targets.manifest.v1",
+  "targetRoot": "code-editor-adapters",
+  "runtimeAuthority": "crates/node/src/bin/hypervisor-daemon.rs",
+  "defaultEditorId": "vscode",
+  "doctrine": [
+    "Hypervisor App orchestrates code editors; it is not one of them.",
+    "An editor opens an Environment; the editor target is mediated, never product identity or runtime truth.",
+    "The customized VS Code is the flagship VS Code-family target — one entry in this registry, not the host.",
+    "IOI daemon is the runtime authority and durable execution boundary.",
+    "Legacy native embedding paths are extraction inventory and must not be revived.",
+    "Tracked editor-target metadata and ignored local host artifacts live under code-editor-adapters/; the root ide/ artifact path is retired.",
+    "The default editor is an org/user preference, not the adapter contract."
+  ],
+  "families": [
+    {
+      "id": "vscode-family",
+      "label": "VS Code family",
+      "launchKind": "electron-host",
+      "status": "active",
+      "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
+      "installedExtensionDirName": "hypervisor-vscode-extension",
+      "sourceFork": {
+        "defaultPath": "code-editor-adapters/vscode",
+        "optionalForRuntimeLaunch": true,
+        "upstream": "https://github.com/microsoft/vscode.git",
+        "localBranchHint": "antigravity/main"
+      },
+      "packagedApp": {
+        "defaultPath": "code-editor-adapters/builds/VSCode-linux-x64",
+        "binary": "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor",
+        "requiredForRuntimeLaunch": true
+      },
+      "editors": [
+        { "id": "vscode", "label": "VS Code", "flagship": true, "profile": "code-editors/profiles/vscode.json" },
+        { "id": "vscode-insiders", "label": "VS Code Insiders", "profile": "code-editors/profiles/vscode-insiders.json" },
+        { "id": "cursor", "label": "Cursor", "profile": "code-editors/profiles/cursor.json" },
+        { "id": "windsurf", "label": "Windsurf", "profile": "code-editors/profiles/windsurf.json" },
+        { "id": "devin", "label": "Devin", "profile": "code-editors/profiles/devin.json" }
+      ]
+    },
+    {
+      "id": "web",
+      "label": "Web",
+      "launchKind": "browser",
+      "status": "active",
+      "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
+      "editors": [
+        { "id": "vscode-browser", "label": "VS Code Browser", "profile": "code-editors/profiles/vscode-browser.json" }
+      ]
+    },
+    {
+      "id": "jetbrains-gateway",
+      "label": "JetBrains (Gateway)",
+      "launchKind": "jetbrains-gateway",
+      "status": "declared",
+      "adapterModule": "packages/hypervisor-adapter-targets/jetbrains",
+      "editors": [
+        { "id": "intellij", "label": "IntelliJ IDEA Ultimate" },
+        { "id": "goland", "label": "GoLand" },
+        { "id": "pycharm", "label": "PyCharm Professional" },
+        { "id": "phpstorm", "label": "PhpStorm" },
+        { "id": "rubymine", "label": "RubyMine" },
+        { "id": "webstorm", "label": "WebStorm" },
+        { "id": "clion", "label": "CLion" },
+        { "id": "rustrover", "label": "RustRover" },
+        { "id": "rider", "label": "Rider" }
+      ]
+    },
+    {
+      "id": "ssh",
+      "label": "SSH",
+      "launchKind": "ssh",
+      "status": "declared",
+      "adapterModule": "packages/hypervisor-adapter-targets/ssh",
+      "editors": [
+        { "id": "ssh", "label": "SSH" }
+      ]
+    }
+  ]
+}

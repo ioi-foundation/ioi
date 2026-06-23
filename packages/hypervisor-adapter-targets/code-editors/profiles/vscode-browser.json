@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
+  "target": "vscode-browser",
+  "displayName": "VS Code Browser",
+  "family": "web",
+  "launchKind": "browser",
+  "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
+  "installedExtensionDirName": "hypervisor-vscode-extension",
+  "hostProfile": "vscode-browser-host",
+  "divergentModule": false,
+  "notes": "Browser-served VS Code over the same vscode-extension module. Web launch path (no packaged Electron host); served against the running Environment."
+}

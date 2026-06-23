@@ -100,14 +100,16 @@ apps/hypervisor/
 └── README.md
 
 code-editor-adapters/
-├── README.md                            # adapter-host ownership notes
-├── code-editor-adapter-host.manifest.json           # code-editor adapter-host manifest
-├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
-└── vscode/                              # ignored optional VS Code source checkout
+├── README.md                            # editor-target registry ownership notes
+├── editor-targets.manifest.json         # editor-target registry (families -> editors, default)
+├── builds/VSCode-linux-x64/             # ignored packaged runnable VS Code-family host
+└── vscode/                              # ignored optional (customized) VS Code source checkout
 
 packages/
-├── hypervisor-adapter-targets/         # adapter target modules + host profiles
-│   └── code-editors/vscode-extension/  # built-in VS Code-family code editor adapter
+├── hypervisor-adapter-targets/         # editor-target modules + host profiles
+│   ├── code-editors/vscode-extension/  # shared VS Code-family adapter (VS Code, Cursor, Windsurf, …)
+│   ├── jetbrains/                       # JetBrains Gateway target (declared)
+│   └── ssh/                             # SSH target (declared)
 └── hypervisor-workbench/                # Workbench and workflow-composer package
 ```
 
