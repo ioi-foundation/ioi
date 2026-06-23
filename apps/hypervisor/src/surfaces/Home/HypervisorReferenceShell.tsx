@@ -82,6 +82,24 @@ export function HypervisorReferenceShell({ children }: { children: ReactNode }) 
             <NavItem icon={<GridIcon />} label="Applications" />
           </div>
 
+          {/* Applications section + singular Open Application */}
+          <div className="flex flex-col gap-0.5 pl-2 pt-3 pr-2">
+            <span className="inline-flex h-8 items-center gap-2 rounded-lg px-1.5 text-base font-normal text-content-secondary">
+              <span className="flex size-6 items-center justify-center text-content-secondary"><GridIcon /></span>
+              Applications
+            </span>
+            <a className="flex flex-row items-center rounded-lg h-8 min-w-0 hover:bg-surface-hover">
+              <div className="relative flex w-full flex-row items-center">
+                <div className="relative h-8 w-8 shrink-0">
+                  <span className="flex size-full items-center justify-center">
+                    <span className="flex size-5 items-center justify-center rounded bg-surface-accent text-[10px] font-semibold text-content-primary">P</span>
+                  </span>
+                </div>
+                <div className="flex-grow text-start text-base min-w-0 overflow-hidden whitespace-nowrap font-medium text-content-primary">Pipeline Builder</div>
+              </div>
+            </a>
+          </div>
+
           <div className="my-2 mx-2 border-t border-border-subtle" />
 
           {/* sessions */}
