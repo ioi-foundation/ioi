@@ -1768,8 +1768,8 @@ const workspaceTree = [
         children: [],
       },
       {
-        name: "internal-docs",
-        path: `${WORKSPACE_ROOT_LABEL}/internal-docs`,
+        name: "docs",
+        path: `${WORKSPACE_ROOT_LABEL}/docs`,
         kind: "directory",
         hasChildren: true,
         children: [],
@@ -1794,8 +1794,8 @@ const workspaceTree = [
 
 const workspaceFiles = new Map([
   [
-    `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md`,
-    `# Hypervisor Reference-Grade Parity Master Guide\n\nReplay-backed Workbench preview for the implementation plan.\n`,
+    `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor/core-clients-surfaces.md`,
+    `# Hypervisor Core, Clients, Application Surfaces, Sessions, and Adapters\n\nReplay-backed Workbench preview for the canonical Hypervisor product surface and adapter doctrine.\n`,
   ],
   [
     `${WORKSPACE_ROOT_LABEL}/apps/hypervisor/src/dev/hypervisorDevReplayClient.ts`,
@@ -1829,22 +1829,44 @@ function listWorkspaceDirectory(pathname = WORKSPACE_ROOT_LABEL) {
   if (!pathname || pathname === "." || pathname === WORKSPACE_ROOT_LABEL) {
     return workspaceTree[0].children;
   }
-  if (`${WORKSPACE_ROOT_LABEL}/internal-docs` === pathname) {
+  if (`${WORKSPACE_ROOT_LABEL}/docs` === pathname) {
     return [
       {
-        name: "implementation",
-        path: `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation`,
+        name: "architecture",
+        path: `${WORKSPACE_ROOT_LABEL}/docs/architecture`,
         kind: "directory",
         hasChildren: true,
         children: [],
       },
     ];
   }
-  if (`${WORKSPACE_ROOT_LABEL}/internal-docs/implementation` === pathname) {
+  if (`${WORKSPACE_ROOT_LABEL}/docs/architecture` === pathname) {
     return [
       {
-        name: "hypervisor-reference-grade-parity-master-guide.md",
-        path: `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md`,
+        name: "components",
+        path: `${WORKSPACE_ROOT_LABEL}/docs/architecture/components`,
+        kind: "directory",
+        hasChildren: true,
+        children: [],
+      },
+    ];
+  }
+  if (`${WORKSPACE_ROOT_LABEL}/docs/architecture/components` === pathname) {
+    return [
+      {
+        name: "hypervisor",
+        path: `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor`,
+        kind: "directory",
+        hasChildren: true,
+        children: [],
+      },
+    ];
+  }
+  if (`${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor` === pathname) {
+    return [
+      {
+        name: "core-clients-surfaces.md",
+        path: `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor/core-clients-surfaces.md`,
         kind: "file",
         hasChildren: false,
         children: [],
@@ -1984,7 +2006,7 @@ function workbenchSnapshot() {
     workspace_ref: "workspace://ioi/hypervisor-core",
     root: WORKSPACE_ROOT,
     selected_file:
-      `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md`,
+      `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor/core-clients-surfaces.md`,
     snapshot: workspaceSnapshot(),
     source_control: sourceControlState(),
     problems: [
@@ -2515,15 +2537,15 @@ function handleHostBridgeInvoke(command, args = {}) {
         files: [
           {
             path:
-              `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md`,
+              `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor/core-clients-surfaces.md`,
             matchCount: 1,
             matches: [
               {
                 path:
-                  `${WORKSPACE_ROOT_LABEL}/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md`,
+                  `${WORKSPACE_ROOT_LABEL}/docs/architecture/components/hypervisor/core-clients-surfaces.md`,
                 line: 1,
                 column: 1,
-                preview: "Hypervisor Reference-Grade Parity Master Guide",
+                preview: "Hypervisor Core, Clients, Application Surfaces, Sessions, and Adapters",
               },
             ],
           },
@@ -2626,7 +2648,7 @@ function handleHostBridgeInvoke(command, args = {}) {
               type: "text",
               required: true,
               placeholder:
-                "internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md",
+                "docs/architecture/components/hypervisor/core-clients-surfaces.md",
             },
           ],
           requiredScopes: ["scope:workspace.read"],

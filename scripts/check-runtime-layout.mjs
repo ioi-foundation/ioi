@@ -39,15 +39,6 @@ const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const hypervisorAppReadme = read("apps/hypervisor/README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
-const refineArchitectureGuide = read(
-  "internal-docs/implementation/refine-architecture.md",
-);
-const runtimePackageBoundaries = read(
-  "internal-docs/implementation/runtime-package-boundaries.md",
-);
-const runtimeModuleMap = read(
-  "internal-docs/implementation/runtime-module-map.md",
-);
 const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
@@ -562,7 +553,7 @@ const generatedRust = read(
   "crates/types/src/app/generated/runtime_action_schema.rs",
 );
 const actionSchema = JSON.parse(
-  read("internal-docs/implementation/runtime-action-schema.json"),
+  read("docs/architecture/_meta/schemas/runtime-action-schema.json"),
 );
 
 assert(
@@ -761,76 +752,50 @@ assert(
   "Hypervisor frontend type wrappers must import generated Hypervisor contracts, not the retired generated/autopilot-contracts path.",
 );
 assert(
-  "runtime-module-map",
-  exists("internal-docs/implementation/runtime-module-map.md") &&
-    runtimeModuleMap.includes("RuntimeSubstrate") &&
-    runtimePackageBoundaries.includes("runtime-module-map.md") &&
-    runtimeModuleMap.includes("CodeEditorAdapterHost") &&
-    runtimeModuleMap.includes("root `ide/` product path") &&
-    runtimeModuleMap.includes("not an active proof home"),
+  "tracked-runtime-boundary-map",
+  architectureSourceOfTruthMap.includes("Hypervisor Core") &&
+    architectureSourceOfTruthMap.includes("Hypervisor Daemon") &&
+    architectureSourceOfTruthMap.includes("AdapterConnectionProfile") &&
+    architectureSourceOfTruthMap.includes("adapter targets, not Hypervisor's product identity") &&
+    architectureVocabulary.includes("HypervisorAdapterTarget") &&
+    architectureVocabulary.includes("AdapterConnectionProfile"),
   [
-    "internal-docs/implementation/runtime-module-map.md",
-    "internal-docs/implementation/runtime-package-boundaries.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/vocabulary.md",
   ],
-  "runtime module map must identify canonical homes and be linked from boundary docs",
+  "tracked canon must identify runtime/client boundaries and adapter targets without depending on ignored implementation maps",
 );
 assert(
-  "hypervisor-internal-maps-fold-fleet-into-provider-environment-views",
-  runtimePackageBoundaries.includes("Hypervisor Providers / Environments") &&
-    runtimePackageBoundaries.includes(
-      "sessions, leases, and restore/archive refs",
-    ) &&
-    runtimeModuleMap.includes("provider/environment views") &&
-    runtimeModuleMap.includes("provider-environment names") &&
+  "hypervisor-canon-folds-fleet-into-provider-environment-views",
+  architectureSourceOfTruthMap.includes("Hypervisor Providers / Environments") &&
+    hypervisorProvidersEnvironmentsDoc.includes("cross-session environment inventory") &&
+    hypervisorProvidersEnvironmentsDoc.includes("session access leases") &&
+    hypervisorProvidersEnvironmentsDoc.includes("development environment recipes") &&
+    hypervisorProvidersEnvironmentsDoc.includes("lifecycle observations") &&
     !/Foundry\s*\/\s*Fleet|Workbench,\s*Foundry,\s*Fleet|Foundry\/Fleet|Fleet names/.test(
-      `${runtimePackageBoundaries}\n${runtimeModuleMap}`,
+      `${architectureSourceOfTruthMap}\n${hypervisorProvidersEnvironmentsDoc}`,
     ),
   [
-    "internal-docs/implementation/runtime-package-boundaries.md",
-    "internal-docs/implementation/runtime-module-map.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
   ],
-  "internal implementation maps must fold retired Fleet posture into Hypervisor provider/environment/session views",
+  "tracked canon must fold retired Fleet posture into Hypervisor provider/environment/session views",
 );
 assert(
-  "refine-architecture-ioi-reference-target",
-  refineArchitectureGuide.includes("internal-docs/reverse-engineering/ioi") &&
-    refineArchitectureGuide.includes("Primary IOI reference mirror") &&
-    refineArchitectureGuide.includes(
-      "working reference package in internal-docs/reverse-engineering/ioi",
-    ) &&
-    refineArchitectureGuide.includes(
-      "functional verifier evidence from internal-docs/reverse-engineering/ioi/verify.js",
-    ) &&
-    refineArchitectureGuide.includes("canon architecture docs") &&
-    refineArchitectureGuide.includes("npm run check:ioi-reference") &&
-    !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(
-      refineArchitectureGuide,
-    ),
-  ["internal-docs/implementation/refine-architecture.md"],
-  "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
-);
-assert(
-  "ioi-reference-primary-authority-package",
+  "ioi-reference-local-verifier-script",
   packageJson.scripts?.["check:ioi-reference"] ===
-    "node internal-docs/reverse-engineering/ioi/verify.js" &&
-    refineArchitectureGuide.includes(
-      "architecture docs are secondary authority for this lane",
-    ) &&
-    refineArchitectureGuide.includes("they translate") &&
-    refineArchitectureGuide.includes("do not override it"),
-  [
-    "package.json",
-    "internal-docs/implementation/refine-architecture.md",
-  ],
-  "IOI reference verifier must be a root script, and refine-architecture must explicitly keep docs secondary to the working IOI reference package.",
+    "node internal-docs/reverse-engineering/ioi/verify.js",
+  ["package.json"],
+  "IOI reference verifier can remain a root local script, but tracked layout conformance must not read ignored local mirror guides.",
 );
 assert(
-  "refine-architecture-hard-cut-editor-surface-drift",
-  refineArchitectureGuide.includes("code-editor and workspace target choice") &&
-    refineArchitectureGuide.includes("deleted onboarding walkthroughs") &&
-    refineArchitectureGuide.includes("default code editor target"),
-  ["internal-docs/implementation/refine-architecture.md"],
-  "refine-architecture Phase 0A must describe code-editor adapters and deleted onboarding fat, not a direct editor product surface.",
+  "tracked-editor-surface-drift-guard",
+  codeEditorAdaptersReadme.includes("not the Hypervisor product") &&
+    codeEditorAdaptersReadme.includes("not runtime authority") &&
+    hypervisorAppReadme.includes("Editor hosts = adapter targets") &&
+    !readme.includes("Hypervisor IDE"),
+  ["README.md", "apps/hypervisor/README.md", "code-editor-adapters/README.md"],
+  "tracked docs must describe code-editor adapters as mediated targets, not direct editor product surfaces.",
 );
 assert(
   "hypervisor-shell-ioi-reference-contract",
@@ -1487,24 +1452,26 @@ assert(
 );
 assert(
   "hypervisor-environment-ops-model",
-  refineArchitectureGuide.includes("HypervisorEnvironmentOpsProfile") &&
-    refineArchitectureGuide.includes("HypervisorEnvironmentLifecycleState") &&
-    refineArchitectureGuide.includes("HypervisorEnvironmentClass") &&
-    refineArchitectureGuide.includes("HypervisorSessionAccessLease") &&
-    refineArchitectureGuide.includes("HypervisorEnvironmentService") &&
-    refineArchitectureGuide.includes("HypervisorEnvironmentTask") &&
-    refineArchitectureGuide.includes("HypervisorEnvironmentPort") &&
-    refineArchitectureGuide.includes("HypervisorScmAuthRequirement") &&
-    refineArchitectureGuide.includes("Environment-ops doctrine") &&
-    refineArchitectureGuide.includes(
-      "create, create_from_project, start, stop, mark_active, archive,",
-    ) &&
-    refineArchitectureGuide.includes(
-      "access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs",
-    ) &&
-    !/\bGitpod\b|gitpod/i.test(refineArchitectureGuide),
-  ["internal-docs/implementation/refine-architecture.md"],
-  "Refine guide must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references.",
+  hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentOpsProfile") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentLifecycleState") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentClass") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorSessionAccessLease") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentService") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentTask") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorEnvironmentPort") &&
+    hypervisorCoreClientsSurfacesDoc.includes("HypervisorScmAuthRequirement") &&
+    hypervisorProvidersEnvironmentsDoc.includes("development environment recipes") &&
+    hypervisorProvidersEnvironmentsDoc.includes("session access leases") &&
+    hypervisorProvidersEnvironmentsDoc.includes("log access") &&
+    hypervisorProvidersEnvironmentsDoc.includes("SCM auth requirements") &&
+    !/\bGitpod\b|gitpod/i.test(
+      `${hypervisorCoreClientsSurfacesDoc}\n${hypervisorProvidersEnvironmentsDoc}`,
+    ),
+  [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+  ],
+  "Tracked canon must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references.",
 );
 assert(
   "hypervisor-environment-ops-canon",
@@ -4050,7 +4017,7 @@ assert(
       generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`),
   ),
   [
-    "internal-docs/implementation/runtime-action-schema.json",
+    "docs/architecture/_meta/schemas/runtime-action-schema.json",
     "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
     "crates/types/src/app/generated/runtime_action_schema.rs",
   ],

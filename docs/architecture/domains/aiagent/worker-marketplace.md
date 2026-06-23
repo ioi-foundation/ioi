@@ -4,11 +4,19 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
-**aiagent.xyz is the first-party Web4 marketplace application for ontology-bound digital and embodied workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility, built on AIIP and IOI settlement.**
+**aiagent.xyz is the first-party capability market for benchmarked,
+installable, attributable autonomous capability.**
+
+It is not a generic persona store or chatbot catalog. It is the marketplace
+application for ontology-bound digital and embodied workers, managed
+worker/agent instances, benchmark profiles, Sparse Worker Categories, installs,
+worker packages, model+harness combinations, verifier workers, tool workers,
+service-capability packages, and MoW routing eligibility, built on AIIP and IOI
+settlement.
 
 It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
 settles, and initializes worker packages. It is an application domain with its
@@ -35,6 +43,11 @@ receipt-backed labor-routing architecture, not an `ioi.ai` private router.
 for a marketplace invocation, but aiagent.xyz owns the worker-market records and
 runtime nodes execute the work.
 
+The marketplace ranks and licenses capability, not standalone model mystique.
+Listings should make benchmark posture, eval results, policy posture,
+authority requirements, runtime profiles, contribution attribution, and managed
+instance options visible by default.
+
 ## What aiagent.xyz Is
 
 aiagent.xyz is:
@@ -45,6 +58,8 @@ aiagent.xyz is:
 - an AIIP marketplace-worker profile user;
 - a worker discovery and procurement surface;
 - a managed worker/agent instance initialization surface;
+- a starter worker template and package-draft surface;
+- a composable open worker and model-harness supply surface;
 - a Sparse Worker Category and benchmark profile surface;
 - a package/license/quality/reputation system;
 - a trained-worker publication and routing-eligibility surface;
@@ -66,6 +81,9 @@ aiagent.xyz owns:
 - ontology profile refs;
 - vertical ontology pack refs;
 - integration surface refs;
+- starter worker templates and package-draft refs;
+- composable worker composition refs;
+- listing admission and benchmark execution refs;
 - publisher profiles;
 - worker versions;
 - responsibility and requirement descriptions;
@@ -110,6 +128,9 @@ A worker package should include:
 manifest
 worker definition
 harness workflow
+source provenance and license refs
+harness adapter ref
+model route options
 training lineage ref, when available
 benchmark profile refs
 sparse worker category, when submitted
@@ -130,11 +151,76 @@ interaction surfaces: chat | form | api | workflow_node | scheduler | background
 runtime profiles: local | hosted | provider | depin | private_workspace_ctee | tee | customer_vpc
 persistence profiles: ephemeral | session | zero_to_idle | persistent
 subscription profiles, when warm or ongoing runtime is supported
+build recipe, security scan, SBOM, and attestation refs when applicable
 deployment profile and compatibility constraints
 ```
 
 Package payloads may live in storage backends such as Filecoin/CAS/CDN and be
 referenced by signed manifests and Agentgres-governed artifact refs.
+
+## Starter Worker Templates
+
+aiagent.xyz may expose starter worker templates as a product-facing creation
+surface. A starter template may begin as a prompt pattern, form, workflow
+recipe, tool bundle, vertical task recipe, or managed-instance preset, but it is
+not a worker package until it is normalized into the canonical package shape.
+
+Template-to-worker normalization must produce:
+
+- a `WorkerPackage` draft;
+- task classes and output contracts;
+- ontology profile refs;
+- vertical ontology pack refs, when applicable;
+- integration surface refs;
+- primitive capability requirements;
+- authority scope requirements;
+- model/tool/connector requirements;
+- runtime and persistence profiles;
+- receipt and evidence obligations;
+- benchmark profile or evaluation plan;
+- pricing, license, and contribution terms, when publishable.
+
+Starter templates are useful demand-generation and authoring rails. They must
+not become a parallel marketplace object that bypasses manifests, benchmarks,
+authority gates, receipts, or managed-instance lifecycle state. A template may
+be browsed, copied, forked, tested in a sandbox, or promoted into a package
+draft; only a normalized worker package or managed worker instance may be
+installed, invoked, routed, or settled.
+
+## Composable Open Worker Supply
+
+aiagent.xyz may list open-source agents, open-source harnesses, open-source
+models, proprietary/BYOK model routes, tool bundles, connector mappings, and
+managed runtime profiles as inputs to worker supply. The marketplace listing
+that can be installed, invoked, benchmarked, or settled is the resulting
+worker composition, not the raw source repository, prompt, model checkpoint, or
+harness by itself.
+
+A benchmarkable worker composition binds:
+
+- source provenance, license, maintainer, and version refs;
+- model route options or model requirements;
+- harness adapter and runtime entrypoint;
+- tool and connector requirements;
+- authority scopes and approval policy;
+- memory and persistence policy;
+- runtime placement and privacy posture;
+- benchmark profile and evaluation rubric;
+- package, artifact, receipt, and contribution policy.
+
+Open-source models may be listed as components or as trivial inference workers,
+but autonomous-labor ranking is based on model-plus-harness-plus-runtime
+compositions. Benchmark results attach to the exact composition that was
+tested. A material change to model route, harness adapter, tool set, runtime
+profile, privacy posture, prompt/policy bundle, or package version should
+produce a new composition version or require rebenchmarking before the old
+score can be used for routing eligibility.
+
+Managed open-worker instances may let the user choose among package-supported
+model routes, including local, BYOK, hosted, provider, DePIN, TEE, customer VPC,
+or Private Workspace cTEE routes. The selected model route is instance
+configuration governed by wallet.network authority, runtime privacy posture,
+budget policy, and receipts; it is not independent marketplace truth.
 
 ## Package vs Instance
 
@@ -269,6 +355,28 @@ forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
 webhooks over the same daemon/domain contracts used by Hypervisor,
 CLI/headless, optional TUI views, SDK, ADK, Workbench, and Workflow Compositor.
 
+## Default User And Integration Surfaces
+
+For ordinary users, the default managed-instance surface should be the browser
+console: browse worker, try in browser, chat or submit a form, approve authority
+when required, inspect receipts, pause or revoke, and subscribe only when a warm
+or persistent runtime is useful.
+
+For builders and other systems, the same managed instance should expose an
+explicit integration bundle when supported by the package:
+
+- web console URL;
+- thread/task API endpoints;
+- model-compatible API endpoint for common inference clients;
+- MCP or inter-agent endpoint for tool-style delegation;
+- workflow-node or scheduler endpoint;
+- local Hypervisor install instructions;
+- authority-client scope, expiry, spend, and revoke metadata.
+
+These are presentation and compatibility faces over the same worker package or
+managed instance. They must not create separate execution truth, raw API-secret
+custody, hidden authority, or a second unreceipted worker identity.
+
 ## Sparse Worker Categories
 
 Sparse Worker Categories are aiagent.xyz's category-level market structure for
@@ -296,6 +404,38 @@ runtime posture, reputation, and downstream ContributionReceipts.
 
 Benchmark and routing claims are relative to declared profiles. They do not
 claim universal intelligence, permanent superiority, or global optimality.
+
+## Listing Admission And Benchmark Metadata
+
+Every public worker listing should expose benchmark and admission posture as
+default metadata:
+
+- listing status: draft | submitted | benchmarking | listed | routing_eligible |
+  suspended | revoked;
+- benchmark status: unbenchmarked | scheduled | running | passed | failed |
+  stale | disputed;
+- latest benchmark run refs and evaluation receipt roots;
+- benchmark profile, evaluation rubric, dataset, and environment refs;
+- manifest hash, composition version, model route policy, harness adapter ref,
+  runtime profile, privacy posture, and policy hash used for the score;
+- cost, latency, success, failure, human-override, dispute, refund, and
+  verification summaries;
+- source provenance, license, maintainer, security scan, SBOM, and build
+  recipe posture when applicable.
+
+Submission fees, credits, or stakes are admission controls for non-zero compute
+cost and spam resistance. They pay for benchmark execution, queue priority
+within declared policy, and review overhead; they must not purchase ranking,
+routing eligibility, or trust claims. The marketplace may support waivers,
+subsidies, or sponsored benchmark lanes for reputable public-good or
+open-source supply, but the resulting listing must still disclose benchmark
+status and evidence.
+
+Unbenchmarked workers may be discoverable when policy allows, but they should
+be labeled as unbenchmarked and should not receive benchmark-derived routing
+eligibility. Rebenchmarking is required when a material composition component
+changes or when the benchmark profile, policy posture, or runtime environment
+expires.
 
 ## Worker Training Supply Loop
 
@@ -344,6 +484,14 @@ Required rules:
 7. Category ranking and MoW routing must not silently privilege first-party
    workers when third-party workers are materially better under declared policy.
 
+ioi.ai, Hypervisor Automations, Foundry, Workbench, and custom coordinators may
+route to aiagent.xyz workers when a marketplace worker is materially useful. The
+worker's package, managed instance, routing basis, license, and contribution
+refs must remain visible in the resulting receipts. A coordinator may summarize
+the worker's contribution for the user, but it must not silently clone the
+worker's private internals into a default harness or erase marketplace
+attribution from the outcome graph.
+
 ## Quality and Reputation
 
 Workers should accumulate measurable records:
@@ -357,6 +505,9 @@ Workers should accumulate measurable records:
 - refund/dispute rate;
 - domain-specific benchmark results;
 - sparse category eligibility;
+- composition version and benchmark freshness;
+- source provenance and license posture;
+- build, security scan, SBOM, and attestation posture;
 - training lineage completeness;
 - contribution value.
 
@@ -372,12 +523,14 @@ a required dependency for every service package
 a place to silently absorb private worker internals
 a ranking surface that can privilege first-party workers by fiat
 a place that owns cTEE or receives protected plaintext because a user rented a GPU node
+a model zoo that ranks raw checkpoints as autonomous workers without harness,
+runtime, policy, authority, receipt, and benchmark context
 ```
 
 Correct model:
 
 ```text
-aiagent.xyz lists and supplies portable worker capability
+aiagent.xyz lists and supplies portable and composable worker capability
 the daemon executes workers under authority
 Agentgres records installs, invocations, receipts, and contribution state
 MoW routing remains policy, benchmark, receipt, cost, privacy, and trust based

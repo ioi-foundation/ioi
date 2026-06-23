@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(
   root,
-  "internal-docs",
-  "implementation",
+  "docs",
+  "architecture",
+  "_meta",
+  "schemas",
   "runtime-action-schema.json",
 );
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));

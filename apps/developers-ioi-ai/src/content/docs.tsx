@@ -959,7 +959,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['runtime-daemon', 'policies-approvals-and-receipts', 'runtime'],
     lastVerified: LAST_VERIFIED,
     keywords: ['runtime', 'daemon', 'Agentgres', 'events', 'traces', 'receipts'],
-    sources: ['packages/runtime-daemon/src/index.mjs', 'docs/architecture/components/daemon-runtime/api.md', 'internal-docs/implementation/runtime-module-map.md'],
+    sources: ['packages/runtime-daemon/src/index.mjs', 'docs/architecture/components/daemon-runtime/api.md', 'docs/architecture/_meta/source-of-truth-map.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'API Reference', href: '#api-reference', description: 'Browse the route-family map.' },
@@ -1422,7 +1422,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['worker-training', 'mow', 'worker-training-mow', 'autopilot-foundry'],
     lastVerified: LAST_VERIFIED,
     keywords: ['worker training', 'MoW', 'Autopilot Foundry', 'data recipes', 'evaluation'],
-    sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'internal-docs/implementation/refine-architecture.md'],
+    sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'docs/architecture/foundations/worker-training-lifecycle.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'aiagent.xyz', href: '#aiagent-xyz', description: 'See the worker discovery preview.' },

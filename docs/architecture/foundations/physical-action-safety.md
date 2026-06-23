@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for physical-action safety envelopes, embodied-system actuator authority, human supervision, emergency stop, sensor evidence, actuator receipts, incident handling, and physical-action anti-patterns.
 Supersedes: plan prose that treats `physical_action` as only a loose runtime risk class.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -49,6 +49,9 @@ This document does not own:
 
 - robot firmware, hardware certification, or mechanical safety design;
 - venue, facility, or platform operating rules;
+- embodied runtime domains, robot/fleet identity, controller bindings, sensor
+  and actuator registries, world models, telemetry streams, physical replay,
+  command queues, or fleet runtime policy;
 - wallet.network authority scopes, approvals, leases, or secret brokerage;
 - Agentgres admitted operational truth, state roots, or artifact refs;
 - storage backend payload bytes;
@@ -302,5 +305,8 @@ A conforming implementation must ensure:
   for wallet authority scopes.
 - [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
   for receipt, trace, replay, and delivery patterns.
+- [`embodied-runtime.md`](../components/daemon-runtime/embodied-runtime.md) for
+  robot/fleet identity, controller binding, physical telemetry, physical replay,
+  command queues, sim-to-real gates, and embodied runtime recovery.
 - [`verifiable-bounded-agency.md`](./verifiable-bounded-agency.md) for the
   execution-boundary alignment thesis.

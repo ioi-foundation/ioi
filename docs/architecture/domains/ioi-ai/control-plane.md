@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Providers / Environments views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -20,6 +20,14 @@ Hypervisor is where autonomous work runs.
 Hypervisor Automations is where durable workflows and services are built.
 Hypervisor Foundry is where models, workers, evals, datasets, endpoints,
 training jobs, registries, and ontology-aware packages are made.
+```
+
+Expanded doctrine:
+
+```text
+ioi.ai conducts goals across sessions, agents/workers, connectors, and attempts;
+Hypervisor executes; wallet.network authorizes; Agentgres records; Foundry
+builds/evaluates; aiagent.xyz supplies and attributes workers.
 ```
 
 ## ioi.ai Goal Chat Boundary
@@ -38,6 +46,12 @@ It may:
 - materialize an ioi.ai collaborative outcome plan over Hypervisor when the
   goal benefits from multiple models, harnesses, workers, connectors, sessions,
   verifier paths, or attempt strategies;
+- detect missing connectors, insufficient scopes, expired grants, or required
+  approvals and create connector/auth escalation handoffs through Hypervisor
+  Connectors / Tools / MCP and wallet.network;
+- maintain cross-session outcome graph projections over authorized
+  Hypervisor sessions, WorkRuns, attempts, receipts, artifacts, connector
+  status, and authority refs;
 - route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
   sas.xyz, or console views when the job belongs there.
 
@@ -50,7 +64,14 @@ It must not:
 - own Workflow Compositor graph truth;
 - own Hypervisor Daemon execution semantics;
 - own wallet.network authority, secrets, capability leases, or declassification;
+- hold connector secrets, call provider APIs directly, or mint connector
+  authority outside wallet.network;
 - own Agentgres operational truth, receipts, artifact refs, or restore validity;
+- own Foundry training datasets, conductor-training consent, model-route
+  promotion truth, or raw training traces;
+- own aiagent.xyz marketplace truth, MoW routing truth, worker listings, or
+  contribution accounting;
+- run a custom privileged headless Hypervisor instance or private operator loop;
 - silently convert an ad hoc chat into a durable automation or service.
 
 Handoff rule:
@@ -61,11 +82,53 @@ Hypervisor Automations must own durable automation/service deployment.
 Hypervisor Daemon must own execution.
 wallet.network must own authority.
 Agentgres must own admitted truth.
+Foundry must own model/worker/eval/training/package improvement.
+aiagent.xyz/MoW must own worker supply, routing eligibility, and attribution.
 ```
 
 When a user says "turn this into an automation," "make this run every day,"
 "expose this as an API," or similar, ioi.ai should create a draft handoff into
 Hypervisor Automations rather than storing the durable system as chat state.
+
+When a user asks for an external account or connector action, ioi.ai should
+create a connector/auth escalation handoff rather than call the provider
+directly. The handoff should use Hypervisor Connectors / Tools / MCP contracts
+for readiness, scopes, risk, preview, policy, and receipt obligations; it should
+use wallet.network for authority, leases, approvals, and secret brokerage; and
+it should use daemon admission plus Agentgres receipts for execution truth.
+
+## Hypervisor Dogfood Boundary
+
+ioi.ai should be implemented as a first-party coordinator over Hypervisor's
+ordinary client and application-surface contracts.
+
+Allowed implementation shapes:
+
+```text
+ioi.ai web/app surface
+ioi.ai backend conductor as Hypervisor SDK/client user
+ioi.ai headless worker as CLI/headless-equivalent projection
+Hypervisor application-surface registry calls
+Hypervisor Operator Plane requests for host/platform changes
+daemon/Core execution requests
+wallet.network authority requests
+Agentgres receipt and projection reads
+```
+
+Disallowed implementation shapes:
+
+```text
+custom ioi.ai-only headless Hypervisor instance
+private connector execution path
+provider API call with ioi.ai-held secrets
+host/platform mutation from a child session
+private operator loop beside the Hypervisor Operator Plane
+ioi.ai-owned training lineage or marketplace attribution truth
+```
+
+Headless is a client projection. It may automate or batch ioi.ai coordination,
+but it does not become a separate runtime, authority layer, connector plane, or
+truth substrate.
 
 ## What ioi.ai Owns
 
@@ -81,6 +144,9 @@ ioi.ai may own:
 - sealed archive refs and restore routing metadata;
 - publishing flows into aiagent.xyz and sas.xyz;
 - training run metadata pointers and benchmark/job status pointers;
+- cross-session outcome graph, conductor-advisor, connector/auth escalation,
+  and training-consent refs, when those refs are owned by Foundry,
+  wallet.network, Hypervisor, aiagent.xyz, or Agentgres rather than by ioi.ai;
 - remote compute entitlement and billing metadata;
 - provider integration metadata for DePIN, cloud, GPU, storage, customer VPC,
   and HypervisorOS targets;
@@ -233,13 +299,18 @@ Allowed Intake Worker outputs include:
 - restore or archive action suggestions;
 - publishing-flow recommendations;
 - candidate worker/service discovery requests;
+- connector/auth escalation proposals;
+- cross-session outcome graph proposals;
+- Foundry conductor-improvement or worker-improvement job drafts;
 - proposed context mutations for user-approved doctrine or preference changes;
 - MoW route request envelopes for the relevant domain.
 
 The Intake Worker must not own Sparse Worker Category rankings, aiagent.xyz
 listing truth, sas.xyz service-order truth, wallet approvals, or contribution
-accounting. It can help the user ask for work; it cannot privately decide the
-economy.
+accounting. It also must not own connector execution, raw provider secrets,
+Foundry training lineage, conductor-training consent, or model-route promotion
+truth. It can help the user ask for work; it cannot privately decide the
+economy, authority, or training loop.
 
 ## Hot Records
 
@@ -276,6 +347,10 @@ Storage backends:
 
 wallet.network:
   key leases, secrets, restore authority, training-data approvals, decryption leases, revocation
+
+Foundry:
+  raw datasets, eval suites, scorecards, training lineage, conductor-advisor
+  candidates, worker/package improvement, and model-route promotion proposals
 
 Hypervisor Daemon runtime node:
   active execution and rehydrated runtime process
@@ -367,10 +442,16 @@ selected Hypervisor Daemon runtime-node profile.
 - local Hypervisor owns Hypervisor App/Web/CLI client experiences and local
   projections.
 - Hypervisor Foundry owns the Worker Training application surface.
+- Hypervisor Foundry owns conductor-advisor, model/worker/eval/training, and
+  package improvement jobs; ioi.ai may draft or consume refs but not own them.
 - Hypervisor Providers / Environments canon owns general infrastructure-manager
   semantics for autonomous systems, with views in Hypervisor App, Hypervisor
   Web, CLI/headless, and console.ioi.ai.
 - wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
+- wallet.network owns connector secret brokerage, training-data approvals,
+  declassification leases, and authority reviews.
+- aiagent.xyz and MoW own worker supply, routing eligibility, contribution
+  receipts, and marketplace attribution.
 - Agentgres owns operational truth and archive refs.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU
   nodes.
@@ -389,6 +470,13 @@ selected Hypervisor Daemon runtime-node profile.
 7. Provider and environment status in ioi.ai is coordination metadata, not proof
    that ioi.ai owns execution, authority, cTEE custody, Agentgres truth, or
    payload bytes.
+8. Connector/auth escalation is a handoff through Hypervisor surface contracts,
+   wallet.network authority, daemon admission, and Agentgres receipts; it is not
+   a direct provider path.
+9. Learned conductors are bounded planning/routing advisors produced through
+   Foundry and approved data-use gates; they are not hidden ioi.ai authority.
+10. Marketplace workers that contribute to ioi.ai outcomes must preserve
+    explainable routing and ContributionReceipt refs.
 
 ## One-Line Doctrine
 

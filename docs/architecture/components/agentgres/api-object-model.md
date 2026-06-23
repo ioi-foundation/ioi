@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; artifact-ref authority lives in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-22.
 
 ## Purpose
 
@@ -195,6 +195,11 @@ RawBatchArchive
 QualityGateReport
 TrainingCostLedger
 WorkerTraining
+DatasetFactoryRun
+TrainingPipelineRun
+ExperimentOptimizationCycle
+ArtifactConversionRun
+ConductorAdvisorCandidate
 DatasetCommitment
 TrainingLineage
 ContextMutation
@@ -796,6 +801,118 @@ Filecoin/CAS and are referenced by hash/CID.
   "cost_per_accepted_row": "optional",
   "dataset_yield_summary_ref": "artifact://yield-summary",
   "status": "open | closed | disputed"
+}
+```
+
+```json
+{
+  "object_class": "DatasetFactoryRun",
+  "dataset_factory_run_id": "run://dataset_factory_123",
+  "foundry_job_ref": "foundry_job://dataset_factory_123",
+  "objective": "Create instruction/eval data for support triage model",
+  "source_refs": ["artifact://idea", "view://policy_bound_support_tickets"],
+  "data_recipe_refs": ["recipe://support-triage-v1"],
+  "ontology_refs": ["ontology://support"],
+  "policy_bound_data_view_refs": ["view://support-redacted"],
+  "stage": "define | research | ground | generate | audit | export | runbook",
+  "output_dataset_refs": ["dataset://support-triage-train-v1"],
+  "holdout_dataset_refs": ["dataset://support-triage-holdout-v1"],
+  "adversarial_dataset_refs": ["dataset://support-triage-regression-v1"],
+  "quality_gate_refs": ["gate://dataset-audit"],
+  "cost_ledger_ref": "ledger://dataset_factory_123",
+  "receipt_root": "sha256:...",
+  "status": "draft | running | gated | exported | failed | rejected"
+}
+```
+
+```json
+{
+  "object_class": "TrainingPipelineRun",
+  "training_pipeline_run_id": "trainpipe://persistent_training_123",
+  "foundry_job_ref": "foundry_job://persistent_training_123",
+  "objective": "Train and register a 9B support model",
+  "stage": "idea | data_binding | dataset_factory | notebook_prep | training | eval | validation | conversion | registration | endpoint_candidate | promotion_review | completed | failed",
+  "workspace_ref": "notebook://persistent_training_123",
+  "compute_session_refs": ["compute://gpu_job_123"],
+  "checkpoint_refs": ["artifact://checkpoint_001", "receipt://checkpoint_001"],
+  "resume_ref": "artifact://resume-token",
+  "last_heartbeat_ref": "receipt://training-heartbeat",
+  "authority_grant_refs": ["grant://training_data", "grant://gpu_spend"],
+  "training_data_posture": "synthetic_only | redacted_opt_in | full_opt_in | org_policy",
+  "model_base_refs": ["model://base-9b"],
+  "input_dataset_refs": ["dataset://support-triage-train-v1"],
+  "training_config_ref": "artifact://training-config",
+  "training_batch_plan_refs": ["batch://train-batch-plan"],
+  "eval_suite_refs": ["benchmark://support-eval"],
+  "validation_report_refs": ["artifact://validation-report"],
+  "optimization_cycle_refs": ["optcycle://persistent_training_123"],
+  "artifact_conversion_refs": ["conversion://persistent_training_123"],
+  "registered_model_candidate_ref": "model://support-9b-v1",
+  "endpoint_candidate_ref": "model_route://support-9b-v1",
+  "conductor_advisor_candidate_ref": "optional conductor://ioi-conductor-v1",
+  "scorecard_ref": "gate://support-model-scorecard",
+  "spend_forecast_ref": "ledger://persistent_training_forecast",
+  "current_burn_ref": "ledger://persistent_training_current",
+  "continuation_policy_ref": "policy://continue-if-quality-lift-justifies-burn",
+  "stop_resume_policy_ref": "policy://persistent-training-stop-resume",
+  "cost_ledger_ref": "ledger://persistent_training_123",
+  "promotion_proposal_ref": "proposal://promote-support-9b-v1",
+  "receipt_root": "sha256:...",
+  "status": "planned | running | suspended | resuming | gated | registered | promoted | rejected | failed"
+}
+```
+
+```json
+{
+  "object_class": "ExperimentOptimizationCycle",
+  "optimization_cycle_id": "optcycle://persistent_training_123",
+  "target_training_pipeline_ref": "trainpipe://persistent_training_123",
+  "optimizer_ref": "worker://training-recipe-optimizer",
+  "objective_metric": {
+    "name": "validation_bpb",
+    "direction": "minimize"
+  },
+  "baseline_recipe_ref": "artifact://recipe-baseline",
+  "best_candidate_ref": "artifact://recipe-best",
+  "trial_refs": ["run://trial_001", "run://trial_002"],
+  "accepted_change_refs": ["artifact://recipe-delta-accepted"],
+  "rejected_change_refs": ["artifact://recipe-delta-rejected"],
+  "seed_policy_ref": "policy://experiment-seeds",
+  "budget_policy_ref": "policy://persistent-training-budget",
+  "stop_policy_ref": "policy://stop-on-budget-or-no-lift",
+  "receipt_root": "sha256:...",
+  "status": "planned | running | stopped | promoted_to_review | failed | rejected"
+}
+```
+
+```json
+{
+  "object_class": "ArtifactConversionRun",
+  "conversion_run_id": "conversion://persistent_training_123",
+  "training_pipeline_ref": "trainpipe://persistent_training_123",
+  "source_model_artifact_ref": "artifact://trained-model",
+  "conversion_targets": ["adapter_merge", "quantization", "gguf", "mlx", "onnx", "model_card", "endpoint_package"],
+  "output_artifact_refs": ["artifact://model-gguf", "artifact://model-mlx", "artifact://model-card"],
+  "validation_refs": ["gate://conversion-validation", "receipt://conversion_123"],
+  "registered_model_candidate_ref": "model://support-9b-v1",
+  "receipt_root": "sha256:...",
+  "status": "planned | running | validated | registered | failed | rejected"
+}
+```
+
+```json
+{
+  "object_class": "ConductorAdvisorCandidate",
+  "conductor_advisor_candidate_id": "conductor://ioi-conductor-v1",
+  "foundry_job_ref": "foundry_job://conductor_advisor_123",
+  "intended_consumer": "ioi_ai | hypervisor_operator_plane | custom_coordinator",
+  "training_data_posture": "synthetic_only | redacted_opt_in | full_opt_in | org_policy",
+  "training_consent_refs": ["grant://training_consent", "policy://training_data_use"],
+  "input_refs": ["dataset://conductor-training", "receipt://work-evidence"],
+  "eval_suite_refs": ["benchmark://cross-session-routing"],
+  "scorecard_refs": ["gate://conductor-scorecard"],
+  "shadow_mode_refs": ["run://shadow_123"],
+  "promotion_status": "draft | training | shadow | gated | promoted | rejected | rollback"
 }
 ```
 

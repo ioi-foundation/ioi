@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for persistent aiagent managed worker instance lifecycle, payment lapse, archive, restore, export, migration, and deletion semantics.
 Supersedes: plan prose and endpoint examples when lifecycle state conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -23,6 +23,7 @@ This lifecycle owns:
 
 - instance state transitions;
 - runtime assignment lifecycle;
+- package-supported model route selection lifecycle;
 - warm, persistent, idle, and zero-to-idle semantics;
 - payment lapse and suspension behavior;
 - authority grant revocation or freezing behavior;
@@ -37,6 +38,7 @@ The lifecycle does not own:
 
 - the worker package manifest;
 - execution semantics;
+- model weights or global model routing;
 - wallet authority;
 - storage payload bytes;
 - physical-action safety;
@@ -69,6 +71,10 @@ State rules:
 
 - `payment_past_due` freezes new billable work and high-risk standing orders.
 - Active wallet leases may be revoked, expired, or narrowed by policy.
+- A managed instance may select or change a package-supported model route only
+  through policy, budget, privacy posture, and authority checks. A route change
+  is instance configuration, not a new marketplace benchmark claim unless the
+  resulting composition is benchmarked.
 - Warm runtime may degrade to `zero_to_idle` before archive.
 - Archive stores encrypted payload bytes through Agentgres artifact refs.
 - Restore is an Agentgres-backed operation, not silent file mutation.
@@ -86,6 +92,9 @@ ManagedWorkerInstanceLifecycle:
   owner_ref: wallet://...
   install_ref: install:...
   runtime_assignment_ref: runtime_assignment:...
+  worker_composition_ref: composition://...
+  selected_model_route_ref: model_route://...
+  execution_privacy_posture_ref: privacy_posture://...
   state:
     discover | installed | initializing | active | idle | zero_to_idle |
     suspended | payment_past_due | archived | restoring | migrated |
@@ -127,6 +136,7 @@ provider exit claims, reputation roots, or cross-domain migration commitments.
 - `ManagedWorkerInstalledReceipt`
 - `ManagedWorkerInitializedReceipt`
 - `RuntimeAssignedReceipt`
+- `ManagedWorkerModelRouteSelectedReceipt`
 - `ManagedWorkerSuspendedReceipt`
 - `PaymentPastDueReceipt`
 - `ZeroToIdleReceipt`
@@ -145,6 +155,8 @@ provider exit claims, reputation roots, or cross-domain migration commitments.
 - Standing orders pause or narrow on lapse unless policy says otherwise.
 - Provider exit produces migration/archive/incident receipts.
 - Package delisting does not erase user-owned archives.
+- Model route changes produce receipts and cannot silently reuse stale
+  benchmark claims for routing eligibility.
 
 ## Anti-Patterns
 

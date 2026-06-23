@@ -11538,7 +11538,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const runtimeActionSchema = fs.readFileSync(
-    path.join(root, "internal-docs/implementation/runtime-action-schema.json"),
+    path.join(root, "docs/architecture/_meta/schemas/runtime-action-schema.json"),
     "utf8",
   );
   const generatedActionSchema = fs.readFileSync(

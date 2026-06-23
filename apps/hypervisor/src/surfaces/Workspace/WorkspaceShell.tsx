@@ -28,7 +28,7 @@ interface WorkspaceShellProps {
 }
 
 const DEFAULT_WORKBENCH_OPEN_PATH =
-  "ioi/internal-docs/implementation/hypervisor-reference-grade-parity-master-guide.md";
+  "ioi/docs/architecture/components/hypervisor/core-clients-surfaces.md";
 
 function defaultWorkspaceShellState(): WorkspacePersistedState {
   return {
@@ -37,8 +37,10 @@ function defaultWorkspaceShellState(): WorkspacePersistedState {
     bottomPanelOpen: true,
     expandedPaths: {
       ioi: true,
-      "ioi/internal-docs": true,
-      "ioi/internal-docs/implementation": true,
+      "ioi/docs": true,
+      "ioi/docs/architecture": true,
+      "ioi/docs/architecture/components": true,
+      "ioi/docs/architecture/components/hypervisor": true,
     },
     documents: [{ kind: "file", path: DEFAULT_WORKBENCH_OPEN_PATH }],
     activeDocumentPath: DEFAULT_WORKBENCH_OPEN_PATH,

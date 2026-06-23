@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI L1, root contracts, gas boundaries, settlement, and public commitments.
 Supersedes: overlapping plan prose when L1 ownership or gas boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -15,6 +15,11 @@ It coordinates public trust and economic commitments. It does not run applicatio
 Short form:
 
 > **Autonomous systems can execute anywhere. IOI settles what matters.**
+
+Category role:
+
+> **IOI L1 is the public map, rights, reputation, dispute, and settlement root
+> for a Web4 ecosystem of autonomous-system domains.**
 
 ## Primary Duties
 
@@ -67,6 +72,12 @@ source/build/manifest candidate roots
 
 This lets IOI L1 govern the public substrate without becoming the day-to-day
 manager of the monorepo, private deployments, or application-domain state.
+
+As more domains, workers, services, Hypervisor Nodes, enterprise kernels,
+independent AS-L1s, and other autonomous systems register manifests, AIIP
+profiles, authority commitments, reputation roots, receipt roots, and settlement
+claims, IOI L1 becomes more useful as shared trust infrastructure without
+absorbing their operational state.
 
 ## What IOI L1 Does Not Own
 
@@ -252,6 +263,11 @@ Hypervisor Node/domain
 Independent L1s or sovereign domains may register with IOI L1 for `ai://`
 discoverability, AIIP interoperability, and settlement. They do not need to
 anchor all state into IOI L1.
+
+This is the intended ecosystem shape: teams may bring their own autonomous
+systems, appchains, enterprise domains, marketplaces, or intelligent
+blockchains, keep local governance and state where it belongs, and use IOI for
+the shared trust surfaces that benefit from public coordination.
 
 Required registration may include:
 

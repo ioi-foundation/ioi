@@ -177,6 +177,12 @@ reputation updates, routing weight, and subscription-credit distribution should
 be based on verified contribution rather than raw token usage, attention time,
 popularity, or platform fiat.
 
+When ioi.ai or another Hypervisor-built coordinator routes through marketplace
+workers, the outcome graph should carry routing and ContributionReceipt refs.
+The coordinator may synthesize the final answer, but MoW remains the worker
+supply, routing-eligibility, and attribution layer. Subscription attribution
+belongs to MoW, aiagent.xyz, and settlement rails, not to ioi.ai chat state.
+
 Subscription credits should behave as prepaid work credits:
 
 ```text

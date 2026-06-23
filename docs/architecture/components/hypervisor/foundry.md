@@ -8,18 +8,25 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
-**Hypervisor Foundry is the build and improvement surface for models, workers,
-evals, datasets, endpoints, experiments, pipelines, simulations, and
-ontology-aware capability packages used by governed autonomous systems.**
+**Hypervisor Foundry is the capability factory for governed autonomous
+systems.**
+
+Foundry is where observed work becomes reusable capability: models, workers,
+evals, datasets, model routes, endpoints, experiments, persistent training
+pipelines, simulations, conductor advisors, and ontology-aware capability
+packages.
 
 Foundry is closer to an agent/model platform than a chat room. It gives builders
 places to discover models, tune or train candidates, define evals, register
 workers and models, publish endpoints, manage datasets, monitor runs, and turn
-validated traces into reusable packages.
+validated traces, feedback, and work-analytics signals into reusable packages.
+Its central product promise is not "train a model"; it is to industrialize
+capability from data, traces, evals, feedback, policy, and governed work
+evidence.
 
 It is not:
 
@@ -40,11 +47,25 @@ Foundry owns product-level projections and workflows for:
 - model catalog and model discovery;
 - model registry and model cards;
 - model route candidates and model-mount candidates;
+- dataset-factory runs that turn ideas, docs, traces, and policy-bound views
+  into train-ready datasets;
 - tuning, fine-tuning, distillation, post-training, and training plans;
+- persistent autonomous training pipeline runs from dataset idea to registered
+  model;
+- experiment-optimization cycles that iteratively modify training code,
+  recipes, hyperparameters, harnesses, or model-route policy under eval gates;
+- conductor-advisor training, distillation, evals, and promotion proposals for
+  ioi.ai or other Hypervisor-built coordinators;
+- artifact conversion, quantization, adapter merge, and model registration
+  candidates;
 - batch inference and evaluation runs;
 - eval suites, benchmark gates, scorecards, and verifier candidates;
+- feedback and annotation queues that turn corrections, acceptance/rejection
+  reasons, reviewer judgments, and quality labels into evaluation or training
+  candidates;
 - datasets, feature views, distilled ontology datasets, and holdout sets;
-- experiments, pipelines, metadata, and monitoring views;
+- experiments, pipelines, metadata, work-analytics, tool-analytics, and
+  monitoring views;
 - simulation worlds, digital twins, robotics training environments, and
   perception/action datasets;
 - worker/package creation, improvement, and promotion proposals;
@@ -63,6 +84,7 @@ Foundry does not own:
 - storage backend payload meaning;
 - live user intent coordination in chat.ioi.ai;
 - ioi.ai goal coordination;
+- conductor-training consent or training-data authority;
 - Workbench code/systems operation;
 - direct publication to aiagent.xyz, sas.xyz, or L1 without policy and receipt
   gates.
@@ -77,11 +99,14 @@ Model Catalog
 Model Registry
 Models / Routes / Mounts
 Tuning / Training
+Dataset Factory
 Evaluation
 Datasets
 Feature Views
 Experiments
 Pipelines
+Experiment Optimizer
+Artifact Conversion
 Endpoints
 Batch Inference
 Metadata
@@ -100,13 +125,19 @@ Build
   datasets, recipes, prompts, tool schemas, workers, packages, pipelines
 
 Train / Tune
-  fine-tuning, distillation, post-training, training batches, cost ledgers
+  dataset factory, fine-tuning, distillation, post-training, training batches,
+  notebooks/workspaces, cost ledgers
 
 Evaluate
   eval suites, benchmark gates, verifier candidates, scorecards, regressions
 
+Optimize
+  autonomous experiment cycles, training recipe edits, hyperparameter search,
+  model/harness comparisons, accepted-change logs
+
 Deploy / Route
-  model routes, model mounts, endpoints, provisioned capacity, batch inference
+  artifact conversion, model registry, model routes, model mounts, endpoints,
+  provisioned capacity, batch inference
 
 Govern
   metadata, monitoring, receipts, promotion queue, policy and authority checks
@@ -119,10 +150,12 @@ capability. It should make the improvement loop explicit without giving Foundry
 runtime authority:
 
 ```text
-sessions, receipts, traces, corrections, and failures
+sessions, receipts, traces, work analytics, tool analytics, feedback,
+  corrections, rollout outcomes, and failures
   -> examples, holdouts, and failure clusters
   -> datasets, eval suites, scorecards, and simulations
-  -> prompts, tools, model routes, workers, data recipes, or package changes
+  -> prompts, tools, model routes, conductor advisors, workers, data recipes,
+     or package changes
   -> offline, simulation, and online gates
   -> promotion, rollback, or continued review
 ```
@@ -130,6 +163,89 @@ sessions, receipts, traces, corrections, and failures
 This loop is the product path from work evidence to reusable capability.
 Promotions still require the appropriate daemon, wallet.network, Agentgres,
 policy, receipt, and marketplace gates.
+
+The compounding loop should remain visible in product and architecture:
+
+```text
+governed work happens
+  -> receipts, artifacts, traces, work analytics, feedback, evals, and failures accumulate
+  -> Foundry mines reusable improvement candidates
+  -> Foundry builds, evaluates, trains, converts, packages, or promotes capability
+  -> aiagent.xyz or private catalogs attribute external supply when applicable
+  -> future work routes through better workers, models, tools, recipes, and evals
+```
+
+Foundry may train or distill a conductor advisor from opted-in, redacted, full,
+or synthetic evidence, but the consent and authority for that evidence belongs
+to wallet.network and policy-bound data views. A promoted conductor advisor is a
+bounded planning/routing input consumed by ioi.ai or another coordinator. It is
+not runtime authority, not wallet authority, not marketplace truth, and not an
+automatic self-modification path.
+
+## Persistent Autonomous Training Pipeline
+
+Foundry should make the model-building lane feel like persistent autonomous
+pipeline orchestration, not a scattered set of notebook, eval, and registry
+screens. A run may take minutes, hours, days, or longer. The product primitive
+is resumable, inspectable, policy-bound training work, not a time-of-day
+promise.
+
+Canonical flow:
+
+```text
+dataset idea, docs, traces, or policy-bound data view
+  -> wallet.network data-use, model-provider, GPU, and spend authority
+  -> DataRecipe / Ontology / PolicyBoundDataView binding
+  -> Dataset Factory run
+     define -> research -> ground -> generate -> audit -> export -> runbook
+  -> train-ready dataset, holdouts, adversarial/regression sets, receipts
+  -> Training Pipeline run
+     prepare notebook/workspace -> train -> eval -> validate
+     -> convert/quantize/package -> register model -> endpoint/route candidate
+  -> scorecard, cost ledger, lineage, model card, and promotion proposal
+  -> optional conductor-advisor training or shadow run
+```
+
+The pipeline may be driven from a notebook, Code Workspace, managed GPU job,
+container image, training service, or headless Hypervisor job. The product
+surface should still present one coherent persistent run with stages, elapsed
+time, runtime/GPU occupancy, spend forecast, current burn, budget exhaustion
+risk, continuation value, dataset yield, quality gates, evals, validation,
+conversion artifacts, registration state, stop/resume policy, and promotion
+readiness.
+
+This lane supports small/local model training, adapter training, supervised
+tuning, distillation, verifier tuning, route-policy training, conductor-advisor
+training, package revision, and artifact conversion formats such as adapter
+merge, quantization, GGUF, MLX, ONNX, TensorRT, model-card export, and
+endpoint package preparation.
+
+## Autonomous Experiment Optimizer
+
+Foundry may run an autonomous experiment optimizer for training and capability
+improvement. The optimizer is a governed worker or coordinator that proposes
+recipe/code/config changes, runs experiments, compares objective metrics, keeps
+only accepted improvements, and emits replayable evidence.
+
+Canonical loop:
+
+```text
+baseline training recipe and objective metric
+  -> propose code/config/hyperparameter/harness/model-route candidate
+  -> run bounded experiment under budget, seed, privacy, and compute policy
+  -> evaluate objective metric and guardrails
+  -> accept, reject, or queue for human review
+  -> update best-known recipe candidate
+  -> repeat until budget, time, improvement, or policy stop condition
+```
+
+The objective may be loss, bits-per-byte, benchmark score, validation accuracy,
+agent success rate, cost-adjusted quality, latency, verifier pass rate, or a
+domain-specific metric. The optimizer can orchestrate multiple models or
+workers as planners, executors, judges, verifiers, and code editors, but it
+does not become runtime truth. Accepted changes are candidate artifacts until
+they pass Foundry scorecards, Agentgres admission, wallet authority, and
+promotion/rollback gates.
 
 ## Pattern And Example Supply
 
@@ -247,6 +363,7 @@ Foundry supports ioi.ai collaborative outcomes by providing:
 - eval suites;
 - benchmark gates;
 - model and harness comparison views;
+- conductor-advisor candidates;
 - scorecards;
 - failure mining;
 - skill/package improvement proposals;
@@ -297,8 +414,12 @@ FoundryJobRequest:
   job_id: foundry_job:...
   job_type:
     model_eval | model_tuning | worker_eval | dataset_distillation |
-    ontology_projection | batch_inference | endpoint_candidate |
-    package_promotion | verifier_candidate | failure_mining
+    dataset_factory | training_pipeline | experiment_optimization |
+    artifact_conversion | model_registration | ontology_projection |
+    batch_inference | endpoint_candidate | package_promotion |
+    verifier_candidate | failure_mining |
+    conductor_advisor_training | conductor_advisor_eval |
+    conductor_advisor_shadow
   source_refs:
     - artifact://...
   ontology_refs:
@@ -317,6 +438,107 @@ FoundryJobRequest:
   output_contract_ref: schema://...
   receipt_policy_ref: policy://...
 
+FoundryDatasetFactoryRun:
+  dataset_factory_run_id: run://dataset_factory/...
+  foundry_job_ref: foundry_job://...
+  source_refs:
+    - artifact://... | connector://... | view://...
+  data_recipe_refs:
+    - recipe://...
+  ontology_refs:
+    - ontology://...
+  stages:
+    - define | research | ground | generate | audit | export | runbook
+  stage: define | research | ground | generate | audit | export | runbook
+  output_dataset_refs:
+    - dataset://...
+  holdout_dataset_refs:
+    - dataset://...
+  quality_gate_refs:
+    - gate://...
+  cost_ledger_ref: ledger://...
+  status:
+    draft | running | gated | exported | failed | rejected
+
+FoundryTrainingPipelineRun:
+  training_pipeline_run_id: trainpipe://...
+  foundry_job_ref: foundry_job://...
+  objective: string
+  stage:
+    idea | data_binding | dataset_factory | notebook_prep | training |
+    eval | validation | conversion | registration | endpoint_candidate |
+    promotion_review | completed | failed
+  workspace_ref:
+    code_workspace://... | notebook://... | runtime://...
+  compute_session_refs:
+    - compute://...
+  checkpoint_refs:
+    - artifact://... | receipt://...
+  resume_ref: artifact://... | receipt://...
+  last_heartbeat_ref: receipt://...
+  training_data_posture:
+    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+  model_base_refs:
+    - model://...
+  input_dataset_refs:
+    - dataset://...
+  training_config_ref: artifact://...
+  eval_suite_refs:
+    - benchmark://... | gate://...
+  conversion_refs:
+    - conversion://...
+  registered_model_candidate_ref:
+    model://... | model_route://... | package://...
+  scorecard_ref: foundry_scorecard:...
+  spend_forecast_ref: ledger://...
+  current_burn_ref: ledger://...
+  continuation_policy_ref: policy://...
+  stop_resume_policy_ref: policy://...
+  cost_ledger_ref: ledger://...
+  promotion_proposal_ref: proposal://...
+  receipt_root: hash
+  status:
+    planned | running | suspended | resuming | gated | registered |
+    promoted | rejected | failed
+
+FoundryExperimentOptimizationCycle:
+  optimization_cycle_id: optcycle://...
+  foundry_job_ref: foundry_job://...
+  target_training_pipeline_ref: trainpipe://...
+  optimizer_ref:
+    worker://... | conductor://... | runtime://...
+  objective_metric:
+    name: string
+    direction: minimize | maximize
+  baseline_recipe_ref: artifact://...
+  best_candidate_ref: artifact://...
+  trial_refs:
+    - experiment_trial://...
+  accepted_change_refs:
+    - artifact://...
+  rejected_change_refs:
+    - artifact://...
+  stop_policy_ref: policy://...
+  budget_policy_ref: policy://...
+  status:
+    planned | running | stopped | promoted_to_review | failed | rejected
+
+FoundryArtifactConversionRun:
+  conversion_run_id: conversion://...
+  foundry_job_ref: foundry_job://...
+  source_model_artifact_ref: artifact://...
+  conversion_targets:
+    - adapter_merge | quantization | gguf | mlx | onnx | tensorrt |
+      model_card | endpoint_package | custom
+  output_artifact_refs:
+    - artifact://...
+  validation_refs:
+    - benchmark://... | gate://... | receipt://...
+  model_registry_candidate_ref:
+    model://...
+  status:
+    planned | running | validated | registered | failed | rejected
+
 FoundryScorecard:
   scorecard_id: foundry_scorecard:...
   job_ref: foundry_job:...
@@ -331,6 +553,26 @@ FoundryScorecard:
     - risk:...
   promotion_verdict:
     promote | hold | reject | needs_review
+
+FoundryConductorAdvisorCandidate:
+  candidate_id: conductor://...
+  foundry_job_ref: foundry_job://...
+  intended_consumer:
+    ioi_ai | hypervisor_operator_plane | custom_coordinator
+  training_data_posture:
+    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+  training_consent_refs:
+    - authority://training_consent/... | policy://...
+  input_refs:
+    - artifact://... | receipt://... | dataset://...
+  eval_suite_refs:
+    - benchmark://... | gate://...
+  scorecard_refs:
+    - gate://... | artifact://...
+  shadow_mode_refs:
+    - run://...
+  promotion_status:
+    draft | training | shadow | gated | promoted | rejected | rollback
 ```
 
 ## Conformance Checks
@@ -344,6 +586,17 @@ FoundryScorecard:
   storage backends only as byte stores.
 - Training and tuning must produce receipts, cost ledgers, input/output refs,
   and quality-gate evidence.
+- Persistent training pipelines must expose stage state from dataset idea
+  through registration, including dataset yield, GPU/runtime occupancy, spend
+  forecast/current burn, continuation value, stop/resume policy, eval,
+  validation, conversion, and promotion readiness.
+- Autonomous experiment optimizers must bind objective metrics, seed/budget
+  policy, accepted/rejected changes, replay evidence, and stop conditions.
+- Artifact conversion must produce validation receipts before converted models
+  can be registered, routed, or published.
+- Conductor-advisor training must bind training-data posture, wallet.network
+  approval refs, policy-bound data views, eval suites, scorecards, and
+  promotion gates before any ioi.ai use.
 - Endpoint, model-route, and package promotion must be reversible, replayable,
   and policy-bound.
 - ioi.ai collaborative outcome lessons may become Foundry proposals; they do
@@ -358,9 +611,14 @@ Avoid:
 Foundry = ioi.ai chat
 Foundry = chat interface
 Foundry = direct self-modification
+Foundry conductor = hidden ioi.ai authority
+conductor-training consent = ioi.ai record
 Foundry score = deployment permission
 training dataset = Agentgres truth
 model endpoint = unrestricted authority
+persistent training run = opaque notebook side effect
+experiment optimizer = self-modifying runtime
+converted artifact = deployable model without validation receipt
 ontology projection = storage blob
 benchmark win = package publication
 ```
@@ -369,6 +627,7 @@ Correct:
 
 ```text
 Foundry builds and evaluates capability
+Foundry conductor candidates are bounded planning/routing advisors
 daemon executes consequential work
 wallet.network authorizes power
 Agentgres admits truth and refs
@@ -384,5 +643,7 @@ Automations owns durable workflow/service/mission specs
 - [`../../foundations/domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md)
 - [`../../foundations/worker-training-lifecycle.md`](../../foundations/worker-training-lifecycle.md)
 - [`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md)
+- [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
+- [`../wallet-network/api-authority-scopes.md`](../wallet-network/api-authority-scopes.md)
 - [`../model-router/api-byok-mounting.md`](../model-router/api-byok-mounting.md)
 - [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md)

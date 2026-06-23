@@ -12,7 +12,8 @@ Last alignment pass: 2026-06-21.
 
 ## Canonical Definition
 
-**Hypervisor is the shared governed autonomous-work substrate.**
+**Hypervisor is the governed autonomy substrate where work becomes reusable
+capability.**
 
 Hypervisor is not one IDE, one editor fork, one GUI canvas, one terminal client,
 or one cloud workspace. Hypervisor is the product/runtime substrate that lets
@@ -27,6 +28,8 @@ One Core.
 Many first-class clients.
 Many application surfaces.
 Every consequential action governed.
+Work becomes reusable capability when evidence, authority, evaluation, and
+promotion justify it.
 ```
 
 Product IA doctrine:
@@ -56,13 +59,14 @@ Canvas visually edits automations; it is not runtime truth.
 Product direction doctrine:
 
 ```text
-Hypervisor is the open operating environment for autonomous systems.
+Hypervisor is the open autonomy control plane and operating environment for
+autonomous systems.
 
-It lets people and organizations build, run, govern, verify, improve, package,
-and trade autonomous work across local machines, cloud providers, enterprise
+It lets people and organizations build, run, govern, observe, and improve
+autonomous work across local machines, cloud providers, enterprise
 infrastructure, cTEE/private workspaces, DePIN compute, model providers,
-workers, tools, and domain applications without surrendering runtime truth or
-authority to one vendor.
+workers, tools, and domain applications without surrendering runtime truth,
+authority, or capability supply to one vendor.
 ```
 
 The product should make the full autonomous-system lifecycle legible without
@@ -70,11 +74,28 @@ turning lifecycle categories into default navigation:
 
 ```text
 Build
-Run / Scale
+Run
 Govern
-Observe / Verify
-Optimize
-Package / Trade
+Observe
+Improve
+```
+
+Package, publish, trade, and marketplace flows are downstream paths for
+reusable capability. They should be available from Foundry, Marketplace,
+Projects, Automations, Sessions, or aiagent.xyz handoffs when useful, not forced
+into every task.
+
+Conceptual split:
+
+```text
+Work
+  live governed activity: sessions, WorkRuns, tasks, connector actions, code
+  changes, workflow steps, service deliveries, research paths, training runs
+
+Capability
+  reusable autonomous capacity: workers, automations, model routes, data
+  recipes, evals, tools, packages, service modules, conductor advisors,
+  marketplace listings
 ```
 
 ## Hypervisor Core
@@ -98,6 +119,7 @@ Hypervisor Core includes or coordinates:
 - model, worker, service, tool, connector, browser, terminal, and
   computer-use routing;
 - adapter registry and adapter-target mediation;
+- Hypervisor MCP Gateway profile mediation for external agents and harnesses;
 - receipt and replay projections;
 - local product projections;
 - policy admission hooks;
@@ -190,6 +212,44 @@ cTEE, and provider contracts.
 
 They do not own runtime truth.
 
+### Protocol Gateways
+
+Protocol gateways are compatibility ingress points over Hypervisor Core. They
+are not separate first-class clients, separate runtimes, or ambient authority
+lanes.
+
+The primary protocol gateway is the **Hypervisor MCP Gateway**:
+
+```text
+Hypervisor MCP Gateway
+  authority-scoped MCP profiles for external agents, local harnesses, CI agents,
+  marketplace workers, and enterprise agents to discover, preview, propose, or
+  execute selected Hypervisor capabilities
+```
+
+The gateway should expose selected capabilities from Applications, Projects,
+Sessions, Automations, Foundry, Connectors / Tools / MCP, Receipts / Replay, and
+the Hypervisor Operator Plane through declared profiles. It must compile every
+tool or action to RuntimeToolContract, surface MCP contract, or operator-plane
+contract refs, then route effectful work through daemon admission,
+wallet.network authority, Agentgres, receipts, and replay.
+
+Correct:
+
+```text
+external agent -> Hypervisor MCP Gateway profile -> declared tool/surface
+contract -> daemon/wallet/Agentgres/receipt boundary
+```
+
+Avoid:
+
+```text
+Hypervisor MCP Gateway = master key
+Hypervisor MCP Gateway = direct provider credential broker
+Hypervisor MCP Gateway = host/platform mutation bypass
+Hypervisor MCP Gateway = runtime beside Hypervisor Core
+```
+
 ## Top-Level Product IA
 
 The default Hypervisor shell should stay small enough that new users can tell
@@ -258,6 +318,7 @@ Foundry
 Agents / Workers
 Models
 Connectors / Tools / MCP
+Tool / Function Builder
 Data / Knowledge
 Ontology
 Authority / Govern
@@ -268,6 +329,7 @@ Privacy / cTEE
 Change Plane
 Marketplace
 Patterns / Examples / Training
+Application Builder / Surface Studio
 Domain Apps
 ```
 
@@ -291,9 +353,10 @@ The product-management lifecycle is:
 ```text
 Build
   Projects, Workbench, Automations, Canvas, SDK/ADK, Connectors, MCP,
-  Data Recipes, Ontology, Patterns, Examples, Training, Solution Designer
+  Tool / Function Builder, Data Recipes, Ontology, Patterns, Examples,
+  Training, Solution Designer, Application Builder / Surface Studio
 
-Run / Scale
+Run
   Sessions, daemon runtime, providers, environments, HypervisorOS, cTEE,
   code execution, computer use, worker/model/tool routing, memory, restore
 
@@ -302,22 +365,26 @@ Govern
   policy gates, privacy, declassification, risk, semantic governance,
   registries
 
-Observe / Verify
+Observe
   receipts, replay, traces, logs, lineage, state roots, evaluations,
-  simulations, online monitors, quality alerts, examples
+  simulations, online monitors, quality alerts, work analytics, tool
+  analytics, feedback, examples
 
-Optimize
+Improve
   Foundry, evals, benchmarks, worker/model promotion, data recipes,
-  distilled ontology datasets, cost/work ledgers, routing improvements
+  distilled ontology datasets, cost/work ledgers, feedback annotations,
+  rollout outcomes, routing improvements
 
-Package / Trade
+Package / Market
   Autonomous System Packages, worker manifests, templates, patterns,
   marketplace installs, aiagent.xyz, sas.xyz outcomes, IOI settlement triggers
 ```
 
-This is a planning taxonomy behind the stable shell. Do not expose it as
-primary navigation unless product testing proves the stable shell is
-insufficient.
+The first five verbs are the stable mental model. Package / Market is a
+downstream path for reusable capability and should be available when capability
+is ready to publish, install, sell, settle, or attribute. Do not expose this
+planning taxonomy as primary navigation unless product testing proves the stable
+shell is insufficient.
 
 ## Application Surfaces
 
@@ -336,8 +403,9 @@ Hypervisor Automations
   collaborative outcome handoffs
 
 Hypervisor Foundry
-  model catalog, registry, model routes/mounts, tuning, training, evaluation,
-  datasets, experiments, pipelines, endpoints, monitoring, worker/package
+  model catalog, registry, model routes/mounts, tuning, persistent training
+  pipelines, dataset factory runs, experiment optimization, artifact
+  conversion, evaluation, datasets, endpoints, monitoring, worker/package
   creation, and ontology-aware improvement surface
 
 Hypervisor Canvas
@@ -347,9 +415,12 @@ Hypervisor Canvas
 
 Other surfaces may include specialized agent/worker consoles, model consoles,
 service/API consoles, domain-operation consoles, organization admin views, and
-settings panes. These should still resolve through the Applications catalog,
-the singular Open Application slot, session/project detail, or contextual
-panels instead of becoming new default top-level shell categories.
+settings panes. Work analytics, tool analytics, feedback/annotation, release
+control, run replay, and data-recipe views may also appear as catalog entries or
+sub-surfaces when they help a user inspect, improve, roll out, or govern work.
+These should still resolve through the Applications catalog, the singular Open
+Application slot, session/project detail, or contextual panels instead of
+becoming new default top-level shell categories.
 
 User-facing configuration should prefer simple labels:
 
@@ -476,8 +547,9 @@ inside Hypervisor.
 
 An Application is a specialized UI/work surface over Hypervisor Core that
 creates, inspects, modifies, or governs Projects, Automations, Sessions,
-Agents, Workers, Models, Connectors / Tools / MCP, Data / Knowledge, Ontology,
-Authority / Govern, Receipts / Replay, Providers / Environments, Artifacts, or
+Agents, Workers, Models, Connectors / Tools / MCP, Tool / Function Builder,
+Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
+Providers / Environments, Artifacts, Application Builder / Surface Studio, or
 other domain objects.
 
 Applications may be first-party, organization-built, generated, marketplace, or
@@ -491,6 +563,7 @@ Foundry
 Agents / Workers
 Models
 Connectors / Tools / MCP
+Tool / Function Builder
 Data / Knowledge
 Ontology
 Authority / Govern
@@ -501,6 +574,7 @@ Privacy / cTEE
 Change Plane
 Marketplace
 Patterns / Examples / Training
+Application Builder / Surface Studio
 Domain-specific operations consoles
 ```
 
@@ -527,16 +601,206 @@ A surface registration should declare:
 - supported placements: Applications catalog, Open Application, Home
   suggestion, Project context, Session context, org/admin view, or operator
   console;
+- composition pattern: list/detail, command/search, modal wizard, canvas/editor,
+  object view, graph view, review inbox, monitoring console, lineage/replay
+  view, package/install flow, or generated domain surface;
 - launch modes and target bindings, including project/session compatibility;
 - daemon/API dependencies and Agentgres object refs;
+- operator-plane tool or MCP contract refs, including which actions are
+  inspect-only, propose-only, or effectful;
+- host/platform mutation boundary: whether an action may be requested by child
+  sessions, only by the Hypervisor Operator Plane, or only by a human/admin;
 - required authority scopes, policy posture, and privacy posture;
 - receipt, replay, eval, package, and promotion obligations where applicable;
 - install, favorite, recent, recommended, and marketplace metadata where
   applicable.
 
+Before a surface becomes durable first-class product inventory, it should pass an
+implementation-pressure check. The check should prove that the surface can carry
+at least one end-to-end operator job without relying on hidden runtime ownership
+or happy-path-only assumptions.
+
+The pressure check should cover:
+
+- the primary user/operator job the surface exists to complete;
+- the minimal object set needed for that job;
+- empty, loading, missing-prerequisite, degraded, blocked, approval-pending,
+  failed, recovery, and completed states;
+- connector, authority, policy, privacy, provider, environment, and budget
+  readiness where applicable;
+- which actions are inspect-only, propose-only, effectful, reversible,
+  review-gated, rollback-capable, or publishable;
+- where receipts, replay, proof/settlement drilldowns, logs, artifacts, and
+  evaluation results appear;
+- whether child sessions may request an action or whether the action must route
+  through the Hypervisor Operator Plane or a human/admin.
+
 The registration contract prevents Applications from becoming a junk drawer: a
 surface must say what it operates, where it can open, what authority it needs,
 and which canonical owners retain truth.
+
+### Application Composition Contract
+
+Application surfaces are composed from reusable UX primitives over shared
+Hypervisor contracts. A surface should not invent a bespoke product island when
+one of the standard composition patterns can carry the job.
+
+Canonical composition primitives:
+
+```text
+catalog/search launcher
+Open Application frame
+list/detail workspace
+command composer
+modal or step wizard
+canvas/editor projection
+object view
+object-view editor
+graph view
+review/approval inbox
+monitoring or resource console
+lineage/replay/evidence view
+artifact/build/job view
+package/install/publish flow
+generated domain surface
+```
+
+Composition primitives are presentation and workflow affordances. They do not
+own runtime truth, authority, semantic truth, model truth, storage truth, or
+settlement truth. Each composition must bind to the same application
+registration contract: owning object families, daemon/API dependencies,
+operator-plane tool or MCP contracts, authority/privacy posture, Agentgres refs,
+receipts, replay, eval/package obligations, and supported placements.
+
+Generated applications, organization-built surfaces, domain apps, templates,
+walkthroughs, examples, and builder outputs must compile into this same
+registration/composition contract before they become durable inventory.
+
+Application surface modes should be treated as first-class catalog or
+contextual inventory when they matter to product outcomes. They are not
+permanent rail items, but they should not be hidden as vague panels either.
+
+Relevant surface modes include:
+
+```text
+Tool / Function Builder
+Application Builder / Surface Studio
+solution designer / architecture planner
+walkthrough / recipe builder
+object view
+object-view editor
+value type manager
+graph/object explorer
+scheduler
+object/state monitor
+authority clients
+OAuth/client applications
+granular permissions
+resource queues and rate limits
+retention and declassification views
+restricted views
+checkpoints / review gates
+issues / action queue
+artifact registry
+build/job tracker
+workflow lineage
+code templates
+branch/change view
+developer console
+linter / diagnostics
+widget or extension builder
+source/sync/listener manager
+data health
+dataset / time-series explorer
+model library
+model rules / guardrails
+inference readiness
+domain app consoles
+```
+
+Each mode should be classified under an owning application family, such as
+Automations, Data / Knowledge, Ontology, Authority / Govern, Privacy / cTEE,
+Change Plane, Receipts / Replay, Operate / Monitoring, Projects / Workbench,
+Foundry, Marketplace, Patterns / Examples / Training, Application Builder /
+Surface Studio, Tool / Function Builder, or Domain Apps.
+
+## Hypervisor Operator Plane
+
+The Hypervisor Operator Plane is the governed control-plane harness for
+operating Hypervisor itself.
+
+It is not ioi.ai, not a child session harness, and not an ambient host
+administrator. It is a distinct operating lane that uses the same configuration
+substrate as sessions:
+
+```text
+AgentRecord
+ModelConfiguration
+ReasoningEffort
+ServiceTier
+HarnessProfile
+Tool/MCP contracts
+authority scopes
+receipt policy
+```
+
+The operator lane exists so a user or organization can ask Hypervisor to inspect
+and modify Hypervisor-level product state without granting child environments
+host control. It may operate application surfaces, registry entries, authority
+requests, provider posture, model eligibility, automation specs, package
+metadata, and project/session coordination only through declared surface
+contracts.
+
+The control flow is:
+
+```text
+user intent or application surface request
+  -> Hypervisor Operator Plane AgentRecord
+  -> selected ModelConfiguration + HarnessProfile
+  -> surface RuntimeToolContract / MCP contract
+  -> daemon admission
+  -> wallet.network authority
+  -> Agentgres operation, receipt, projection, and replay
+```
+
+Child session harnesses may request, propose, or explain platform actions. They
+must not directly mutate host or platform state such as the Applications
+registry, provider settings, authority grants, model route eligibility, or
+organization policy. Effectful host/platform changes route through the
+Hypervisor Operator Plane, daemon admission, wallet.network, Agentgres, and
+receipts.
+
+ioi.ai dogfoods this plane as a first-party intent-to-outcome product. It does
+not get privileged substrate semantics. A third party should be able to build an
+ioi.ai-like coordinator from Hypervisor application surfaces, operator-plane
+contracts, WorkRuns, Automations, Foundry, wallet authority, Agentgres truth,
+and receipts.
+
+If ioi.ai uses backend or headless conductors, those conductors are ordinary
+Hypervisor clients over App/Web/SDK/CLI-headless-equivalent contracts. They may
+submit operator-plane requests, inspect authorized projections, and coordinate
+handoffs, but they cannot become a custom headless Hypervisor instance, hold
+connector secrets, bypass wallet.network, mutate host/platform state directly,
+or admit private truth outside daemon and Agentgres paths.
+
+## Builder Surfaces
+
+**Tool / Function Builder** is the product surface for typed functions, tools,
+MCP wrappers, and workflow-as-tool contracts. It may appear in Applications, in
+Automations node creation, in project context, or in package/pattern flows. Its
+outputs compile into `RuntimeToolContract`, primitive capability declarations,
+authority scopes, schema validation, receipt obligations, and optional
+Automations nodes.
+
+**Application Builder / Surface Studio** is the product surface for object-aware
+application shells, widgets, forms, dashboards, operator consoles, and generated
+domain apps. It may use Ontology object/action/value types, Data / Knowledge
+recipes, Workbench code, Automations, tool contracts, and package metadata.
+
+Both builder surfaces are proposal and packaging paths over Hypervisor Core.
+They do not own runtime truth, authority, semantic truth, or storage truth.
+Effectful actions they expose to agents must use the Hypervisor Operator Plane,
+daemon admission, wallet.network, Agentgres, and receipts.
 
 ## Patterns, Examples, And Training
 
@@ -736,8 +1000,8 @@ Canvas is the product plane.
 
 ## Hypervisor Foundry
 
-**Hypervisor Foundry** is the worker/model/eval/training/dataset/registry/
-endpoint/package surface over Hypervisor Core.
+**Hypervisor Foundry** is the worker/model/eval/persistent-training/dataset/
+registry/endpoint/package surface over Hypervisor Core.
 
 Foundry produces and improves things that other surfaces use:
 
@@ -745,8 +1009,9 @@ Foundry produces and improves things that other surfaces use:
 - model registry entries, model routes, and model-mount candidates;
 - WorkerPackages and worker manifests;
 - datasets, feature views, ontology-bound datasets, and holdouts;
-- experiments, pipelines, endpoints, batch inference, metadata, and monitoring
-  projections;
+- dataset factory runs, persistent training pipelines, experiment optimization
+  cycles, artifact conversion runs, endpoints, batch inference, metadata, and
+  monitoring projections;
 - eval suites, benchmarks, and verifier candidates;
 - training, distillation, fine-tuning, and dataset recipes;
 - quality gates and promotion proposals;
@@ -850,6 +1115,14 @@ terminal/browser/computer-use activity, authority gates, privacy posture,
 provider and environment state, logs, traces, receipts, state roots, replay
 availability, and package or promotion options.
 
+Trace and replay inspection should use one coherent path. A user should be able
+to open a session, workrun, automation run, or workflow node; inspect grouped
+turns or run segments; scan a waterfall of agent/model/tool/connector/MCP/
+browser/terminal/environment/authority/eval/settlement spans; and open a detail
+drawer for overview, event, request, response, graph, logs, authority, receipts,
+proof/settlement, and artifacts. Proof and settlement detail is a drilldown from
+work inspection, not a separate chain-first default view.
+
 For delegated agent work, the session should also expose a stable
 `HypervisorWorkRun` view: desired/current phase, selected agent or harness,
 project/environment code context, model and reasoning settings, iteration and
@@ -891,6 +1164,13 @@ sessions and receipts
 Foundry, Automations, Applications, Sessions, Receipts/Replay, and marketplace
 surfaces should expose this loop without giving any one UI surface runtime
 truth.
+
+Receipts/Replay surfaces may include a proof explorer for deep inspection across
+runs, but the default UX should stay work-first: show the event, authority,
+policy, receipt, replay, artifact, and proof state first; show raw transaction
+hashes, chain IDs, contract refs, bridge refs, or gas details only when the
+receipt is anchored/settled or the user opens proof, settlement, dispute,
+governance, developer, or evidence-export detail.
 
 ## Hypervisor Adapters And Targets
 
@@ -1695,6 +1975,10 @@ HypervisorWorkRun:
   current_activity: string
   current_operation_ref: trace://... | null
   code_context_ref: artifact://... | project://... | null
+  base_commit_ref: scm_commit://... | null
+  git_branch_ref: scm_branch://... | null
+  git_worktree_ref: workspace://... | null
+  agentgres_patch_branch_ref: agentgres_patch_branch://... | null
   conversation_projection_ref: hypervisor_work_run_conversation:...
   transcript_ref: artifact://... | trace://... | null
   support_bundle_ref: artifact://... | null
@@ -1713,6 +1997,8 @@ HypervisorWorkRun:
   output_refs:
     - artifact://... | patch://... | receipt://...
   review_state_ref: hypervisor_work_run_review_state:... | null
+  merge_proposal_ref: merge_proposal://... | pull_request://... | null
+  merge_decision_ref: merge_decision://... | null
   receipt_refs:
     - receipt://...
 
@@ -1867,14 +2153,35 @@ HypervisorScmAuthRequirement:
   receipt_ref: receipt://... | null
 ```
 
+For code WorkRuns, the default materialized backing is a Git branch or worktree
+created from a pinned base commit. Agentgres patch branches remain the canonical
+coordination, attribution, authority, validation, and merge-decision layer. The
+Git branch/worktree makes file review, IDE integration, tests, and PR export
+concrete; the Agentgres patch branch owns the expected-head merge contract,
+receipts, comments, validation refs, work attribution, and final admitted truth.
+Child environments stay isolated: they clone, edit, test, and propose. They do
+not mutate host state directly.
+
 ## Conformance Checks
 
 - No Hypervisor client may write canonical run/session/task truth without the
   daemon and Agentgres admission path.
 - No application surface may become a private runtime loop beside the
   Hypervisor Daemon.
+- No application surface may become a bespoke island when a standard
+  composition primitive plus the application registration contract can carry the
+  product job.
+- No child session harness may mutate host/platform state directly; it may
+  request or propose actions that the Hypervisor Operator Plane admits through
+  declared surface contracts.
+- No Hypervisor application surface may expose effectful operator tooling
+  without RuntimeToolContract or MCP contract refs, wallet authority posture,
+  Agentgres refs, and receipt obligations.
 - No adapter target may receive secrets, declassification authority, or
   payment authority except through wallet.network leases and receipts.
+- Code WorkRuns that produce file changes should bind isolated child
+  environments to both a materialized Git branch/worktree and an Agentgres patch
+  branch unless the work is explicitly read-only, non-code, or ephemeral.
 - Workbench, Automations, Foundry, Canvas, other application surfaces, and
   Providers / Environments views must share Core session, authority, receipt,
   replay, and projection contracts.
@@ -1922,10 +2229,14 @@ one editor shell = parent product
 Hypervisor App owns Core
 Hypervisor Web owns Core
 ioi.ai chat = durable automation owner
+ioi.ai = Hypervisor Operator Plane
+ioi.ai = privileged Hypervisor substrate
 Home = dense Workbench terminal/diff/file console
 Applications = unstructured app drawer
 Pinned Applications = permanent empty rail region
 Open Application = multiple simultaneous primary app frames
+application composition = bespoke product island
+generated app = unregistered host surface
 CLI/headless owns a separate runtime loop
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor client
@@ -1942,6 +2253,10 @@ background automation = hidden editor session
 automation spec = chat transcript
 ioi.ai collaborative outcome = group chat
 ioi.ai collaborative outcome = unbounded swarm
+Hypervisor Operator Plane = ambient host administrator
+child session harness = host platform administrator
+Git branch = canonical attribution/truth layer
+code WorkRun = no materialized branch/worktree by default
 Workbench = runtime truth
 Foundry = direct self-mutation path
 provider posture = standalone provider-management product
@@ -1963,9 +2278,14 @@ Hypervisor Daemon = execution owner
 App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
 Workbench/Automations/Foundry = application surfaces
+Application composition = reusable UX primitives over shared Core contracts
 Canvas = visual editor/projection
 ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
 goal pursuit when useful
+Hypervisor Operator Plane = governed control-plane harness over declared
+application-surface contracts
+code WorkRun = isolated child environment + materialized Git branch/worktree +
+Agentgres patch branch + receipts
 Provider and infrastructure posture = Providers / Environments views through
 Applications, Open Application, sessions, projects, provider settings,
 org/admin views, or operator consoles

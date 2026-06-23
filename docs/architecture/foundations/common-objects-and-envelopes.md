@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-22.
 
 ## Purpose
 
@@ -86,6 +86,11 @@ RawBatchArchiveEnvelope
 QualityGateReportEnvelope
 TrainingCostLedgerEnvelope
 WorkerTrainingEnvelope
+DatasetFactoryRunEnvelope
+TrainingPipelineRunEnvelope
+ExperimentOptimizationCycleEnvelope
+ArtifactConversionRunEnvelope
+ConductorAdvisorCandidateEnvelope
 PostTrainingCycleEnvelope
 ContextMutationEnvelope
 PromotionDecisionEnvelope
@@ -136,6 +141,13 @@ profile://...           training/model capacity profile identity
 batch://...             training batch plan or generation batch identity
 gate://...              quality gate report or promotion gate identity
 ledger://...            usage, token, cost, or contribution ledger identity
+foundry_job://...       Foundry job identity
+trainpipe://...         Foundry training pipeline run identity
+optcycle://...          Foundry experiment optimization cycle identity
+conversion://...        Foundry artifact conversion run identity
+conductor://...         conductor advisor or coordinator candidate identity
+model://...             model artifact, registered model, or model-family identity
+model_route://...       model routing profile, endpoint candidate, or serving policy identity
 wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
@@ -999,7 +1011,7 @@ RuntimeEventEnvelope:
   run_id: run_...
   task_id: task_...
   turn_id: optional
-  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | receipt.emitted | run.completed | run.failed
+  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_registered | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
   privacy_class: public | internal | private | secret
@@ -1015,7 +1027,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | upgrade_proposal | upgrade_decision | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
+  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | upgrade_proposal | upgrade_decision | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
   run_id: optional
   task_id: optional
   actor_id: string
@@ -1607,6 +1619,168 @@ WorkerTrainingEnvelope:
   output_manifest_ref: ai://...
   receipt_root: hash
   status: proposed | running | evaluated | accepted | rejected | disputed
+```
+
+## DatasetFactoryRunEnvelope
+
+```yaml
+DatasetFactoryRunEnvelope:
+  dataset_factory_run_id: run://... | foundry_job://...
+  foundry_job_ref: foundry_job://...
+  objective: string
+  source_refs:
+    - artifact://... | connector://... | view://... | receipt://...
+  data_recipe_refs:
+    - recipe://...
+  ontology_refs:
+    - ontology://...
+  policy_bound_data_view_refs:
+    - view://...
+  stages:
+    - define
+    - research
+    - ground
+    - generate
+    - audit
+    - export
+    - runbook
+  stage: define | research | ground | generate | audit | export | runbook
+  output_dataset_refs:
+    - dataset://...
+  holdout_dataset_refs:
+    - dataset://...
+  adversarial_dataset_refs:
+    - dataset://...
+  quality_gate_refs:
+    - gate://...
+  cost_ledger_ref: ledger://...
+  receipt_root: hash
+  status: draft | running | gated | exported | failed | rejected
+```
+
+## TrainingPipelineRunEnvelope
+
+```yaml
+TrainingPipelineRunEnvelope:
+  training_pipeline_run_id: trainpipe://...
+  foundry_job_ref: foundry_job://...
+  objective: string
+  stage:
+    idea | data_binding | dataset_factory | notebook_prep | training |
+    eval | validation | conversion | registration | endpoint_candidate |
+    promotion_review | completed | failed
+  workspace_ref: code_workspace://... | notebook://... | runtime://...
+  compute_session_refs:
+    - compute://...
+  checkpoint_refs:
+    - artifact://... | receipt://...
+  resume_ref: optional artifact://... | receipt://...
+  last_heartbeat_ref: optional receipt://...
+  authority_grant_refs:
+    - grant://...
+  training_data_posture:
+    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+  model_base_refs:
+    - model://... | model_mount://...
+  input_dataset_refs:
+    - dataset://...
+  training_config_ref: artifact://...
+  training_batch_plan_refs:
+    - batch://...
+  eval_suite_refs:
+    - benchmark://... | gate://...
+  validation_report_refs:
+    - artifact://...
+  optimization_cycle_refs:
+    - optcycle://...
+  artifact_conversion_refs:
+    - conversion://...
+  registered_model_candidate_ref: model://...
+  endpoint_candidate_ref: model_route://...
+  conductor_advisor_candidate_ref: optional conductor://...
+  scorecard_ref: gate://... | artifact://...
+  spend_forecast_ref: optional ledger://...
+  current_burn_ref: optional ledger://...
+  continuation_policy_ref: optional policy://...
+  stop_resume_policy_ref: optional policy://...
+  cost_ledger_ref: ledger://...
+  promotion_proposal_ref: proposal://...
+  receipt_root: hash
+  status: planned | running | suspended | resuming | gated | registered | promoted | rejected | failed
+```
+
+## ExperimentOptimizationCycleEnvelope
+
+```yaml
+ExperimentOptimizationCycleEnvelope:
+  optimization_cycle_id: optcycle://...
+  target_training_pipeline_ref: trainpipe://...
+  optimizer_ref: worker://... | conductor://... | runtime://...
+  objective_metric:
+    name: string
+    direction: minimize | maximize
+  baseline_recipe_ref: artifact://...
+  best_candidate_ref: artifact://...
+  trial_refs:
+    - run://... | artifact://...
+  accepted_change_refs:
+    - artifact://...
+  rejected_change_refs:
+    - artifact://...
+  seed_policy_ref: policy://...
+  budget_policy_ref: policy://...
+  stop_policy_ref: policy://...
+  receipt_root: hash
+  status: planned | running | stopped | promoted_to_review | failed | rejected
+```
+
+## ArtifactConversionRunEnvelope
+
+```yaml
+ArtifactConversionRunEnvelope:
+  conversion_run_id: conversion://...
+  training_pipeline_ref: trainpipe://...
+  source_model_artifact_ref: artifact://... | model://...
+  conversion_targets:
+    - adapter_merge
+    - quantization
+    - gguf
+    - mlx
+    - onnx
+    - tensorrt
+    - model_card
+    - endpoint_package
+    - custom
+  output_artifact_refs:
+    - artifact://...
+  validation_refs:
+    - gate://... | receipt://... | benchmark://...
+  registered_model_candidate_ref: model://...
+  receipt_root: hash
+  status: planned | running | validated | registered | failed | rejected
+```
+
+## ConductorAdvisorCandidateEnvelope
+
+```yaml
+ConductorAdvisorCandidateEnvelope:
+  conductor_advisor_candidate_id: conductor://...
+  foundry_job_ref: foundry_job://...
+  intended_consumer: ioi_ai | hypervisor_operator_plane | custom_coordinator
+  training_data_posture:
+    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+  training_consent_refs:
+    - grant://... | policy://...
+  input_refs:
+    - artifact://... | receipt://... | dataset://...
+  eval_suite_refs:
+    - benchmark://... | gate://...
+  scorecard_refs:
+    - gate://... | artifact://...
+  shadow_mode_refs:
+    - run://...
+  promotion_status:
+    draft | training | shadow | gated | promoted | rejected | rollback
 ```
 
 ## PostTrainingCycleEnvelope

@@ -4,7 +4,7 @@ Status: entry-point shim.
 Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-22.
 
 Start with [`_meta/start-here.md`](./_meta/start-here.md).
 
@@ -40,6 +40,10 @@ aiagent managed workers or sas service outcomes
 
 Physical/embodied work
   -> foundations/physical-action-safety.md
+  -> components/daemon-runtime/embodied-runtime.md
+
+Ecosystem assurance, certification, compliance, liability, or audit exports
+  -> foundations/ecosystem-assurance-certification-liability.md
 
 Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
   -> components/hypervisor/providers-and-environments.md

@@ -17,7 +17,7 @@ This register names the document classes used to keep architecture doctrine, ref
 | `canonical-index` | Navigation and ownership index. | `docs/architecture/README.md`, `docs/architecture/_meta/` |
 | `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/` |
 | `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |
-| `canonical-schema` | Shared schemas that drive generated contracts. | `internal-docs/implementation/` until schema generation is split into a package |
+| `canonical-schema` | Shared schemas that drive generated contracts. | `docs/architecture/_meta/schemas/` until schema generation is split into a package |
 | `conformance-contract` | Hidden or public invariant contracts used for conformance checks. | `docs/conformance/` |
 | `implementation-plan` | Sequencing, package maps, milestones, and source-tree guidance. Internal master guides are private execution scaffolding and do not own doctrine. | `internal-docs/implementation/` and local ignored plans under `.internal/plans/` |
 | `product-context` | Product-surface reference material and UX intent that follows canonical doctrine. | `internal-docs/architecture/products/` |

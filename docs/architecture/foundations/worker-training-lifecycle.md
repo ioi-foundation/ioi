@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Worker Training lifecycle, training-vs-mutation doctrine, training receipts, training profile semantics, and training lineage semantics.
 Supersedes: product, marketplace, or model docs when they reduce Worker Training to fine-tuning alone or crown one model architecture as the IOI default.
 Superseded by: none.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -110,6 +110,15 @@ views, daemon APIs, hosted runtime-node jobs, or sas.xyz service engagements.
 Hypervisor owns the local product experience, not the underlying state,
 authority, or execution substrate.
 
+When the lifecycle becomes a multi-stage model or worker build that must run,
+pause, resume, checkpoint, spend budget, evaluate, convert artifacts, register
+models, or produce conductor-advisor candidates, it should materialize as a
+Foundry `TrainingPipelineRun` rather than remaining an informal notebook or
+guided recipe. The pipeline binds authority grants, training-data posture,
+checkpoint and resume refs, spend forecast/current burn, stop/resume policy,
+eval and validation refs, artifact conversion refs, registry candidates, and
+receipts.
+
 Foundry is a product lens over the shared IOI builder substrate, not a
 separate canvas environment. Training recipes, evaluation recipes, benchmark
 recipes, deployment recipes, data recipes, and outcome workflows should share
@@ -152,9 +161,11 @@ when training or packaging is actually needed.
 
 ## Hypervisor Foundry Product Doctrine
 
-Hypervisor Foundry is a worker creation and improvement studio.
+Hypervisor Foundry is a worker creation and capability industrialization
+studio.
 
-The first product promise is not "upload data and fine-tune." It is:
+The first product promise is not "upload data and fine-tune" or even "train a
+model." It is:
 
 ```text
 plan better examples
@@ -169,6 +180,12 @@ plan better examples
 → learn from failures
 → repeat
 ```
+
+Persistent training pipelines industrialize capability from data, traces,
+evals, policy, and governed work evidence. They may produce models, adapters,
+verifiers, workers, route policies, conductor advisors, packages, or registry
+candidates. A checkpoint file is only one possible artifact, not the product
+truth.
 
 Iteration is supported, not mandatory. A user may train once, package the
 worker, and never revisit it. When a worker is used in production, Foundry
@@ -298,7 +315,10 @@ preserving the same training semantics.
    retrieval indexing, context graph revision, workflow graph refinement,
    verifier tuning, route-policy training, adapter training, tool policy
    changes, model fine-tuning, distillation, local model mounting, hosted
-   cognition selection, evaluation generation, or package revision.
+   cognition selection, evaluation generation, or package revision. Persistent
+   model/worker training should bind this stage to a `TrainingPipelineRun` so
+   progress, checkpoints, resource burn, stop/resume state, and receipts remain
+   inspectable.
 
 7. **Evaluate**
    The worker runs against the declared rubric, holdout set, golden tasks,

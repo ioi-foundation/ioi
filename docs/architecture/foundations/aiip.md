@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -117,6 +117,13 @@ Underneath, these calls compile into signed, sequenced, receipt-aware packets.
 Canonical analogy:
 
 > **RPC is the call shape. IBC is the trust model. IOI is the settlement layer.**
+
+Category role:
+
+> **AIIP is the work-interop layer for the Web4 domain economy: it lets
+> autonomous-system domains exchange delegated work, authority, receipts,
+> reputation, disputes, and settlement claims without sharing one runtime or one
+> operational database.**
 
 ## Packet Classes
 
@@ -335,6 +342,10 @@ categories, worker modules, UX state, and private receipts. They should rely on
 IOI mainnet for shared trust primitives such as identity, authority, receipt
 formats, reputation commitments, dispute finality, AIIP channel registration,
 settlement accounts, and routing receipt schemas.
+
+The intended builder promise is not "deploy everything on IOI." It is "build an
+autonomous system where it belongs, speak AIIP at the boundary, and settle the
+consequential record through IOI when shared trust is required."
 
 ## Lessons From IBC
 

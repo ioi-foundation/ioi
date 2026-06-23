@@ -6,7 +6,7 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -37,6 +37,9 @@ This document defines the non-negotiable authority, security, privacy, and execu
 6. No raw root secrets to agents, apps, marketplace workers, or untrusted runtimes.
 7. wallet.network is the authority plane for secrets, authority scopes, approvals, and payments.
 8. Agentgres records authority artifacts but does not own root secrets.
+9. Providers may supply cognition, compute, storage, connectors, venues, and
+   managed services, but they must not become the default authority root, secret
+   owner, receipt truth, settlement root, or revocation plane.
 
 ## Runtime Invariants
 
@@ -86,6 +89,9 @@ This document defines the non-negotiable authority, security, privacy, and execu
 6. Model routing selects cognition backends; worker routing selects accountable
    actors. A model must not be treated as the protocol-visible economic actor
    when a worker manifest, policy envelope, and receipts are required.
+7. Provider-trust model routes require explicit privacy/authority posture and
+   receipts; they must not be mislabeled as provider-independent custody,
+   no-plaintext-custody, or wallet-governed authority.
 
 ## Worker Training Invariants
 

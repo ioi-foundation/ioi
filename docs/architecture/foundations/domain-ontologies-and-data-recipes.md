@@ -64,6 +64,9 @@ This layer is:
 - the mapping layer between connectors and canonical domain objects;
 - the distillation layer that turns ontology-bound source truth into compact
   training and evaluation signal;
+- the mapping layer that turns work analytics, tool analytics, feedback
+  annotations, rollout observations, and support/review signals into
+  policy-bound datasets, projections, and evaluation material when authorized;
 - the basis for ontology-aware Agentgres projections;
 - the input to Worker Training, benchmark profiles, and service templates;
 - the provenance layer for transformed data and generated examples.
@@ -84,7 +87,7 @@ This layer is not:
 |---|---|
 | `DomainOntology` | Defines domain entities, relationships, events, actions, states, roles, and invariants. |
 | `CanonicalObjectModel` | Typed object definitions: IDs, schemas, lifecycle states, constraints, privacy class, authority needs, and projection hints. |
-| `DataRecipe` | Repeatable pipeline from source data to normalized ontology-bound objects, training datasets, evaluation datasets, or projections. |
+| `DataRecipe` | Repeatable pipeline from source data, traces, work analytics, tool analytics, feedback, or connector payloads to normalized ontology-bound objects, training datasets, evaluation datasets, or projections. |
 | `ConnectorMapping` | Maps provider fields, events, files, and actions into canonical domain objects and authority scopes. |
 | `WorkflowSchema` | Typed workflow contract: inputs, outputs, node IO, state transitions, evidence requirements, and domain object refs. |
 | `PolicyBoundDataView` | Governed data lens defining who or what may read, train, evaluate, export, publish, or route over a subset of data. |

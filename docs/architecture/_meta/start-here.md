@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-22.
 
 ## Five-Minute Mental Model
 
@@ -127,6 +127,11 @@ AIIP
   moves bounded autonomous work across local, marketplace, enterprise, and
   third-party domains
 
+Ecosystem Assurance
+  makes profiles, certifications, compliance packs, liability routes, abuse
+  advisories, and commercial exports legible from existing receipts and policy
+  without becoming execution, authority, truth, marketplace, or settlement
+
 IOI L1 / compatible L1s
   settle selected public, economic, rights, dispute, registry, and cross-domain
   commitments
@@ -169,6 +174,7 @@ Storage holds encrypted bytes.
 Private Workspace keeps protected plaintext off rented nodes.
 CLPD lets rented GPUs generate candidates while private heads select.
 AIIP moves work.
+Ecosystem Assurance explains trust posture from profiles and evidence.
 L1 settles selected public/economic commitments.
 ```
 
@@ -214,6 +220,7 @@ use this map before reading deep doctrine:
 | Sell or fulfill an autonomous service outcome | [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | [`domains/sas/service-endpoints.md`](../domains/sas/service-endpoints.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
 | Train robotics or embodied models in simulation | [`components/hypervisor/foundry.md`](../components/hypervisor/foundry.md) | [`foundations/domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md), [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) |
 | Execute robots, vehicles, drones, or embodied work physically | [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) | [`foundations/aiip.md`](../foundations/aiip.md), [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) |
+| Add certification, compliance, liability, quarantine, SLA, billing, or customer audit posture | [`foundations/ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md) | [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md), [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md), [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md), [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) |
 | Integrate AWS/GCP/Akash/Filecoin/local/customer providers | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) |
 | Move work across autonomous systems | [`foundations/aiip.md`](../foundations/aiip.md) | [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) |
 
@@ -341,6 +348,24 @@ receipts, routing receipts, ontology-bound digital and embodied workers,
 managed worker lifecycles, marketplace neutrality, and optional L1 settlement
 for listings, escrows, disputes, rights, and reputation.
 
+### Implementing Ecosystem Assurance
+
+Start here:
+
+1. [`foundations/ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md)
+2. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+3. [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)
+4. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
+5. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+6. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+7. [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md)
+
+Build for: assurance profiles, conformance profiles, certification claims,
+jurisdiction policy packs, evidence bundles, posture projections, abuse signals,
+quarantine advisories, liability claim routes, commercial exports, and public
+anchors only when certification, marketplace eligibility, bond, dispute,
+governance, or cross-domain trust requires them.
+
 ### Implementing Product UX
 
 Start here:
@@ -413,6 +438,7 @@ Filecoin/CAS/S3/local disk = authority layer
 Boot measurement = consumer GPU privacy guarantee
 strategy source on rented node = protected strategy
 AIIP = separate bespoke protocol per app
+Ecosystem Assurance = runtime, wallet, marketplace, legal-advice engine, or insurer
 IOI L1 = execution database for every run
 aiagent.xyz -> sas.xyz = mandatory supply chain
 ioi.ai collaborative outcome = group chat or unbounded swarm
@@ -450,5 +476,6 @@ wallet.network authorizes
 decentralized.exchange/trade expose route/venue intelligence and propose candidates
 Hypervisor provider integrations propose execution routes
 AIIP moves bounded autonomous work
+Ecosystem Assurance projects trust posture from profiles, evidence, policy packs, and owner-domain receipts
 L1 settles selected public/economic/cross-domain commitments
 ```

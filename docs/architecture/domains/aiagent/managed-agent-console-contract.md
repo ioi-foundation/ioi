@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent managed-instance web console projections.
 Supersedes: product prose that treats the marketplace console as execution truth.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -16,6 +16,13 @@ and does not own runtime truth.
 Execution remains with a Hypervisor Daemon runtime node. Authority remains with
 wallet.network. Truth remains with Agentgres. Payload bytes remain in storage
 backends under Agentgres-governed refs.
+
+For user-facing managed instances, the console is the default human interaction
+surface. It should make browser chat, form submission, approvals, receipts,
+runtime status, pause/revoke controls, and subscription state available without
+requiring the user to understand local Hypervisor execution. API, MCP,
+model-compatible, workflow, and local-install controls are integration exports
+over the same instance, not separate agents.
 
 ## Owns
 
@@ -29,6 +36,7 @@ The console owns presentation of:
 - runtime status;
 - memory summaries and archive state;
 - pause/resume/suspend/archive/restore/export/delete requests;
+- integration export projections;
 - support/dispute links.
 
 ## Does Not Own
@@ -40,6 +48,8 @@ The console does not own:
 - Agentgres state roots;
 - private workspace plaintext;
 - provider lifecycle;
+- authority-client or API-token custody;
+- model-compatible or MCP runtime truth;
 - L1 settlement truth.
 
 ## Lifecycle
@@ -70,6 +80,7 @@ ManagedAgentConsoleProjection:
     - memory
     - runtime
     - archive_restore
+    - integration_exports
   control_actions:
     - pause
     - resume
@@ -93,6 +104,10 @@ authority and daemon policy, then become Agentgres operations and receipts.
 Marketplace or L1 settlement is used only when install rights, subscription,
 dispute, payout, reputation, or public commitments require it.
 
+Integration exports are also proposals or projections. Creating, rotating, or
+revoking an authority client for API, model-compatible, MCP, workflow, or local
+install use must pass wallet.network authority and emit receipts.
+
 ## Events And Receipts
 
 - `ConsoleOpenedReceipt`
@@ -109,6 +124,10 @@ dispute, payout, reputation, or public commitments require it.
 - Console controls call daemon/wallet APIs; they do not mutate instance state
   directly.
 - Console reads are projections over Agentgres/daemon state.
+- Browser chat is a client surface over managed-instance thread/run APIs, not a
+  hidden runtime loop.
+- Integration exports disclose scopes, expiry or rotation policy, spend limits
+  where applicable, and revoke state.
 - Private workspace data is never displayed without wallet-governed viewing or
   declassification authority.
 - SMS/email links may open or notify the console but cannot carry grants,

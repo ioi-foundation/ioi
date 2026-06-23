@@ -103,7 +103,7 @@ assert(
 );
 
 const tsSubstrate = read("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts");
-const actionSchema = readJson("internal-docs/implementation/runtime-action-schema.json");
+const actionSchema = readJson("docs/architecture/_meta/schemas/runtime-action-schema.json");
 const generatedTsActionSchema = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
   "crates/types/src/app/generated/runtime_action_schema.rs",
@@ -172,18 +172,23 @@ assert(
   "Service intent helpers must centralize the desktop_agent service id.",
 );
 
-const boundaryDoc = read("internal-docs/implementation/runtime-package-boundaries.md");
+const boundaryDoc = [
+  read("README.md"),
+  read("docs/architecture/_meta/source-of-truth-map.md"),
+  read("docs/architecture/foundations/common-objects-and-envelopes.md"),
+  read("docs/architecture/_meta/vocabulary.md"),
+].join("\n");
 for (const required of [
-  "ioi-daemon",
+  "Hypervisor Daemon",
   "@ioi/agent-sdk",
-  "@ioi/hypervisor-workbench",
+  "packages/hypervisor-workbench",
   "Agentgres",
   "wallet.network",
   "Primitive execution capabilities",
   "Authority scopes",
-  "Adaptive Work Graph",
+  "adaptive_work_graph",
 ]) {
-  assert(boundaryDoc.includes(required), `Runtime package boundary doc missing ${required}.`);
+  assert(boundaryDoc.includes(required), `Tracked runtime boundary docs missing ${required}.`);
 }
 
 const circ = read("docs/conformance/hypervisor-core/intent-resolution.md");
@@ -207,11 +212,13 @@ assert(
   "Daemon architecture doc must distinguish daemon execution from CLI client behavior.",
 );
 
-const workGraphPlan = read(".internal/plans/adaptive-scoped-swarm-execution-plan.md");
+const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
 assert(
-  workGraphPlan.includes("`swarm` is an execution strategy, not a product surface") ||
-    workGraphPlan.includes("adaptive work graph is an execution strategy"),
-  "Adaptive work graph plan must keep the execution strategy separate from product/runtime surfaces.",
+  architectureVocabulary.includes("`adaptive_work_graph`") &&
+    architectureVocabulary.includes("parallel/delegated work") &&
+    architectureVocabulary.includes("graph execution") &&
+    boundaryDoc.includes("unbounded swarm"),
+  "Tracked architecture vocabulary must keep adaptive work graph semantics separate from unbounded swarm/product-surface language.",
 );
 assert(
   !read("crates/types/src/app/chat.rs").includes('alias = "swarm"'),

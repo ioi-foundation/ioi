@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -47,6 +47,136 @@ This surface is not Settings and not an authority bypass. It helps builders and
 operators understand what a tool can do, what it needs, why it is blocked, and
 what proof it must emit. Actual invocation still flows through Hypervisor Core,
 the daemon, wallet.network, Agentgres, and receipt/replay boundaries.
+
+The Hypervisor Operator Plane may consume these same tool/MCP contracts to
+operate application surfaces and Hypervisor-level product state. Child sessions
+may request or propose those operations, but effectful host/platform actions
+must be admitted by the daemon and authorized through wallet.network. MCP is a
+surface contract, not a host mutation bypass.
+
+ioi.ai connector/auth escalation is a handoff over this same registry. ioi.ai
+may detect a missing connector, expired grant, insufficient scope, or required
+approval; explain the requested tool, risk, scope, and preview posture; and ask
+wallet.network for authority. It must not hold provider secrets, call provider
+APIs directly, or invent an ioi.ai-only connector runtime. Actual invocation
+still flows through `RuntimeToolContract` or MCP contracts, daemon admission,
+wallet.network authority, Agentgres refs, and receipts.
+
+## Hypervisor MCP Gateway
+
+The **Hypervisor MCP Gateway** is the authority-scoped compatibility gateway
+that lets external agents and harnesses use selected Hypervisor capabilities
+through MCP without entering the Hypervisor UI.
+
+It is not a "master MCP," root administrator, durable API key, direct connector
+path, or host mutation bypass. It is a profile-bound projection over registered
+Hypervisor tools, surfaces, sessions, automations, Foundry jobs, receipts, and
+operator-plane requests.
+
+Canonical flow:
+
+```text
+external agent or harness
+  -> Hypervisor MCP Gateway profile
+  -> exposed MCP tool manifest
+  -> RuntimeToolContract or surface MCP contract
+  -> daemon admission
+  -> wallet.network authority or approval
+  -> Agentgres operation, projection, receipt, and replay
+```
+
+Gateway profiles should be explicit:
+
+```text
+discovery_readonly
+  list available capabilities, models, workers, projects, sessions, tools,
+  readiness, policy explanations, and receipts without effectful actions
+
+project_session
+  create or request sessions, inspect project/session state, attach authorized
+  context refs, and read run progress under project policy
+
+connector_preview
+  inspect connector readiness, request auth escalation, and run dry-run previews
+  without mutating external systems
+
+operator_proposal
+  submit platform or application-surface changes as proposals through the
+  Hypervisor Operator Plane; no direct host/platform mutation
+
+effectful_approved
+  call effectful tools only with required authority grants, approval posture,
+  idempotency, policy admission, and receipt obligations
+
+foundry_eval_training
+  draft or start authorized Foundry jobs, evals, dataset-factory runs, training
+  pipelines, experiment cycles, and model/worker promotion candidates
+
+receipts_replay_proof
+  inspect authorized events, trace bundles, receipts, replay, delivery bundles,
+  and proof/settlement drilldowns
+```
+
+Every gateway-exposed MCP tool must declare the backing contract ref, profile,
+risk class, primitive capabilities, required authority scopes, readiness state,
+dry-run/approval policy, privacy posture, rate/budget limits, receipt
+obligations, and revocation path. Gateway manifests may simplify labels for
+external harnesses, but they must not hide authority, policy, or receipt
+requirements.
+
+The gateway exists to make Hypervisor useful from Codex-like tools, local agents,
+enterprise agents, aiagent.xyz workers, CI agents, and third-party harnesses
+without giving those agents ambient authority. It should increase external
+utility while preserving the same daemon, wallet.network, Agentgres, cTEE,
+receipt, and replay boundaries as native Hypervisor clients.
+
+## Readiness and Escalation States
+
+Connector, tool, and MCP readiness must be explicit enough for Hypervisor
+surfaces, ioi.ai handoffs, Automations, and child sessions to explain why an
+operation can run, preview, wait, or fail. A client may simplify the labels, but
+the registry state should distinguish:
+
+```text
+unknown
+  the connector/tool has not been checked in the current context
+
+ready
+  requirements are satisfied for the requested operation class
+
+not_connected
+  no provider/account binding exists
+
+auth_required
+  identity exists, but wallet/provider authority has not been granted
+
+expired
+  the grant, lease, token, or provider binding is no longer valid
+
+scope_insufficient
+  an active grant exists, but it lacks the requested operation scope
+
+approval_required
+  policy permits the operation only after human, org, quorum, or step-up review
+
+dry_run_required
+  the tool must produce a preview before effectful execution can be requested
+
+policy_blocked
+  policy denies the operation unless policy or organization posture changes
+
+degraded
+  the connector/tool can partially function, but health, quota, provider status,
+  schema drift, or quality posture requires disclosure
+
+revoked
+  authority or connector binding was intentionally withdrawn
+```
+
+Escalation must preserve the distinction between "needs authority", "needs a
+preview", "needs review", and "is blocked by policy." More authentication must
+not be presented as the fix for a policy-blocked action, and a dry-run preview
+must not be treated as authorization to mutate external state.
 
 ## Connector Examples
 
@@ -185,6 +315,12 @@ receipt obligation
 No MCP server or external tool bridge may become a shortcut around daemon
 admission, wallet.network authority, Agentgres projection, or receipt policy.
 
+No Hypervisor MCP Gateway profile may expose an unbounded "all tools" or "all
+surfaces" authority. Broad discovery can exist, but preview, proposal, and
+effectful execution must be narrowed by profile, project/session context,
+authority scope, policy, privacy posture, budget/rate limit, and revocation
+state.
+
 ## Tool Registry
 
 The tool registry should:
@@ -197,7 +333,13 @@ The tool registry should:
 - expose risk classes;
 - expose primitive capability and authority scope requirements;
 - expose policy explanations;
-- feed tool-quality models.
+- feed tool-quality models;
+- emit governed tool-analytics signals for usage, latency, error class,
+  missing-capability requests, redacted argument shape, client/session flow, and
+  quality feedback.
+
+Tool analytics improve routing, evals, registry quality, and missing-capability
+planning. They do not replace receipts and they do not authorize tool use.
 
 ## Workflow Integration
 
@@ -246,6 +388,9 @@ They should still emit artifacts and receipts.
 8. No MCP server, external agent tool, or workflow-as-tool subgraph may bypass
    `RuntimeToolContract`, primitive capability, authority scope, policy, and
    receipt requirements.
+9. No child session MCP/tool exposure may mutate Hypervisor host or platform
+   state directly; host/platform effects route through declared application
+   surface contracts and the Hypervisor Operator Plane.
 
 ## One-Line Doctrine
 

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./task-capsule-protocol.md).
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -64,6 +64,13 @@ profile boundary as worker execution.
    provider-rooted memory by default.
 7. **TEE Runtime** — attested confidential compute node.
 8. **Customer VPC Runtime** — enterprise-owned environment.
+9. **Embodied Runtime** — local or edge runtime profile for robot fleets,
+   facility systems, drones, vehicles or vehicle-adjacent systems, and IoT
+   actuator domains. It binds controller bridges, heartbeat/failsafe posture,
+   sensor and actuator registries, world state, physical command queues,
+   telemetry, replay, and operator handoff to the Hypervisor Daemon boundary.
+   Physical actuator execution still requires Physical Action Safety,
+   wallet.network authority, Agentgres receipts, and local emergency stop.
 
 ## Placement Privacy Profiles
 

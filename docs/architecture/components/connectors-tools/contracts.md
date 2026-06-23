@@ -1,10 +1,12 @@
 # Connector and Tool Contracts
 
 Status: canonical low-level reference.
-Canonical owner: this file for RuntimeToolContract, ConnectorMapping references, tool API, connector API, risk classes, and approval rules.
+Canonical owner: this file for RuntimeToolContract, ConnectorMapping
+references, Hypervisor MCP Gateway profiles, tool API, connector API, risk
+classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-20.
+Last alignment pass: 2026-06-22.
 
 ## Purpose
 
@@ -40,10 +42,103 @@ application surfaces, or extension hosts.
     "input_object_model_refs": [],
     "output_object_model_refs": []
   },
+  "analytics_policy": {
+    "emit_usage_signal": true,
+    "capture_intent": "explicit | inferred | none",
+    "capture_arguments": "none | schema_only | redacted | full_private",
+    "missing_capability_signal": true,
+    "quality_signal_refs": []
+  },
   "approval_required": true,
   "evidence_required": ["request_preview", "provider_response"],
   "redaction_policy": "redact_body | hash_only | full_private",
   "owner": "connector://gmail"
+}
+```
+
+Tool analytics are improvement signals, not execution truth. They may record
+call volume, latency, error class, missing-capability requests, intent,
+redacted argument shape, and quality labels, but consequential proof still
+comes from daemon-admitted events, wallet authority, Agentgres state, and
+receipts.
+
+## Hypervisor MCP Gateway Profile
+
+The Hypervisor MCP Gateway exposes selected RuntimeToolContracts, surface MCP
+contracts, session actions, Foundry actions, and receipt/replay views to external
+agents or harnesses. The gateway profile is the contract that limits what a
+given MCP consumer can discover, preview, propose, or execute.
+
+```json
+{
+  "gateway_profile_id": "mcp_gateway://project-auditor-readonly",
+  "display_name": "Project Auditor Read-only Gateway",
+  "audience": "external_agent | ci_agent | marketplace_worker | enterprise_agent | local_harness",
+  "profile_kind": "discovery_readonly | project_session | connector_preview | operator_proposal | effectful_approved | foundry_eval_training | receipts_replay_proof",
+  "subject_ref": "agent://external/runtime-auditor",
+  "project_refs": ["project://ioi"],
+  "session_refs": [],
+  "surface_refs": ["surface://connectors-tools-mcp", "surface://receipts-replay"],
+  "exposed_tools": [
+    {
+      "mcp_tool_name": "hypervisor.project.inspect",
+      "backing_contract_ref": "tool://project.inspect",
+      "contract_kind": "runtime_tool_contract | surface_mcp_contract | operator_plane_contract",
+      "risk_class": "read",
+      "effect_class": "read",
+      "readiness": "ready",
+      "dry_run_required": false,
+      "approval_required": false,
+      "authority_scopes_required": ["scope:project.read"],
+      "receipt_obligations": ["ToolExecutionReceipt"]
+    }
+  ],
+  "authority_client_ref": "wallet_client://...",
+  "authority_scope_refs": ["scope:project.read"],
+  "privacy_posture_ref": "privacy://redacted",
+  "budget_policy_ref": "policy://gateway-budget",
+  "rate_limit_ref": "policy://gateway-rate-limit",
+  "expires_at": "2026-05-02T12:00:00Z",
+  "revocation_ref": "revocation://...",
+  "last_use_ref": "event://...",
+  "manifest_ref": "mcp_manifest://...",
+  "receipt_refs": []
+}
+```
+
+Gateway profiles do not grant authority by themselves. They bind a manifest to
+wallet.network authority clients, daemon admission, Agentgres refs, policy, and
+receipt obligations. A gateway profile may expose a tool as discoverable while
+still returning `not_connected`, `scope_insufficient`, `dry_run_required`,
+`approval_required`, `policy_blocked`, or `degraded` for a particular operation.
+
+## Hypervisor MCP Gateway API
+
+```http
+GET  /v1/mcp/gateways
+POST /v1/mcp/gateways
+GET  /v1/mcp/gateways/{gateway_profile_id}
+PATCH /v1/mcp/gateways/{gateway_profile_id}
+POST /v1/mcp/gateways/{gateway_profile_id}/revoke
+GET  /v1/mcp/gateways/{gateway_profile_id}/manifest
+POST /v1/mcp/gateways/{gateway_profile_id}/call
+GET  /v1/mcp/gateways/{gateway_profile_id}/events
+GET  /v1/mcp/gateways/{gateway_profile_id}/receipts
+```
+
+Effectful gateway calls should occur inside an admitted run or operator-plane
+operation:
+
+```json
+{
+  "gateway_profile_id": "mcp_gateway://project-auditor-readonly",
+  "mcp_tool_name": "hypervisor.connector.gmail.trash_preview",
+  "input": {},
+  "run_id": "run_123",
+  "authority_grant_id": "grant_123",
+  "approval_id": "approval_123",
+  "idempotency_key": "idem_...",
+  "requested_receipt_shape": ["ToolExecutionReceipt", "PolicyDecisionReceipt"]
 }
 ```
 
@@ -175,3 +270,6 @@ policy_widening: step-up + explicit approval required
 6. Connector output used for training, evaluation, projection, routing, or
    service delivery must pass through a ConnectorMapping and, when transformed,
    a receipted DataRecipe.
+7. Hypervisor MCP Gateway profiles must be scoped, expiring or revocable,
+   auditable, and bound to backing contracts; they must not expose an unbounded
+   master tool surface.

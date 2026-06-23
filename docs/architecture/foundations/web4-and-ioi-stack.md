@@ -4,21 +4,129 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Web4 category definition and IOI stack boundary.
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
 **Canonical Web4 is the internet architecture where applications do not merely let users read, write, or own state; they delegate bounded authority to autonomous actors that can act across systems under verifiable policy, receipts, and settlement.**
 
+Category definition:
+
+> **Web4 is the protocol category for machine authority: bounded autonomous
+> actors receiving scoped power to perform consequential work with proof,
+> revocation, interop, and settlement.**
+
 Short form:
 
 > **Web4 = Read + Write + Own + Act, with proof.**
 
-IOI is the reference implementation of canonical Web4.
+IOI defines and implements canonical Web4 as a machine-authority stack.
 
 Protocol thesis:
 
 > **Autonomous systems can execute anywhere. IOI settles what matters.**
+
+Product thesis:
+
+> **Governed work should be able to become reusable autonomous capability.**
+
+Builder/category thesis:
+
+> **IOI is the Web4 substrate for building autonomous-system domains:
+> intelligent blockchains where workers can act, authority is bounded, receipts
+> prove what happened, and settlement happens only when shared trust requires
+> it.**
+
+Web4 is not only about delegation. It is about compounding useful work into
+portable workers, workflows, tools, model routes, evals, data recipes,
+packages, service modules, and market-listed capabilities without collapsing
+execution, authority, truth, and settlement into one vendor-owned layer.
+
+## Provider-Trust Boundary
+
+Canonical Web4 moves machine authority outside provider trust by default.
+
+Providers may supply cognition, compute, storage, connectors, liquidity,
+distribution, hosted workspaces, or managed execution. They are useful execution
+and service participants. They are not the default authority root, secret owner,
+policy owner, receipt truth, settlement root, or revocation plane.
+
+Provider-trust routes are still allowed when a user, organization, policy, or
+domain explicitly accepts them. They must be labeled, policy-bound, receipted,
+revocable where possible, and distinct from routes where authority, secrets,
+plaintext custody, and settlement commitments remain outside provider control.
+
+## Blockchain Substrate and User Abstraction
+
+Web4 is blockchain-native underneath, but it must not be chain-first in ordinary
+product experience. In IOI, blockchain is the verifiability, rights, dispute,
+governance, and settlement substrate below machine authority; users mostly meet
+it as authority grants, receipts, proofs, state roots, revocation controls,
+contribution records, and settlement outcomes.
+
+The default user experience should abstract raw chain mechanics behind
+machine-authority language. A user should be able to ask what was authorized,
+what executed, what proof exists, what can be revoked, and what settled without
+having to reason about contracts, gas, chain IDs, custody, transaction hashes, or
+bridge details during every task.
+
+The substrate still has to be knowable. Receipts, replay views, settlement
+views, dispute views, developer consoles, exportable evidence bundles, and
+state-root/proof drilldowns must let technical users, auditors, counterparties,
+and autonomous systems inspect the underlying commitments when public trust,
+settlement, governance, or dispute resolution depends on them.
+
+## Category Ownership Doctrine
+
+IOI's Web4 category claim is to make **machine authority** the legible
+primitive.
+
+Machine authority is the protocolized ability for a non-human actor, worker,
+runtime, workflow, service, or autonomous system to receive limited power from a
+human, organization, domain, or contract and use that power across real systems.
+The power is bounded by identity, scope, policy, purpose, time, budget, data
+permission, approval requirements, revocation, receipts, replay, and settlement.
+
+The category is not won by calling every agent a wallet or every application a
+chain. It is won by making the machine-authority path portable and unavoidable:
+
+```text
+intent
+  -> authority request
+  -> scoped lease / denial / step-up
+  -> runtime assignment
+  -> policy and admission
+  -> autonomous execution
+  -> receipts and replay
+  -> Agentgres state root or projection
+  -> AIIP handoff or settlement intent
+  -> sparse IOI L1 commitment when public trust is required
+```
+
+This is the protocol substrate for autonomous work. It is source-neutral: any
+model, runtime, connector, worker, marketplace, enterprise domain, or sovereign
+application can participate if it speaks the same authority, receipt, interop,
+and settlement semantics.
+
+The category claim is not that every Web4 product should become an IOI-hosted
+L1. The claim is that the IOI L0/kernel, Hypervisor, SDK, ADK, AIIP,
+wallet.network, Agentgres, and IOI L1 together make it practical to create
+autonomous-system domains that can remain sovereign at the edge while becoming
+interoperable, attributable, and economically legible through shared authority,
+receipt, reputation, and settlement semantics.
+
+IOI's category wedge is therefore:
+
+```text
+machine authority protocol
+  + edge-in domain kernels
+  + wallet.network authority leases
+  + Hypervisor execution/admission
+  + Agentgres operational truth
+  + AIIP work interop
+  + IOI L1 sparse settlement
+  = canonical Web4
+```
 
 ## Web Evolution
 
@@ -122,6 +230,10 @@ A canonical Web4 application should have:
 14. **Work interop** — AIIP moves delegated work, authority leases, receipts,
     settlement intents, disputes, reputation queries, and handoffs between
     bounded execution domains.
+15. **Machine-authority protocol compliance** — authority requests, leases,
+    denials, step-up challenges, delegation, revocation, proof obligations, and
+    settlement intents use portable machine-readable envelopes rather than
+    product-local permission checks.
 
 ## IOI System Boundary
 
@@ -187,6 +299,11 @@ local or remote runtime edge
 This keeps autonomous work local-first, zero-to-idle, and domain-specific while
 still giving consequential commitments a global settlement and governance root.
 
+This is the Web4 domain flywheel: each new domain, worker market, service
+market, enterprise kernel, robot fleet, or independent AS-L1 that reuses the
+shared authority, receipt, AIIP, and settlement grammar increases the value of
+the substrate without forcing operational state into one global runtime.
+
 Agentgres state is not Filecoin blobs. Agentgres records canonical operations,
 object heads, indexes, projections, subscriptions, delivery state, receipts
 metadata, artifact refs, archive refs, and restore validity. Storage backends
@@ -238,7 +355,10 @@ A canonical Web4 app is a stateful, authority-aware, autonomous application doma
 | wallet.network | Authority vault and scope control plane. |
 | Agentgres | State/change/provenance substrate for Web4 application domains. |
 | IOI L1 | Registry, rights, settlement, governance, and autonomous-system settlement layer for Web4. |
+| Machine Authority Protocol | Portable authority-request, lease, revocation, proof, and settlement semantics that let machines act without receiving ambient secrets or uncontrolled power. |
 
 ## Core Doctrine
 
-> **IOI does not define a proprietary Web4. IOI implements canonical Web4: autonomous action with identity, authority, receipts, and settlement.**
+> **IOI does not define a proprietary Web4. IOI implements canonical Web4:
+> machine authority for autonomous action with identity, scoped power, receipts,
+> interop, and settlement.**

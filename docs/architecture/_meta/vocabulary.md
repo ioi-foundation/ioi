@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-14.
+Last alignment pass: 2026-06-22.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -38,6 +38,47 @@ compliance acronyms for hidden audit material.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
+- `EcosystemAssuranceProfile`: a source-neutral trust profile that declares the
+  evidence, policy, conformance, revocation, and anchor requirements for a
+  worker, runtime, wallet authority client, MCP gateway, service outcome,
+  embodied domain, storage backend, or marketplace listing. It does not grant
+  authority, execute work, store truth, rank listings, decide insurance
+  coverage, or settle disputes.
+- `ConformanceProfile`: a compatibility profile for an interface or runtime
+  family such as worker endpoints, harness adapters, runtime nodes, wallet
+  authority clients, MCP gateways, cTEE private workspaces, HypervisorOS nodes,
+  embodied runtime, service endpoints, storage backends, or Agentgres domains.
+  It defines expected behavior and negative tests; it is not by itself a legal
+  or safety certification.
+- `CertificationClaim`: a claim that a subject satisfies an
+  `EcosystemAssuranceProfile` for a bounded version, issuer, evidence set,
+  expiry, and revocation policy. It must bind to evidence refs and may anchor
+  publicly when marketplace, dispute, bond, registry, or governance trust
+  requires it.
+- `JurisdictionPolicyPack`: a declarative policy pack for jurisdiction,
+  eligibility, identity, KYC/business verification, regulated actions,
+  retention, deletion, residency, tax, invoice, disclosure, and audit-export
+  requirements. It is a policy input to wallet.network, Hypervisor, Agentgres,
+  marketplaces, services, and settlement triggers, not legal advice.
+- `AssuranceEvidenceBundle`: an evidence package composed of Agentgres refs,
+  receipts, artifact refs, scorecards, wallet authority refs, policy refs,
+  redaction policy, and optional L1 anchors. It packages evidence without
+  becoming raw payload storage or operational truth.
+- `AssurancePostureProjection`: a rebuildable view over current certification,
+  jurisdiction, abuse, liability, and commercial status for a subject. It is
+  derived from owner-domain truth, evidence, policy packs, and public anchors.
+- `QuarantineAdvisory`: a scoped restriction or warning over a worker, package,
+  runtime node, wallet client, MCP gateway, service package, embodied domain, or
+  ecosystem class. It must be reasoned, receipted, and routed through owner
+  domains; it is not an unbounded global kill switch.
+- `LiabilityClaimRoute`: a claims-routing object that binds an incident,
+  evidence bundle, parties, policy refs, optional external claim refs, and
+  dispute or settlement refs. It routes evidence for coverage or dispute
+  processes; it does not adjudicate insurance coverage by itself.
+- `CommercialAssuranceExport`: a customer or organization export over billing,
+  invoices, cost centers, SLA evidence, audit evidence, service delivery,
+  marketplace usage, and tax refs. It is generated from owner-domain truth and
+  redacted by policy; it is not the source of runtime truth.
 - `HypervisorProvidersAndEnvironments`: the default Hypervisor capability set
   for cross-session provider integrations, environment lifecycle, managed
   runtime resources, services, tasks, ports, logs, SCM auth, archive/restore
@@ -730,6 +771,25 @@ compliance acronyms for hidden audit material.
   worker, service, microharness, third-party, or AS-L1 domain that performs
   scoped autonomous work under declared capabilities, policy, authority
   requirements, receipt schemas, runtime boundaries, and settlement behavior.
+- `EmbodiedRuntimeDomain`: the live physical-domain runtime record for robot
+  fleets, facility systems, drones, vehicle-adjacent systems, IoT actuators, or
+  other embodied domains. It binds fleet identity, controller bridges, sensors,
+  actuators, world state, telemetry, command queues, policy, and emergency stop
+  to the Hypervisor Daemon boundary.
+- `RobotControllerBinding`: the binding between an embodied unit and a local or
+  edge controller bridge. It declares command endpoints, telemetry streams,
+  heartbeat/failsafe policy, authority scopes, sensor/actuator registries, and
+  where receipts are emitted.
+- `PhysicalCommandQueue`: the daemon-governed queue for movement,
+  manipulation, facility-control, and other physical commands. It carries
+  preflight, interrupt, concurrency, conflict, stop, and result semantics that a
+  generic tool call cannot express.
+- `PhysicalReplayBundle`: the synchronized replay bundle for embodied work,
+  binding commands, telemetry streams, sensor evidence, actuator receipts,
+  incident refs, timeline segments, and proof links.
+- `SimToRealPromotionGate`: the promotion gate that separates simulation
+  success, hardware/shadow validation, limited live operation, review, rollback,
+  and full embodied deployment.
 - `PhysicalActionIntent`: the proposed action object for embodied work that can
   affect actuators, physical systems, facilities, vehicles, drones, robots, or
   safety-relevant devices. It must carry `risk_class = physical_action`,

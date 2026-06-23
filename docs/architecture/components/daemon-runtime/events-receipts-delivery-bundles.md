@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-22.
 
 ## Purpose
 
@@ -12,6 +12,47 @@ Events enable observation; receipts enable proof; replay enables inspection;
 delivery bundles enable marketplace settlement. These objects must be
 consistent across Hypervisor clients/application surfaces, Hypervisor Daemon,
 Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
+
+Work analytics, tool analytics, feedback annotations, and rollout observations
+are observation/improvement signals. They may inform Foundry evals, routing,
+release controls, support queues, and capability-improvement proposals, but they
+do not replace receipts, state roots, policy decisions, or wallet authority.
+When promoted into training or evaluation material, they must pass through
+policy-bound data views, Data Recipes, and Agentgres refs.
+
+Trace bundles are the inspection projection over events, logs, receipts,
+artifacts, authority decisions, and proof refs. A trace bundle should support
+grouping by user turn, run segment, workflow node, workrun, or automation step;
+waterfall-style spans for model, tool, connector, MCP, browser, terminal,
+environment, authority, eval, package, and settlement activity; detail views for
+event, request, response, graph, logs, authority, receipts, proof, settlement,
+and artifacts; and redacted export for private work.
+
+Trace inspection is not settlement truth. Raw transaction hashes, contract refs,
+chain IDs, bridge refs, gas details, or public commitment metadata belong in
+proof/settlement drilldowns, developer views, dispute/governance views, or
+exported evidence bundles. Normal run inspection should lead with work events,
+human-readable proof state, receipts, and replay availability.
+
+Product surfaces should preserve a clear distinction:
+
+```text
+Run Replay
+  temporal inspection of what happened: turns, spans, tools, models,
+  connectors, browser/computer-use actions, logs, artifacts, approvals,
+  errors, retries, and replayable context
+
+Proof / Settlement Explorer
+  evidence inspection of what can be verified: receipts, state roots,
+  commitment refs, transaction hashes, contract refs, dispute refs,
+  governance refs, bridge refs, delivery bundles, contribution receipts,
+  and exported proof packages
+```
+
+Run Replay may link into proof/settlement drilldowns, but it should not force
+normal operators to read raw chain or settlement details to understand whether a
+run succeeded. Proof / Settlement Explorer may expose low-level commitments, but
+it should not become the only way to inspect ordinary runtime behavior.
 
 The Hypervisor Daemon emits these objects as the autonomous-execution
 hypervisor/control plane. Hypervisor App, Hypervisor Web, CLI/headless,
@@ -64,6 +105,8 @@ memory.updated
 mcp.server_validated
 mcp.server_imported
 mcp.tool_invoked
+tool.missing_capability_requested
+tool.analytics_recorded
 delegation.started
 delegation.completed
 subagent.spawned
@@ -74,6 +117,10 @@ subagent.completed
 handoff.recorded
 stop_condition.recorded
 scorecard.updated
+feedback.recorded
+annotation.recorded
+rollout.exposure_recorded
+rollout.adjudicated
 usage.delta
 usage.final
 workspace_trust.warning
@@ -105,12 +152,30 @@ data_recipe.run_completed
 transformation.receipt_emitted
 evaluation_dataset.bound
 training.spec_bound
+training.dataset_factory_started
+training.dataset_factory_completed
 training.batch_planned
 training.generation_batch_archived
 training.quality_gates_reported
 training.cost_ledger_updated
 training.dataset_curated
 training.context_mutated
+training.pipeline_started
+training.pipeline_stage_advanced
+training.pipeline_suspended
+training.pipeline_resumed
+training.pipeline_completed
+training.pipeline_failed
+training.experiment_trial_started
+training.experiment_trial_completed
+training.experiment_trial_accepted
+training.experiment_trial_rejected
+training.artifact_conversion_started
+training.artifact_conversion_validated
+training.model_registered
+training.conductor_advisor_candidate_created
+training.conductor_advisor_shadow_started
+training.conductor_advisor_promoted
 training.post_training_cycle_started
 training.post_training_cycle_promoted
 training.post_training_cycle_rejected
@@ -130,6 +195,34 @@ hypervisoros.node.ready
 hypervisoros.node.quarantined
 hypervisoros.workload.blocked
 hypervisoros.egress.blocked
+embodied.domain.registered
+embodied.fleet.registered
+embodied.unit.bound
+embodied.controller.bound
+embodied.heartbeat.recorded
+embodied.failsafe.triggered
+embodied.sensor.registered
+embodied.actuator.registered
+embodied.world_model.updated
+embodied.environment_state.updated
+embodied.command.proposed
+embodied.command.queued
+embodied.command.started
+embodied.command.interrupted
+embodied.command.completed
+embodied.command.failed
+embodied.telemetry.frame_recorded
+embodied.replay.bundle_created
+embodied.operator_handoff.requested
+embodied.operator_handoff.completed
+embodied.incident.opened
+embodied.recovery.started
+embodied.recovery.completed
+sim_to_real.gate_created
+sim_to_real.shadow_started
+sim_to_real.limited_live_started
+sim_to_real.promoted
+sim_to_real.rolled_back
 receipt.emitted
 run.completed
 run.failed
@@ -196,6 +289,20 @@ RuntimeBridgeReceipt
 RuntimeUsageReceipt
 HypervisorOSBootReceipt
 NodeMeasurementReceipt
+EmbodiedRuntimeDomainReceipt
+RobotFleetRegistrationReceipt
+ControllerBindingReceipt
+HeartbeatReceipt
+FailsafeReceipt
+WorldModelReceipt
+CalibrationReceipt
+PhysicalCommandQueueReceipt
+PhysicalCommandReceipt
+PhysicalTelemetryReceipt
+PhysicalReplayReceipt
+SimToRealPromotionReceipt
+OperatorHandoffReceipt
+EmbodiedRecoveryReceipt
 ModelMountReceipt
 PrivateInferenceReceipt
 CounterfactualLatticeReceipt
@@ -395,6 +502,42 @@ binary hash, package/driver manifest hashes, measurement method, and declared
 privacy claim. It proves node integrity posture, not protected plaintext
 privacy by itself.
 
+## Embodied Runtime Receipts
+
+Embodied runtime receipts bind physical-domain runtime state. They complement,
+but do not replace, physical-action safety receipts such as
+`SensorEvidenceReceipt`, `ActuatorCommandReceipt`, and
+`PhysicalActionExecutionReceipt`.
+
+```json
+{
+  "receipt_id": "receipt_embodied_command_123",
+  "receipt_type": "physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_recovery",
+  "embodied_domain_ref": "embodied_domain://...",
+  "fleet_ref": "robot_fleet://...",
+  "unit_ref": "robot://...",
+  "controller_binding_ref": "controller_binding://...",
+  "command_ref": "physical_command://...",
+  "queue_ref": "physical_command_queue://...",
+  "world_model_ref": "world_model://...",
+  "environment_state_ref": "environment_state://...",
+  "telemetry_stream_refs": ["telemetry_stream://..."],
+  "sensor_evidence_receipt_refs": ["receipt://..."],
+  "actuator_command_receipt_refs": ["receipt://..."],
+  "safety_envelope_ref": "safety://...",
+  "authority_ref": "grant://...",
+  "operator_handoff_ref": "operator_handoff://...",
+  "incident_ref": "incident://...",
+  "status": "recorded | admitted | blocked | degraded | stopped | failed"
+}
+```
+
+Physical telemetry receipts should commit to stream refs, frame hashes, sequence
+windows, redaction status, retention policy, and replay bundle refs. They should
+not require raw video, point clouds, or controller logs to be embedded in the
+receipt. Payload bytes remain in storage backends; Agentgres records refs,
+hashes, projections, replay indexes, and state roots.
+
 `DeterrenceDetectionReceipt` and `CanaryTripReceipt` are attribution and
 dispute evidence. They do not make plaintext safe and must not justify unsafe
 mounting.
@@ -465,14 +608,26 @@ still apply.
 ```json
 {
   "receipt_id": "receipt_training_123",
-  "receipt_type": "training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | context_mutation | post_training_cycle | promotion_decision",
+  "receipt_type": "dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision",
   "training_id": "train_123",
   "target_worker_id": "worker://...",
   "run_id": "run_123",
+  "dataset_factory_run_id": "run://dataset_factory/...",
+  "training_pipeline_run_id": "trainpipe://...",
+  "optimization_cycle_id": "optcycle://...",
+  "conversion_run_id": "conversion://...",
+  "registered_model_ref": "model://...",
+  "conductor_advisor_candidate_ref": "conductor://...",
+  "stage": "optional",
+  "pipeline_status": "optional",
   "batch_plan_ref": "batch://...",
   "generation_batch_ref": "batch://...",
   "quality_gate_report_ref": "gate://...",
   "training_cost_ledger_ref": "ledger://...",
+  "spend_forecast_ref": "ledger://...",
+  "current_burn_ref": "ledger://...",
+  "continuation_policy_ref": "policy://...",
+  "stop_resume_policy_ref": "policy://...",
   "ontology_refs": ["ontology://..."],
   "data_recipe_refs": ["recipe://..."],
   "evaluation_dataset_refs": ["dataset://..."],
@@ -731,6 +886,13 @@ archival checkpoint files.
 {
   "trace_bundle_id": "trace_123",
   "run_id": "run_123",
+  "timeline_segments": [],
+  "span_waterfall": [],
+  "event_refs": [],
+  "log_refs": [],
+  "graph_edges": [],
+  "proof_links": [],
+  "settlement_links": [],
   "config_snapshot": {},
   "prompt_section_hashes": [],
   "model_invocations": [],
@@ -795,3 +957,6 @@ archival checkpoint files.
    runtime state.
 7. Private Workspace cTEE receipts must never reveal protected plaintext merely
    to prove that private work occurred.
+8. Trace detail panels must not substitute raw logs, prompts, provider output,
+   or transaction hashes for receipts, state roots, authority decisions, and
+   settlement records.

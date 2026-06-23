@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -17,6 +17,12 @@ It owns identity, secrets, authority scope grants, session authority, approvals,
 payments, revocation, and audit lineage. It is the authority wallet and control
 cockpit for autonomous agents. It is not merely a crypto wallet.
 
+Within canonical Web4, wallet.network is the machine-authority issuer and
+revocation plane. It converts human, organization, domain, contract, and policy
+intent into machine-readable authority requests, leases, denials, challenges,
+spend limits, declassification decisions, data-use permissions, payment
+authority, and revocation events.
+
 ## Core Doctrine
 
 > **The Hypervisor Daemon runs autonomous work. Hypervisor App, Hypervisor Web,
@@ -28,6 +34,21 @@ Put more sharply:
 
 > **wallet.network authorizes power. It does not do the work, store the app, or
 > become the chain.**
+
+Product doctrine:
+
+> **Agents do not get secrets. They get authority leases.**
+
+Raw secrets, refresh tokens, provider credentials, key shards, decryption keys,
+and BYOK provider keys remain brokered by wallet.network or approved authority
+clients. Agents, workers, runtimes, connectors, and application surfaces receive
+scoped, revocable, policy-bound leases with expiry, purpose, receipts, and
+revocation paths.
+
+Machine authority means a worker can prove what power it requested, what power
+it received, under which policy, for what purpose, for how long, against which
+resources, and with which receipts. It does not mean the worker holds raw
+secrets or can widen its own scope.
 
 ## Autonomous Work Authority Gateway
 
@@ -56,6 +77,13 @@ authority receipts
 The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
 connector, marketplace, and domain-application routes.
+
+This is how Web4 moves autonomous-work authority outside provider trust by
+default. Model providers, cloud providers, connector providers, venues, and
+managed services can perform work or expose capabilities, but wallet.network
+keeps the authority lease, secret brokerage, step-up, revocation, and authority
+receipt path outside provider custody unless policy explicitly accepts a
+provider-trust route.
 
 It may render as a Wallet console, embedded approval panel, mobile/passkey
 step-up, CLI signer, enterprise authority service, or Hypervisor authority

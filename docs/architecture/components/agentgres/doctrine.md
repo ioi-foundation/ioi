@@ -1416,6 +1416,21 @@ Patch branches are not Git branches, though they may export to Git.
 
 They are generalized branches over any state object.
 
+For code WorkRuns, however, the preferred materialized backing is a Git branch
+or worktree created from a pinned base commit. The Git branch/worktree gives
+humans, IDEs, tests, and pull-request systems a concrete file substrate.
+Agentgres patch branches still own the canonical coordination, attribution,
+authority, validation, expected-head merge, receipt, and merge-decision layer.
+
+The rule is hybrid, not either/or:
+
+```text
+code WorkRun
+  -> materialized Git branch/worktree for code execution and review
+  -> Agentgres patch branch for leases, attribution, validation, receipts, and
+     admitted merge truth
+```
+
 ## 8.3 Concurrent Agent Editing and Patch Isolation
 
 Agents may edit concurrently in isolated patch branches. Agentgres does not
@@ -2777,6 +2792,22 @@ Git may remain an export/archive format.
 
 Agentgres owns the live, leased, semantic collaboration model.
 
+For code WorkRuns, Git is also the default materialized collaboration substrate.
+The Agentgres branch and Git branch/worktree must be bound so review, tests,
+comments, receipts, and merge decisions refer to the same attempted change.
+
+```text
+CodeWorkRunBinding:
+  base_commit_ref: scm_commit://...
+  git_branch_ref: scm_branch://... | null
+  git_worktree_ref: workspace://... | null
+  agentgres_patch_branch_ref: agentgres_patch_branch://...
+  validation_receipt_refs:
+    - receipt://...
+  merge_proposal_ref: pull_request://... | merge_proposal://... | null
+  merge_decision_ref: merge_decision://... | null
+```
+
 ## 19.3 SQL Compatibility
 
 SQL is an interface, not the authority model.
@@ -3604,8 +3635,12 @@ doc-only patch
 test-only patch
 ```
 
-Represent these internally as Agentgres patch branches. Create Git branches only
-when useful for human or external tooling.
+Represent these internally as Agentgres patch branches. For code WorkRuns,
+creating a Git branch or worktree is usually useful and should be the default
+materialized backing because it keeps tests, IDEs, human review, and PR export
+grounded in ordinary source-control mechanics. For non-code state,
+micro-branches, generated artifacts, validation-only branches, and ephemeral
+candidates, create Git branches only when useful for human or external tooling.
 
 Rule:
 

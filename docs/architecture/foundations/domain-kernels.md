@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-24.
+Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
@@ -14,12 +14,36 @@ Domain kernels are also where MoW routing becomes operational. They bind user
 intent, worker candidates, policy, authority, runtime placement, receipts, and
 settlement mirrors into domain-specific decisions.
 
+Product/category framing:
+
+> **The IOI kernel is the builder substrate for autonomous-system domains. It
+> lets teams instantiate intelligent blockchains, app domains, enterprise
+> kernels, marketplaces, fleets, and local Hypervisor domains without making IOI
+> L1 their execution runtime or operational database.**
+
 ## Kernel as L0 Substrate
 
 The IOI kernel has **L0 responsibilities**. It is the reusable substrate and
 toolchain for instantiating sovereign execution domains, including ordinary
 application domains, non-intelligent chains/state machines, and intelligent
 blockchains that bind workers, policies, receipts, and settlement.
+
+In Web4 terms, the IOI kernel is the portable machine-authority kernel. It
+turns identity, authority requests, policy decisions, runtime assignments,
+operation logs, receipts, state roots, and settlement mirrors into repeatable
+domain machinery.
+
+An intelligent blockchain is not a public chain that happens to call an AI API.
+It is a domain kernel whose state transitions may be proposed, routed,
+evaluated, or improved by workers, while canonical admission remains governed by
+deterministic policy, authority, receipt, replay, and settlement contracts.
+
+Most users should not experience these kernels as raw chain UIs. They experience
+them as workspaces, applications, sessions, authority grants, receipts, replay,
+revocation, packages, worker installs, and settlement records. Chain commitments
+remain inspectable through proof, state-root, dispute, governance, and developer
+views when the user, auditor, counterparty, or autonomous system needs to verify
+the substrate.
 
 L0 does not mean "one more global chain under IOI L1." It means the portable
 kernel layer that can generate and operate many domains. IOI L1 anchors public
@@ -107,6 +131,11 @@ The substrate can be used to create intelligent and non-intelligent sovereign
 domains. A domain only becomes part of public IOI trust when it anchors the
 relevant commitments, manifests, rights, settlement, or governance decisions to
 IOI L1.
+
+Builder-facing doctrine:
+
+> **Build your autonomous system at the edge. Register, interoperate, and settle
+> through IOI when shared trust matters.**
 
 ### IOI L1 / Root Layer
 
@@ -307,4 +336,6 @@ It synchronizes with IOI L1 only for:
 
 ## One-Line Doctrine
 
-> **The IOI architecture is fractal and edge-in: the L0 kernel instantiates domains, edge runtimes perform work, domain kernels manage operational truth, and IOI L1 anchors public commitments.**
+> **The IOI architecture is fractal and edge-in: the L0 kernel instantiates
+> autonomous-system domains, edge runtimes perform work, domain kernels manage
+> operational truth, and IOI L1 anchors public commitments.**
