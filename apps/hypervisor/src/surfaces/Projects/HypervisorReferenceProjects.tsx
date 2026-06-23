@@ -2,6 +2,7 @@
 // reference's LIVE <main> DOM (http://localhost:9228/projects): exact element tree,
 // classes, verbatim SVG paths and copy. Additive on /parity-projects. The project
 // card mirrors the reference's single mock project (ioi / teamioitest/ioi).
+import { useState } from "react";
 
 const PlusGlyph = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.25 5V10.25M10.25 10.25V15.5M10.25 10.25H5M10.25 10.25H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -20,6 +21,10 @@ const DotsGlyph = () => (
 );
 
 export function HypervisorReferenceProjects() {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  // Single mock project (ioi / teamioitest/ioi); client-side filter by name or repo.
+  const matches = !q || "ioi".includes(q) || "teamioitest/ioi".includes(q);
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div className="relative [scrollbar-gutter:stable] overflow-x-auto overflow-y-auto size-full max-w-full p-6" data-orientation="both">
@@ -38,14 +43,18 @@ export function HypervisorReferenceProjects() {
                 <div className="relative [&>div]:max-w-none w-full">
                   <div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base disabled:cursor-text focus-within:ring-4 focus-within:ring-ring-default focus-visible:ring-4 focus-visible:ring-ring-default group-data-[state=error]:border-border-error group-data-[state=error]:ring-ring-destructive disabled:bg-inherit bg-surface-input [&[readonly]]:border-border-subtle [&[readonly]]:bg-transparent data-[readonly]:border-border-subtle data-[readonly]:bg-transparent">
                     <span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span>
-                    <input className="flex h-full w-full focus-visible:ring-0 text-base p-0 border-0 outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:cursor-text placeholder:text-content-muted border-border-base disabled:bg-surface-input text-content-primary bg-transparent [&[readonly]]:bg-transparent transition-all duration-150 ease-out max-w-none" type="text" placeholder="Search projects" defaultValue="" />
+                    <input className="flex h-full w-full focus-visible:ring-0 text-base p-0 border-0 outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:cursor-text placeholder:text-content-muted border-border-base disabled:bg-surface-input text-content-primary bg-transparent [&[readonly]]:bg-transparent transition-all duration-150 ease-out max-w-none" type="text" placeholder="Search projects" value={query} onChange={(e) => setQuery(e.target.value)} />
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex w-full flex-col gap-4 pb-6" data-testid="projects-list">
+              {!matches ? (
+                <p className="text-sm text-content-secondary">No projects match your search.</p>
+              ) : null}
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                {matches ? (
                 <li>
                   <a data-testid="project-019ee100-f64f-7554-946f-405f46528c91" className="@container group flex h-full min-h-[180px] flex-col justify-between gap-3 rounded-lg border border-solid border-border-light bg-surface-glass p-5 text-left transition-all duration-200 hover:border-border-medium hover:shadow-md" href="/projects/019ee100-f64f-7554-946f-405f46528c91">
                     <div className="flex items-start justify-between gap-2">
@@ -92,6 +101,7 @@ export function HypervisorReferenceProjects() {
                     </div>
                   </a>
                 </li>
+                ) : null}
               </ul>
             </div>
           </div>
