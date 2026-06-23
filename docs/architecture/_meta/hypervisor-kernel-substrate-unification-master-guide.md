@@ -12478,7 +12478,7 @@ Slice 1412 hard-cuts the pre-Hypervisor JS facade roots. The former product app
 root and former embedded Workbench implementation root are deleted instead of
 kept as compatibility aliases. The product client now lives under
 `apps/hypervisor` as `@ioi/hypervisor-app`, Code editor adapter code lives under
-`code-editor-adapters/ioi-code-editor-adapter`, root scripts and conformance scan those new
+`packages/hypervisor-adapter-targets/code-editors/vscode-extension`, root scripts and conformance scan those new
 roots, and active Rust/Node tests no longer include or execute the deleted
 paths. The remaining JS there is product/workbench protocol-client surface over
 daemon `/v1` APIs; conformance now fails if the retired live JS facade roots,

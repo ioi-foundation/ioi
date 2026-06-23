@@ -1489,7 +1489,7 @@ scaffolding:
   readbacks, or compatibility aliases that can author accepted truth
 - retired pre-Hypervisor JS facade roots: former product-app and embedded
   Workbench implementation roots are deleted; the remaining client roots are
-  `apps/hypervisor` and `code-editor-adapters/ioi-code-editor-adapter`
+  `apps/hypervisor` and `packages/hypervisor-adapter-targets/code-editors/vscode-extension`
 
 ## Conformance Posture
 
