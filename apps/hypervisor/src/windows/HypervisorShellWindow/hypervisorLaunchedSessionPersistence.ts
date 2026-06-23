@@ -8,7 +8,7 @@ import {
 import type {
   HypervisorHarnessSessionBinding,
   HypervisorHarnessSessionTerminalAttach,
-} from "./harnessAdapterModel.ts";
+} from "../../domain/harnessAdapterModel.ts";
 
 export const HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY =
   "ioi.hypervisor.launched_session_projections.v1";

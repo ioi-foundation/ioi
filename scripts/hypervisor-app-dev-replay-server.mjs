@@ -573,7 +573,7 @@ function localEngineSnapshot(controlPlane = localEngineControlPlane) {
         updatedAtMs: replayEpochMs,
         lastJobId: null,
         lastSyncedAtMs: replayEpochMs,
-        catalogPath: "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+        catalogPath: "apps/hypervisor/src/domain/harnessAdapterModel.ts",
         sampleEntries: [
           {
             entryId: "agent-harness-adapter:codex_cli",

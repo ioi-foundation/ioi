@@ -23,7 +23,7 @@ import {
   type HypervisorModelMountInventorySnapshot,
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
-} from "./harnessAdapterModel.ts";
+} from "../../domain/harnessAdapterModel.ts";
 import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_CODE_EDITOR_ADAPTER_PREFERENCES,
@@ -55,7 +55,7 @@ export {
   type HypervisorHarnessSessionReadiness,
   type HypervisorHarnessSessionSpawn,
   type HypervisorHarnessSessionTerminalAttach,
-} from "./harnessAdapterModel.ts";
+} from "../../domain/harnessAdapterModel.ts";
 
 export {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
@@ -1369,7 +1369,7 @@ export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel 
       },
       {
         id: "model_route",
-        label: "Model Route",
+        label: "Model",
         description: "Hypervisor model mount, adapter-native route, or provider-trust route.",
         required: true,
       },
@@ -1563,7 +1563,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
   {
     id: "applications",
     label: "Applications",
-    description: "Pinned Hypervisor applications, packages, workers, policies, and monitoring.",
+    description: "Hypervisor applications catalog: packages, workers, policies, and monitoring.",
     kind: "application",
     railGroup: "applications",
     inspectorPanels: ["logs", "receipts"],

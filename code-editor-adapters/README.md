@@ -20,8 +20,10 @@ code-editor-adapters/
 
 Canonical ownership stays split:
 
-- `code-editor-adapters/ioi-code-editor-adapter` is the current code editor adapter
-  extension source.
+- The current code editor adapter source lives in
+  `packages/hypervisor-adapter-targets/code-editors/vscode-extension` — the shared
+  VS Code-family adapter module. This directory holds host metadata and ignored
+  local host artifacts only, not the adapter source.
 - `code-editor-adapters/vscode` is the target optional local VS Code source
   checkout for adapter-host development and rebuilds.
 - `code-editor-adapters/builds/VSCode-linux-x64` is the target local packaged

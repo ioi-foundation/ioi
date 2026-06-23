@@ -45,7 +45,7 @@ import {
   HYPERVISOR_DEFAULT_AGENT_SELECTION_REF,
   defaultHypervisorModelRefForHarness,
   getHypervisorModelOption,
-} from "./harnessAdapterModel";
+} from "../../domain/harnessAdapterModel";
 import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
@@ -68,7 +68,7 @@ import {
 import {
   HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY,
   requestHypervisorSessionCreate,
-} from "./hypervisorSessionOperationsModel";
+} from "../../domain/hypervisorSessionOperationsModel";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
@@ -80,7 +80,7 @@ import {
   getHarnessSelectionOption,
   getHarnessSelectionRef,
   modelRouteSupportsHypervisorMountFromInventory,
-} from "./harnessAdapterModel";
+} from "../../domain/harnessAdapterModel";
 import type {
   HypervisorProjectStateProjection,
   HypervisorProjectStateRecord,

@@ -93,3 +93,12 @@ __pycache__/
 internal-docs/reverse-engineering
 /internal-docs/prompts/
 /internal-docs/implementation/
+
+
+hypervisor-data
+.chrome-flatpak-profile
+.playwright-debug-profile
+
+# Local automation runtime state (workspace-scoped <workspace>/automation output).
+# Curated automation examples belong under scripts/fixtures/ or docs/conformance/.
+/automation/

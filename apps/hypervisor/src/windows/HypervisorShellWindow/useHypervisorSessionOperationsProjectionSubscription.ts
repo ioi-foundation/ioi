@@ -8,7 +8,7 @@ import {
   type HypervisorEnvironmentStatus,
   type HypervisorSessionOperationsProjection,
   type HypervisorTerminalEventProjection,
-} from "./hypervisorSessionOperationsModel";
+} from "../../domain/hypervisorSessionOperationsModel";
 
 interface SubscriptionOptions {
   enabled: boolean;

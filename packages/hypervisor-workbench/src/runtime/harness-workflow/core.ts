@@ -12978,7 +12978,7 @@ function harnessMetadata(options: {
     harnessVersion: DEFAULT_AGENT_HARNESS_VERSION,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
     executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
-    templateName: "Default Agent Harness",
+    templateName: "Default Harness Profile",
     blessed: options.blessed,
     forkable: options.blessed,
     forkedFrom: options.forkedFrom,
@@ -13062,7 +13062,7 @@ export function makeDefaultAgentHarnessWorkflow(
     version: "workflow.v1",
     metadata: {
       id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-      name: "Default Agent Harness",
+      name: "Default Harness Profile",
       slug: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
       workflowKind: "agent_workflow",
       executionMode: "hybrid",
@@ -13105,7 +13105,7 @@ export function makeDefaultAgentHarnessWorkflow(
           "Default harness projection is inspectable and read-only; forks must pass activation gates before use.",
       },
       meta: {
-        name: "Default Agent Harness",
+        name: "Default Harness Profile",
         description:
           "Read-only projection of the blessed agent runtime harness as workflow-addressable components.",
       },
@@ -13177,7 +13177,7 @@ export function defaultAgentHarnessTests(
 }
 
 export function forkDefaultAgentHarnessWorkflow(
-  name = "Default Agent Harness Fork",
+  name = "Default Harness Profile Fork",
   nowMs = Date.now(),
 ): {
   workflow: WorkflowProject;
@@ -13271,7 +13271,7 @@ export function forkDefaultAgentHarnessWorkflow(
       meta: {
         name,
         description:
-          "Editable fork of the Default Agent Harness. Activation remains blocked until validation gates pass.",
+          "Editable fork of the Default Harness Profile. Activation remains blocked until validation gates pass.",
       },
       production: {
         ...(base.global_config.production ?? {}),

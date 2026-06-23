@@ -81,7 +81,7 @@ npm run build:workbench
 `npm run dev:hypervisor-code-editor-adapter-host` launches the packaged
 Electron/VS Code code editor adapter host through
 `scripts/launch-hypervisor-code-editor-adapter-host.mjs`. The adapter-host
-launcher syncs only the current `ioi-code-editor-adapter` extension into the
+launcher syncs only the current `hypervisor-vscode-extension` adapter into the
 packaged host; it is not the Hypervisor product shell, does not start daemon
 sidecars, does not mount models, and does not pass daemon tokens to the
 extension. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip extension sync. The
@@ -101,13 +101,13 @@ apps/hypervisor/
 
 code-editor-adapters/
 ├── README.md                            # adapter-host ownership notes
-├── ioi-code-editor-adapter/                       # built-in code editor adapter extension
 ├── code-editor-adapter-host.manifest.json           # code-editor adapter-host manifest
 ├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
 └── vscode/                              # ignored optional VS Code source checkout
 
 packages/
-├── runtime-daemon/                      # IOI daemon authority boundary
+├── hypervisor-adapter-targets/         # adapter target modules + host profiles
+│   └── code-editors/vscode-extension/  # built-in VS Code-family code editor adapter
 └── hypervisor-workbench/                # Workbench and workflow-composer package
 ```
 

@@ -9,7 +9,7 @@ import {
   normalizeHypervisorModelMountInventorySnapshot,
   readHypervisorModelMountDaemonEndpoint,
 } from "./modelMountInventoryModel.ts";
-import { HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY } from "./hypervisorDaemonEndpoint.ts";
+import { HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY } from "../windows/HypervisorShellWindow/hypervisorDaemonEndpoint.ts";
 
 test("model mount inventory normalizer accepts raw daemon snapshot fields", () => {
   const snapshot = normalizeHypervisorModelMountInventorySnapshot(

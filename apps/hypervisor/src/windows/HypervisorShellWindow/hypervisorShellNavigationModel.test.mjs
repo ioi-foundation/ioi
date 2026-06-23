@@ -27,7 +27,7 @@ const newSessionModal = readFileSync(
   "utf8",
 );
 const harnessAdapterModel = readFileSync(
-  new URL("./harnessAdapterModel.ts", import.meta.url),
+  new URL("../../domain/harnessAdapterModel.ts", import.meta.url),
   "utf8",
 );
 const controller = readFileSync(

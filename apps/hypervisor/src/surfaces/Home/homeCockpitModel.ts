@@ -1,9 +1,9 @@
-import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../../windows/HypervisorShellWindow/harnessAdapterModel.ts";
+import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../../domain/harnessAdapterModel.ts";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts";
 import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProjectStateModel.ts";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../../domain/hypervisorProviderPlacementModel.ts";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../../domain/hypervisorSessionOperationsModel.ts";
 
 export interface HypervisorHomeCockpitMetric {
   metric_ref: string;

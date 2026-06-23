@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type {
   HypervisorAgentSelectorOption,
   HypervisorModelOption,
-} from "../harnessAdapterModel";
+} from "../../../domain/harnessAdapterModel";
 
 interface CompositorSelectOption {
   ref: string;

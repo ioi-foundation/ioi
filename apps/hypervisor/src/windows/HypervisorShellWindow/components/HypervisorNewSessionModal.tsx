@@ -22,7 +22,7 @@ import {
   isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
   type HypervisorModelMountInventorySnapshot,
-} from "../harnessAdapterModel";
+} from "../../../domain/harnessAdapterModel";
 
 type SessionStartMode = "project" | "url" | "scratch";
 

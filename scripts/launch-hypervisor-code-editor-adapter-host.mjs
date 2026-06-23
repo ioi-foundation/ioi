@@ -31,7 +31,7 @@ function syncCodeEditorAdapterExtension() {
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(
-    `[Hypervisor Code Editor Adapter] Synced ioi-code-editor-adapter extension into ${copied}.` +
+    `[Hypervisor Code Editor Adapter] Synced hypervisor-vscode-extension extension into ${copied}.` +
       (skipped ? ` Skipped optional ${skipped}.` : ""),
   );
 }
@@ -42,8 +42,8 @@ const child = spawn(binary, launchArgs, {
   cwd: repoRoot,
   env: {
     ...process.env,
-    IOI_HYPERVISOR_CODE_EDITOR_ADAPTER_HOST: "vscode-electron-packaged-host",
-    IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-code-editor-adapter-host",
+    IOI_HYPERVISOR_EDITOR_HOST_PROFILE: "vscode-electron-packaged-host",
+    IOI_HYPERVISOR_CLIENT_HOST_PROFILE: "vscode-code-editor-adapter-host",
   },
   stdio: "inherit",
 });

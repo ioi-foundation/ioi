@@ -12537,7 +12537,7 @@ export function useWorkflowComposerController({
     );
     setRightPanel("settings");
     setBottomPanel("selection");
-    setStatusMessage("Default Agent Harness opened as a read-only graph");
+    setStatusMessage("Default Harness Profile opened as a read-only graph");
   }, [clearRunState, currentProject?.rootPath, loadWorkflowProject]);
 
   const handleForkDefaultHarness = useCallback(() => {

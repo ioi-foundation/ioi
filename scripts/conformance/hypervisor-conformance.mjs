@@ -28,9 +28,9 @@ const TIERS = {
   compositor: [
     npmRun("build:workbench"),
     nodeTest(
-      "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.test.ts",
+      "apps/hypervisor/src/domain/harnessAdapterModel.test.ts",
       "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.test.ts",
-      "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.test.ts",
+      "apps/hypervisor/src/domain/hypervisorSessionOperationsModel.test.ts",
     ),
   ],
   wallet: [npmRun("check:wallet-packaging")],

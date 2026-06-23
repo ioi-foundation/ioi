@@ -5,7 +5,7 @@ import type {
   HypervisorLaunchedSessionProjection,
   HypervisorNewSessionLaunchSummary,
 } from "./hypervisorShellNavigationModel.ts";
-import type { HypervisorHarnessSessionBinding } from "./harnessAdapterModel.ts";
+import type { HypervisorHarnessSessionBinding } from "../../domain/harnessAdapterModel.ts";
 import {
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_LIMIT,
   HYPERVISOR_LAUNCHED_SESSION_PROJECTIONS_STORAGE_KEY,

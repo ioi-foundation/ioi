@@ -32,7 +32,7 @@ function startCodeEditorContextPublisher({
       if (hash !== lastHash) {
         lastHash = hash;
         await writeContextEnvelope("codeEditor.contextSnapshot", snapshot, {
-          source: "ioi-code-editor-adapter",
+          source: "hypervisor-vscode-extension",
           reason,
         });
       }
@@ -50,7 +50,7 @@ function startCodeEditorContextPublisher({
       if (targetHash !== lastTargetHash) {
         lastTargetHash = targetHash;
         await writeContextEnvelope("codeEditor.inspectionTargetIndex", targetIndex, {
-          source: "ioi-code-editor-adapter",
+          source: "hypervisor-vscode-extension",
           reason,
         });
       }

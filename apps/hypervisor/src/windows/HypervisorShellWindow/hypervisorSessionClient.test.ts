@@ -5,7 +5,7 @@ import {
   readHypervisorExecutionAuthorityChallenge,
   requestHypervisorSessionCreate,
   requestHypervisorSessionExecute,
-} from "./hypervisorSessionOperationsModel.ts";
+} from "../../domain/hypervisorSessionOperationsModel.ts";
 
 function fetchStub(handler: (url: string, init: { method?: string; body?: string }) => { ok?: boolean; status: number; text: string }) {
   return async (url: string, init: { method?: string; body?: string } = {}) => {

@@ -18,12 +18,12 @@ import { HypervisorNewSessionModal } from "./components/HypervisorNewSessionModa
 import {
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   type HypervisorModelMountInventorySnapshot,
-} from "./harnessAdapterModel";
+} from "../../domain/harnessAdapterModel";
 import { shouldAttemptHypervisorDaemonProjectionFetch } from "./hypervisorDaemonEndpoint";
 import {
   HYPERVISOR_MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
   loadHypervisorModelMountInventorySnapshot,
-} from "./modelMountInventoryModel";
+} from "../../domain/modelMountInventoryModel";
 import { useHypervisorShellController } from "./useHypervisorShellController";
 
 import "@ioi/hypervisor-workbench/dist/style.css";

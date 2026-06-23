@@ -6,7 +6,7 @@ import {
   HYPERVISOR_RIGHT_INSPECTOR_PANELS,
   HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL,
   HYPERVISOR_SESSION_DETAIL_TABS,
-} from "./hypervisorShellNavigationModel.ts";
+} from "../windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts";
 import {
   buildHypervisorSessionOperationProposal,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,

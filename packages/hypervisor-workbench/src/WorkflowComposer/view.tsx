@@ -463,7 +463,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
             <header>
               <div>
                 <strong>
-                  Default Agent Harness topology · {harnessGroupSummary.total}{" "}
+                  Default Harness Profile topology · {harnessGroupSummary.total}{" "}
                   group{harnessGroupSummary.total === 1 ? "" : "s"} ·{" "}
                   {nodes.length} component{nodes.length === 1 ? "" : "s"}
                 </strong>
@@ -561,7 +561,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               icon={GitCompare}
               testId="workflow-open-default-harness"
               onClick={handleOpenDefaultHarness}
-              title="Open the read-only Default Agent Harness graph"
+              title="Open the read-only Default Harness Profile graph"
             />
             <WorkflowHeaderAction
               label="New"
@@ -669,8 +669,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               disabled={!isBlessedHarnessWorkflow}
               title={
                 isBlessedHarnessWorkflow
-                  ? "Fork the Default Agent Harness into an editable package"
-                  : "Open the Default Agent Harness first"
+                  ? "Fork the Default Harness Profile into an editable package"
+                  : "Open the Default Harness Profile first"
               }
             />
             <WorkflowHeaderAction

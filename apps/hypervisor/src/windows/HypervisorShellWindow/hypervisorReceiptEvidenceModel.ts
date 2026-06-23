@@ -1,9 +1,9 @@
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   type HypervisorHarnessSessionTerminalAttach,
-} from "./harnessAdapterModel.ts";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel.ts";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
+} from "../../domain/harnessAdapterModel.ts";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../../domain/hypervisorProviderPlacementModel.ts";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../../domain/hypervisorSessionOperationsModel.ts";
 
 export type HypervisorReceiptEvidenceKind =
   | "session_lifecycle"

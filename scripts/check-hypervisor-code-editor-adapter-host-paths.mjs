@@ -49,7 +49,7 @@ function assertAdapterPackageManifest(filePath) {
   }
 
   const manifest = readJson(filePath);
-  if (manifest.name !== "ioi-code-editor-adapter") {
+  if (manifest.name !== "hypervisor-vscode-extension") {
     fail(`Packaged adapter manifest has unexpected name: ${manifest.name}`);
   }
   if (
@@ -80,7 +80,7 @@ if (HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.forkRoot !== absentForkRoot) {
 
 if (!existsSync(HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.extensionSource)) {
   fail(
-    `Canonical ioi-code-editor-adapter source is missing: ${HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.extensionSource}`,
+    `Canonical hypervisor-vscode-extension adapter source is missing: ${HYPERVISOR_CODE_EDITOR_ADAPTER_HOST.extensionSource}`,
   );
 }
 
@@ -114,7 +114,7 @@ const packagedManifest = join(
 );
 if (!existsSync(packagedExtension)) {
   fail(
-    `Packaged ioi-code-editor-adapter extension missing after sync: ${packagedExtension}`,
+    `Packaged hypervisor-vscode-extension extension missing after sync: ${packagedExtension}`,
   );
 }
 assertAdapterPackageManifest(packagedManifest);

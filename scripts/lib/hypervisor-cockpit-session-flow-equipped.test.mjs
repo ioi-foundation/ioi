@@ -22,7 +22,7 @@ import {
   readHypervisorExecutionAuthorityChallenge,
   requestHypervisorSessionCreate,
   requestHypervisorSessionExecute,
-} from "../../apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts";
+} from "../../apps/hypervisor/src/domain/hypervisorSessionOperationsModel.ts";
 import { mintApprovalGrant } from "./mint-approval-grant.mjs";
 import { startRustHypervisorDaemon } from "./rust-hypervisor-daemon.mjs";
 

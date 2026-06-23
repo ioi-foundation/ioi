@@ -2137,7 +2137,7 @@ export function evaluateWorkflowActivationReadiness(
   if (workflowIsBlessedHarness(workflow)) {
     addAdvisoryWarning({
       code: "harness_read_only_template",
-      message: "The Default Agent Harness is a read-only blessed template. Fork it before attempting activation changes.",
+      message: "The Default Harness Profile is a read-only blessed template. Fork it before attempting activation changes.",
     });
   }
   if (workflowIsHarnessFork(workflow)) {

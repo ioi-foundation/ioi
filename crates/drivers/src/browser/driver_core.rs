@@ -14,7 +14,7 @@ const BROWSER_LAUNCH_TIMEOUT_ENV: &str = "IOI_BROWSER_LAUNCH_TIMEOUT_MS";
 const BROWSER_REQUEST_TIMEOUT_ENV: &str = "IOI_BROWSER_REQUEST_TIMEOUT_MS";
 const BROWSER_PERSIST_PROFILE_ENV: &str = "IOI_BROWSER_PERSIST_PROFILE";
 const BROWSER_ENABLE_AUTOMATION_FLAG_ENV: &str = "IOI_BROWSER_ENABLE_AUTOMATION_FLAG";
-const PERSISTENT_PROFILE_DIR: &str = "./ioi-data/browser_profiles/persistent";
+const PERSISTENT_PROFILE_DIR: &str = ".ioi/browser/profiles/persistent";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
 const LAUNCH_RETRY_ATTEMPTS: usize = 3;
@@ -359,7 +359,7 @@ impl BrowserDriver {
         let path = if browser_persist_profile_enabled() {
             PathBuf::from(PERSISTENT_PROFILE_DIR)
         } else {
-            PathBuf::from("./ioi-data/browser_profiles").join(Uuid::new_v4().to_string())
+            PathBuf::from(".ioi/browser/profiles").join(Uuid::new_v4().to_string())
         };
         std::fs::create_dir_all(&path).map_err(|e| {
             BrowserError::Internal(format!("Failed to create browser profile dir: {}", e))
@@ -373,7 +373,7 @@ impl BrowserDriver {
                 let revision = Self::pinned_revision()?;
                 let expected_sha_from_env = Self::expected_binary_sha256()?;
 
-                let cache_path = PathBuf::from("./ioi-data/browser_cache");
+                let cache_path = PathBuf::from(".ioi/browser/cache");
                 std::fs::create_dir_all(&cache_path).map_err(|e| {
                     BrowserError::Internal(format!("Failed to create cache dir: {}", e))
                 })?;

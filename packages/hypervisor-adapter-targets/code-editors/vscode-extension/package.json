@@ -1,7 +1,7 @@
 {
-  "name": "ioi-code-editor-adapter",
-  "displayName": "IOI Code Adapter",
-  "description": "IOI-native code editor adapter for Hypervisor sessions.",
+  "name": "hypervisor-vscode-extension",
+  "displayName": "Hypervisor VS Code Adapter",
+  "description": "Hypervisor VS Code-family code editor adapter for Hypervisor sessions.",
   "version": "0.0.1",
   "publisher": "ioi",
   "engines": {

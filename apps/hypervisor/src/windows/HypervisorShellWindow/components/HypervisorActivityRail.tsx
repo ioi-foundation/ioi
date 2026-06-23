@@ -28,7 +28,7 @@ import {
   getHypervisorSurfaceIdForPrimaryView,
   type OperatorActivityRailItem,
   type OperatorSurfaceRoute,
-} from "../operatorSubstrateModel";
+} from "../../../domain/operatorSubstrateModel";
 import type { AssistantUserProfile } from "../../../types";
 
 interface HypervisorActivityRailProps {
@@ -711,10 +711,10 @@ export function HypervisorActivityRail({
 
       <div
         className="hypervisor-activity-group hypervisor-activity-group--pinned-apps"
-        aria-label="Pinned Applications"
+        aria-label="Applications"
         data-pinned-applications-rail="true"
       >
-        <div className="hypervisor-activity-section-label">Pinned Applications</div>
+        <div className="hypervisor-activity-section-label">Applications</div>
         {PINNED_APPLICATION_RAIL_ITEMS.map((item) => (
           <button
             type="button"

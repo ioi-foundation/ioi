@@ -1,9 +1,9 @@
-import type { PrimaryView } from "./hypervisorShellModel.ts";
+import type { PrimaryView } from "../windows/HypervisorShellWindow/hypervisorShellModel.ts";
 import {
   HYPERVISOR_PRIMARY_SURFACES,
   type HypervisorSurfaceId,
   type HypervisorSurfaceKind,
-} from "./hypervisorShellNavigationModel.ts";
+} from "../windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts";
 
 export type OperatorChromeMode =
   | "full"

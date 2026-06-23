@@ -2,8 +2,8 @@ import {
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   type HypervisorModelMountInventorySnapshot,
 } from "./harnessAdapterModel.ts";
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "./hypervisorPrivacyPostureModel.ts";
-import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "./hypervisorReceiptEvidenceModel.ts";
+import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts";
+import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
 
 export type HypervisorModelInfrastructureSource =

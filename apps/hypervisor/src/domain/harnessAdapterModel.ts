@@ -1318,7 +1318,7 @@ export function buildHarnessCompatibilityVerdict(
       state: modelMountAvailable ? "compatible" : "local_route_unavailable",
       summary: modelMountAvailable
         ? "Default Harness Profile can use the selected Hypervisor model mount."
-        : "Default Harness Profile needs a verified Hypervisor model route before local execution.",
+        : "Default Harness Profile needs a verified Hypervisor model mount before local execution.",
       requiresDaemonGate: true,
     };
   }

@@ -192,7 +192,7 @@ async fn async_main() -> anyhow::Result<()> {
         Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name.clone()));
 
     let data_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
-        .unwrap_or_else(|_| "./hypervisor-data".to_string());
+        .unwrap_or_else(|_| ".ioi/hypervisor/data".to_string());
     let _ = std::fs::create_dir_all(&data_dir);
     seed_default_state(&data_dir);
 

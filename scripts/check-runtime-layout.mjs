@@ -101,20 +101,20 @@ const codeEditorAdapterHostManifest = read(
   "code-editor-adapters/code-editor-adapter-host.manifest.json",
 );
 const codeEditorAdapterPackage = read(
-  "code-editor-adapters/ioi-code-editor-adapter/package.json",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension/package.json",
 );
 const codeEditorAdapterPackageJson = JSON.parse(codeEditorAdapterPackage);
 const codeEditorAdapterExtension = read(
-  "code-editor-adapters/ioi-code-editor-adapter/extension.js",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension/extension.js",
 );
 const codeEditorAdapterTransport = read(
-  "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension/transport/context-transport.js",
 );
 const codeEditorAdapterPublisher = read(
-  "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-publisher.js",
 );
 const codeEditorAdapterContextSnapshot = read(
-  "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-snapshot.js",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-snapshot.js",
 );
 const hypervisorDevStartIntentProbe = read(
   "apps/hypervisor/scripts/dev_start_intent_probe.py",
@@ -138,10 +138,10 @@ const codeEditorAdapterPreferencesSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
 );
 const hypervisorHarnessAdapterModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+  "apps/hypervisor/src/domain/harnessAdapterModel.ts",
 );
 const hypervisorModelMountInventoryModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
+  "apps/hypervisor/src/domain/modelMountInventoryModel.ts",
 );
 const hypervisorAutomationCompositorModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
@@ -154,16 +154,16 @@ const workflowComposerSupportSource = read(
 );
 const workflowComposerHarnessSource = `${workflowComposerControllerSource}\n${workflowComposerSupportSource}`;
 const hypervisorAgentsModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
+  "apps/hypervisor/src/domain/hypervisorAgentsModel.ts",
 );
 const hypervisorAgentsModelTestSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.test.ts",
+  "apps/hypervisor/src/domain/hypervisorAgentsModel.test.ts",
 );
 const hypervisorModelInfrastructureModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
+  "apps/hypervisor/src/domain/hypervisorModelInfrastructureModel.ts",
 );
 const hypervisorModelInfrastructureModelTestSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.test.ts",
+  "apps/hypervisor/src/domain/hypervisorModelInfrastructureModel.test.ts",
 );
 const hypervisorPrivacyPostureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts",
@@ -224,13 +224,13 @@ const hypervisorHomeCockpitModelSource = read(
   "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
 );
 const hypervisorSessionOperationsModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
+  "apps/hypervisor/src/domain/hypervisorSessionOperationsModel.ts",
 );
 const hypervisorProjectStateModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProjectStateModel.ts",
 );
 const hypervisorProviderPlacementModelSource = read(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
+  "apps/hypervisor/src/domain/hypervisorProviderPlacementModel.ts",
 );
 const authorityCenterTestSource = read(
   "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
@@ -898,7 +898,7 @@ assert(
 );
 assert(
   "code-editor-adapter-extension-only",
-  codeEditorAdapterPackageJson.name === "ioi-code-editor-adapter" &&
+  codeEditorAdapterPackageJson.name === "hypervisor-vscode-extension" &&
     Array.isArray(codeEditorAdapterPackageJson.activationEvents) &&
     codeEditorAdapterPackageJson.activationEvents.length === 1 &&
     codeEditorAdapterPackageJson.activationEvents[0] === "onStartupFinished" &&
@@ -912,11 +912,11 @@ assert(
     codeEditorAdapterContextSnapshot.includes("buildCodeEditorScmState") &&
     codeEditorAdapterContextSnapshot.includes("diagnostics"),
   [
-    "code-editor-adapters/ioi-code-editor-adapter/package.json",
-    "code-editor-adapters/ioi-code-editor-adapter/extension.js",
-    "code-editor-adapters/ioi-code-editor-adapter/transport/context-transport.js",
-    "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
-    "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-snapshot.js",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/package.json",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/extension.js",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/transport/context-transport.js",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-publisher.js",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-snapshot.js",
   ],
   "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, terminal/tasks/provider controls, and daemon model-mount state belong to Hypervisor sessions and the daemon.",
 );
@@ -924,18 +924,18 @@ assert(
   "code-editor-adapter-fork-sync-target-only",
   /code-editor-adapters\/vscode\/\n/.test(rootGitignore) &&
     /code-editor-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"adapterSource":\s*"code-editor-adapters\/ioi-code-editor-adapter"/.test(
+    /"adapterSource":\s*"packages\/hypervisor-adapter-targets\/code-editors\/vscode-extension"/.test(
       codeEditorAdapterHostManifest,
     ) &&
     /"optionalForRuntimeLaunch":\s*true/.test(codeEditorAdapterHostManifest) &&
     codeEditorAdaptersReadme.includes(
-      "code-editor-adapters/ioi-code-editor-adapter",
+      "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
     ) &&
     codeEditorAdaptersReadme.includes("target optional local VS Code source") &&
-    /const extensionSource = resolve\(\s*repoRoot,\s*"code-editor-adapters\/ioi-code-editor-adapter",\s*\);/.test(
+    /const extensionSource = resolve\(\s*repoRoot,\s*"packages\/hypervisor-adapter-targets\/code-editors\/vscode-extension",\s*\);/.test(
       codeEditorAdapterHostPaths,
     ) &&
-    /const forkCodeEditorTarget = resolve\(forkRoot, "extensions\/ioi-code-editor-adapter"\);/.test(
+    /const forkCodeEditorTarget = resolve\(forkRoot, "extensions\/hypervisor-vscode-extension"\);/.test(
       codeEditorAdapterHostPaths,
     ) &&
     /rmSync\(target\.path, \{ recursive: true, force: true \}\);\s*mkdirSync\(target\.path, \{ recursive: true \}\);\s*cpSync\(extensionSource, target\.path, \{ recursive: true, force: true \}\);/.test(
@@ -1409,7 +1409,7 @@ assert(
     !/Codex = Default Harness|Claude Code = Default Harness|external harness.*runtime truth/i.test(
       hypervisorHarnessAdapterModelSource,
   ),
-  ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
+  ["apps/hypervisor/src/domain/harnessAdapterModel.ts"],
   "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with first-session local-model bindings, public testbed custody, comparison receipts, and no runtime-truth shortcut.",
 );
 assert(
@@ -1462,7 +1462,7 @@ assert(
     ) &&
     hypervisorShellContentSource.includes("setComparison(nextComparison)"),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/domain/harnessAdapterModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
   ],
   "Foundry harness comparison must request the daemon public-fixture route, normalize daemon attempts into comparison rows, and never execute external harnesses locally.",
@@ -1634,7 +1634,7 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
+    "apps/hypervisor/src/domain/modelMountInventoryModel.ts",
   ],
   "New Session must emit a typed launch summary, admit the selected recipe through the daemon before harness binding, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
 );
@@ -1949,7 +1949,7 @@ assert(
       "runtime.lifecycle_projection.hypervisor_session_operations",
     ),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
+    "apps/hypervisor/src/domain/hypervisorSessionOperationsModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
@@ -2161,8 +2161,8 @@ assert(
       "runtime.lifecycle_projection.hypervisor_agents",
     ),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.test.ts",
+    "apps/hypervisor/src/domain/hypervisorAgentsModel.ts",
+    "apps/hypervisor/src/domain/hypervisorAgentsModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
@@ -2233,8 +2233,8 @@ assert(
       "runtime.lifecycle_projection.hypervisor_model_infrastructure",
     ),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.test.ts",
+    "apps/hypervisor/src/domain/hypervisorModelInfrastructureModel.ts",
+    "apps/hypervisor/src/domain/hypervisorModelInfrastructureModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
@@ -2293,7 +2293,7 @@ assert(
       "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
     ),
   [
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
+    "apps/hypervisor/src/domain/hypervisorProviderPlacementModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "docs/architecture/components/daemon-runtime/api.md",
   ],

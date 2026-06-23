@@ -39,13 +39,13 @@ const forkRoot = resolveEnvPath(
 );
 const extensionSource = resolve(
   repoRoot,
-  "code-editor-adapters/ioi-code-editor-adapter",
+  "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
 );
 const packagedCodeEditorTarget = resolve(
   packagedRoot,
-  "resources/app/extensions/ioi-code-editor-adapter",
+  "resources/app/extensions/hypervisor-vscode-extension",
 );
-const forkCodeEditorTarget = resolve(forkRoot, "extensions/ioi-code-editor-adapter");
+const forkCodeEditorTarget = resolve(forkRoot, "extensions/hypervisor-vscode-extension");
 const binary = process.env.HYPERVISOR_CODE_EDITOR_VSCODE_FORK_BIN
   ? resolve(process.env.HYPERVISOR_CODE_EDITOR_VSCODE_FORK_BIN)
   : resolve(packagedRoot, "bin/hypervisor");

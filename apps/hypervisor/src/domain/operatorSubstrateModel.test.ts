@@ -85,7 +85,7 @@ test("operator activity rail is a shell projection with deterministic surfaces",
 
 test("operator substrate code does not introduce runtime ownership", () => {
   const source = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/operatorSubstrateModel.ts",
+    "apps/hypervisor/src/domain/operatorSubstrateModel.ts",
     "utf8",
   );
 
@@ -183,7 +183,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
     "utf8",
   );
   const bundledExtension = readFileSync(
-    "code-editor-adapters/ioi-code-editor-adapter/extension.js",
+    "packages/hypervisor-adapter-targets/code-editors/vscode-extension/extension.js",
     "utf8",
   );
 

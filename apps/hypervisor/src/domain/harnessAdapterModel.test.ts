@@ -40,7 +40,7 @@ import {
   buildCodeEditorAdapterLaunchPlan,
   requestCodeEditorAdapterLaunchPlanAdmission,
   CodeEditorAdapterLaunchAdmissionError,
-} from "./hypervisorShellNavigationModel.ts";
+} from "../windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
   assert.equal(DEFAULT_HARNESS_PROFILE_OPTION.selection_kind, "harness_profile");
@@ -1607,7 +1607,7 @@ test("harness testbed fixture compares adapters without granting runtime truth",
 
 test("source text rejects external-harness-as-runtime shortcuts", () => {
   const source = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/domain/harnessAdapterModel.ts",
     "utf8",
   );
 
