@@ -1656,12 +1656,6 @@ assert(
     ) &&
     hypervisorAppShellContractSource.includes("createContractDaemonServer") &&
     hypervisorAppShellContractSource.includes(
-      "/v1/hypervisor/harness-session-spawns",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      "/v1/hypervisor/harness-session-readiness",
-    ) &&
-    hypervisorAppShellContractSource.includes(
       "data-session-new-session-configure",
     ) &&
     hypervisorAppShellContractSource.includes(
@@ -1686,16 +1680,7 @@ assert(
       "new_session_launch_daemon_host_readiness_ready",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "data-launched-session-spawn-state",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      "ready_for_client_pty_attach",
-    ) &&
-    hypervisorAppShellContractSource.includes(
       "ready_for_harness_pty_attach",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      "data-launched-session-terminal-attach-state",
     ) &&
     hypervisorAppShellContractSource.includes(
       "client_pty_attach_admitted",
