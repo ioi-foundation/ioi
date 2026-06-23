@@ -62,7 +62,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login"]);
 
 function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect: (key: string) => void }) {
   return (
@@ -430,8 +430,91 @@ function ScimContent() {
   );
 }
 
+function Toggle({ checked }: { checked?: boolean }) {
+  const state = checked ? "checked" : "unchecked";
+  return (
+    <div className="flex w-9 justify-center">
+      <button type="button" role="switch" aria-checked={checked ? "true" : "false"} data-state={state} disabled className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 disabled:cursor-default opacity-50 data-[state=checked]:bg-content-success">
+        <span data-state={state} className="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-5"><circle cx="12.5" cy="12.5" r="10" className="fill-[rgb(var(--ona-white))]" /></svg></span>
+      </button>
+    </div>
+  );
+}
+const GlobeGlyph = () => (
+  <svg className="text-content-primary" aria-hidden="true" width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14.25C18.6756 14.25 21.25 11.6756 21.25 8.5C21.25 5.32436 18.6756 2.75 15.5 2.75C12.3244 2.75 9.75 5.32436 9.75 8.5C9.75 8.98191 9.80928 9.44996 9.92095 9.89728L3.75 16.0682V20.2501H7.93182L9.25 18.9319V16.2501H11.9318L14.1028 14.0791C14.5501 14.1907 15.0181 14.25 15.5 14.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /><path d="M17.25 8.5C17.25 9.4665 16.4665 10.25 15.5 10.25C14.5335 10.25 13.75 9.4665 13.75 8.5C13.75 7.5335 14.5335 6.75 15.5 6.75C16.4665 6.75 17.25 7.5335 17.25 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
+);
+const GoogleGlyph = () => (
+  <svg className="size-6" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12C3 7.0374 7.0374 3 12 3C14.0043 3 15.9013 3.64483 17.4861 4.8648L15.3946 7.5816C14.4147 6.82731 13.2409 6.42857 12 6.42857C8.92791 6.42857 6.42857 8.92791 6.42857 12C6.42857 15.0721 8.92791 17.5714 12 17.5714C14.4743 17.5714 16.577 15.9503 17.3016 13.7143H12V10.2857H21V12C21 16.9626 16.9626 21 12 21C7.0374 21 3 16.9626 3 12Z" fill="currentColor" /></svg>
+);
+const GithubGlyph = () => (
+  <svg className="size-6" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M11.9732 3.18369C7.01125 3.18369 3 7.2245 3 12.2235C3 16.2195 5.57014 19.6021 9.13561 20.7993C9.58139 20.8893 9.74467 20.6047 9.74467 20.3654C9.74467 20.1558 9.72998 19.4375 9.72998 18.689C7.23386 19.2279 6.71406 17.6114 6.71406 17.6114C6.31292 16.5637 5.71855 16.2945 5.71855 16.2945C4.90157 15.7407 5.77806 15.7407 5.77806 15.7407C6.68431 15.8006 7.15984 16.6686 7.15984 16.6686C7.96194 18.0454 9.25445 17.6564 9.77443 17.4169C9.84863 16.8332 10.0865 16.4291 10.339 16.2047C8.3482 15.9951 6.25359 15.2169 6.25359 11.7445C6.25359 10.7567 6.60992 9.94856 7.17453 9.32003C7.08545 9.09558 6.77339 8.16748 7.2638 6.9253C7.2638 6.9253 8.02145 6.68579 9.7298 7.85322C10.4612 7.65534 11.2155 7.55468 11.9732 7.55383C12.7308 7.55383 13.5032 7.65871 14.2164 7.85322C15.9249 6.68579 16.6826 6.9253 16.6826 6.9253C17.173 8.16748 16.8607 9.09558 16.7717 9.32003C17.3511 9.94856 17.6928 10.7567 17.6928 11.7445C17.6928 15.2169 15.5982 15.98 13.5924 16.2047C13.9194 16.489 14.2015 17.0277 14.2015 17.8809C14.2015 19.0931 14.1868 20.066 14.1868 20.3652C14.1868 20.6047 14.3503 20.8893 14.7959 20.7994C18.3613 19.6019 20.9315 16.2195 20.9315 12.2235C20.9462 7.2245 16.9202 3.18369 11.9732 3.18369Z" fill="currentColor" /></svg>
+);
+const PlusCircle = () => (
+  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.3334 7.99996C14.3334 11.4978 11.4978 14.3333 8.00002 14.3333C4.50222 14.3333 1.66669 11.4978 1.66669 7.99996C1.66669 4.50216 4.50222 1.66663 8.00002 1.66663C11.4978 1.66663 14.3334 4.50216 14.3334 7.99996Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M8 5.17188V10.8287" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M10.8284 8H5.17157" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+const CARD = "rounded-xl border-border-base border-0.5 flex w-full max-w-[550px] flex-col gap-4 bg-surface-glass p-4";
+
+function LoginContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Login Configuration" />
+      <div className="flex w-full max-w-none flex-col" data-testid="login-and-security-page">
+        <div className="flex flex-col gap-6">
+          <div className="text-base text-content-secondary">Configure SSO for your organization.</div>
+          <div data-testid="free-tier-banner" className="flex items-center gap-2 rounded-lg text-base border px-3 shadow-sm bg-surface-banner-info-subtle text-content-info border-border-info justify-between py-4">
+            <div className="flex min-w-0 flex-1 gap-2 pr-2 items-start"><span className="flex h-[18px] shrink-0 items-center"><InfoIcon /></span><div data-testid="banner-text" className="min-w-0 [overflow-wrap:anywhere]">Upgrade to <a className="font-medium text-content-brand hover:underline" href="/settings/manage-organization">Enterprise tier</a> to manage login and security settings.</div></div>
+            <div className="flex shrink-0 items-center gap-2"><button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg bg-surface-button-clear hover:bg-surface-button-clear-accent border gap-2 px-4 py-2 h-9 text-base border-current text-inherit">Upgrade now</button></div>
+          </div>
+          <div className="flex w-full max-w-[550px] flex-col gap-6">
+            <div className="flex flex-col gap-4">
+              <h3 className="text-lg font-bold text-content-primary">Organization Login Link</h3>
+              <p className="text-base text-content-secondary">Share this link with members to login using supported methods.</p>
+              <div className="relative">
+                <div data-readonly="" className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input">
+                  <input className="flex h-full w-full max-w-[600px] text-base p-0 border-0 outline-none text-content-primary bg-transparent pr-12" readOnly disabled defaultValue="http://localhost:9228/login?inviteId=019eecd9-9789-72e8-893c-22a9baf94f41" />
+                </div>
+                <div className="absolute inset-y-0 right-2 flex items-center"><button type="button" className="select-none inline-flex items-center justify-center transition-colors border-0 bg-surface-button-clear hover:bg-surface-button-clear-accent gap-2 text-base h-6 rounded-lg p-1 text-content-tertiary hover:text-content-secondary" aria-label="Copy to clipboard"><CopyGlyph /></button></div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <h3 className="text-lg font-bold text-content-primary">Custom Domain</h3>
+              <div className={CARD}>
+                <div className="flex gap-4">
+                  <div className="flex w-11 items-center justify-center"><GlobeGlyph /></div>
+                  <div className="flex flex-1 flex-col gap-3"><div className="flex flex-col gap-1"><p className="text-base font-normal text-content-primary">Custom domain</p><span className="text-sm text-content-secondary">Set up a private, branded domain for your organization's Hypervisor deployment.</span></div></div>
+                  <div className="flex items-start"><button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap rounded-lg bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 gap-2 px-3 py-2 h-8 text-base" disabled><span className="truncate">Set up</span></button></div>
+                </div>
+              </div>
+              <div className={CARD}>
+                <div className="flex gap-4">
+                  <div className="flex w-11 items-center justify-center"><Toggle /></div>
+                  <div className="flex flex-1 flex-col gap-3"><div className="flex flex-col gap-1"><p className="text-base font-normal text-content-primary">Enforce custom domain at login</p><span className="text-sm text-content-secondary">Configure a custom domain first to enable enforcement</span></div></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <h3 className="text-lg font-bold text-content-primary">Login Methods</h3>
+              <div className={CARD}><div className="flex items-center gap-2"><div className="flex items-center"><Toggle checked /></div><GoogleGlyph /><p className="text-base font-normal text-content-primary">Google</p></div></div>
+              <div className={CARD}><div className="flex items-center gap-2"><div className="flex items-center"><Toggle /></div><GithubGlyph /><p className="text-base font-normal text-content-primary">GitHub</p></div></div>
+              <div className="flex flex-col gap-4 mt-4">
+                <div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-bold text-content-primary">Single Sign On</h3><div className="ml-auto"><button type="button" className={BTN_SECONDARY.replace("px-4 py-2 h-9", "px-3 py-2 h-8")} disabled><PlusCircle /><span className="truncate">New SSO</span></button></div></div>
+                <div className="rounded-xl border-border-base border-0.5 flex w-full flex-col gap-2 bg-surface-glass p-4"><p className="text-base text-content-primary">No custom SSO configurations yet.</p><p className="text-sm text-content-secondary">Create an SSO configuration to restrict access based on email domain.</p></div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-2"><h4 className="text-base font-bold text-content-primary">Login Domains</h4><div className="ml-auto"><button type="button" className={BTN_SECONDARY.replace("px-4 py-2 h-9", "px-3 py-2 h-8")} disabled><PlusCircle /><span className="truncate">New domain</span></button></div></div>
+                  <div className="rounded-xl border-border-base border-0.5 flex flex-col gap-2 bg-surface-glass p-4"><p className="text-base text-content-primary">No email domains yet.</p><p className="text-sm text-content-secondary">Add an email domain to control who can sign in with SSO.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
+    case "login": return <LoginContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
