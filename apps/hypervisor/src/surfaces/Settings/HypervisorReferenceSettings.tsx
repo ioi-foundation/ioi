@@ -65,7 +65,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies", "org-integrations"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies", "org-integrations", "environments"]);
 
 // Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
 // scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
@@ -746,6 +746,70 @@ function IntegrationsContent() {
   );
 }
 
+const ENVIRONMENTS = [
+  { id: "019ee1b5-0cdd-72af-81e4-327345446648", project: "From scratch", created: "Jun 19", createdLong: "June 19", lastStarted: "Jun 20", lastStartedLong: "June 20", phase: "Auto-stopped" },
+  { id: "019ee101-d37f-7537-bd92-2eeca49b6532", project: "ioi", created: "Jun 19", createdLong: "June 19", lastStarted: "Jun 20", lastStartedLong: "June 20", phase: "Auto-stopped" },
+  { id: "019ed139-ddf8-7c5d-a655-2a2a04a0eee6", project: "From scratch", created: "Jun 16", createdLong: "June 16", lastStarted: "Jun 19", lastStartedLong: "June 19", phase: "Auto-stopped" },
+  { id: "019ed128-a3fd-7433-8cc3-99afed4a8ac4", project: "From scratch", created: "Jun 16", createdLong: "June 16", lastStarted: "Jun 16", lastStartedLong: "June 16", phase: "Auto-stopped" },
+  { id: "019ed124-ebcf-734a-87b7-4014d206be51", project: "From scratch", created: "Jun 16", createdLong: "June 16", lastStarted: "Jun 16", lastStartedLong: "June 16", phase: "Stopped" },
+];
+const ENV_FILTERS = ["All projects", "All members", "All runners", "All phases"];
+const TH_STICKY = "px-4 py-3.5 h-11 text-base font-bold text-content-primary outline-none sticky -top-6 z-10 bg-surface-primary pt-6 shadow-[0_2px_0_0_var(--color-border-base)]";
+const TD = "px-4 py-3.5 whitespace-nowrap text-base outline-none";
+const ENV_CHECKBOX = "size-4 rounded border pointer-coarse:size-5 cursor-pointer accent-content-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-border-brand focus-visible:ring-offset-1";
+
+function PhaseTag({ phase }: { phase: string }) {
+  return (
+    <div className="max-w-[140px]"><span className="inline-flex items-center gap-0.5"><span className="inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-muted text-content-strong px-2 py-1 text-sm"><div className="inline-flex h-4 flex-row items-center gap-2 rounded-full text-sm"><div className="size-2 rounded-full bg-content-tertiary" /></div><span className="truncate">{phase}</span></span>
+      {phase === "Auto-stopped" ? <button type="button" aria-haspopup="dialog" className="inline-flex items-center rounded p-0.5 text-current hover:bg-surface-hover"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down"><path d="m6 9 6 6 6-6" /></svg></button> : null}
+    </span></div>
+  );
+}
+
+function EnvironmentsContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Environments" />
+      <div className="flex h-full flex-col">
+        <div className="text-base">Inventory of running and stopped environments in your organization.</div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 pt-4">
+          {ENV_FILTERS.map((f) => (
+            <button key={f} type="button" aria-label={f} aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none"><span className="truncate"><span className="truncate text-base text-content-primary">{f}</span></span><SelectChevron /></button>
+          ))}
+        </div>
+        <div className="flex flex-grow flex-col pt-4"><div className="@container"><div className="relative w-full overflow-x-auto">
+          <table aria-label="Environment inventory" className="w-full text-left text-base">
+            <thead><tr className="relative border-b border-border-base">
+              <th className="py-4 pl-4 pr-2 h-11 w-10 overflow-visible sticky -top-6 z-10 bg-surface-primary pt-6 shadow-[0_2px_0_0_var(--color-border-base)]"><div className="flex items-center gap-2"><input aria-label="Select All" type="checkbox" className={ENV_CHECKBOX} /></div></th>
+              <th className={`${TH_STICKY} max-w-[280px]`}><span className="flex items-center gap-1">Project</span></th>
+              <th className={`${TH_STICKY} max-w-[200px]`}><span className="flex items-center gap-1">Member</span></th>
+              <th className={TH_STICKY}><span className="flex items-center gap-1">Runner</span></th>
+              <th className={TH_STICKY}><span className="flex items-center gap-1">Created</span></th>
+              <th className={TH_STICKY}><span className="flex items-center gap-1">Last started</span></th>
+              <th className={TH_STICKY}><span className="flex items-center gap-1">Phase</span></th>
+              <th className={TH_STICKY}><span className="flex items-center gap-1" /></th>
+            </tr></thead>
+            <tbody>
+              {ENVIRONMENTS.map((e) => (
+                <tr key={e.id} className="group border-b border-border-base last:border-b-0 border-l-2 outline-none hover:bg-muted/5 border-l-transparent [&>td]:cursor-auto">
+                  <td className="py-2.5 pl-4 pr-2 w-10"><div className="flex items-center gap-2"><input aria-label="Select" type="checkbox" className={ENV_CHECKBOX} /></div></td>
+                  <td className={`${TD} max-w-[280px]`}><p className="text-content-primary block truncate text-base" title={e.project}>{e.project}</p></td>
+                  <td className={`${TD} max-w-[200px]`}><div className="inline-flex grow items-center gap-2 overflow-hidden"><span data-slot="avatar" className="relative flex overflow-hidden rounded-full size-8 shrink-0"><img className="aspect-square size-full object-cover" referrerPolicy="no-referrer" loading="lazy" alt="Levi Josman's avatar" src={AVATAR_SRC} /></span><p className="text-content-primary truncate text-base" title="Levi Josman">Levi Josman</p></div></td>
+                  <td className={TD}><p className="text-content-primary text-base">Hypervisor Cloud (US01)</p></td>
+                  <td className={TD}><div className="flex items-center gap-1"><p className="text-content-primary truncate text-base"><span className="@[1650px]:hidden">{e.created}</span><span className="hidden @[1650px]:inline">{e.createdLong}</span></p></div></td>
+                  <td className={TD}><p className="text-content-primary truncate text-base"><span className="@[1650px]:hidden">{e.lastStarted}</span><span className="hidden @[1650px]:inline">{e.lastStartedLong}</span></p></td>
+                  <td className={TD}><div><PhaseTag phase={e.phase} /></div></td>
+                  <td className={TD}><span className="flex justify-end"><button type="button" className="select-none items-center font-medium justify-center whitespace-nowrap transition-colors border-0 text-content-primary hover:text-content-accent gap-2 h-9 text-base flex rounded-md bg-transparent p-1 hover:bg-surface-hover" aria-label="More actions"><DotsBig /></button></span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div></div></div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
@@ -753,6 +817,7 @@ function SettingsContent({ section }: { section: string }) {
     case "members": return <MembersContent />;
     case "agent-policies": return <AgentPoliciesContent />;
     case "org-integrations": return <IntegrationsContent />;
+    case "environments": return <EnvironmentsContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
