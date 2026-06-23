@@ -62,7 +62,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim"]);
 
 function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect: (key: string) => void }) {
   return (
@@ -351,6 +351,85 @@ function RunnersContent() {
   );
 }
 
+function BillingContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Billing" />
+      <div className="flex max-w-[820px] flex-col gap-6">
+        <div className="text-base text-content-secondary">Manage usage and billing details</div>
+        <div className="rounded-xl border-border-base border-0.5 space-y-2 bg-surface-glass p-6">
+          <h2 className="mb-4 text-lg font-semibold text-content-primary">Plan</h2>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-1"><span className="text-base font-medium text-content-primary">Core plan</span><p className="text-base font-medium text-content-secondary"> · $20/month</p><span className="inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-muted text-content-strong px-1.5 py-0.5 text-xs"><span>Cancelled</span></span></div>
+              <p className="text-sm text-content-secondary">Remains till Jul 16, 2026</p>
+            </div>
+            <div className="flex flex-wrap gap-2"><button type="button" className={`${BTN_PRIMARY} w-fit`}><span className="truncate">Manage</span></button></div>
+          </div>
+        </div>
+        <div className="rounded-xl border-border-base border-0.5 bg-surface-glass p-6">
+          <div className="mb-6"><h2 className="flex flex-row items-center text-lg font-semibold text-content-primary">Hypervisor Compute Units</h2><p className="text-sm text-content-secondary">Hypervisor Compute Units (OCUs) represent credits that are used for environment runtime and agent sessions. <a className="inline-flex items-center gap-1 text-content-link underline" target="_blank" rel="noreferrer" href="https://ona.com/pricing">Learn more</a></p></div>
+          <div className="mb-6 flex flex-wrap gap-x-8 gap-y-4">
+            <div className="flex-grow"><p className="mb-1 text-sm text-content-secondary">Total Purchased</p><p className="text-2xl font-semibold text-content-primary">120<span className="pl-2 text-md text-content-secondary">($30.00)</span></p></div>
+            <div className="flex-grow"><p className="mb-1 text-sm text-content-secondary">Available</p><p className="text-2xl font-semibold text-content-primary">89.6</p></div>
+            <div className="flex-grow"><p className="mb-1 text-sm text-content-secondary">Used</p><p className="text-2xl font-semibold text-content-primary">30.4</p></div>
+          </div>
+          <div className="mb-6"><div className="h-4 w-full rounded-full border border-surface-04 bg-surface-glass p-0.5"><div className="h-full overflow-hidden rounded-full bg-surface-glass"><div className="h-full rounded-full bg-gradient-to-r from-orange-100 to-orange-300 transition-all duration-300" style={{ width: "75%" }} /></div></div></div>
+          <div className="flex flex-col gap-2">
+            <div data-testid="banner" className="flex items-center gap-2 rounded-lg text-base border px-3 py-2 shadow-sm bg-surface-banner-info-subtle text-content-info border-border-info justify-between">
+              <div className="flex min-w-0 flex-1 gap-2 pr-2 items-start"><span className="flex h-[18px] shrink-0 items-center"><InfoIcon /></span><div data-testid="banner-text" className="min-w-0 [overflow-wrap:anywhere]">Need more OCUs? Add credits any time.</div></div>
+              <div className="flex shrink-0 items-center gap-2"><button type="button" className={BTN_PRIMARY}>Add Credits</button></div>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border-border-base border-0.5 bg-surface-glass p-6">
+          <div className="mb-6"><h2 className="text-lg font-semibold text-content-primary">Auto Top-up</h2><p className="text-sm text-content-secondary">Automatically add credits when your balance drops below 20 OCUs.</p></div>
+          <div className="flex flex-col gap-6"><div className="flex items-center gap-4">
+            <div className="flex w-9 justify-center"><button type="button" role="switch" aria-checked="false" data-state="unchecked" aria-label="Enable auto top-up" className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 data-[state=checked]:bg-content-success"><span data-state="unchecked" className="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-5"><circle cx="12.5" cy="12.5" r="10" className="fill-[rgb(var(--ona-white))]" /></svg></span></button></div>
+            <label className="cursor-pointer font-medium text-content-primary" htmlFor="auto-topup-toggle">Enable auto top-up</label>
+          </div></div>
+        </div>
+        <div className="rounded-xl border-border-base border-0.5 flex flex-col gap-6 bg-surface-glass p-6">
+          <div><h2 className="text-lg font-semibold text-content-primary">Billing </h2><p className="text-sm text-content-secondary">View payment history, download invoices, update payment methods, and modify VAT information.</p></div>
+          <div className="flex items-center justify-between"><button type="button" className={BTN_PRIMARY}><span className="truncate">Access billing portal</span><svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.66667 3H7.07273C5.64714 3 4.93434 3 4.38984 3.27744C3.91088 3.52148 3.52148 3.91088 3.27744 4.38984C3 4.93434 3 5.64714 3 7.07273V12.9273C3 14.3529 3 15.0656 3.27744 15.6102C3.52148 16.0892 3.91088 16.4785 4.38984 16.7225C4.93434 17 5.64714 17 7.07273 17H12.9273C14.3529 17 15.0656 17 15.6102 16.7225C16.0892 16.4785 16.4785 16.0892 16.7225 15.6102C17 15.0656 17 14.3529 17 12.9273V12.3333M11.4848 3H17M17 3V8.51515M17 3L9.15152 10.8485" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button></div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
+const SCIM_TAB = "inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary";
+
+function ScimContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="SCIM" />
+      <div className="flex w-full max-w-none flex-col gap-6" data-testid="scim-page">
+        <div className="text-base text-content-secondary">Manage SCIM provisioning for your organization.</div>
+        <div data-testid="free-tier-banner" className="flex items-center gap-2 rounded-lg text-base border px-3 shadow-sm bg-surface-banner-info-subtle text-content-info border-border-info justify-between py-4">
+          <div className="flex min-w-0 flex-1 gap-2 pr-2 items-start"><span className="flex h-[18px] shrink-0 items-center"><InfoIcon /></span><div data-testid="banner-text" className="min-w-0 [overflow-wrap:anywhere]">Upgrade to <a className="font-medium text-content-brand hover:underline" href="/settings/manage-organization">Enterprise tier</a> to manage SCIM provisioning settings.</div></div>
+          <div className="flex shrink-0 items-center gap-2"><button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg bg-surface-button-clear hover:bg-surface-button-clear-accent border gap-2 px-4 py-2 h-9 text-base border-current text-inherit">Upgrade now</button></div>
+        </div>
+        <div dir="ltr" data-orientation="horizontal" className="@container flex w-full flex-col gap-6">
+          <div role="tablist" aria-orientation="horizontal" className="scrollbar-hide flex min-h-9 flex-col justify-stretch gap-0.5 overflow-x-auto rounded-lg border border-transparent bg-surface-button-tab-base p-[3px] @md:flex-row @md:justify-between dark:border-border-subtle w-fit" tabIndex={0}>
+            <button type="button" role="tab" aria-selected="true" data-state="active" className={SCIM_TAB}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.3334 8.33333V3H1.66669V13.6667H8.33335" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M9.33331 9.33325L14.3333 10.8717L12.0256 12.0256L10.8718 14.3333L9.33331 9.33325Z" stroke="currentColor" strokeWidth="1.07143" strokeLinecap="round" strokeLinejoin="round" /></svg><span className="truncate">Configuration</span></button>
+            <button type="button" role="tab" aria-selected="false" data-state="inactive" className={SCIM_TAB}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.66667 1.66675H3V14.3334H13V6.00008M8.66667 1.66675L13 6.00008M8.66667 1.66675V6.00008H13M5.66667 9.00008H8.33333M5.66667 11.6667H10.3333" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg><span className="truncate">Operations Log</span></button>
+          </div>
+          <div role="tabpanel" className="flex w-full flex-col gap-6">
+            <div className="flex w-full max-w-[550px] flex-col gap-6"><div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1"><h3 className="text-lg font-bold text-content-primary">SCIM Provisioning</h3><p className="text-base text-content-secondary">Automatically manage users and groups from your identity provider.</p></div>
+              <div className="rounded-xl border-border-base border-0.5 flex flex-col items-start gap-4 bg-surface-glass p-6 text-left">
+                <div className="flex flex-col gap-1"><p className="text-base font-medium text-content-primary">SCIM is not currently configured</p><p className="text-base text-content-secondary">Connect your identity provider to automatically create and manage users and groups.</p></div>
+                <button type="button" className={BTN_PRIMARY} disabled><span className="truncate">Set up now</span></button>
+              </div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "terms-of-service": return <TermsContent />;
@@ -358,6 +437,8 @@ function SettingsContent({ section }: { section: string }) {
     case "agent-skills": return <SkillsContent />;
     case "security/oidc": return <OidcContent />;
     case "runners": return <RunnersContent />;
+    case "billing": return <BillingContent />;
+    case "scim": return <ScimContent />;
     default: return <GeneralContent />;
   }
 }
