@@ -39,6 +39,7 @@ import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
 import { HypervisorReferenceShell } from "./surfaces/Home/HypervisorReferenceShell";
 import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorReferenceProjects";
+import { HypervisorReferenceAutomations } from "./surfaces/Automations/HypervisorReferenceAutomations";
 import type { PrimaryView } from "./windows/HypervisorShellWindow/hypervisorShellModel";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 
@@ -49,6 +50,7 @@ applyHypervisorAppearance(loadHypervisorAppearance());
 const PARITY_ROUTES: Partial<Record<PrimaryView, string>> = {
   home: "/parity-home",
   projects: "/parity-projects",
+  automations: "/parity-automations",
 };
 function ParityShellRoute({ view, children }: { view: PrimaryView; children: ReactNode }) {
   const navigate = useNavigate();
@@ -111,6 +113,7 @@ function renderHypervisorApp() {
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
           <Route path="/parity-home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
           <Route path="/parity-projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
+          <Route path="/parity-automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
           {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
             <Route key={path} path={path} element={<HypervisorShellWindow />} />
           ))}

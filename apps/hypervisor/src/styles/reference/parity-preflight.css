@@ -4,6 +4,15 @@
    non-breaking for the live app; without these resets ported surfaces inherit UA
    defaults (blue underlined anchors, heading/paragraph margins) and drift from
    :9228. `:where()` keeps specificity at 0 so reference utilities still win. */
+/* Core preflight border reset: the reference bundle sets
+   `*,:before,:after{border:0 solid #e5e7eb}`, which is what makes `border`
+   utilities (width only) actually render. Stripped from the vendored subset, so
+   re-add it — :where() keeps specificity 0 so `border-*` color/width utilities win. */
+.ona :where(*, ::before, ::after) {
+  border-width: 0;
+  border-style: solid;
+  border-color: #e5e7eb;
+}
 .ona a {
   color: inherit;
   text-decoration: inherit;
