@@ -65,7 +65,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies"]);
 
 // Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
 // scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
@@ -437,11 +437,11 @@ function ScimContent() {
   );
 }
 
-function Toggle({ checked }: { checked?: boolean }) {
+function Toggle({ checked, disabled = true }: { checked?: boolean; disabled?: boolean }) {
   const state = checked ? "checked" : "unchecked";
   return (
     <div className="flex w-9 justify-center">
-      <button type="button" role="switch" aria-checked={checked ? "true" : "false"} data-state={state} disabled className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 disabled:cursor-default opacity-50 data-[state=checked]:bg-content-success">
+      <button type="button" role="switch" aria-checked={checked ? "true" : "false"} data-state={state} disabled={disabled} className={`h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 ${disabled ? "disabled:cursor-default opacity-50" : ""} data-[state=checked]:bg-content-success`}>
         <span data-state={state} className="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-5"><circle cx="12.5" cy="12.5" r="10" className="fill-[rgb(var(--ona-white))]" /></svg></span>
       </button>
     </div>
@@ -610,11 +610,91 @@ function MembersContent() {
   );
 }
 
+const HelpIcon = () => (
+  <button type="button" className="select-none inline-flex items-center justify-center rounded-lg bg-surface-button-clear hover:bg-surface-button-clear-accent gap-2 text-sm aspect-square p-0 size-5 shrink-0 text-content-tertiary hover:text-content-secondary" aria-label="About"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M8 13.6875C11.1412 13.6875 13.6875 11.1412 13.6875 8C13.6875 4.85888 11.1412 2.3125 8 2.3125C4.85888 2.3125 2.3125 4.85888 2.3125 8C2.3125 11.1412 4.85888 13.6875 8 13.6875ZM8 15C11.866 15 15 11.866 15 8C15 4.134 11.866 1 8 1C4.134 1 1 4.134 1 8C1 11.866 4.134 15 8 15ZM6.46875 7.125H7.125H7.78124C8.26449 7.125 8.65624 7.51676 8.65624 8V11.0625V11.7188H7.34374V11.0625V8.4375H7.125H6.46875V7.125ZM8 6.25C8.48325 6.25 8.875 5.85824 8.875 5.375C8.875 4.89176 8.48325 4.5 8 4.5C7.51676 4.5 7.125 4.89176 7.125 5.375C7.125 5.85824 7.51676 6.25 8 6.25Z" fill="currentColor" /></svg></button>
+);
+const HexAgent = () => (
+  <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="text-content-strong"><path d="M30.9471 9.86238C31.588 10.5033 32 11.3731 32 12.3803V20.6664C32 21.6735 31.588 22.5434 30.9471 23.1843L22.6609 31.4704C22.02 32.1571 21.1044 32.5233 20.1431 32.5233H11.8569C10.8498 32.5233 9.97997 32.1571 9.29328 31.4704L1.00715 23.1843C0.366237 22.5434 0 21.6735 0 20.6664V12.3803C0 11.3731 0.366237 10.5033 1.00715 9.8166L9.29328 1.53047C9.97997 0.889556 10.8498 0.477539 11.8569 0.477539H20.1431C21.1044 0.477539 22.02 0.889557 22.6609 1.57625L30.9471 9.86238ZM24.4101 21.3626V11.6841C24.4101 9.71554 22.8078 8.06747 20.8393 8.06747H11.1607C9.14644 8.06747 7.54415 9.71554 7.54415 11.6841V21.3626C7.54415 23.3311 9.14644 24.9334 11.1607 24.9334H20.8393C22.8078 24.9334 24.4101 23.3311 24.4101 21.3626Z" /></svg>
+);
+const OpenAIGlyph = () => (
+  <svg className="size-4" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364l2.0201-1.1638a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.4114-.6878zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0974-2.3616l2.603-1.506 2.6029 1.506v3.012l-2.6029 1.506-2.603-1.506z" fill="currentColor" /></svg>
+);
+const AGENT_PILL = "inline-flex h-9 select-none items-center gap-2 whitespace-nowrap rounded-xl border-0.5 border-border-base bg-surface-primary p-2 px-4 pb-[6.5px] pt-[5.5px] text-base font-medium";
+const CAP_CARD = "flex flex-col gap-3 rounded-lg border border-border-subtle px-5 py-4";
+
+function CapabilityCard({ label, desc, children }: { label: string; desc: string; children?: React.ReactNode }) {
+  const id = `cap-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  return (
+    <div className={CAP_CARD}>
+      <div className="flex gap-4">
+        <Toggle checked disabled={false} />
+        <div className="flex flex-col"><label className="cursor-pointer text-base text-content-primary" htmlFor={id}>{label}</label><p className="text-sm text-content-secondary">{desc}</p></div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AgentPoliciesContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Policies" />
+      <div className="flex max-w-[46rem] flex-col gap-4">
+        <div className="flex flex-col gap-4" data-testid="agent-policies-section">
+          <p className="text-base text-content-secondary">Configure security policies and restrictions for AI agents in your organization.</p>
+          <div className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold">Agents</h2>
+            <div className="flex flex-col gap-4 rounded-lg border border-border-subtle px-5 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1.5"><h3 className="text-lg font-bold text-content-primary">Available agents</h3><HelpIcon /></div>
+                <button type="button" className={BTN_SECONDARY.replace("px-4 py-2 h-9", "px-3 py-2 h-8")}><span className="truncate">Manage</span></button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className={AGENT_PILL}><span className="flex size-[20px] items-center justify-center"><HexAgent /></span><span>Hypervisor</span></div>
+                <div className={AGENT_PILL}><span className="flex size-[20px] items-center justify-center"><OpenAIGlyph /></span><span>Codex</span></div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-5 rounded-lg border border-border-subtle px-5 py-4">
+              <div className="flex items-center justify-between gap-4"><div className="flex flex-col gap-1"><h3 className="text-lg font-bold text-content-primary">Codex settings</h3><p className="text-sm text-content-secondary">Manage the Codex models, reasoning effort, and service tier available to members.</p></div></div>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between"><label className="font-normal text-content-primary text-sm">Available models</label><button type="button" className={BTN_SECONDARY.replace("px-4 py-2 h-9", "px-3 py-2 h-8")}><span className="truncate">Manage</span></button></div>
+                <div className="flex flex-wrap gap-2"><div className={AGENT_PILL}>GPT-5.5</div><div className={AGENT_PILL}>GPT-5.4</div><div className={AGENT_PILL}>GPT-5.4 Mini</div></div>
+              </div>
+              <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest reasoning effort</label><HelpIcon /></div><div className="relative w-full max-w-64"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Extra high</span></span><SelectChevron /></button></div></div>
+                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest service tier</label><HelpIcon /></div><div className="relative w-full max-w-64"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Fast</span></span><SelectChevron /></button></div></div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold">Agent capabilities</h2>
+            <CapabilityCard label="Model Context Protocol (MCP)" desc="Allow agents to use MCP servers for extended functionality" />
+            <div className={CAP_CARD}>
+              <div className="flex gap-4"><Toggle checked disabled={false} /><div className="flex flex-col"><label className="cursor-pointer text-base text-content-primary">SCM Tools</label><p className="text-sm text-content-secondary">Allow agents to interact with source control management systems (GitHub, GitLab, etc.)</p></div></div>
+              <div className="ml-12 flex flex-col gap-2"><label className="font-normal text-content-primary text-sm">Restrict access to</label><button type="button" aria-label="Search" aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-fit max-w-80"><span className="truncate"><span className="truncate text-base text-content-primary flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded bg-surface-tertiary text-xs">∞</span><span>All</span></span></span><SelectChevron /></button></div>
+            </div>
+            <CapabilityCard label="Conversation sharing" desc="Allow users to share agent conversation transcripts with other members of the organization." />
+          </div>
+          <div className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold">Command deny list</h2>
+            <div className="flex flex-col gap-3 rounded-lg border border-border-subtle px-5 py-4">
+              <p className="text-sm text-content-secondary">Enter commands or patterns that should be blocked (one per line).</p>
+              <textarea aria-label="Command deny list" placeholder={"rm -rf\nsudo\ncurl\nwget"} className="p-0 outline-none placeholder:text-content-muted text-content-primary flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-border-light bg-surface-input h-auto max-w-full resize-none overflow-y-auto font-mono text-sm" style={{ minHeight: "122px", maxHeight: "400px", height: "122px" }} />
+            </div>
+          </div>
+          <div className="flex gap-2"><button type="button" className={BTN_PRIMARY} disabled><span className="truncate">Save changes</span></button></div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
     case "credit-usage": return <CreditUsageContent />;
     case "members": return <MembersContent />;
+    case "agent-policies": return <AgentPoliciesContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
