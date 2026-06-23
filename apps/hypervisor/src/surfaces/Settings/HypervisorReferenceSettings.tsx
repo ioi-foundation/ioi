@@ -65,7 +65,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies", "org-integrations", "environments"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies", "org-integrations", "environments", "policies"]);
 
 // Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
 // scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
@@ -810,6 +810,85 @@ function EnvironmentsContent() {
   );
 }
 
+const POLICY_EDITORS = ["VS Code", "VS Code Insiders", "Cursor", "Windsurf", "Devin", "VS Code Browser", "IntelliJ IDEA Ultimate", "GoLand", "PyCharm Professional", "PhpStorm", "RubyMine", "WebStorm", "CLion", "RustRover", "Rider"];
+const EditorPill = ({ name, def }: { name: string; def?: boolean }) => (
+  <div className={`inline-flex h-9 select-none items-center gap-2 whitespace-nowrap rounded-xl border-0.5 bg-surface-primary p-2 px-4 pb-[6.5px] pt-[5.5px] text-base font-medium ${def ? "border-border-brand" : "border-border-base"}`}>
+    <span aria-hidden="true"><svg className="size-[20px]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" xmlns="http://www.w3.org/2000/svg"><rect x="2.75" y="4.75" width="18.5" height="14.5" rx="2" /><path d="M9 9l-2 3 2 3M15 9l2 3-2 3" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+    <span>{name}</span>
+    {def ? <span className="rounded-md bg-surface-secondary px-2 py-0.5 text-xs text-content-secondary">default</span> : null}
+  </div>
+);
+const POL_CARD = "flex flex-col gap-3 rounded-lg border border-border-subtle px-5 py-4";
+const SelectTrigger = ({ value, wide }: { value: string; wide?: boolean }) => (
+  <div className={`relative w-full ${wide ? "max-w-lg" : "max-w-64"}`}><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><div className="flex w-full items-center justify-between">{value}</div></span><SelectChevron /></button></div>
+);
+function PolicyTitleCard({ title, desc, children }: { title: string; desc: string; children?: React.ReactNode }) {
+  return (
+    <div className={POL_CARD}>
+      <div className="flex flex-col gap-0.5"><h3 className="font-bold text-content-primary text-base">{title}</h3><p className="text-sm text-content-secondary">{desc}</p></div>
+      {children}
+    </div>
+  );
+}
+function PolicyToggleCard({ label, desc, checked, children }: { label: string; desc?: string; checked?: boolean; children?: React.ReactNode }) {
+  return (
+    <div className={POL_CARD}>
+      <div className="flex gap-4"><Toggle checked={checked} disabled={false} /><div className="flex flex-col"><label className="cursor-pointer text-base text-content-primary">{label}</label>{desc ? <p className="text-sm text-content-secondary">{desc}</p> : null}</div></div>
+      {children}
+    </div>
+  );
+}
+const NUM_INPUT = "flex items-center gap-2 h-9 w-full max-w-64 px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input";
+
+function PoliciesContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Policies" />
+      <div className="flex flex-col gap-6">
+        <p className="text-base text-content-secondary">Configure organization-wide policies.</p>
+        <EnterpriseBanner>Upgrade to <a className="font-medium text-content-brand hover:underline" href="/settings/manage-organization">Enterprise tier</a> to manage policies and unlock more features.</EnterpriseBanner>
+
+        <div className="flex flex-col gap-4 rounded-lg border border-border-subtle px-5 py-4">
+          <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-content-primary">Available editors</h3><button type="button" className={BTN_SECONDARY.replace("px-4 py-2 h-9", "px-3 py-2 h-8")} disabled><span className="truncate">Manage</span></button></div>
+          <div className="flex flex-wrap gap-2">{POLICY_EDITORS.map((e, i) => <EditorPill key={e} name={e} def={i === 0} />)}</div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Environment policies</h2>
+          <PolicyTitleCard title="Maximum environment inactivity timeout" desc="Limit the maximum length of time that an environment can be in a running state without explicit user input"><SelectTrigger value="No max timeout" wide /></PolicyTitleCard>
+          <PolicyTitleCard title="Maximum environment lifetime" desc="Sets the default maximum age for new environments. Environments past this limit become non-compliant. Users receive a warning, and restarting non-compliant environments may be restricted by policy. Existing environments are not affected. Learn more">
+            <SelectTrigger value="No maximum lifetime" wide />
+            <div className="flex gap-4 pt-1"><Toggle disabled={false} /><div className="flex flex-col"><label className="cursor-pointer text-base text-content-primary">Strict enforcement</label><p className="text-sm text-content-secondary">Restricts starting environments past their set lifetime. Users see a warning but can still restart non-compliant environments.</p></div></div>
+          </PolicyTitleCard>
+          <PolicyTitleCard title="Auto-delete archived environments" desc="Controls the maximum time an environment stays archived, before deletion."><SelectTrigger value="2 weeks" wide /></PolicyTitleCard>
+          <PolicyTitleCard title="Maximum total environments" desc="Limits total environments (running or stopped) per user. Reducing this limit helps control infrastructure costs. Learn more"><div className={NUM_INPUT}><input className="flex h-full w-full text-base p-0 border-0 outline-none text-content-primary bg-transparent" type="text" placeholder="No limit" defaultValue="" /></div></PolicyTitleCard>
+          <PolicyTitleCard title="Maximum concurrent environments" desc="Maximum running environments per user. Learn more"><div className={NUM_INPUT}><input className="flex h-full w-full text-base p-0 border-0 outline-none text-content-primary bg-transparent" type="text" placeholder="No limit" defaultValue="" /></div></PolicyTitleCard>
+          <PolicyTitleCard title="Default environment image" desc="Default devcontainer image used when no configuration is present in the repository. Leave empty to use the Hypervisor system default. Learn more"><div className="flex items-center gap-2 h-9 w-full max-w-lg px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input"><input className="flex h-full w-full text-base p-0 border-0 outline-none text-content-primary bg-transparent" type="text" placeholder="" defaultValue="" /></div></PolicyTitleCard>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Project policies</h2>
+          <PolicyToggleCard label="Only admins can start from scratch" />
+          <PolicyToggleCard label="Allow Port Sharing in Environments" checked desc="Control whether users can share ports from their environments with external access. VS Code Browser and agents are exempt from this policy and will continue to work when disabled.">
+            <div className="ml-12 flex flex-col gap-2"><label className="font-normal text-content-primary text-sm">Maximum port admission level</label><p className="text-sm text-content-secondary">Control the most permissive access level users can choose for shared environment ports. Learn more</p><SelectTrigger value="Anyone (no login required)" /></div>
+          </PolicyToggleCard>
+          <PolicyToggleCard label="Only admins can create projects" />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Security Agents</h2>
+          <PolicyToggleCard label="CrowdStrike Falcon" desc="Run the CrowdStrike Falcon agent inside environments for endpoint security monitoring." />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Identity &amp; Access</h2>
+          <PolicyToggleCard label="Restrict Account Creation to SCIM" desc="When enabled, only users provisioned via SCIM can access this organization. Users attempting to login via SSO without a SCIM-provisioned account will be blocked. Configure SCIM provisioning to enable this policy." />
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
@@ -818,6 +897,7 @@ function SettingsContent({ section }: { section: string }) {
     case "agent-policies": return <AgentPoliciesContent />;
     case "org-integrations": return <IntegrationsContent />;
     case "environments": return <EnvironmentsContent />;
+    case "policies": return <PoliciesContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
