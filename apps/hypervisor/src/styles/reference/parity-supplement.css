@@ -1,0 +1,12 @@
+/* Parity utility supplement — the vendored utilities.css was harvested from the
+   Home/sidebar DOM and omits arbitrary Tailwind classes that other ported surfaces
+   use. Rules here are copied VERBATIM from the reference's full CSS bundle
+   (public/static/assets/SegmentProvider-gQNN48J_.css). Imported after utilities.css.
+   Add a class here when a newly-ported surface renders wrong because its utility is
+   absent from the harvested subset (verify the surface vs :9228 first). */
+
+/* Projects: project-card repo/branch 2-column grid (icon | text). */
+.grid-cols-\[auto\,1fr\],
+.grid-cols-\[auto_1fr\] {
+  grid-template-columns: auto 1fr;
+}

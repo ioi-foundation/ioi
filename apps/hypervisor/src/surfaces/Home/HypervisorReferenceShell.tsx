@@ -270,12 +270,22 @@ function useReferenceTheme() {
   }, []);
 }
 
-export function HypervisorReferenceShell({ children }: { children: ReactNode }) {
+export function HypervisorReferenceShell({
+  children,
+  activeView = "home",
+  onViewChange,
+  onOpenNewSession,
+}: {
+  children: ReactNode;
+  activeView?: PrimaryView;
+  onViewChange?: (view: PrimaryView) => void;
+  onOpenNewSession?: () => void;
+}) {
   useReferenceTheme();
   return (
     <div className="app-background flex size-full flex-col overflow-hidden">
       <div className="flex w-full grow flex-row overflow-hidden">
-        <HypervisorReferenceSidebar activeView="home" />
+        <HypervisorReferenceSidebar activeView={activeView} onViewChange={onViewChange} onOpenNewSession={onOpenNewSession} />
         {children}
       </div>
     </div>

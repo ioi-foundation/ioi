@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 
 import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
@@ -23,6 +24,9 @@ import "./styles/reference/hypervisor-brand.css";
 // 3) utilities: reference utility/component classes (class-scoped, preflight-stripped)
 //    — additive and non-breaking (no current surface uses these names; zero collision).
 import "./styles/reference/utilities.css";
+// 3b) supplement: arbitrary utilities used by ported surfaces but absent from the
+//     Home-harvested utilities subset (verbatim from the reference's full bundle).
+import "./styles/reference/parity-supplement.css";
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,
@@ -34,9 +38,32 @@ import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
 import { HypervisorReferenceShell } from "./surfaces/Home/HypervisorReferenceShell";
+import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorReferenceProjects";
+import type { PrimaryView } from "./windows/HypervisorShellWindow/hypervisorShellModel";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
+
+// Additive parity surfaces (Phase B/C) live on /parity-* routes. The reference
+// sidebar navigates between them; views without a ported route yet are inert.
+const PARITY_ROUTES: Partial<Record<PrimaryView, string>> = {
+  home: "/parity-home",
+  projects: "/parity-projects",
+};
+function ParityShellRoute({ view, children }: { view: PrimaryView; children: ReactNode }) {
+  const navigate = useNavigate();
+  return (
+    <HypervisorReferenceShell
+      activeView={view}
+      onViewChange={(v) => {
+        const route = PARITY_ROUTES[v];
+        if (route) navigate(route);
+      }}
+    >
+      {children}
+    </HypervisorReferenceShell>
+  );
+}
 
 function AppMetricsBeacon() {
   useEffect(() => {
@@ -82,7 +109,8 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          <Route path="/parity-home" element={<HypervisorReferenceShell><HypervisorReferenceHome /></HypervisorReferenceShell>} />
+          <Route path="/parity-home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
+          <Route path="/parity-projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
           {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
             <Route key={path} path={path} element={<HypervisorShellWindow />} />
           ))}
