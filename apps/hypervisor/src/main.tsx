@@ -42,16 +42,16 @@ import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorRefer
 import { HypervisorReferenceAutomations } from "./surfaces/Automations/HypervisorReferenceAutomations";
 import { HypervisorReferenceWorkspace } from "./surfaces/Workspace/HypervisorReferenceWorkspace";
 import { HypervisorReferenceSettings } from "./surfaces/Settings/HypervisorReferenceSettings";
-import type { PrimaryView } from "./windows/HypervisorShellWindow/hypervisorShellModel";
+import type { PrimaryView } from "./surfaces/parityShellTypes";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
 // The reference-parity surfaces are the app's primary UX and own the root routes
 // (the reference IA). The sidebar navigates between them via real routes; Applications
-// opens the launcher modal (handled inside the shell). Any route not owned here falls
-// through to the legacy HypervisorShellWindow (unported/divergent surfaces preserved as
-// a functional fallback — sessions, workbench, agents, models, etc.).
+// opens the launcher modal (handled inside the shell). The legacy HypervisorShellWindow
+// has been removed: any route not owned here renders the reference-style 404
+// (unported surfaces — sessions, workbench, agents, models, etc. — until ported).
 const PRIMARY_ROUTE_FOR_VIEW: Partial<Record<PrimaryView, string>> = {
   home: "/",
   projects: "/projects",

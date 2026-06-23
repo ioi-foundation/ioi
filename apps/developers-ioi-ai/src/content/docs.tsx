@@ -809,9 +809,9 @@ for await (const event of run.stream()) {
     keywords: ['hypervisor', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
     sources: [
       'apps/hypervisor',
-      'apps/hypervisor/src/windows/HypervisorShellWindow',
-      'apps/hypervisor/src/windows/ChatShellWindow',
-      'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx',
+      'apps/hypervisor/src/main.tsx',
+      'apps/hypervisor/src/surfaces/Home/HypervisorReferenceShell.tsx',
+      'apps/hypervisor/src/surfaces/Home/HypervisorReferenceHome.tsx',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-terminal-coding-loop-run-button-proof.json',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-telemetry-budget-chain-run-inspector-proof.json',

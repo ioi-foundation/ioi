@@ -1,1 +1,0 @@
-export { AutomationsWorkflowComposerView } from "./AutomationsWorkflowComposerView";

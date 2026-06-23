@@ -1,4 +1,4 @@
-import { HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY } from "../windows/HypervisorShellWindow/hypervisorDaemonEndpoint";
+import { HYPERVISOR_CORE_DAEMON_ENDPOINT_STORAGE_KEY } from "../services/hypervisorDaemonEndpoint";
 import { installHypervisorDevHostBridge } from "./hypervisorDevHostBridge";
 import {
   HYPERVISOR_DEV_REPLAY_DEFAULT_ENDPOINT,

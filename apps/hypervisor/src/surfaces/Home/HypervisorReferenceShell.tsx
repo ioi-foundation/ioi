@@ -8,7 +8,7 @@
 // via the controller; otherwise the reference hrefs navigate.
 import { useEffect, useState } from "react";
 import type { MouseEventHandler, ReactNode } from "react";
-import type { PrimaryView } from "../../windows/HypervisorShellWindow/hypervisorShellModel";
+import type { PrimaryView } from "../parityShellTypes";
 import { HypervisorReferenceApplicationsModal } from "../Applications/HypervisorReferenceApplicationsModal";
 
 // ---- exact reference SVGs (verbatim paths from :9228) ----

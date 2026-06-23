@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 
 const npmRun = (script) => ["npm", ["run", script]];
 const node = (...args) => ["node", args];
-const nodeTest = (...files) => ["node", ["--test", ...files]];
 
 const TIERS = {
   docs: [
@@ -25,14 +24,6 @@ const TIERS = {
     npmRun("check:hypervisor-app-shell"),
     npmRun("test:hypervisor-app-harness"),
   ],
-  compositor: [
-    npmRun("build:workbench"),
-    nodeTest(
-      "apps/hypervisor/src/domain/harnessAdapterModel.test.ts",
-      "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.test.ts",
-      "apps/hypervisor/src/domain/hypervisorSessionOperationsModel.test.ts",
-    ),
-  ],
   wallet: [npmRun("check:wallet-packaging")],
   candidates: [npmRun("check:candidate-evidence")],
   negative: [npmRun("check:runtime-layout")],
@@ -49,7 +40,6 @@ const DEFAULT_TIERS = [
   "bridge",
   "receipts",
   "app",
-  "compositor",
   "wallet",
   "candidates",
   "negative",

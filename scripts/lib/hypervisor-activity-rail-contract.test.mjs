@@ -2,159 +2,67 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-const activityBar = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
-  "utf8",
-);
-const shellBaseCss = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
-  "utf8",
-);
-const traceAndWelcomeCss = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
-  "utf8",
-);
+// The legacy HypervisorShellWindow activity rail was removed when the reference-parity
+// UX became the app's primary surface. The parity sidebar (HypervisorReferenceSidebar,
+// exported from the Home shell) is its single replacement, so this contract now guards
+// the parity sidebar's durable structure — the parts that mirror the IOI reference and
+// must not silently regress. Volatile content (which applications are pinned, the
+// session list, org name) is intentionally NOT asserted here.
+const SIDEBAR =
+  "apps/hypervisor/src/surfaces/Home/HypervisorReferenceShell.tsx";
+const sidebar = readFileSync(SIDEBAR, "utf8");
 
-test("hypervisor activity rail owns sidebar brand and can collapse without losing surface ids", () => {
-  assert.match(activityBar, /HYPERVISOR_ACTIVITY_RAIL_COLLAPSED_KEY/);
-  assert.match(activityBar, /profile: AssistantUserProfile;/);
-  assert.match(activityBar, /return stored === "true";/);
-  assert.match(
-    activityBar,
-    /className=\{`hypervisor-activity-bar \$\{collapsed \? "is-collapsed" : ""\}`\}/,
-  );
-  assert.match(activityBar, /data-collapsed=\{collapsed \? "true" : "false"\}/);
-  assert.match(
-    activityBar,
-    /className="hypervisor-activity-brand-row"[\s\S]*<HypervisorRailLogoIcon \/>/,
-  );
-  assert.match(activityBar, /className="hypervisor-activity-collapse-button"/);
-  assert.match(activityBar, /function CollapseIcon\(\{ collapsed \}/);
-  assert.match(activityBar, /collapsed\s*\?/);
-  assert.match(activityBar, /onOpenCommandPalette: \(\) => void;/);
-  assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
-  assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);
-  assert.match(
-    activityBar,
-    /const activateRoute = \(route: OperatorSurfaceRoute\)/,
-  );
-  assert.match(activityBar, /route\.kind === "command-palette"/);
-  assert.match(activityBar, /data-hypervisor-quick-switcher-anchor=/);
-  assert.match(activityBar, /hypervisor-activity-button--new-session/);
-  assert.match(activityBar, /data-window-surface="new-session"/);
-  assert.match(activityBar, /New Session/);
-  assert.match(activityBar, /Organization settings/);
-  assert.match(activityBar, /hypervisor-activity-project-label/);
-  assert.match(activityBar, /hypervisor-activity-session-row/);
-  assert.match(
-    activityBar,
-    /data-ioi-reference-session-list="from-launched-sessions"/,
-  );
-  assert.doesNotMatch(activityBar, /Search\.\.\./);
-  assert.doesNotMatch(activityBar, /What's New/);
-  assert.doesNotMatch(activityBar, /IOI Assist/);
-  assert.doesNotMatch(activityBar, /Your favorite apps will appear here/);
-  assert.match(activityBar, /data-window-surface=\{item\.dataWindowSurface\}/);
-  assert.match(activityBar, /data-window-surface="account"/);
-  assert.match(
-    activityBar,
-    /data-window-surface="account"[\s\S]*onClick=\{\(\) => \{[\s\S]*onViewChange\("settings"\);/,
-  );
-  assert.doesNotMatch(
-    activityBar,
-    /data-window-surface="account"[\s\S]*activateRoute\(profileItem\.route\)/,
-  );
-  assert.match(activityBar, /resolveProfileDisplayName\(profile\)/);
-  assert.doesNotMatch(activityBar, /currentProject\.name/);
-});
-
-test("reference rail exposes new session and session context shortcut pills", () => {
-  assert.doesNotMatch(activityBar, /title=\{`\$\{item\.label\}/);
-  assert.match(activityBar, /: item\.label/);
-  assert.match(activityBar, /hypervisor-activity-button-shortcut">Ctrl/);
-  assert.match(activityBar, /hypervisor-activity-button-shortcut">O/);
-  assert.match(activityBar, /shortcutKeys=\{\["Project"\]\}/);
-  assert.match(activityBar, /shortcutKeys\.map\(\(key\) =>/);
-  assert.match(activityBar, /className="hypervisor-activity-button-shortcut"/);
-});
-
-test("old client header is absent so the rail is the single sidebar identity", () => {
+test("the legacy HypervisorShellWindow activity rail is fully removed", () => {
   assert.equal(
-    existsSync(
-      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
-    ),
+    existsSync("apps/hypervisor/src/windows/HypervisorShellWindow"),
     false,
   );
-  assert.doesNotMatch(
-    shellBaseCss,
-    /\.hypervisor-client-(?:header|drag-surface|window-)/,
-  );
-  assert.doesNotMatch(
-    traceAndWelcomeCss,
-    /\.hypervisor-client-(?:header|drag-surface|window-)/,
-  );
+  // No remnant of the old rail's unique container/control classes. (The reference
+  // brand mark legitimately carries `hypervisor-activity-brand*` classes — that is the
+  // server-injected reference brand, not the retired rail.)
+  assert.doesNotMatch(sidebar, /hypervisor-activity-(?:bar|button|group|collapse)/);
 });
 
-test("hypervisor activity rail styling matches the themeable collapsible rail contract", () => {
-  assert.match(
-    shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.hypervisor-activity-bar\s*\{[\s\S]*width: 300px;/,
-  );
-  assert.match(
-    shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--hypervisor-activity-bg: #ffffff;/,
-  );
-  assert.doesNotMatch(
-    shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*--hypervisor-activity-bg: #252b33;[\s\S]*width: 230px;/,
-  );
-  assert.match(shellBaseCss, /background: var\(--hypervisor-activity-bg\);/);
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-brand\s*\{[\s\S]*color: var\(--hypervisor-activity-text\);/,
-  );
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-bar\.is-collapsed\s*\{\s*width: 48px;/,
-  );
-  assert.match(
-    shellBaseCss,
-    /Phase 0A reference parity: primary rail follows the IOI captured shell[\s\S]*\.hypervisor-activity-brand-row\s*\{[\s\S]*min-height: 51px;/,
-  );
-  assert.match(shellBaseCss, /\.hypervisor-activity-group\s*\{[\s\S]*border-bottom:/);
-  assert.match(shellBaseCss, /\.hypervisor-activity-button::before\s*\{[\s\S]*display: none;/);
-  assert.match(shellBaseCss, /\.hypervisor-activity-button\.is-active\s*\{[\s\S]*box-shadow: none;/);
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-button-label\s*\{[\s\S]*text-overflow: ellipsis;/,
-  );
-  assert.match(shellBaseCss, /\.hypervisor-activity-button-shortcut\s*\{/);
-  assert.match(shellBaseCss, /\.hypervisor-activity-apps\s*\{/);
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-button-label,/,
-  );
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-brand\s*\{\s*display: none;/,
-  );
-  assert.match(
-    shellBaseCss,
-    /\.hypervisor-activity-bar\.is-collapsed \.hypervisor-activity-collapse-button\s*\{[\s\S]*width: 42px;[\s\S]*height: 42px;/,
-  );
+test("parity sidebar owns the reference brand mark and is the single sidebar identity", () => {
+  assert.match(sidebar, /export function HypervisorReferenceSidebar\(/);
+  assert.match(sidebar, /data-testid="sidebar"/);
+  assert.match(sidebar, /const BrandMark = \(\) =>/);
+  assert.match(sidebar, /aria-label="Go to Hypervisor home"/);
+  assert.match(sidebar, /hypervisor-logo-home-link/);
 });
 
-test("light workbench mode preserves the IOI reference light rail colors", () => {
-  assert.doesNotMatch(
-    traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-button,/,
+test("parity sidebar exposes the New Session action with the Ctrl+O shortcut", () => {
+  assert.match(sidebar, /data-testid="create-session-button"/);
+  assert.match(sidebar, /aria-label="New Session"/);
+  assert.match(sidebar, /<span data-testid="session-text"[^>]*>New Session<\/span>/);
+  assert.match(sidebar, /data-testid="keyboard-shortcut"/);
+  assert.match(sidebar, /<kbd className=\{KBD\}>Ctrl<\/kbd><kbd className=\{KBD\}>O<\/kbd>/);
+});
+
+test("parity sidebar carries the reference primary navigation (Home/Projects/Automations/Applications)", () => {
+  assert.match(
+    sidebar,
+    /<NavLink href="\/ai" label="Home"[\s\S]*active=\{activeView === "home"\}/,
   );
   assert.match(
-    traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar \{[\s\S]*--hypervisor-activity-bg: #ffffff;[\s\S]*--hypervisor-activity-text: #6f737a;/,
+    sidebar,
+    /<NavLink href="\/projects" label="Projects"[\s\S]*active=\{activeView === "projects"\}/,
   );
-  assert.doesNotMatch(
-    traceAndWelcomeCss,
-    /:root\[data-hypervisor-theme\^="light"\] \.hypervisor-activity-bar \{[\s\S]*--hypervisor-activity-bg: #252b33;/,
+  assert.match(
+    sidebar,
+    /<NavLink href="\/automations" label="Automations"[\s\S]*active=\{activeView === "automations"\}/,
   );
+  // Applications is a launcher entry (opens the catalog modal), not a route.
+  assert.match(sidebar, /<NavLink href="#applications" label="Applications"/);
+  assert.match(sidebar, /data-hypervisor-applications-launcher": "true"/);
+});
+
+test("parity sidebar carries the Sessions group and the Organization settings entry", () => {
+  assert.match(sidebar, /data-testid="sidebar-tab-sessions"/);
+  assert.match(sidebar, /data-testid="environments-list"/);
+  assert.match(
+    sidebar,
+    /<NavLink href="\/settings" label="Organization settings"[\s\S]*active=\{activeView === "settings"\}/,
+  );
+  assert.match(sidebar, /data-testid="org-switcher"/);
 });
