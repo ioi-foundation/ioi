@@ -75,6 +75,8 @@ use ioi_networking::noop::NoOpBlockSync;
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
 struct LocalOpts {
+    // Local-node product data home (state/genesis/identity), distinct from
+    // browser cache/profiles which live under `.ioi/browser/`.
     #[clap(long, default_value = "./ioi-data")]
     data_dir: PathBuf,
 }

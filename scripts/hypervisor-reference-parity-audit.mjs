@@ -710,9 +710,16 @@ async function runHypervisorInteractionProbes(browser, baseUrl, options) {
     hardMarkers: [],
     runtime: null,
     leftNavSurfaces: "",
-    pinnedApplications: {
+    applicationsLauncher: {
       ok: false,
-      expected: [
+      // Canon: Applications is a query/modal catalog launcher, not a pinned rail.
+      launcherPresent: false,
+      // Canon: `Open Application` is a singular active slot (<= 1 in the rail).
+      openApplicationCount: 0,
+      // The obsolete permanent pinned rail must be gone.
+      pinnedRailNodeCount: 0,
+      // Required specialized surfaces must remain reachable via the catalog.
+      requiredCatalogIds: [
         "foundry",
         "models",
         "workers",
@@ -721,7 +728,6 @@ async function runHypervisorInteractionProbes(browser, baseUrl, options) {
         "receipts",
         "monitoring",
       ],
-      found: [],
     },
     workbench: {
       ok: false,
@@ -780,15 +786,23 @@ async function runHypervisorInteractionProbes(browser, baseUrl, options) {
         .first()
         .getAttribute("data-left-nav-surfaces")
         .catch(() => "")) ?? "";
-    result.pinnedApplications.found = await page
+    result.applicationsLauncher.launcherPresent =
+      (await page
+        .locator("[data-applications-launcher]")
+        .count()
+        .catch(() => 0)) > 0;
+    result.applicationsLauncher.openApplicationCount = await page
+      .locator("[data-open-application]")
+      .count()
+      .catch(() => 0);
+    result.applicationsLauncher.pinnedRailNodeCount = await page
       .locator("[data-pinned-application-id]")
-      .evaluateAll((nodes) =>
-        nodes.map((node) => node.getAttribute("data-pinned-application-id") ?? ""),
-      )
-      .catch(() => []);
-    result.pinnedApplications.ok = result.pinnedApplications.expected.every((id) =>
-      result.pinnedApplications.found.includes(id),
-    );
+      .count()
+      .catch(() => 0);
+    result.applicationsLauncher.ok =
+      result.applicationsLauncher.launcherPresent &&
+      result.applicationsLauncher.openApplicationCount <= 1 &&
+      result.applicationsLauncher.pinnedRailNodeCount === 0;
     result.workbench.workspaceHostCount = await page
       .locator(".hypervisor-workspace-host")
       .count()
@@ -889,8 +903,8 @@ async function runHypervisorInteractionProbes(browser, baseUrl, options) {
       )
       .catch(() => []);
     result.applications.count = result.applications.ids.length;
-    result.applications.ok = result.pinnedApplications.expected.every((id) =>
-      result.applications.ids.includes(id),
+    result.applications.ok = result.applicationsLauncher.requiredCatalogIds.every(
+      (id) => result.applications.ids.includes(id),
     );
 
     await goto("/automations");
@@ -980,7 +994,7 @@ async function runHypervisorInteractionProbes(browser, baseUrl, options) {
       result.runtime?.modelMountEndpoint &&
       result.runtime?.devReplayReady === true &&
       result.runtime?.hostBridgeReady === true &&
-      result.pinnedApplications.ok &&
+      result.applicationsLauncher.ok &&
       result.workbench.ok &&
       result.newSession.ok &&
       result.applications.ok &&
@@ -1152,8 +1166,8 @@ function createCompletionChecklist(evidence) {
       replayProbeOk(evidence, "replay detail"),
     shell_ia_is_home_projects_automations_applications_sessions:
       interactions?.leftNavSurfaces === referenceLeftNav.join(" "),
-    pinned_applications_include_required_surfaces:
-      interactions?.pinnedApplications?.ok === true &&
+    applications_launcher_singular_open_application_and_catalog:
+      interactions?.applicationsLauncher?.ok === true &&
       interactions?.applications?.ok === true,
     automations_foundry_receipts_are_route_backed_and_interactive:
       interactions?.automations?.ok === true &&

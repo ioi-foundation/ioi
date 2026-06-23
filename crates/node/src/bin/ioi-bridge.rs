@@ -50,6 +50,8 @@ use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-bridge", about = "IOI Bridge Node")]
 struct ValidatorOpts {
+    // Local-node product data home (state/genesis/identity), distinct from
+    // browser cache/profiles which live under `.ioi/browser/`.
     #[clap(long, default_value = "./ioi-data")]
     data_dir: PathBuf,
 

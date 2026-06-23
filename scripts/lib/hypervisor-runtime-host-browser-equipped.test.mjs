@@ -4,7 +4,7 @@
 // browser__navigate that launches Chromium and loads a benign local file:// page.
 //
 // This is NOT offline: it needs the chromiumoxide Chromium cached under
-// ./ioi-data/browser_cache (the daemon launches it). The test SKIPS HONESTLY when that
+// .ioi/browser/cache (the daemon launches it). The test SKIPS HONESTLY when that
 // cache is absent. The daemon's tokio worker stack must be large enough for the deep
 // browser async chain (the daemon configures 32 MiB by default).
 
@@ -22,7 +22,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 function chromiumCached() {
   try {
-    const cacheDir = path.join(repoRoot, "ioi-data", "browser_cache");
+    const cacheDir = path.join(repoRoot, ".ioi", "browser", "cache");
     return fs.readdirSync(cacheDir).some((entry) => entry.startsWith("linux-"));
   } catch {
     return false;

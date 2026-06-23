@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
@@ -67,7 +67,15 @@ function normalizeApplicationsCatalog(value: unknown): HypervisorApplicationsCat
   };
 }
 
-export function HypervisorApplicationsCatalogSurface() {
+interface HypervisorApplicationsCatalogSurfaceProps {
+  // Launch a catalog entry as the singular Open Application. Optional so the
+  // catalog still renders read-only where no launch path is wired.
+  onLaunchApplication?: (applicationId: string) => void;
+}
+
+export function HypervisorApplicationsCatalogSurface({
+  onLaunchApplication,
+}: HypervisorApplicationsCatalogSurfaceProps = {}) {
   const [catalog, setCatalog] = useState<HypervisorApplicationsCatalog>({
     applications: [],
   });
@@ -75,6 +83,7 @@ export function HypervisorApplicationsCatalogSurface() {
     "loading" | "ready" | "unavailable"
   >("loading");
   const [message, setMessage] = useState("Loading applications from replay route.");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -117,12 +126,27 @@ export function HypervisorApplicationsCatalogSurface() {
     (application) => application.status === "available",
   );
 
+  // Query-first catalog: filter by label/category/id. Favorites/recent are
+  // catalog metadata surfaced here, not a permanent pinned shell rail.
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleApplications = useMemo(() => {
+    if (!normalizedQuery) return catalog.applications;
+    return catalog.applications.filter((application) =>
+      [application.label, application.category, application.application_id]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [catalog.applications, normalizedQuery]);
+
   return (
     <section
       className="hypervisor-applications-catalog"
       aria-label="Applications catalog"
+      data-applications-launcher="true"
       data-hypervisor-applications-state={loadState}
       data-hypervisor-applications-count={catalog.applications.length}
+      data-hypervisor-applications-visible-count={visibleApplications.length}
     >
       <div className="hypervisor-applications-catalog__header">
         <div>
@@ -136,6 +160,18 @@ export function HypervisorApplicationsCatalogSurface() {
           </p>
         </div>
         <p data-hypervisor-applications-load-state={loadState}>{message}</p>
+      </div>
+
+      <div className="hypervisor-applications-catalog__search">
+        <input
+          type="search"
+          className="hypervisor-applications-catalog__search-input"
+          data-applications-catalog-query="true"
+          placeholder="Search applications…"
+          aria-label="Search applications"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </div>
 
       <div className="hypervisor-applications-catalog__summary" aria-label="Application summary">
@@ -154,7 +190,7 @@ export function HypervisorApplicationsCatalogSurface() {
       </div>
 
       <div className="hypervisor-applications-catalog__grid">
-        {catalog.applications.map((application) => (
+        {visibleApplications.map((application) => (
           <article
             key={application.application_id}
             className="hypervisor-applications-catalog__item"
@@ -169,9 +205,28 @@ export function HypervisorApplicationsCatalogSurface() {
             <footer>
               <strong>{application.status}</strong>
               {application.pinned ? <span>Favorite</span> : <span>Catalog</span>}
+              {onLaunchApplication ? (
+                <button
+                  type="button"
+                  className="hypervisor-applications-catalog__launch"
+                  data-application-launch-id={application.application_id}
+                  onClick={() => onLaunchApplication(application.application_id)}
+                  title={`Open ${application.label}`}
+                >
+                  Open
+                </button>
+              ) : null}
             </footer>
           </article>
         ))}
+        {visibleApplications.length === 0 ? (
+          <p
+            className="hypervisor-applications-catalog__empty"
+            data-applications-catalog-empty="true"
+          >
+            No applications match “{query}”.
+          </p>
+        ) : null}
       </div>
     </section>
   );

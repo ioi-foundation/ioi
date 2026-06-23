@@ -10,6 +10,7 @@ import {
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { HypervisorApplicationsCatalogSurface } from "../../../surfaces/Applications/ApplicationsCatalogView";
+import { applicationViewForId } from "../../../surfaces/Applications/applicationSurfaceCatalog";
 import {
   useHypervisorShellController,
   type HypervisorReceiptEvidenceTarget,
@@ -4763,7 +4764,12 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "applications" ? (
-                    <HypervisorApplicationsCatalogSurface />
+                    <HypervisorApplicationsCatalogSurface
+                      onLaunchApplication={(applicationId) => {
+                        const view = applicationViewForId(applicationId);
+                        if (view) controller.changePrimaryView(view);
+                      }}
+                    />
                   ) : null}
 
                   {activeView === "insights" ? (

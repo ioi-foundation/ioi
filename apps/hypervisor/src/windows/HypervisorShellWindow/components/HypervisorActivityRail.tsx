@@ -29,6 +29,7 @@ import {
   type OperatorActivityRailItem,
   type OperatorSurfaceRoute,
 } from "../../../domain/operatorSubstrateModel";
+import { openApplicationForView } from "../../../surfaces/Applications/applicationSurfaceCatalog";
 import type { AssistantUserProfile } from "../../../types";
 
 interface HypervisorActivityRailProps {
@@ -61,14 +62,6 @@ interface ReferenceRailButtonProps {
   onClick: () => void;
 }
 
-interface PinnedApplicationRailItem {
-  id: string;
-  label: string;
-  view: PrimaryView;
-  icon: ReactNode;
-  description: string;
-}
-
 const GENERIC_HOME_NEW_SESSION_INTENT =
   "Open a governed Hypervisor session for this workspace.";
 
@@ -94,58 +87,6 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   receipts: <NotificationsIcon />,
   settings: <SettingsIcon />,
 };
-
-const PINNED_APPLICATION_RAIL_ITEMS: readonly PinnedApplicationRailItem[] = [
-  {
-    id: "foundry",
-    label: "Foundry",
-    view: "foundry",
-    icon: <ComposeIcon />,
-    description: "Open Foundry jobs, evals, packages, and harness comparisons.",
-  },
-  {
-    id: "models",
-    label: "Models",
-    view: "models",
-    icon: <MountsIcon />,
-    description: "Open model routes, mounts, local engines, and model custody.",
-  },
-  {
-    id: "workers",
-    label: "Workers",
-    view: "agents",
-    icon: <IntegrationsIcon />,
-    description: "Open agent and worker package projections.",
-  },
-  {
-    id: "connectors",
-    label: "Connectors",
-    view: "applications",
-    icon: <WorkspaceIcon />,
-    description: "Open connector catalog entries inside Applications.",
-  },
-  {
-    id: "policies",
-    label: "Policies",
-    view: "authority",
-    icon: <ShieldIcon />,
-    description: "Open wallet.network policy and approval projections.",
-  },
-  {
-    id: "receipts",
-    label: "Receipts",
-    view: "receipts",
-    icon: <NotificationsIcon />,
-    description: "Open Agentgres receipt and replay evidence.",
-  },
-  {
-    id: "monitoring",
-    label: "Monitoring",
-    view: "insights",
-    icon: <EnvironmentIcon />,
-    description: "Open monitoring and runtime insight projections.",
-  },
-];
 
 function SidebarControlIcon() {
   return (
@@ -528,6 +469,10 @@ export function HypervisorActivityRail({
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
   const workspaceLabel = WORKSPACE_NAME;
   const activeHypervisorSurfaceId = getHypervisorSurfaceIdForPrimaryView(activeView);
+  // Canon: `Open Application` is the singular active specialized-surface slot;
+  // it is not a permanent pinned rail. Null when the catalog/non-application
+  // surfaces are active.
+  const openApplication = openApplicationForView(activeView);
   const launchedSessionProjectLabel =
     launchedSessions[0]?.project_label?.trim() || "Sessions";
   const activateRoute = (route: OperatorSurfaceRoute) => {
@@ -710,32 +655,48 @@ export function HypervisorActivityRail({
       ) : null}
 
       <div
-        className="hypervisor-activity-group hypervisor-activity-group--pinned-apps"
+        className="hypervisor-activity-group hypervisor-activity-group--applications"
         aria-label="Applications"
-        data-pinned-applications-rail="true"
       >
         <div className="hypervisor-activity-section-label">Applications</div>
-        {PINNED_APPLICATION_RAIL_ITEMS.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={`hypervisor-activity-button hypervisor-activity-button--pinned-app ${
-              activeView === item.view ? "is-active" : ""
-            }`}
-            data-pinned-application-id={item.id}
-            data-pinned-application-route={`surface:${item.id}`}
-            data-window-surface={item.view}
-            onClick={() => onViewChange(item.view)}
-            aria-current={activeView === item.view ? "page" : undefined}
-            aria-label={item.label}
-            title={item.description}
+        {/* Query-first catalog launcher, not a permanent pinned rail. */}
+        <button
+          type="button"
+          className={`hypervisor-activity-button hypervisor-activity-button--applications-launcher ${
+            activeView === "applications" ? "is-active" : ""
+          }`}
+          data-applications-launcher="true"
+          data-window-surface="applications"
+          onClick={() => onViewChange("applications")}
+          aria-current={activeView === "applications" ? "page" : undefined}
+          aria-label="Applications"
+          title="Open the Applications catalog — search and launch specialized surfaces"
+        >
+          <span className="hypervisor-activity-button-icon" aria-hidden="true">
+            <IntegrationsIcon />
+          </span>
+          <span className="hypervisor-activity-button-label">Applications</span>
+        </button>
+        {/* Singular Open Application slot for the active specialized surface. */}
+        {openApplication ? (
+          <div
+            className="hypervisor-activity-open-application is-active"
+            data-open-application={openApplication.id}
+            data-window-surface={openApplication.view}
+            aria-current="page"
+            title={openApplication.description}
           >
             <span className="hypervisor-activity-button-icon" aria-hidden="true">
-              {item.icon}
+              {NAV_ICON_BY_SURFACE[openApplication.view] ?? <IntegrationsIcon />}
             </span>
-            <span className="hypervisor-activity-button-label">{item.label}</span>
-          </button>
-        ))}
+            <span className="hypervisor-activity-button-label">
+              {openApplication.label}
+            </span>
+            <span className="hypervisor-activity-open-application__tag">
+              Open Application
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className="hypervisor-activity-spacer" />

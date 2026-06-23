@@ -14,6 +14,8 @@ const BROWSER_LAUNCH_TIMEOUT_ENV: &str = "IOI_BROWSER_LAUNCH_TIMEOUT_MS";
 const BROWSER_REQUEST_TIMEOUT_ENV: &str = "IOI_BROWSER_REQUEST_TIMEOUT_MS";
 const BROWSER_PERSIST_PROFILE_ENV: &str = "IOI_BROWSER_PERSIST_PROFILE";
 const BROWSER_ENABLE_AUTOMATION_FLAG_ENV: &str = "IOI_BROWSER_ENABLE_AUTOMATION_FLAG";
+// Browser profile/cache state lives under repo-local `.ioi/browser/`, kept
+// separate from local-node product data (`./ioi-data`: state/genesis/identity).
 const PERSISTENT_PROFILE_DIR: &str = ".ioi/browser/profiles/persistent";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
