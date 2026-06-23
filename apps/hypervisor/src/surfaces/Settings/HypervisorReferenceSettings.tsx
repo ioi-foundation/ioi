@@ -21,6 +21,9 @@ const CopyGlyph = () => (
 const ExternalLink = () => (
   <svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.25 14V20.25H3.75V5.75H9.25M13.75 3.75H20.25V10.25M11 13L19.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
 );
+const SelectChevron = () => (
+  <svg aria-hidden="true" width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 10L12 14L16 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
+);
 const InfoIcon = () => (
   <svg className="text-content-info shrink-0" aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.75 11H12L12 16.25M21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /><path d="M11.5 7.375H11.375V7.5V8.5V8.625H11.5H12.5H12.625V8.5V7.5V7.375H12.5H11.5Z" fill="currentColor" stroke="currentColor" strokeWidth="0.25" /></svg>
 );
@@ -62,7 +65,11 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage"]);
+
+// Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
+// scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
+const USAGE_CHART = `<div class="recharts-responsive-container" style="width:100%;height:100%;min-width:0px;"><div class="recharts-wrapper" style="position:relative;cursor:default;width:100%;height:100%;max-height:250px;"><svg class="recharts-surface" width="1195" height="250" viewBox="0 0 1195 250" style="width:100%;height:100%;"><defs><clipPath id="recharts1-clip"><rect x="60" y="10" height="210" width="1125"></rect></clipPath></defs><defs><linearGradient id="r1t-total" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="#0048FF" stop-opacity="0.35"></stop><stop offset="95%" stop-color="#0048FF" stop-opacity="0.06"></stop></linearGradient></defs><g class="recharts-cartesian-grid"><g class="recharts-cartesian-grid-horizontal"><line stroke-dasharray="3 3" stroke="rgb(var(--border-base) / var(--border-base-baseline-opacity))" fill="none" x1="60" y1="10" x2="1185" y2="10"></line><line stroke-dasharray="3 3" stroke="rgb(var(--border-base) / var(--border-base-baseline-opacity))" fill="none" x1="60" y1="220" x2="1185" y2="220"></line></g></g><g class="recharts-cartesian-axis recharts-xAxis xAxis"><line orientation="bottom" x1="60" y1="220" x2="1185" y2="220" stroke="rgb(var(--content-tertiary))" stroke-width="1" fill="none"></line><g class="recharts-cartesian-axis-ticks"><g><text x="60" y="234" text-anchor="middle" fill="#666"><tspan x="60" dy="0.71em">Jun 15</tspan></text></g><g><text x="220.7" y="234" text-anchor="middle" fill="#666"><tspan x="220.7" dy="0.71em">Jun 16</tspan></text></g><g><text x="381.4" y="234" text-anchor="middle" fill="#666"><tspan x="381.4" dy="0.71em">Jun 17</tspan></text></g><g><text x="542.1" y="234" text-anchor="middle" fill="#666"><tspan x="542.1" dy="0.71em">Jun 18</tspan></text></g><g><text x="702.9" y="234" text-anchor="middle" fill="#666"><tspan x="702.9" dy="0.71em">Jun 19</tspan></text></g><g><text x="863.6" y="234" text-anchor="middle" fill="#666"><tspan x="863.6" dy="0.71em">Jun 20</tspan></text></g><g><text x="1024.3" y="234" text-anchor="middle" fill="#666"><tspan x="1024.3" dy="0.71em">Jun 21</tspan></text></g><g><text x="1179.5" y="234" text-anchor="middle" fill="#666"><tspan x="1179.5" dy="0.71em">Jun 22</tspan></text></g></g></g><g class="recharts-cartesian-axis recharts-yAxis yAxis"><g class="recharts-cartesian-axis-ticks"><g><text x="46" y="220" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">0</tspan></text></g><g><text x="46" y="167.5" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">6</tspan></text></g><g><text x="46" y="115" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">12</tspan></text></g><g><text x="46" y="62.5" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">18</tspan></text></g><g><text x="46" y="10" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">24</tspan></text></g></g></g><g class="recharts-area"><path fill="url(#r1t-total)" stroke="none" fill-opacity="0.6" d="M60,220L220.714,32.076L381.429,220L542.143,220L702.857,154.141L863.571,214.526L1024.286,212.836L1185,220L1185,220L1024.286,220L863.571,220L702.857,220L542.143,220L381.429,220L220.714,220L60,220Z"></path><path stroke="#0048FF" fill="none" stroke-width="2" d="M60,220L220.714,32.076L381.429,220L542.143,220L702.857,154.141L863.571,214.526L1024.286,212.836L1185,220"></path></g></svg></div></div>`;
 
 function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect: (key: string) => void }) {
   return (
@@ -512,9 +519,35 @@ function LoginContent() {
   );
 }
 
+function CreditUsageContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Cost & Budgets" />
+      <div className="flex flex-col gap-6" data-testid="credit-usage-page">
+        <div className="flex flex-col gap-3 text-sm text-content-strong sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2"><span>View your usage, measured in Hypervisor Compute Units (OCUs).</span><a className="inline-flex items-center gap-1 text-content-link underline" target="_blank" rel="noreferrer" href="https://ona.com/pricing">Learn about OCUs</a></div>
+          <div className="flex items-center gap-1 sm:justify-end"><span>Showing the last</span>
+            <div className="relative inline-flex w-auto"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-sm text-content-primary outline-none h-auto px-2 py-1 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>7 days</span></span><SelectChevron /></button></div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border-light p-6">
+          <div className="mb-1 flex items-baseline justify-between"><p className="text-lg font-semibold text-content-primary">Credits</p><p className="text-sm text-content-secondary">90 OCUs remaining</p></div>
+          <div className="h-4 w-full cursor-default rounded-full border border-surface-04 bg-surface-glass p-0.5"><div className="h-full overflow-hidden rounded-full bg-surface-glass"><div className="h-full rounded-full bg-gradient-to-r from-orange-100 to-orange-300 transition-all duration-300" style={{ width: "75%" }} /></div></div>
+          <div className="mt-1 flex justify-between"><p className="text-sm text-content-secondary">0</p><p className="text-sm text-content-secondary">120 OCUs total</p></div>
+        </div>
+        <div className="rounded-xl border border-border-light p-6">
+          <div className="mb-4 flex items-center justify-between"><p className="text-lg font-semibold text-content-primary">Total Usage<span className="ml-2 text-sm font-normal text-content-secondary">(30 OCUs in 7 days)</span></p><button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg bg-surface-button-clear hover:bg-surface-button-clear-accent border border-border-base text-content-primary hover:text-content-accent gap-2 px-3 py-2 h-8 text-base"><span className="truncate">Forecast</span></button></div>
+          <div className="flex size-full"><div className="flex aspect-video justify-center text-xs w-full" style={{ height: "250px" }} dangerouslySetInnerHTML={{ __html: USAGE_CHART }} /></div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
+    case "credit-usage": return <CreditUsageContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
