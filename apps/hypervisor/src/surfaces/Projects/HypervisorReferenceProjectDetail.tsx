@@ -1,7 +1,28 @@
 // Parity Phase C — Project detail surface ported bit-for-bit from the IOI demo
 // reference's LIVE <main> DOM (http://localhost:9228/projects/019ee100-f64f-7554-946f-405f46528c91):
-// exact element tree, classes, verbatim SVG paths and copy. The Home tab content
-// mirrors the reference's single mock project (ioi / teamioitest/ioi).
+// exact element tree, classes, verbatim SVG paths and copy. The shared chrome
+// (header + breadcrumb + tab bar) wraps the active tab's content; the four tabs
+// (Home/Settings/Secrets/Prebuilds) are real sub-routes like the reference, so the
+// tab bar navigates between /projects/:id[/settings|/secrets|/prebuilds]. The
+// non-home panels live in HypervisorReferenceProjectTabs. Content mirrors the
+// reference's single mock project (ioi / teamioitest/ioi).
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  SettingsTabContent,
+  SecretsTabContent,
+  PrebuildsTabContent,
+} from "./HypervisorReferenceProjectTabs";
+
+export type ProjectDetailTab = "home" | "settings" | "secrets" | "prebuilds";
+
+const FIXTURE_PROJECT_ID = "019ee100-f64f-7554-946f-405f46528c91";
+
+const PROJECT_TABS: { key: ProjectDetailTab; label: string; path: string }[] = [
+  { key: "home", label: "Home", path: "" },
+  { key: "settings", label: "Settings", path: "/settings" },
+  { key: "secrets", label: "Secrets", path: "/secrets" },
+  { key: "prebuilds", label: "Prebuilds", path: "/prebuilds" },
+];
 
 const ChevronGlyph = () => (
   <svg className="shrink-0 mx-0.5" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.733 13L10.9375 10.7955C11.3768 10.3562 11.3768 9.64382 10.9375 9.20447L8.733 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -46,7 +67,9 @@ const ExternalLinkGlyph = () => (
   <svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.25 14V20.25H3.75V5.75H9.25M13.75 3.75H20.25V10.25M11 13L19.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
 );
 
-export function HypervisorReferenceProjectDetail() {
+export function HypervisorReferenceProjectDetail({ tab = "home" }: { tab?: ProjectDetailTab } = {}) {
+  const navigate = useNavigate();
+  const { projectId = FIXTURE_PROJECT_ID } = useParams();
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div {...{ orientation: "both" }} className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -84,10 +107,12 @@ export function HypervisorReferenceProjectDetail() {
             <div dir="ltr" data-orientation="horizontal" className="@container">
               <div className="relative min-w-0 max-w-full">
                 <div role="tablist" aria-orientation="horizontal" className="scrollbar-hide flex min-h-9 flex-row items-stretch gap-0.5 overflow-x-auto rounded-lg border border-transparent bg-surface-button-tab-base p-[3px] dark:border-border-subtle [&>*]:shrink-0 [&>*]:grow-0 [&>*]:whitespace-nowrap w-fit" tabIndex={0} data-orientation="horizontal" style={{ outline: "none" }}>
-                  <button type="button" role="tab" aria-selected="true" aria-controls="radix-:r27:-content-home" data-state="active" id="radix-:r27:-trigger-home" className="inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary disabled:opacity-50 disabled:hover:text-content-strong" tabIndex={-1} data-orientation="horizontal" data-radix-collection-item=""><span className="truncate">Home</span></button>
-                  <button type="button" role="tab" aria-selected="false" aria-controls="radix-:r27:-content-settings" data-state="inactive" id="radix-:r27:-trigger-settings" className="inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary disabled:opacity-50 disabled:hover:text-content-strong" tabIndex={-1} data-orientation="horizontal" data-radix-collection-item=""><span className="truncate">Settings</span></button>
-                  <button type="button" role="tab" aria-selected="false" aria-controls="radix-:r27:-content-secrets" data-state="inactive" id="radix-:r27:-trigger-secrets" className="inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary disabled:opacity-50 disabled:hover:text-content-strong" tabIndex={-1} data-orientation="horizontal" data-radix-collection-item=""><span className="truncate">Secrets</span></button>
-                  <button type="button" role="tab" aria-selected="false" aria-controls="radix-:r27:-content-prebuilds" data-state="inactive" id="radix-:r27:-trigger-prebuilds" className="inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary disabled:opacity-50 disabled:hover:text-content-strong" tabIndex={-1} data-orientation="horizontal" data-radix-collection-item=""><span className="truncate">Prebuilds</span></button>
+                  {PROJECT_TABS.map((t) => {
+                    const active = t.key === tab;
+                    return (
+                      <button key={t.key} type="button" role="tab" aria-selected={active} aria-controls={`radix-:r27:-content-${t.key}`} data-state={active ? "active" : "inactive"} id={`radix-:r27:-trigger-${t.key}`} className="inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary disabled:opacity-50 disabled:hover:text-content-strong" tabIndex={-1} data-orientation="horizontal" data-radix-collection-item="" onClick={() => navigate(`/projects/${projectId}${t.path}`)}><span className="truncate">{t.label}</span></button>
+                    );
+                  })}
                 </div>
                 <div className="absolute inset-y-px left-px z-10 flex w-10 items-center rounded-l-lg bg-gradient-to-r from-surface-button-tab-base from-70% to-transparent" style={{ display: "none" }}>
                   <button type="button" tabIndex={-1} aria-label="Scroll tabs left" data-tracking-id="scroll-tabs-left" className="ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-button-tab-base text-content-secondary shadow-sm ring-1 ring-border-base transition-colors hover:bg-surface-glass hover:text-content-primary"><ChevronTabGlyph /></button>
@@ -97,7 +122,25 @@ export function HypervisorReferenceProjectDetail() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-8" data-testid="project-home-page">
+            {tab === "home" ? (
+              <HomeTabContent />
+            ) : tab === "settings" ? (
+              <SettingsTabContent />
+            ) : tab === "secrets" ? (
+              <SecretsTabContent />
+            ) : (
+              <PrebuildsTabContent />
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function HomeTabContent() {
+  return (
+    <div className="flex flex-col gap-8" data-testid="project-home-page">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1">
                   <h2 className="text-xl font-bold tracking-[-0.2px] text-content-primary">ioi</h2>
@@ -167,10 +210,6 @@ export function HypervisorReferenceProjectDetail() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </main>
   );
 }
 

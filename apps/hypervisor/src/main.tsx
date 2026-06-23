@@ -95,7 +95,10 @@ function renderHypervisorApp() {
           <Route path="/home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
           <Route path="/ai" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
           <Route path="/projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
-          <Route path="/projects/:projectId" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail /></ParityShellRoute>} />
+          <Route path="/projects/:projectId" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="home" /></ParityShellRoute>} />
+          <Route path="/projects/:projectId/settings" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="settings" /></ParityShellRoute>} />
+          <Route path="/projects/:projectId/secrets" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="secrets" /></ParityShellRoute>} />
+          <Route path="/projects/:projectId/prebuilds" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="prebuilds" /></ParityShellRoute>} />
           <Route path="/automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
           <Route path="/details/:sessionId" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
           <Route path="/settings" element={<HypervisorReferenceSettings />} />
