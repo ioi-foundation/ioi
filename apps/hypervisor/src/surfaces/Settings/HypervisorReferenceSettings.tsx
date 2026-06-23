@@ -65,7 +65,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members", "agent-policies", "org-integrations"]);
 
 // Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
 // scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
@@ -689,12 +689,70 @@ function AgentPoliciesContent() {
   );
 }
 
+const INTEGRATIONS = [
+  { id: "atlassian", name: "Atlassian", icon: "https://www.atlassian.com/favicon-32x32.png", cats: ["Project management", "Knowledge", "MCP"], enabled: true, desc: "Atlassian provides collaboration and project management software like Jira and Confluence for teams." },
+  { id: "linear", name: "Linear", icon: "https://linear.app/favicon.ico", cats: ["Project management", "MCP"], enabled: false, desc: "Linear is a modern issue tracking and project management tool for software teams." },
+  { id: "granola", name: "Granola", icon: "https://www.granola.ai/icon.png", cats: ["Knowledge", "MCP"], enabled: true, desc: "Granola takes your raw meeting notes and makes them awesome." },
+  { id: "notion", name: "Notion", icon: "https://www.notion.so/images/favicon.ico", cats: ["Knowledge", "MCP"], enabled: true, desc: "Notion is an all-in-one workspace for notes, docs, wikis, and project management." },
+  { id: "github", name: "GitHub", icon: "https://github.com/favicon.ico", cats: ["Source control"], install: true, desc: "GitHub integration" },
+  { id: "sentry", name: "Sentry", icon: "https://avatars.githubusercontent.com/u/1396951?s=200&v=4", cats: ["Observability", "MCP"], enabled: true, desc: "Sentry tracks application errors and performance issues in real-time." },
+];
+const INT_BADGE = "inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-muted text-content-strong px-1.5 py-0.5 text-xs";
+const INSTALL_BTN = "select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent gap-2 px-3 py-2 h-8 text-base";
+
+function IntegrationRow({ it }: { it: (typeof INTEGRATIONS)[number] }) {
+  const control = it.install ? <button type="button" className={INSTALL_BTN}><span className="truncate">Install app</span></button> : <Toggle checked={it.enabled} disabled={false} />;
+  return (
+    <li role="row" data-list-item={it.id} className="col-span-full grid grid-cols-subgrid">
+      <div role="gridcell" aria-colindex={1} className="col-span-full grid grid-cols-subgrid">
+        <div className="select-none hover:bg-surface-button-clear-accent duration-75 group/item col-span-full grid grid-cols-subgrid items-center gap-2 p-4" data-list-interactive="" data-tracking-id="list-item">
+          <div className="items-center justify-center @xl:flex flex"><div data-list-slot="icon" className="flex shrink-0 items-center justify-center rounded-full bg-surface-muted" style={{ width: "36px", height: "36px" }}><img src={it.icon} alt={`${it.name} icon`} className="h-8 w-8" /></div></div>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p className="text-base font-medium leading-tight text-content-primary" data-list-slot="title"><span className="flex flex-wrap items-center gap-2"><span>{it.name}</span><div className="flex flex-wrap items-center gap-2">{it.cats.map((c) => <span key={c} className={INT_BADGE}><span>{c}</span></span>)}</div></span></p>
+            <p className="text-base leading-tight text-content-strong" data-list-slot="description">{it.desc}</p>
+            <div className="mt-1 @xl:hidden"><div className="flex items-center gap-3">{control}</div></div>
+          </div>
+          <div className="hidden items-center @xl:flex @xl:col-span-2"><div data-list-slot="content" className="flex grow items-center justify-end"><div className="flex items-center gap-3">{control}</div></div></div>
+          <div className="items-center justify-end hidden" />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function IntegrationsContent() {
+  return (
+    <SettingsMain>
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div className="relative min-w-0"><ol className="flex min-w-0 flex-row items-center h-9 gap-2 text-2xl"><li className="flex min-w-0 shrink items-center text-content-primary gap-2 text-2xl font-semibold tracking-[-0.2px]"><span className="truncate" title="Integrations">Integrations</span></li></ol></div>
+        <button type="button" className={INSTALL_BTN} data-testid="create-custom-integration-button"><svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.75V12M12 12V17.25M12 12H6.75M12 12H17.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg><span className="truncate">Add MCP integration</span></button>
+      </div>
+      <div data-testid="org-integrations-page"><div className="flex flex-col gap-4"><div className="flex flex-col gap-6">
+        <div className="flex flex-col">
+          <p className="text-base text-content-secondary">Manage integrations available to your organization members. <a className="inline-flex items-center gap-1 text-content-link" target="_blank" rel="noreferrer" href="https://ona.com/docs/ona/agents/integrations">Learn more.<ExternalLink /></a></p>
+          <p className="text-base text-content-secondary">To use the enabled integrations individual members will need to connect their personal accounts to the integrations in <a className="text-content-link" href="/settings/org-integrations?user-settings=integrations">User Settings &gt; Integrations</a>. </p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative [&>div]:max-w-none flex-1"><div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input"><span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span><input className="flex h-full w-full text-base p-0 border-0 outline-none placeholder:text-content-muted text-content-primary bg-transparent max-w-none" type="text" placeholder="Search integrations..." defaultValue="" /></div></div>
+          <button type="button" aria-label="Filter by category" aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-48"><span className="truncate"><span className="truncate text-base text-content-primary">All</span></span><SelectChevron /></button>
+        </div>
+        <div className="@container">
+          <ul aria-label="Integrations" role="grid" className="grid grid-cols-[auto_1fr_0fr_auto] @xl:grid-cols-[auto_minmax(120px,1fr)_1fr_auto] divide-y divide-border-base overflow-clip rounded-xl border border-border-base bg-surface-primary [&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl [&>li:first-child>*]:rounded-t-xl [&>li:last-child>*]:rounded-b-xl">
+            {INTEGRATIONS.map((it) => <IntegrationRow key={it.id} it={it} />)}
+          </ul>
+        </div>
+      </div></div></div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
     case "credit-usage": return <CreditUsageContent />;
     case "members": return <MembersContent />;
     case "agent-policies": return <AgentPoliciesContent />;
+    case "org-integrations": return <IntegrationsContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
