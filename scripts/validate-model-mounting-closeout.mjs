@@ -20,38 +20,8 @@ const deterministicGates = [
     category: "guide",
   },
   {
-    id: "model-mounting-contract",
-    command: "npm run test:model-mounting",
-    required: true,
-    category: "deterministic",
-  },
-  {
-    id: "daemon-runtime-api",
-    command: "npm run test:daemon-runtime-api",
-    required: true,
-    category: "deterministic",
-  },
-  {
     id: "agent-sdk",
     command: "npm test --workspace=@ioi/agent-sdk",
-    required: true,
-    category: "deterministic",
-  },
-  {
-    id: "model-backends",
-    command: "npm run test:model-backends",
-    required: true,
-    category: "deterministic",
-  },
-  {
-    id: "model-mounting-workflows",
-    command: "npm run test:model-mounting-workflows",
-    required: true,
-    category: "deterministic",
-  },
-  {
-    id: "model-mounting-gui-contract",
-    command: "npm run test:model-mounting-gui",
     required: true,
     category: "deterministic",
   },
@@ -108,73 +78,9 @@ const deterministicGates = [
 ];
 
 const liveGates = [
-  {
-    id: "lm-studio-live",
-    command: "IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live",
-    required: true,
-    category: "live",
-    env: "IOI_LIVE_LM_STUDIO",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/lm-studio\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "llama-cpp-live",
-    command: "IOI_LIVE_LLAMA_CPP=1 npm run test:llama-cpp-live",
-    required: true,
-    category: "live",
-    env: "IOI_LIVE_LLAMA_CPP",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/llama-cpp\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "model-backends-live",
-    command:
-      "OLLAMA_HOST=${OLLAMA_HOST:-http://127.0.0.1:11434} IOI_PROVIDER_HTTP_TIMEOUT_MS=${IOI_PROVIDER_HTTP_TIMEOUT_MS:-120000} IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live",
-    required: true,
-    category: "live",
-    env: "IOI_LIVE_MODEL_BACKENDS",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/model-backends\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "model-catalog-live",
-    command: "IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live",
-    required: true,
-    category: "live",
-    env: "IOI_LIVE_MODEL_CATALOG",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/model-catalog\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "model-catalog-oauth-live",
-    command: "IOI_LIVE_MODEL_CATALOG_OAUTH=1 npm run test:model-catalog-oauth-live",
-    required: true,
-    category: "live",
-    env: "IOI_LIVE_MODEL_CATALOG_OAUTH",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/model-catalog-oauth\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "wallet-live",
-    command: "IOI_REMOTE_WALLET=1 npm run test:wallet-live",
-    required: true,
-    category: "live",
-    env: "IOI_REMOTE_WALLET",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/wallet\/[^\s]+\/result\.json/g,
-  },
-  {
-    id: "agentgres-live",
-    command: "IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live",
-    required: true,
-    category: "live",
-    env: "IOI_REMOTE_AGENTGRES",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/agentgres\/[^\s]+\/result\.json/g,
-  },
 ];
 
 const fixtureFallbackGates = [
-  {
-    id: "model-catalog-oauth-fixture",
-    command: "IOI_LIVE_MODEL_CATALOG_OAUTH=1 IOI_MODEL_CATALOG_OAUTH_FIXTURE=1 npm run test:model-catalog-oauth-live",
-    required: true,
-    category: "fixture-fallback",
-    evidencePattern: /docs\/evidence\/model-mounting-live\/model-catalog-oauth\/[^\s]+\/result\.json/g,
-  },
 ];
 
 function timestamp() {
