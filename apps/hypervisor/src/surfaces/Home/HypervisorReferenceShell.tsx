@@ -181,6 +181,13 @@ function SessionGroup({ label, withCreate, children }: { label: string; withCrea
   );
 }
 
+type SessionFilter = "project" | "recently-active" | "archived";
+const SESSION_FILTER_LABELS: Record<SessionFilter, string> = {
+  project: "Project",
+  "recently-active": "Recently active",
+  archived: "Archived",
+};
+
 interface ReferenceSidebarProps {
   activeView?: PrimaryView;
   onViewChange?: (view: PrimaryView) => void;
@@ -194,12 +201,29 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
   const [collapsed, setCollapsed] = useState(false);
   // Only one sidebar popover is open at a time (org switcher, sessions filter, what's new).
   const [menu, setMenu] = useState<null | "org" | "filter" | "whatsnew">(null);
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>("project");
   const orgRef = useRef<HTMLButtonElement>(null);
   const filterRef = useRef<HTMLButtonElement>(null);
   const whatsNewRef = useRef<HTMLButtonElement>(null);
   const closeMenu = () => setMenu(null);
   const toggleMenu = (which: "org" | "filter" | "whatsnew") => () =>
     setMenu((current) => (current === which ? null : which));
+  // Menus close when an item is chosen; anchor items keep their own navigation. The
+  // sessions filter additionally updates the visible filter label.
+  const onMenuItemClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) closeMenu();
+  };
+  const onFilterItemClick: MouseEventHandler = (e) => {
+    const item = (e.target as HTMLElement).closest<HTMLElement>(
+      '[data-testid="sessions-filter-project"], [data-testid="sessions-filter-recently-active"], [data-testid="sessions-filter-archived"]',
+    );
+    if (!item) return;
+    setSessionFilter(item.getAttribute("data-testid")!.replace("sessions-filter-", "") as SessionFilter);
+    closeMenu();
+  };
+  const onDialogDismissClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[aria-label="Dismiss"]')) closeMenu();
+  };
   const go = (view: PrimaryView): MouseEventHandler => (e) => {
     if (onViewChange) {
       e.preventDefault();
@@ -285,7 +309,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
                     <span className="inline-flex h-8 items-center gap-2 rounded-lg px-1.5 text-base font-normal text-content-secondary" data-testid="sidebar-tab-sessions"><SessionsGlyph /><span>Sessions</span></span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="truncate text-sm text-content-secondary" data-testid="sessions-filter-label">Project</span>
+                    <span className="truncate text-sm text-content-secondary" data-testid="sessions-filter-label">{SESSION_FILTER_LABELS[sessionFilter]}</span>
                     <button ref={filterRef} className="select-none font-medium whitespace-nowrap transition-colors border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 text-base flex h-8 w-8 items-center justify-center rounded-md p-0 hover:bg-surface-button-clear-accent data-[state=open]:bg-surface-button-clear-accent" aria-label="Filter sessions" data-testid="sessions-filter-button" data-tracking-id="sessions-filter-button" type="button" aria-haspopup="menu" aria-expanded={menu === "filter"} data-state={menu === "filter" ? "open" : "closed"} onClick={toggleMenu("filter")}><FilterGlyph /></button>
                   </div>
                 </div>
@@ -335,9 +359,9 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
         </div>
       </div>
       <button className="absolute right-0 w-1 cursor-ew-resize rounded-full transition-colors duration-150 hover:bg-surface-03 active:bg-surface-04 top-4 mr-[1px] h-[calc(100%-32px)]" data-tracking-id-none="true" type="button" aria-hidden="true" />
-      <SidebarPopover open={menu === "org"} onClose={closeMenu} anchorRef={orgRef} side="top" align="start"><OrgSwitcherMenu /></SidebarPopover>
-      <SidebarPopover open={menu === "filter"} onClose={closeMenu} anchorRef={filterRef} side="bottom" align="end"><SessionsFilterMenu /></SidebarPopover>
-      <SidebarPopover open={menu === "whatsnew"} onClose={closeMenu} anchorRef={whatsNewRef} side="top" align="end"><WhatsNewDialog /></SidebarPopover>
+      <SidebarPopover open={menu === "org"} onClose={closeMenu} anchorRef={orgRef} side="top" align="start"><div onClick={onMenuItemClick}><OrgSwitcherMenu /></div></SidebarPopover>
+      <SidebarPopover open={menu === "filter"} onClose={closeMenu} anchorRef={filterRef} side="bottom" align="end"><div onClick={onFilterItemClick}><SessionsFilterMenu /></div></SidebarPopover>
+      <SidebarPopover open={menu === "whatsnew"} onClose={closeMenu} anchorRef={whatsNewRef} side="top" align="end"><div onClick={onDialogDismissClick}><WhatsNewDialog /></div></SidebarPopover>
     </div>
   );
 }
