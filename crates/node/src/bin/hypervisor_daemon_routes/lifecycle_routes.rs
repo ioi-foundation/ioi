@@ -6867,7 +6867,7 @@ fn generic_cli_local_shim_path() -> Option<String> {
         return std::path::Path::new(&explicit).is_file().then_some(explicit);
     }
     let cwd = std::env::current_dir().ok()?;
-    let candidate = cwd.join("packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs");
+    let candidate = cwd.join("harness-shims/generic-cli-local.mjs");
     candidate.is_file().then(|| candidate.to_string_lossy().into_owned())
 }
 

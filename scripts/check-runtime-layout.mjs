@@ -204,137 +204,8 @@ const hypervisorShellControllerSource = read(
 const hypervisorLaunchedSessionPersistenceSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
 );
-const runtimeHarnessContainerLaneSource = read(
-  "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
-);
-const runtimeCodeEditorAdapterLaunchPlanAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",
-);
-const runtimeHarnessSessionBindingAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs",
-);
-const runtimeHarnessSessionBindingAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
-);
-const runtimeHypervisorSessionLaunchRecipeAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.mjs",
-);
-const runtimeHypervisorSessionLaunchRecipeAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.test.mjs",
-);
-const runtimeHarnessSessionLaunchSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-launch.mjs",
-);
-const runtimeHarnessSessionLaunchTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-launch.test.mjs",
-);
-const runtimeHarnessSessionSpawnSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-spawn.mjs",
-);
-const runtimeHarnessSessionSpawnTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-spawn.test.mjs",
-);
-const runtimeHarnessSessionReadinessSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-readiness.mjs",
-);
-const runtimeHarnessSessionReadinessTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
-);
-const runtimeHarnessSessionTerminalAttachSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.mjs",
-);
-const runtimeHarnessSessionTerminalAttachTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.test.mjs",
-);
-const runtimeClaudeCodeExampleShimSource = read(
-  "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
-);
-const runtimeGenericCliLocalShimSource = read(
-  "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
-);
-const runtimeHarnessContainerLaneTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
-);
-const runtimeHarnessContainerExecutorSource = read(
-  "packages/runtime-daemon/src/runtime-harness-container-executor.mjs",
-);
-const runtimeHarnessContainerExecutorTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-container-executor.test.mjs",
-);
-const runtimeHarnessPublicFixtureRunSource = read(
-  "packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs",
-);
-const runtimeHarnessPublicFixtureRunTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
-);
 const hypervisorAppShellContractSource = read(
   "scripts/hypervisor-app-shell-contract.mjs",
-);
-const publicRuntimeRoutesSource = read(
-  "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-);
-const publicRuntimeRoutesTestSource = read(
-  "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-);
-const runtimeModelWeightCustodyAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-model-weight-custody-admission.mjs",
-);
-const runtimeModelWeightCustodyAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
-);
-const runtimePrivateWorkspaceMountAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.mjs",
-);
-const runtimePrivateWorkspaceMountAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.test.mjs",
-);
-const runtimeManagedWorkerLifecycleAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.mjs",
-);
-const runtimeManagedWorkerLifecycleAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
-);
-const runtimeModelRouteMutationAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-model-route-mutation-admission.mjs",
-);
-const runtimeModelRouteMutationAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-model-route-mutation-admission.test.mjs",
-);
-const runtimePhysicalActionIntentAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs",
-);
-const runtimePhysicalActionIntentAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
-);
-const runtimeHypervisorApprovedOperationAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.mjs",
-);
-const runtimeHypervisorApprovedOperationAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
-);
-const runtimeHypervisorApprovedOperationDispatchSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.mjs",
-);
-const runtimeHypervisorApprovedOperationDispatchTestSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
-);
-const runtimeHypervisorApprovedOperationExecutorsSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.mjs",
-);
-const runtimeHypervisorApprovedOperationExecutorsTestSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.test.mjs",
-);
-const runtimeHypervisorCoreTaxonomySource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
-);
-const runtimeHypervisorCoreTaxonomyTestSource = read(
-  "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
-);
-const runtimeWorkerPackageInstallAdmissionSource = read(
-  "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
-);
-const runtimeWorkerPackageInstallAdmissionTestSource = read(
-  "packages/runtime-daemon/src/runtime-worker-package-install-admission.test.mjs",
 );
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
@@ -365,7 +236,6 @@ const authorityCenterTestSource = read(
   "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
 );
 const activeHypervisorFixtureSources = [
-  "packages/agent-sdk/test/computer-use.test.mjs",
   "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
 ]
   .map(read)
@@ -479,7 +349,6 @@ const retiredHypervisorHarnessValidationScripts = packageScriptNames.filter(
 const hypervisorAppHarnessContractSource = read(
   "scripts/lib/hypervisor-app-harness-contract.mjs",
 );
-const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
 const workbenchRuntimeFiles = allFiles(
@@ -556,22 +425,6 @@ const actionSchema = JSON.parse(
   read("docs/architecture/_meta/schemas/runtime-action-schema.json"),
 );
 
-assert(
-  "daemon-promoted",
-  exists("packages/runtime-daemon/src/index.mjs") &&
-    !exists("scripts/lib/local-runtime-daemon.mjs"),
-  ["packages/runtime-daemon/src/index.mjs"],
-  "daemon implementation must live outside scripts/lib",
-);
-assert(
-  "daemon-product-names",
-  daemonSource.includes("startRuntimeDaemonService") &&
-    daemonSource.includes("AgentgresRuntimeStateStore") &&
-    !daemonSource.includes("startLocalRuntimeDaemon") &&
-    !daemonSource.includes("AgentgresRuntimeStore"),
-  ["packages/runtime-daemon/src/index.mjs"],
-  "daemon implementation must use product runtime names",
-);
 assert(
   "focused-hypervisor-checks",
   retiredAutopilotPackageScripts.length === 0 &&
@@ -672,9 +525,6 @@ assert(
     ]
       .join("\n")
       .includes("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
-    architectureImplementationMatrix.includes(
-      "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
-    ) &&
     architectureImplementationMatrix.includes(
       "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
     ) &&
@@ -1191,15 +1041,10 @@ assert(
 assert(
   "active-test-fixtures-hypervisor-named",
   activeHypervisorFixtureSources.includes('"captureAppName"] = "Hypervisor"') &&
-    activeHypervisorFixtureSources.includes('appName: "Hypervisor"') &&
-    activeHypervisorFixtureSources.includes(
-      'captureAppName: "Hypervisor"',
-    ) &&
     !/Autopilot validation run|install autopilot|(?:appName|captureAppName)["'\]]*\s*[:=]\s*["']Autopilot|autopilot-chat-agent-ux/.test(
       activeHypervisorFixtureSources,
     ),
   [
-    "packages/agent-sdk/test/computer-use.test.mjs",
     "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
   ],
   "Active workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
@@ -1385,36 +1230,6 @@ assert(
     hypervisorShellControllerSource.includes(
       "buildHypervisorCodeEditorAdapterAdmissionFailure",
     ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "ioi.runtime.code_editor_adapter_launch_plan_admission.v1",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "code_editor_adapter_launch_durable_secret_release_blocked",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "code_editor_adapter_runtime_truth_claim_blocked",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "browser_editor_url",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "browser_code_editor",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "embedded_code_editor_host",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "open_embedded_code_editor",
-    ) &&
-    !/embedded_workbench_host|open_embedded_workbench/.test(
-      runtimeCodeEditorAdapterLaunchPlanAdmissionSource,
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "open_browser_editor",
-    ) &&
-    runtimeCodeEditorAdapterLaunchPlanAdmissionSource.includes(
-      "code_editor_adapter_control_contract_mismatch",
-    ) &&
     hypervisorShellContentSource.includes(
       "data-session-open-surface-enabled",
     ) &&
@@ -1435,9 +1250,6 @@ assert(
     ) &&
     hypervisorLaunchedSessionPersistenceSource.includes(
       'record.runtimeTruthSource !== "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/code-editor-adapter-launch-plans",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/codeEditorAdapterPreferences.ts",
@@ -1445,8 +1257,6 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
-    "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
   ],
   "code editor adapter preferences must compile into daemon-gated launch plans, call the public daemon admission route during New Session launch, preserve admission/block/offline state, and keep connection contracts, leases, receipts, and no durable secret release.",
 );
@@ -1604,27 +1414,6 @@ assert(
 );
 assert(
   "hypervisor-session-launch-recipe-admission",
-  runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
-    "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
-  ) &&
-    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
-      "admitHypervisorSessionLaunchRecipe",
-    ) &&
-    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
-      "hypervisor_session_launch_recipe_workbench_adapter_required",
-    ) &&
-    runtimeHypervisorSessionLaunchRecipeAdmissionSource.includes(
-      "hypervisor_session_launch_recipe_retired_aliases",
-    ) &&
-    runtimeHypervisorSessionLaunchRecipeAdmissionTestSource.includes(
-      "admits Hypervisor session launch recipes before harness binding",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/session-launch-recipe-admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose Hypervisor session launch recipe admissions",
-    ) &&
     hypervisorShellNavigationSource.includes(
       "HypervisorSessionLaunchRecipeAdmissionRecord",
     ) &&
@@ -1644,487 +1433,11 @@ assert(
       "session_launch_recipe_admission_ref",
     ),
   [
-    "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-session-launch-recipe-admission.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
   ],
   "Hypervisor New Session recipes must be daemon-admitted before harness binding, and launched-session cache records must carry that recipe admission.",
-);
-assert(
-  "hypervisor-harness-session-binding-admission",
-  runtimeHarnessSessionBindingAdmissionSource.includes(
-    "ioi.runtime.harness_session_binding_admission.v1",
-  ) &&
-    runtimeHarnessSessionBindingAdmissionSource.includes(
-      "admitHarnessSessionBinding",
-    ) &&
-    runtimeHarnessSessionBindingAdmissionSource.includes(
-      "harness_session_binding_external_ctee_custody_blocked",
-    ) &&
-    runtimeHarnessSessionBindingAdmissionSource.includes(
-      "harness_session_binding_provider_trust_requires_future_lease",
-    ) &&
-    runtimeHarnessSessionBindingAdmissionSource.includes(
-      "harness_session_binding_runtime_truth_claim_blocked",
-    ) &&
-    runtimeHarnessSessionBindingAdmissionSource.includes(
-      "model-config:local/",
-    ) &&
-    runtimeHarnessSessionBindingAdmissionTestSource.includes(
-      "admits proposal-source Codex OSS bindings over local model mount",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-session-binding-admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose harness session binding admissions",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "requestHarnessSessionBindingAdmission",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "buildHypervisorHarnessSessionBindingAdmissionFailure",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "HypervisorHarnessSessionBindingAdmissionRecord",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "normalizeHarnessSessionBindingAdmission",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "harness_session_binding_admission_ref",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-session-binding-admission.mjs",
-    "packages/runtime-daemon/src/runtime-harness-session-binding-admission.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
-  ],
-  "Harness session bindings must be daemon-admitted before New Session launch can become daemon_admitted; local Codex/Qwen bindings are admitted, provider-trust and external cTEE custody shortcuts are blocked.",
-);
-assert(
-  "hypervisor-harness-session-launch-contract",
-  runtimeHarnessSessionLaunchSource.includes(
-    "ioi.runtime.harness_session_launch.v1",
-  ) &&
-    runtimeHarnessSessionLaunchSource.includes("buildHarnessSessionLaunch") &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "host-command:codex-cli/local-ollama-qwen",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "host-command:deepseek-tui/local-ollama-qwen",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "host-command:claude-code-example/local-ollama-qwen",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "host-command:generic-cli/local-ollama-qwen",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "packages/runtime-daemon/src/harness-shims/claude-code-example.mjs",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "readiness_probe_argv_template",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes("--oss") &&
-    runtimeHarnessSessionLaunchSource.includes("--local-provider") &&
-    runtimeHarnessSessionLaunchSource.includes("ollama") &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "HYPERVISOR_LOCAL_HARNESS_MODEL",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "harness_session_launch_model_route_policy_blocked",
-    ) &&
-    runtimeHarnessSessionLaunchSource.includes(
-      "harness_session_launch_harness_unsupported",
-    ) &&
-    runtimeHarnessSessionLaunchTestSource.includes(
-      "builds a launch-ready Codex OSS contract",
-    ) &&
-    runtimeHarnessSessionLaunchTestSource.includes(
-      "builds a launch-ready DeepSeek TUI contract",
-    ) &&
-    runtimeHarnessSessionLaunchTestSource.includes(
-      "builds a launch-ready Claude Code example contract",
-    ) &&
-    runtimeHarnessSessionLaunchTestSource.includes(
-      "builds a launch-ready generic CLI contract",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-session-launches",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose Codex OSS harness session launches",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose DeepSeek TUI local harness session spawn contracts",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose Claude Code example local harness session spawn contracts",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose generic CLI local harness session spawn contracts",
-    ) &&
-    hypervisorHarnessAdapterModelSource.includes(
-      "requestHarnessSessionLaunch",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "requestHarnessSessionLaunch",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "HypervisorHarnessSessionLaunchRecord",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "normalizeHarnessSessionLaunch",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "harness_session_launch_ref",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-session-launch.mjs",
-    "packages/runtime-daemon/src/runtime-harness-session-launch.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
-  ],
-  "Admitted harness bindings must produce a daemon launch contract before a session becomes launch-ready; Codex OSS, DeepSeek TUI, the Claude Code example, and Generic CLI can use local Ollama/Qwen host-dev PTY contracts, while provider-trust and unsupported harness launches stay blocked.",
-);
-assert(
-  "hypervisor-harness-session-spawn-contract",
-  runtimeHarnessSessionSpawnSource.includes(
-    "ioi.runtime.harness_session_spawn.v1",
-  ) &&
-    runtimeHarnessSessionSpawnSource.includes("buildHarnessSessionSpawn") &&
-    runtimeHarnessSessionSpawnSource.includes(
-      "ready_for_client_pty_attach",
-    ) &&
-    runtimeHarnessSessionSpawnSource.includes(
-      "hypervisor_client_terminal_adapter",
-    ) &&
-    runtimeHarnessSessionSpawnSource.includes(
-      "client_host_pty_after_daemon_spawn_admission",
-    ) &&
-    runtimeHarnessSessionSpawnSource.includes("readiness_probe_argv") &&
-    runtimeHarnessSessionSpawnSource.includes(
-      "harness_session_spawn_model_name_forbidden",
-    ) &&
-    runtimeHarnessSessionSpawnTestSource.includes(
-      "builds a Codex OSS local Qwen spawn contract",
-    ) &&
-    runtimeHarnessSessionSpawnTestSource.includes(
-      "builds a DeepSeek TUI local Qwen spawn contract",
-    ) &&
-    runtimeHarnessSessionSpawnTestSource.includes(
-      "builds a Claude Code example local Qwen spawn contract",
-    ) &&
-    runtimeHarnessSessionSpawnTestSource.includes(
-      "builds a generic CLI local Qwen spawn contract",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-session-spawns",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose Codex OSS harness session spawn contracts",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose DeepSeek TUI local harness session spawn contracts",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose Claude Code example local harness session spawn contracts",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose generic CLI local harness session spawn contracts",
-    ) &&
-    hypervisorHarnessAdapterModelSource.includes(
-      "requestHarnessSessionSpawn",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "requestHarnessSessionSpawn",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "hostWorkspaceAdapter.createTerminalSession",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "hostWorkspaceAdapter.writeTerminalSession",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "HypervisorHarnessSessionSpawnRecord",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "normalizeHarnessSessionSpawn",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "harness_session_spawn_ref",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-session-spawn.mjs",
-    "packages/runtime-daemon/src/runtime-harness-session-spawn.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
-  ],
-  "Admitted harness launches must produce a daemon spawn contract before a session becomes daemon_admitted; local harness sessions use daemon-resolved commands, readiness probes, and Hypervisor client PTY attach, with no secret release or provider auth.",
-);
-assert(
-  "hypervisor-harness-session-readiness-contract",
-  runtimeHarnessSessionReadinessSource.includes(
-    "ioi.runtime.harness_session_readiness.v1",
-  ) &&
-    runtimeHarnessSessionReadinessSource.includes(
-      "buildHarnessSessionReadiness",
-    ) &&
-    runtimeHarnessSessionReadinessSource.includes(
-      "ready_for_harness_pty_attach",
-    ) &&
-    runtimeHarnessSessionReadinessSource.includes("harness_binary") &&
-    runtimeHarnessSessionReadinessSource.includes("readinessProbeArgv") &&
-    runtimeHarnessSessionReadinessSource.includes(
-      "harness_local_model_flags",
-    ) &&
-    runtimeHarnessSessionReadinessSource.includes("ollama_provider") &&
-    runtimeHarnessSessionReadinessSource.includes("qwen_model_available") &&
-    runtimeHarnessSessionReadinessTestSource.includes(
-      "blocks readiness when Ollama is not reachable",
-    ) &&
-    runtimeHarnessSessionReadinessTestSource.includes(
-      "admits Claude Code example local Qwen readiness",
-    ) &&
-    runtimeHarnessSessionReadinessTestSource.includes(
-      "admits generic CLI local Qwen readiness",
-    ) &&
-    runtimeClaudeCodeExampleShimSource.includes(
-      "Hypervisor Claude Code Example",
-    ) &&
-    runtimeClaudeCodeExampleShimSource.includes("--provider <PROVIDER>") &&
-    runtimeClaudeCodeExampleShimSource.includes("--model <MODEL>") &&
-    runtimeClaudeCodeExampleShimSource.includes("--cd <DIR>") &&
-    runtimeGenericCliLocalShimSource.includes(
-      "Hypervisor Generic CLI Local Harness",
-    ) &&
-    runtimeGenericCliLocalShimSource.includes("--provider <PROVIDER>") &&
-    runtimeGenericCliLocalShimSource.includes("--model <MODEL>") &&
-    runtimeGenericCliLocalShimSource.includes("--cd <DIR>") &&
-    runtimeGenericCliLocalShimSource.includes("--harness-label <LABEL>") &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-session-readiness",
-    ) &&
-    hypervisorHarnessAdapterModelSource.includes(
-      "requestHarnessSessionReadiness",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "requestHarnessSessionReadiness",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "harnessSessionReadiness.decision === \"ready\"",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "HypervisorHarnessSessionReadinessRecord",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "normalizeHarnessSessionReadiness",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "harness_session_readiness_ref",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-session-readiness.mjs",
-    "packages/runtime-daemon/src/runtime-harness-session-readiness.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
-  ],
-  "Daemon-admitted harness sessions must prove local host readiness separately from spawn: the selected harness command/probe, Ollama provider reachability, and the selected local Qwen model are checked before client PTY attach.",
-);
-assert(
-  "hypervisor-harness-session-terminal-attach-contract",
-  runtimeHarnessSessionTerminalAttachSource.includes(
-    "ioi.runtime.harness_session_terminal_attach.v1",
-  ) &&
-    runtimeHarnessSessionTerminalAttachSource.includes(
-      "admitHarnessSessionTerminalAttach",
-    ) &&
-    runtimeHarnessSessionTerminalAttachSource.includes(
-      "client_pty_attach_admitted",
-    ) &&
-    runtimeHarnessSessionTerminalAttachSource.includes(
-      "ioi.runtime.harness_terminal_transcript_projection.v1",
-    ) &&
-    runtimeHarnessSessionTerminalAttachSource.includes(
-      "client_host_pty_after_daemon_attach_admission",
-    ) &&
-    runtimeHarnessSessionTerminalAttachTestSource.includes(
-      "admits Codex OSS Qwen terminal attach",
-    ) &&
-    runtimeHarnessSessionTerminalAttachTestSource.includes(
-      "rejects terminal attach when readiness is blocked",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-session-terminal-attachments",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose harness session terminal attach contracts",
-    ) &&
-    hypervisorHarnessAdapterModelSource.includes(
-      "requestHarnessSessionTerminalAttach",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "requestHarnessSessionTerminalAttach",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "client_attach_contract.initial_write",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "observeHarnessTerminalTranscriptRead",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "pollHarnessSessionTerminalTranscript",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "hypervisor_harness_terminal_transcript_closed",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "updateHypervisorLaunchedSessionTerminalAttach",
-    ) &&
-    hypervisorShellControllerSource.includes(
-      "hostWorkspaceAdapter.readTerminalSession",
-    ) &&
-    hypervisorShellNavigationSource.includes(
-      "HypervisorHarnessSessionTerminalAttachRecord",
-    ) &&
-    hypervisorHarnessAdapterModelSource.includes(
-      "observeHarnessTerminalTranscriptRead",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "normalizeHarnessSessionTerminalAttach",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "harness_session_terminal_attach_ref",
-    ) &&
-    hypervisorLaunchedSessionPersistenceSource.includes(
-      "updateHypervisorLaunchedSessionTerminalAttach",
-    ) &&
-    hypervisorActivityRailSource.includes(
-      "data-launched-session-terminal-attach",
-    ) &&
-    hypervisorShellContentSource.includes(
-      "data-session-harness-drill-in-terminal-transcript",
-    ) &&
-    hypervisorShellContentSource.includes(
-      "data-session-harness-drill-in-terminal-transcript-cursor",
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      "data-launched-session-terminal-transcript",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.mjs",
-    "packages/runtime-daemon/src/runtime-harness-session-terminal-attach.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "scripts/hypervisor-app-shell-contract.mjs",
-  ],
-  "Daemon-admitted harness sessions must not stop at readiness: terminal attach is a daemon-admitted client-PTY contract with transcript refs before the host adapter writes the command and observes PTY transcript output.",
-);
-assert(
-  "hypervisor-harness-container-lane-contract",
-  runtimeHarnessContainerLaneSource.includes(
-    "ioi.hypervisor.harness_container_lane_plan.v1",
-  ) &&
-    runtimeHarnessContainerLaneSource.includes(
-      "ioi.hypervisor.harness_container_lane_receipt.v1",
-    ) &&
-    runtimeHarnessContainerLaneSource.includes(
-      "planHarnessAdapterContainerLane",
-    ) &&
-    runtimeHarnessContainerLaneSource.includes(
-      "buildHarnessContainerLaneReceipt",
-    ) &&
-    runtimeHarnessContainerLaneSource.includes("container_image_ref") &&
-    runtimeHarnessContainerLaneSource.includes("command_argv_hash") &&
-    runtimeHarnessContainerLaneSource.includes("network_policy") &&
-    runtimeHarnessContainerLaneSource.includes("exit_status") &&
-    runtimeHarnessContainerLaneSource.includes("ctee_private_workspace") &&
-    runtimeHarnessContainerLaneSource.includes(
-      "harness_container_lane_private_mount_blocked",
-    ) &&
-    runtimeHarnessContainerLaneSource.includes(
-      "source refs, not raw host paths",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-container-lanes",
-    ) &&
-    publicRuntimeRoutesSource.includes("planHarnessAdapterContainerLane") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose daemon-planned harness container lane receipts",
-    ) &&
-    runtimeHarnessContainerLaneTestSource.includes(
-      "container lane plan produces a not-executed receipt",
-    ) &&
-    runtimeHarnessContainerLaneTestSource.includes(
-      "External container harnesses cannot mount plaintext or cTEE private workspace custody",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
-    "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
-  ],
-  "Harness container lanes must be daemon-planned Docker/Podman contracts with image, argv hash, mounts, network policy, exit status, and private-mount/secret guards.",
-);
-assert(
-  "hypervisor-harness-container-executor-contract",
-  runtimeHarnessContainerExecutorSource.includes(
-    "ioi.hypervisor.harness_container_invocation.v1",
-  ) &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "buildHarnessContainerInvocation",
-    ) &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "executeHarnessContainerLane",
-    ) &&
-    runtimeHarnessContainerExecutorSource.includes("resolveMountSourceRef") &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "resolveContainerImageRef",
-    ) &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "harness_container_executor_command_hash_mismatch",
-    ) &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "requires disabled networking",
-    ) &&
-    runtimeHarnessContainerExecutorTestSource.includes(
-      "builds a docker invocation only from daemon-resolved source refs",
-    ) &&
-    runtimeHarnessContainerExecutorTestSource.includes(
-      "returns daemon receipts with output hashes, not plaintext output",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-container-executor.mjs",
-    "packages/runtime-daemon/src/runtime-harness-container-executor.test.mjs",
-  ],
-  "Harness container execution must be daemon-owned, command-hash verified, source-ref resolved, network-disabled by default, and receipt-only with output hashes.",
 );
 assert(
   "hypervisor-foundry-harness-comparison-daemon-run",
@@ -2147,122 +1460,15 @@ assert(
     hypervisorShellContentSource.includes(
       "data-hypervisor-harness-comparison-state",
     ) &&
-    hypervisorShellContentSource.includes("setComparison(nextComparison)") &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose harness public fixture comparison under daemon gates",
-    ),
+    hypervisorShellContentSource.includes("setComparison(nextComparison)"),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
   ],
   "Foundry harness comparison must request the daemon public-fixture route, normalize daemon attempts into comparison rows, and never execute external harnesses locally.",
 );
 assert(
-  "hypervisor-model-weight-custody-admission",
-  runtimeModelWeightCustodyAdmissionSource.includes(
-    "ioi.runtime.model_weight_custody_admission.v1",
-  ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "admitModelWeightCustodyRoute",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes("public_open_weight") &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "remote_api_private_weight",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "tee_or_customer_cloud_mount",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "provider_trust_remote_mount",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "forbidden_plaintext_mount",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "model_weight_custody_plaintext_private_weight_blocked",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      "model_weight_custody_private_native_claim_invalid",
-    ) &&
-    runtimeModelWeightCustodyAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/model-weight-custody-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes("admitModelWeightCustodyRoute") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose model-weight custody admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks provider-readable private weights",
-    ) &&
-    runtimeModelWeightCustodyAdmissionTestSource.includes(
-      "blocks private weights readable by remote root",
-    ) &&
-    runtimeModelWeightCustodyAdmissionTestSource.includes(
-      "provider-trust mounts require disclosure",
-    ) &&
-    runtimeModelWeightCustodyAdmissionTestSource.includes(
-      "TEE or customer-cloud model-weight mounts require attestation",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-model-weight-custody-admission.mjs",
-    "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
-  ],
-  "Model-weight custody admission must block unsafe private-weight plaintext mounts, separate remote API/TEE/provider-trust lanes, and keep daemon runtime truth.",
-);
-assert(
   "hypervisor-private-workspace-mount-admission",
-  runtimePrivateWorkspaceMountAdmissionSource.includes(
-    "ioi.runtime.private_workspace_mount_admission.v1",
-  ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "admitPrivateWorkspaceMount",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes("public_trunk") &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "encrypted_blob_ref",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes("private_head") &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "unsafe_plaintext_mount",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "ctee_private_head_handle",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "explicit_unsafe_plaintext_acceptance",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "private_workspace_mount_required_ref_missing",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      "protected_plaintext_exposed_to_provider_root",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/private-workspace-mount-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes("admitPrivateWorkspaceMount") &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose private workspace mount admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks unsafe plaintext without wallet declassification",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
-      "admits cTEE private-head handles on rented GPUs without provider plaintext",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
-      "unsafe plaintext mounts require wallet approval and declassification receipts",
-    ) &&
-    runtimePrivateWorkspaceMountAdmissionTestSource.includes(
-      "rejects retired camelCase request aliases",
-    ) &&
     daemonRuntimeApiDoc.includes(
       "POST /v1/hypervisor/private-workspace-mount-admissions",
     ) &&
@@ -2270,173 +1476,9 @@ assert(
       "ioi.runtime.private_workspace_mount_admission.v1",
     ),
   [
-    "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.mjs",
-    "packages/runtime-daemon/src/runtime-private-workspace-mount-admission.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Private workspace mount admission must keep protected workspace plaintext out of provider-root custody by default, require cTEE/TEE/local/customer handles for private heads, and make unsafe plaintext mounts wallet-declassified and receipt-backed.",
-);
-assert(
-  "hypervisor-managed-worker-lifecycle-admission",
-  runtimeManagedWorkerLifecycleAdmissionSource.includes(
-    "ioi.runtime.managed_worker_instance_lifecycle_admission.v1",
-  ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "admitManagedWorkerInstanceLifecycleTransition",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes("payment_past_due") &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes("zero_to_idle") &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "managed_worker_lifecycle_lapse_delete_blocked",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "managed_worker_lifecycle_restore_import_ref_required",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "managed_worker_lifecycle_archive_policy_required",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "scope:worker.restore",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "scope:worker.export",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "scope:worker.delete",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      "scope:worker.forget",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/managed-worker-lifecycle-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "admitManagedWorkerInstanceLifecycleTransition",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose managed worker lifecycle admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes("blocks payment-lapse deletion") &&
-    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
-      "payment lapse freezes billable work and cannot silently delete context",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
-      "archive and restore transitions require Agentgres refs",
-    ) &&
-    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
-      "export, delete, and forget transitions require explicit wallet authority",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.mjs",
-    "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
-  ],
-  "Managed worker lifecycle admission must bind lapse, archive, restore, export, delete, and forget transitions to Agentgres operations, wallet authority, receipts, and restore/archive refs.",
-);
-assert(
-  "hypervisor-physical-action-intent-admission",
-  runtimePhysicalActionIntentAdmissionSource.includes(
-    "ioi.runtime.physical_action_intent_admission.v1",
-  ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      "admitPhysicalActionIntent",
-    ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      "physical_action_generic_tool_call_blocked",
-    ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      "physical_action_emergency_stop_test_required",
-    ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      "physical_action_simulation_not_execution_receipt",
-    ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      "physical_action_human_supervision_authority_required",
-    ) &&
-    runtimePhysicalActionIntentAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/physical-action-intent-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes("admitPhysicalActionIntent") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose physical action intent admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks generic actuator tool calls",
-    ) &&
-    runtimePhysicalActionIntentAdmissionTestSource.includes(
-      "admits physical action only through daemon-owned safety",
-    ) &&
-    runtimePhysicalActionIntentAdmissionTestSource.includes(
-      "blocks actuator-affecting work routed as a generic tool call",
-    ) &&
-    runtimePhysicalActionIntentAdmissionTestSource.includes(
-      "requires tested emergency stop and current sensor evidence",
-    ) &&
-    runtimePhysicalActionIntentAdmissionTestSource.includes(
-      "does not admit simulation-only evidence as actuator execution",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs",
-    "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
-  ],
-  "Physical-action admission must bind actuator-affecting work to safety envelopes, emergency stop, sensor evidence, wallet authority, Agentgres receipts, and daemon runtime truth instead of generic tool calls.",
-);
-assert(
-  "hypervisor-worker-package-install-admission",
-  runtimeWorkerPackageInstallAdmissionSource.includes(
-    "ioi.runtime.worker_package_install_admission.v1",
-  ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      "admitWorkerPackageInstall",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      "worker_package_install_primitive_scope_masquerade_blocked",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      "worker_package_install_vertical_runtime_fork_blocked",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      "worker_package_install_ctee_policy_required",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      "physical_action_policy_refs",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/worker-package-install-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes("admitWorkerPackageInstall") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose worker package install admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks physical packages without safety refs",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionTestSource.includes(
-      "admits ontology-bound worker package installs",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionTestSource.includes(
-      "blocks prim capabilities masquerading as authority scopes",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionTestSource.includes(
-      "physical-action worker packages require safety policy refs",
-    ) &&
-    runtimeWorkerPackageInstallAdmissionTestSource.includes(
-      "blocks vertical packs from becoming bespoke runtime forks",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
-    "packages/runtime-daemon/src/runtime-worker-package-install-admission.test.mjs",
-  ],
-  "Worker package install admission must bind aiagent ontology refs, vertical packs, integration surfaces, prim/scope separation, cTEE policy, physical safety refs, wallet approval, Agentgres refs, and daemon runtime truth.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",
@@ -2759,16 +1801,7 @@ assert(
     hypervisorConformanceSource.includes("check:wallet-packaging") &&
     hypervisorConformanceSource.includes("check:candidate-evidence") &&
     hypervisorConformanceSource.includes("check:service-composition-evidence") &&
-    hypervisorConformanceSource.includes("check:artifact-availability-incident") &&
-    hypervisorConformanceSource.includes(
-      "runtime-ctee-private-workspace-api.test.mjs",
-    ) &&
-    hypervisorConformanceSource.includes(
-      "runtime-model-weight-custody-admission.test.mjs",
-    ) &&
-    hypervisorConformanceSource.includes(
-      "runtime-harness-container-lane.test.mjs",
-    ),
+    hypervisorConformanceSource.includes("check:artifact-availability-incident"),
   [
     "package.json",
     "scripts/conformance/hypervisor-conformance.mjs",
@@ -2817,41 +1850,6 @@ assert(
   "Retired direct workspace webview hosts must stay deleted; Workbench resolves through the current project workspace session.",
 );
 assert(
-  "hypervisor-harness-public-fixture-runs-contract",
-  runtimeHarnessPublicFixtureRunSource.includes(
-    "ioi.hypervisor.harness_public_fixture_run.v1",
-  ) &&
-    runtimeHarnessPublicFixtureRunSource.includes(
-      "runHarnessPublicFixtureRun",
-    ) &&
-    runtimeHarnessPublicFixtureRunSource.includes("executeContainerLane") &&
-    runtimeHarnessPublicFixtureRunSource.includes(
-      "command_argv: commandArgv",
-    ) &&
-    runtimeHarnessPublicFixtureRunSource.includes(
-      "harness-testbed:public-code-edit-fixture",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-public-fixture-runs",
-    ) &&
-    publicRuntimeRoutesSource.includes("runHarnessPublicFixtureRun") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose harness public fixture comparison under daemon gates",
-    ) &&
-    runtimeHarnessPublicFixtureRunTestSource.includes(
-      "executes the same fixture through two installed adapters",
-    ) &&
-    runtimeHarnessPublicFixtureRunTestSource.includes("command_argv.slice") &&
-    runtimeHarnessPublicFixtureRunTestSource.includes(
-      "preserves container lane private-mount guard",
-    ),
-  [
-    "packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs",
-    "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
-  ],
-  "Harness public fixture runs must compare installed adapters against the same public fixture through daemon-gated container receipts.",
-);
-assert(
   "hypervisor-home-harness-comparison-preview",
   !hypervisorHomeSource.includes("HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE") &&
     !hypervisorHomeSource.includes("data-home-harness-comparison-run") &&
@@ -2869,14 +1867,6 @@ assert(
     hypervisorHomeCockpitModelSource.includes(
       "ioi.hypervisor.home_cockpit_projection.v1",
     ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/home-cockpit") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_home_cockpit",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor home cockpit through lifecycle projection",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/home-cockpit") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_home_cockpit",
@@ -2884,7 +1874,6 @@ assert(
   [
     "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
     "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Home should keep the visual application shell clean while the cockpit projection model retains receipt-backed harness comparison evidence through the runtime route with fixture fallback.",
@@ -2972,14 +1961,6 @@ assert(
       "hypervisor-session-operations__activity-grid",
     ) &&
     hypervisorShellContentSource.includes("data-session-environment-steps") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_session_operations",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor session operations through lifecycle projection",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/session-operations") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_session_operations",
@@ -2987,7 +1968,6 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Sessions should hydrate branch, workspace cockpit, detail metadata, inspectors, lifecycle refs, changed files, services, tasks, terminal events, and restore refs through daemon/public runtime routes without reintroducing the non-reference center activity card grid or Sessions-local launch strip.",
@@ -3034,21 +2014,6 @@ assert(
     hypervisorShellContentSource.includes(
       "data-project-operation-admission-state",
     ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/project-state") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/project-operations") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_project_state",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_operation.hypervisor_project_operation_proposal",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor project state through lifecycle projection",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor project operations through lifecycle admission proposal",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/project-state") &&
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/project-operations") &&
     daemonRuntimeApiDoc.includes(
@@ -3057,93 +2022,12 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProjectStateModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Projects should clean boot without fake rows, hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route, and propose archive/restore operations through daemon admission instead of fixture-local actions.",
 );
 assert(
   "hypervisor-approved-operation-admission",
-  runtimeHypervisorApprovedOperationAdmissionSource.includes(
-    "ioi.runtime.hypervisor_approved_operation_admission.v1",
-  ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "admitHypervisorApprovedOperation",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "buildExecutionPlan",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "execution_plan_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "execution_dispatch_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "dispatch_status: \"awaiting_executor\"",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "daemon-session-operation-proposal",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "daemon-provider-operation-proposal",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "daemon-project-operation-proposal",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "daemon-automation-run-proposal",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "ioi.hypervisor.project_operation_proposal.v1",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "ioi.hypervisor.automation_run_proposal.v1",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "hypervisor_approved_operation_proposal_source_not_admissible",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "wallet_approval_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "wallet_lease_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "agentgres_operation_refs",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      "state_root_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/approved-operations") &&
-    publicRuntimeRoutesSource.includes("admitHypervisorApprovedOperation") &&
-    publicRuntimeRoutesTestSource.includes(
-      "admit approved Hypervisor operations after wallet and Agentgres refs",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "reject fixture Hypervisor operation execution admission",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
-      "rejects fixture or unverified proposals",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
-      "admits daemon project operation",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
-      "admits daemon automation run",
-    ) &&
-    runtimeHypervisorApprovedOperationAdmissionTestSource.includes(
-      "rejects approved operations without Agentgres operation, receipt, or state root",
-    ) &&
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
     daemonRuntimeApiDoc.includes(
       "ioi.runtime.hypervisor_approved_operation_admission.v1",
@@ -3152,102 +2036,12 @@ assert(
       "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
     ),
   [
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-admission.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound, then emit a daemon-owned execution plan awaiting a real executor.",
 );
 assert(
   "hypervisor-approved-operation-dispatch",
-  runtimeHypervisorApprovedOperationDispatchSource.includes(
-    "ioi.runtime.hypervisor_approved_operation_dispatch.v1",
-  ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "ioi.runtime.hypervisor_approved_operation_executor_registry.v1",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "createHypervisorApprovedOperationExecutorRegistry",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "executor://hypervisor/session/lifecycle-adapter",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "executor://hypervisor/provider/lifecycle-adapter",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "executor://hypervisor/project/lifecycle-adapter",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "executor://hypervisor/automation/workflow-compositor-runner",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsSource.includes(
-      "hypervisor_approved_operation_executor_ref_not_mounted",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "dispatchHypervisorApprovedOperationPlan",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "hypervisor_approved_operation_executor_required",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "execution_plan_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes("dispatch_ref") &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes("executor_ref") &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "next_state_root_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "execution_receipt_ref",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchSource.includes(
-      "runtimeTruthSource: \"daemon-runtime\"",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/approved-operation-dispatches",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "dispatchHypervisorApprovedOperationPlan",
-    ) &&
-    publicRuntimeRoutesSource.includes("executeApprovedOperationPlan") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch approved Hypervisor operation plans through mounted executors",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch through the default approved-operation executor registry",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "fail approved-operation dispatch without mounted executor",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
-      "dispatches an admitted execution plan through a mounted executor",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
-      "rejects dispatch when no concrete executor is mounted",
-    ) &&
-    runtimeHypervisorApprovedOperationDispatchTestSource.includes(
-      "rejects non-daemon plans",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
-      "default executor registry dispatches admitted session lifecycle plans",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
-      "dispatches provider, project, and automation families",
-    ) &&
-    runtimeHypervisorApprovedOperationExecutorsTestSource.includes(
-      "rejects unmounted executor refs and unknown executor kinds",
-    ) &&
-    daemonSource.includes(
-      "createHypervisorApprovedOperationExecutorRegistry",
-    ) &&
-    daemonSource.includes(
-      "hypervisorApprovedOperationExecutorRegistry.executeApprovedOperationPlan",
-    ) &&
     daemonRuntimeApiDoc.includes(
       "POST /v1/hypervisor/approved-operation-dispatches",
     ) &&
@@ -3256,45 +2050,15 @@ assert(
     ) &&
     daemonRuntimeApiDoc.includes("awaiting_executor"),
   [
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-dispatch.test.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-approved-operation-executors.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Approved Hypervisor operation dispatch must consume daemon-owned execution plans through mounted executors only, mount the default daemon executor registry, fail closed without the mounted executor ref, and return execution receipts plus state-root refs instead of allowing client-local side effects.",
 );
 assert(
   "hypervisor-core-taxonomy-projection",
-  runtimeHypervisorCoreTaxonomySource.includes(
-    "ioi.runtime.hypervisor_core_taxonomy.v1",
-  ) &&
-    runtimeHypervisorCoreTaxonomySource.includes(
-      "buildHypervisorCoreTaxonomy",
-    ) &&
-    runtimeHypervisorCoreTaxonomySource.includes("first_class_clients") &&
-    runtimeHypervisorCoreTaxonomySource.includes("application_surfaces") &&
-    runtimeHypervisorCoreTaxonomySource.includes("adapter_target_families") &&
-    runtimeHypervisorCoreTaxonomySource.includes("agent_harness_adapters") &&
-    runtimeHypervisorCoreTaxonomySource.includes("retired_surface_aliases") &&
-    runtimeHypervisorCoreTaxonomySource.includes("fleet") &&
-    runtimeHypervisorCoreTaxonomySource.includes("proposal_source_only") &&
-    runtimeHypervisorCoreTaxonomySource.includes(
-      'runtimeTruthSource: "daemon-runtime"',
-    ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/core-taxonomy") &&
-    publicRuntimeRoutesSource.includes("buildHypervisorCoreTaxonomy") &&
-    publicRuntimeRoutesTestSource.includes("expose Hypervisor Core taxonomy") &&
-    runtimeHypervisorCoreTaxonomyTestSource.includes(
-      "classifies external harnesses as proposal-source adapters only",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
     daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v1"),
   [
-    "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
-    "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Core taxonomy must be a daemon-visible projection that keeps clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct.",
@@ -3353,25 +2117,6 @@ assert(
     hypervisorShellContentSource.includes(
       "data-workflow-compositor-editor-boundary",
     ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/automation-compositor",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/automation-runs/proposals",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_automation_compositor",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_operation.hypervisor_automation_run_proposal",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor automation compositor through lifecycle projection",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor automation run proposals through lifecycle admission proposal",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/automation-compositor") &&
     daemonRuntimeApiDoc.includes(
       "POST /v1/hypervisor/automation-runs/proposals",
@@ -3382,7 +2127,6 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Automations should clean boot without fake rows, hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route, then request run proposals through daemon admission instead of client-local execution.",
@@ -3423,15 +2167,6 @@ assert(
       "data-agent-capability-management-boundary",
     ) &&
     hypervisorShellContentSource.includes("data-agent-harness-boundary") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/agents") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_agents",
-    ) &&
-    publicRuntimeRoutesSource.includes('projection_kind: "agents"') &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor agents through lifecycle projection",
-    ) &&
     hypervisorAgentsModelTestSource.includes(
       "worker package install admission request preserves prim and scope boundaries",
     ) &&
@@ -3446,7 +2181,6 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAgentsModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Agents should hydrate configured runtime actors, skills, semantic memory, wallet capability leases, Agentgres refs, state roots, and receipts through the daemon/public runtime route; Capabilities remains a subordinate wallet-governed boundary.",
@@ -3502,50 +2236,11 @@ assert(
     hypervisorShellContentSource.includes(
       "data-model-route-mutation-admission",
     ) &&
-    runtimeModelRouteMutationAdmissionSource.includes(
-      "ioi.runtime.model_route_mutation_admission.v1",
-    ) &&
-    runtimeModelRouteMutationAdmissionSource.includes(
-      "admitModelRouteMutation",
-    ) &&
-    runtimeModelRouteMutationAdmissionSource.includes(
-      "scope:model.route.mutate",
-    ) &&
-    runtimeModelRouteMutationAdmissionSource.includes(
-      "model_route_mutation_provider_credential_lease_required",
-    ) &&
-    runtimeModelRouteMutationAdmissionSource.includes(
-      "model_route_mutation_custody_admission_required",
-    ) &&
-    runtimeModelRouteMutationAdmissionTestSource.includes(
-      "credentialed hosted API route requires secret scope and provider credential lease",
-    ) &&
-    runtimeModelRouteMutationAdmissionTestSource.includes(
-      "unsafe plaintext secret routes require explicit export scope",
-    ) &&
     hypervisorModelInfrastructureModelTestSource.includes(
       "model route mutation builder maps selected route to daemon admission request",
     ) &&
     hypervisorModelInfrastructureModelTestSource.includes(
       "model route mutation admission client posts canonical request to daemon",
-    ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/model-infrastructure") &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/model-route-mutation-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes("admitModelRouteMutation") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_model_infrastructure",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor model infrastructure through lifecycle projection",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose model route mutation admissions",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks credentialed providers without leases",
     ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/model-infrastructure") &&
     daemonRuntimeApiDoc.includes(
@@ -3558,9 +2253,6 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.test.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/runtime-model-route-mutation-admission.mjs",
-    "packages/runtime-daemon/src/runtime-model-route-mutation-admission.test.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Models should hydrate model routes, provider endpoints, loaded instances, session bindings, custody policy refs, authority scopes, and receipts through the daemon/public runtime route, and route model-route mutations through daemon admission instead of local UI truth.",
@@ -3609,21 +2301,6 @@ assert(
     hypervisorShellContentSource.includes("data-provider-placement-source") &&
     hypervisorShellContentSource.includes("data-provider-operation-kind") &&
     hypervisorShellContentSource.includes("data-provider-operation-proposal") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/provider-placement") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/provider-operations") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_provider_placement",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor provider placement through lifecycle projection",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor provider operations through lifecycle admission proposal",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/provider-placement") &&
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/provider-operations") &&
     daemonRuntimeApiDoc.includes(
@@ -3635,7 +2312,6 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Providers should hydrate direct provider placement candidates through the daemon/public runtime route while preserving wallet authority, Agentgres truth, and storage-backend boundaries.",
@@ -3703,23 +2379,6 @@ assert(
     hypervisorShellContentSource.includes(
       "data-model-weight-custody-admission-runtime-truth",
     ) &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/privacy-posture") &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/model-weight-custody-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/private-workspace-mount-admissions",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_privacy_posture",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor privacy posture through lifecycle projection",
-    ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "public runtime routes expose private workspace mount admissions",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/privacy-posture") &&
     daemonRuntimeApiDoc.includes(
       "POST /v1/hypervisor/private-workspace-mount-admissions",
@@ -3730,8 +2389,6 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Privacy/cTEE should hydrate workspace custody, model-weight custody, provider posture, admission controls, and receipt refs through the daemon/public runtime route, and route model-weight custody changes through daemon admissions instead of local UI truth.",
@@ -3807,16 +2464,6 @@ assert(
     hypervisorShellContentSource.includes("data-receipt-evidence-detail") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-replay-ref") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-review") &&
-    publicRuntimeRoutesSource.includes("/v1/hypervisor/receipt-evidence") &&
-    publicRuntimeRoutesSource.includes("receipt_page_cursor") &&
-    publicRuntimeRoutesSource.includes("receipt_page_size") &&
-    publicRuntimeRoutesSource.includes(
-      "runtime.lifecycle_projection.hypervisor_receipt_evidence",
-    ) &&
-    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
-    publicRuntimeRoutesTestSource.includes(
-      "dispatch Hypervisor receipt evidence through lifecycle projection",
-    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/receipt-evidence") &&
     daemonRuntimeApiDoc.includes("page_cursor") &&
     daemonRuntimeApiDoc.includes("next_page_cursor") &&
@@ -3826,7 +2473,6 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Receipts should hydrate paginated receipt evidence, Agentgres operation refs, artifacts, traces, state roots, and replay refs through the daemon/public runtime route with fixture fallback.",

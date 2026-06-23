@@ -33,7 +33,7 @@ const PQC_INTENT =
   "Include an index.html file with a paragraph about post-quantum cryptography.";
 
 async function detectEquipment() {
-  const shim = path.resolve(repoRoot, "packages/runtime-daemon/src/harness-shims/generic-cli-local.mjs");
+  const shim = path.resolve(repoRoot, "harness-shims/generic-cli-local.mjs");
   if (!fs.existsSync(shim)) return { ok: false, reason: "shim missing" };
   try {
     const response = await fetch(`${MODEL_ENDPOINT.replace(/\/v1\/?$/, "")}/api/tags`, { signal: AbortSignal.timeout(3000) });

@@ -240,7 +240,7 @@ export const DOC_PAGES: DocPage[] = [
     sources: [
       'packages/agent-sdk/src/substrate-client.ts',
       'packages/agent-sdk/examples/quickstart-local.ts',
-      'packages/runtime-daemon/src/index.mjs',
+      'crates/node/src/bin/hypervisor-daemon.rs',
     ],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
@@ -266,18 +266,17 @@ export const DOC_PAGES: DocPage[] = [
               isDark={isDark}
               label="Command"
               code={code`node --input-type=module <<'EOF'
-import { startRuntimeDaemonService } from "./packages/runtime-daemon/src/index.mjs";
+import { startRustHypervisorDaemon } from "./scripts/lib/rust-hypervisor-daemon.mjs";
 
-const service = await startRuntimeDaemonService({
-  cwd: process.cwd(),
-  port: 8787,
+const daemon = await startRustHypervisorDaemon({
+  stateDir: process.cwd() + "/.ioi-daemon-state",
 });
 
-console.log("IOI_DAEMON_ENDPOINT=" + service.endpoint);
+console.log("IOI_DAEMON_ENDPOINT=" + daemon.endpoint);
 console.log("Leave this process running while you use the SDK.");
 
 process.on("SIGINT", async () => {
-  await service.close();
+  await daemon.close();
   process.exit(0);
 });
 EOF`}
@@ -387,7 +386,7 @@ for await (const event of run.stream()) {
     keywords: ['api', 'daemon', 'sdk', 'models', 'mcp', 'memory', 'events', 'traces', 'cli'],
     sources: [
       'docs/architecture/components/daemon-runtime/api.md',
-      'packages/runtime-daemon/src/index.mjs',
+      'crates/node/src/bin/hypervisor-daemon.rs',
       'packages/agent-sdk/src/substrate-client.ts',
       'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx',
       'crates/cli',
@@ -508,7 +507,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['local-setup', 'setup'],
     lastVerified: LAST_VERIFIED,
     keywords: ['setup', 'local', 'workspace', 'daemon endpoint'],
-    sources: ['package.json', 'packages/runtime-daemon/package.json', 'apps/hypervisor/package.json'],
+    sources: ['package.json', 'crates/node/Cargo.toml', 'apps/hypervisor/package.json'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Quickstart', href: '#quickstart', description: 'Connect to the daemon-backed local runtime.' },
@@ -759,7 +758,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['ioi-cli-overview', 'cli', 'tui'],
     lastVerified: LAST_VERIFIED,
     keywords: ['cli', 'tui', 'harness', 'benchmark', 'daemon'],
-    sources: ['crates/cli', 'apps/hypervisor/scripts', 'packages/runtime-daemon/package.json'],
+    sources: ['crates/cli', 'apps/hypervisor/scripts', 'crates/node/Cargo.toml'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Understand what CLI commands inspect or drive.' },
@@ -959,7 +958,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['runtime-daemon', 'policies-approvals-and-receipts', 'runtime'],
     lastVerified: LAST_VERIFIED,
     keywords: ['runtime', 'daemon', 'Agentgres', 'events', 'traces', 'receipts'],
-    sources: ['packages/runtime-daemon/src/index.mjs', 'docs/architecture/components/daemon-runtime/api.md', 'docs/architecture/_meta/source-of-truth-map.md'],
+    sources: ['crates/node/src/bin/hypervisor-daemon.rs', 'docs/architecture/components/daemon-runtime/api.md', 'docs/architecture/_meta/source-of-truth-map.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'API Reference', href: '#api-reference', description: 'Browse the route-family map.' },
@@ -1025,7 +1024,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['model-mounting', 'models', 'local-models'],
     lastVerified: LAST_VERIFIED,
     keywords: ['model mounting', 'models', 'OpenAI compatible', 'LM Studio', 'Ollama'],
-    sources: ['packages/runtime-daemon/src/model-mounting.mjs', 'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx', 'packages/agent-sdk/src/model-mounts.ts'],
+    sources: ['crates/services/src/agentic/runtime/kernel/model_mount.rs', 'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx', 'packages/agent-sdk/src/model-mounts.ts'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon boundary behind model routes.' },
@@ -1087,7 +1086,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['mcp-tools', 'tools', 'mcp'],
     lastVerified: LAST_VERIFIED,
     keywords: ['mcp', 'tools', 'invoke', 'server', 'resources', 'prompts'],
-    sources: ['packages/runtime-daemon/src/mcp-manager.mjs', 'packages/agent-sdk/src/substrate-client.ts', 'docs/architecture/components/daemon-runtime/api.md'],
+    sources: ['crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs', 'packages/agent-sdk/src/substrate-client.ts', 'docs/architecture/components/daemon-runtime/api.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'API Reference', href: '#api-reference', description: 'See MCP in the product-facing API map.' },

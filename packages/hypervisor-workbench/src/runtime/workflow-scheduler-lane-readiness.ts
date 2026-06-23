@@ -26,7 +26,7 @@ export const EXPECTED_WORKFLOW_SCHEDULER_LANE_CAPABILITY_IDS = [
 
 const HYPERVISOR_WORKFLOW_SCHEDULER_EVIDENCE: string[] = [
   "crates/services/src/agentic/automation.rs",
-  "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+  "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
   "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
 ];
 

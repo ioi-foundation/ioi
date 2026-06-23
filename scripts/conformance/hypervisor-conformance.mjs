@@ -14,30 +14,12 @@ const TIERS = {
   bridge: [
     npmRun("check:runtime-layout"),
     npmRun("check:hypervisor-code-editor-adapter-host-paths"),
-    nodeTest(
-      "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
-      "packages/runtime-daemon/src/runtime-code-editor-adapter-launch-plan-admission.test.mjs",
-      "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
-      "packages/runtime-daemon/src/runtime-harness-container-executor.test.mjs",
-      "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
-    ),
   ],
   receipts: [
     npmRun("check:service-composition-evidence"),
     npmRun("check:artifact-availability-incident"),
-    nodeTest(
-      "packages/runtime-daemon/src/runtime-service-composition-receipt-bundle.test.mjs",
-      "packages/runtime-daemon/src/runtime-artifact-availability-incident.test.mjs",
-    ),
   ],
-  ctee: [
-    nodeTest(
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs",
-      "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
-    ),
-  ],
+  ctee: [],
   app: [
     npmRun("build:workbench"),
     ["npm", ["run", "build", "--workspace=@ioi/hypervisor-app"]],
@@ -47,20 +29,13 @@ const TIERS = {
   compositor: [
     npmRun("build:workbench"),
     nodeTest(
-      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.test.ts",
       "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.test.ts",
       "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.test.ts",
     ),
   ],
   wallet: [npmRun("check:wallet-packaging")],
-  candidates: [
-    npmRun("check:candidate-evidence"),
-    nodeTest(
-      "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
-      "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
-    ),
-  ],
+  candidates: [npmRun("check:candidate-evidence")],
   negative: [npmRun("check:runtime-layout")],
   // The unified-Rust-daemon lifecycle ratchet: the Rust hypervisor-daemon owns the
   // thread/agent/run/turn/events/control/MCP/task/job/subagent surface (spawns the

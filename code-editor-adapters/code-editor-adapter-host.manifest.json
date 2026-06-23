@@ -14,7 +14,7 @@
     "requiredForRuntimeLaunch": true
   },
   "adapterSource": "code-editor-adapters/ioi-code-editor-adapter",
-  "runtimeAuthority": "packages/runtime-daemon",
+  "runtimeAuthority": "crates/node/src/bin/hypervisor-daemon.rs",
   "doctrine": [
     "Hypervisor App is the product client; Workbench is one application surface.",
     "Electron/VS Code is one code-editor adapter host, not product identity or runtime truth.",

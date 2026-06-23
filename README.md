@@ -205,7 +205,7 @@ Stop renting tools. Hire workers.
 |---|---|
 | [`crates/`](crates) | Rust runtime, consensus, execution, state, storage, services, drivers, CLI, and IPC. |
 | [`packages/agent-sdk`](packages/agent-sdk) | Developer SDK over the public runtime substrate. |
-| [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
+| [`crates/node`](crates/node) | Rust hypervisor-daemon: the runtime API surface (threads/agents/runs/tools/MCP/model-mount) the app and SDK run against. |
 | [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
 | [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
