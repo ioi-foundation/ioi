@@ -34,8 +34,8 @@ import {
 } from "./services/hypervisorAppearance";
 import { markHypervisorMetric } from "./services/workspacePerf";
 
-import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
+import { HypervisorReferenceNotFound } from "./surfaces/NotFound/HypervisorReferenceNotFound";
 import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
 import { HypervisorReferenceShell } from "./surfaces/Home/HypervisorReferenceShell";
 import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorReferenceProjects";
@@ -98,8 +98,9 @@ function renderHypervisorApp() {
           <Route path="/details/:sessionId" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
           <Route path="/settings" element={<HypervisorReferenceSettings />} />
           <Route path="/settings/*" element={<HypervisorReferenceSettings />} />
-          {/* Legacy shell: fallback for routes the parity UX does not (yet) own. */}
-          <Route path="*" element={<HypervisorShellWindow />} />
+          {/* Reference-style 404 for any route the parity UX does not own (sessions,
+              workbench, agents, models, etc.). The legacy shell has been removed. */}
+          <Route path="*" element={<HypervisorReferenceNotFound />} />
         </Routes>
       </BrowserRouter>
     </React.StrictMode>,
