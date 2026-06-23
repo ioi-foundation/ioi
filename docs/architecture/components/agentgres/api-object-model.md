@@ -1,7 +1,7 @@
 # Agentgres API and Object Model
 
 Status: canonical low-level reference.
-Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority; artifact-ref authority lives in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
+Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export validity; artifact-ref meaning and restore/import validity live in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
@@ -83,7 +83,7 @@ POST /v1/sealed-state-archives/{archive_id}/restore
 ```
 
 Sealed state archives are cold-state artifacts, not canonical live state. Hot
-Agentgres keeps the authoritative archive refs, lifecycle status, roots, policy,
+Agentgres keeps the canonical archive refs, lifecycle status, roots, policy,
 schema, authority, and receipt metadata. Storage backends such as Filecoin/CAS,
 S3, local disk, or other durable stores hold the encrypted bytes by CID/hash.
 
@@ -205,6 +205,7 @@ TrainingLineage
 ContextMutation
 PostTrainingCycle
 PromotionDecision
+CapabilityRegressionRecord
 BenchmarkSubmission
 BenchmarkRun
 EvaluationVerdict
@@ -214,6 +215,9 @@ OutcomeWorkspace
 RuntimeAssignment
 ComputeSession
 RuntimeSubscription
+ResourceAllocationDecision
+ComplianceAuditExportBundle
+MultiPartyCollaborationContext
 DeliveryBundle
 Approval
 ScopeLease
@@ -838,7 +842,8 @@ Filecoin/CAS and are referenced by hash/CID.
   "resume_ref": "artifact://resume-token",
   "last_heartbeat_ref": "receipt://training-heartbeat",
   "authority_grant_refs": ["grant://training_data", "grant://gpu_spend"],
-  "training_data_posture": "synthetic_only | redacted_opt_in | full_opt_in | org_policy",
+  "training_evidence_eligibility_refs": ["eligibility://support-triage-traces"],
+  "training_data_posture": "synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "model_base_refs": ["model://base-9b"],
   "input_dataset_refs": ["dataset://support-triage-train-v1"],
   "training_config_ref": "artifact://training-config",
@@ -906,13 +911,23 @@ Filecoin/CAS and are referenced by hash/CID.
   "conductor_advisor_candidate_id": "conductor://ioi-conductor-v1",
   "foundry_job_ref": "foundry_job://conductor_advisor_123",
   "intended_consumer": "ioi_ai | hypervisor_operator_plane | custom_coordinator",
-  "training_data_posture": "synthetic_only | redacted_opt_in | full_opt_in | org_policy",
+  "training_data_posture": "synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "training_consent_refs": ["grant://training_consent", "policy://training_data_use"],
+  "training_evidence_eligibility_refs": ["eligibility://conductor-training-traces"],
   "input_refs": ["dataset://conductor-training", "receipt://work-evidence"],
   "eval_suite_refs": ["benchmark://cross-session-routing"],
   "scorecard_refs": ["gate://conductor-scorecard"],
   "shadow_mode_refs": ["run://shadow_123"],
-  "promotion_status": "draft | training | shadow | gated | promoted | rejected | rollback"
+  "shadow_mode_receipt_refs": ["receipt://shadow_123"],
+  "shadow_mode_summary": {
+    "quality_delta": "optional",
+    "cost_delta": "optional",
+    "latency_delta": "optional",
+    "privacy_incidents": 0,
+    "policy_denials": 0,
+    "authority_escalations": 0
+  },
+  "promotion_status": "draft | training | shadow | gated | promoted | rejected | paused | rolled_back | recalled"
 }
 ```
 
@@ -976,6 +991,33 @@ portability, restore, retention, export, or user-visible doctrine.
 
 ```json
 {
+  "regression_id": "regression://support-worker-canary-001",
+  "object_class": "CapabilityRegressionRecord",
+  "capability_ref": "worker://support-triage@1.0.2",
+  "capability_kind": "worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
+  "baseline_version_ref": "worker://support-triage@1.0.1",
+  "candidate_or_active_version_ref": "worker://support-triage@1.0.2",
+  "detected_in": {
+    "phase": "offline_eval | shadow | canary | rollout | production | recall_review",
+    "run_refs": ["run://shadow_123"],
+    "release_target_refs": ["release://support-tier1-canary"]
+  },
+  "regression_class": "quality | safety | privacy | cost | latency | authority | reliability | policy | security | compliance | marketplace_reputation",
+  "severity": "info | warning | blocking | critical",
+  "evidence_refs": ["receipt://eval_123", "artifact://failure-cluster"],
+  "scorecard_refs": ["gate://support-scorecard"],
+  "affected_scope_refs": ["project://support", "release://support-tier1-canary"],
+  "recommended_action": "reject | hold | shadow_more | pause | rollback | recall | constrain | patch_and_retry | require_human_review",
+  "adjudication_ref": "receipt://adjudication_123",
+  "training_evidence_eligibility_ref": "eligibility://support-regression-001",
+  "future_eval_candidate_refs": ["dataset://support-regression-holdout-candidate"],
+  "receipt_ref": "receipt://capability_regression_123",
+  "status": "detected | adjudicating | blocked | rejected | shadowing | paused | rolled_back | recalled | constrained | converted_to_eval | closed"
+}
+```
+
+```json
+{
   "benchmark_run_id": "bench_123",
   "object_class": "BenchmarkRun",
   "worker_id": "worker://...",
@@ -1006,6 +1048,149 @@ portability, restore, retention, export, or user-visible doctrine.
   "fallback_policy": "optional",
   "contribution_policy_ref": "license://...",
   "receipt_obligations": ["contribution_receipt"]
+}
+```
+
+```json
+{
+  "allocation_decision_id": "allocation://decision/123",
+  "object_class": "ResourceAllocationDecision",
+  "allocation_request_ref": "allocation://request/123",
+  "workload_kind": "session | work_run | automation | scheduled_job | training_pipeline | eval | managed_worker | model_route | release_job | connector_job",
+  "workload_refs": ["work_run://123"],
+  "resource_pool_refs": ["resource_pool://gpu/us-east"],
+  "budget_refs": ["budget://org/monthly-gpu"],
+  "quota_refs": ["quota://provider/gpu"],
+  "priority_class": "safety_critical | user_blocking | deadline | interactive | production | standard | background | speculative",
+  "decision": "admit | queue | throttle | degrade | preempt | pause | defer | cancel | shift_provider | request_budget | fail_closed",
+  "reason_code": "capacity_available | capacity_exhausted | budget_warning | budget_exhausted | quota_exhausted | rate_limited | deadline_priority | safety_priority | policy_denied | privacy_or_residency_block | provider_unhealthy | verified_work_low_value | duplicate_catchup",
+  "affected_workload_refs": ["work_run://123"],
+  "preempted_workload_refs": ["work_run://background-7"],
+  "preserved_checkpoint_refs": ["artifact://checkpoint"],
+  "lost_or_discarded_refs": [],
+  "retry_or_resume_policy_ref": "policy://retry-after-capacity",
+  "catchup_policy_ref": "schedule://nightly-coalesce",
+  "authority_requirement_refs": ["policy://gpu-spend-limit"],
+  "authority_grant_refs": ["grant://gpu-spend"],
+  "cost_delta_ref": "ledger://cost-delta",
+  "expected_verified_work_delta_ref": "receipt://quality-delta",
+  "receipt_refs": ["receipt://resource_allocation_123"],
+  "status": "proposed | admitted | blocked | executed | superseded | failed"
+}
+```
+
+```json
+{
+  "audit_export_id": "audit_export://customer-q2-2026",
+  "object_class": "ComplianceAuditExportBundle",
+  "export_type": "customer_audit | auditor_review | regulator_request | counterparty_dispute | procurement_review | internal_control | tax_report | sla_report | incident_review",
+  "audience": "customer | external_auditor | regulator | counterparty | insurer | procurement | internal_auditor | public",
+  "subject_refs": ["order://123", "run://456", "service://789"],
+  "jurisdiction_policy_pack_refs": ["jurisdiction_policy_pack://us-finance-v1"],
+  "regulated_action_refs": ["receipt://regulated-action"],
+  "policy_decision_refs": ["receipt://policy_decision"],
+  "approval_receipt_refs": ["receipt://approval"],
+  "denial_receipt_refs": ["receipt://denial"],
+  "authority_refs": ["authority://export-grant"],
+  "evidence_bundle_refs": ["assurance_evidence://bundle", "evidence://agentgres-bundle"],
+  "receipt_refs": ["receipt://execution"],
+  "replay_refs": ["replay://redacted-run"],
+  "retention_lock_refs": ["retention_lock://legal-hold"],
+  "restricted_view_refs": ["restricted_view://auditor-safe"],
+  "redaction_profile_ref": "policy://redaction/customer-audit",
+  "export_policy_ref": "policy://export/customer-audit",
+  "declassification_refs": ["receipt://declassification"],
+  "export_manifest_hash": "sha256:...",
+  "included_refs": ["receipt://execution"],
+  "redacted_refs": ["trace://private-span"],
+  "protected_payload_refs": ["artifact://protected-output"],
+  "excluded_refs": ["artifact://unrelated-secret"],
+  "exclusion_reasons": ["retention_locked | restricted_view | no_export_authority | protected_plaintext | unrelated | expired | policy_blocked"],
+  "commercial_refs": {
+    "invoice_refs": ["invoice://..."],
+    "cost_center_refs": ["cost_center://..."],
+    "sla_report_refs": ["sla://..."],
+    "tax_export_refs": ["tax://..."],
+    "purchase_order_refs": ["procurement://..."]
+  },
+  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | required_public_root",
+  "l1_anchor_refs": ["l1://..."],
+  "export_receipt_refs": ["receipt://compliance_audit_export_bundle"],
+  "status": "requested | generated | delivered | revoked | superseded | expired"
+}
+```
+
+```json
+{
+  "collaboration_id": "collaboration://joint-service-outcome-001",
+  "object_class": "MultiPartyCollaborationContext",
+  "goal_ref": "order://123",
+  "coordinator_ref": "domain://service-coordinator",
+  "party_refs": [
+    {
+      "party_ref": "org://customer-a",
+      "role": "data_owner",
+      "domain_ref": "agentgres://domain/customer-a",
+      "authority_provider_refs": ["authority://customer-a-policy"],
+      "revocation_ref": "revocation://collaboration/customer-a",
+      "status": "active"
+    },
+    {
+      "party_ref": "org://provider-b",
+      "role": "worker_provider",
+      "domain_ref": "agentgres://domain/provider-b",
+      "authority_provider_refs": ["wallet://provider-b"],
+      "revocation_ref": null,
+      "status": "active"
+    },
+    {
+      "party_ref": "org://auditor",
+      "role": "auditor",
+      "domain_ref": null,
+      "authority_provider_refs": ["policy://auditor-readonly"],
+      "revocation_ref": "revocation://collaboration/auditor",
+      "status": "observer_only"
+    }
+  ],
+  "allowed_shared_refs": [
+    "receipt://execution",
+    "restricted_view://auditor-safe",
+    "redacted_summary://run-summary",
+    "delivery://final"
+  ],
+  "blocked_context_classes": [
+    "raw_secret",
+    "protected_plaintext",
+    "unauthorized_connector_payload",
+    "unrelated_private_memory",
+    "non_opted_in_training_trace"
+  ],
+  "policy_bound_data_view_refs": ["view://customer-a-service-view"],
+  "restricted_view_refs": ["restricted_view://auditor-safe"],
+  "aiip_channel_refs": ["aiip://channel/customer-provider"],
+  "handoff_refs": ["packet://handoff-001"],
+  "authority_refs_by_party": [
+    {
+      "party_ref": "org://customer-a",
+      "authority_refs": ["grant://customer-data-read"]
+    },
+    {
+      "party_ref": "org://provider-b",
+      "authority_refs": ["grant://worker-execute"]
+    }
+  ],
+  "evidence_bundle_refs": ["evidence://collaboration-proof"],
+  "delivery_bundle_refs": ["delivery://final"],
+  "contribution_refs": ["receipt://contribution-provider-b"],
+  "settlement_intent_refs": ["settlement-intent://payout-provider-b"],
+  "audit_export_profile_refs": ["audit_export://auditor-review"],
+  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | reputation_only | settlement_required | required_public_root",
+  "history_policy": {
+    "party_removal_effect": "no_new_access | revoke_live_access | tombstone_view | rotate_views",
+    "historical_receipts": "immutable | sealed | export_limited"
+  },
+  "receipt_refs": ["receipt://multi_party_collaboration"],
+  "status": "proposed | active | blocked | delivery_submitted | accepted | revision_requested | disputed | settled | revoked | archived"
 }
 ```
 
@@ -1056,6 +1241,17 @@ BenchmarkSubmissionCreated
 BenchmarkRunRecorded
 EvaluationVerdictRecorded
 MoWRoutingDecisionRecorded
+ResourceAllocationDecisionRecorded
+ComplianceAuditExportBundleGenerated
+ComplianceAuditExportBundleRevoked
+MultiPartyCollaborationContextCreated
+MultiPartyCollaborationPartyJoined
+MultiPartyCollaborationPartyRemoved
+MultiPartyCollaborationViewGranted
+MultiPartyCollaborationViewRevoked
+MultiPartyCollaborationProofBundleGenerated
+CapabilityRegressionRecorded
+CapabilityRegressionAdjudicated
 AgentStateArchiveCreated
 AgentStateRestoreRequested
 ArchiveHashVerified
@@ -1086,10 +1282,10 @@ Agentgres supports cold-state export and hot-state rehydration through
 encrypted, content-addressed state bundles.
 
 These bundles are first-class portable state artifacts. They are not canonical
-live state by themselves. Agentgres remains the authority for the operation that
-created the archive, the state root it represents, the object heads it binds,
-the policy and schema under which it was produced, the authority context for
-decryption, and the restore/import receipt chain.
+live state by themselves. Agentgres remains the canonical record owner for the
+operation that created the archive, the state root it represents, the object
+heads it binds, the policy and schema under which it was produced, the
+authority context required for decryption, and the restore/import receipt chain.
 
 ```json
 {

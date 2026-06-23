@@ -4,7 +4,7 @@ Status: canonical metadata vocabulary.
 Canonical owner: this file for architecture documentation class names and placement rules.
 Supersedes: ad hoc document-type labels in architecture headers.
 Superseded by: none.
-Last alignment pass: 2026-05-02.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -15,6 +15,7 @@ This register names the document classes used to keep architecture doctrine, ref
 | Class | Meaning | Primary Home |
 | --- | --- | --- |
 | `canonical-index` | Navigation and ownership index. | `docs/architecture/README.md`, `docs/architecture/_meta/` |
+| `canonical-digest` | Current cross-owner architecture defaults that help readers orient before opening subject owners. Digest docs summarize; they do not override owner docs. | `docs/architecture/_meta/` |
 | `canonical-doctrine` | Stable architecture authority prose. | `docs/architecture/foundations/`, `docs/architecture/components/`, `docs/architecture/domains/` |
 | `canonical-reference` | Low-level APIs, object models, endpoint references, and contracts. | `docs/architecture/components/`, selected endpoint references under `docs/architecture/domains/` |
 | `canonical-schema` | Shared schemas that drive generated contracts. | `docs/architecture/_meta/schemas/` until schema generation is split into a package |
@@ -33,3 +34,24 @@ This register names the document classes used to keep architecture doctrine, ref
 `.st`, `.fp`, `.bin`, `.aux`, `.log`, `.out`, generated trace modules, or
 `states/` directories. Architecture docs may reference those artifact classes
 only when the generated output is necessary public evidence.
+
+## Canonical Owner Shape
+
+Major owner docs should converge toward this reader shape when edited:
+
+```text
+Definition
+Owns
+Does Not Own
+Core Objects
+Lifecycle / State Transitions
+Interfaces / APIs / Surfaces
+Receipts / Proof / Audit
+Related Owners
+Implementation Anchors
+Supporting Context / Appendix
+```
+
+Do not force every file into every heading. Use the shape where it reduces
+split-brain, clarifies implementation ownership, or keeps long supporting
+context from competing with current doctrine.

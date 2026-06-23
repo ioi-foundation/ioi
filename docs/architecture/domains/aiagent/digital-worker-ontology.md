@@ -22,12 +22,14 @@ WorkerPackage
   -> declares capabilities, surfaces, policies, receipts, runtime profiles
 VerticalOntologyPack
   -> extends domain language and risk/evidence rules
+ManagedWorkerOnboardingPlan
+  -> compiles package requirements + buyer environment into setup steps
 ManagedWorkerInstance
   -> binds package + owner + runtime + authority + memory + lifecycle
 Hypervisor Daemon
   -> executes
-wallet.network
-  -> authorizes power, secrets, payments, declassification, revocation
+authority providers / local governance
+  -> authorize power, secrets, payments, declassification, revocation as required
 Agentgres
   -> admits state, receipts, refs, lifecycle, restore truth
 Storage backends
@@ -46,6 +48,7 @@ This ontology owns the common labor description primitives:
 | `StarterWorkerTemplate` | package-draft seed / recipe ref | aiagent authoring object; not invokable |
 | `WorkerPackage` | manifest plus Agentgres/package refs | marketplace object |
 | `WorkerComposition` | model + harness + tools + runtime + policy version | benchmark/listing identity |
+| `ManagedWorkerOnboardingPlan` | requirement-to-step plan / readiness projection | marketplace install/configuration object |
 | `ManagedWorkerInstance` | owner-bound instance record | aiagent Agentgres domain object |
 | `Capability` | manifest field / ontology field | descriptive; not authority |
 | `TaskClass` | ontology field | index/routing vocabulary |
@@ -56,9 +59,9 @@ This ontology owns the common labor description primitives:
 | `IntegrationSurface` | profile ref | vertical/UI/API binding |
 | `ConnectorRequirement` | manifest field | dependency declaration |
 | `PrimitiveCapability` | `prim:*` field | execution capability requirement |
-| `AuthorityScope` | `scope:*` field | wallet.network authority requirement |
-| `RiskClass` | policy field | daemon/wallet gate input |
-| `PolicyProfile` | policy ref | wallet/daemon policy object |
+| `AuthorityScope` | `scope:*` field | authority-provider or local-governance requirement |
+| `RiskClass` | policy field | daemon and authority/governance gate input |
+| `PolicyProfile` | policy ref | daemon, authority-provider, or local-governance policy object |
 | `ReceiptObligation` | receipt policy ref | accountability requirement |
 | `EvidenceRequirement` | evidence bundle/profile | verification input |
 | `BenchmarkProfile` | benchmark ref | quality/routing metadata |
@@ -102,8 +105,8 @@ optional StarterWorkerTemplate seeds a package draft
   -> binds prim:* requirements and scope:* requirements
   -> declares ReceiptObligations, EvidenceRequirements, BenchmarkProfiles
   -> publishes package/listing refs
-  -> user installs or initializes ManagedWorkerInstance
-  -> daemon executes under wallet authority
+  -> user hires, installs, or initializes through a ManagedWorkerOnboardingPlan
+  -> daemon executes after the relevant authority-provider or local/domain governance gates
   -> Agentgres records receipts, lifecycle, refs, and restore state
 ```
 
@@ -137,6 +140,8 @@ DigitalWorkerOntologyProfile:
   evidence_requirement_refs:
     - evidence_requirement:...
   listing_admission_ref: submission://...
+  onboarding_plan_refs:
+    - onboarding_plan://...
   runtime_profiles:
     - local | hosted | provider | depin | private_workspace_ctee | tee | customer_vpc
   integration_export_profiles:
@@ -150,10 +155,12 @@ DigitalWorkerOntologyProfile:
 ## Admission / Settlement Boundary
 
 Ontology metadata can be indexed by aiagent.xyz, but it does not execute work or
-grant authority. Consequential transitions require daemon gates, wallet.network
-authority, Agentgres admission, and receipts. IOI L1 is used only when a listing,
-license, payout, dispute, reputation root, rights commitment, or cross-domain
-settlement trigger requires it.
+grant authority. Consequential transitions require daemon gates, the relevant
+authority provider or local/domain governance gate, Agentgres admission, and
+receipts. wallet.network is mandatory when the action needs portable delegated
+authority, secrets, spend, decryption, external effects, or high-risk approval.
+IOI L1 is used only when a listing, license, payout, dispute, reputation root,
+rights commitment, or cross-domain settlement trigger requires it.
 
 ## Events And Receipts
 

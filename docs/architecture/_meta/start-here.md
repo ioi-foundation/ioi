@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Five-Minute Mental Model
 
@@ -164,7 +164,9 @@ Hypervisor manages sessions, providers, and environments directly.
 Workflow Compositor shapes directed work.
 HarnessProfiles resolve scoped steps.
 Default Harness Profile is the reference scaffold/fallback.
-wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
+authority providers/local governance authorize as required.
+wallet.network risk-labels, approves/denies, revokes, protects, receipts, and
+supplies portable delegated or high-risk authority.
 decentralized.exchange/trade expose route/venue intelligence for liquidity, exposure, and event markets.
 Hypervisor provider integrations propose execution routes.
 Agentgres admits truth.
@@ -204,6 +206,12 @@ editors, views, or daemon-executed profiles.
 
 If you are entering the architecture with a concrete implementation problem,
 use this map before reading deep doctrine:
+
+For current cross-owner defaults, skim
+[`current-canon-defaults.md`](./current-canon-defaults.md). For edit-first
+ownership, use [`source-of-truth-map.md`](./source-of-truth-map.md). For durable
+forms, code anchors, and conformance hooks, use
+[`implementation-matrix.md`](./implementation-matrix.md).
 
 | Problem | Start Here | Then Read |
 | --- | --- | --- |
@@ -271,8 +279,10 @@ containers, microVMs, WASM workloads, image/volume/network posture, GPU pools,
 DePIN/cloud GPU endpoints, storage posture, runtime placement, health, cost
 posture, cTEE posture, receipt/replay projections, and migration cockpit
 workflows. Hypervisor manages machines and workload posture while coordinating
-governance; Hypervisor Daemon executes; wallet.network authorizes; Agentgres
-records truth. For resource routing, direct provider connectors, local
+governance; Hypervisor Daemon executes; authority providers and local/domain
+governance authorize as required, with wallet.network mandatory for portable
+delegated authority and high-risk external effects; Agentgres records truth.
+For resource routing, direct provider connectors, local
 inventory, customer clouds, DePIN markets, storage networks, or user-specified
 routes may propose CloudRoute candidates. Hypervisor still routes through
 wallet.network authority, daemon/provider execution boundaries, Agentgres refs,
@@ -472,7 +482,8 @@ artifact refs bind payload meaning
 storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
-wallet.network authorizes
+authority providers/local governance authorize as required
+wallet.network supplies portable delegated/high-risk authority
 decentralized.exchange/trade expose route/venue intelligence and propose candidates
 Hypervisor provider integrations propose execution routes
 AIIP moves bounded autonomous work

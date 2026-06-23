@@ -871,6 +871,8 @@ fn authority_record(request: &ModelMountStorageControlRequest, authority_hash: &
         "required_scope": request.required_scope,
         "authority_grant_refs": non_empty_vec(&request.authority_grant_refs),
         "authority_receipt_refs": non_empty_vec(&request.authority_receipt_refs),
+        "authority_boundary": "wallet.network.model_mount_storage",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.model_mount_storage",
         "ctee_custody_boundary": "ctee.model_mount_storage",
         "plaintext_material_returned": false,

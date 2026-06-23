@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for aiagent.xyz worker endpoint shapes and inter-agent endpoint contracts.
 Supersedes: overlapping worker endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -83,7 +83,8 @@ GET /v1/agent/quality
     "threads": "/v1/threads",
     "managed_instance": "/v1/worker/instance",
     "artifacts": "/v1/artifacts",
-    "receipts": "/v1/receipts"
+    "receipts": "/v1/receipts",
+    "contact_channels": "/v1/worker/contact-channels"
   },
   "runtime_requirements": {
     "ioi_daemon": ">=0.8.0",
@@ -111,7 +112,8 @@ GET /v1/agent/quality
   "primitive_capabilities_required": ["prim:fs.read", "prim:sys.exec", "prim:model.invoke"],
   "authority_scopes_required": ["scope:repo.read"],
   "privacy_profiles": ["local", "hosted", "depin_mutual_blind", "tee_enterprise"],
-  "interaction_surfaces": ["chat", "task", "api", "workflow_node", "scheduler"],
+  "interaction_surfaces": ["chat", "task", "api", "workflow_node", "scheduler", "background_service"],
+  "contact_delivery_channels": ["web_console", "email", "slack", "webhook", "mcp_callback"],
   "persistence_profiles": ["ephemeral", "session", "zero_to_idle", "persistent"],
   "subscription_profiles": ["per_invocation", "warm_runtime", "managed_monthly"],
   "mow": {
@@ -215,7 +217,7 @@ Compatibility calls must specify whether persistence is allowed.
 When a managed instance advertises model-compatible use, the model identifier
 should resolve to the worker package or managed instance, not to an unbound raw
 model checkpoint. Compatibility requests still flow through daemon execution,
-wallet-authorized scopes, Agentgres state, and receipts when the invocation is
+authority-approved scopes, Agentgres state, and receipts when the invocation is
 effectful or materially contributes to an outcome.
 
 ## Integration Export Bundle
@@ -266,6 +268,19 @@ Example:
     "scopes": ["scope:repo.read"],
     "expires_at": "2026-05-02T12:00:00Z",
     "revoke_endpoint": "/v1/authority/clients/{client_id}/revoke"
+  },
+  "contact_delivery_channels": {
+    "configured": [
+      {
+        "channel_ref": "contact_channel://slack/product-analytics",
+        "kind": "slack",
+        "posture": "summary_delivery",
+        "redaction_policy_ref": "policy://redacted-weekly-digest",
+        "test_endpoint": "/v1/worker/contact-channels/contact_channel.../test",
+        "disable_endpoint": "/v1/worker/contact-channels/contact_channel.../disable"
+      }
+    ],
+    "available": ["web_console", "email", "sms", "slack", "discord", "telegram", "webhook", "mcp_callback", "mobile_push"]
   }
 }
 ```
@@ -348,6 +363,11 @@ POST /v1/worker/inbox/{item_id}/respond
 GET  /v1/worker/runs
 GET  /v1/worker/memory/summary
 GET  /v1/worker/digests
+GET  /v1/worker/contact-channels
+POST /v1/worker/contact-channels
+PATCH /v1/worker/contact-channels/{channel_id}
+POST /v1/worker/contact-channels/{channel_id}/test
+POST /v1/worker/contact-channels/{channel_id}/disable
 POST /v1/worker/schedules
 GET  /v1/worker/subscription
 PATCH /v1/worker/subscription
@@ -370,6 +390,19 @@ POST /v1/worker/threads
   "execution_profile": "hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc | local",
   "persistence_profile": "ephemeral | session | zero_to_idle | persistent",
   "interaction_surfaces": ["chat", "task", "api", "model_compatible_api", "mcp", "scheduler"],
+  "contact_channel_bindings": [
+    {
+      "channel_ref": "contact_channel://slack/product-analytics",
+      "kind": "slack",
+      "posture": "summary_delivery",
+      "connector_ref": "connector://slack/workspace_123",
+      "integration_surface_ref": null,
+      "redaction_policy_ref": "policy://redacted-weekly-digest",
+      "quiet_hours_policy_ref": "policy://business-hours",
+      "last_test_receipt_ref": "receipt://..."
+    }
+  ],
+  "notification_policy_ref": "policy://...",
   "status": "starting | running | idle | suspended | archived | failed",
   "thread_endpoint": "/v1/threads",
   "subscription": {
@@ -493,6 +526,8 @@ Install response:
   "authority_scopes_required": ["scope:repo.read"],
   "target_runtime_options": ["local_hypervisor", "hosted_ioi", "provider", "depin_mutual_blind", "tee_enterprise"],
   "interaction_surfaces": ["chat", "task", "api", "model_compatible_api", "mcp", "workflow_node"],
+  "contact_delivery_channels_available": ["web_console", "email", "sms", "slack", "discord", "telegram", "webhook", "mcp_callback", "mobile_push"],
+  "required_connector_refs": ["connector://databricks-sql"],
   "persistence_profiles": ["ephemeral", "zero_to_idle", "persistent"]
 }
 ```
@@ -506,6 +541,7 @@ Instance creation response:
   "runtime_assignment_id": "assign_456",
   "status": "starting",
   "console_url": "https://aiagent.xyz/instances/agent_...",
+  "contact_channel_setup_url": "https://aiagent.xyz/instances/agent_.../contact-channels",
   "thread_endpoint": "/v1/threads",
   "integration_exports": "/v1/marketplace/instances/agent_.../integration-exports",
   "events": "/v1/runs/run_123/events",
@@ -520,8 +556,12 @@ Instance creation response:
 3. Every marketplace invocation must emit a `WorkerInvocation` record and `ContributionReceipt` when materially used.
 4. Hosted workers must expose status, events, artifacts, and receipts.
 5. Managed instances must expose status, thread/run controls, subscription
-   state, standing orders, inbox, schedules, and memory summary.
+   state, standing orders, inbox, schedules, contact/delivery channels, and
+   memory summary.
 6. Web consoles are clients over daemon/domain APIs; they must not hide a
    separate execution loop inside aiagent.xyz.
 7. Integration exports must be projections over declared worker interfaces and
-   wallet-scoped authority clients, not unbounded provider secrets.
+   scoped authority clients, not unbounded provider secrets.
+8. Contact channels must disclose whether they are notification-only or also
+   work integrations. Notification-only channels cannot hold secrets, protected
+   plaintext, durable authority, or high-risk approvals.

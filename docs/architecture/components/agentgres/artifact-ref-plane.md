@@ -24,8 +24,11 @@ metadata, app preferences, service intake state, workspace snapshots, private
 documents, non-public service outputs, managed-instance metadata, and local app
 state checkpoints may live as encrypted payload bytes in storage backends.
 Agentgres records their refs, state roots, policy, authority context, receipts,
-and restore/import validity; wallet.network controls who can decrypt, view,
-mutate, export, or declassify them.
+and restore/import validity. Authority providers and local/domain policy decide
+who can decrypt, view, mutate, export, or declassify them; wallet.network is
+mandatory when that decision requires portable delegated authority, secrets,
+decryption leases, external effects, declassification, or other high-risk
+approval.
 
 Encrypted payloads and archive blobs may be continuously refreshed from local
 or remote workspaces, similar to pushing commits or uploading checkpointed
@@ -105,8 +108,9 @@ ArtifactRef:
   producing_actor:
     worker:... | service_engine:... | runtime:... | wallet:...
   role:
-    large_payload | evidence | trace | checkpoint | sealed_state_archive |
-    delivery_bundle | package | screenshot | dataset | tool_result |
+    large_payload | evidence | regression_evidence | collaboration_evidence |
+    trace | checkpoint | sealed_state_archive |
+    delivery_bundle | audit_export | package | screenshot | dataset | tool_result |
     model_trace | ontology_pack | data_recipe | projection_checkpoint |
     private_profile | app_preferences | service_intake |
     workspace_snapshot | private_output | managed_instance_state |
@@ -167,8 +171,9 @@ PayloadRef:
   media_type: application/json
   size_bytes: integer
   role:
-    large_payload | evidence | trace | checkpoint |
-    sealed_state_archive | package | delivery_bundle
+    large_payload | evidence | regression_evidence | collaboration_evidence |
+    trace | checkpoint |
+    sealed_state_archive | package | delivery_bundle | audit_export
   artifact_ref: artifact://... | null
 ```
 
@@ -416,6 +421,8 @@ EvidenceBundleCreated
 DeliveryBundleProposed
 DeliveryBundleAccepted
 DeliveryBundleDisputed
+ComplianceAuditExportBundleGenerated
+ComplianceAuditExportBundleRevoked
 AgentStateArchiveCreated
 PrivateWorkspaceCapsuleRecorded
 AlphaSealRecorded
@@ -461,9 +468,10 @@ Postgres / SQLite / RocksDB / append-only logs when used as payload engines
 ```
 
 They may be replicated, stale, unavailable, deleted, migrated, mirrored, or
-replaced. Agentgres remains the authority over which payloads matter, which refs
-are valid, which lifecycle state applies, and which restore/import operations
-are allowed.
+replaced. Agentgres remains the canonical meaning and validity plane for which
+payloads matter, which refs are valid, which lifecycle state applies, and which
+restore/import operations have satisfied the required policy and authority
+checks.
 
 ## Conformance Checks
 

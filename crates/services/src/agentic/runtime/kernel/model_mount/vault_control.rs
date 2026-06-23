@@ -220,6 +220,8 @@ pub(super) fn plan_vault_control(
                 "storage_backend": "agentgres_model_mount_record_state",
                 "plaintext_material_persisted": false,
                 "plaintext_material_returned": false,
+                "authority_boundary": "wallet.network.vault",
+                "authority_provider_ref": "wallet.network",
                 "wallet_authority_boundary": "wallet.network.vault",
                 "ctee_custody_boundary": "ctee.vault_custody",
             });
@@ -234,6 +236,8 @@ pub(super) fn plan_vault_control(
                 "plaintext_material_persisted": false,
                 "plaintext_material_returned": false,
                 "checked_at": generated_at,
+                "authority_boundary": "wallet.network.vault",
+                "authority_provider_ref": "wallet.network",
                 "wallet_authority_boundary": "wallet.network.vault",
                 "ctee_custody_boundary": "ctee.vault_custody",
             });
@@ -314,6 +318,8 @@ pub(super) fn plan_vault_control(
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.vault",
+        "authority_boundary": "wallet.network.vault",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.vault",
         "ctee_custody_boundary": "ctee.vault_custody",
         "vault_authority": {

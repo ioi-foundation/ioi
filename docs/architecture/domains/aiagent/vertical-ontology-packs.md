@@ -60,7 +60,7 @@ draft pack
   -> worker package references pack
   -> marketplace indexes capabilities/evidence
   -> managed instance applies pack policy at initialization
-  -> daemon/wallet/Agentgres enforce during execution
+  -> daemon, authority providers/local governance, and Agentgres enforce during execution
 ```
 
 ## Minimal Implementation Objects

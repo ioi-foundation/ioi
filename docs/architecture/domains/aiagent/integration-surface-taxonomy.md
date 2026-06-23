@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for integration-surface classes used by aiagent vertical packs and managed worker instances.
 Supersedes: plan prose that treats platform integrations as ad hoc worker categories.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -16,6 +16,15 @@ The same worker ontology can cover a Discord moderator, a Steam game helper, a
 quant research worker, a Shopify support worker, or a robot carwash prep worker
 because each vertical binds to integration surfaces rather than bespoke
 runtimes.
+
+Integration surfaces are different from contact/delivery channels. An
+`IntegrationSurface` is where the worker observes or acts as part of its job. A
+`ContactDeliveryChannel` is how the managed instance notifies, reports to,
+asks, or deep-links the user. The same external platform can be both: Slack may
+be a delivery channel for a weekly digest, or it may be a work integration when
+the worker reads threads, posts updates, opens incidents, or responds to
+commands inside Slack. The latter requires connector posture, authority scopes,
+policy, and receipts; the former may remain notification-only.
 
 ## Owns
 
@@ -43,6 +52,7 @@ This taxonomy owns the default mapping from integration classes to:
 | Surface | Examples | Default Posture |
 | --- | --- | --- |
 | `chat_community` | Discord, Slack, Matrix | external messages, moderation, audit receipts |
+| `contact_delivery` | email, SMS, Slack, Discord, Telegram, mobile push, webhook, MCP callback | notification/delivery only unless upgraded to a work integration |
 | `game_platform` | Steam, Xbox, game server selection | platform terms, rate limits, anti-cheat care |
 | `browser_saas` | CRM, helpdesk, admin dashboards | browser-use receipts and step-up for destructive actions |
 | `developer_code` | GitHub, GitLab, local repos | patch receipts, tests, branch policy |
@@ -92,11 +102,35 @@ IntegrationSurfaceProfile:
   safety_envelope_required: false
 ```
 
+Contact channel bindings live on managed worker instances:
+
+```yaml
+ContactDeliveryChannel:
+  channel_ref: contact_channel://...
+  owner_ref: account://... | org://... | wallet://...
+  channel_kind:
+    web_console | email | sms | slack | discord | telegram |
+    webhook | mcp_callback | mobile_push | custom_channel
+  posture:
+    notification_only | summary_delivery | interactive_thread |
+    approval_deeplink | workflow_callback
+  connector_ref: connector://... | null
+  integration_surface_ref: integration_surface:... | null
+  redaction_policy_ref: policy://...
+  quiet_hours_policy_ref: policy://...
+  delivery_receipt_required: true
+```
+
+Notification-only channels may receive redacted summaries, delivery artifacts,
+status, and approval deep links. They must not carry secrets, durable authority
+grants, protected plaintext, or high-risk approvals themselves.
+
 ## Admission / Settlement Boundary
 
-Integration surfaces submit proposed actions into the daemon/wallet boundary.
-They do not confer authority. Settlement occurs only when platform contracts,
-marketplace payment, dispute, reputation, or public commitments require it.
+Integration surfaces submit proposed actions into the daemon and the relevant
+authority-provider or local-governance boundary. They do not confer authority.
+Settlement occurs only when platform contracts, marketplace payment, dispute,
+reputation, or public commitments require it.
 
 ## Events And Receipts
 
@@ -113,6 +147,7 @@ Physical surfaces additionally require sensor and actuator receipts from
 
 - Every surface maps to risk classes and authority scopes.
 - SMS/voice surfaces cannot hold durable authority or secrets.
+- Notification-only contact channels cannot be treated as work integrations.
 - Game/platform surfaces include platform-policy posture.
 - Finance/trading surfaces bind to wallet authority, not marketplace authority.
 - Physical surfaces require safety envelope, supervision, and e-stop profiles.
@@ -124,6 +159,8 @@ Physical surfaces additionally require sensor and actuator receipts from
 - Giving game, Discord, broker, or robot integrations unbounded authority.
 - Hiding platform-policy violations as ordinary failures.
 - Treating SMS as authentication or decryption authority by itself.
+- Treating a digest destination as proof that the agent may read or mutate that
+  destination's workspace.
 
 ## Related Canon
 

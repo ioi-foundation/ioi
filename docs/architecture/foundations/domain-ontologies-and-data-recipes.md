@@ -48,9 +48,11 @@ raw sources
 Agentgres stores ontology state, recipe definitions, transformation runs,
 object heads, projection definitions, distilled dataset refs, evaluation
 dataset refs, receipts, lineage, and artifact refs. Storage backends such as
-Filecoin/CAS store large payload bytes by hash/CID. wallet.network controls
-source access, training-data use, evaluation use, export, decryption, and
-connector authority.
+Filecoin/CAS store large payload bytes by hash/CID. Domain governance and
+authority providers control source access, training-data use, evaluation use,
+export, decryption, and connector authority; wallet.network supplies that path
+when portable delegated authority, secrets, decryption leases, external account
+access, or high-risk approval is required.
 
 ## What This Layer Is
 
@@ -116,9 +118,20 @@ This layer is not:
    through an explicit connector mapping.
 
 4. **Authorize Policy-Bound Views**
-   wallet.network or an equivalent authority layer grants a PolicyBoundDataView
-   that specifies which data may be read, transformed, used for training, used
-   for distillation, used for evaluation, exported, published, or retained.
+   Hypervisor, Data / Knowledge, Ontology, domain apps, org governance, or
+   Agentgres-backed project policy define the PolicyBoundDataView that
+   specifies which data may be read, transformed, used for training, used for
+   distillation, used for evaluation, exported, published, or retained.
+   wallet.network supplies authority refs only when the view requires
+   delegated power such as decryption, connector access, external provider
+   credentials, model-provider keys, spend, provider-trust acceptance,
+   publication, export, or cross-domain reuse.
+   Sensitive traces, connector outputs, documents, or feedback must then bind a
+   `TrainingEvidenceEligibility` record before Foundry may use them as
+   training, distillation, evaluation, benchmark, simulation, or conductor
+   material. A policy-bound view is necessary but not sufficient for training
+   use; eligibility records admit or exclude the evidence for the stated
+   purpose.
 
 5. **Run Data Recipe**
    A DataRecipe extracts, redacts, normalizes, dedupes, validates, links, and

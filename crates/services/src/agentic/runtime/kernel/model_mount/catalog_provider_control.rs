@@ -153,6 +153,8 @@ pub(super) fn plan_catalog_provider_control(
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.catalog_provider_control",
+        "authority_boundary": "wallet.network.catalog_provider_control",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.catalog_provider_control",
         "ctee_custody_boundary": "ctee.catalog_provider_material",
         "plaintext_material_returned": false,

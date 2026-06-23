@@ -778,6 +778,8 @@ mod tests {
                 "privacy_class": "local_private",
                 "capabilities": ["chat", "responses"],
                 "rust_core_boundary": "model_mount.provider_control",
+                "authority_boundary": "wallet.network.provider_control",
+                "authority_provider_ref": "wallet.network",
                 "wallet_authority_boundary": "wallet.network.provider_control",
                 "ctee_custody_boundary": "ctee.provider_material",
                 "plaintext_material_returned": false,

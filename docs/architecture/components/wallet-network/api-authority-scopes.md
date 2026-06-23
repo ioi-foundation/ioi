@@ -7,7 +7,7 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -638,6 +638,10 @@ clients of the same authority pipeline, not separate sources of authority.
 ```http
 POST /v1/authority/client-sessions
 GET  /v1/authority/client-sessions/{client_session_id}
+POST /v1/authority/client-sessions/{client_session_id}/revoke
+POST /v1/authority/client-sessions/{client_session_id}/rotate
+POST /v1/authority/client-sessions/{client_session_id}/quarantine
+GET  /v1/authority/client-sessions/{client_session_id}/blast-radius
 POST /v1/authority/challenges/{challenge_id}/approve
 POST /v1/authority/challenges/{challenge_id}/deny
 POST /v1/authority/challenges/{challenge_id}/edit-and-approve
@@ -651,6 +655,13 @@ Client session example:
   "client_session_id": "wallet_client://cli/user_123/session_abc",
   "client_kind": "wallet_web | wallet_mobile | wallet_desktop | hypervisor_panel | cli_signer | mcp_server | sdk | enterprise_authority_service",
   "owner_ref": "wallet://user_123",
+  "subject_ref": "agent://external/runtime-auditor",
+  "origin_binding": {
+    "origin_ref": "origin://localhost/cli",
+    "device_ref": "device://user_123/laptop",
+    "public_key_ref": "key://wallet-client/session_abc",
+    "attestation_ref": "attestation://optional"
+  },
   "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
   "guardian_refs": ["guardian://device/user_123/phone"],
   "allowed_operations": [
@@ -661,11 +672,29 @@ Client session example:
     "revoke_lease",
     "list_receipts"
   ],
+  "authority_scope_refs": ["scope:project.read"],
+  "active_grant_refs": ["grant://project-read/123"],
+  "active_lease_refs": ["lease://project-read/456"],
+  "gateway_profile_refs": ["mcp_gateway://project-auditor-readonly"],
+  "connector_refs": ["connector://github"],
   "risk_ceiling": "funds | deploy | secret_export | policy_widening",
+  "last_use_at": "2026-06-20T12:45:00Z",
+  "last_use_ref": "event://authority-client-use/abc",
+  "anomaly_state": "clean | watch | origin_mismatch | expired_use | scope_excess | suspicious_frequency | policy_denied | leaked | compromised",
+  "quarantine_advisory_refs": [],
   "expires_at": "2026-06-20T13:00:00Z",
-  "revocation_epoch": 7
+  "revocation_epoch": 7,
+  "status": "active | expired | suspended | quarantined | rotating | rotated | revoked"
 }
 ```
+
+Compromised-client handling must fail closed. Origin mismatch, expired use,
+scope excess, suspicious frequency, leaked key material, or policy-denied effect
+requests must block mutation before any provider call. wallet.network owns
+client-session revoke, rotation, quarantine, replacement binding, and grant/lease
+revocation. Hypervisor and Agentgres consume those outcomes to pause or
+quarantine dependent gateway profiles, sessions, WorkRuns, connector calls, and
+pending approvals without treating UI state as authority truth.
 
 ### wallet.network CLI
 
@@ -968,6 +997,9 @@ GET  /v1/revocation-epoch
 ```
 
 Emergency stop must revoke active grants, pause pending runs, and notify relevant Agentgres domains.
+It must also invalidate or quarantine affected authority clients, gateway
+profiles, connector leases, pending WorkRuns, and approval challenges according
+to the active blast-radius report.
 
 ## Non-Negotiables
 

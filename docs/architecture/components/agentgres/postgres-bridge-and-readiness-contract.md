@@ -123,9 +123,11 @@ Storage plane:
   custom append-only log
 ```
 
-The archive is the portable sealed state artifact. Agentgres is the authority
-that says what the archive is, what state it represents, who can decrypt it,
-which operation produced it, and whether it is valid to restore.
+The archive is the portable sealed state artifact. Agentgres records what the
+archive is, what state it represents, which authority context or policy is
+required to decrypt it, which operation produced it, and whether restore/import
+has satisfied the required validation checks. It does not grant decrypt
+authority by itself.
 
 ## Storage Engine Posture
 
@@ -133,7 +135,7 @@ Agentgres is storage-engine pluggable.
 
 It may initially run over durable engines such as Postgres, SQLite, RocksDB,
 object stores, or a custom append-only log. These are storage engines, not the
-Agentgres authority model.
+Agentgres admission and state model.
 
 The canonical Agentgres contract is defined by:
 

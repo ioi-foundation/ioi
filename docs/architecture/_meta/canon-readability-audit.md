@@ -4,7 +4,7 @@ Status: canonical readability workplan.
 Canonical owner: this file for tracking architecture-doc enterability, implementation-grade gaps, and reader-path cleanup.
 Supersedes: informal readability notes in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -26,6 +26,7 @@ This audit tracks the cleanup needed to make the canon:
 | Finding | Impact | Fix |
 | --- | --- | --- |
 | Reader path was implicit | New readers had to reconstruct the stack from doctrine docs | Added [`start-here.md`](./start-here.md) |
+| Current defaults were embedded in the owner map | The edit-first map had become partly a long doctrine digest | Split defaults into [`current-canon-defaults.md`](./current-canon-defaults.md) and kept [`source-of-truth-map.md`](./source-of-truth-map.md) focused on ownership |
 | Concept-to-durable-form mapping was scattered | Implementers could not quickly tell event vs receipt vs object vs projection | Added [`implementation-matrix.md`](./implementation-matrix.md) |
 | Runtime profile naming was too easy to overread as a peer runtime | Risk of reintroducing a runtime beside the daemon | Canonicalized `Default Harness Profile` |
 | Older docs mix canon and long former-spec modules | Correctness is high, but first-read clarity suffers | Mark supporting context clearly and keep top canon sections crisp |
@@ -37,6 +38,7 @@ This audit tracks the cleanup needed to make the canon:
 | Doc | Primary reader | Current strength | Gap | Priority fix |
 | --- | --- | --- | --- | --- |
 | [`start-here.md`](./start-here.md) | everyone | guided entry point | new file; keep synchronized with source map | maintain as first-read map |
+| [`current-canon-defaults.md`](./current-canon-defaults.md) | everyone | compact cross-owner current-defaults digest | new file; keep synchronized when owner docs settle a new cross-owner default | maintain as digest, not owner replacement |
 | [`_meta/source-of-truth-map.md`](./source-of-truth-map.md) | architects, implementers | strong owner table | must include new profile and matrix docs | keep owner rows complete |
 | [`_meta/vocabulary.md`](./vocabulary.md) | everyone | strong naming reference | inactive terms should stay out of the live reader path | keep `DefaultHarnessProfile`, `AgentWiki`, `ioi-memory` current |
 | [`_meta/implementation-matrix.md`](./implementation-matrix.md) | implementers | maps concept to durable form | new file; needs code anchors maintained | update whenever objects promote |
@@ -76,6 +78,19 @@ Supporting Context / Appendix
 
 Do not force every doc to use every heading. Use the shape where it clarifies
 implementation ownership.
+
+Keep three meta documents distinct:
+
+```text
+start-here.md
+  entry path and role/problem routing
+
+current-canon-defaults.md
+  current cross-owner digest
+
+source-of-truth-map.md
+  edit-first owner map and conflict rules
+```
 
 ## Terminology Watchlist
 

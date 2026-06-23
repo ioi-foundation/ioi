@@ -27,15 +27,18 @@ automation, one service, or one Hypervisor session.
 When a goal benefits from multiple models, harnesses, tools, verifier paths, or
 attempt strategies, ioi.ai may materialize a collaborative outcome pattern over
 Hypervisor. The pattern is the way ioi.ai coordinates goal-appropriate pursuit
-while Hypervisor executes, wallet.network authorizes, Agentgres records, and
-Foundry supplies eval/build capability.
+while Hypervisor executes, authority providers and local/domain governance
+authorize as required, wallet.network supplies portable delegated/high-risk
+authority, Agentgres records, and Foundry supplies eval/build capability.
 
 Doctrine sentence:
 
 ```text
 ioi.ai conducts goals across sessions, agents/workers, connectors, and attempts;
-Hypervisor executes; wallet.network authorizes; Agentgres records; Foundry
-builds/evaluates; aiagent.xyz supplies and attributes workers.
+Hypervisor executes; authority providers and local/domain governance authorize
+as required, with wallet.network mandatory for portable delegated authority and
+high-risk external effects; Agentgres records; Foundry builds/evaluates;
+aiagent.xyz supplies and attributes workers.
 ```
 
 ioi.ai dogfoods Hypervisor. It is a first-party intent-to-outcome product built
@@ -234,8 +237,12 @@ Hypervisor sessions, WorkRuns, Automations, connector runs, and worker calls
 
 ioi.ai may draft Foundry jobs or conductor-improvement proposals. Foundry owns
 training, evaluation, datasets, scorecards, model-route candidates, and
-promotion proposals. wallet.network owns training-data approvals and
-declassification. Agentgres owns refs, receipts, and admitted truth.
+promotion proposals. Hypervisor/Foundry/Data governance surfaces propose
+training evidence eligibility; Agentgres records admitted eligibility,
+lineage, refs, and receipts; wallet.network supplies authority refs when
+training-data use requires delegated power such as decryption, connector
+access, provider-trust acceptance, model-provider keys, spend, publication, or
+cross-domain reuse.
 
 ## Minimal Implementation Objects
 
@@ -304,16 +311,29 @@ IoiAiCrossSessionOutcomeGraph:
     - attempt_summary:...
   connector_escalation_refs:
     - connector_escalation:...
+  collaboration_context_refs:
+    - collaboration://...
   authority_refs:
     - capability_request:... | approval_request:... | grant://...
   evidence_refs:
     - receipt://... | artifact://... | evidence://...
+  allowed_shared_refs:
+    - receipt://... | artifact://... | restricted_view://... |
+      redacted_summary://... | collaboration://...
+  blocked_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - unrelated_private_memory
+    - non_opted_in_training_trace
   marketplace_contribution_refs:
     - contribution_receipt://...
   training_consent_refs:
     - authority://training_consent/... | foundry_job:...
+  training_evidence_eligibility_refs:
+    - eligibility://...
   training_posture:
-    never_train | redacted_opt_in | full_opt_in | synthetic_only
+    never_train | synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   status:
     proposed | active | blocked | completed | archived
 
@@ -363,6 +383,10 @@ IoiAiConnectorAuthEscalation:
   scorecards or leaderboards for ordinary research, chat, or operations work.
 - Shared message boards, progress feeds, leaderboards, and attempt summaries are
   projections. Agentgres-admitted operations and receipts define truth.
+- Cross-session graphs that coordinate multiple organizations or domains must
+  reference `MultiPartyCollaborationEnvelope` / collaboration context refs and
+  share only allowed refs, restricted views, redacted summaries, receipts, or
+  explicit private slices admitted by policy.
 - Final answers must identify grounded evidence, unresolved uncertainty, and
   authorization state when those affect the user outcome.
 - Connector and generalized-computer-use actions require wallet.network scopes,
@@ -407,7 +431,9 @@ Hypervisor Operator Plane operates Hypervisor through declared surface contracts
 Hypervisor executes governed sessions
 Automations owns durable workflow/service/mission specs
 Foundry builds and evaluates reusable capability
-wallet.network authorizes connectors, credentials, money, and declassification
+authority providers and local/domain governance authorize as required
+wallet.network supplies portable delegated authority for connectors,
+credentials, money, declassification, and high-risk external effects
 aiagent.xyz/MoW supplies workers and preserves attribution
 Agentgres records admitted truth
 IOI L1 settles only selected public/economic commitments

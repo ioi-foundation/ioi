@@ -228,6 +228,8 @@ pub(super) fn plan_provider_auth_materialization(
         "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
         "ctee_egress_resolution_status": "rust_ctee_outbound_egress_resolved",
         "rust_core_boundary": "model_mount.provider_auth_materialization",
+        "authority_boundary": "wallet.network.provider_auth",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.provider_auth",
         "ctee_custody_boundary": "ctee.provider_auth_header",
         "plaintext_secret_material_returned": false,

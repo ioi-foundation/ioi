@@ -98,8 +98,8 @@ impl RuntimeModelRouteMutationAdmissionCore {
         let credential_scope_refs =
             prefixed_refs(request, "credential_scope_refs", "scope:", true)?;
         let wallet_approval_ref =
-            prefixed_string(request, "wallet_approval_ref", "approval://wallet/", 403)?;
-        let wallet_lease_ref = prefixed_string(request, "wallet_lease_ref", "lease:", 403)?;
+            optional_prefixed_string(request, "wallet_approval_ref", "approval://wallet/")?;
+        let wallet_lease_ref = optional_prefixed_string(request, "wallet_lease_ref", "lease:")?;
         let provider_credential_lease_ref =
             optional_prefixed_string(request, "provider_credential_lease_ref", "lease:")?;
         let model_weight_custody_admission_ref =
@@ -128,6 +128,8 @@ impl RuntimeModelRouteMutationAdmissionCore {
             tee_attestation_ref.as_deref(),
             customer_boundary_ref.as_deref(),
             provider_trust_acceptance_ref.as_deref(),
+            wallet_approval_ref.as_deref(),
+            wallet_lease_ref.as_deref(),
             &secret_disclosure_receipt_refs,
             provider_root_receives_prompt_plaintext,
             provider_root_receives_credential_plaintext,
@@ -184,7 +186,7 @@ impl RuntimeModelRouteMutationAdmissionCore {
             "receipt_refs": all_receipt_refs,
             "state_root_ref": state_root_ref,
             "admitted_at": admitted_at,
-            "route_mutation_invariant": "Model route mutation is daemon-admitted only after wallet authority, credential lease posture, model-weight custody admission, Agentgres operation refs, receipts, and state-root refs are bound.",
+            "route_mutation_invariant": "Model route mutation is daemon-admitted only after the required local authority scopes, credential lease posture, model-weight custody admission, Agentgres operation refs, receipts, and state-root refs are bound; wallet approval is required only for credential exposure or other high-risk route mutations.",
             "runtimeTruthSource": "daemon-runtime",
         }))
     }
@@ -203,6 +205,8 @@ fn assert_route_mutation(
     tee_attestation_ref: Option<&str>,
     customer_boundary_ref: Option<&str>,
     provider_trust_acceptance_ref: Option<&str>,
+    wallet_approval_ref: Option<&str>,
+    wallet_lease_ref: Option<&str>,
     secret_disclosure_receipt_refs: &[String],
     provider_root_receives_prompt_plaintext: bool,
     provider_root_receives_credential_plaintext: bool,
@@ -266,6 +270,18 @@ fn assert_route_mutation(
     }
     if credential_posture == "unsafe_plaintext_secret" {
         require_scope(credential_scope_refs, "scope:secret.export", mutation_kind)?;
+        require_wallet_ref(
+            wallet_approval_ref,
+            "wallet_approval_ref",
+            "Unsafe plaintext model routes require a wallet approval ref.",
+            mutation_kind,
+        )?;
+        require_wallet_ref(
+            wallet_lease_ref,
+            "wallet_lease_ref",
+            "Unsafe plaintext model routes require a wallet lease ref.",
+            mutation_kind,
+        )?;
         if !provider_root_receives_credential_plaintext {
             return Err(admission_error(
                 "model_route_mutation_unsafe_secret_shape_invalid",
@@ -292,6 +308,22 @@ fn assert_route_mutation(
         }
     }
     Ok(())
+}
+
+fn require_wallet_ref(
+    value: Option<&str>,
+    field: &str,
+    message: &str,
+    mutation_kind: &str,
+) -> AdmitResult<()> {
+    if value.is_some() {
+        return Ok(());
+    }
+    Err(admission_error(
+        "model_route_mutation_wallet_authority_required",
+        message,
+        json!({ "mutation_kind": mutation_kind, "required_field": field }),
+    ))
 }
 
 fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
@@ -513,8 +545,6 @@ mod tests {
             "provider_root_receives_credential_plaintext": false,
             "authority_scope_refs": ["scope:model.route.mutate"],
             "credential_scope_refs": [],
-            "wallet_approval_ref": "approval://wallet/model-route/local",
-            "wallet_lease_ref": "lease:wallet/model-route/local",
             "model_weight_custody_admission_ref": "model-weight-custody-admission:model-route_local_default",
             "privacy_posture_ref": "privacy-posture:private-native",
             "agentgres_operation_refs": ["agentgres://operation/model-route/local/bind-session"],
@@ -533,6 +563,8 @@ mod tests {
         assert_eq!(admission["mutation_kind"], "bind_session_route");
         assert_eq!(admission["admitted_at"], "2026-06-18T00:00:00.000Z");
         assert_eq!(admission["runtimeTruthSource"], "daemon-runtime");
+        assert!(admission["wallet_approval_ref"].is_null());
+        assert!(admission["wallet_lease_ref"].is_null());
         let receipts = admission["receipt_refs"].as_array().expect("receipt_refs");
         assert!(receipts.iter().any(|value| value
             == "receipt://model-route-mutation/model-route_local_default/bind_session_route"));
@@ -554,6 +586,12 @@ mod tests {
         assert!(error.message.contains("scope:secret.use"));
 
         request["credential_scope_refs"] = json!(["scope:secret.use"]);
+        let error = RuntimeModelRouteMutationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("missing provider credential lease");
+        assert_eq!(error.status, 403);
+        assert!(error.message.contains("credential lease"));
+
         request["provider_credential_lease_ref"] = json!("lease:wallet/provider/openai");
         let admission = RuntimeModelRouteMutationAdmissionCore
             .admit(&request, "now")
@@ -562,6 +600,40 @@ mod tests {
             admission["provider_credential_lease_ref"],
             "lease:wallet/provider/openai"
         );
+    }
+
+    #[test]
+    fn unsafe_plaintext_route_requires_wallet_approval_and_lease() {
+        let mut request = base_request();
+        request["route_ref"] = json!("model-route:unsafe/default");
+        request["provider_ref"] = json!("provider:hosted-api");
+        request["provider_kind"] = json!("hosted_api");
+        request["endpoint_refs"] = json!(["model-endpoint:unsafe/default"]);
+        request["credential_posture"] = json!("unsafe_plaintext_secret");
+        request["credential_scope_refs"] = json!(["scope:secret.export"]);
+        request["provider_root_receives_credential_plaintext"] = json!(true);
+        request["secret_disclosure_receipt_refs"] = json!(["receipt://secret/disclosure/openai"]);
+        request["provider_trust_acceptance_ref"] = json!("approval://provider-trust/openai");
+
+        let error = RuntimeModelRouteMutationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("unsafe plaintext requires wallet approval");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "model_route_mutation_wallet_authority_required");
+        assert_eq!(error.details["required_field"], "wallet_approval_ref");
+
+        request["wallet_approval_ref"] = json!("approval://wallet/model-route/unsafe");
+        let error = RuntimeModelRouteMutationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("unsafe plaintext requires wallet lease");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "model_route_mutation_wallet_authority_required");
+        assert_eq!(error.details["required_field"], "wallet_lease_ref");
+
+        request["wallet_lease_ref"] = json!("lease:wallet/model-route/unsafe");
+        RuntimeModelRouteMutationAdmissionCore
+            .admit(&request, "now")
+            .expect("unsafe route admits once wallet approval and lease are present");
     }
 
     #[test]

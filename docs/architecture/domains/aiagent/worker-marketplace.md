@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -48,6 +48,15 @@ Listings should make benchmark posture, eval results, policy posture,
 authority requirements, runtime profiles, contribution attribution, and managed
 instance options visible by default.
 
+The primary conversion action for user-facing background workers is **Hire**.
+Hiring a worker creates an install or subscription right, then initializes a
+`ManagedWorkerInstance` with explicit runtime/model/harness configuration,
+required connector authority, contact/delivery channels, standing orders,
+notification policy, and receipt obligations. A hired agent may feel like a
+normal background agent to the user, but the canonical object remains a managed
+worker instance over daemon execution, Agentgres truth, authority-provider
+grants, and receipts.
+
 ## What aiagent.xyz Is
 
 aiagent.xyz is:
@@ -88,6 +97,8 @@ aiagent.xyz owns:
 - worker versions;
 - responsibility and requirement descriptions;
 - pricing/licensing metadata;
+- managed worker onboarding plans;
+- onboarding readiness profiles;
 - Sparse Worker Categories;
 - benchmark profiles;
 - training lineage refs;
@@ -95,8 +106,10 @@ aiagent.xyz owns:
 - quality ledgers;
 - contribution records;
 - install records;
+- hire/install intents and checkout refs;
 - managed worker/agent instance records;
 - managed worker instance lifecycle records;
+- contact and delivery channel profile refs;
 - runtime assignment and lifecycle records;
 - runtime subscription and usage metadata;
 - browser console projections over daemon thread/run APIs;
@@ -118,7 +131,7 @@ aiagent.xyz does not own:
 - Private Workspace cTEE execution semantics;
 - raw long-running instance memory outside Agentgres refs and policy;
 - every service outcome delivery;
-- wallet authority.
+- authority ownership.
 
 ## Worker Package
 
@@ -142,12 +155,15 @@ integration surface refs
 model policy
 tool requirements
 connector requirements
+contact/delivery channel requirements
+notification and escalation policy
 memory schema
 memory and archive policy
 artifact schema
 receipt policy
 pricing/license terms
 interaction surfaces: chat | form | api | workflow_node | scheduler | background_service
+contact channels: web_console | email | sms | slack | discord | telegram | webhook | mcp_callback | mobile_push | custom_channel
 runtime profiles: local | hosted | provider | depin | private_workspace_ctee | tee | customer_vpc
 persistence profiles: ephemeral | session | zero_to_idle | persistent
 subscription profiles, when warm or ongoing runtime is supported
@@ -175,6 +191,7 @@ Template-to-worker normalization must produce:
 - primitive capability requirements;
 - authority scope requirements;
 - model/tool/connector requirements;
+- contact/delivery channel requirements;
 - runtime and persistence profiles;
 - receipt and evidence obligations;
 - benchmark profile or evaluation plan;
@@ -219,8 +236,9 @@ score can be used for routing eligibility.
 Managed open-worker instances may let the user choose among package-supported
 model routes, including local, BYOK, hosted, provider, DePIN, TEE, customer VPC,
 or Private Workspace cTEE routes. The selected model route is instance
-configuration governed by wallet.network authority, runtime privacy posture,
-budget policy, and receipts; it is not independent marketplace truth.
+configuration governed by the relevant authority provider or local/domain
+governance, runtime privacy posture, budget policy, and receipts; it is not
+independent marketplace truth.
 
 ## Package vs Instance
 
@@ -239,6 +257,9 @@ user-facing instance an "agent," but canonical state should model it as a
 - interaction surfaces;
 - memory and archive policy;
 - authority grants and approval rules;
+- onboarding plan and readiness profile;
+- contact/delivery channel bindings;
+- notification, digest, escalation, and quiet-hours policy;
 - runtime subscription or compute entitlement;
 - receipts, usage, and contribution policy.
 
@@ -252,6 +273,97 @@ Managed instances follow the lifecycle in
 Payment lapse, provider exit, archive, restore, export, delete, and forget
 states are first-class lifecycle transitions; they cannot be hidden behind
 generic billing or console state.
+
+## Hire And Configure Flow
+
+aiagent.xyz listings should make the hire path explicit:
+
+```text
+listing
+  -> inspect benchmarks, evals, authority, connector, runtime, and contact needs
+  -> hire / subscribe / install
+  -> choose supported model route, harness profile, runtime, and persistence
+  -> connect required integrations through scoped connector authority
+  -> choose contact and delivery channels
+  -> configure standing orders, schedules, escalation, quiet hours, and approvals
+  -> start managed instance
+  -> receive receipts, console URL, API/MCP/model-compatible exports, and revoke controls
+```
+
+Connector access and user communication must stay separate in the product
+model. A Product Analytics worker may need a Databricks connector to read data
+and a Slack channel to deliver weekly digests. If Slack is only a delivery
+channel, it may receive summaries and deep links but not durable secrets,
+decryption leases, or high-risk approvals. If the worker acts inside Slack as
+part of the job, that Slack workspace is also an `IntegrationSurface` with its
+own connector, authority scopes, policy posture, and receipts.
+
+## Managed Worker Onboarding Plans
+
+Agent onboarding should be compiled from package declarations and buyer
+environment state, not hardcoded as a bespoke wizard per worker. A
+`ManagedWorkerOnboardingPlan` turns the seller's manifest into a buyer-specific
+readiness path.
+
+Automatic onboarding is appropriate when the platform can safely discover,
+reuse, or prefill state, such as existing connector availability, package
+default model routes, supported harness/runtime profiles, org policy defaults,
+notification destinations, webhook tests, or non-sensitive schedule defaults.
+Manual or assisted onboarding is required when the step involves external login,
+admin consent, destructive or regulated scopes, provider-trust acceptance,
+declassification, custom credentials, physical action, high-risk approval, or a
+channel that is also a work integration.
+
+The plan is the install compiler between the two sides of aiagent.xyz:
+
+- sellers publish machine-readable requirements, tests, fallbacks, setup copy,
+  support posture, and degraded modes in the worker package;
+- buyers see setup effort, required access, optional access, delivery options,
+  runtime choices, risk posture, dry-run status, receipts, and blocked steps
+  before the managed instance is activated.
+
+```yaml
+ManagedWorkerOnboardingPlan:
+  onboarding_plan_id: onboarding_plan://...
+  worker_package_ref: package://...
+  worker_composition_ref: composition://...
+  buyer_ref: account://... | org://...
+  target_instance_ref: agent://...
+  steps:
+    - step_ref: onboarding_step://...
+      kind:
+        connector_binding | authority_grant | contact_channel_binding |
+        runtime_selection | model_route_selection | harness_selection |
+        schedule_or_standing_order | notification_policy |
+        dry_run | policy_acceptance | admin_review
+      requirement:
+        required | optional | recommended | degraded_mode
+      fulfillment:
+        automatic | assisted | manual | approval_required | admin_required
+      status:
+        missing | ready | completed | blocked | unsupported | skipped
+      integration_surface_ref: integration_surface://... | null
+      connector_requirement_ref: connector_requirement://... | null
+      contact_channel_ref: contact_channel://... | null
+      authority_requirement_refs:
+        - scope:...
+      authority_grant_refs:
+        - grant://...
+      test_receipt_ref: receipt://... | null
+  readiness:
+    mode:
+      full | degraded | notification_only | dry_run_only | blocked
+    missing_required_steps:
+      - onboarding_step://...
+    next_action_ref: onboarding_step://... | null
+  receipt_refs:
+    - receipt://...
+```
+
+A managed instance may run only in the readiness mode admitted by its completed
+plan. Optional integrations may unlock broader capability later, but missing
+required connectors, authority grants, runtime assignments, or safety gates must
+block activation or force a clearly labeled degraded mode.
 
 ## Marketplace Contracts on IOI L1
 
@@ -330,8 +442,10 @@ User opt-ins should be equally explicit. A user may choose to:
 - subscribe to a warm or managed runtime profile.
 
 Opt-in does not grant authority by itself. Effectful invocation still requires
-policy admission, wallet.network authority, approval where required, runtime
-assignment, receipts, and Agentgres state updates.
+policy admission, the relevant authority gate, approval where required, runtime
+assignment, receipts, and Agentgres state updates. wallet.network remains
+mandatory for portable delegated authority, secrets, spend, decryption, external
+effects, or high-risk approvals.
 
 ## User Without Hypervisor
 
@@ -342,7 +456,7 @@ browser UI
 → marketplace install or initialize request
 → aiagent.xyz domain kernel records install/instance intent
 → runtime router selects hosted/provider/DePIN/Private-Workspace-cTEE/TEE/customer/local Hypervisor Daemon node
-→ wallet.network grants scoped authority and payment/subscription approvals
+→ authority provider grants scoped authority; wallet.network handles portable delegated authority and payment/subscription approvals when required
 → runtime node initializes worker package as ephemeral, zero-to-idle, or persistent instance
 → browser console mounts chat/thread/form/API controls over daemon APIs
 → Agentgres records events, receipts, usage, memory refs, artifact refs, and archive refs

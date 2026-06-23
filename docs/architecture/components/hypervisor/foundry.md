@@ -8,7 +8,7 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -60,6 +60,8 @@ Foundry owns product-level projections and workflows for:
   candidates;
 - batch inference and evaluation runs;
 - eval suites, benchmark gates, scorecards, and verifier candidates;
+- regression-record candidates from eval, shadow, canary, rollout, production,
+  or recall evidence;
 - feedback and annotation queues that turn corrections, acceptance/rejection
   reasons, reviewer judgments, and quality labels into evaluation or training
   candidates;
@@ -88,6 +90,9 @@ Foundry does not own:
 - Workbench code/systems operation;
 - direct publication to aiagent.xyz, sas.xyz, or L1 without policy and receipt
   gates.
+- rollout, rollback, recall, kill-switch, or remote-config truth after a
+  candidate leaves Foundry for runtime promotion. Those transitions belong to
+  Change Plane / Release Controls, with Foundry evidence attached as gates.
 
 ## Surface Shape
 
@@ -156,13 +161,17 @@ sessions, receipts, traces, work analytics, tool analytics, feedback,
   -> datasets, eval suites, scorecards, and simulations
   -> prompts, tools, model routes, conductor advisors, workers, data recipes,
      or package changes
-  -> offline, simulation, and online gates
+  -> offline, simulation, shadow, canary, and online gates
+  -> CapabilityRegressionRecord when any accepted or candidate capability
+     regresses safety, privacy, cost, authority, latency, reliability, or a
+     holdout
   -> promotion, rollback, or continued review
 ```
 
 This loop is the product path from work evidence to reusable capability.
-Promotions still require the appropriate daemon, wallet.network, Agentgres,
-policy, receipt, and marketplace gates.
+Promotions still require the appropriate daemon, authority refs when delegated
+power is involved, Agentgres, policy, receipt, Change Plane / Release Controls,
+and marketplace gates.
 
 The compounding loop should remain visible in product and architecture:
 
@@ -175,12 +184,22 @@ governed work happens
   -> future work routes through better workers, models, tools, recipes, and evals
 ```
 
-Foundry may train or distill a conductor advisor from opted-in, redacted, full,
-or synthetic evidence, but the consent and authority for that evidence belongs
-to wallet.network and policy-bound data views. A promoted conductor advisor is a
-bounded planning/routing input consumed by ioi.ai or another coordinator. It is
-not runtime authority, not wallet authority, not marketplace truth, and not an
-automatic self-modification path.
+Foundry may train or distill a conductor advisor from eligible synthetic,
+redacted, full-private opt-in, or org-policy evidence. The eligibility decision
+is local product governance first: Hypervisor, Foundry, Data / Knowledge,
+Ontology, domain apps, and org governance surfaces may propose it; Agentgres
+admits the resulting record and receipts. wallet.network supplies authority
+refs when that eligibility needs decryption, connector access, model-provider
+keys, GPU spend, provider-trust acceptance, publication, export, cross-domain
+reuse, or another delegated machine power.
+
+Sensitive evidence must first receive a `TrainingEvidenceEligibility` record.
+Evidence with `never_train`, expired consent, revoked authority, missing
+policy-bound view, or blocked provider-trust posture is not eligible training
+input. A promoted conductor advisor is a bounded planning/routing input
+consumed by ioi.ai or another coordinator. It is not runtime authority, not
+wallet authority, not marketplace truth, and not an automatic self-modification
+path.
 
 ## Persistent Autonomous Training Pipeline
 
@@ -194,8 +213,12 @@ Canonical flow:
 
 ```text
 dataset idea, docs, traces, or policy-bound data view
-  -> wallet.network data-use, model-provider, GPU, and spend authority
-  -> DataRecipe / Ontology / PolicyBoundDataView binding
+  -> Hypervisor/project/org governance and purpose selection
+  -> DataRecipe / Ontology / PolicyBoundDataView draft
+  -> TrainingEvidenceEligibility classification or exclusion
+  -> wallet.network authority refs when decryption, connector access,
+     model-provider key, GPU spend, provider-trust, publication, export, or
+     cross-domain reuse is required
   -> Dataset Factory run
      define -> research -> ground -> generate -> audit -> export -> runbook
   -> train-ready dataset, holdouts, adversarial/regression sets, receipts
@@ -244,8 +267,16 @@ agent success rate, cost-adjusted quality, latency, verifier pass rate, or a
 domain-specific metric. The optimizer can orchestrate multiple models or
 workers as planners, executors, judges, verifiers, and code editors, but it
 does not become runtime truth. Accepted changes are candidate artifacts until
-they pass Foundry scorecards, Agentgres admission, wallet authority, and
+they pass Foundry scorecards, Agentgres admission, authority checks, and
 promotion/rollback gates.
+
+The optimizer may not accept a single objective improvement when declared
+guardrails regress. Mixed results produce a regression record, shadow-more
+decision, rejection, or human-review queue. If the regression is discovered
+after canary or production exposure, Release Controls owns pause, rollback,
+recall, constraint, or patched-retry posture; Foundry receives the admitted
+regression evidence as future eval or training material only after training
+evidence eligibility permits that reuse.
 
 ## Pattern And Example Supply
 
@@ -476,8 +507,10 @@ FoundryTrainingPipelineRun:
     - artifact://... | receipt://...
   resume_ref: artifact://... | receipt://...
   last_heartbeat_ref: receipt://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
   training_data_posture:
-    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+    synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   model_base_refs:
     - model://...
   input_dataset_refs:
@@ -560,9 +593,11 @@ FoundryConductorAdvisorCandidate:
   intended_consumer:
     ioi_ai | hypervisor_operator_plane | custom_coordinator
   training_data_posture:
-    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+    synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   training_consent_refs:
     - authority://training_consent/... | policy://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
   input_refs:
     - artifact://... | receipt://... | dataset://...
   eval_suite_refs:
@@ -571,8 +606,19 @@ FoundryConductorAdvisorCandidate:
     - gate://... | artifact://...
   shadow_mode_refs:
     - run://...
+  shadow_mode_receipt_refs:
+    - receipt://...
+  shadow_mode_summary:
+    quality_delta: optional
+    cost_delta: optional
+    latency_delta: optional
+    privacy_incidents: integer
+    policy_denials: integer
+    authority_escalations: integer
   promotion_status:
-    draft | training | shadow | gated | promoted | rejected | rollback
+    draft | training | shadow | gated | promoted | rejected | paused |
+    rolled_back | recalled
+  rollback_ref: optional
 ```
 
 ## Conformance Checks
@@ -594,11 +640,17 @@ FoundryConductorAdvisorCandidate:
   policy, accepted/rejected changes, replay evidence, and stop conditions.
 - Artifact conversion must produce validation receipts before converted models
   can be registered, routed, or published.
-- Conductor-advisor training must bind training-data posture, wallet.network
-  approval refs, policy-bound data views, eval suites, scorecards, and
-  promotion gates before any ioi.ai use.
-- Endpoint, model-route, and package promotion must be reversible, replayable,
-  and policy-bound.
+- Conductor-advisor training must bind training-data posture, authority refs
+  when delegated power is involved, training evidence eligibility refs,
+  policy-bound data views, eval suites, scorecards, privacy/incident counters
+  from shadow mode, and promotion gates before any ioi.ai use.
+- Endpoint, model-route, worker, package, and conductor-advisor promotion must
+  be reversible, replayable, policy-bound, and handed to Change Plane / Release
+  Controls for rollout, rollback, recall, kill-switch, and runtime placement.
+- Regression evidence from offline eval, shadow mode, canary, rollout,
+  production, or recall review must be recorded as `CapabilityRegressionRecord`
+  when it changes promotion, routing, eligibility, rollback, recall, or future
+  eval/training posture.
 - ioi.ai collaborative outcome lessons may become Foundry proposals; they do
   not become runtime changes merely because a projected score or comparison
   selected them.

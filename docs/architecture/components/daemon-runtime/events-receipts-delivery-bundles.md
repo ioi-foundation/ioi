@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -105,6 +105,18 @@ memory.updated
 mcp.server_validated
 mcp.server_imported
 mcp.tool_invoked
+mcp.gateway_profile_registered
+mcp.gateway_profile_used
+mcp.gateway_profile_quarantined
+mcp.gateway_profile_revoked
+authority_client.registered
+authority_client.used
+authority_client.denied
+authority_client.revoked
+authority_client.rotated
+authority_client.quarantined
+revocation.epoch_advanced
+revocation.blast_radius_reported
 tool.missing_capability_requested
 tool.analytics_recorded
 delegation.started
@@ -115,19 +127,63 @@ subagent.assigned
 subagent.cancelled
 subagent.completed
 handoff.recorded
+aiip.channel.opened
+aiip.channel.closed
+aiip.channel.disputed
+aiip.packet.sent
+aiip.packet.received
+aiip.packet.rejected
+aiip.delivery_update.recorded
+aiip.acceptance_decision.recorded
+aiip.dispute.opened
+aiip.dispute.resolved
+aiip.settlement_intent.recorded
 stop_condition.recorded
 scorecard.updated
 feedback.recorded
 annotation.recorded
 rollout.exposure_recorded
 rollout.adjudicated
+capability.lifecycle_proposed
+capability.lifecycle_gate_evaluated
+capability.lifecycle_transitioned
+capability.rollback_requested
+capability.recall_issued
+capability.regression_detected
+capability.regression_adjudicated
 usage.delta
 usage.final
+resource.allocation_requested
+resource.allocation_decided
+resource.budget_warning
+resource.budget_exhausted
+resource.preemption_decided
+resource.degradation_applied
+scheduler.catchup_planned
+scheduler.catchup_executed
+assurance.policy_pack.applied
+assurance.policy_pack.blocked
+assurance.audit_export.requested
+assurance.audit_export.generated
+assurance.audit_export.delivered
+assurance.audit_export.revoked
+collaboration.context_created
+collaboration.party_joined
+collaboration.party_removed
+collaboration.view_granted
+collaboration.view_revoked
+collaboration.proof_bundle_generated
 workspace_trust.warning
 workspace_trust.acknowledged
 workspace_snapshot.created
 workspace_restore.previewed
 workspace_restore.applied
+environment.failure_detected
+environment.recovery_planned
+environment.recovery_started
+environment.recovery_completed
+environment.recovery_failed
+workrun.recovery_reconciled
 diagnostics.injected
 diagnostics.repair_decision_recorded
 diagnostics.repair_executed
@@ -152,6 +208,7 @@ data_recipe.run_completed
 transformation.receipt_emitted
 evaluation_dataset.bound
 training.spec_bound
+training.evidence_eligibility_recorded
 training.dataset_factory_started
 training.dataset_factory_completed
 training.batch_planned
@@ -208,14 +265,22 @@ embodied.environment_state.updated
 embodied.command.proposed
 embodied.command.queued
 embodied.command.started
+embodied.command.paused
+embodied.command.cancelled
+embodied.command.retried
 embodied.command.interrupted
 embodied.command.completed
 embodied.command.failed
 embodied.telemetry.frame_recorded
 embodied.replay.bundle_created
 embodied.operator_handoff.requested
+embodied.operator_handoff.accepted
+embodied.operator_handoff.declined
+embodied.operator_handoff.timed_out
 embodied.operator_handoff.completed
 embodied.incident.opened
+embodied.incident.contained
+embodied.incident.closed
 embodied.recovery.started
 embodied.recovery.completed
 sim_to_real.gate_created
@@ -265,11 +330,18 @@ MergeReceipt
 SettlementReceipt
 LocalSettlementReceipt
 DeliveryReceipt
+AIIPPacketReceipt
+AIIPDeliveryUpdateReceipt
+AIIPAcceptanceDecisionReceipt
+AIIPDisputeResolutionReceipt
+AIIPSettlementIntentReceipt
+CrossDomainDeliveryBundleReceipt
 ContributionReceipt
 QualityReceipt
 DataRecipeRunReceipt
 TransformationReceipt
 OntologyProjectionReceipt
+TrainingEvidenceEligibilityReceipt
 UpgradeProposalReceipt
 UpgradeDecisionReceipt
 TrainingTraceReceipt
@@ -281,6 +353,16 @@ DatasetCurationReceipt
 ContextMutationReceipt
 PostTrainingCycleReceipt
 PromotionDecisionReceipt
+CapabilityRegressionReceipt
+ResourceAllocationReceipt
+BudgetExhaustionReceipt
+PreemptionReceipt
+SchedulerCatchupReceipt
+JurisdictionPolicyDecisionReceipt
+AssuranceEvidenceBundleReceipt
+ComplianceAuditExportBundleReceipt
+CommercialAssuranceExportReceipt
+MultiPartyCollaborationReceipt
 BenchmarkRunReceipt
 EvaluationVerdictReceipt
 RoutingDecisionReceipt
@@ -321,6 +403,21 @@ WorkspaceRestoreReceipt
 DiagnosticsRepairReceipt
 JobReceipt
 ```
+
+## AIIP And Cross-Domain Service Receipts
+
+AIIP receipts bind cross-domain service handoffs without copying remote domain
+state into local Agentgres as truth. `AIIPPacketReceipt` records an admitted
+packet and its envelope hash. `AIIPDeliveryUpdateReceipt` records milestone,
+partial, final, revision, or cancellation updates with artifact, evidence, and
+receipt roots. `AIIPAcceptanceDecisionReceipt` records accept, partial accept,
+reject, revision request, or dispute-open decisions. `AIIPDisputeResolutionReceipt`
+records refund, partial refund, payout, partial payout, slash, retry, revision,
+escalation, or no-fault outcomes. `AIIPSettlementIntentReceipt` records the
+conditions proposed for IOI L1 or local settlement. `CrossDomainDeliveryBundleReceipt`
+binds local and remote receipt roots, evidence refs, delivery updates,
+acceptance decisions, dispute refs, and settlement intent refs into an
+exportable proof bundle.
 
 ## Private Workspace cTEE Receipts
 
@@ -502,6 +599,63 @@ binary hash, package/driver manifest hashes, measurement method, and declared
 privacy claim. It proves node integrity posture, not protected plaintext
 privacy by itself.
 
+## Environment Failure And Recovery Receipts
+
+`EnvironmentFailureReceipt` records the provider/runtime failure boundary for a
+session or WorkRun. `EnvironmentRecoveryReceipt` records the attempted recovery
+path, including restore/failover/rebuild material, authority context, WorkRun
+reconciliation, and final state. These receipts do not make provider logs,
+snapshots, backups, or encrypted archive blobs authoritative by themselves;
+they bind provider evidence and recovery execution to Agentgres operations.
+
+```json
+{
+  "receipt_id": "receipt_environment_failure_123",
+  "receipt_type": "environment_failure",
+  "incident_ref": "incident://provider-failure/123",
+  "session_ref": "session://123",
+  "environment_ref": "environment://123",
+  "provider_ref": "provider://us-east-gpu-a",
+  "work_run_refs": ["work_run://123"],
+  "failure_kind": "provider_outage | vm_lost | host_unreachable | control_plane_unavailable | storage_unavailable | archive_invalid | snapshot_invalid | backup_invalid | port_unavailable | log_stream_lost | terminal_stream_lost | runner_split_brain | capacity_eviction | credential_revoked | ctee_attestation_regression",
+  "provider_evidence_refs": ["provider_event://..."],
+  "lifecycle_observation_refs": ["observation://..."],
+  "last_admitted_state_root_ref": "state_root://...",
+  "latest_receipt_refs": ["receipt://..."],
+  "policy_hash": "sha256:...",
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "status": "open | recovering | failed_closed | recovered | abandoned | escalated"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_environment_recovery_123",
+  "receipt_type": "environment_recovery | workrun_recovery",
+  "recovery_attempt_ref": "recovery://environment/123",
+  "incident_ref": "incident://provider-failure/123",
+  "selected_candidate_ref": "recovery://candidate/123",
+  "recovery_mode": "restore_snapshot | restore_backup | restore_archive | failover_provider | rebuild_from_recipe | retry_workrun | abandon_fail_closed",
+  "target_provider_ref": "provider://us-east-gpu-b",
+  "restore_material_refs": ["snapshot://...", "archive://..."],
+  "restore_validation_refs": ["receipt://restore-validity"],
+  "authority_grant_refs": ["grant://..."],
+  "cost_estimate_ref": "ledger://...",
+  "work_run_reconciliation": {
+    "git_worktree_refs": ["git://..."],
+    "agentgres_patch_branch_refs": ["patch_branch://..."],
+    "preserved_output_refs": ["artifact://..."],
+    "lost_material_refs": ["artifact://lost"],
+    "retry_work_item_refs": ["work_item://..."]
+  },
+  "state_root_before_ref": "state_root://before",
+  "state_root_after_ref": "state_root://after",
+  "policy_hash": "sha256:...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "outcome": "recovered | partially_recovered | failed_closed | abandoned | escalated"
+}
+```
+
 ## Embodied Runtime Receipts
 
 Embodied runtime receipts bind physical-domain runtime state. They complement,
@@ -512,7 +666,7 @@ but do not replace, physical-action safety receipts such as
 ```json
 {
   "receipt_id": "receipt_embodied_command_123",
-  "receipt_type": "physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_recovery",
+  "receipt_type": "physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery",
   "embodied_domain_ref": "embodied_domain://...",
   "fleet_ref": "robot_fleet://...",
   "unit_ref": "robot://...",
@@ -528,6 +682,7 @@ but do not replace, physical-action safety receipts such as
   "authority_ref": "grant://...",
   "operator_handoff_ref": "operator_handoff://...",
   "incident_ref": "incident://...",
+  "liability_claim_route_ref": "liability_claim_route://...",
   "status": "recorded | admitted | blocked | degraded | stopped | failed"
 }
 ```
@@ -580,13 +735,218 @@ mounting.
 }
 ```
 
+## Authority Client And Gateway Receipts
+
+Authority-client and gateway receipts prove client registration, use, denial,
+revocation, rotation, quarantine, and blast-radius decisions without exposing raw
+secrets, provider tokens, or private payloads.
+
+```json
+{
+  "receipt_id": "receipt_authority_client_123",
+  "receipt_type": "authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report",
+  "authority_client_ref": "wallet_client://...",
+  "gateway_profile_ref": "mcp_gateway://... | null",
+  "origin_binding_ref": "origin://... | null",
+  "grant_refs": ["grant://..."],
+  "lease_refs": ["lease://..."],
+  "connector_refs": ["connector://..."],
+  "session_refs": ["session://..."],
+  "work_run_refs": ["work_run://..."],
+  "policy_hash": "sha256:...",
+  "request_hash": "sha256:... | null",
+  "revocation_epoch": 8,
+  "anomaly_state": "clean | watch | origin_mismatch | expired_use | scope_excess | suspicious_frequency | policy_denied | leaked | compromised",
+  "action": "allow | deny | revoke | rotate | quarantine | release",
+  "quarantine_advisory_ref": "quarantine_advisory://... | null",
+  "replacement_client_ref": "wallet_client://... | null",
+  "status": "recorded | blocked | rotated | revoked | quarantined"
+}
+```
+
+Blast-radius reports must be built from admitted authority-client, gateway,
+session, WorkRun, connector, approval, and receipt refs. Untrusted logs may
+support investigation, but they are not blast-radius truth by themselves.
+
+## Resource Allocation And Budget Receipts
+
+Resource allocation receipts prove how Hypervisor handled scarce capacity,
+budget exhaustion, provider quota, rate limits, and scheduler catch-up. They
+make queue and preemption decisions inspectable without treating raw compute
+seconds as product success.
+
+```json
+{
+  "receipt_id": "receipt_resource_allocation_123",
+  "receipt_type": "resource_allocation | budget_exhaustion | preemption | scheduler_catchup",
+  "allocation_decision_ref": "allocation://decision/123",
+  "allocation_request_ref": "allocation://request/123",
+  "workload_kind": "session | work_run | automation | scheduled_job | training_pipeline | eval | managed_worker | model_route | release_job | connector_job",
+  "workload_refs": ["work_run://123", "trainpipe://456"],
+  "resource_pool_refs": ["resource_pool://gpu/us-east"],
+  "budget_refs": ["budget://org/monthly-gpu"],
+  "quota_refs": ["quota://provider/gpu"],
+  "rate_limit_refs": ["rate_limit://model-provider/tpm"],
+  "priority_class": "safety_critical | user_blocking | deadline | interactive | production | standard | background | speculative",
+  "decision": "admit | queue | throttle | degrade | preempt | pause | defer | cancel | shift_provider | request_budget | fail_closed",
+  "reason_code": "capacity_available | capacity_exhausted | budget_warning | budget_exhausted | quota_exhausted | rate_limited | deadline_priority | safety_priority | policy_denied | privacy_or_residency_block | provider_unhealthy | verified_work_low_value | duplicate_catchup",
+  "affected_workload_refs": ["work_run://123"],
+  "preempted_workload_refs": ["work_run://background-7"],
+  "preserved_checkpoint_refs": ["artifact://checkpoint"],
+  "lost_or_discarded_refs": ["artifact://discarded-cache"],
+  "retry_or_resume_policy_ref": "policy://retry-after-capacity",
+  "catchup_policy_ref": "schedule://nightly-coalesce",
+  "authority_requirement_refs": ["policy://gpu-spend-limit"],
+  "authority_grant_refs": ["grant://gpu-spend"],
+  "cost_delta_ref": "ledger://cost-delta",
+  "expected_verified_work_delta_ref": "receipt://quality-delta",
+  "policy_hash": "sha256:...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "status": "admitted | blocked | executed | superseded | failed"
+}
+```
+
+Budget exhaustion receipts must be emitted before new external spend or
+provider mutation. Scheduler catch-up receipts must name whether missed work was
+skipped, coalesced, backfilled, run-latest, gated for approval, or failed
+closed. Preemption receipts must name the preserved checkpoint, retry/resume
+policy, and user-visible reason.
+
+## Multi-Party Collaboration Receipts
+
+Multi-party collaboration receipts prove that shared autonomous work was
+coordinated through explicit parties, roles, authority refs, restricted views,
+AIIP handoffs, evidence refs, delivery refs, contribution refs, settlement
+refs, and export profiles. They are not a shared raw-context transcript and not
+authority for one party to use another party's connector, wallet, or protected
+payload.
+
+```json
+{
+  "receipt_id": "receipt_multi_party_collaboration_123",
+  "receipt_type": "multi_party_collaboration",
+  "collaboration_ref": "collaboration://joint-service-outcome-001",
+  "goal_ref": "order://123",
+  "coordinator_ref": "domain://service-coordinator",
+  "party_refs": [
+    {
+      "party_ref": "org://customer-a",
+      "role": "data_owner",
+      "domain_ref": "agentgres://domain/customer-a",
+      "authority_refs": ["grant://customer-data-read"],
+      "status": "active"
+    },
+    {
+      "party_ref": "org://provider-b",
+      "role": "worker_provider",
+      "domain_ref": "agentgres://domain/provider-b",
+      "authority_refs": ["grant://worker-execute"],
+      "status": "active"
+    },
+    {
+      "party_ref": "org://auditor",
+      "role": "auditor",
+      "domain_ref": null,
+      "authority_refs": ["policy://auditor-readonly"],
+      "status": "observer_only"
+    }
+  ],
+  "allowed_shared_refs": [
+    "receipt://execution",
+    "restricted_view://auditor-safe",
+    "redacted_summary://run-summary",
+    "delivery://final"
+  ],
+  "blocked_context_classes": [
+    "raw_secret",
+    "protected_plaintext",
+    "unauthorized_connector_payload",
+    "unrelated_private_memory",
+    "non_opted_in_training_trace"
+  ],
+  "policy_bound_data_view_refs": ["view://customer-a-service-view"],
+  "restricted_view_refs": ["restricted_view://auditor-safe"],
+  "aiip_channel_refs": ["aiip://channel/customer-provider"],
+  "handoff_refs": ["packet://handoff-001"],
+  "evidence_bundle_refs": ["evidence://collaboration-proof"],
+  "delivery_bundle_refs": ["delivery://final"],
+  "contribution_refs": ["receipt://contribution-provider-b"],
+  "settlement_intent_refs": ["settlement-intent://payout-provider-b"],
+  "audit_export_profile_refs": ["audit_export://auditor-review"],
+  "revocation_refs": ["revocation://collaboration/auditor"],
+  "history_policy": {
+    "party_removal_effect": "no_new_access | revoke_live_access | tombstone_view | rotate_views",
+    "historical_receipts": "immutable | sealed | export_limited"
+  },
+  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | reputation_only | settlement_required | required_public_root",
+  "policy_hash": "sha256:...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "status": "created | party_joined | party_removed | view_granted | view_revoked | proof_bundle_generated | archived"
+}
+```
+
+## Compliance Audit Export Receipts
+
+Compliance audit export receipts prove that a customer, auditor, regulator,
+counterparty, procurement, tax, SLA, or internal-control export was generated
+from admitted refs under a declared policy-pack, retention, restricted-view,
+redaction, and authority posture. They are not raw log dumps, screenshot
+bundles, or replay bypasses.
+
+```json
+{
+  "receipt_id": "receipt_compliance_audit_export_123",
+  "receipt_type": "jurisdiction_policy_decision | assurance_evidence_bundle | compliance_audit_export_bundle | commercial_assurance_export",
+  "audit_export_ref": "audit_export://customer-q2-2026",
+  "export_type": "customer_audit | auditor_review | regulator_request | counterparty_dispute | procurement_review | internal_control | tax_report | sla_report | incident_review",
+  "audience": "customer | external_auditor | regulator | counterparty | insurer | procurement | internal_auditor | public",
+  "subject_refs": ["order://123", "run://456", "service://789"],
+  "jurisdiction_policy_pack_refs": ["jurisdiction_policy_pack://us-finance-v1"],
+  "policy_decision_refs": ["receipt://policy_decision"],
+  "approval_receipt_refs": ["receipt://approval"],
+  "denial_receipt_refs": ["receipt://denial"],
+  "authority_refs": ["authority://export-grant"],
+  "evidence_bundle_refs": ["assurance_evidence://bundle", "evidence://agentgres-bundle"],
+  "receipt_refs": ["receipt://execution", "receipt://delivery"],
+  "replay_refs": ["replay://redacted-run"],
+  "retention_lock_refs": ["retention_lock://legal-hold"],
+  "restricted_view_refs": ["restricted_view://auditor-safe"],
+  "redaction_profile_ref": "policy://redaction/customer-audit",
+  "export_policy_ref": "policy://export/customer-audit",
+  "declassification_refs": ["receipt://declassification"],
+  "export_manifest_hash": "sha256:...",
+  "included_refs": ["receipt://execution"],
+  "redacted_refs": ["trace://private-span"],
+  "protected_payload_refs": ["artifact://protected-output"],
+  "excluded_refs": ["artifact://unrelated-secret"],
+  "exclusion_reasons": ["retention_locked | restricted_view | no_export_authority | protected_plaintext | unrelated | expired | policy_blocked"],
+  "commercial_refs": {
+    "invoice_refs": ["invoice://..."],
+    "cost_center_refs": ["cost_center://..."],
+    "sla_report_refs": ["sla://..."],
+    "tax_export_refs": ["tax://..."],
+    "purchase_order_refs": ["procurement://..."]
+  },
+  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | required_public_root",
+  "l1_anchor_refs": ["l1://..."],
+  "policy_hash": "sha256:...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "status": "requested | generated | delivered | revoked | superseded | expired"
+}
+```
+
+Export receipts must make protected payload posture explicit. If an export
+cannot include a private artifact, trace span, replay fragment, approval body,
+or connector output, the receipt names the excluded ref and reason rather than
+pretending the export is complete.
+
 ## Worker Training Receipts
 
-Data recipe, transformation, Worker Training, benchmark, evaluation, ontology
-projection, and MoW routing receipts are specialized receipts. They are not new
-artifact classes and they do not bypass the normal receipt semantics: canonical
-input, policy hash, actor identity, artifact refs, timestamps, and signatures
-still apply.
+Data recipe, transformation, training evidence eligibility, Worker Training,
+benchmark, evaluation, ontology projection, and MoW routing receipts are
+specialized receipts. They are not new artifact classes and they do not bypass
+the normal receipt semantics: canonical input, policy hash, actor identity,
+artifact refs, timestamps, and signatures still apply.
 
 ```json
 {
@@ -607,6 +967,29 @@ still apply.
 
 ```json
 {
+  "receipt_id": "receipt_training_eligibility_123",
+  "receipt_type": "training_evidence_eligibility",
+  "eligibility_id": "eligibility://...",
+  "governance_owner_ref": "project://... | org://... | agentgres://domain/...",
+  "subject_refs": ["artifact://...", "receipt://...", "view://..."],
+  "intended_use": "conductor_training | worker_training | eval_generation | dataset_distillation | benchmark | simulation | analytics_only",
+  "training_data_posture": "never_train | synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
+  "policy_bound_data_view_refs": ["view://..."],
+  "data_recipe_refs": ["recipe://..."],
+  "local_policy_refs": ["policy://..."],
+  "consent_refs": ["grant://...", "policy://..."],
+  "wallet_authority_refs": ["grant://...", "lease://..."],
+  "authority_requirement_kinds": ["decryption | connector_access | model_provider_key | gpu_spend | provider_trust | publication | export | cross_domain_reuse | none"],
+  "provider_trust_posture": "no_provider_plaintext | redacted_api | provider_trust_accepted | private_compute_required | blocked",
+  "exclusion_reason": "optional",
+  "policy_hash": "sha256:...",
+  "admitted_by_ref": "agentgres://operation/...",
+  "status": "eligible | excluded | revoked | expired"
+}
+```
+
+```json
+{
   "receipt_id": "receipt_training_123",
   "receipt_type": "dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision",
   "training_id": "train_123",
@@ -614,6 +997,8 @@ still apply.
   "run_id": "run_123",
   "dataset_factory_run_id": "run://dataset_factory/...",
   "training_pipeline_run_id": "trainpipe://...",
+  "training_evidence_eligibility_refs": ["eligibility://..."],
+  "training_data_posture": "synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "optimization_cycle_id": "optcycle://...",
   "conversion_run_id": "conversion://...",
   "registered_model_ref": "model://...",
@@ -642,17 +1027,48 @@ still apply.
 ```json
 {
   "receipt_id": "receipt_promotion_123",
-  "receipt_type": "promotion_decision",
+  "receipt_type": "promotion_decision | capability_lifecycle_transition",
   "cycle_id": "ptc_123",
+  "capability_kind": "worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
   "worker_id": "worker://...",
+  "capability_ref": "worker://...",
   "candidate_ref": "cid://...",
   "baseline_version": "worker://...@1.0.1",
   "candidate_version": "worker://...@1.0.2-candidate",
   "eval_profile_ref": "benchmark://...",
   "regression_receipt_refs": ["receipt://eval_123"],
-  "decision": "promoted | rejected | rolled_back",
+  "release_target_refs": ["release://..."],
+  "gate_receipt_refs": ["receipt://..."],
+  "authority_grant_refs": ["grant://..."],
+  "decision": "promoted | rejected | rolled_back | paused | recalled | retired",
   "rollback_ref": "optional",
+  "recall_ref": "optional",
   "policy_hash": "sha256:..."
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_capability_regression_123",
+  "receipt_type": "capability_regression",
+  "regression_id": "regression://support-worker-canary-001",
+  "capability_kind": "worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
+  "capability_ref": "worker://support-triage@1.0.2",
+  "baseline_version_ref": "worker://support-triage@1.0.1",
+  "candidate_or_active_version_ref": "worker://support-triage@1.0.2",
+  "detected_phase": "offline_eval | shadow | canary | rollout | production | recall_review",
+  "regression_class": "quality | safety | privacy | cost | latency | authority | reliability | policy | security | compliance | marketplace_reputation",
+  "severity": "info | warning | blocking | critical",
+  "evidence_refs": ["receipt://eval_123", "artifact://failure-cluster"],
+  "scorecard_refs": ["gate://support-scorecard"],
+  "affected_scope_refs": ["project://support", "release://support-tier1-canary"],
+  "recommended_action": "reject | hold | shadow_more | pause | rollback | recall | constrain | patch_and_retry | require_human_review",
+  "adjudication_ref": "receipt://adjudication_123",
+  "promotion_decision_ref": "receipt://promotion_123",
+  "training_evidence_eligibility_ref": "eligibility://support-regression-001",
+  "future_eval_candidate_refs": ["dataset://support-regression-holdout-candidate"],
+  "policy_hash": "sha256:...",
+  "status": "detected | adjudicating | blocked | rejected | shadowing | paused | rolled_back | recalled | constrained | converted_to_eval | closed"
 }
 ```
 

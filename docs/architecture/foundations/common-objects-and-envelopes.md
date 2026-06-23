@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -30,12 +30,16 @@ UpgradeDecisionEnvelope
 LocalSettlementEnvelope
 AIIPChannelEnvelope
 AIIPEnvelope
+MultiPartyCollaborationEnvelope
 CapabilityDescriptorEnvelope
 TaskOfferEnvelope
 TaskAcceptanceEnvelope
 HandoffEnvelope
 ReceiptCommitmentEnvelope
+DeliveryUpdateEnvelope
+AcceptanceDecisionEnvelope
 SettlementIntentEnvelope
+DisputeResolutionEnvelope
 ReputationEventEnvelope
 AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
@@ -76,6 +80,7 @@ PolicyBoundDataViewEnvelope
 TransformationRunEnvelope
 DistilledOntologyDatasetEnvelope
 EvaluationDatasetEnvelope
+TrainingEvidenceEligibilityEnvelope
 OntologyProjectionEnvelope
 OntologyToWorkerPlanEnvelope
 ModelCapacityProfileEnvelope
@@ -94,6 +99,7 @@ ConductorAdvisorCandidateEnvelope
 PostTrainingCycleEnvelope
 ContextMutationEnvelope
 PromotionDecisionEnvelope
+CapabilityRegressionRecordEnvelope
 BenchmarkEnvelope
 RoutingDecisionEnvelope
 ```
@@ -104,6 +110,7 @@ RoutingDecisionEnvelope
 ai://...                global intelligence/app/worker/service namespace
 system://...            Autonomous System Package namespace
 domain://...            bounded execution domain, application domain, or sovereign domain namespace
+org://...               organization, enterprise, DAO, regulator, auditor, provider, or institutional party identity
 node://...              Hypervisor Node or runtime node namespace
 module://...            governed service-module namespace
 invocation://...        module invocation namespace
@@ -111,15 +118,22 @@ proposal://...          upgrade, policy, module, workflow, or settlement proposa
 transition://...        accepted local state-transition namespace
 aiip://channel/...      AIIP channel namespace
 packet://...            AIIP packet namespace
+collaboration://...     multi-party collaboration context, shared-proof, or party-view identity
 settlement-intent://... AIIP settlement intent namespace
+delivery://...          service delivery, delivery update, or cross-domain outcome delivery identity
+evidence://...          evidence bundle, proof bundle, or admitted evidence identity
+redacted_summary://...  redacted summary identity for shareable context without raw payload
+revocation://...        authority, party, client, connector, view, or collaboration revocation identity
 ioi://publisher/...     publisher identity
 agent://...             product-facing agent instance or compatibility worker instance
 worker://...            worker package or worker type
 install://...           worker install/license binding
 subscription://...      runtime or managed-instance subscription/entitlement
 service://...           sas.xyz service definition
+order://...             sas.xyz service order or cross-domain outcome order
 run://...               runtime run identity
 task://...              task identity
+goal://...              ioi.ai or coordinator goal identity
 runtime://...           Hypervisor Daemon runtime-node identity
 compute://...           compute session identity
 boot_profile://...      HypervisorOS boot profile identity
@@ -134,6 +148,7 @@ recipe://...            data recipe identity
 mapping://...           connector mapping identity
 view://...              policy-bound data view identity
 dataset://...           evaluation or training dataset identity
+eligibility://...       training evidence eligibility or exclusion identity
 projection://...        ontology-aware or Agentgres projection identity
 transform://...         transformation run identity
 plan://...              ontology-to-worker plan identity
@@ -141,26 +156,69 @@ profile://...           training/model capacity profile identity
 batch://...             training batch plan or generation batch identity
 gate://...              quality gate report or promotion gate identity
 ledger://...            usage, token, cost, or contribution ledger identity
+resource_pool://...     capacity pool, provider pool, quota pool, or runtime capacity identity
+allocation://...        resource allocation request or decision identity
+budget://...            spend, quota, token, runtime, GPU, or rate-limit budget identity
+quota://...             provider, project, org, connector, or model quota identity
+rate_limit://...        rate-limit policy or observed throttle identity
+schedule://...          schedule, trigger, or catch-up policy identity
+audit_export://...      compliance, customer, regulator, SLA, tax, or internal audit export bundle identity
+assurance_evidence://... assurance evidence bundle identity
+assurance_profile://... ecosystem assurance profile identity
+conformance_profile://... interface, runtime, gateway, wallet-client, or service conformance profile identity
+certification_claim://... certification claim identity over a subject and assurance profile
+jurisdiction_policy_pack://... jurisdiction, compliance, retention, or regulated-action policy pack identity
+liability_claim_route://... liability, insurance, incident, or dispute claim-route identity
+abuse_signal://... abuse, threat, vulnerability, policy-violation, or quarantine signal identity
+commercial_export://... commercial assurance, billing, SLA, tax, or customer export identity
+retention_lock://...    retention hold, deletion hold, or legal/audit lock identity
+restricted_view://...   restricted/redacted/export-safe view identity
+invoice://...           invoice identity
+cost_center://...       cost center identity
+sla://...               SLA report or service-level objective identity
+tax://...               tax profile or tax export identity
+procurement://...       purchase order, procurement profile, or vendor review identity
 foundry_job://...       Foundry job identity
 trainpipe://...         Foundry training pipeline run identity
 optcycle://...          Foundry experiment optimization cycle identity
 conversion://...        Foundry artifact conversion run identity
 conductor://...         conductor advisor or coordinator candidate identity
+regression://...        capability regression, canary regression, or post-promotion regression record identity
 model://...             model artifact, registered model, or model-family identity
 model_route://...       model routing profile, endpoint candidate, or serving policy identity
 wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
-wallet://...            wallet.network account or authority ref
+wallet://...            wallet.network account or authority provider ref
+authority://...         portable delegated authority, approval, consent, or provider-specific authority object ref
 auth_factor://...       wallet.network authentication factor identity
 access_point://...      low-assurance access-point binding ref
 challenge://...         short-lived wallet.network step-up challenge pointer
 credential://...        provider credential binding or secret metadata ref
 key_shard://...         MPC, threshold, hardware-backed, or org key-share ref
 wallet_client://...     wallet.network CLI/MCP/mobile/web/embedded client session
+origin://...            authority-client origin binding identity
+device://...            authority-client, guardian, or enrolled device identity
+key://...               public key, signing key, or key material metadata ref
+lease://...             capability lease or short-lived authority lease ref
+mcp_gateway://...       Hypervisor MCP Gateway profile identity
+connector://...         connector or external-system adapter identity
+session://...           Hypervisor session identity
+work_run://...          WorkRun identity
+incident://...          provider, runtime, storage, authority, safety, or ecosystem incident identity
+recovery://...          environment, WorkRun, artifact, physical, or service recovery attempt identity
+quarantine_advisory://... quarantine advisory identity
 shielded_capsule://...  private workspace capsule identity; legacy name kept for compatibility
 model_mount://...       plaintext-free model mount identity
 model_mount_view://...  per-inference plaintext-free model mount view identity
+environment://...       Hypervisor environment identity
+provider://...          environment, compute, storage, model, connector, or service provider identity
+observation://...       lifecycle, runtime, support, or provider evidence observation identity
+snapshot://...          environment/workspace point-in-time material identity
+backup://...            environment/workspace durability material identity
+archive://...           policy-bound restore-chain material identity
+patch_branch://...      Agentgres patch-branch coordination identity
+work_item://...         Work item identity inside a queue, recovery, automation, or WorkRun
 custody_proof://...     cTEE proof-carrying workspace custody proof identity
 privacy_posture://...   cTEE execution privacy posture identity
 coverage://...          cTEE candidate coverage / redundancy profile identity
@@ -203,7 +261,16 @@ Authority scopes and leases:
 
 Primitive capabilities are runtime feasibility and isolation primitives. They describe the low-level action classes a runtime/tool requires.
 
-Authority scopes are wallet.network policy grants over resources, providers, identities, budgets, approvals, and expiry. They describe what a subject is allowed to do.
+Authority scopes are wallet.network policy grants over resources, providers,
+identities, budgets, approvals, and expiry. They describe what a delegated
+subject is allowed to do outside ordinary local product governance.
+
+Application-local permissions, project settings, dataset eligibility,
+workflow draft permissions, ontology proposal state, and surface-local review
+state are policy/admission/governance objects until they require a portable
+authority lease, secret, spend, decryption, declassification, external
+connector access, provider-trust acceptance, cross-domain reuse, or autonomous
+agent execution.
 
 Provider names, fixture names, tool availability, and authority scopes must never alter semantic intent ranking. They may affect admission, policy, routing feasibility, and verification requirements only after the intent has been understood.
 
@@ -327,7 +394,7 @@ should distinguish:
 | Workflow | Deterministic executable composition manifest. | Hidden product state or the React Flow canvas itself. |
 | Harness | Reusable workflow topology for a behavior class such as coding loop, browser/computer-use loop, evaluation loop, or proposal-first mutation loop. | A provider-owned action runtime. |
 | Capability | Primitive/model/tool feasibility and contract reference. | Authority, secret possession, or policy permission. |
-| Authority | wallet.network grant or lease over resource, provider, identity, budget, approval, secret, and expiry. | A capability flag or UI readiness badge. |
+| Authority | wallet.network grant or lease over resource, provider, identity, budget, approval, secret, and expiry for delegated machine power. | A capability flag, UI readiness badge, or every app-local permission. |
 | Policy | Admission and behavior rules over authority, risk, approval, privacy, retention, evidence, and execution posture. | Tracing, telemetry, or run history. |
 | Tool | Executable capability with schema, risk, primitive capability requirements, authority scopes, approval requirements, and receipt behavior. | Ambient connector access. |
 | Connector | External system adapter exposing tools. | Runtime truth, authority owner, or untyped API access. |
@@ -360,6 +427,20 @@ AutonomousSystemManifestEnvelope:
     workflow_manifest_ref: artifact://... | cid://... | inline_ref
     harness_ref: optional
     topology_hash: string
+  source_project:
+    project_ref: optional
+    repository_refs: []
+    default_branch_or_ref: optional
+    development_environment_recipe_ref: optional
+    issue_tracker_refs: []
+    code_owner_refs: []
+  interfaces:
+    operator_console_ref: optional
+    generated_domain_app_ref: optional
+    api_endpoint_refs: []
+    mcp_profile_refs: []
+    aiip_channel_refs: []
+    preview_or_public_endpoint_refs: []
   capabilities:
     model_capability_refs: []
     model_deployment_profile_refs: []
@@ -390,6 +471,11 @@ AutonomousSystemManifestEnvelope:
     replay_profile_ref: optional
   promotion:
     promotion_profile_ref: optional
+    release_target_refs: []
+    rollout_policy_ref: optional
+    rollback_policy_ref: optional
+    recall_policy_ref: optional
+    kill_switch_ref: optional
     marketplace_exposure_eligibility: none | internal | review_required | eligible
     foundry_lineage_refs: []
     worker_card_preview_ref: optional
@@ -563,7 +649,7 @@ AIIPChannelEnvelope:
 ```yaml
 AIIPEnvelope:
   packet_id: packet://...
-  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | settlement_intent | dispute | reputation_query
+  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | delivery_update | acceptance_decision | settlement_intent | dispute | dispute_resolution | reputation_query
   system_id_from: system://... | domain://...
   system_id_to: system://... | domain://...
   channel_id: aiip://channel/...
@@ -654,6 +740,39 @@ ReceiptCommitmentEnvelope:
 ```
 
 ```yaml
+DeliveryUpdateEnvelope:
+  delivery_update_id: packet://...
+  task_id: task://...
+  service_order_ref: optional service://... | order://...
+  buyer_domain_ref: system://... | domain://... | wallet://...
+  provider_domain_ref: system://... | domain://... | service://...
+  delivery_refs: []
+  milestone_ref: optional
+  status: draft | partial | submitted | accepted | rejected | revision_requested | disputed | cancelled
+  artifact_refs: []
+  evidence_refs: []
+  local_receipt_root: optional_hash
+  remote_receipt_root: optional_hash
+  disclosure_mode: public_root | private_body | encrypted_body | dispute_gated
+  settlement_intent_ref: optional settlement-intent://...
+  created_at: timestamp
+```
+
+```yaml
+AcceptanceDecisionEnvelope:
+  acceptance_decision_id: packet://...
+  delivery_update_ref: packet://... | delivery_...
+  decider_ref: wallet://... | org://... | policy://... | domain://...
+  decision: accept | accept_partial | reject | request_revision | open_dispute
+  acceptance_criteria_refs: []
+  quality_refs: []
+  evidence_refs: []
+  settlement_intent_ref: optional settlement-intent://...
+  dispute_ref: optional dispute://...
+  status: drafted | submitted | admitted | challenged | final
+```
+
+```yaml
 SettlementIntentEnvelope:
   settlement_intent_id: settlement-intent://...
   task_id: task://...
@@ -665,6 +784,19 @@ SettlementIntentEnvelope:
   dispute_window: optional
   l1_anchor_policy: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
   status: drafted | submitted | accepted | challenged | settled | rejected | expired
+```
+
+```yaml
+DisputeResolutionEnvelope:
+  dispute_resolution_id: packet://...
+  dispute_ref: dispute://...
+  service_order_ref: optional service://... | order://...
+  delivery_update_refs: []
+  evidence_refs: []
+  decision: refund | partial_refund | payout | partial_payout | slash | retry | revise | escalate | no_fault
+  settlement_intent_ref: optional settlement-intent://...
+  l1_anchor_policy: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
+  status: proposed | accepted | rejected | executed | escalated
 ```
 
 ```yaml
@@ -682,6 +814,76 @@ ReputationEventEnvelope:
 AIIP envelopes may reference private or encrypted payload bodies. IOI L1 should
 anchor only the roots or commitments needed for shared trust, settlement,
 reputation, or disputes.
+
+```yaml
+MultiPartyCollaborationEnvelope:
+  collaboration_id: collaboration://...
+  goal_ref: goal://... | task://... | order://... | service://...
+  coordinator_ref: domain://... | system://... | agent://... | org://...
+  party_refs:
+    - party_ref: org://... | wallet://... | domain://... | service://... | provider://...
+      role: data_owner | worker_provider | compute_provider | coordinator | customer | auditor | regulator | insurer | verifier | settlement_counterparty
+      domain_ref: domain://... | system://... | agentgres://domain/... | null
+      authority_provider_refs:
+        - authority://... | wallet://... | policy://...
+      revocation_ref: revocation://... | null
+      status: invited | active | suspended | removed | revoked | observer_only
+  allowed_shared_refs:
+    - artifact://... | receipt://... | evidence://... | view://... |
+      restricted_view://... | redacted_summary://... | aiip://channel/... |
+      delivery://... | audit_export://...
+  blocked_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - unrelated_private_memory
+    - non_opted_in_training_trace
+  policy_bound_data_view_refs:
+    - view://...
+  restricted_view_refs:
+    - restricted_view://...
+  aiip_channel_refs:
+    - aiip://channel/...
+  handoff_refs:
+    - packet://...
+  authority_refs_by_party:
+    - party_ref: org://... | wallet://... | domain://...
+      authority_refs:
+        - grant://... | authority://... | policy://...
+  evidence_bundle_refs:
+    - evidence://... | assurance_evidence://...
+  delivery_bundle_refs:
+    - delivery://...
+  contribution_refs:
+    - contrib_... | receipt://...
+  settlement_intent_refs:
+    - settlement-intent://... | settle_...
+  audit_export_profile_refs:
+    - audit_export://... | policy://...
+  l1_anchor_policy:
+    local_only | optional_anchor | dispute_only | reputation_only |
+    settlement_required | required_public_root
+  history_policy:
+    party_removal_effect: no_new_access | revoke_live_access | tombstone_view |
+      rotate_views
+    historical_receipts: immutable | sealed | export_limited
+  status:
+    proposed | active | blocked | delivery_submitted | accepted |
+    revision_requested | disputed | settled | revoked | archived
+```
+
+`MultiPartyCollaborationEnvelope` is the policy and proof context for multiple
+organizations, domains, workers, providers, auditors, or regulators
+collaborating on one autonomous outcome without collapsing ownership,
+authority, or privacy boundaries. It is not a shared raw chat context and not a
+new global database. It is an admitted context over refs, views, authorities,
+AIIP handoffs, delivery state, contribution state, export profiles, and
+immutable proof.
+
+Collaboration history is not rewritten when a party is removed. Revocation
+stops future access, rotates or tombstones live views when policy requires it,
+and preserves historical receipt roots, contribution refs, and dispute/audit
+evidence under the relevant restricted-view and export policies.
 
 ```yaml
 ServiceModuleManifestEnvelope:
@@ -777,7 +979,7 @@ WorkerInstanceEnvelope:
     - api
     - workflow_node
     - scheduler
-  status: starting | running | idle | suspended | archived | failed
+  status: starting | running | idle | recovering | suspended | archived | failed
   memory_policy:
     mode: none | session | agentgres_refs | sealed_archive
     archive_on_idle: boolean
@@ -865,6 +1067,65 @@ AuthorityGrantEnvelope:
   revocation_epoch: integer
   status: active | expired | revoked
 ```
+
+## AuthorityClientEnvelope
+
+```yaml
+AuthorityClientEnvelope:
+  authority_client_id: wallet_client://...
+  client_kind:
+    wallet_web | wallet_mobile | wallet_desktop | hypervisor_panel |
+    cli_signer | mcp_server | sdk | enterprise_authority_service |
+    browser_origin | local_signer
+  owner_ref: wallet://... | org://...
+  subject_ref: agent://... | worker://... | runtime://... | service://... | null
+  origin_binding:
+    origin_ref: origin://... | null
+    device_ref: device://... | null
+    public_key_ref: key://... | null
+    attestation_ref: attestation://... | null
+  allowed_operations:
+    - request_authority
+    - approve_challenge
+    - inspect_grants
+    - revoke_lease
+    - list_receipts
+  authority_scope_refs:
+    - scope:...
+  active_grant_refs:
+    - grant://...
+  active_lease_refs:
+    - lease://...
+  gateway_profile_refs:
+    - mcp_gateway://...
+  connector_refs:
+    - connector://...
+  session_refs:
+    - session://...
+  work_run_refs:
+    - work_run://...
+  risk_ceiling:
+    read | draft | low_local_write | external_message | deploy |
+    funds | secret_export | policy_widening
+  expires_at: timestamp
+  last_use_at: timestamp | null
+  last_use_ref: event://... | null
+  revocation_epoch: integer
+  anomaly_state:
+    clean | watch | origin_mismatch | expired_use | scope_excess |
+    suspicious_frequency | policy_denied | leaked | compromised
+  quarantine_advisory_refs:
+    - quarantine_advisory://...
+  replacement_client_ref: wallet_client://... | null
+  status:
+    active | expired | suspended | quarantined | rotating | rotated | revoked
+```
+
+Authority clients are surfaces and sessions that may request, inspect, approve,
+or broker scoped authority. They are not raw secret custodians and cannot widen
+authority without a new wallet.network grant. Origin mismatch, expired use,
+scope excess, leaked key material, or quarantine must fail closed before any
+effectful provider mutation.
 
 ## AccessPointBindingEnvelope
 
@@ -986,7 +1247,7 @@ RunEnvelope:
   worker_instance_id: optional
   service_id: optional
   subscription_ref: optional
-  state: queued | assigned | starting | running | awaiting_approval | paused | completed | failed | cancelled
+  state: queued | assigned | starting | running | throttled | degraded | preempted | awaiting_approval | paused | completed | failed | cancelled
   assignment:
     node_id: node://...
     placement_reason: string
@@ -998,8 +1259,62 @@ RunEnvelope:
   inspect_endpoint: /v1/runs/{run_id}/inspect
   scorecard_endpoint: /v1/runs/{run_id}/scorecard
   stop_condition: optional
+  resource_allocation_refs:
+    - allocation://...
+  budget_refs:
+    - budget://...
   task_state_ref: optional
   agentgres_projection_watermark: optional
+```
+
+## ResourceAllocationDecisionEnvelope
+
+```yaml
+ResourceAllocationDecisionEnvelope:
+  allocation_decision_id: allocation://...
+  allocation_request_ref: allocation://...
+  workload_kind:
+    session | work_run | automation | scheduled_job | training_pipeline |
+    eval | managed_worker | model_route | release_job | connector_job
+  workload_refs:
+    - session://... | work_run://... | trainpipe://... | worker://...
+  resource_pool_refs:
+    - resource_pool://...
+  budget_refs:
+    - budget://...
+  quota_refs:
+    - quota://...
+  priority_class:
+    safety_critical | user_blocking | deadline | interactive |
+    production | standard | background | speculative
+  decision:
+    admit | queue | throttle | degrade | preempt | pause | defer |
+    cancel | shift_provider | request_budget | fail_closed
+  reason_code:
+    capacity_available | capacity_exhausted | budget_warning |
+    budget_exhausted | quota_exhausted | rate_limited |
+    deadline_priority | safety_priority | policy_denied |
+    privacy_or_residency_block | provider_unhealthy |
+    verified_work_low_value | duplicate_catchup
+  affected_workload_refs:
+    - work_run://... | trainpipe://... | worker://...
+  preempted_workload_refs:
+    - work_run://...
+  preserved_checkpoint_refs:
+    - artifact://... | receipt://...
+  lost_or_discarded_refs:
+    - artifact://...
+  retry_or_resume_policy_ref: optional policy://...
+  catchup_policy_ref: optional schedule://...
+  authority_requirement_refs:
+    - authority://... | policy://...
+  authority_grant_refs:
+    - grant://... | lease://... | authority://...
+  cost_delta_ref: optional ledger://...
+  expected_verified_work_delta_ref: optional artifact://... | receipt://...
+  receipt_refs:
+    - receipt://...
+  status: proposed | admitted | blocked | executed | superseded | failed
 ```
 
 ## RuntimeEventEnvelope
@@ -1011,7 +1326,7 @@ RuntimeEventEnvelope:
   run_id: run_...
   task_id: task_...
   turn_id: optional
-  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_registered | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | receipt.emitted | run.completed | run.failed
+  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | environment.failure_detected | environment.recovery_planned | environment.recovery_started | environment.recovery_completed | environment.recovery_failed | workrun.recovery_reconciled | resource.allocation_requested | resource.allocation_decided | resource.budget_warning | resource.budget_exhausted | resource.preemption_decided | resource.degradation_applied | scheduler.catchup_planned | scheduler.catchup_executed | assurance.policy_pack.applied | assurance.policy_pack.blocked | assurance.audit_export.requested | assurance.audit_export.generated | assurance.audit_export.delivered | assurance.audit_export.revoked | collaboration.context_created | collaboration.party_joined | collaboration.party_removed | collaboration.view_granted | collaboration.view_revoked | collaboration.proof_bundle_generated | training.evidence_eligibility_recorded | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_registered | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | capability.regression_detected | capability.regression_adjudicated | authority_client.* | mcp_gateway.* | revocation.* | embodied.* | sim_to_real.* | assurance.* | capability.* | job.* | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
   privacy_class: public | internal | private | secret
@@ -1027,7 +1342,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | upgrade_proposal | upgrade_decision | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | benchmark_run | evaluation_verdict | routing_decision
+  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | aiip_packet | aiip_delivery_update | aiip_acceptance_decision | aiip_dispute_resolution | aiip_settlement_intent | cross_domain_delivery_bundle | multi_party_collaboration | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | environment_failure | environment_recovery | workrun_recovery | resource_allocation | budget_exhaustion | preemption | scheduler_catchup | jurisdiction_policy_decision | assurance_evidence_bundle | compliance_audit_export_bundle | commercial_assurance_export | training_evidence_eligibility | upgrade_proposal | upgrade_decision | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | capability_regression | benchmark_run | evaluation_verdict | routing_decision | authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report | physical_action_preflight | sensor_evidence | actuator_command | emergency_stop | physical_action_execution | physical_action_incident | physical_action_remediation | physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery | liability_claim_route | quarantine_advisory
   run_id: optional
   task_id: optional
   actor_id: string
@@ -1073,13 +1388,21 @@ ArtifactEnvelope:
 DeliveryEnvelope:
   delivery_id: delivery_...
   service_order_id: optional
+  buyer_domain_ref: optional system://... | domain://... | wallet://...
+  provider_domain_ref: optional system://... | domain://... | service://...
   worker_invocation_id: optional
   run_id: run_...
+  delivery_update_refs: []
   output_artifacts: []
   evidence_bundle: []
+  local_receipt_root: optional_hash
+  remote_receipt_root: optional_hash
+  dispute_refs: []
+  settlement_intent_refs: []
+  disclosure_mode: public_root | private_body | encrypted_body | dispute_gated
   quality_summary: object
   policy_summary: object
-  settlement_status: pending | accepted | disputed | paid | refunded
+  settlement_status: pending | partial | accepted | rejected | revision_requested | disputed | settled | paid | refunded | slashed
   acceptance_deadline: optional
 ```
 
@@ -1090,11 +1413,15 @@ SettlementEnvelope:
   settlement_id: settle_...
   chain_id: ioi-mainnet
   contract: string
-  action: escrow_lock | payout_release | license_mint | dispute_open | dispute_resolve | reputation_root_update
+  action: escrow_lock | payout_release | partial_payout | refund | partial_refund | slash | service_acceptance | service_revision | license_mint | dispute_open | dispute_resolve | reputation_root_update | handoff_finality
   amount: optional
   token: IOI | stablecoin | credit
   related_delivery_id: optional
+  related_settlement_intent_id: optional
+  related_dispute_id: optional
   related_receipt_root: optional
+  receipt_condition_refs: []
+  status: drafted | submitted | pending | settled | disputed | reversed | failed
   tx_hash: optional
 ```
 
@@ -1324,6 +1651,62 @@ EvaluationDatasetEnvelope:
     - artifact://...
   receipt_root: hash
   status: draft | active | deprecated | revoked
+```
+
+## TrainingEvidenceEligibilityEnvelope
+
+Training evidence eligibility is the pre-training local governance,
+admission, consent, and privacy classification record. It is where sensitive
+traces, connector outputs, enterprise documents, feedback, receipts, or
+artifacts are explicitly admitted or excluded before Foundry can produce
+datasets, evals, model candidates, or conductor-advisor candidates.
+
+This is not a wallet.network object by default. Hypervisor, Foundry, Data /
+Knowledge, Ontology, domain apps, or org governance surfaces may propose the
+eligibility decision; Agentgres records the admitted decision and receipts;
+wallet.network supplies authority refs only when the decision requires
+delegated machine power such as decryption, connector access, model-provider
+keys, GPU spend, provider-trust acceptance, publication, export, or
+cross-domain reuse.
+
+```yaml
+TrainingEvidenceEligibilityEnvelope:
+  eligibility_id: eligibility://...
+  governance_owner_ref: org://... | project://... | agentgres://domain/... | foundry_job://...
+  subject_refs:
+    - artifact://... | receipt://... | dataset://... | view://... | connector://...
+  requester_ref: wallet://... | org://... | foundry_job://... | goal://...
+  intended_use:
+    conductor_training | worker_training | eval_generation |
+    dataset_distillation | benchmark | simulation | analytics_only
+  training_data_posture:
+    never_train | synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
+  policy_bound_data_view_refs:
+    - view://...
+  data_recipe_refs:
+    - recipe://...
+  local_policy_refs:
+    - policy://...
+  consent_refs:
+    - grant://... | policy://... | authority://...
+  wallet_authority_refs:
+    - grant://... | lease://... | authority://...
+  authority_requirement_kinds:
+    - decryption | connector_access | model_provider_key | gpu_spend |
+      provider_trust | publication | export | cross_domain_reuse | none
+  declassification_refs:
+    - receipt://... | policy://...
+  provider_trust_posture:
+    no_provider_plaintext | redacted_api | provider_trust_accepted |
+    private_compute_required | blocked
+  retention_policy_ref: policy://...
+  exclusion_reason:
+    optional never_train_default | revoked | expired | regulated_block |
+    connector_scope_denied | no_provider_trust | data_subject_request |
+    missing_policy_bound_view | incident_hold
+  receipt_root: hash
+  admitted_by_ref: optional agentgres://operation/... | policy://...
+  status: proposed | eligible | excluded | revoked | expired | superseded
 ```
 
 ## OntologyProjectionEnvelope
@@ -1678,8 +2061,10 @@ TrainingPipelineRunEnvelope:
   last_heartbeat_ref: optional receipt://...
   authority_grant_refs:
     - grant://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
   training_data_posture:
-    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+    synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   model_base_refs:
     - model://... | model_mount://...
   input_dataset_refs:
@@ -1768,9 +2153,11 @@ ConductorAdvisorCandidateEnvelope:
   foundry_job_ref: foundry_job://...
   intended_consumer: ioi_ai | hypervisor_operator_plane | custom_coordinator
   training_data_posture:
-    synthetic_only | redacted_opt_in | full_opt_in | org_policy
+    synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   training_consent_refs:
     - grant://... | policy://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
   input_refs:
     - artifact://... | receipt://... | dataset://...
   eval_suite_refs:
@@ -1779,8 +2166,19 @@ ConductorAdvisorCandidateEnvelope:
     - gate://... | artifact://...
   shadow_mode_refs:
     - run://...
+  shadow_mode_receipt_refs:
+    - receipt://...
+  shadow_mode_summary:
+    quality_delta: optional
+    cost_delta: optional
+    latency_delta: optional
+    privacy_incidents: integer
+    policy_denials: integer
+    authority_escalations: integer
   promotion_status:
-    draft | training | shadow | gated | promoted | rejected | rollback
+    draft | training | shadow | gated | promoted | rejected | paused |
+    rolled_back | recalled
+  rollback_ref: optional
 ```
 
 ## PostTrainingCycleEnvelope
@@ -1874,6 +2272,43 @@ PromotionDecisionEnvelope:
   rollback_ref: optional
   receipt_ref: receipt://...
 ```
+
+## CapabilityRegressionRecordEnvelope
+
+```yaml
+CapabilityRegressionRecordEnvelope:
+  regression_id: regression://...
+  capability_ref: worker://... | model_route://... | tool://... | mcp://... | automation://... | service://... | package://... | domain_app://...
+  capability_kind: worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy
+  baseline_version_ref: optional
+  candidate_or_active_version_ref: string
+  detected_in:
+    phase: offline_eval | shadow | canary | rollout | production | recall_review
+    run_refs: []
+    release_target_refs: []
+  regression_class:
+    quality | safety | privacy | cost | latency | authority | reliability |
+    policy | security | compliance | marketplace_reputation
+  severity: info | warning | blocking | critical
+  evidence_refs:
+    - receipt://... | artifact://... | gate://... | benchmark://...
+  scorecard_refs: []
+  affected_scope_refs: []
+  recommended_action:
+    reject | hold | shadow_more | pause | rollback | recall | constrain |
+    patch_and_retry | require_human_review
+  adjudication_ref: receipt://... | optional
+  training_evidence_eligibility_ref: eligibility://... | optional
+  future_eval_candidate_refs: []
+  status:
+    detected | adjudicating | blocked | rejected | shadowing | paused |
+    rolled_back | recalled | constrained | converted_to_eval | closed
+```
+
+A regression record is evidence and lifecycle posture, not training consent. It
+may become a future holdout, eval case, or Foundry job only after the owning
+governance surface records `TrainingEvidenceEligibility` or an equivalent
+policy decision.
 
 ## BenchmarkEnvelope
 

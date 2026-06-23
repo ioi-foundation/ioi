@@ -37,6 +37,12 @@ Builder/category thesis:
 > prove what happened, and settlement happens only when shared trust requires
 > it.**
 
+In this framing, an intelligent blockchain is a self-driving bounded actor: a
+stateful autonomous-system domain that can sense state, route work, request
+authority, execute through governed runtimes, recover from failures, improve
+future behavior, and settle what matters without gaining ambient or
+unreviewable power.
+
 Web4 is not only about delegation. It is about compounding useful work into
 portable workers, workflows, tools, model routes, evals, data recipes,
 packages, service modules, and market-listed capabilities without collapsing
@@ -218,19 +224,21 @@ A canonical Web4 application should have:
 6. **Revocation and emergency stop** — granted authority can be withdrawn.
 7. **Portable manifests** — workers, services, workflows, models, apps, and domains are described by signed manifests.
 8. **Settlement-aware outcomes** — economic delivery and reputation are backed by contracts, escrows, bonds, roots, or receipts.
-9. **Local-first and zero-to-idle paths** — clients and runtimes serve from local/static/projection state where possible, waking authority only when needed.
-10. **Marketplace neutrality** — default runtime/harness infrastructure does not silently absorb third-party intelligence.
-11. **Worker routing over model centrality** — MoW selects accountable workers,
+9. **Self-driving bounded behavior** — the domain can monitor state, route work, recover, and continue under explicit authority, policy, budget, safety, and proof envelopes.
+10. **Bounded recursive improvement** — observed work may improve future workers, routes, tools, data recipes, evals, policies, or automations only through proposal, evaluation, authority, receipt, rollback, and recall gates.
+11. **Local-first and zero-to-idle paths** — clients and runtimes serve from local/static/projection state where possible, waking authority only when needed.
+12. **Marketplace neutrality** — default runtime/harness infrastructure does not silently absorb third-party intelligence.
+13. **Worker routing over model centrality** — MoW selects accountable workers,
     not merely model providers.
-12. **Trainable supply** — workflows, examples, corrections, data, and gates can
+14. **Trainable supply** — workflows, examples, corrections, data, and gates can
     become trained workers without collapsing IOI into a training-only platform.
-13. **Local autonomous-system settlement** — Hypervisor Nodes settle autonomous
+15. **Local autonomous-system settlement** — Hypervisor Nodes settle autonomous
     work locally and anchor selected roots to IOI L1 only when public trust or
     economic settlement requires it.
-14. **Work interop** — AIIP moves delegated work, authority leases, receipts,
+16. **Work interop** — AIIP moves delegated work, authority leases, receipts,
     settlement intents, disputes, reputation queries, and handoffs between
     bounded execution domains.
-15. **Machine-authority protocol compliance** — authority requests, leases,
+17. **Machine-authority protocol compliance** — authority requests, leases,
     denials, step-up challenges, delegation, revocation, proof obligations, and
     settlement intents use portable machine-readable envelopes rather than
     product-local permission checks.
@@ -248,7 +256,7 @@ Hypervisor Nodes           = local settlement and interop domains for many gover
 AIIP                      = semantic work interop for local and cross-system autonomous handoffs
 Semantic Data Plane       = ontologies, object models, recipes, mappings, policy-bound views
 Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
-Authority Plane           = wallet.network
+Portable Authority Plane  = wallet.network
 Artifact-Ref Plane        = Agentgres artifact refs
 Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
 Application Surfaces      = Workbench, Foundry, Agents / Workers, Models, Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay, Operate / Monitoring, Providers / Environments, Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
@@ -259,11 +267,11 @@ MoW Routing               = worker selection, sparse categories, contribution po
 Storage/state split:
 
 ```text
-Agentgres = state machine, query substrate, and artifact-ref authority
+Agentgres = state machine, query substrate, and artifact-ref meaning/admission/validity plane
 Domain Ontologies/Data Recipes = semantic data truth for training/evaluation/projections
 Storage backends = payload bytes, evidence bytes, and sealed archive bytes
 IOI L1 = trust, registry, rights, settlement, and sparse commitments
-Hypervisor Node = local orchestration, interop, authority, receipts, replay, and settlement
+Hypervisor Node = local orchestration, interop, domain policy, receipts, replay, and settlement
 AIIP = work interop protocol across bounded execution domains
 Hypervisor Daemon runtime nodes = execution layer
 MoW = labor routing layer for bounded workers

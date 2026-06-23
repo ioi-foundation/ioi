@@ -115,8 +115,9 @@ public trust and settlement
 
 The same doctrine can be stated in the repo's core sentence:
 
-> **Hypervisor Daemon executes. wallet.network authorizes. Agentgres remembers.
-> MoW routes. IOI L1 settles. Clients compose. Evidence proves.**
+> **Hypervisor Daemon executes. Authority is granted by local/domain governance
+> or wallet.network according to risk boundary. Agentgres remembers. MoW routes.
+> IOI L1 settles. Clients compose. Evidence proves.**
 
 ## What Bounded Power Looks Like
 

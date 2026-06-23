@@ -4,13 +4,18 @@ Status: entry-point shim.
 Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 Start with [`_meta/start-here.md`](./_meta/start-here.md).
 
 That file owns the five-minute stack model, role-based reading paths, common
 boundary mistakes, and links to the source-of-truth map, vocabulary, and
 implementation matrix.
+
+For the current cross-owner architecture digest, read
+[`_meta/current-canon-defaults.md`](./_meta/current-canon-defaults.md). For the
+edit-first owner of any subject, read
+[`_meta/source-of-truth-map.md`](./_meta/source-of-truth-map.md).
 
 Fast entry routes now live there as well:
 
@@ -97,9 +102,11 @@ Current Wallet/provider integration addition:
 > decentralized.trade is a venue/market-intelligence engine for exposure,
 > including event markets. Hypervisor has direct provider integrations for cloud
 > compute, storage, GPUs, confidential compute, DePIN, local machines, and customer
-> infrastructure. Candidates propose; wallet.network authorizes; Hypervisor
-> executes or deploys; venues and providers perform; Agentgres records; IOI L1
-> settles by trigger.**
+> infrastructure. Candidates propose; authority providers and local/domain
+> governance authorize as required, with wallet.network mandatory for portable
+> delegated authority and high-risk external effects; Hypervisor executes or
+> deploys; venues and providers perform; Agentgres records; IOI L1 settles by
+> trigger.**
 
 Current aiagent broad-labor addition:
 
@@ -107,5 +114,6 @@ Current aiagent broad-labor addition:
 > routing layer for ontology-bound digital and embodied workers. The marketplace
 > indexes WorkerPackages and ManagedWorkerInstances through
 > DigitalWorkerOntology, VerticalOntologyPacks, IntegrationSurfaces, lifecycle
-> policy, receipts, benchmarks, authority requirements, runtime posture, and
-> safety posture instead of hardcoded vertical directories.**
+> policy, ManagedWorkerOnboardingPlans, ContactDeliveryChannels, receipts,
+> benchmarks, authority requirements, runtime posture, and safety posture instead
+> of hardcoded vertical directories.**

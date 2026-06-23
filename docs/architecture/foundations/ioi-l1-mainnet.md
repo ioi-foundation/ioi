@@ -179,7 +179,10 @@ Canonical line:
 - `ServiceEscrow`
 - `SLABond`
 - `DeliveryAcceptance`
+- `DeliveryRevision`
 - `ProviderPayout`
+- `EscrowRefund`
+- `SLASlash`
 - `ServiceDispute`
 - `ServiceReputationRoot`
 
@@ -204,7 +207,12 @@ mint license/install right
 lock escrow
 post SLA bond
 accept delivery
+accept partial delivery
+request revision
 release payout
+release partial payout
+refund escrow
+slash SLA bond
 open dispute
 resolve dispute
 commit reputation/contribution root

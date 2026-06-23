@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for sas.xyz service order, delivery, provider, escrow mirror, and dispute endpoints.
 Supersedes: overlapping sas.xyz endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -70,7 +70,9 @@ GET  /v1/orders/{order_id}/runs
 GET  /v1/orders/{order_id}/runtime-assignment
 GET  /v1/orders/{order_id}/compute-sessions
 GET  /v1/orders/{order_id}/delivery
+GET  /v1/orders/{order_id}/deliveries
 GET  /v1/orders/{order_id}/receipts
+GET  /v1/orders/{order_id}/disputes
 POST /v1/orders/{order_id}/cancel
 POST /v1/orders/{order_id}/accept-delivery
 POST /v1/orders/{order_id}/request-revision
@@ -152,12 +154,18 @@ substrate.
 
 ```http
 POST /v1/orders/{order_id}/deliveries
+POST /v1/orders/{order_id}/delivery-updates
 GET  /v1/deliveries/{delivery_id}
+GET  /v1/deliveries/{delivery_id}/updates
 GET  /v1/deliveries/{delivery_id}/artifacts
 GET  /v1/deliveries/{delivery_id}/evidence
 GET  /v1/deliveries/{delivery_id}/quality
+POST /v1/deliveries/{delivery_id}/submit-partial
 POST /v1/deliveries/{delivery_id}/accept
+POST /v1/deliveries/{delivery_id}/accept-partial
+POST /v1/deliveries/{delivery_id}/request-revision
 POST /v1/deliveries/{delivery_id}/reject
+POST /v1/deliveries/{delivery_id}/open-dispute
 ```
 
 ### Delivery Bundle
@@ -166,7 +174,11 @@ POST /v1/deliveries/{delivery_id}/reject
 {
   "delivery_id": "delivery_123",
   "order_id": "order_123",
+  "delivery_status": "partial | submitted | accepted | accepted_partial | rejected | revision_requested | disputed | settled",
+  "milestone_ref": "optional",
   "provider_id": "ioi://publisher/provider",
+  "buyer_domain_ref": "domain://buyer",
+  "provider_domain_ref": "domain://provider",
   "run_ids": ["run_1", "run_2"],
   "output_artifacts": [
     {
@@ -177,6 +189,10 @@ POST /v1/deliveries/{delivery_id}/reject
     }
   ],
   "evidence_bundle": ["receipt://execution_1", "receipt://validation_1"],
+  "delivery_update_refs": ["packet://delivery_update_1"],
+  "acceptance_decision_refs": ["packet://acceptance_decision_1"],
+  "local_receipt_root": "sha256:...",
+  "remote_receipt_root": "sha256:...",
   "service_composition": {
     "service_composition_receipt_bundle_ref": "service_comp_bundle_123",
     "composition_graph_ref": "workflow://graph_123",
@@ -202,9 +218,12 @@ POST /v1/deliveries/{delivery_id}/reject
     "warnings": []
   },
   "settlement": {
-    "status": "pending_acceptance",
-    "acceptance_deadline": "2026-05-04T00:00:00Z"
-  }
+    "status": "pending_acceptance | accepted | accepted_partial | revision_requested | disputed | refunded | partially_refunded | paid | partially_paid | slashed",
+    "acceptance_deadline": "2026-05-04T00:00:00Z",
+    "settlement_intent_refs": ["settlement-intent://..."],
+    "dispute_refs": ["dispute://..."]
+  },
+  "disclosure_mode": "public_root | private_body | encrypted_body | dispute_gated"
 }
 ```
 
@@ -254,16 +273,23 @@ GET  /v1/disputes/{dispute_id}
 POST /v1/disputes/{dispute_id}/submit-evidence
 POST /v1/disputes/{dispute_id}/propose-resolution
 POST /v1/disputes/{dispute_id}/accept-resolution
+POST /v1/disputes/{dispute_id}/resolve
 ```
+
+Resolution proposals and accepted resolutions must name the delivery updates,
+evidence refs, receipt roots, settlement intents, and action requested. Valid
+actions are `refund`, `partial_refund`, `payout`, `partial_payout`, `slash`,
+`retry`, `revise`, `escalate`, and `no_fault`.
 
 ## Non-Negotiables
 
 1. sas.xyz sells outcome contracts, not just agent prompts.
 2. Every service order must have an explicit output contract and acceptance criteria.
 3. Escrow/payout lives on IOI L1 contracts; operational order state lives in sas.xyz Agentgres.
-4. Delivery must include artifacts, evidence, receipts, and settlement state.
-   Composed delivery must also include worker contribution refs, verifier refs,
-   private-data posture, and dispute evidence refs.
+4. Delivery must include artifacts, evidence, receipts, delivery-update state,
+   acceptance/revision/dispute state, and settlement state. Composed delivery
+   must also include worker contribution refs, verifier refs, private-data
+   posture, and dispute evidence refs.
 5. Managed services may run without user-local Hypervisor, through hosted/provider/DePIN/TEE Hypervisor Daemon nodes.
 6. A service order that spawns remote work must bind the order to an
    OutcomeWorkspace, RuntimeAssignment, ComputeSession, daemon profile,

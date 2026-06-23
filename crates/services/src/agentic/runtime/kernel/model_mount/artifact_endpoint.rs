@@ -405,6 +405,8 @@ fn authority_record(request: &ModelMountArtifactEndpointRequest, authority_hash:
         "authority_grant_refs": non_empty_vec(&request.authority_grant_refs),
         "authority_receipt_refs": non_empty_vec(&request.authority_receipt_refs),
         "custody_ref": request.custody_ref,
+        "authority_boundary": "wallet.network.model_mount_artifact_endpoint",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.model_mount_artifact_endpoint",
         "ctee_custody_boundary": "ctee.model_mount_artifact_endpoint",
         "plaintext_private_material_returned": false,

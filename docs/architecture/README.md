@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -51,6 +51,11 @@ The category thesis is:
 > **Web4 is the protocol category for machine authority: bounded autonomous
 > actors receiving scoped power to perform consequential work with proof,
 > revocation, interop, and settlement.**
+
+In IOI terms, intelligent blockchains are self-driving bounded actors: they can
+monitor, route work, request authority, execute, recover, improve future
+behavior, and settle what matters, but only inside explicit authority, policy,
+budget, safety, receipt, replay, rollback, recall, and proof envelopes.
 
 The user-facing doctrine is: blockchain is the substrate, not the default task
 language. Web4 surfaces should lead with authority, proof, revocation, replay,
@@ -178,20 +183,22 @@ Read the stack this way:
   actuator registries, local control bridges, heartbeat/failsafe posture, world
   state, command queues, telemetry, physical replay, sim-to-real gates, and
   operator handoff for live physical domains;
-- wallet.network authorizes identity, secrets, approvals, payments, exchanges,
-  data use, decryption, revocation, and protection actions; route sources
-  produce exchange candidates but do not become authority;
+- wallet.network supplies portable delegated authority for identity-bound
+  agents, secrets, approvals, payments, exchanges, external credentials, data
+  use, decryption, revocation, and protection actions; route sources produce
+  exchange candidates but do not become authority;
 - decentralized.exchange and decentralized.trade are Wallet-consumed
   route/venue intelligence engines for liquidity, exposure, and event markets;
   Hypervisor has direct provider
   integrations for cloud compute, storage, GPUs, confidential compute, DePIN,
   local machines, customer cloud, enterprise clusters, decentralized storage,
-  and user-specified providers; candidates propose, while Wallet authorizes,
-  Hypervisor executes or deploys, venues/providers perform, Agentgres records,
-  and IOI L1 settles by trigger;
-- Agentgres artifact refs define payload meaning, lifecycle, policy, authority,
-  receipts, replay/import metadata, archive/restore validity, and state-root
-  validity;
+  and user-specified providers; candidates propose, while authority providers
+  and local/domain governance authorize as required, Hypervisor executes or
+  deploys, venues/providers perform, Agentgres records, and IOI L1 settles by
+  trigger;
+- Agentgres artifact refs define payload meaning, lifecycle, policy/authority
+  linkage, receipts, replay/import metadata, archive/restore validity, and
+  state-root validity;
 - storage backends such as local disk, S3/object stores, Filecoin, CAS/IPFS, and
   provider/customer blob stores hold payload bytes;
 - MoW routes bounded workers by policy, benchmarks, receipts, cost, trust, and
@@ -235,8 +242,8 @@ Read the stack this way:
   Hypervisor Core and the daemon; they do not become Hypervisor clients or
   runtime truth;
 - aiagent.xyz is a first-party protocol application that publishes,
-  benchmarks, ranks, installs, initializes managed instances, and routes
-  workers through AIIP and IOI settlement;
+  benchmarks, ranks, installs, compiles onboarding plans, initializes managed
+  instances, and routes workers through AIIP and IOI settlement;
 - sas.xyz is a first-party protocol application that sells worker-powered
   outcomes, including Worker Training contracts, through AIIP and IOI
   settlement;
@@ -247,16 +254,20 @@ Read the stack this way:
   off to Hypervisor Automations and execution remains daemon-owned.
 
 Agentgres should not be read as "state stored as Filecoin blobs." Agentgres is
-the state machine, query substrate, and artifact-ref authority; storage backends
-are payload byte stores beneath Agentgres-governed refs.
+the state machine, query substrate, and artifact-ref meaning/admission/validity
+plane; storage backends are payload byte stores beneath Agentgres-governed refs.
 
 Private state should not be read as "agent state only." Private user/app state
 such as profile metadata, app preferences, workspace snapshots, service intake
 forms, private outputs, and non-public managed-instance metadata may be stored
 as encrypted payload bytes in storage backends, while Agentgres owns refs,
-policy, receipts, state roots, and restore/import validity. wallet.network
-authorizes viewing/decryption/mutation. IOI L1 receives selected public,
-economic, rights, dispute, registry, and cross-domain commitments, not private
+policy, receipts, state roots, and restore/import validity. Authority providers
+and local/domain policy control viewing, decryption, mutation, export, and
+restore paths; wallet.network is mandatory when portable delegated authority,
+secret custody, decryption leases, external effects, or high-risk approval are
+required.
+IOI L1 receives selected public, economic, rights, dispute, registry, and
+cross-domain commitments, not private
 application databases.
 
 These documents should be treated as architectural authority prose. They are
@@ -278,6 +289,7 @@ distilled back into this architecture pack or into an accepted decision record.
 ## Navigation And Ownership
 
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) — canonical subject ownership, edit rules, and conflict policy.
+- [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) — current cross-owner defaults digest for quick alignment before opening subject owners.
 - [`Architecture Decision Records`](../decisions/README.md) — accepted decision history for durable architecture choices.
 - [`doc-classes.md`](./_meta/doc-classes.md) — documentation class vocabulary for future metadata/linting.
 
@@ -358,13 +370,13 @@ supporting file.
 | AIIP | RPC-shaped, receipt-native interop protocol for bounded autonomous work, authority leases, receipts, settlement intents, disputes, and handoffs. |
 | Bounded Execution Domain | Any local, hosted, enterprise, marketplace, robot, worker, service, microharness, or AS-L1 domain that performs scoped autonomous work under policy and receipts. |
 | Governed Autonomous-System Chain | Local stateful execution object with policy, modules, proposals, receipts, state roots, and governed upgrades. |
-| Hypervisor Node | Local settlement, orchestration, authority, state, replay, routing, and interop domain for many governed autonomous-system chains. |
+| Hypervisor Node | Local settlement, orchestration, domain policy, state, replay, routing, and interop domain for many governed autonomous-system chains. |
 | Verifiable Bounded Agency | Alignment-security thesis: probabilistic workers may propose, but only bounded, authorized, receipted effects may cross the deterministic execution boundary. |
 | Mixture of Workers | Labor-routing architecture that selects bounded workers by policy, benchmark evidence, cost, trust, and contribution quality. |
 | Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
 | Domain Ontologies and Data Recipes | Semantic data plane that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training, evaluation, runtime, and projection truth. |
 | Ecosystem Assurance | Cross-domain profile, evidence, certification, compliance, quarantine, liability, and commercial export layer that makes autonomous systems institutionally legible without owning execution, authority, truth, marketplace state, or settlement. |
-| Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
+| Domain Kernel | Application-domain policy/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
 | HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node enforcement posture, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
@@ -374,7 +386,7 @@ supporting file.
 | Patterns / Examples / Training | Role-guided recipe surface that turns tracks, speedruns, solution diagrams, examples, starter automations, data recipes, ontology packs, eval packs, and package templates into governed sessions, automations, Foundry jobs, domain apps, receipts, replay, promotion, and marketplace paths. |
 | ioi.ai Collaborative Outcome Pattern | ioi.ai intent-to-outcome coordination that may use multiple models, harnesses, workers, connectors, sessions, branches, and verifier lanes over Hypervisor when a goal calls for it. |
 | Hypervisor Providers / Environments | First-party Applications catalog entry, Open Application, session, project, provider, org/admin, and operator-console views plus daemon/Core objects for sessions, environments, providers, nodes, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage integrations, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility without creating a separate peer product, runtime, authority, truth, or storage layer. |
-| Wallet Lanes / Provider Integrations | Wallet is the authority cockpit for agents and autonomous finance. Auth factors open accounts, guardian surfaces and key shards secure high-risk authority, provider credential bindings stay brokered, decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
+| Wallet Lanes / Provider Integrations | Wallet is the authority cockpit for agents and autonomous finance. Auth factors open accounts, guardian surfaces and key shards secure high-risk authority, provider credential bindings stay brokered, decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; authority providers and local/domain governance authorize as required, with wallet.network mandatory for portable delegated authority and high-risk external effects; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/headless | Human terminal, scripting, CI, node-ops, and headless operator client over daemon/public runtime APIs; TUI is an optional interactive presentation of this client. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
@@ -394,7 +406,7 @@ supporting file.
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
 | ioi.ai | Lightweight account/control plane for devices, restore routing, publishing, sync metadata, remote-runtime entitlement, and console/org Providers / Environments views. |
 | ai:// | Naming and manifest resolution protocol for intelligence, workers, services, apps, and domains. |
-| Agentgres Artifact-Ref Plane | Artifact identity, payload refs, evidence/delivery/archive refs, lifecycle, policy, authority, receipts, replay/import metadata, restore validity, and state-root validity. |
+| Agentgres Artifact-Ref Plane | Artifact identity, payload refs, evidence/delivery/archive refs, lifecycle, policy/authority refs, receipts, replay/import metadata, restore validity, and state-root validity. |
 | Storage Backends | Payload byte stores such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob stores, and customer VPC blob stores. |
 | DePIN/TEE Nodes | Execution venues that run Hypervisor Daemon profiles, not the Web4 apps themselves. |
 
@@ -459,13 +471,13 @@ Assurance Plane
    marketplace-neutral, and must not cannibalize worker/service markets through
    silent appropriation; the Default Harness Profile is the reference
    scaffold/fallback, not the only admissible harness or a meta-harness.
-6. wallet.network is the authority plane. Agents and runtimes receive authority scopes, not raw secrets.
+6. wallet.network is the portable delegated authority plane for secrets, external credentials, spend, decryption, high-risk approvals, and provider-facing authority. Agents and runtimes receive authority scopes, not raw secrets.
 7. DePIN nodes are execution venues; Web4 apps define state, rights, UX, contracts, and outcomes.
-8. Storage backends store payloads; trust comes from Agentgres refs, manifests, hashes, signatures, receipts, policy, authority, and settlement roots when applicable.
+8. Storage backends store payloads; trust comes from Agentgres refs, manifests, hashes, signatures, receipts, policy/authority refs, and settlement roots when applicable.
 9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, artifact refs, archive refs, replay/import metadata, and restore validity.
 10. Compute nodes initialize Hypervisor Daemon runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. HypervisorOS is a bare-metal node profile, not a peer runtime. It gives serious nodes daemon-rooted control and measurement, but it does not make consumer GPUs confidential compute or replace cTEE no-plaintext-custody.
-12. Hypervisor manages sessions, environments, providers, and infrastructure posture directly. Providers / Environments views are not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
+12. Hypervisor manages sessions, environments, providers, and infrastructure posture directly. Providers / Environments views are not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer; Hypervisor Daemon executes; authority providers and local/domain governance authorize as required; Agentgres records truth; storage backends hold bytes.
 13. decentralized.exchange/trade are route/venue intelligence engines that propose candidates for liquidity and exposure, and Hypervisor provider integrations propose routes for execution; they are not mandatory UIs, authority, custody, provider, venue, storage, or settlement owners.
 14. CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the operator/scripting/CI client, TUI is an optional CLI presentation, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 15. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workflow

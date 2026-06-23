@@ -284,6 +284,8 @@ pub(super) fn plan_capability_token_control(
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.capability_token",
+        "authority_boundary": "wallet.network.capability_token",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.capability_token",
         "capability_token_authority": {
             "authority_hash": authority_hash,

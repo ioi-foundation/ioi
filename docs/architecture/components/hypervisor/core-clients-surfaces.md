@@ -8,7 +8,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-06-21.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -234,6 +234,14 @@ tool or action to RuntimeToolContract, surface MCP contract, or operator-plane
 contract refs, then route effectful work through daemon admission,
 wallet.network authority, Agentgres, receipts, and replay.
 
+Gateway profiles are bound to wallet.network authority clients, origin bindings,
+grants, leases, policy refs, and admitted dependency refs. If a bound authority
+client or profile becomes expired, revoked, suspicious, or quarantined,
+Hypervisor must fail closed for effectful calls, return a scoped failure
+explanation to the external agent, and propagate quarantine to dependent
+sessions, WorkRuns, connector calls, and pending approvals through Agentgres and
+receipts. The gateway is never a durable API key or master MCP.
+
 Correct:
 
 ```text
@@ -385,6 +393,81 @@ downstream path for reusable capability and should be available when capability
 is ready to publish, install, sell, settle, or attribute. Do not expose this
 planning taxonomy as primary navigation unless product testing proves the stable
 shell is insufficient.
+
+## Capability Lifecycle Control
+
+Hypervisor should make reusable capability lifecycle legible without creating a
+generic top-level `Lifecycle` product family. Lifecycle control is a
+cross-surface projection over shared Core contracts.
+
+The durable product shape is:
+
+```text
+Change Plane / Release Controls
+  primary cockpit for capability promotion, release, rollout, pause,
+  rollback, recall, kill-switch, remote-config, release-target, gate,
+  cohort, and deployment-risk coordination
+
+Owning application surfaces
+  local lifecycle evidence and work state, with lifecycle strips, blocked
+  reasons, authority gates, run/job refs, dependency impact, receipts, replay,
+  proof refs, and deep links back to Change Plane / Release Controls
+```
+
+Release Controls may appear as an Application, Open Application surface,
+Change Plane panel, org/admin view, Foundry handoff, Automations handoff, or
+contextual detail drawer. It should not become a permanent shell rail item by
+default.
+
+Local ownership stays explicit:
+
+```text
+Providers / Environments
+  environment create/start/readiness/idle/archive/restore/delete,
+  provider placement, ports, services, tasks, logs, restore posture
+
+Job Tracker
+  queued/running/failed/retried jobs, builds, retries, and execution status
+
+Resource Management
+  queues, quotas, rate limits, capacity, utilization, spend, and budgets
+
+Foundry
+  dataset, eval, build, training, artifact conversion, registration, and
+  promotion-candidate lifecycle
+
+Agent Studio / Agents / Workers
+  agent/harness/tool/memory/authority/eval-readiness and worker/package
+  candidacy
+
+Automations
+  trigger, workflow, service, API, schedule, catch-up, and run lifecycle
+
+Marketplace / Artifacts
+  install, publish, package, artifact, recall evidence, contribution, and
+  settlement handoffs
+
+Approvals / Checkpoints / Issues
+  human approval, policy review, remediation, incident, and support gates
+
+Workflow Lineage / Data Lineage
+  dependency, provenance, and impact graph
+
+Run Replay / Proof Explorer
+  transition trace, receipt, proof, settlement, and replay inspection
+```
+
+Every serious capability detail page should expose a small lifecycle strip and
+detail drawer appropriate to its object kind. Common fields include owner
+surface, current version, target version, active release target, rollout
+policy, rollback policy, recall policy, authority refs, approval gates,
+dependency impact, resource pressure, job/run refs, incident refs, receipt refs,
+replay refs, proof refs, and operator/MCP contracts.
+
+The lifecycle projection is not a new truth store. Agentgres admits truth,
+wallet.network authorizes, the Hypervisor Daemon executes, Foundry builds and
+evaluates, Marketplace/aiagent/MoW attributes external supply when applicable,
+and Run Replay / Proof Explorer inspect evidence.
 
 ## Application Surfaces
 
@@ -603,7 +686,8 @@ A surface registration should declare:
   console;
 - composition pattern: list/detail, command/search, modal wizard, canvas/editor,
   object view, graph view, review inbox, monitoring console, lineage/replay
-  view, package/install flow, or generated domain surface;
+  view, lifecycle strip/detail drawer, package/install flow, or generated
+  domain surface;
 - launch modes and target bindings, including project/session compatibility;
 - daemon/API dependencies and Agentgres object refs;
 - operator-plane tool or MCP contract refs, including which actions are
@@ -612,6 +696,9 @@ A surface registration should declare:
   sessions, only by the Hypervisor Operator Plane, or only by a human/admin;
 - required authority scopes, policy posture, and privacy posture;
 - receipt, replay, eval, package, and promotion obligations where applicable;
+- lifecycle-control posture where applicable: local owner, state machine,
+  current/target refs, rollout/rollback/recall posture, blocking gates, linked
+  jobs/runs, dependency impact, and Change Plane / Release Controls deep links;
 - install, favorite, recent, recommended, and marketplace metadata where
   applicable.
 
@@ -659,6 +746,7 @@ object-view editor
 graph view
 review/approval inbox
 monitoring or resource console
+lifecycle strip / release-control detail drawer
 lineage/replay/evidence view
 artifact/build/job view
 package/install/publish flow

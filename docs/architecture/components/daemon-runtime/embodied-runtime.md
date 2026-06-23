@@ -8,7 +8,7 @@ command queues, fleet policy, recovery, and operator handoff.
 Supersedes: plan prose that treats robot fleets, actuator APIs, sensor streams,
 or physical telemetry as ordinary connector/tool details.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -477,8 +477,8 @@ PhysicalCommandQueue:
   concurrency_policy:
     exclusive | actuator_scoped | zone_scoped | safe_parallel
   status:
-    accepting | paused | draining | blocked | emergency_stopped |
-    offline
+    accepting | paused | draining | blocked | handoff_requested |
+    emergency_stopped | offline
 ```
 
 ```yaml
@@ -491,7 +491,8 @@ PhysicalCommand:
     - actuator://...
   command_kind:
     navigate_to | follow_path | manipulate_object | use_tool |
-    open_close | dispense | inspect | hold | stop | other
+    open_close | dispense | inspect | hold | pause | cancel | retry |
+    request_handoff | emergency_stop | stop | other
   command_payload_ref: artifact://...
   preflight_check_refs:
     - preflight://...
@@ -504,7 +505,8 @@ PhysicalCommand:
   compensation_policy_ref: policy://... | null
   status:
     proposed | preflight | queued | active | paused | completed |
-    stopped | failed | rejected | superseded | incident
+    cancelled | retrying | handoff_requested | stopped | failed |
+    rejected | superseded | incident
 ```
 
 Queue admission must check command conflicts. For example, two commands that
@@ -651,9 +653,20 @@ EmbodiedIncident:
     policy_violation | disputed_outcome | other
   telemetry_refs:
     - telemetry_stream://...
+  physical_replay_refs:
+    - physical_replay://...
+  operator_handoff_refs:
+    - operator_handoff://...
+  authority_refs:
+    - grant://...
+  map_refs:
+    - physical_map://...
+  zone_refs:
+    - zone://...
   receipt_refs:
     - receipt://...
   liability_policy_ref: policy://...
+  liability_claim_route_ref: liability_claim_route://... | null
   insurance_or_claim_ref: claim://... | null
   status:
     open | contained | under_review | remediating |

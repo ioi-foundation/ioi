@@ -133,7 +133,11 @@ views are operator clients/projections. Agentgres is the local operational
 truth substrate. AIIP is
 the semantic interop protocol for local microharness routing and external
 autonomous-system handoffs.
-wallet.network owns authority. IOI L1 receives selected roots when public
+Authority providers and local/domain governance authorize as required.
+wallet.network supplies portable delegated authority for secrets, provider
+credentials, external effects, spend, decryption, declassification,
+restore/apply, high-risk approvals, and other portable or consequential power.
+IOI L1 receives selected roots when public
 trust, economic settlement, reputation portability, dispute resolution, or
 cross-system handoff finality requires them.
 
@@ -637,7 +641,7 @@ receipts and replay make work accountable
 
 ## One-Line Doctrine
 
-> **The Hypervisor Daemon is where Web4 work executes; Agentgres remembers it, wallet.network authorizes it, and IOI L1 settles what matters.**
+> **The Hypervisor Daemon is where Web4 work executes; Agentgres remembers it, authority is granted by local/domain governance or wallet.network according to risk boundary, and IOI L1 settles what matters.**
 
 ## CLI Product Context Module
 

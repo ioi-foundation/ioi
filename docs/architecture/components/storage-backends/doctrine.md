@@ -81,7 +81,7 @@ customer_vpc_blob
 
 storage_engine
   Postgres, SQLite, RocksDB, append-only logs, or similar engines when used as
-  payload engines rather than Agentgres authority
+  payload engines rather than Agentgres admission/validity
 ```
 
 ## Lifecycle
@@ -198,7 +198,7 @@ Do not:
 ## Related Canon
 
 - [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md):
-  canonical artifact-ref and archive/restore authority.
+  canonical artifact-ref meaning and archive/restore validity.
 - [`filecoin-cas.md`](./filecoin-cas.md): Filecoin/CAS storage backend profile.
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md): Agentgres operational
   state substrate.

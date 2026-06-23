@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -170,6 +170,9 @@ HypervisorEnvironmentLifecycleState
 HypervisorEnvironmentStatus
 HypervisorEnvironmentComponentStatus
 HypervisorEnvironmentLifecycleObservation
+HypervisorProviderFailureIncident
+HypervisorEnvironmentRecoveryCandidate
+HypervisorEnvironmentRecoveryAttempt
 HypervisorEnvironmentStopPolicy
 HypervisorEnvironmentSnapshot
 HypervisorEnvironmentBackup
@@ -180,6 +183,11 @@ HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
 HypervisorScmAuthRequirement
+HypervisorResourcePool
+HypervisorResourceBudget
+HypervisorResourceAllocationRequest
+HypervisorResourceAllocationDecision
+HypervisorSchedulerCatchupPolicy
 HypervisorWorkQueue
 HypervisorWorkItem
 HypervisorWorkRun
@@ -223,6 +231,11 @@ graceful / immediate / abort stop policy
 activity and idle posture
 access/log/support leases
 lifecycle observations and condition timeline
+provider failure classify / recovery candidate preview / recovery attempt
+failover / rebuild / WorkRun retry / fail-closed recovery decision
+capacity shock classify / allocation request / allocation decision
+preempt / pause / defer / degrade / shift provider / request budget
+catch-up policy for delayed scheduled work
 ```
 
 Ownership boundary:
@@ -254,8 +267,8 @@ HypervisorEnvironmentStatus
   provider_placement_ref
   recipe_ref
   recipe_resolution_ref
-  phase: creating | starting | running | updating | stopping | stopped |
-         archived | failed
+  phase: creating | starting | running | updating | recovering | stopping |
+         stopped | archived | failed
   components:
     recipe            { phase, recipe_ref, resolution_ref, evidence_ref }
     provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
@@ -280,7 +293,7 @@ HypervisorEnvironmentStatus
 Each component carries one phase from a shared taxonomy:
 
 ```text
-pending | creating | initializing | ready | degraded | failed
+pending | creating | initializing | ready | degraded | recovering | failed
 ```
 
 The workspace is hydrated by a typed initializer (a context URL or a git spec),
@@ -528,7 +541,9 @@ HypervisorEnvironmentLifecycleObservation
     restoring_archive | reconciling_sandbox | starting_services |
     starting_agent_work | binding_access | mounting_model |
     binding_harness | ready | active | idle | backing_up |
-    snapshotting | archiving | stopping | deleting | wiping_state | failed
+    snapshotting | archiving | detecting_failure | planning_recovery |
+    failing_over | rebuilding | retrying_workrun | validating_restore |
+    stopping | deleting | wiping_state | failed
   component:
     recipe | provisioner | workspace_content | sandbox | secrets |
     automations | services | agent_work | tasks | ports | model_mount |
@@ -536,10 +551,11 @@ HypervisorEnvironmentLifecycleObservation
   condition_kind:
     content_ready | ever_ready | backup_complete | backup_failed |
     snapshot_complete | snapshot_failed | stopped_by_request |
-    aborted | timeout | node_unavailable | volume_attached |
-    volume_mounted | state_wiped | force_killed | network_degraded |
-    waiting_for_input | ready_for_review | blocked_by_policy |
-    blocked_by_authority | failed
+    aborted | timeout | provider_unavailable | node_unavailable |
+    volume_attached | volume_mounted | state_wiped | force_killed |
+    network_degraded | archive_invalid | snapshot_invalid |
+    backup_invalid | restore_invalid | waiting_for_input |
+    ready_for_review | blocked_by_policy | blocked_by_authority | failed
   severity: info | warning | error
   message
   metrics:
@@ -559,10 +575,350 @@ are the timeline behind that projection. Provider logs, container IDs, terminal
 output, file watchers, and resource metrics can contribute observations, but
 they do not become restore truth or authority.
 
+## Provider Failure And Domain Recovery
+
+Provider failure recovery is a first-class Hypervisor attempt, not an implied
+side effect of a provider status badge, storage repair, or session restart.
+
+Provider failure includes provider outage, VM loss, host unreachability, storage
+route unavailability, corrupt snapshot material, missing logs or terminal
+streams, runner split-brain, capacity eviction, credential revocation, and cTEE
+posture regression.
+
+The recovery sequence is:
+
+```text
+HypervisorEnvironmentLifecycleObservation
+  -> HypervisorProviderFailureIncident
+  -> HypervisorEnvironmentRecoveryCandidate[]
+  -> authority/cost/policy preview
+  -> HypervisorEnvironmentRecoveryAttempt
+  -> daemon/provider execution
+  -> Agentgres operation refs, state roots, and receipts
+  -> session/project/WorkRun projections update
+```
+
+`HypervisorProviderFailureIncident` records the admitted failure boundary. It
+separates provider evidence from the last Agentgres-admitted runtime truth:
+
+```text
+HypervisorProviderFailureIncident
+  schema_version
+  incident_ref
+  session_ref
+  environment_ref
+  provider_ref
+  work_run_refs
+  detected_at
+  detected_by_ref
+  failure_kind:
+    provider_outage | vm_lost | host_unreachable |
+    control_plane_unavailable | storage_unavailable |
+    archive_invalid | snapshot_invalid | backup_invalid |
+    port_unavailable | log_stream_lost | terminal_stream_lost |
+    runner_split_brain | capacity_eviction | credential_revoked |
+    ctee_attestation_regression
+  lifecycle_observation_refs
+  provider_evidence_refs
+  affected_component_refs
+  last_admitted_state_root_ref
+  latest_receipt_refs
+  blocked_reason?
+  status: open | recovering | failed_closed | recovered | abandoned | escalated
+```
+
+`HypervisorEnvironmentRecoveryCandidate` is the preview object. Every recovery
+choice must name what it will try, what it expects to preserve or lose, and
+which authority or spend it needs before execution:
+
+```text
+HypervisorEnvironmentRecoveryCandidate
+  schema_version
+  candidate_ref
+  incident_ref
+  recovery_mode:
+    restore_snapshot | restore_backup | restore_archive |
+    failover_provider | rebuild_from_recipe | retry_workrun |
+    abandon_fail_closed
+  target_provider_ref?
+  target_environment_class_ref?
+  restore_material_refs
+  expected_preserved_refs
+  expected_lost_refs
+  required_authority_refs
+  cost_estimate_ref?
+  risk_labels
+  validation_requirements
+```
+
+`HypervisorEnvironmentRecoveryAttempt` is the effectful recovery object. It
+binds the selected candidate, authority context, daemon/provider execution,
+restore validation, WorkRun reconciliation, and resulting receipts:
+
+```text
+HypervisorEnvironmentRecoveryAttempt
+  schema_version
+  recovery_attempt_ref
+  incident_ref
+  selected_candidate_ref
+  requested_by_ref
+  authority_grant_refs
+  spend_limit_ref?
+  support_access_ref?
+  state_root_before_ref
+  restore_material_refs
+  restore_validation_refs
+  work_run_reconciliation:
+    git_worktree_refs
+    agentgres_patch_branch_refs
+    preserved_output_refs
+    lost_material_refs
+    retry_work_item_refs
+    abandoned_work_item_refs
+  daemon_operation_refs
+  provider_operation_refs
+  receipt_refs
+  outcome: recovered | partially_recovered | failed_closed | abandoned | escalated
+  state_root_after_ref?
+```
+
+Recovery attempts do not make provider or storage state authoritative. A
+successful recovery means the daemon executed the selected path, Agentgres
+admitted the resulting operation refs/state roots/restore validity, and receipts
+explain what was preserved, lost, retried, invalidated, or failed closed.
+
+User-facing recovery UX must expose:
+
+```text
+failure classification
+provider evidence vs Agentgres truth
+candidate recovery modes
+target provider/environment refs
+authority and spend requirements
+restore material and validation refs
+WorkRun branch/worktree and Agentgres patch-branch reconciliation
+lost/preserved/retried material
+receipts, replay, and proof refs
+```
+
+## Capacity, Budget, And Allocation Pressure
+
+Capacity shock and budget exhaustion are Resource Management and scheduler
+problems, not proof that compute seconds are the product goal. Compute seconds,
+token counts, GPU occupancy, runtime seconds, and queue depth are internal
+capacity signals. User-facing completion remains verified accepted work,
+blocked-state clarity, and outcome proof.
+
+Resource Management owns the cross-workload posture for:
+
+```text
+capacity pools
+resource queues
+rate limits
+provider quotas
+spend ceilings
+budget burn
+scarcity windows
+priority classes
+preemption decisions
+degradation policies
+catch-up policies
+verified-work efficiency
+```
+
+`HypervisorResourcePool` describes available or constrained resource supply:
+
+```text
+HypervisorResourcePool
+  schema_version
+  resource_pool_ref
+  scope_ref: org://... | project://... | provider://... | node://...
+  resource_kind:
+    cpu | gpu | memory | storage | model_api | connector_api |
+    browser_sandbox | worker_runtime | training_runtime |
+    confidential_compute | physical_device | custom
+  provider_refs
+  region_refs
+  data_residency_refs
+  capacity_limit
+  committed_usage
+  available_usage
+  rate_limit_refs
+  quota_refs
+  health_posture
+  observed_at
+  evidence_refs
+```
+
+`HypervisorResourceBudget` describes spend, quota, and policy limits. It may
+reference wallet.network grants or other authority-provider refs when it grants
+portable delegated spend, provider credentials, or budget increases. Ordinary
+local priority, project quota, queue policy, and reporting state remain
+Hypervisor/org governance until they require delegated authority.
+
+```text
+HypervisorResourceBudget
+  schema_version
+  budget_ref
+  scope_ref: org://... | project://... | session://... | work_run://...
+  budget_kind: spend | token | runtime_seconds | gpu_seconds | provider_quota | rate_limit | storage
+  hard_limit
+  soft_limit
+  current_burn_ref
+  forecast_ref
+  reset_window
+  authority_provider_refs
+  authority_grant_refs
+  local_policy_refs
+  status: healthy | warning | exhausted | suspended | increased | revoked
+```
+
+`HypervisorResourceAllocationRequest` is the proposed allocation for work that
+needs scarce capacity:
+
+```text
+HypervisorResourceAllocationRequest
+  schema_version
+  allocation_request_ref
+  requester_ref
+  workload_kind:
+    session | work_run | automation | scheduled_job | training_pipeline |
+    eval | managed_worker | model_route | release_job | connector_job
+  workload_refs
+  resource_pool_refs
+  budget_refs
+  priority_class:
+    safety_critical | user_blocking | deadline | interactive |
+    production | standard | background | speculative
+  deadline?
+  required_capabilities
+  privacy_and_residency_constraints
+  estimated_usage
+  expected_verified_work
+  degradation_options:
+    reduce_parallelism | lower_model_route | smaller_gpu | defer |
+    checkpoint_and_pause | skip_noncritical | provider_shift |
+    require_manual_budget
+  status: proposed | queued | admitted | blocked | superseded | cancelled
+```
+
+`HypervisorResourceAllocationDecision` is the admitted scarce-resource decision.
+It is the common spine for queue ordering, budget exhaustion, throttling,
+preemption, provider shift, and scheduler catch-up under pressure:
+
+```text
+HypervisorResourceAllocationDecision
+  schema_version
+  allocation_decision_ref
+  allocation_request_ref
+  decided_at
+  decided_by_ref
+  decision:
+    admit | queue | throttle | degrade | preempt | pause | defer |
+    cancel | shift_provider | request_budget | fail_closed
+  reason_code:
+    capacity_available | capacity_exhausted | budget_warning |
+    budget_exhausted | quota_exhausted | rate_limited |
+    deadline_priority | safety_priority | policy_denied |
+    privacy_or_residency_block | provider_unhealthy |
+    verified_work_low_value | duplicate_catchup
+  affected_workload_refs
+  preempted_workload_refs
+  preserved_checkpoint_refs
+  lost_or_discarded_refs
+  retry_or_resume_policy_ref
+  catchup_policy_ref?
+  authority_requirement_refs
+  authority_grant_refs
+  cost_delta_ref?
+  expected_verified_work_delta_ref?
+  agentgres_operation_refs
+  receipt_refs
+  status: admitted | blocked | executed | superseded | failed
+```
+
+`HypervisorSchedulerCatchupPolicy` makes missed scheduled work explicit:
+
+```text
+HypervisorSchedulerCatchupPolicy
+  schema_version
+  catchup_policy_ref
+  schedule_ref
+  missed_window
+  action:
+    skip | run_latest | run_all | coalesce | bounded_backfill |
+    require_approval | fail_closed
+  max_backfill_runs?
+  priority_class
+  budget_ref
+  authority_requirement_refs
+  receipt_refs
+```
+
+Budget exhaustion must be discovered before provider mutation or new external
+spend. A blocked allocation should name the exhausted budget/quota/rate-limit,
+the workloads affected, the proposed degradation or catch-up path, the
+authority needed to increase budget, and the receipts that prove the decision.
+
+Preemption and cancellation are effectful decisions. They must emit
+user-visible reasons, checkpoint or lost-material refs when applicable,
+resume/retry policy, and receipts. High-priority work can be admitted under
+scarcity only through explicit priority and policy refs; invisible starvation is
+not a canonical Hypervisor state.
+
+Work Analytics may report compute seconds, token counts, GPU occupancy, spend,
+latency, queue depth, and retry rate, but it must relate those signals to
+verified accepted work, quality deltas, completion, failure, cancellation, and
+user/business outcome refs. Raw usage is not success.
+
 ## Change Plane
 
 Hypervisor should manage infrastructure and autonomous-work changes as explicit
 plans, not as invisible provider control loops.
+
+Release Controls is the product cockpit over the Change Plane. It coordinates
+capability promotion, release, rollout, pause, rollback, recall, kill-switch,
+remote-config, release-target, gate, cohort, and deployment-risk decisions
+across reusable capability. It may appear as an Applications catalog surface,
+Open Application, org/admin view, Foundry handoff, Automations handoff, or
+contextual detail drawer.
+
+The Change Plane does not replace local surface ownership:
+
+```text
+Providers / Environments
+  runtime environment lifecycle and provider placement evidence
+
+Job Tracker
+  execution queue, run, retry, failure, and build state
+
+Resource Management
+  quota, queue, capacity, rate-limit, utilization, and spend posture
+
+Foundry
+  build/eval/training, registration, artifact conversion, and promotion
+  candidates
+
+Automations
+  trigger, workflow, service, API, schedule, and run lifecycle
+
+Marketplace / Artifacts
+  package install/publish/recall evidence, artifact refs, contribution refs,
+  and settlement handoffs
+
+Approvals / Checkpoints / Issues
+  human approval, policy review, remediation, incident, and support gates
+
+Workflow Lineage / Data Lineage
+  dependency, provenance, and impact graph
+
+Run Replay / Proof Explorer
+  trace, receipt, proof, settlement, and replay inspection
+```
+
+Those surfaces feed Change Plane gates and blocked reasons, but they do not
+become rollout truth. Change Plane projections do not become Agentgres truth
+until admitted with refs, receipts, state roots, and authority context.
 
 The canonical change-plane flow is:
 
@@ -621,6 +977,43 @@ release_channel_ref?
 authority_scope_refs
 receipt_refs
 ```
+
+`CapabilityLifecycleControl` is the cross-surface projection used by Release
+Controls / Change Plane to inspect and coordinate reusable capability lifecycle.
+It is not a new truth store.
+
+```text
+lifecycle_ref
+capability_ref
+capability_kind:
+  model_route | worker | agent_harness | tool | mcp_server | connector |
+  automation | service | environment_recipe | environment_image | package |
+  domain_blueprint | domain_app | physical_device | fleet_policy
+owner_surface_ref
+lifecycle_state
+current_version_ref
+target_version_ref
+release_target_refs
+rollout_policy_ref
+rollback_policy_ref
+recall_policy_ref
+gate_refs
+authority_refs
+dependency_impact_refs
+resource_queue_refs
+job_run_refs
+incident_refs
+receipt_refs
+replay_refs
+proof_refs
+operator_contract_refs
+```
+
+The projection may aggregate target state, observed state, change plans,
+resource queues, jobs, evals, approvals, issue state, lineage impact, receipts,
+and proof refs from other owners. Effectful transitions still execute through
+Hypervisor Core, daemon/provider boundaries, wallet.network authority,
+Agentgres admission, and receipt/replay semantics.
 
 ### Plans, Gates, And Execution
 
@@ -693,6 +1086,15 @@ readiness, eval, receipt, and rollback criteria.
 connector change, or remediation met its acceptance criteria. Promotion,
 rollback, or further rollout should depend on admitted adjudication, not raw
 provider logs.
+
+`CapabilityRegressionRecord` binds a regression discovered during offline eval,
+shadow mode, canary, rollout, production, or recall review to the affected
+capability, baseline/candidate versions, release target, scorecard, evidence
+refs, affected scope, recommended action, and adjudication refs. It is the
+handoff object between Foundry/eval evidence and Change Plane consequences.
+Release Controls may pause, roll back, recall, constrain, shadow longer, or
+queue patched retry from that record, but the record does not by itself grant
+training reuse or runtime mutation.
 
 `RecallPolicy` and `RecallReceipt` are how Hypervisor blocks or rolls off bad
 releases, model routes, workers, connectors, images, datasets, automation
@@ -871,6 +1273,10 @@ restore/import receipt chain.
 - Lifecycle observations explain readiness, progress, failures, time spent,
   snapshots, backups, and teardown conditions; they are evidence until admitted
   and must not replace status projections, receipt refs, or state roots.
+- Provider failure recovery must flow through a visible incident, candidate
+  preview, effectful recovery attempt, WorkRun reconciliation, Agentgres
+  operation refs, state roots, and receipts. A failed provider session must not
+  disappear or silently restart without lost/preserved/retried state.
 - Snapshot, backup, and archive semantics must remain distinct. Snapshots are
   forkable point-in-time material, backups are durability material, and archives
   are policy-bound restore chains with Agentgres refs and receipts.
@@ -883,6 +1289,19 @@ restore/import receipt chain.
   reasons, daemon/provider execution, Agentgres lifecycle refs, and receipts.
 - Target state, observed state, scanner findings, registry metadata, provider
   logs, and raw health output are evidence until Agentgres admits them.
+- Capacity shock and budget exhaustion must produce visible allocation
+  decisions that name affected workloads, priority policy, exhausted budget or
+  quota, preemption/degradation/catch-up action, authority requirement,
+  expected verified-work impact, and receipts.
+- Budget exhaustion must block new external spend before provider mutation;
+  budget increases, provider credentials, or delegated spend require the
+  appropriate authority-provider refs.
+- Scheduler catch-up must be policy-bound. Missed scheduled work may be
+  skipped, coalesced, backfilled, run latest, require approval, or fail closed,
+  but it must not replay blindly.
+- Work Analytics may use compute seconds, token counts, runtime seconds, and
+  GPU occupancy as internal signals only when tied to accepted verified work,
+  quality, latency, failure, retry, cancellation, or budget outcomes.
 - Release channel promotion, rollback, recall, remediation, emergency override,
   secret release, spend, and private/cTEE placement must route through the
   appropriate wallet and policy gates.
@@ -908,6 +1327,11 @@ provider posture = storage truth
 cloud provider catalog = compute provider
 provider lifecycle state = restore truth
 encrypted blob = restore truth
+provider recovery = invisible restart
+raw compute seconds = product success
+budget exhaustion = provider bill surprise
+queue priority = hidden provider scheduler
+scheduler catch-up = replay everything blindly
 cheap DePIN GPU route = private route
 target state = provider truth
 observed state = Agentgres truth without admission

@@ -35,8 +35,12 @@ This document defines the non-negotiable authority, security, privacy, and execu
 4. No sensitive action without a persisted policy decision.
 5. No policy-required approval without exact request hash, policy hash, scope, expiry, and revocation epoch.
 6. No raw root secrets to agents, apps, marketplace workers, or untrusted runtimes.
-7. wallet.network is the authority plane for secrets, authority scopes, approvals, and payments.
-8. Agentgres records authority artifacts but does not own root secrets.
+7. wallet.network is the portable delegated authority plane for secrets,
+   provider credentials, external effects, spend, decryption, high-risk
+   approvals, and payments; local/domain governance may own local policy
+   decisions that do not cross those boundaries.
+8. Agentgres records authority artifacts, policy decisions, governance owner
+   refs, and receipt links, but does not issue grants or own root secrets.
 9. Providers may supply cognition, compute, storage, connectors, venues, and
    managed services, but they must not become the default authority root, secret
    owner, receipt truth, settlement root, or revocation plane.
@@ -61,12 +65,15 @@ This document defines the non-negotiable authority, security, privacy, and execu
 
 1. Agentgres is per-domain and does not run on IOI L1.
 2. IOI L1 stores commitments and economic state, not operational traces.
-3. Storage backends such as Filecoin/CAS store payload bytes, not Agentgres state authority.
+3. Storage backends such as Filecoin/CAS store payload bytes, not Agentgres
+   state, admission, or restore/import validity.
 4. Local speculative state must be labeled speculative.
 5. Projection state must expose freshness and source watermark.
 6. Receipts are bundled; only sparse roots may reach IOI L1.
 7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
-   refs and restore receipts, while wallet.network owns restore authority.
+   refs and restore receipts, while authority providers and local/domain policy
+   own restore authority. wallet.network is mandatory for portable delegated
+   authority, decryption leases, secrets, restore/apply, and high-risk restore.
 8. Hypervisor Node local settlement records are Agentgres/domain truth until a
    selected root is anchored to IOI L1 for public trust, dispute, reputation, or
    economic settlement.

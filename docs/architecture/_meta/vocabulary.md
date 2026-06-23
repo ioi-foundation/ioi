@@ -447,13 +447,16 @@ compliance acronyms for hidden audit material.
   for encrypted profile metadata, preferences, service intake payloads,
   workspace snapshots, non-public app outputs, managed-instance metadata, or
   meaningful local app checkpoints. Storage backends hold encrypted bytes;
-  wallet.network controls viewing/decryption/mutation authority; IOI L1 stores
-  only selected public/economic/cross-domain commitments.
+  authority providers and local/domain policy control
+  viewing/decryption/mutation authority, with wallet.network mandatory for
+  portable delegated authority, secrets, decryption leases, external effects,
+  or high-risk approval; IOI L1 stores only selected
+  public/economic/cross-domain commitments.
 - `AgentgresArtifactRefPlane`: the Agentgres-governed reference, lifecycle,
-  policy, authority, receipt, replay/import, archive/restore, and state-root
-  validity layer for payload bytes. It owns `ArtifactRef`, `PayloadRef`,
-  `EvidenceBundle`, `DeliveryBundle` artifact linkage, and `AgentStateArchive`
-  refs; storage backends hold the bytes.
+  policy/authority linkage, receipt, replay/import, archive/restore, and
+  state-root validity layer for payload bytes. It owns `ArtifactRef`,
+  `PayloadRef`, `EvidenceBundle`, `DeliveryBundle` artifact linkage, and
+  `AgentStateArchive` refs; storage backends hold the bytes.
 - `ArtifactAvailabilityIncident`: the Agentgres-admitted incident object for
   missing, unavailable, corrupt, stale, undecryptable, expired, or
   policy-incompatible artifact payloads. It binds the affected refs, expected
@@ -479,7 +482,9 @@ compliance acronyms for hidden audit material.
 - `FilecoinCASBackend`: a content-addressed storage backend profile for payload
   availability. It may hold packages, evidence, traces, checkpoints, delivery
   payloads, datasets, and sealed archive bytes, but Agentgres owns their
-  meaning and wallet.network owns authority/decryption.
+  meaning/validity and authority providers control authority/decryption, with
+  wallet.network mandatory when portable delegated authority, secret custody,
+  or decryption leases are required.
 - `CanonImplementationMatrix`: the meta index that maps architecture concepts
   to canonical owner docs, current durable forms, object/event/receipt/projection
   status, code anchors, and conformance hooks. It is a build map, not a

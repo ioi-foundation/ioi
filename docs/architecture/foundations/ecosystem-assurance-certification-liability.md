@@ -9,7 +9,7 @@ Supersedes: plan prose that scatters certification, compliance, insurance,
 abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -22,6 +22,7 @@ It binds:
 
 - certification and conformance profiles;
 - jurisdiction, compliance, and retention policy packs;
+- compliance audit export bundles;
 - insurance, liability, and claims routing hooks;
 - abuse response, quarantine, and ecosystem advisories;
 - billing, invoice, cost-center, SLA, and customer audit exports.
@@ -140,7 +141,7 @@ skip daemon, wallet.network, Agentgres, policy, receipt, or settlement gates.
 
 ```yaml
 EcosystemAssuranceProfile:
-  profile_id: assurance_profile:...
+  profile_id: assurance_profile://...
   profile_type:
     ioi_compatible_worker |
     hypervisor_runtime |
@@ -182,7 +183,7 @@ compatibility.
 
 ```yaml
 ConformanceProfile:
-  profile_id: conformance_profile:...
+  profile_id: conformance_profile://...
   family:
     worker_endpoint | harness_adapter | runtime_node |
     wallet_authority_client | mcp_gateway | ctee_private_workspace |
@@ -213,9 +214,9 @@ and revocation posture.
 
 ```yaml
 CertificationClaim:
-  claim_id: certification_claim:...
+  claim_id: certification_claim://...
   subject_ref: worker://... | runtime://... | wallet-client://... | service://...
-  profile_ref: assurance_profile:...
+  profile_ref: assurance_profile://...
   issuer_ref: org:... | domain:... | governance_ref:...
   evidence_bundle_refs:
     - evidence://...
@@ -242,7 +243,7 @@ shape.
 
 ```yaml
 JurisdictionPolicyPack:
-  pack_id: jurisdiction_policy_pack:...
+  pack_id: jurisdiction_policy_pack://...
   jurisdiction:
     country: string | null
     region: string | null
@@ -278,7 +279,7 @@ JurisdictionPolicyPack:
     invoice_profile_ref: invoice://... | null
   audit_requirements:
     evidence_profile_refs:
-      - assurance_profile:...
+      - assurance_profile://...
 ```
 
 Policy packs compile into existing owners:
@@ -299,10 +300,10 @@ storage or operational truth.
 
 ```yaml
 AssuranceEvidenceBundle:
-  bundle_id: assurance_evidence:...
+  bundle_id: assurance_evidence://...
   subject_ref: string
   profile_refs:
-    - assurance_profile:...
+    - assurance_profile://...
   agentgres_refs:
     - agentgres://...
   receipt_refs:
@@ -336,7 +337,7 @@ AssurancePostureProjection:
   projection_id: assurance_posture:...
   subject_ref: string
   current_profiles:
-    - assurance_profile:...
+    - assurance_profile://...
   certification_status:
     certified | compatible | restricted | suspended | uncertified | revoked
   jurisdiction_status:
@@ -354,6 +355,101 @@ AssurancePostureProjection:
 
 Projections are rebuildable from Agentgres operations, receipts, policy packs,
 wallet refs, marketplace state, service-order state, and public anchors.
+
+### `ComplianceAuditExportBundle`
+
+`ComplianceAuditExportBundle` is the governed export package for customer,
+auditor, regulator, counterparty, procurement, or internal review. It composes
+policy-pack decisions, approvals/denials, receipts, replay refs, evidence
+bundles, retention/restricted-view posture, redaction manifests, commercial
+refs, and optional public commitments for a specific audience.
+
+It is not a storage backend, screenshot bundle, legal opinion, or replacement
+for Agentgres truth. It is an export manifest over existing evidence.
+
+```yaml
+ComplianceAuditExportBundle:
+  export_id: audit_export://...
+  export_type:
+    customer_audit | auditor_review | regulator_request |
+    counterparty_dispute | procurement_review | internal_control |
+    tax_report | sla_report | incident_review
+  subject_refs:
+    - run://... | task://... | service://... | order://... |
+      worker://... | runtime://... | domain://... | account://...
+  audience:
+    customer | external_auditor | regulator | counterparty |
+    insurer | procurement | internal_auditor | public
+  jurisdiction_policy_pack_refs:
+    - jurisdiction_policy_pack://...
+  regulated_action_refs:
+    - action://... | receipt://... | agentgres://operation/...
+  policy_decision_refs:
+    - receipt://... | policy://...
+  approval_receipt_refs:
+    - receipt://...
+  denial_receipt_refs:
+    - receipt://...
+  authority_refs:
+    - authority://... | grant://... | lease://...
+  evidence_bundle_refs:
+    - assurance_evidence://... | evidence://...
+  receipt_refs:
+    - receipt://...
+  replay_refs:
+    - replay://... | trace://...
+  retention_lock_refs:
+    - retention_lock://... | policy://...
+  restricted_view_refs:
+    - view://... | restricted_view://...
+  redaction_profile_ref: policy://...
+  export_policy_ref: policy://...
+  declassification_refs:
+    - receipt://... | policy://...
+  export_manifest:
+    included_refs:
+      - receipt://... | artifact://... | evidence://...
+    redacted_refs:
+      - artifact://... | trace://...
+    protected_payload_refs:
+      - artifact://...
+    excluded_refs:
+      - artifact://...
+    exclusion_reasons:
+      - retention_locked | restricted_view | no_export_authority |
+        protected_plaintext | unrelated | expired | policy_blocked
+  commercial_refs:
+    invoice_refs:
+      - invoice://...
+    cost_center_refs:
+      - cost_center://...
+    sla_report_refs:
+      - sla://...
+    tax_export_refs:
+      - tax://...
+    purchase_order_refs:
+      - procurement://...
+  l1_anchor_policy:
+    local_only | optional_anchor | dispute_only | required_public_root
+  l1_anchor_refs:
+    - l1://...
+  generated_by_ref: agentgres://operation/... | runtime://...
+  generated_at: timestamp
+  validity:
+    valid | incomplete | stale | disputed | revoked
+  status:
+    requested | generated | delivered | revoked | superseded | expired
+```
+
+Audit export bundles must make three things obvious:
+
+- what was included and why;
+- what was redacted, withheld, protected, or excluded and why;
+- which policy, authority, retention, restricted-view, receipt, and state-root
+  refs support the export.
+
+Raw private payloads remain under storage, retention, restricted-view, and
+authority policy. A replay or proof view must not bypass the export manifest.
 
 ## Default Profile Families
 
@@ -402,6 +498,11 @@ A `wallet_authority_client` profile should require:
 - no raw secret custody;
 - step-up and guardian support where required;
 - revocation epoch handling;
+- origin binding and last-use visibility;
+- compromised-client fail-closed behavior;
+- quarantine and replacement-client handling;
+- blast-radius evidence for grants, leases, sessions, WorkRuns, connectors, and
+  gateway profiles;
 - approval, denial, and use receipts;
 - refusal to widen authority without a new grant.
 
@@ -420,6 +521,9 @@ A `hypervisor_mcp_gateway` profile should require:
 - daemon-mediated invocation;
 - receipt and replay obligations;
 - connector secret non-custody;
+- bound authority-client, origin, grant, lease, and policy refs;
+- quarantine propagation to dependent sessions, WorkRuns, connectors, and
+  pending approvals;
 - fail-closed behavior for unknown tools, missing scopes, or stale policy.
 
 The gateway remains an adapter profile. It is not a master key, provider secret
@@ -501,7 +605,7 @@ incident or service failure
 
 ```yaml
 LiabilityClaimRoute:
-  claim_route_id: liability_claim_route:...
+  claim_route_id: liability_claim_route://...
   incident_ref: incident://...
   subject_refs:
     - worker://...
@@ -544,7 +648,7 @@ Input signals may include:
 
 ```yaml
 EcosystemAbuseSignal:
-  signal_id: abuse_signal:...
+  signal_id: abuse_signal://...
   source_ref: account://... | domain://... | scanner://... | report://...
   subject_ref: string
   signal_type:
@@ -565,7 +669,7 @@ EcosystemAbuseSignal:
 
 ```yaml
 QuarantineAdvisory:
-  advisory_id: quarantine_advisory:...
+  advisory_id: quarantine_advisory://...
   subject_ref: string
   scope:
     local_domain | marketplace_listing | worker_version | runtime_node |
@@ -573,8 +677,16 @@ QuarantineAdvisory:
     embodied_domain | ecosystem
   restrictions:
     - string
+  dependent_refs:
+    - wallet_client://...
+    - mcp_gateway://...
+    - session://...
+    - work_run://...
+    - connector://...
+    - worker://...
   reason_refs:
-    - abuse_signal:...
+    - abuse_signal://...
+  blast_radius_report_ref: receipt://... | artifact://... | null
   appeal_policy_ref: policy://... | null
   release_conditions:
     - string
@@ -605,12 +717,13 @@ It should cover:
 - invoices, tax exports, and receipts;
 - SLA evidence and breach reports;
 - support bundles and customer audit exports;
+- compliance audit export bundles;
 - procurement posture for certified workers, providers, and service packages;
 - accepted-delivery, refund, and dispute records.
 
 ```yaml
 CommercialAssuranceExport:
-  export_id: commercial_export:...
+  export_id: commercial_export://...
   account_ref: account://...
   org_ref: org://... | null
   period:
@@ -628,6 +741,8 @@ CommercialAssuranceExport:
   redaction_profile_ref: policy://...
   evidence_bundle_refs:
     - assurance_evidence://...
+  audit_export_refs:
+    - audit_export://...
   generated_by_ref: agentgres://...
   status:
     generated | delivered | revoked | superseded
@@ -654,6 +769,10 @@ assurance.certification.restricted
 assurance.certification.revoked
 assurance.policy_pack.applied
 assurance.policy_pack.blocked
+assurance.audit_export.requested
+assurance.audit_export.generated
+assurance.audit_export.delivered
+assurance.audit_export.revoked
 assurance.evidence_bundle.created
 assurance.posture.updated
 assurance.abuse_signal.opened
@@ -672,10 +791,15 @@ Receipt families should include:
 - `CertificationRevocationReceipt`
 - `JurisdictionPolicyDecisionReceipt`
 - `AssuranceEvidenceBundleReceipt`
+- `ComplianceAuditExportBundleReceipt`
 - `QuarantineAdvisoryReceipt`
 - `AbuseSignalReceipt`
 - `LiabilityClaimRouteReceipt`
 - `CommercialAssuranceExportReceipt`
+
+Compliance audit export receipts must bind export manifest hash, redaction
+profile, retention/restricted-view refs, policy-pack decisions, approval/denial
+receipts, audience, commercial refs, and public-anchor policy when relevant.
 
 ## Public Anchor Policy
 
@@ -708,6 +832,7 @@ Do not model Ecosystem Assurance as:
 - a claim that certified model cognition is safe;
 - a one-time badge that never refreshes;
 - a reason to put private customer audit data on IOI L1.
+- audit export as screenshots, raw logs, or replay bypassing retention.
 
 ## One-Line Doctrine
 

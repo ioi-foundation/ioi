@@ -4,24 +4,34 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
 **wallet.network is the canonical Web4 authority layer: the identity, secret,
-authority-scope, approval, payment, exchange-authority, training-data
-permission, decryption-lease, and revocation control plane for autonomous
-software.**
+authority-scope, approval-token, payment, exchange-authority, portable
+data-use authority, decryption-lease, and revocation control plane for
+autonomous software.**
 
-It owns identity, secrets, authority scope grants, session authority, approvals,
-payments, revocation, and audit lineage. It is the authority wallet and control
-cockpit for autonomous agents. It is not merely a crypto wallet.
+It owns identity, secrets, authority scope grants, session authority,
+approval-token issuance, payments, revocation, and audit lineage for delegated
+machine power. It is the authority wallet and control cockpit for autonomous
+agents. It is not merely a crypto wallet.
 
 Within canonical Web4, wallet.network is the machine-authority issuer and
 revocation plane. It converts human, organization, domain, contract, and policy
 intent into machine-readable authority requests, leases, denials, challenges,
 spend limits, declassification decisions, data-use permissions, payment
 authority, and revocation events.
+
+wallet.network must not become the owner of every product permission in the
+system. Hypervisor application surfaces, Foundry, Data / Knowledge, Ontology,
+Automations, domain apps, and Agentgres may own local governance state,
+project/org policy, eligibility records, workflow permissions, and admission
+decisions. wallet.network becomes the authority substrate when that local
+decision requires portable, revocable, secret-bearing, spend-bearing,
+declassification, provider-trust, cross-domain, or autonomous-agent-executable
+power.
 
 ## Core Doctrine
 
@@ -73,6 +83,14 @@ gateway decisions
 risk labels
 authority receipts
 ```
+
+Local application permissions are allowed to live in Hypervisor and Agentgres.
+Examples include project role membership, surface settings, dataset eligibility
+state, Foundry job configuration, workflow draft permissions, and ontology
+proposal review state. These become wallet.network authority only when they
+need a delegated lease, secret brokerage, spend approval, decryption,
+declassification, provider-trust acceptance, external connector access,
+publication/export, cross-domain reuse, or portable revocation.
 
 The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
@@ -176,14 +194,22 @@ wallet.network does not own:
 
 ## Worker Training Authority
 
-Worker Training improves capability; it does not grant power. wallet.network
-owns the authority path for training inputs and training side effects:
+Worker Training improves capability; it does not grant power. Hypervisor,
+Foundry, Data / Knowledge, Ontology, and Agentgres may own the local training
+governance objects: PolicyBoundDataViews, DataRecipes, dataset eligibility,
+Foundry job settings, eval suites, scorecards, and admitted lineage.
+
+wallet.network owns the portable authority path that those objects may require:
 
 - access to private source documents, traces, examples, and corrections;
-- permission to use data for training, evaluation, benchmark, or publication;
-- permission to run DataRecipes over PolicyBoundDataViews;
-- permission to use connector mappings against source systems and accounts;
-- permission to publish or reuse DomainOntologies, ontology packs, canonical
+- delegated data-use authority for training, evaluation, benchmark, or
+  publication when that use requires portable authority;
+- authority grants referenced by training evidence eligibility records;
+- authority to run DataRecipes over PolicyBoundDataViews when the run needs
+  connector access, decryption, external compute, or delegated machine power;
+- authority to use connector mappings against source systems and accounts when
+  connector access or account-scoped delegated power is required;
+- authority to publish or reuse DomainOntologies, ontology packs, canonical
   object models, and evaluation datasets when they contain governed material;
 - decryption leases for sealed training datasets and artifacts;
 - BYOK model-provider keys used by planner, generator, verifier, or trainer
@@ -197,6 +223,24 @@ Training archives should contain wallet.network secret refs and data-use refs,
 not raw long-lived secrets. Reuse of training material must request the
 appropriate authority scope again unless the original grant explicitly permits
 reuse.
+
+## Multi-Party Authority Boundary
+
+For multi-organization collaboration, wallet.network supplies portable
+delegated authority only for the party, subject, resource, scope, expiry,
+request hash, and policy hash named by the grant. One organization's grant,
+guardian, connector lease, or decryption lease must not authorize another
+organization's connector, worker, policy-bound data view, protected payload, or
+settlement account.
+
+Collaboration surfaces may aggregate the separate authority outcomes in a
+`MultiPartyCollaborationEnvelope`, but wallet.network still issues, denies,
+revokes, or rotates each portable delegated authority path independently.
+App-local governance, restricted views, delivery state, contribution state, and
+audit/export manifests remain with their owning Hypervisor, domain, Agentgres,
+or service surfaces unless the action crosses into delegated authority,
+decryption, connector access, spend, publication/export, settlement, or another
+high-risk machine power.
 
 ## Availability Profiles
 
@@ -813,8 +857,10 @@ a blanket claim that legacy systems become post-quantum safe
 Correct model:
 
 ```text
-wallet.network owns authority, secrets, approvals, payment scopes,
-decryption leases, revocation, and audit lineage
+wallet.network owns portable delegated authority, secrets, approvals, payment
+scopes, decryption leases, revocation, and audit lineage
+local/domain governance owns local policy decisions that do not cross portable,
+external, decryption, spend, declassification, or high-risk boundaries
 daemon executes work
 Agentgres records operational truth
 IOI L1 settles public/economic commitments

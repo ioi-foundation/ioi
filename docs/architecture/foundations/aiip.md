@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -107,9 +107,12 @@ system.discover()
 system.quote(task)
 system.invoke(task, authority)
 system.handoff(task)
+system.deliver(update)
+system.accept(delivery)
 system.commitReceipt()
 system.settle()
 system.dispute()
+system.resolveDispute()
 ```
 
 Underneath, these calls compile into signed, sequenced, receipt-aware packets.
@@ -151,11 +154,23 @@ AuthorityGrantPacket
 ReceiptCommitmentPacket
   This work was performed; here is the receipt root or inclusion proof.
 
+DeliveryUpdatePacket
+  This milestone, partial delivery, final delivery, revision, or cancellation
+  changed the outcome state; here are the artifact, evidence, and receipt refs.
+
+AcceptanceDecisionPacket
+  Accept, accept partially, reject, request revision, or open dispute against a
+  delivery under the declared acceptance criteria.
+
 SettlementIntentPacket
   Release payment or update reputation if these receipt conditions are satisfied.
 
 DisputePacket
   Challenge this outcome, receipt, authority use, payment, routing choice, or settlement claim.
+
+DisputeResolutionPacket
+  Resolve a dispute with refund, partial refund, payout, partial payout, slash,
+  retry, revision, escalation, or no-fault outcome.
 
 ReputationQueryPacket
   Return reputation under this context, rubric, worker class, or dispute history.
@@ -167,7 +182,7 @@ The canonical packet envelope should include:
 
 ```yaml
 AIIPEnvelope:
-  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | settlement_intent | dispute | reputation_query
+  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | delivery_update | acceptance_decision | settlement_intent | dispute | dispute_resolution | reputation_query
   system_id_from: system://...
   system_id_to: system://...
   channel_id: aiip://channel/...
@@ -225,6 +240,40 @@ Enterprise Profile
 
 Profiles preserve one semantic protocol while allowing local, marketplace,
 enterprise, and inter-system variants.
+
+## Multi-Party Collaboration
+
+AIIP channels are usually bilateral at the packet boundary, but autonomous
+outcomes may involve more than two parties: a data owner, worker provider,
+compute provider, customer, verifier, auditor, regulator, insurer, or
+settlement counterparty.
+
+Multi-party collaboration is represented by a
+`MultiPartyCollaborationEnvelope`, not by turning AIIP into a shared raw
+context bus. The collaboration envelope binds:
+
+- participating parties, roles, domains, authority providers, and revocation
+  refs;
+- allowed shared refs such as artifacts, receipts, restricted views, redacted
+  summaries, AIIP channels, delivery bundles, and audit exports;
+- blocked context classes such as raw secrets, protected plaintext,
+  unauthorized connector payloads, unrelated private memory, and non-opted-in
+  training traces;
+- per-party authority refs rather than one party's wallet grant authorizing
+  another party's connector or worker;
+- policy-bound data views, restricted views, handoffs, evidence bundles,
+  delivery bundles, contribution refs, settlement refs, and export profiles;
+- history policy for party removal, live-view revocation, and immutable
+  historical receipt roots.
+
+The user or auditor may see one collaborative outcome, but the underlying
+protocol remains explicit about which domain did what, under whose authority,
+which evidence was shared, which evidence was withheld, and which settlement or
+contribution claims were produced.
+
+Party removal does not rewrite history. It revokes or rotates future access
+according to policy while preserving receipt roots, contribution refs, delivery
+state, and dispute/audit evidence.
 
 ## Hypervisor As Coordination Substrate
 

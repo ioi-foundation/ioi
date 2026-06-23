@@ -18,8 +18,8 @@ training data, benchmarks, model artifacts, ontology packs, and sealed state
 archive bytes. They do not decide what is true, who may use the payload, whether
 an archive can be restored, or whether a delivery is accepted.
 
-Agentgres owns those meanings through artifact refs, policy, authority, receipt,
-lineage, lifecycle, and restore/import metadata.
+Agentgres owns those meanings through artifact refs, policy/authority linkage,
+receipt, lineage, lifecycle, and restore/import metadata.
 
 ## Owns
 
@@ -115,7 +115,9 @@ Agentgres identifies archive-worthy state
   -> Filecoin/CAS/IPFS stores encrypted archive bytes by CID/hash
   -> Agentgres records AgentStateArchive ref, object heads, state root,
      policy hash, authority context, replay/import metadata, and receipts
-  -> wallet.network controls decryption and restore authority
+  -> authority providers and local/domain policy control decryption and restore
+     authority; wallet.network supplies that path when portable delegated
+     authority, secret custody, or decryption leases are required
   -> daemon rehydrates only through Agentgres restore/import operations
 ```
 
@@ -176,7 +178,8 @@ Do not:
 
 - [`doctrine.md`](./doctrine.md): storage backend doctrine.
 - [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md):
-  artifact meaning, lifecycle, policy, receipt, and restore authority.
+  artifact meaning, lifecycle, policy/authority linkage, receipts, and
+  restore/import validity.
 - [`../agentgres/api-object-model.md`](../agentgres/api-object-model.md):
   Agentgres operation and object model.
 - [`../daemon-runtime/events-receipts-delivery-bundles.md`](../daemon-runtime/events-receipts-delivery-bundles.md):

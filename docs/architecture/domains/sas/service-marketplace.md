@@ -239,11 +239,23 @@ storage backend. The bundle is evidence for the delivery; Agentgres remains the
 operational truth substrate, wallet.network remains the authority layer, and
 storage backends hold payload bytes.
 
+When a service outcome spans multiple organizations or sovereign domains, the
+service order should reference a `MultiPartyCollaborationContext`. The context
+names the buyer/customer, data owner, worker provider, compute provider,
+auditor/regulator/verifier, and settlement counterparty roles as needed; binds
+per-party authority refs and revocation refs; names allowed shared refs,
+restricted views, redacted summaries, evidence bundles, contribution refs, and
+settlement intents; and preserves historical receipts even when a party is
+removed. It is the collaboration policy/proof wrapper around the service
+delivery, not a replacement for delivery bundles, AIIP packets, Agentgres truth,
+or audience-specific audit exports.
+
 ## Delivery Bundle
 
 A service delivery should include:
 
 ```text
+delivery update refs and milestone/partial/final status
 output artifacts
 evidence bundle
 execution receipts
@@ -254,7 +266,8 @@ private-data posture
 validation results
 policy/capability summary
 quality summary
-acceptance/dispute metadata
+acceptance, revision, and dispute metadata
+settlement intent refs
 dispute evidence refs
 ```
 

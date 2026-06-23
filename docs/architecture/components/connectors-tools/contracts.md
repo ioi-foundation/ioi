@@ -6,7 +6,7 @@ references, Hypervisor MCP Gateway profiles, tool API, connector API, risk
 classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-06-23.
 
 ## Purpose
 
@@ -94,12 +94,17 @@ given MCP consumer can discover, preview, propose, or execute.
     }
   ],
   "authority_client_ref": "wallet_client://...",
+  "origin_binding_ref": "origin://...",
   "authority_scope_refs": ["scope:project.read"],
   "privacy_posture_ref": "privacy://redacted",
   "budget_policy_ref": "policy://gateway-budget",
   "rate_limit_ref": "policy://gateway-rate-limit",
+  "quarantine_policy_ref": "policy://gateway-quarantine",
+  "dependent_refs": ["session://...", "work_run://...", "connector://..."],
   "expires_at": "2026-05-02T12:00:00Z",
   "revocation_ref": "revocation://...",
+  "quarantine_advisory_refs": [],
+  "status": "active | expired | suspended | quarantined | revoked",
   "last_use_ref": "event://...",
   "manifest_ref": "mcp_manifest://...",
   "receipt_refs": []
@@ -111,6 +116,13 @@ wallet.network authority clients, daemon admission, Agentgres refs, policy, and
 receipt obligations. A gateway profile may expose a tool as discoverable while
 still returning `not_connected`, `scope_insufficient`, `dry_run_required`,
 `approval_required`, `policy_blocked`, or `degraded` for a particular operation.
+If the bound authority client, origin, grant, lease, connector, or policy enters
+`quarantined`, `revoked`, or `expired` state, the gateway profile must stop
+effectful calls before provider mutation, emit a scoped failure explanation, and
+propagate quarantine to dependent sessions, WorkRuns, connector calls, and
+pending approvals named by admitted refs. Blast-radius reports must be derived
+from admitted gateway/client/session/run records and receipts, not inferred from
+untrusted logs alone.
 
 ## Hypervisor MCP Gateway API
 

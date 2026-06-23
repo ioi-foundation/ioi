@@ -126,19 +126,29 @@ Agentgres does not own:
 - storage backend payload bytes;
 - sealed archive bytes;
 - raw source-system payload authority;
-- connector mapping authority without wallet grants;
+- connector mapping authority without an admitted authority grant, policy
+  decision, or governance owner ref;
 - the physical compute resource;
 - every local UI hover/draft state;
 - private working memory unless promoted;
 - draft, fuzzy, local, or speculative memory that has not crossed an admission boundary;
 - retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth.
 
-wallet.network owns authority. Hypervisor Daemon runtime nodes own execution.
-Hypervisor clients and application surfaces own UX/projections. AIIP owns
-autonomous-work interop semantics. Storage backends own payload byte
-availability. IOI L1 owns public settlement and rights. Hypervisor Nodes
-coordinate local settlement and interop, but their operational truth is still
-recorded through Agentgres/domain operations rather than client UI state.
+Authority providers and domain governance own permission decisions. wallet.network
+is the portable delegated authority provider for secrets, provider credentials,
+external effects, spend, decryption, declassification, restore/apply,
+high-risk approvals, and other portable or consequential authority. Hypervisor
+and domain/application governance may own local policy decisions that do not
+cross those boundaries. Agentgres records authority refs, policy decisions, and
+governance owner refs, and enforces them at admission time, but it is not the
+authority provider.
+
+Hypervisor Daemon runtime nodes own execution. Hypervisor clients and
+application surfaces own UX/projections. AIIP owns autonomous-work interop
+semantics. Storage backends own payload byte availability. IOI L1 owns public
+settlement and rights. Hypervisor Nodes coordinate local settlement and interop,
+but their operational truth is still recorded through Agentgres/domain
+operations rather than client UI state.
 
 ## Memory And Agent Wiki Boundary
 
@@ -205,7 +215,10 @@ the agent remembers through Agent Wiki / ioi-memory
 the agent commits durable memory through Agentgres operations
 the agent retrieves through rebuildable projections
 the agent stores large memory payloads in artifact storage
-wallet.network authorizes memory read, mutation, export, forget, and restore
+authority providers and local/domain policy authorize memory read, mutation,
+export, forget, and restore; wallet.network supplies that authority when the
+operation requires portable delegated authority, secrets, decrypt/export,
+external account access, or high-risk approval
 ```
 
 ## State And Payload Boundary
@@ -264,8 +277,8 @@ storage backends =
 ```
 
 Agentgres remains the state machine, query substrate, and artifact-ref
-authority. Storage backends remain the payload-byte, archive-byte, and evidence
-availability layer.
+meaning/admission/validity plane. Storage backends remain the payload-byte,
+archive-byte, and evidence availability layer.
 
 ## Storage Engine and SQL Bridge Posture
 
@@ -308,9 +321,11 @@ routing inside each domain. It records:
 
 Agentgres does not own the large dataset bytes, trace bundle bytes, model
 checkpoint bytes, or sealed archive bytes. Those remain storage backend
-payloads referenced by hash/CID. Agentgres also does not grant training
-authority; wallet.network owns the authority, secret, key lease, and data
-permission layer.
+payloads referenced by hash/CID. Agentgres also does not grant training or
+data-use authority. Authority comes from domain governance and the relevant
+authority provider; wallet.network supplies portable delegated authority,
+secret custody, key leases, and external or high-risk data permissions when
+those boundaries are involved.
 
 Domain Ontologies and Data Recipes are the semantic data plane that makes
 Worker Training durable. A worker should not train on raw connector payloads or
@@ -328,9 +343,11 @@ source refs
 Agentgres records this path as operations, object heads, lineage refs,
 projection checkpoints, and transformation receipts. Storage backends store
 large source snapshots, transformed payloads, datasets, and projection
-checkpoint bytes. wallet.network decides whether a worker, runtime, or service
-may read, transform, train on, evaluate with, export, publish, or route over the
-data.
+checkpoint bytes. Domain governance and authority providers decide whether a
+worker, runtime, or service may read, transform, train on, evaluate with,
+export, publish, or route over the data; wallet.network supplies that decision
+path when portable delegated authority, secrets, decryption, external account
+access, or high-risk approval is required.
 
 Training improves a worker's capability record. It does not expand the worker's
 authority. Any trained worker still needs a manifest, policy envelope, and
@@ -540,7 +557,8 @@ This preserves the split:
 
 ```text
 Agentgres = canonical hot state, archive refs, receipts
-wallet.network = authority, secrets, restore/key leases
+authority providers/local governance = permission decisions
+wallet.network = portable delegated authority, secrets, restore/key leases
 storage backends = encrypted durable bytes
 dcrypt = hybrid/PQ sealing layer
 ```
@@ -746,7 +764,11 @@ accepted operations define truth
 object heads and state roots make truth replayable
 artifact refs define payload meaning
 storage backends hold bytes
-wallet.network authorizes read, write, decrypt, export, forget, and restore
+authority providers and local/domain policy authorize read, write, decrypt,
+export, forget, and restore, with wallet.network mandatory when the operation
+requires portable delegated authority, secrets, decryption leases,
+declassification, external effects, spend, restore/apply, or other
+consequential authority
 ```
 
 ## Related Canon
@@ -772,7 +794,7 @@ wallet.network authorizes read, write, decrypt, export, forget, and restore
 2. No consequential state change without persisted intent/policy/evidence path.
 3. No projection is canonical truth unless explicitly defined as commit-critical.
 4. No raw secret storage in Agentgres.
-5. No split-brain app state outside the domain Agentgres authority.
+5. No split-brain app state outside the domain Agentgres admission boundary.
 6. No marketplace contribution without attribution when used materially.
 7. No durable behavior-affecting memory mutation without an Agentgres operation
    such as `ContextMutation` and a policy/authority/receipt path.
@@ -1710,7 +1732,7 @@ Operations bind:
 
 ## 9.2 Canonical Object State
 
-Objects are the semantic authority layer.
+Objects are the semantic truth layer.
 
 Object classes may include:
 
@@ -2759,7 +2781,7 @@ Stages:
 
 1. Mirror existing Postgres schema and data into Agentgres relations.
 2. Dual-write with divergence detection and receipts.
-3. Agentgres authority with Postgres as sink.
+3. Agentgres canonical write path with Postgres as sink.
 4. SQL endpoint cutover for read consumers.
 5. Postgres retirement or retention as analytics/legacy target.
 

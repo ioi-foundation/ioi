@@ -227,6 +227,8 @@ pub(super) fn plan_provider_control(
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.provider_control",
+        "authority_boundary": "wallet.network.provider_control",
+        "authority_provider_ref": "wallet.network",
         "wallet_authority_boundary": "wallet.network.provider_control",
         "ctee_custody_boundary": "ctee.provider_material",
         "plaintext_material_returned": false,

@@ -26,8 +26,10 @@ Expanded doctrine:
 
 ```text
 ioi.ai conducts goals across sessions, agents/workers, connectors, and attempts;
-Hypervisor executes; wallet.network authorizes; Agentgres records; Foundry
-builds/evaluates; aiagent.xyz supplies and attributes workers.
+Hypervisor executes; authority providers and local/domain governance authorize
+as required, with wallet.network mandatory for portable delegated authority and
+high-risk external effects; Agentgres records; Foundry builds/evaluates;
+aiagent.xyz supplies and attributes workers.
 ```
 
 ## ioi.ai Goal Chat Boundary
@@ -239,7 +241,9 @@ Providers / Environments canon is owned by
 [`components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md).
 ioi.ai owns the web/account/org coordination view; Hypervisor App/Web/CLI
 clients host the hands-on operator presentations; Hypervisor Daemon executes;
-wallet.network authorizes; Agentgres records admitted truth.
+authority providers and local/domain governance authorize as required, with
+wallet.network mandatory for portable delegated authority and high-risk
+external effects; Agentgres records admitted truth.
 
 ## Control-Plane Flow
 
@@ -346,7 +350,8 @@ Storage backends:
   sealed encrypted archive bytes, traces, evidence bundles, artifact payloads, training datasets
 
 wallet.network:
-  key leases, secrets, restore authority, training-data approvals, decryption leases, revocation
+  key leases, secrets, restore authority, decryption leases, revocation,
+  and portable authority refs for training-data use when required
 
 Foundry:
   raw datasets, eval suites, scorecards, training lineage, conductor-advisor
@@ -447,9 +452,12 @@ selected Hypervisor Daemon runtime-node profile.
 - Hypervisor Providers / Environments canon owns general infrastructure-manager
   semantics for autonomous systems, with views in Hypervisor App, Hypervisor
   Web, CLI/headless, and console.ioi.ai.
-- wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
-- wallet.network owns connector secret brokerage, training-data approvals,
-  declassification leases, and authority reviews.
+- authority providers and local/domain governance authorize as required.
+- wallet.network supplies portable delegated authority, secrets, key leases,
+  payment approvals, connector secret brokerage, declassification leases,
+  authority reviews, revocation, and portable authority refs required by
+  training-data eligibility decisions when those decisions cross portable,
+  external, decryption, spend, declassification, or high-risk boundaries.
 - aiagent.xyz and MoW own worker supply, routing eligibility, contribution
   receipts, and marketplace attribution.
 - Agentgres owns operational truth and archive refs.
