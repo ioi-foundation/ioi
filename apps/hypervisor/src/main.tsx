@@ -47,22 +47,23 @@ import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayCli
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
-// Additive parity surfaces (Phase B/C) live on /parity-* routes. The reference
-// sidebar navigates between them; views without a ported route yet are inert.
-const PARITY_ROUTES: Partial<Record<PrimaryView, string>> = {
-  home: "/parity-home",
-  projects: "/parity-projects",
-  automations: "/parity-automations",
+// The reference-parity surfaces are the app's primary UX and own the root routes
+// (the reference IA). The sidebar navigates between them via real routes; Applications
+// opens the launcher modal (handled inside the shell). Any route not owned here falls
+// through to the legacy HypervisorShellWindow (unported/divergent surfaces preserved as
+// a functional fallback — sessions, workbench, agents, models, etc.).
+const PRIMARY_ROUTE_FOR_VIEW: Partial<Record<PrimaryView, string>> = {
+  home: "/",
+  projects: "/projects",
+  automations: "/automations",
+  settings: "/settings",
 };
 function ParityShellRoute({ view, children }: { view: PrimaryView; children: ReactNode }) {
   const navigate = useNavigate();
   return (
     <HypervisorReferenceShell
       activeView={view}
-      onViewChange={(v) => {
-        const route = PARITY_ROUTES[v];
-        if (route) navigate(route);
-      }}
+      onViewChange={(v) => navigate(PRIMARY_ROUTE_FOR_VIEW[v] ?? `/${v}`)}
     >
       {children}
     </HypervisorReferenceShell>
@@ -81,31 +82,6 @@ function AppMetricsBeacon() {
   return null;
 }
 
-const HYPERVISOR_PRIMARY_ROUTES = [
-  "/",
-  "/home",
-  "/ai",
-  "/workspaces",
-  "/sessions",
-  "/details/:sessionId",
-  "/details/:sessionId/logs",
-  "/projects",
-  "/applications",
-  "/missions",
-  "/workbench",
-  "/automations",
-  "/insights",
-  "/agents",
-  "/models",
-  "/privacy",
-  "/providers",
-  "/environments",
-  "/foundry",
-  "/authority",
-  "/receipts",
-  "/settings",
-];
-
 function renderHypervisorApp() {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
@@ -113,14 +89,16 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          <Route path="/parity-home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
-          <Route path="/parity-projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
-          <Route path="/parity-automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
-          <Route path="/parity-details" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
-          <Route path="/parity-settings" element={<HypervisorReferenceSettings />} />
-          {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
-            <Route key={path} path={path} element={<HypervisorShellWindow />} />
-          ))}
+          {/* Reference-parity UX at the app root (the reference IA). */}
+          <Route path="/" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
+          <Route path="/home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
+          <Route path="/ai" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
+          <Route path="/projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
+          <Route path="/automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
+          <Route path="/details/:sessionId" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
+          <Route path="/settings" element={<HypervisorReferenceSettings />} />
+          <Route path="/settings/*" element={<HypervisorReferenceSettings />} />
+          {/* Legacy shell: fallback for routes the parity UX does not (yet) own. */}
           <Route path="*" element={<HypervisorShellWindow />} />
         </Routes>
       </BrowserRouter>
