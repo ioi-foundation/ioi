@@ -256,7 +256,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
 // (e.g. neutral --app-background instead of the bare-:root warm gradient) and the
 // `.ona`-scoped parity preflight. Applied only while a parity surface is mounted so
 // the live app's own theme is untouched on other routes.
-function useReferenceTheme() {
+export function useReferenceTheme() {
   useEffect(() => {
     const root = document.documentElement;
     const added = ["ona", "light"].filter((c) => !root.classList.contains(c));
