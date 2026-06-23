@@ -24,6 +24,7 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
+import { HypervisorReferenceShell } from "./surfaces/Home/HypervisorReferenceShell";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
@@ -72,7 +73,7 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          <Route path="/parity-home" element={<HypervisorReferenceHome />} />
+          <Route path="/parity-home" element={<HypervisorReferenceShell><HypervisorReferenceHome /></HypervisorReferenceShell>} />
           {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
             <Route key={path} path={path} element={<HypervisorShellWindow />} />
           ))}
