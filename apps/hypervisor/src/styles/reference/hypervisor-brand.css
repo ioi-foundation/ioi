@@ -130,6 +130,20 @@
   font-size: 13px;
   line-height: 18px;
 }
+.hypervisor-blank-application-surface {
+  min-height: 100%;
+  background: var(--surface-01, #121212);
+  color: var(--content-primary, currentColor);
+  padding: 32px;
+}
+.hypervisor-blank-application-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--content-muted, rgba(255, 255, 255, 0.58));
+  font-size: 14px;
+  font-weight: 500;
+}
 [data-sidebar-container="true"] .hypervisor-applications-sidebar-section {
   padding-left: 0;
 }

@@ -10,6 +10,8 @@ import { useEffect, useState } from "react";
 import type { MouseEventHandler, ReactNode } from "react";
 import type { PrimaryView } from "../parityShellTypes";
 import { HypervisorReferenceApplicationsModal } from "../Applications/HypervisorReferenceApplicationsModal";
+import { APPLICATION_CATALOG } from "../Applications/applicationsCatalog";
+import { useSelectedApplicationId } from "../Applications/selectedApplication";
 
 // ---- exact reference SVGs (verbatim paths from :9228) ----
 const HomeGlyph = () => (
@@ -120,6 +122,8 @@ interface ReferenceSidebarProps {
 }
 
 export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, onOpenNewSession }: ReferenceSidebarProps) {
+  const selectedAppId = useSelectedApplicationId();
+  const selectedApp = selectedAppId ? APPLICATION_CATALOG.find((a) => a.id === selectedAppId) : undefined;
   const go = (view: PrimaryView): MouseEventHandler => (e) => {
     if (onViewChange) {
       e.preventDefault();
@@ -177,16 +181,24 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
               <div className="my-2 border-t border-border-subtle" aria-hidden="true" />
 
               {/* Applications section — zero pinned applications by default (matches the
-                  reference): the heading plus a quiet empty hint. An app appears here
-                  once the operator opens one from the launcher. */}
-              <section data-hypervisor-applications-section="true" className="hypervisor-applications-sidebar-section" data-rendered-application-id="__none__">
+                  reference): the heading plus a quiet empty hint. Once the operator opens
+                  an app from the launcher it becomes the selected/pinned app here and
+                  opens its surface on /insights. */}
+              <section data-hypervisor-applications-section="true" className="hypervisor-applications-sidebar-section" data-rendered-application-id={selectedApp ? selectedApp.id : "__none__"}>
                 <div className="hypervisor-applications-sidebar-heading text-content-secondary">
                   <span className="hypervisor-applications-sidebar-heading-main">
                     <span className="hypervisor-applications-sidebar-heading-icon" aria-hidden="true"><ApplicationsGlyph size="18px" cls="" /></span>
                     <span>Applications</span>
                   </span>
                 </div>
-                <p className="hypervisor-applications-sidebar-empty">Your favorite apps will appear here</p>
+                {selectedApp ? (
+                  <a className="hypervisor-selected-application" data-hypervisor-selected-application="" aria-label={`Open selected application: ${selectedApp.name}`} href="/insights">
+                    <span className="hypervisor-application-icon " aria-hidden="true" style={{ background: selectedApp.color, color: "#f5f7fb", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 750 }}>{selectedApp.glyph}</span>
+                    <span className="hypervisor-selected-application-copy"><span className="hypervisor-selected-application-title">{selectedApp.name}</span></span>
+                  </a>
+                ) : (
+                  <p className="hypervisor-applications-sidebar-empty">Your favorite apps will appear here</p>
+                )}
               </section>
 
               {/* sessions */}

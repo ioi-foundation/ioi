@@ -5,9 +5,9 @@
 // grouped by category, selectable rows, and the detail aside. Opened from the shell's
 // Applications nav item; closes on the x button, backdrop click, or Escape.
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { APPLICATION_CATALOG, APPLICATION_CATEGORIES, type CatalogApp } from "./applicationsCatalog";
-
-const PROMOTED_ID = "pipeline-builder";
+import { setSelectedApplicationId, useSelectedApplicationId } from "./selectedApplication";
 
 function AppIcon({ app, className = "" }: { app: CatalogApp; className?: string }) {
   return (
@@ -22,9 +22,17 @@ function AppIcon({ app, className = "" }: { app: CatalogApp; className?: string 
 }
 
 export function HypervisorReferenceApplicationsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
+  const selectedId = useSelectedApplicationId();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All apps");
-  const [activeId, setActiveId] = useState(PROMOTED_ID);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const openApplication = (id: string) => {
+    setSelectedApplicationId(id);
+    onClose();
+    navigate("/insights");
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -37,12 +45,15 @@ export function HypervisorReferenceApplicationsModal({ open, onClose }: { open: 
 
   if (!open) return null;
 
-  const promoted = APPLICATION_CATALOG.find((a) => a.id === PROMOTED_ID) ?? APPLICATION_CATALOG[0];
   const q = query.trim().toLowerCase();
   const filtered = APPLICATION_CATALOG.filter(
     (a) => (category === "All apps" || a.category === category) && (!q || a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)),
   );
-  const active = APPLICATION_CATALOG.find((a) => a.id === activeId) ?? filtered[0];
+  // Promoted = the currently selected/pinned app (none by default), mirroring the
+  // reference. The detail aside defaults to the selected app, else the first match.
+  const selected = selectedId ? APPLICATION_CATALOG.find((a) => a.id === selectedId) ?? null : null;
+  const promoted = selected;
+  const active = (activeId ? APPLICATION_CATALOG.find((a) => a.id === activeId) : null) ?? selected ?? filtered[0];
   const grouped = APPLICATION_CATEGORIES.map((cat) => ({ cat, apps: filtered.filter((a) => a.category === cat) })).filter((g) => g.apps.length);
 
   return (
@@ -73,11 +84,15 @@ export function HypervisorReferenceApplicationsModal({ open, onClose }: { open: 
                 </button>
               );
             })}
-            <div className="hypervisor-applications-category-label">Promoted apps</div>
-            <button type="button" className="hypervisor-applications-category" data-hypervisor-application-id={promoted.id} onClick={() => setActiveId(promoted.id)}>
-              <span>{promoted.name}</span>
-              <span className="hypervisor-applications-category-count">Selected</span>
-            </button>
+            {promoted ? (
+              <>
+                <div className="hypervisor-applications-category-label">Promoted apps</div>
+                <button type="button" className="hypervisor-applications-category" data-hypervisor-application-id={promoted.id} onClick={() => setActiveId(promoted.id)}>
+                  <span>{promoted.name}</span>
+                  <span className="hypervisor-applications-category-count">Selected</span>
+                </button>
+              </>
+            ) : null}
           </nav>
           <main className="hypervisor-applications-list">
             {grouped.length ? (
@@ -105,7 +120,7 @@ export function HypervisorReferenceApplicationsModal({ open, onClose }: { open: 
               <div className="hypervisor-applications-detail-card">
                 <div className="hypervisor-applications-detail-top">
                   <AppIcon app={active} />
-                  <button type="button" className="hypervisor-applications-open" data-hypervisor-open-application={active.id} onClick={onClose}>Open</button>
+                  <button type="button" className="hypervisor-applications-open" data-hypervisor-open-application={active.id} onClick={() => openApplication(active.id)}>Open</button>
                 </div>
                 <h2 className="hypervisor-applications-detail-title">{active.name}</h2>
                 <p className="hypervisor-applications-detail-description">{active.description}</p>
