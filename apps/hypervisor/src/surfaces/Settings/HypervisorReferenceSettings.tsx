@@ -65,7 +65,7 @@ const SETTINGS_NAV = [
     { label: "OIDC Tokens", href: "/settings/security/oidc", key: "security/oidc" },
   ] },
 ];
-const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage"]);
+const PORTED = new Set(["manage-organization", "terms-of-service", "organization-secrets", "agent-skills", "security/oidc", "runners", "billing", "scim", "login", "credit-usage", "members"]);
 
 // Recharts usage chart captured verbatim from :9228/settings/credit-usage (the svg
 // scales via viewBox; tick/grid colors resolve from the app's vendored tokens).
@@ -544,10 +544,77 @@ function CreditUsageContent() {
   );
 }
 
+const SearchGlyph = () => (
+  <svg className="size-4" aria-hidden="true" width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 20L16.1265 16.1265M16.1265 16.1265C17.4385 14.8145 18.25 13.002 18.25 11C18.25 6.99594 15.0041 3.75 11 3.75C6.99594 3.75 3.75 6.99594 3.75 11C3.75 15.0041 6.99594 18.25 11 18.25C13.002 18.25 14.8145 17.4385 16.1265 16.1265Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
+);
+const SortGlyph = () => (
+  <span className="inline-flex opacity-0 group-hover:opacity-100"><svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.25 16.25L7.25 20.25L11.25 16.25M12.75 7.75L16.75 3.75L20.75 7.75M7.25 19V3.75M16.75 20.25V4.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg></span>
+);
+const DotsBig = () => (
+  <svg className="size-6 rounded-md p-0.5 text-content-primary" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M7.5 12C7.5 12.932 6.74448 13.6875 5.8125 13.6875C4.88052 13.6875 4.125 12.932 4.125 12C4.125 11.068 4.88052 10.3125 5.8125 10.3125C6.74448 10.3125 7.5 11.068 7.5 12ZM13.6875 12C13.6875 12.932 12.932 13.6875 12 13.6875C11.068 13.6875 10.3125 12.932 10.3125 12C10.3125 11.068 11.068 10.3125 12 10.3125C12.932 10.3125 13.6875 11.068 13.6875 12ZM18.1875 13.6875C19.1194 13.6875 19.875 12.932 19.875 12C19.875 11.068 19.1194 10.3125 18.1875 10.3125C17.2556 10.3125 16.5 11.068 16.5 12C16.5 12.932 17.2556 13.6875 18.1875 13.6875Z" fill="currentColor" /></svg>
+);
+const MEMBER_TABS: { label: string; icon: React.ReactNode }[] = [
+  { label: "People", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.6666 4.33329C10.6666 5.80605 9.47268 6.99996 7.99992 6.99996C6.52716 6.99996 5.33325 5.80605 5.33325 4.33329C5.33325 2.86053 6.52716 1.66663 7.99992 1.66663C9.47268 1.66663 10.6666 2.86053 10.6666 4.33329Z" stroke="currentColor" strokeLinejoin="round" /><path d="M8.00008 8.33337C5.02038 8.33337 2.92911 10.6766 2.66675 13.6667H13.3334C13.0711 10.6766 10.9798 8.33337 8.00008 8.33337Z" stroke="currentColor" strokeLinejoin="round" /></svg> },
+  { label: "Groups", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7.16707 4.66667C7.16707 5.86328 6.19702 6.83333 5.00041 6.83333C3.80379 6.83333 2.83374 5.86328 2.83374 4.66667C2.83374 3.47005 3.80379 2.5 5.00041 2.5C6.19702 2.5 7.16707 3.47005 7.16707 4.66667Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M13.1671 4.66667C13.1671 5.86328 12.197 6.83333 11.0004 6.83333C9.80379 6.83333 8.83374 5.86328 8.83374 4.66667C8.83374 3.47005 9.80379 2.5 11.0004 2.5C12.197 2.5 13.1671 3.47005 13.1671 4.66667Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M0.747638 12.7869C0.686977 13.1688 0.995382 13.5 1.38203 13.5H8.52283C8.90948 13.5 9.21788 13.1688 9.15722 12.7869C8.24922 7.07102 1.65564 7.07102 0.747638 12.7869Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M9.61743 8.78695C11.8587 7.85608 14.6828 9.19005 15.2535 12.7889C15.3141 13.1707 15.0055 13.5 14.6188 13.5H11.1674" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg> },
+  { label: "Teams", icon: <svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 12V15M9.5 17.5H7M14.5 17.5H17M16.75 7.5C16.75 10.1234 14.6234 12.25 12 12.25C9.37665 12.25 7.25 10.1234 7.25 7.5C7.25 4.87665 9.37665 2.75 12 2.75C14.6234 2.75 16.75 4.87665 16.75 7.5ZM7.25 17.5C7.25 19.0188 6.01878 20.25 4.5 20.25C2.98122 20.25 1.75 19.0188 1.75 17.5C1.75 15.9812 2.98122 14.75 4.5 14.75C6.01878 14.75 7.25 15.9812 7.25 17.5ZM14.75 17.5C14.75 19.0188 13.5188 20.25 12 20.25C10.4812 20.25 9.25 19.0188 9.25 17.5C9.25 15.9812 10.4812 14.75 12 14.75C13.5188 14.75 14.75 15.9812 14.75 17.5ZM22.25 17.5C22.25 19.0188 21.0188 20.25 19.5 20.25C17.9812 20.25 16.75 19.0188 16.75 17.5C16.75 15.9812 17.9812 14.75 19.5 14.75C21.0188 14.75 22.25 15.9812 22.25 17.5Z" stroke="currentColor" strokeWidth="1.5" /></svg> },
+  { label: "Service Accounts", icon: <svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3.75H4.78125V13.25H19.2188V3.75H12ZM12 3.75V1.75M8.75 7.75V9.25M15.25 7.75V9.25M5.75 13.25V14.25V15C5.75 18.4518 8.54822 21.25 12 21.25C15.4518 21.25 18.25 18.4518 18.25 15V14.25V13.25M3.75 16.25L5.27085 14.7292M20.25 16.25L18.7292 14.7292" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg> },
+  { label: "Terms Acceptance", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fillRule="evenodd" clipRule="evenodd" d="M11.8793 6.30686L7.99043 10.9735C7.63686 11.3978 7.0063 11.4551 6.58202 11.1016L4.24869 9.15712L5.52906 7.62067L7.09417 8.92493L10.3429 5.02649L11.8793 6.30686Z" fill="currentColor" /></svg> },
+];
+const TH = "px-4 py-3.5 h-11 text-base font-bold text-content-primary outline-none";
+const AVATAR_SRC = "https://lh3.googleusercontent.com/a/ACg8ocIBE-yWc_g6QMTLx_fI4gV6NkJ6Q1ERKa4YxbkEy2U9RsS3DCHb=s96-c";
+
+function MembersContent() {
+  return (
+    <SettingsMain>
+      <SettingsTitle title="Members" />
+      <div className="mt-4 flex flex-col gap-4">
+        <div dir="ltr" data-orientation="horizontal" className="@container w-full">
+          <div className="mb-4 flex w-full flex-row flex-wrap justify-between gap-4">
+            <div role="tablist" aria-orientation="horizontal" className="scrollbar-hide flex min-h-9 flex-col justify-stretch overflow-x-auto rounded-lg border border-transparent bg-surface-button-tab-base p-[3px] @md:flex-row @md:justify-between dark:border-border-subtle w-full gap-1 @md:w-fit" tabIndex={0}>
+              {MEMBER_TABS.map((t, i) => (
+                <button key={t.label} type="button" role="tab" aria-selected={i === 0 ? "true" : "false"} data-state={i === 0 ? "active" : "inactive"} className={SCIM_TAB}>{t.icon}<span className="truncate">{t.label}</span></button>
+              ))}
+            </div>
+            <a className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent gap-2 px-3 py-2 h-8 text-base" href="/settings/members/invite"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.6666 4.33329C10.6666 5.80605 9.47268 6.99996 7.99992 6.99996C6.52716 6.99996 5.33325 5.80605 5.33325 4.33329C5.33325 2.86053 6.52716 1.66663 7.99992 1.66663C9.47268 1.66663 10.6666 2.86053 10.6666 4.33329Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M10.3334 8.87714C9.64453 8.52818 8.85924 8.33337 8.00008 8.33337C5.02038 8.33337 2.92911 10.6766 2.66675 13.6667H8.33341" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M12.3333 10.3334V12.3334M12.3333 12.3334V14.3334M12.3333 12.3334H10.3333M12.3333 12.3334H14.3333" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg><span className="flex items-center gap-1">Invite</span></a>
+          </div>
+          <div role="tabpanel">
+            <div className="flex flex-col gap-2 @container @lg:flex-row @lg:items-center">
+              <div className="relative [&>div]:max-w-none flex-1"><div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input"><span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span><input className="flex h-full w-full text-base p-0 border-0 outline-none placeholder:text-content-muted text-content-primary bg-transparent max-w-none @sm:min-w-[20ch]" type="text" placeholder="Search by name, email or ID" defaultValue="" /></div></div>
+              <div className="flex flex-col items-stretch gap-2 @sm:flex-row">
+                <div className="relative w-full grow @lg:min-w-36"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate">All roles</span><SelectChevron /></button></div>
+                <div className="relative w-full grow @lg:min-w-56"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>Status: All (0)</span></span><SelectChevron /></button></div>
+              </div>
+            </div>
+            <div className="flex w-full flex-col"><div className="mt-4" /><div className="@container"><div className="relative w-full overflow-x-auto mt-4">
+              <table aria-label="Organization members" className="w-full text-left text-base">
+                <thead><tr className="relative border-b border-border-base">
+                  <th className={`${TH} group cursor-pointer select-none`}><span className="flex items-center gap-1">Name<SortGlyph /></span></th>
+                  <th className={`${TH} group cursor-pointer select-none hidden @md:table-cell w-40`}><span className="flex items-center gap-1">Date joined<SortGlyph /></span></th>
+                  <th className={`${TH} hidden @lg:table-cell w-40`}><span className="flex items-center gap-1">Role</span></th>
+                  <th className={`${TH} hidden @xl:table-cell w-40`}><span className="flex items-center gap-1">Authenticated with</span></th>
+                  <th className={TH}><span className="flex items-center gap-1" /></th>
+                </tr></thead>
+                <tbody><tr className="group border-b border-border-base last:border-b-0 border-l-2 outline-none hover:bg-muted/5 border-l-transparent">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-base outline-none"><div className="flex min-w-0 items-center gap-3"><img loading="lazy" referrerPolicy="no-referrer" src={AVATAR_SRC} className="h-8 w-8 shrink-0 rounded-full" alt="" /><div className="flex min-w-0 flex-col"><p className="text-content-primary inline-flex min-w-0 items-center gap-2 text-base font-bold"><span className="truncate" title="Levi Josman">Levi Josman</span><span className="inline-flex items-center gap-1 rounded-[20px] border-0 font-normal bg-surface-success-subtle text-content-success dark:text-content-success-subtle px-2 py-1 text-sm"><span>me</span></span></p><p className="truncate text-base text-content-secondary" title="josmanlevi@gmail.com">josmanlevi@gmail.com</p></div></div></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-base outline-none hidden @md:table-cell w-40"><p className="text-content-primary text-base">6/16/2026</p></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-base outline-none hidden @lg:table-cell w-40"><p className="text-content-primary text-base">Admin</p></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-base outline-none hidden @xl:table-cell w-40"><p className="text-content-primary text-base">Google</p></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-base outline-none"><span className="flex justify-end"><button type="button" className="select-none items-center font-medium justify-center whitespace-nowrap transition-colors border-0 text-content-primary hover:text-content-accent gap-2 h-9 text-base flex rounded-md bg-transparent p-1 hover:bg-surface-hover" aria-label="More actions"><DotsBig /></button></span></td>
+                </tr></tbody>
+              </table>
+            </div></div></div>
+          </div>
+        </div>
+      </div>
+    </SettingsMain>
+  );
+}
+
 function SettingsContent({ section }: { section: string }) {
   switch (section) {
     case "login": return <LoginContent />;
     case "credit-usage": return <CreditUsageContent />;
+    case "members": return <MembersContent />;
     case "terms-of-service": return <TermsContent />;
     case "organization-secrets": return <SecretsContent />;
     case "agent-skills": return <SkillsContent />;
