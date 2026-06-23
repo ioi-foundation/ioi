@@ -176,18 +176,17 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
 
               <div className="my-2 border-t border-border-subtle" aria-hidden="true" />
 
-              {/* Applications section + singular Open Application */}
-              <section data-hypervisor-applications-section="true" className="hypervisor-applications-sidebar-section" data-rendered-application-id="pipeline-builder">
+              {/* Applications section — zero pinned applications by default (matches the
+                  reference): the heading plus a quiet empty hint. An app appears here
+                  once the operator opens one from the launcher. */}
+              <section data-hypervisor-applications-section="true" className="hypervisor-applications-sidebar-section" data-rendered-application-id="__none__">
                 <div className="hypervisor-applications-sidebar-heading text-content-secondary">
                   <span className="hypervisor-applications-sidebar-heading-main">
                     <span className="hypervisor-applications-sidebar-heading-icon" aria-hidden="true"><ApplicationsGlyph size="18px" cls="" /></span>
                     <span>Applications</span>
                   </span>
                 </div>
-                <button type="button" className="hypervisor-selected-application" data-hypervisor-selected-application="" aria-label="Open selected application: Pipeline Builder" onClick={go("workbench")}>
-                  <span className="hypervisor-application-icon " aria-hidden="true" style={{ background: "#0e7f79", color: "#f5f7fb", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 750 }}>P</span>
-                  <span className="hypervisor-selected-application-copy"><span className="hypervisor-selected-application-title">Pipeline Builder</span></span>
-                </button>
+                <p className="hypervisor-applications-sidebar-empty">Your favorite apps will appear here</p>
               </section>
 
               {/* sessions */}

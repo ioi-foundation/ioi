@@ -123,6 +123,13 @@
   font-weight: 650;
   line-height: 18px;
 }
+.hypervisor-applications-sidebar-empty {
+  margin: 2px 0 0 0;
+  padding: 2px 8px 6px 0;
+  color: var(--content-tertiary, var(--content-muted, rgba(255, 255, 255, 0.45)));
+  font-size: 13px;
+  line-height: 18px;
+}
 [data-sidebar-container="true"] .hypervisor-applications-sidebar-section {
   padding-left: 0;
 }
