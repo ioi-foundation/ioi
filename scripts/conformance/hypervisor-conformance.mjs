@@ -19,7 +19,6 @@ const TIERS = {
     npmRun("check:service-composition-evidence"),
     npmRun("check:artifact-availability-incident"),
   ],
-  ctee: [],
   app: [
     npmRun("build:workbench"),
     ["npm", ["run", "build", "--workspace=@ioi/hypervisor-app"]],
@@ -49,7 +48,6 @@ const DEFAULT_TIERS = [
   "docs",
   "bridge",
   "receipts",
-  "ctee",
   "app",
   "compositor",
   "wallet",

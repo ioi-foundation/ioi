@@ -1765,8 +1765,6 @@ assert(
       "node scripts/conformance/hypervisor-conformance.mjs bridge" &&
     packageJson.scripts["hypervisor-conformance:receipts"] ===
       "node scripts/conformance/hypervisor-conformance.mjs receipts" &&
-    packageJson.scripts["hypervisor-conformance:ctee"] ===
-      "node scripts/conformance/hypervisor-conformance.mjs ctee" &&
     packageJson.scripts["hypervisor-conformance:app"] ===
       "node scripts/conformance/hypervisor-conformance.mjs app" &&
     packageJson.scripts["hypervisor-conformance:compositor"] ===
@@ -1791,7 +1789,7 @@ assert(
     "package.json",
     "scripts/conformance/hypervisor-conformance.mjs",
   ],
-  "The canon-named hypervisor-conformance command family must exist and delegate to the current docs, ABI, bridge, receipt, cTEE, app, compositor, wallet, candidate, and negative guards.",
+  "The canon-named hypervisor-conformance command family must exist and delegate to the current docs, ABI, bridge, receipt, app, compositor, wallet, candidate, and negative guards.",
 );
 assert(
   "hypervisor-shell-no-generic-surface-placeholders",
