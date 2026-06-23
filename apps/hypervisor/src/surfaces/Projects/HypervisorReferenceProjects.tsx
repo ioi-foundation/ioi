@@ -2,7 +2,14 @@
 // reference's LIVE <main> DOM (http://localhost:9228/projects): exact element tree,
 // classes, verbatim SVG paths and copy. Additive on /parity-projects. The project
 // card mirrors the reference's single mock project (ioi / teamioitest/ioi).
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { MouseEventHandler } from "react";
+import { ReferenceModal, AnchoredPopover } from "../parityOverlays";
+import {
+  NewProjectDialog,
+  CreateEnvironmentDialog,
+  ProjectActionsMenu,
+} from "./HypervisorReferenceProjectDialogs";
 
 const PlusGlyph = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.25 5V10.25M10.25 10.25V15.5M10.25 10.25H5M10.25 10.25H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -25,6 +32,18 @@ export function HypervisorReferenceProjects() {
   const q = query.trim().toLowerCase();
   // Single mock project (ioi / teamioitest/ioi); client-side filter by name or repo.
   const matches = !q || "ioi".includes(q) || "teamioitest/ioi".includes(q);
+  const [overlay, setOverlay] = useState<null | "new" | "create" | "actions">(null);
+  const actionsRef = useRef<HTMLButtonElement>(null);
+  const closeOverlay = () => setOverlay(null);
+  // Card buttons live inside the card's <a> link; stop the click from navigating.
+  const cardAction = (action: "create" | "actions"): MouseEventHandler => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOverlay((o) => (o === action ? null : action));
+  };
+  const onActionsItemClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) closeOverlay();
+  };
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div className="relative [scrollbar-gutter:stable] overflow-x-auto overflow-y-auto size-full max-w-full p-6" data-orientation="both">
@@ -32,7 +51,7 @@ export function HypervisorReferenceProjects() {
           <div className="flex size-full flex-col gap-4">
             <div className="flex items-center">
               <h1 className="truncate text-2xl font-semibold tracking-[-0.2px] my-0.5 flex grow flex-row align-middle text-content-primary">Projects</h1>
-              <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-4 py-2 h-9 text-base" data-tracking-id="new-project-projects-page">
+              <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-4 py-2 h-9 text-base" data-tracking-id="new-project-projects-page" onClick={() => setOverlay("new")}>
                 <PlusGlyph />
                 <span className="truncate">New project</span>
               </button>
@@ -81,7 +100,7 @@ export function HypervisorReferenceProjects() {
                       </div>
                       <div data-tracking-id-none="true">
                         <div className="flex items-center" data-tracking-id-none="true">
-                          <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" data-state="closed" data-testid="project-actions-dropdown-trigger"><DotsGlyph /></button>
+                          <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0" aria-label="More actions" aria-haspopup="menu" ref={actionsRef} aria-expanded={overlay === "actions"} data-state={overlay === "actions" ? "open" : "closed"} data-testid="project-actions-dropdown-trigger" onClick={cardAction("actions")}><DotsGlyph /></button>
                         </div>
                       </div>
                     </div>
@@ -96,7 +115,7 @@ export function HypervisorReferenceProjects() {
                         </ul>
                       </div>
                       <div className="inline-flex rounded-lg border border-border-base opacity-0 group-focus-within:opacity-100 group-hover:opacity-100" role="group" data-tracking-id-none="true">
-                        <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base rounded-r-none border-none focus-visible:bg-surface-accent focus-visible:ring-0 focus-visible:ring-offset-0" aria-busy="false" aria-label="Create environment" data-testid="create-environment-from-project-button-019ee100-f64f-7554-946f-405f46528c91" data-tracking-id="create-environment-button" data-state="closed"><span className="truncate">Create Environment</span></button>
+                        <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base rounded-r-none border-none focus-visible:bg-surface-accent focus-visible:ring-0 focus-visible:ring-offset-0" aria-busy="false" aria-label="Create environment" data-testid="create-environment-from-project-button-019ee100-f64f-7554-946f-405f46528c91" data-tracking-id="create-environment-button" data-state="closed" onClick={cardAction("create")}><span className="truncate">Create Environment</span></button>
                       </div>
                     </div>
                   </a>
@@ -107,6 +126,9 @@ export function HypervisorReferenceProjects() {
           </div>
         </div>
       </div>
+      <ReferenceModal open={overlay === "new"} onClose={closeOverlay} maxWidth="640px"><NewProjectDialog /></ReferenceModal>
+      <ReferenceModal open={overlay === "create"} onClose={closeOverlay} maxWidth="520px"><CreateEnvironmentDialog /></ReferenceModal>
+      <AnchoredPopover open={overlay === "actions"} onClose={closeOverlay} anchorRef={actionsRef} side="bottom" align="end"><div onClick={onActionsItemClick}><ProjectActionsMenu /></div></AnchoredPopover>
     </main>
   );
 }

@@ -6,12 +6,20 @@
 // tab bar navigates between /projects/:id[/settings|/secrets|/prebuilds]. The
 // non-home panels live in HypervisorReferenceProjectTabs. Content mirrors the
 // reference's single mock project (ioi / teamioitest/ioi).
+import { useRef, useState } from "react";
+import type { MouseEventHandler } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   SettingsTabContent,
   SecretsTabContent,
   PrebuildsTabContent,
 } from "./HypervisorReferenceProjectTabs";
+import { ReferenceModal, AnchoredPopover } from "../parityOverlays";
+import {
+  ShareProjectDialog,
+  CreateEnvironmentDialog,
+  ProjectActionsMenu,
+} from "./HypervisorReferenceProjectDialogs";
 
 export type ProjectDetailTab = "home" | "settings" | "secrets" | "prebuilds";
 
@@ -70,6 +78,13 @@ const ExternalLinkGlyph = () => (
 export function HypervisorReferenceProjectDetail({ tab = "home" }: { tab?: ProjectDetailTab } = {}) {
   const navigate = useNavigate();
   const { projectId = FIXTURE_PROJECT_ID } = useParams();
+  const [overlay, setOverlay] = useState<null | "share" | "create" | "actions">(null);
+  const actionsRef = useRef<HTMLButtonElement>(null);
+  const closeOverlay = () => setOverlay(null);
+  // Project-actions menu items close the menu; anchor items keep their navigation.
+  const onActionsItemClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) closeOverlay();
+  };
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div {...{ orientation: "both" }} className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -90,15 +105,15 @@ export function HypervisorReferenceProjectDetail({ tab = "home" }: { tab?: Proje
             <div className="flex shrink-0 items-center gap-2">
               <div className="flex items-center gap-2">
                 <div className="hidden items-center gap-2 @[660px]/page-header:flex">
-                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg disabled:text-content-tertiary disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear hover:bg-surface-button-clear-accent data-[state=open]:bg-surface-button-clear-accent border border-border-base text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:border-opacity-1 focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base" data-testid="share-project-button" data-tracking-id="share-project-button"><ShareGlyph /><span className="truncate">Share</span></button>
+                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg disabled:text-content-tertiary disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear hover:bg-surface-button-clear-accent data-[state=open]:bg-surface-button-clear-accent border border-border-base text-content-primary hover:text-content-accent data-[state=open]:text-content-accent disabled:border-opacity-1 focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base" data-testid="share-project-button" data-tracking-id="share-project-button" type="button" onClick={() => setOverlay("share")}><ShareGlyph /><span className="truncate">Share</span></button>
                   <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-secondary text-content-primary hover:bg-surface-button-secondary-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base" aria-busy="false" data-testid="trigger-prebuild-button" data-tracking-id="trigger-prebuild-button"><span className="truncate">Run prebuild</span></button>
                   <div className="h-4 w-px bg-border-subtle"></div>
                 </div>
                 <div className="flex items-center" data-tracking-id-none="true">
-                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0" aria-label="More actions" type="button" id="radix-:r2r:" aria-haspopup="menu" aria-expanded="false" data-state="closed" data-testid="project-actions-dropdown-trigger"><DotsGlyph /></button>
+                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0" aria-label="More actions" type="button" ref={actionsRef} id="radix-:r2r:" aria-haspopup="menu" aria-expanded={overlay === "actions"} data-state={overlay === "actions" ? "open" : "closed"} data-testid="project-actions-dropdown-trigger" onClick={() => setOverlay((o) => (o === "actions" ? null : "actions"))}><DotsGlyph /></button>
                 </div>
                 <div className="inline-flex rounded-lg border border-border-base" role="group">
-                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base border-none focus-visible:ring-0 focus-visible:ring-offset-0" aria-busy="false" type="button" aria-label="Create environment" data-testid="create-environment-from-project-button-019ee100-f64f-7554-946f-405f46528c91" data-tracking-id="create-environment-button" data-state="closed"><span className="truncate">Create Environment</span></button>
+                  <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-3 py-2 h-8 text-base border-none focus-visible:ring-0 focus-visible:ring-offset-0" aria-busy="false" type="button" aria-label="Create environment" data-testid="create-environment-from-project-button-019ee100-f64f-7554-946f-405f46528c91" data-tracking-id="create-environment-button" data-state="closed" onClick={() => setOverlay("create")}><span className="truncate">Create Environment</span></button>
                 </div>
               </div>
             </div>
@@ -134,6 +149,9 @@ export function HypervisorReferenceProjectDetail({ tab = "home" }: { tab?: Proje
           </div>
         </div>
       </div>
+      <ReferenceModal open={overlay === "share"} onClose={closeOverlay}><ShareProjectDialog /></ReferenceModal>
+      <ReferenceModal open={overlay === "create"} onClose={closeOverlay} maxWidth="520px"><CreateEnvironmentDialog /></ReferenceModal>
+      <AnchoredPopover open={overlay === "actions"} onClose={closeOverlay} anchorRef={actionsRef} side="bottom" align="end"><div onClick={onActionsItemClick}><ProjectActionsMenu /></div></AnchoredPopover>
     </main>
   );
 }
