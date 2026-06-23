@@ -6,9 +6,10 @@
 // HypervisorReferenceSidebar stays a prop-compatible drop-in for the activity rail
 // (activeView/onViewChange/onOpenNewSession): when onViewChange is provided it routes
 // via the controller; otherwise the reference hrefs navigate.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { MouseEventHandler, ReactNode } from "react";
 import type { PrimaryView } from "../../windows/HypervisorShellWindow/hypervisorShellModel";
+import { HypervisorReferenceApplicationsModal } from "../Applications/HypervisorReferenceApplicationsModal";
 
 // ---- exact reference SVGs (verbatim paths from :9228) ----
 const HomeGlyph = () => (
@@ -282,12 +283,24 @@ export function HypervisorReferenceShell({
   onOpenNewSession?: () => void;
 }) {
   useReferenceTheme();
+  const [appsOpen, setAppsOpen] = useState(false);
+  // The reference Applications nav item opens the catalog launcher modal; all other
+  // views delegate to the route navigator. (Pipeline Builder's open-app behavior is
+  // a separate surface, deferred.)
+  const handleViewChange = (view: PrimaryView) => {
+    if (view === "applications") {
+      setAppsOpen(true);
+      return;
+    }
+    onViewChange?.(view);
+  };
   return (
     <div className="app-background flex size-full flex-col overflow-hidden">
       <div className="flex w-full grow flex-row overflow-hidden">
-        <HypervisorReferenceSidebar activeView={activeView} onViewChange={onViewChange} onOpenNewSession={onOpenNewSession} />
+        <HypervisorReferenceSidebar activeView={activeView} onViewChange={handleViewChange} onOpenNewSession={onOpenNewSession} />
         {children}
       </div>
+      <HypervisorReferenceApplicationsModal open={appsOpen} onClose={() => setAppsOpen(false)} />
     </div>
   );
 }
