@@ -27,5 +27,12 @@ export default defineConfig(async () => ({
       // Allow serving shared workspace packages (e.g. @ioi/agent-ide built CSS).
       allow: [path.resolve(__dirname, "../..")],
     },
+    // T7 — the native surfaces are same-origin daemon projections. Proxy the daemon spine
+    // (Session Execution Binding, env-files, terminals, environments, workruns, threads) to the
+    // local hypervisor-daemon so the typed client's /v1/* calls resolve in dev.
+    proxy: {
+      "/v1": { target: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765", changeOrigin: true },
+      "/api/ioi": { target: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765", changeOrigin: true },
+    },
   },
 }));

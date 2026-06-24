@@ -35,6 +35,7 @@ const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(REPO_ROOT, "internal-docs", "reverse-engineering", "ioi", "server.js");
 const PORT = Number(process.env.PORT || 4173);
 const MIRROR_PORT = Number(process.env.MIRROR_PORT || 9301);
+const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 if (!existsSync(REF_SERVER)) {
   console.error(
@@ -112,6 +113,24 @@ const server = http.createServer((req, res) => {
   req.on("end", async () => {
     const body = Buffer.concat(chunks);
     const pathname = (req.url || "").split("?")[0];
+    // T7 — daemon spine passthrough so the native client's /v1/* calls resolve in the hybrid
+    // served context (Session Execution Binding, env-files, terminals, environments, threads).
+    if (pathname.startsWith("/v1/")) {
+      try {
+        const upstream = await fetch(DAEMON + req.url, {
+          method: req.method,
+          headers: { "Content-Type": "application/json" },
+          body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
+        });
+        const text = await upstream.text();
+        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+        res.end(text);
+      } catch (e) {
+        res.writeHead(502);
+        res.end(JSON.stringify({ error: { message: `daemon unreachable: ${e.message}` } }));
+      }
+      return;
+    }
     if (pathname === "/ioi-augmentation.js") {
       try {
         const js = readFileSync(AUG_PATH);

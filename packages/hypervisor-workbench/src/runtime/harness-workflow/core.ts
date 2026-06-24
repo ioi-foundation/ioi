@@ -9812,7 +9812,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Runtime doctor",
       description:
         "Reads the daemon doctor report so workflow activation can block on required runtime readiness failures.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::doctorReport",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::doctorReport",
       capabilityScope: ["runtime.doctor.read", "workflow.activation.read"],
       eventKinds: ["RuntimeDoctorReport"],
       evidence: ["runtime.doctor", "doctor.blockers", "doctor.redaction"],
@@ -9825,7 +9825,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Runtime task",
       description:
         "Projects the durable task record for a daemon run, including task family, mode, prompt hash, replayability, and redaction posture.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeTaskRecord",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::runtimeTaskRecord",
       capabilityScope: ["runtime.task.read", "workflow.context.read"],
       eventKinds: ["RuntimeTaskRecord"],
       evidence: ["runtime_task", "task.prompt_hash", "task.replayable", "task.redaction"],
@@ -9838,7 +9838,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Runtime job",
       description:
         "Projects the durable job record and lifecycle events for queued, started, completed, failed, or canceled daemon work.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeJobRecord",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::runtimeJobRecord",
       capabilityScope: ["runtime.job.read", "runtime.task.read", "workflow.context.read"],
       eventKinds: ["JobQueued", "JobStarted", "JobCompleted", "JobFailed", "JobCanceled"],
       evidence: ["runtime_job", "job.lifecycle", "job.queue", "job.cancel", "job.replayable"],
@@ -9851,7 +9851,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Runtime checklist",
       description:
         "Projects the durable checklist that binds runtime task, job lifecycle, artifacts, and receipts into one replayable validation record.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::runtimeChecklistRecord",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::runtimeChecklistRecord",
       capabilityScope: ["runtime.checklist.read", "runtime.job.read", "runtime.task.read", "workflow.context.read"],
       eventKinds: ["RuntimeChecklistRecord"],
       evidence: ["runtime_checklist", "checklist.items", "checklist.status", "checklist.replayable"],
@@ -9903,7 +9903,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       description:
         "Captures the read-only Git/worktree snapshot that later branch, PR, review, and mutation workflows must consume.",
       kernelRef:
-        "packages/runtime-daemon/src/index.mjs::repositoryContextForWorkspace",
+        "crates/node/src/bin/hypervisor-daemon.rs::repositoryContextForWorkspace",
       capabilityScope: ["repository.context.read", "workflow.context.read"],
       eventKinds: ["RepositoryContext"],
       evidence: [
@@ -9923,7 +9923,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       description:
         "Evaluates repository context into a read-only branch safety decision for PR, review, and mutation workflows.",
       kernelRef:
-        "packages/runtime-daemon/src/index.mjs::branchPolicyForRepositoryContext",
+        "crates/node/src/bin/hypervisor-daemon.rs::branchPolicyForRepositoryContext",
       capabilityScope: ["repository.branch_policy.read", "workflow.activation.read"],
       eventKinds: ["BranchPolicyDecision"],
       evidence: [
@@ -9943,7 +9943,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       description:
         "Projects the read-only GitHub remote identity and PR preconditions from repository context and branch policy.",
       kernelRef:
-        "packages/runtime-daemon/src/index.mjs::githubContextForRepository",
+        "crates/node/src/bin/hypervisor-daemon.rs::githubContextForRepository",
       capabilityScope: [
         "github.context.read",
         "repository.context.read",
@@ -9966,7 +9966,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Issue context",
       description:
         "Projects optional GitHub issue/task binding for PR workflows without network reads or mutation.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::issueContextForGithub",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::issueContextForGithub",
       capabilityScope: [
         "github.issue.read",
         "github.context.read",
@@ -9988,7 +9988,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "PR attempt",
       description:
         "Records preview-only PR intent, authority requirements, branch evidence, and diff artifacts before any GitHub mutation.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::prAttemptForRepository",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::prAttemptForRepository",
       capabilityScope: [
         "github.pr.preview",
         "github.context.read",
@@ -10013,7 +10013,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Review gate",
       description:
         "Blocks PR creation until review policy, reviewers, and required checks are satisfied.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::reviewGateForPrAttempt",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::reviewGateForPrAttempt",
       capabilityScope: [
         "review.gate.evaluate",
         "github.pr.preview",
@@ -10037,7 +10037,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "GitHub PR create",
       description:
         "Builds the dry-run GitHub PR create request plan, request hash, authority boundary, and blockers without network lookup or mutation.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::githubPrCreatePlanForReviewGate",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::githubPrCreatePlanForReviewGate",
       capabilityScope: [
         "github.pr.create",
         "github.pr.preview",
@@ -10061,7 +10061,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Skill registry",
       description:
         "Discovers governed runtime skills from IOI, Agents, Cursor, Claude, and global skill directories.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::listSkills",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::listSkills",
       capabilityScope: ["skill.catalog.read", "workflow.context.read"],
       eventKinds: ["SkillRegistryProjection"],
       evidence: ["runtime.skills", "skill.hashes", "skill.provenance", "active_skill_hook_manifest"],
@@ -10073,7 +10073,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Hook registry",
       description:
         "Discovers governed runtime hooks, event subscriptions, failure policy, and authority declarations.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::listHooks",
+      kernelRef: "crates/node/src/bin/hypervisor-daemon.rs::listHooks",
       capabilityScope: ["hook.catalog.read", "workflow.activation.read"],
       eventKinds: ["HookRegistryProjection"],
       evidence: [

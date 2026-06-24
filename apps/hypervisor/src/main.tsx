@@ -20,6 +20,17 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
+// T7 (hybrid UX) — native operator surfaces projecting daemon truth over the Session Execution
+// Binding. The served reference is now dev_reference_only; these React routes are the product
+// projection. See internal-docs/implementation/hypervisor-ux-strategy-decision.md.
+import {
+  HomeSurface,
+  SessionsSurface,
+  SessionDetailSurface,
+  ProvidersSurface,
+  EnvironmentsSurface,
+} from "./surfaces/NativeCockpit";
+import { NativeWorkbench } from "./surfaces/NativeWorkbench";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -55,6 +66,12 @@ function renderHypervisorApp() {
       <BrowserRouter>
         <AppMetricsBeacon />
         <Routes>
+          <Route path="/" element={<HomeSurface />} />
+          <Route path="/sessions" element={<SessionsSurface />} />
+          <Route path="/sessions/:id" element={<SessionDetailSurface />} />
+          <Route path="/providers" element={<ProvidersSurface />} />
+          <Route path="/environments" element={<EnvironmentsSurface />} />
+          <Route path="/workbench/:id" element={<NativeWorkbench />} />
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
           <Route path="*" element={<ServedElsewhereNotice />} />
         </Routes>
