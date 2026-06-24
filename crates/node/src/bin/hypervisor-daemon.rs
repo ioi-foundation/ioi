@@ -696,6 +696,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/workruns/:id/execute",
             post(environment_routes::handle_workrun_execute),
         )
+        // Scoped terminal/logs (top-level path avoids the `:action` param collision).
+        .route(
+            "/v1/hypervisor/exec",
+            post(environment_routes::handle_workspace_exec),
+        )
         // WS-D: harness session binding admission.
         .route(
             "/v1/hypervisor/harness-bindings",

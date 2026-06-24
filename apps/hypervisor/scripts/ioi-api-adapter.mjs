@@ -67,9 +67,33 @@ export async function handle(pathname, bodyText) {
     /* keep {} */
   }
 
-  // ---- IOI-native passthrough (WS-I: injected surfaces; read-only daemon projections) ----
+  // ---- IOI-native passthrough (WS-I: injected surfaces; daemon projections) ----
   if (pathname.startsWith("/api/ioi/")) {
     const sub = pathname.slice("/api/ioi/".length);
+    // Writes the IOI panel owns: the scoped terminal + the model-driven WorkRun turn.
+    if (sub === "exec") {
+      try {
+        return json(await daemon("POST", "/v1/hypervisor/exec", body));
+      } catch (e) {
+        return json({ error: e.message, daemon: "unreachable" });
+      }
+    }
+    const execTurn = sub.match(/^workruns\/([^/]+)\/execute$/);
+    if (execTurn) {
+      try {
+        return json(await daemon("POST", `/v1/hypervisor/workruns/${encodeURIComponent(execTurn[1])}/execute`));
+      } catch (e) {
+        return json({ error: e.message, daemon: "unreachable" });
+      }
+    }
+    if (sub === "workruns" && bodyText && body.environment_id) {
+      try {
+        return json(await daemon("POST", "/v1/hypervisor/workruns", body));
+      } catch (e) {
+        return json({ error: e.message, daemon: "unreachable" });
+      }
+    }
+    // Reads (GET): daemon projections.
     const map = {
       "authority/posture": "/v1/hypervisor/authority/posture",
       "environment-classes": "/v1/hypervisor/environment-classes",

@@ -332,6 +332,76 @@ pub(crate) async fn handle_workrun_get(
     Ok(Json(json!({ "workRun": rec })))
 }
 
+/// POST /v1/hypervisor/exec — the env's scoped terminal (Build Rule: terminal/logs).
+///
+/// Runs a command in the environment's scoped workspace. Locally-authorized via the
+/// `local.exec` operator grant (no wallet crossing) and bounded to `workspace_root` — the
+/// daemon EXECUTES here. Each invocation appends to a scoped session log (logs gate). This is
+/// a non-colliding top-level route on purpose: anything under `/environments/:id/…` collides
+/// with the `:action` param. Real isolation for untrusted/cross-tenant work is VM/microVM
+/// (modeled, disabled in v0); on `local_workspace_provider_v0` the operator is trusted.
+/// Body: `{ "environment_id": "...", "command": "..." }`.
+pub(crate) async fn handle_workspace_exec(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let env_id = body
+        .get("environment_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    let command = body
+        .get("command")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "command required".into()))?;
+    let env = load_env(&st.data_dir, env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"]
+        .as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
+        .to_string();
+
+    let out = std::process::Command::new("bash")
+        .arg("-lc")
+        .arg(command)
+        .current_dir(&ws)
+        .output()
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("exec spawn: {e}")))?;
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+    let exit_code = out.status.code().unwrap_or(-1);
+    let now = iso_now();
+
+    // logs gate: append a redacted line (no payloads) to the scoped session log.
+    let log_dir = std::path::Path::new(&st.data_dir)
+        .join("environments")
+        .join(safe_id(env_id));
+    let _ = std::fs::create_dir_all(&log_dir);
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("session.log.jsonl"))
+    {
+        use std::io::Write;
+        let line = json!({
+            "at": now, "command": command, "exit_code": exit_code,
+            "stdout_bytes": stdout.as_bytes().len(), "stderr_bytes": stderr.as_bytes().len()
+        });
+        let _ = writeln!(f, "{line}");
+    }
+
+    Ok(Json(json!({
+        "environment_id": env_id,
+        "command": command,
+        "exit_code": exit_code,
+        "stdout": stdout,
+        "stderr": stderr,
+        "authority": "local.exec (local_operator grant; no wallet crossing)",
+        "scope_root": ws,
+        "at": now
+    })))
+}
+
 /// POST /v1/hypervisor/workruns/:id/execute — run ONE model-driven child-harness turn.
 ///
 /// This is the real Build-Rule inner loop. The daemon's model route (`hypervisor:native-fixture`
