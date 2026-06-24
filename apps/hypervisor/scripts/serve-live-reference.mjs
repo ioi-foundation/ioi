@@ -66,13 +66,13 @@ function proxyToMirror(req, res, body) {
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
-  req.on("end", () => {
+  req.on("end", async () => {
     const body = Buffer.concat(chunks);
     const pathname = (req.url || "").split("?")[0];
     if (pathname.startsWith("/api/")) {
       let handled = null;
       try {
-        handled = adapter.handle(pathname, body.toString("utf8"));
+        handled = await adapter.handle(pathname, body.toString("utf8"));
       } catch (e) {
         console.error("[ioi-api-adapter]", e);
       }
