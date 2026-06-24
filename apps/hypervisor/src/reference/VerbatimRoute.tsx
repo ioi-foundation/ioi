@@ -6,7 +6,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ReferenceOverlays } from "./overlays";
-import { resolveCapture, hasCapture } from "./captures";
+import { resolveCapture, hasCapture, shellKey } from "./captures";
 import { wireReferenceShell } from "./wiring";
 import { morphInto } from "./morph";
 import { useReferenceTheme } from "../surfaces/Home/HypervisorReferenceShell";
@@ -17,6 +17,7 @@ export function VerbatimRoute() {
   const location = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const shellRef = useRef<string>("");
   const navRef = useRef(navigate);
   navRef.current = navigate;
 
@@ -25,8 +26,9 @@ export function VerbatimRoute() {
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const html = resolveCapture(location.pathname);
-    el.innerHTML = html ?? NOT_FOUND_HTML;
+    const html = resolveCapture(location.pathname) ?? NOT_FOUND_HTML;
+    el.innerHTML = html;
+    shellRef.current = shellKey(html);
     setRoot(el);
     const cleanup = wireReferenceShell(el, {
       navigate: (to) => navRef.current(to),
@@ -46,8 +48,18 @@ export function VerbatimRoute() {
     }
     const el = rootRef.current;
     if (!el) return;
-    const html = resolveCapture(location.pathname);
-    morphInto(el, html ?? NOT_FOUND_HTML);
+    const html = resolveCapture(location.pathname) ?? NOT_FOUND_HTML;
+    const key = shellKey(html);
+    if (key === shellRef.current) {
+      // Same shell: morph in place so the sidebar/chrome keep their identity.
+      morphInto(el, html);
+    } else {
+      // Shell change (e.g. main <-> settings): full replace; morphing across shells
+      // leaves stale state. Wiring/overlays are bound to the persistent root, so they
+      // survive the innerHTML swap.
+      el.innerHTML = html;
+      shellRef.current = key;
+    }
     el.scrollTop = 0;
   }, [location.pathname]);
 

@@ -62,3 +62,14 @@ export function resolveCapture(pathname: string): string | null {
 export function hasCapture(pathname: string): boolean {
   return resolveCapture(pathname) != null;
 }
+
+/**
+ * Which persistent shell a capture belongs to. Navigation morphs (persistent shell)
+ * only within the same shell; crossing shells does a full replace (the sidebar content
+ * differs — main nav vs settings nav — and morphing between them leaves stale state).
+ */
+export function shellKey(html: string): string {
+  if (html.includes('href="/settings/billing"')) return "settings";
+  if (html.includes("data-sidebar-container")) return "main";
+  return "other";
+}
