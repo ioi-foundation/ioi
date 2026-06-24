@@ -6,7 +6,7 @@
 // the completion signal is `node scripts/verify-phase1-env-lifecycle.mjs --n 25` green with zero
 // orphans. Usage: --n <iterations> (default 1), --keep (don't wipe data dir on exit).
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -172,11 +172,68 @@ async function gateWs3() {
   await api("POST", `/v1/hypervisor/environments/${e5}/delete`);
 }
 
+// G(WS-4): real cloud-hypervisor microVM — in-guest execution (kernel boundary), teardown clean.
+import { existsSync as _exists } from "node:fs";
+import { homedir } from "node:os";
+import { execSync } from "node:child_process";
+const TOOLCHAIN = process.env.IOI_VM_TOOLCHAIN_DIR || join(homedir(), ".ioi/vm-toolchain");
+const HOST_UNAME = (() => { try { return execSync("uname -r").toString().trim(); } catch { return "?"; } })();
+
+async function gateWs4() {
+  if (!_exists(join(TOOLCHAIN, "supply-manifest.json"))) {
+    console.log("  [WS-4] SKIPPED — VM toolchain not provisioned (run scripts/phase1/provision-vm-toolchain.sh)");
+    failures++; console.log("    ✗ FAIL: WS-4 requires the VM toolchain"); return;
+  }
+  console.log("  [WS-4] real cloud-hypervisor microVM (in-guest execution, kernel boundary)");
+  const recipe = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", init_tasks: [{ name: "build", command: "echo from-guest > guestbuilt.txt && uname -r > kver.txt", trigger: "environment_start", required: true }] } });
+  const env = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: recipe.json.recipe.recipe_ref } })).json.environment.id;
+  const started = (await api("POST", `/v1/hypervisor/environments/${env}/start`)).json.environment;
+  const stx = started.status || {};
+  ok(stx.vm?.monitor === "cloud-hypervisor", `booted a real cloud-hypervisor microVM (monitor=${stx.vm?.monitor})`);
+  ok(stx.isolation_claim === "cross_tenant_capable", `isolation_claim=cross_tenant_capable (got ${stx.isolation_claim})`);
+  ok(stx.minimum_isolation === "vm_kernel", `minimum_isolation=vm_kernel (got ${stx.minimum_isolation})`);
+  ok(stx.components?.sandbox?.phase === "ready", "sandbox component ready (VM kernel boundary)");
+  const task = (stx.tasks || [])[0] || {};
+  ok(task.executed_in === "guest" && task.phase === "succeeded", `recipe task ran IN-GUEST + succeeded (executed_in=${task.executed_in})`);
+  ok(stx.readiness?.mode === "full", `readiness full (got ${stx.readiness?.mode})`);
+
+  // THE kernel-isolation proof: a command exec'd in the env runs in the GUEST kernel, not the host.
+  const guestU = await api("POST", "/v1/hypervisor/exec", { environment_id: env, command: "uname -r" });
+  const gk = (guestU.json.stdout || "").trim();
+  ok(guestU.json.executed_in === "guest", "exec routes IN-GUEST while VM is live");
+  ok(gk && gk !== HOST_UNAME, `guest kernel (${gk}) differs from host kernel (${HOST_UNAME}) — real isolation`);
+
+  // stop tears the VM down (no orphan): exec now falls back to the HOST, and the EXPORTED guest
+  // file is present on the host workspace (workspace round-trip proof).
+  await api("POST", `/v1/hypervisor/environments/${env}/stop`);
+  const hostCat = await api("POST", "/v1/hypervisor/exec", { environment_id: env, command: "cat guestbuilt.txt" });
+  ok(hostCat.json.executed_in === "host", "after stop, exec falls back to host (VM torn down — no orphan)");
+  ok((hostCat.json.stdout || "").includes("from-guest"), "guest's file exported back to the host workspace");
+
+  await api("POST", `/v1/hypervisor/environments/${env}/delete`);
+  ok(countVmProcs(env) === 0, `no orphan cloud-hypervisor process after delete (found ${countVmProcs(env)})`);
+}
+
+// Count real cloud-hypervisor processes referencing an env (scans /proc cmdlines — no pgrep
+// self-match). Used to prove teardown leaves zero orphan VMs (G3/G7).
+function countVmProcs(env) {
+  let n = 0;
+  for (const pid of readdirSync("/proc")) {
+    if (!/^\d+$/.test(pid)) continue;
+    try {
+      const cl = readFileSync(`/proc/${pid}/cmdline`).toString().replace(/\0/g, " ");
+      if (cl.includes("cloud-hypervisor") && cl.includes(env)) n++;
+    } catch { /* process gone */ }
+  }
+  return n;
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
   await gateWs2();
   await gateWs3();
+  await gateWs4();
 }
 
 // ---- harness ----

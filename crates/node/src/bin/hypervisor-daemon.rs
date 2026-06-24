@@ -32,6 +32,8 @@ mod lifecycle_routes;
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
 mod recipe_routes;
+#[path = "hypervisor_daemon_routes/microvm.rs"]
+mod microvm;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
 
@@ -96,6 +98,10 @@ pub(crate) struct DaemonState {
     // the execution authority (the `port_exposure` scope). Aborted/replaced on
     // re-execute; the tasks die with the daemon process.
     pub(crate) preview_servers: Mutex<HashMap<String, PreviewServer>>,
+    // WS-4 — live cloud-hypervisor microVMs keyed by environment id. A running env on the
+    // microvm substrate keeps its VM here so WorkRun/exec requests run IN-GUEST; stop/delete
+    // shuts it down. The VMs die with the daemon process (WS-5/G5 add restart reconciliation).
+    pub(crate) live_vms: Mutex<HashMap<String, microvm::VmHandle>>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -230,6 +236,7 @@ async fn async_main() -> anyhow::Result<()> {
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
+        live_vms: Mutex::new(HashMap::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the

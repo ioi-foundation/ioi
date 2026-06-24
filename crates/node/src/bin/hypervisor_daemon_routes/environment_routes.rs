@@ -339,6 +339,103 @@ fn typed_port(p: &Value) -> Value {
         "access_policy": access, "capability_lease_ref": Value::Null, "url": Value::Null, "exposure_state": exposure })
 }
 
+// ---- WS-4: microVM provisioning (cloud-hypervisor, real KVM isolation) ----
+
+fn env_is_microvm(env: &Value, recipe: Option<&Value>) -> bool {
+    env["spec"]["environment_class_id"].as_str() == Some("microvm")
+        || recipe.and_then(|r| r["substrate"].as_str()) == Some("microvm")
+}
+
+/// Boot a cloud-hypervisor microVM for the env, import the scoped workspace into the guest tmpfs,
+/// and store the live handle. Sets the sandbox/isolation status to the REAL vm_kernel boundary.
+fn provision_microvm(st: &DaemonState, env: &mut Value, env_id: &str, ws: &str) -> Result<(), AppError> {
+    use super::microvm::{self, VmMonitor};
+    let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
+    let tc = microvm::resolve_toolchain(&st.home_dir).map_err(|e| app(format!("vm toolchain: {e}")))?;
+    let run_dir = std::path::Path::new(&st.data_dir)
+        .join("environments")
+        .join(safe_id(env_id))
+        .join("vm");
+    let spec = microvm::VmSpec { ch_bin: tc.ch_bin, kernel: tc.kernel, initramfs: tc.initramfs, vcpus: 2, mem_mib: 1024, run_dir };
+    let monitor = microvm::CloudHypervisorMonitor;
+    let vm = monitor.start(&spec).map_err(|e| app(format!("microvm start: {e}")))?;
+    let tar = microvm::tar_dir(std::path::Path::new(ws)).map_err(|e| app(format!("tar workspace: {e}")))?;
+    monitor.import_workspace(&vm, &tar).map_err(|e| app(format!("import workspace: {e}")))?;
+    let proto = monitor.proto_version(&vm).unwrap_or(0);
+    // Honest isolation labels — a real kernel boundary now backs execution.
+    env["status"]["substrate"] = json!("microvm");
+    env["status"]["provider"] = json!("microvm_provider_v1");
+    env["status"]["isolation_claim"] = json!("cross_tenant_capable");
+    env["status"]["minimum_isolation"] = json!("vm_kernel");
+    env["status"]["trust_posture"] = json!("untrusted_code_capable");
+    env["status"]["vm"] = json!({ "monitor": "cloud-hypervisor", "pid": vm.pid, "guest_agent_proto": proto });
+    st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
+    Ok(())
+}
+
+/// Run a resolution's tasks IN-GUEST via the live VM monitor (real kernel isolation), returning
+/// typed EnvironmentTask records marked `executed_in: guest`.
+fn run_tasks_in_guest(st: &DaemonState, env_id: &str, resolution: &Value) -> Result<Vec<Value>, AppError> {
+    use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+    let monitor = CloudHypervisorMonitor;
+    let vms = st.live_vms.lock().unwrap();
+    let vm = vms
+        .get(env_id)
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live microVM for env".into()))?;
+    let mut results = Vec::new();
+    for key in ["resolved_prebuild_tasks", "resolved_tasks"] {
+        if let Some(arr) = resolution.get(key).and_then(|v| v.as_array()) {
+            for t in arr {
+                let name = t.get("name").and_then(|v| v.as_str()).unwrap_or("task");
+                let command = t.get("command").and_then(|v| v.as_str()).unwrap_or("");
+                let trigger = t.get("trigger").and_then(|v| v.as_str()).unwrap_or("environment_start");
+                let required = t.get("required").and_then(|v| v.as_bool()).unwrap_or(false);
+                let started_at = iso_now();
+                let (phase, code) = if command.is_empty() {
+                    ("succeeded", 0)
+                } else {
+                    match monitor.exec(vm, command) {
+                        Ok(o) => (if o.exit_code == 0 { "succeeded" } else { "failed" }, o.exit_code),
+                        Err(_) => ("failed", -1),
+                    }
+                };
+                results.push(json!({ "task_ref": format!("task_{}", safe_id(name)), "name": name, "command": command,
+                    "trigger": trigger, "lifecycle": if required { "required" } else { "optional" },
+                    "phase": phase, "exit_code": code, "started_at": started_at, "ended_at": iso_now(),
+                    "executed_in": "guest", "log_ref": Value::Null }));
+            }
+        }
+    }
+    Ok(results)
+}
+
+/// Export the guest workspace tar back onto the host scoped workspace (so WorkRun git/commit runs
+/// host-side against the guest's results; the host *checkout* is never the workspace).
+fn export_guest_workspace(st: &DaemonState, env_id: &str, ws: &str) -> Result<(), AppError> {
+    use super::microvm::{self, CloudHypervisorMonitor, VmMonitor};
+    let monitor = CloudHypervisorMonitor;
+    let vms = st.live_vms.lock().unwrap();
+    let vm = vms
+        .get(env_id)
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live microVM for env".into()))?;
+    let tar = monitor
+        .export_workspace(vm)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("export workspace: {e}")))?;
+    microvm::untar_into(std::path::Path::new(ws), &tar)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("untar workspace: {e}")))?;
+    Ok(())
+}
+
+/// Shut down + remove an env's live microVM if present (idempotent). Teardown leaves no orphan VM.
+fn teardown_microvm(st: &DaemonState, env_id: &str) {
+    use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+    let mut vm = match st.live_vms.lock().unwrap().remove(env_id) {
+        Some(v) => v,
+        None => return,
+    };
+    let _ = CloudHypervisorMonitor.stop(&mut vm);
+}
+
 // ---- handlers ----
 
 /// GET /v1/hypervisor/projects — list persisted projects (WS-C). The POST create endpoint
@@ -458,27 +555,55 @@ pub(crate) async fn handle_environment_action(
                 }
             }
 
-            // sandbox — local process lane (WS-4 replaces with the microVM kernel boundary).
-            set_component(&mut env, "sandbox", "ready", "local process sandbox (not cross-tenant)");
-            observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", "local process sandbox ready");
-
-            // resource_isolation + connectivity — process/host lane (WS-10 enforces cgroups/netns).
-            set_component(&mut env, "resource_isolation", "ready", "process-scoped (cgroups: WS-10)");
-            observe(&mut env, "enforcing_resource_isolation", "resource_isolation", "content_ready", "info", "resource isolation (process-scoped)");
-            set_component(&mut env, "connectivity", "ready", "host-local connectivity");
-            observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (host-local)");
-
-            // WS-3 — typed Services / Tasks / Ports. If a recipe is bound, resolve it, RUN its
-            // tasks as real processes, build typed services/ports, and let the ReadinessGate
-            // (which now also gates on required-task success + service health) decide readiness.
+            // Resolve the recipe up front so the substrate (local vs microVM) can be decided.
             let recipe_ref = env["spec"]["recipe_ref"].as_str().filter(|s| !s.is_empty()).map(String::from);
             let recipe = recipe_ref.as_deref().and_then(|r| super::recipe_routes::load_recipe(&st.data_dir, r));
+            let is_microvm = env_is_microvm(&env, recipe.as_ref());
+
+            // sandbox — WS-4: a REAL cloud-hypervisor microVM kernel boundary on the microvm
+            // substrate (execution runs in-guest); else the local process lane.
+            if is_microvm {
+                set_component(&mut env, "sandbox", "creating", "booting cloud-hypervisor microVM");
+                observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", "booting cloud-hypervisor microVM");
+                match provision_microvm(&st, &mut env, &id, &ws) {
+                    Ok(()) => {
+                        set_component(&mut env, "sandbox", "ready", "microVM kernel boundary (cloud-hypervisor)");
+                        observe(&mut env, "reconciling_sandbox", "sandbox", "ever_ready", "info", "microVM ready (vm_kernel isolation, execution in-guest)");
+                        set_component(&mut env, "resource_isolation", "ready", "vm-isolated (kernel boundary)");
+                        observe(&mut env, "enforcing_resource_isolation", "resource_isolation", "content_ready", "info", "resource isolation (vm kernel)");
+                        set_component(&mut env, "connectivity", "ready", "guest-local connectivity");
+                        observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (guest-local)");
+                    }
+                    Err(e) => {
+                        set_component(&mut env, "sandbox", "failed", &format!("microVM boot failed: {}", e.1));
+                        observe(&mut env, "reconciling_sandbox", "sandbox", "failed", "error", &format!("microVM boot failed: {}", e.1));
+                        set_component(&mut env, "resource_isolation", "failed", "no sandbox");
+                    }
+                }
+            } else {
+                set_component(&mut env, "sandbox", "ready", "local process sandbox (not cross-tenant)");
+                observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", "local process sandbox ready");
+                set_component(&mut env, "resource_isolation", "ready", "process-scoped (cgroups: WS-10)");
+                observe(&mut env, "enforcing_resource_isolation", "resource_isolation", "content_ready", "info", "resource isolation (process-scoped)");
+                set_component(&mut env, "connectivity", "ready", "host-local connectivity");
+                observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (host-local)");
+            }
+
+            // WS-3 — typed Services / Tasks / Ports. If a recipe is bound, resolve it, RUN its
+            // tasks (in-guest for microVM, on the host for local), build typed services/ports, and
+            // let the ReadinessGate decide readiness.
             if let Some(recipe) = recipe {
                 observe(&mut env, "resolving_recipe", "recipe", "content_ready", "info", "resolving recipe → plan");
                 let resolution = super::recipe_routes::resolve_recipe(&st.data_dir, &recipe, &id)?;
-                // run the resolved tasks for real (prebuild → environment_start).
                 observe(&mut env, "starting_services", "automations", "content_ready", "info", "running resolved tasks");
-                let task_results = run_resolved_tasks(&st.data_dir, &id, &ws, &resolution);
+                let task_results = if is_microvm {
+                    let r = run_tasks_in_guest(&st, &id, &resolution)?;
+                    // bring the guest's results back onto the host scoped workspace.
+                    let _ = export_guest_workspace(&st, &id, &ws);
+                    r
+                } else {
+                    run_resolved_tasks(&st.data_dir, &id, &ws, &resolution)
+                };
                 let any_required_failed = task_results.iter().any(|t| {
                     t["lifecycle"].as_str() == Some("required") && t["phase"].as_str() != Some("succeeded")
                 });
@@ -531,6 +656,8 @@ pub(crate) async fn handle_environment_action(
             env["spec"]["desired_phase"] = json!("stopped");
             set_phase(&mut env, "stopping");
             observe(&mut env, "stopping", "provisioner", "stopped_by_request", "info", "stopping environment (workspace retained)");
+            // WS-4: graceful microVM shutdown (no orphan VM/socket left behind).
+            teardown_microvm(&st, &id);
             // Runtime components go pending; workspace material is retained.
             for c in ["sandbox", "resource_isolation", "connectivity", "automations", "agent_work"] {
                 set_component(&mut env, c, "pending", "stopped");
@@ -551,6 +678,7 @@ pub(crate) async fn handle_environment_action(
         }
         "delete" => {
             set_phase(&mut env, "stopping");
+            teardown_microvm(&st, &id);
             let dir = std::path::Path::new(&st.data_dir).join("environments").join(safe_id(&id));
             let _ = std::fs::remove_dir_all(&dir);
             env["status"]["workspace_root"] = Value::Null;
@@ -663,15 +791,29 @@ pub(crate) async fn handle_workspace_exec(
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
         .to_string();
 
-    let out = std::process::Command::new("bash")
-        .arg("-lc")
-        .arg(command)
-        .current_dir(&ws)
-        .output()
-        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("exec spawn: {e}")))?;
-    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-    let exit_code = out.status.code().unwrap_or(-1);
+    // WS-4: if a live microVM backs this env, the terminal runs IN-GUEST (real kernel boundary).
+    let in_guest = st.live_vms.lock().unwrap().contains_key(env_id);
+    let (stdout, stderr, exit_code) = if in_guest {
+        use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+        let vms = st.live_vms.lock().unwrap();
+        let vm = vms.get(env_id).ok_or_else(|| AppError(StatusCode::CONFLICT, "no live VM".into()))?;
+        let out = CloudHypervisorMonitor
+            .exec(vm, command)
+            .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("guest exec: {e}")))?;
+        (out.output, String::new(), out.exit_code)
+    } else {
+        let out = std::process::Command::new("bash")
+            .arg("-lc")
+            .arg(command)
+            .current_dir(&ws)
+            .output()
+            .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("exec spawn: {e}")))?;
+        (
+            String::from_utf8_lossy(&out.stdout).to_string(),
+            String::from_utf8_lossy(&out.stderr).to_string(),
+            out.status.code().unwrap_or(-1),
+        )
+    };
     let now = iso_now();
 
     // logs gate: append a redacted line (no payloads) to the scoped session log.
@@ -700,6 +842,7 @@ pub(crate) async fn handle_workspace_exec(
         "stderr": stderr,
         "authority": "local.exec (local_operator grant; no wallet crossing)",
         "scope_root": ws,
+        "executed_in": if in_guest { "guest" } else { "host" },
         "at": now
     })))
 }
