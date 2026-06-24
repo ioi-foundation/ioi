@@ -157,7 +157,10 @@ fn new_env(id: &str, spec: &Value) -> Value {
             "project_id": spec.get("project_id").cloned().unwrap_or(Value::Null),
             "recipe_ref": spec.get("recipe_ref").cloned().unwrap_or(Value::Null),
             "declared_ports": spec.get("declared_ports").cloned().unwrap_or_else(|| json!([])),
-            "desired_phase": "stopped"
+            "desired_phase": "stopped",
+            // WS-7 — stop/idle policy: mode graceful|immediate|abort; idle/max-lifetime in seconds
+            // (0 = disabled). Activity signals advance status.last_activity.
+            "stop_policy": spec.get("stop_policy").cloned().unwrap_or_else(|| json!({ "mode": "graceful", "idle_timeout_secs": 0, "max_lifetime_secs": 0 }))
         },
         "status": {
             "status_version": 1,
@@ -172,7 +175,9 @@ fn new_env(id: &str, spec: &Value) -> Value {
             "isolation_claim": "not_cross_tenant",
             "workspace_root": Value::Null,
             "blocked_reason": Value::Null,
-            "last_observation_ref": Value::Null
+            "last_observation_ref": Value::Null,
+            "last_activity": now_secs(),
+            "started_secs": Value::Null
         },
         "lifecycle_observations": [],
         "created_at": now,
@@ -490,6 +495,31 @@ fn teardown_microvm(st: &DaemonState, env_id: &str) {
     let _ = CloudHypervisorMonitor.stop(&mut vm);
 }
 
+// ---- WS-7: stop / idle / activity policy ----
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Stop an environment per its stop policy: tear down the microVM (graceful), drain runtime
+/// components, set phase stopped, and record the condition (`stopped_by_request` | `timeout`).
+fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind: &str, msg: &str) {
+    let mode = env["spec"]["stop_policy"]["mode"].as_str().unwrap_or("graceful").to_string();
+    env["spec"]["desired_phase"] = json!("stopped");
+    set_phase(env, "stopping");
+    observe(env, "stopping", "provisioner", condition_kind, "info", &format!("stopping ({mode}): {msg}"));
+    teardown_microvm(st, id); // graceful poweroff + socket cleanup (no orphan VM)
+    for c in ["sandbox", "resource_isolation", "connectivity", "automations", "agent_work"] {
+        set_component(env, c, "pending", "stopped");
+    }
+    set_phase(env, "stopped");
+    recompute_readiness(env);
+    observe(env, "stopping", "provisioner", condition_kind, "info", "environment stopped (workspace retained, no orphans)");
+}
+
 // ---- handlers ----
 
 /// GET /v1/hypervisor/projects — list persisted projects (WS-C). The POST create endpoint
@@ -583,6 +613,8 @@ pub(crate) async fn handle_environment_action(
         "start" => {
             set_phase(&mut env, "starting");
             env["spec"]["desired_phase"] = json!("running");
+            env["status"]["started_secs"] = json!(now_secs());
+            env["status"]["last_activity"] = json!(now_secs());
 
             // recipe — WS-2 makes this a real repo-detected resolution; here it is implicit.
             set_component(&mut env, "recipe", "ready", "local-workspace recipe (implicit)");
@@ -728,18 +760,7 @@ pub(crate) async fn handle_environment_action(
             }
         }
         "stop" => {
-            env["spec"]["desired_phase"] = json!("stopped");
-            set_phase(&mut env, "stopping");
-            observe(&mut env, "stopping", "provisioner", "stopped_by_request", "info", "stopping environment (workspace retained)");
-            // WS-4: graceful microVM shutdown (no orphan VM/socket left behind).
-            teardown_microvm(&st, &id);
-            // Runtime components go pending; workspace material is retained.
-            for c in ["sandbox", "resource_isolation", "connectivity", "automations", "agent_work"] {
-                set_component(&mut env, c, "pending", "stopped");
-            }
-            set_phase(&mut env, "stopped");
-            recompute_readiness(&mut env);
-            observe(&mut env, "stopping", "provisioner", "stopped_by_request", "info", "environment stopped");
+            stop_environment(&st, &mut env, &id, "stopped_by_request", "operator stop");
         }
         "archive" => {
             set_phase(&mut env, "archived");
@@ -815,6 +836,39 @@ pub(crate) async fn handle_workrun_create(
     persist_record(&st.data_dir, "workruns", &wr_id, &record)
         .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist workrun: {e}")))?;
     Ok(Json(json!({ "workRun": record })))
+}
+
+/// POST /v1/hypervisor/maintenance/idle-sweep — stop running envs idle beyond their stop policy
+/// (idle_timeout_secs) or past max_lifetime_secs. Each stop is graceful + receipted via a
+/// `timeout` lifecycle observation; the microVM is torn down (no orphan).
+pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let now = now_secs();
+    let mut stopped = Vec::new();
+    for mut env in read_record_dir(&st.data_dir, "environments") {
+        if env["status"]["phase"].as_str() != Some("running") {
+            continue;
+        }
+        let id = env["id"].as_str().unwrap_or("").to_string();
+        let idle_to = env["spec"]["stop_policy"]["idle_timeout_secs"].as_u64().unwrap_or(0);
+        let max_life = env["spec"]["stop_policy"]["max_lifetime_secs"].as_u64().unwrap_or(0);
+        let last = env["status"]["last_activity"].as_u64().unwrap_or(now);
+        let started = env["status"]["started_secs"].as_u64().unwrap_or(now);
+        let idle = now.saturating_sub(last);
+        let life = now.saturating_sub(started);
+        let reason = if idle_to > 0 && idle >= idle_to {
+            Some(format!("idle {idle}s ≥ idle_timeout {idle_to}s"))
+        } else if max_life > 0 && life >= max_life {
+            Some(format!("lifetime {life}s ≥ max_lifetime {max_life}s"))
+        } else {
+            None
+        };
+        if let Some(reason) = reason {
+            stop_environment(&st, &mut env, &id, "timeout", &reason);
+            let _ = persist_env(&st.data_dir, &env);
+            stopped.push(json!({ "environment_id": id, "reason": reason }));
+        }
+    }
+    Json(json!({ "stopped": stopped, "swept_at": iso_now() }))
 }
 
 /// GET /v1/hypervisor/workruns — list (for the injected session truth window).
@@ -907,6 +961,12 @@ pub(crate) async fn handle_workspace_exec(
             "stdout_bytes": stdout.as_bytes().len(), "stderr_bytes": stderr.as_bytes().len()
         });
         let _ = writeln!(f, "{line}");
+    }
+
+    // WS-7 — activity signal: exec keeps the env from being swept as idle.
+    if let Some(mut e) = load_env(&st.data_dir, env_id) {
+        e["status"]["last_activity"] = json!(now_secs());
+        let _ = persist_env(&st.data_dir, &e);
     }
 
     Ok(Json(json!({

@@ -283,6 +283,23 @@ async function gateWs6() {
   await api("POST", `/v1/hypervisor/environments/${e2}/delete`);
 }
 
+// G(WS-7): stop / idle / activity policy — an idle env is swept to stopped (timeout observation).
+async function gateWs7() {
+  console.log("  [WS-7] stop / idle / activity policy");
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { stop_policy: { mode: "graceful", idle_timeout_secs: 1, max_lifetime_secs: 0 } } })).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  ok(s.status.phase === "running", "env running before idle");
+  let sw = await api("POST", "/v1/hypervisor/maintenance/idle-sweep");
+  ok(!(sw.json.stopped || []).some((x) => x.environment_id === e), "fresh env NOT swept (still active)");
+  await new Promise((r) => setTimeout(r, 1600));
+  sw = await api("POST", "/v1/hypervisor/maintenance/idle-sweep");
+  ok((sw.json.stopped || []).some((x) => x.environment_id === e), "idle env swept to stopped");
+  const g = (await api("GET", `/v1/hypervisor/environments/${e}`)).json.environment;
+  ok(g.status.phase === "stopped", "idle env transitioned to stopped");
+  ok((g.lifecycle_observations || []).some((o) => o.condition_kind === "timeout"), "stop recorded a timeout observation");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -291,6 +308,7 @@ async function runOnce(iter) {
   await gateWs4();
   await gateWs5();
   await gateWs6();
+  await gateWs7();
 }
 
 // ---- harness ----

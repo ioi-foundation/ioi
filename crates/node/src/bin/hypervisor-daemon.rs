@@ -710,6 +710,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/exec",
             post(environment_routes::handle_workspace_exec),
         )
+        // WS-7: idle/lifetime sweep — stop running envs past their stop policy.
+        .route(
+            "/v1/hypervisor/maintenance/idle-sweep",
+            post(environment_routes::handle_idle_sweep),
+        )
         // WS-2: DevelopmentEnvironmentRecipe (repo-detect-first) → resolution → readiness gate.
         .route(
             "/v1/hypervisor/recipes",
