@@ -46,8 +46,11 @@ function candidateEndpoints(): string[] {
   const storedModelEndpoint = readStoredEndpoint(
     MODEL_MOUNT_DAEMON_ENDPOINT_STORAGE_KEY,
   );
+  const sameOriginEndpoint =
+    typeof window !== "undefined" ? window.location.origin : "";
   return [
     envEndpoint,
+    sameOriginEndpoint,
     storedCoreEndpoint,
     storedModelEndpoint,
     HYPERVISOR_DEV_REPLAY_DEFAULT_ENDPOINT,
