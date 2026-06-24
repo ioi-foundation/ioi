@@ -20,6 +20,7 @@ import {
   WhatsNewDialog,
   IoiEnvironmentsGrid,
 } from "./HypervisorReferenceSidebarMenus";
+import { CollapsibleContent, useExitDelay } from "../parityOverlays";
 
 // Close an open popover/menu on Escape (outside-click is handled by a transparent
 // backdrop rendered alongside the menu, mirroring the launcher modal pattern).
@@ -52,12 +53,13 @@ function SidebarPopover({
   align?: "start" | "end";
   children: ReactNode;
 }) {
+  const { mounted, closing } = useExitDelay(open);
   const [rect, setRect] = useState<DOMRect | null>(null);
   useLayoutEffect(() => {
-    setRect(open && anchorRef.current ? anchorRef.current.getBoundingClientRect() : null);
+    if (open && anchorRef.current) setRect(anchorRef.current.getBoundingClientRect());
   }, [open, anchorRef]);
   useEscapeToClose(open, onClose);
-  if (!open || !rect) return null;
+  if (!mounted || !rect) return null;
   const gap = 4;
   const style: CSSProperties = {
     position: "fixed",
@@ -65,10 +67,18 @@ function SidebarPopover({
     ...(align === "end" ? { right: window.innerWidth - rect.right } : { left: rect.left }),
     ...(side === "top" ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
   };
+  // Enter plays from the captured menu's own data-[state=open]:animate-in; on close we
+  // run an animate-out on the wrapper before unmounting (matching the reference's Radix
+  // exit). The backdrop only intercepts clicks while genuinely open.
+  const exitAnim = closing
+    ? `animate-out fade-out-0 zoom-out-95 duration-150 ${side === "top" ? "slide-out-to-bottom-2" : "slide-out-to-top-2"}`
+    : "";
   return createPortal(
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden="true" />
-      <div style={style}>{children}</div>
+      {!closing && <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden="true" />}
+      <div style={style} data-state={closing ? "closed" : "open"} className={exitAnim}>
+        {children}
+      </div>
     </>,
     document.body,
   );
@@ -172,11 +182,7 @@ function SessionGroup({ label, withCreate, children }: { label: string; withCrea
           </div>
         ) : null}
       </div>
-      {open ? (
-        <div data-state="open" className="overflow-hidden">{children}</div>
-      ) : (
-        <div data-state="closed" hidden className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown animate-none" />
-      )}
+      <CollapsibleContent open={open}>{children}</CollapsibleContent>
     </div>
   );
 }
@@ -241,7 +247,7 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
   return (
     <div data-sidebar-container="true" className="relative flex-shrink-0 overflow-hidden">
       <div className="h-full overflow-hidden pt-2" data-track-location="sidebar">
-        <div className="relative h-full" style={{ width: collapsed ? "48px" : "300px" }}>
+        <div className="relative h-full" style={{ width: collapsed ? "48px" : "300px", transition: "width 200ms ease-in-out" }}>
           <div data-testid="sidebar" className="flex size-full flex-col pb-[6px]">
             {/* header: brand + collapse */}
             <div className="flex items-center justify-between px-2 pb-0 pt-1">
