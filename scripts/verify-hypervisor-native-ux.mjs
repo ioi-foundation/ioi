@@ -177,7 +177,19 @@ async function runBrowserTier() {
   const srv = http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith("/v1/")) {
-        const up = await fetch(`http://127.0.0.1:${PORT}${req.url}`, { method: req.method });
+        const body = await new Promise((resolve, reject) => {
+          const chunks = [];
+          req.on("data", (chunk) => chunks.push(chunk));
+          req.on("end", () => resolve(chunks.length ? Buffer.concat(chunks) : undefined));
+          req.on("error", reject);
+        });
+        const headers = {};
+        if (req.headers["content-type"]) headers["content-type"] = req.headers["content-type"];
+        const up = await fetch(`http://127.0.0.1:${PORT}${req.url}`, {
+          method: req.method,
+          headers,
+          body: body && body.length ? body : undefined,
+        });
         res.writeHead(up.status, { "Content-Type": up.headers.get("content-type") || "application/json" });
         res.end(await up.text());
         return;
