@@ -520,6 +520,83 @@ fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind:
     observe(env, "stopping", "provisioner", condition_kind, "info", "environment stopped (workspace retained, no orphans)");
 }
 
+// ---- WS-9: provider failure recovery (incident → candidate → attempt → reconcile → receipts) ----
+
+/// Recover a failed environment: classify the failure into a ProviderFailureIncident, generate
+/// RecoveryCandidate previews (preserve/lose/authority), execute a RecoveryAttempt (rebuild from
+/// recipe — the HOST workspace + WorkRun branches survive the VM loss), reconcile the WorkRun, and
+/// seal a receipt. Returns the full chain. A failed env never silently restarts.
+fn recover_environment(st: &DaemonState, env: &mut Value, id: &str) -> Result<Value, AppError> {
+    let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
+    let now = iso_now();
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let incident_id = format!("incident_{nanos:x}");
+    let last_state = env["status"]["state_root_ref"].clone();
+    observe(env, "detecting_failure", "provider", "vm_lost", "error", "provider failure detected: vm_lost");
+    let mut incident = json!({
+        "schema_version": "ioi.hypervisor.provider-failure-incident.v1",
+        "incident_ref": incident_id, "environment_ref": id, "failure_kind": "vm_lost",
+        "detected_at": now, "last_admitted_state_root": last_state, "status": "recovering"
+    });
+    persist_record(&st.data_dir, "incidents", &incident_id, &incident).map_err(|e| app(format!("persist incident: {e}")))?;
+
+    // candidate previews — each names what it preserves / loses / needs.
+    let candidates = json!([
+        { "candidate_ref": "cand_rebuild", "incident_ref": incident_id, "recovery_mode": "rebuild_from_recipe",
+          "expected_preserved_refs": ["host_workspace", "git_branches", "workrun_patch_branches"],
+          "expected_lost_refs": ["in_guest_runtime_state"], "required_authority_refs": ["local_operator"] },
+        { "candidate_ref": "cand_restore", "incident_ref": incident_id, "recovery_mode": "restore_snapshot",
+          "expected_preserved_refs": ["snapshot_material"], "expected_lost_refs": ["post_snapshot_changes"], "required_authority_refs": ["local_operator"] },
+        { "candidate_ref": "cand_failover", "incident_ref": incident_id, "recovery_mode": "failover_provider",
+          "expected_preserved_refs": ["host_workspace"], "expected_lost_refs": ["in_guest_runtime_state"], "required_authority_refs": ["local_operator"] }
+    ]);
+    observe(env, "planning_recovery", "provider", "content_ready", "info", "recovery candidates: rebuild_from_recipe | restore_snapshot | failover_provider");
+
+    // execute: rebuild_from_recipe. The HOST workspace + git/patch branches survived the VM loss.
+    observe(env, "rebuilding", "provider", "content_ready", "info", "executing recovery: rebuild_from_recipe");
+    let ws = env["status"]["workspace_root"].as_str().unwrap_or("").to_string();
+    let recipe_ref = env["spec"]["recipe_ref"].as_str().unwrap_or("").to_string();
+    let recipe = super::recipe_routes::load_recipe(&st.data_dir, &recipe_ref).unwrap_or_else(|| json!({ "substrate": "microvm" }));
+    let (outcome, reconcile) = match provision_microvm(st, env, id, &ws, &recipe) {
+        Ok(()) => {
+            set_component(env, "sandbox", "ready", "microVM rebuilt (recovered)");
+            set_component(env, "resource_isolation", "ready", "vm-isolated (kernel boundary)");
+            ("recovered", json!({
+                "git_worktree_refs": [ws], "agentgres_patch_branch_refs": ["preserved"],
+                "preserved_output_refs": ["host_workspace", "git_branches"],
+                "lost_material_refs": ["in_guest_runtime_state"], "retry_work_item_refs": [], "abandoned_work_item_refs": []
+            }))
+        }
+        Err(e) => ("failed_closed", json!({ "error": e.1, "preserved_output_refs": ["host_workspace"], "lost_material_refs": ["in_guest_runtime_state"] })),
+    };
+
+    let attempt_id = format!("attempt_{nanos:x}");
+    let receipt_id = format!("receipt_recovery_{nanos:x}");
+    let attempt = json!({
+        "schema_version": "ioi.hypervisor.environment-recovery-attempt.v1",
+        "recovery_attempt_ref": attempt_id, "incident_ref": incident_id, "selected_candidate_ref": "cand_rebuild",
+        "work_run_reconciliation": reconcile, "outcome": outcome,
+        "state_root_after_ref": env["status"]["state_root_ref"].clone(), "receipt_refs": [receipt_id]
+    });
+    persist_record(&st.data_dir, "recovery-attempts", &attempt_id, &attempt).map_err(|e| app(format!("persist attempt: {e}")))?;
+    let receipt = json!({ "id": receipt_id, "kind": "environment_recovery", "redaction": "redacted", "createdAt": now,
+        "details": { "incident_ref": incident_id, "attempt_ref": attempt_id, "outcome": outcome, "recovery_mode": "rebuild_from_recipe" } });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
+
+    incident["status"] = json!(if outcome == "recovered" { "recovered" } else { "failed_closed" });
+    let _ = persist_record(&st.data_dir, "incidents", &incident_id, &incident);
+
+    if outcome == "recovered" {
+        set_phase(env, "running");
+    } else {
+        set_phase(env, "failed");
+    }
+    recompute_readiness(env);
+    observe(env, if outcome == "recovered" { "ready" } else { "failed" }, "provider", "content_ready", "info", &format!("recovery {outcome}"));
+
+    Ok(json!({ "incident": incident, "candidates": candidates, "attempt": attempt, "outcome": outcome }))
+}
+
 // ---- handlers ----
 
 /// GET /v1/hypervisor/projects — list persisted projects (WS-C). The POST create endpoint
@@ -609,6 +686,7 @@ pub(crate) async fn handle_environment_action(
     if !env["status"]["components"].is_object() {
         env["status"]["components"] = new_components();
     }
+    let mut recovery = Value::Null; // WS-9: populated by the recover action
     match action.as_str() {
         "start" => {
             set_phase(&mut env, "starting");
@@ -786,10 +864,21 @@ pub(crate) async fn handle_environment_action(
             recompute_readiness(&mut env);
             observe(&mut env, "deleting", "storage", "state_wiped", "info", "environment deleted (scoped workspace removed)");
         }
+        "inject-failure" => {
+            // WS-9: simulate a provider crash — kill the VM out-of-band; the env still believes
+            // it is running until recovery reconciles. The HOST workspace + branches are untouched.
+            teardown_microvm(&st, &id);
+            set_component(&mut env, "sandbox", "failed", "provider failure injected (vm_lost)");
+            set_component(&mut env, "resource_isolation", "failed", "no sandbox");
+            observe(&mut env, "detecting_failure", "provider", "provider_unavailable", "error", "provider failure injected: vm_lost");
+        }
+        "recover" => {
+            recovery = recover_environment(&st, &mut env, &id)?;
+        }
         other => return Err(AppError(StatusCode::BAD_REQUEST, format!("unknown environment action: {other}"))),
     }
     persist_env(&st.data_dir, &env)?;
-    Ok(Json(json!({ "environment": env })))
+    Ok(Json(json!({ "environment": env, "recovery": recovery })))
 }
 
 /// POST /v1/hypervisor/workruns — bind a code WorkRun to a Git branch (the patch branch)

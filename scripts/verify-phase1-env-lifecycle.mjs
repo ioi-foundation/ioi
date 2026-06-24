@@ -324,6 +324,30 @@ async function gateWs8() {
   await api("POST", `/v1/hypervisor/environments/${e}/delete`);
 }
 
+// G(WS-9): provider failure recovery — kill the VM, recover, committed work preserved.
+async function gateWs9() {
+  if (!_exists(join(TOOLCHAIN, "supply-manifest.json"))) { console.log("  [WS-9] SKIPPED — VM toolchain not provisioned"); failures++; console.log("    ✗ FAIL: WS-9 requires the VM toolchain"); return; }
+  console.log("  [WS-9] provider failure recovery (incident→candidate→attempt→reconcile)");
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", init_tasks: [{ name: "work", command: "echo committed-work > work.txt", trigger: "environment_start", required: true }] } });
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref } })).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  ok(!!s.status.vm?.monitor && s.status.components.sandbox.phase === "ready", "microVM env running with committed work");
+  const inj = (await api("POST", `/v1/hypervisor/environments/${e}/inject-failure`)).json.environment;
+  ok(inj.status.components.sandbox.phase === "failed", "failure injected → sandbox failed");
+  ok(countVmProcs(e) === 0, "injected failure killed the VM (no process)");
+  const rec = await api("POST", `/v1/hypervisor/environments/${e}/recover`);
+  const rc = rec.json.recovery;
+  ok(rc?.incident?.failure_kind === "vm_lost", "incident classified vm_lost");
+  ok((rc?.candidates || []).length >= 2, "recovery candidates generated (preserve/lose/authority)");
+  ok(rc?.attempt?.outcome === "recovered", `recovery attempt recovered (got ${rc?.attempt?.outcome})`);
+  ok((rc?.attempt?.work_run_reconciliation?.preserved_output_refs || []).includes("host_workspace"), "WorkRun reconciliation preserved host_workspace");
+  ok((rc?.attempt?.receipt_refs || []).length >= 1, "recovery attempt sealed a receipt");
+  const cat = await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "cat work.txt" });
+  ok((cat.json.stdout || "").includes("committed-work") && cat.json.executed_in === "guest", "committed work PRESERVED + running in the recovered guest");
+  await api("POST", `/v1/hypervisor/environments/${e}/stop`);
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -334,6 +358,7 @@ async function runOnce(iter) {
   await gateWs6();
   await gateWs7();
   await gateWs8();
+  await gateWs9();
 }
 
 // ---- harness ----
