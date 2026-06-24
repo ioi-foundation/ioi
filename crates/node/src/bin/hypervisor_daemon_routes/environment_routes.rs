@@ -142,6 +142,13 @@ fn ensure_git_repo(ws: &str) -> Result<String, AppError> {
 
 // ---- handlers ----
 
+/// GET /v1/hypervisor/projects — list persisted projects (WS-C). The POST create endpoint
+/// (lifecycle_routes) is the kernel-validated writer; this is the read/projection the
+/// cockpit's ListProjects needs.
+pub(crate) async fn handle_projects_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "projects": read_record_dir(&st.data_dir, "projects") }))
+}
+
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
 pub(crate) async fn handle_environment_classes(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "environmentClasses": [

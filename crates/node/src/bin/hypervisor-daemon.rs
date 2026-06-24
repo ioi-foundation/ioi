@@ -660,7 +660,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/projects",
-            post(lifecycle_routes::handle_project_create),
+            get(environment_routes::handle_projects_list)
+                .post(lifecycle_routes::handle_project_create),
         )
         // WS-A/WS-B: Environment object model + local_workspace_provider_v0 (daemon-owned).
         .route(
