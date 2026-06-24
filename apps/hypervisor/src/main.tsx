@@ -37,7 +37,7 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { HypervisorReferenceNotFound } from "./surfaces/NotFound/HypervisorReferenceNotFound";
 import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
-import { HypervisorReferenceShell } from "./surfaces/Home/HypervisorReferenceShell";
+import { HypervisorReferenceShell, useReferenceTheme } from "./surfaces/Home/HypervisorReferenceShell";
 import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorReferenceProjects";
 import { HypervisorReferenceProjectDetail } from "./surfaces/Projects/HypervisorReferenceProjectDetail";
 import { HypervisorReferenceApplicationSurface } from "./surfaces/Applications/HypervisorReferenceApplicationSurface";
@@ -47,6 +47,12 @@ import { HypervisorReferenceWorkspace } from "./surfaces/Workspace/HypervisorRef
 import { HypervisorReferenceSettings } from "./surfaces/Settings/HypervisorReferenceSettings";
 import type { PrimaryView } from "./surfaces/parityShellTypes";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
+import { ReferenceRoute } from "./reference/ReferenceRoute";
+import homeVerbatimHtml from "./reference/html/home.html?raw";
+import projectsVerbatimHtml from "./reference/html/projects.html?raw";
+import automationsVerbatimHtml from "./reference/html/automations.html?raw";
+import settingsVerbatimHtml from "./reference/html/settings.html?raw";
+import insightsVerbatimHtml from "./reference/html/insights.html?raw";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -73,6 +79,21 @@ function ParityShellRoute({ view, children }: { view: PrimaryView; children: Rea
   );
 }
 
+// POC: render the captured reference DOM verbatim, with the same `.ona`/`light` theme
+// scope the parity shell applies (so the vendored preflight + token layer match :9228).
+const POC_HTML: Record<string, string> = {
+  home: homeVerbatimHtml,
+  projects: projectsVerbatimHtml,
+  automations: automationsVerbatimHtml,
+  settings: settingsVerbatimHtml,
+  insights: insightsVerbatimHtml,
+};
+function ParityPocRoute() {
+  useReferenceTheme();
+  const slug = window.location.pathname.split("/parity-poc/")[1] || "home";
+  return <ReferenceRoute html={POC_HTML[slug] ?? homeVerbatimHtml} />;
+}
+
 function AppMetricsBeacon() {
   useEffect(() => {
     markHypervisorMetric("react_router_mounted");
@@ -92,6 +113,9 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
+          {/* POC: verbatim reference render (captured #root + vendored CSS, no wiring yet). */}
+          <Route path="/parity-poc" element={<ParityPocRoute />} />
+          <Route path="/parity-poc/:slug" element={<ParityPocRoute />} />
           {/* Reference-parity UX at the app root (the reference IA). */}
           <Route path="/" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
           <Route path="/home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
