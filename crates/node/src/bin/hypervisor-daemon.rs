@@ -715,6 +715,19 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/maintenance/idle-sweep",
             post(environment_routes::handle_idle_sweep),
         )
+        // WS-8: snapshot / backup / restore (operation-backed restore validity).
+        .route(
+            "/v1/hypervisor/snapshots",
+            get(environment_routes::handle_snapshots_list).post(environment_routes::handle_snapshot_create),
+        )
+        .route(
+            "/v1/hypervisor/snapshots/:id/restore",
+            post(environment_routes::handle_snapshot_restore),
+        )
+        .route(
+            "/v1/hypervisor/backups",
+            post(environment_routes::handle_backup_create),
+        )
         // WS-2: DevelopmentEnvironmentRecipe (repo-detect-first) → resolution → readiness gate.
         .route(
             "/v1/hypervisor/recipes",

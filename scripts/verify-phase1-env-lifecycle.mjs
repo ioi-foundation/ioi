@@ -300,6 +300,30 @@ async function gateWs7() {
   await api("POST", `/v1/hypervisor/environments/${e}/delete`);
 }
 
+// G(WS-8): snapshot/backup/archive + restore validity (operation-backed, not "blob exists").
+async function gateWs8() {
+  console.log("  [WS-8] snapshot / backup / archive + restore validity");
+  const e = (await api("POST", "/v1/hypervisor/environments", {})).json.environment.id;
+  await api("POST", `/v1/hypervisor/environments/${e}/start`);
+  await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "echo original > a.txt" });
+  const snap = (await api("POST", "/v1/hypervisor/snapshots", { environment_id: e })).json.snapshot;
+  ok(/^sha256:/.test(snap.state_root || ""), "snapshot records a state_root (admitted truth)");
+  const bk = (await api("POST", "/v1/hypervisor/backups", { environment_id: e })).json.backup;
+  ok(bk.kind === "backup" && !!bk.backup_ref, "backup is a distinct durability object");
+  // modify, then restore → reproduces the snapshot exactly
+  await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "echo changed > a.txt; echo extra > b.txt" });
+  const rest = await api("POST", `/v1/hypervisor/snapshots/${snap.snapshot_ref}/restore`);
+  ok(rest.json.validated === true, "restore validated the state_root");
+  const a = await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "cat a.txt; echo ---; (cat b.txt 2>/dev/null || echo no-b)" });
+  ok((a.json.stdout || "").includes("original"), "restore reproduced the snapshot (a.txt=original)");
+  ok((a.json.stdout || "").includes("no-b"), "restore removed post-snapshot changes (b.txt gone)");
+  // tamper the material → restore rejected (a blob existing is NOT restore validity)
+  writeFileSync(snap.material_path, "corrupt-bytes");
+  const bad = await api("POST", `/v1/hypervisor/snapshots/${snap.snapshot_ref}/restore`);
+  ok(bad.status === 409 && /restore_invalid/.test(JSON.stringify(bad.json)), `tampered material → restore_invalid (status ${bad.status})`);
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -309,6 +333,7 @@ async function runOnce(iter) {
   await gateWs5();
   await gateWs6();
   await gateWs7();
+  await gateWs8();
 }
 
 // ---- harness ----

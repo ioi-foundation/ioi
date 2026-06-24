@@ -871,6 +871,117 @@ pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Jso
     Json(json!({ "stopped": stopped, "swept_at": iso_now() }))
 }
 
+// ---- WS-8: Snapshot / Backup / Archive + restore validity ----
+
+fn sha256_hex_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(bytes);
+    hex::encode(h.finalize())
+}
+
+/// Capture the env workspace as a distinct restore object (snapshot = forkable point-in-time;
+/// backup = durability material). The state_root (sha256 of the material) is the admitted truth —
+/// restore validity is checked against it, not "the blob exists".
+fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value, AppError> {
+    let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
+    let env = load_env(&st.data_dir, env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"]
+        .as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?;
+    let tar = super::microvm::tar_dir(std::path::Path::new(ws)).map_err(|e| app(format!("tar workspace: {e}")))?;
+    let state_root = format!("sha256:{}", sha256_hex_bytes(&tar));
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let prefix = if kind == "backup" { "backup" } else { "snap" };
+    let id = format!("{prefix}_{nanos:x}");
+    let dir = std::path::Path::new(&st.data_dir).join(format!("{kind}s")).join(safe_id(&id));
+    std::fs::create_dir_all(&dir).map_err(|e| app(format!("mkdir: {e}")))?;
+    let tar_path = dir.join("workspace.tar");
+    std::fs::write(&tar_path, &tar).map_err(|e| app(format!("write material: {e}")))?;
+    let record = json!({
+        "schema_version": format!("ioi.hypervisor.environment-{kind}.v1"),
+        format!("{kind}_ref"): id,
+        "kind": kind,
+        "environment_ref": env_id,
+        "state_root": state_root,
+        "material_path": tar_path.to_string_lossy(),
+        "bytes": tar.len(),
+        "created_at": iso_now()
+    });
+    persist_record(&st.data_dir, &format!("{kind}s"), &id, &record)
+        .map_err(|e| app(format!("persist {kind}: {e}")))?;
+    Ok(record)
+}
+
+/// POST /v1/hypervisor/snapshots — forkable point-in-time snapshot. `{ "environment_id": "..." }`.
+pub(crate) async fn handle_snapshot_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let env_id = body.get("environment_id").and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    Ok(Json(json!({ "snapshot": capture_workspace(&st, env_id, "snapshot")? })))
+}
+
+/// POST /v1/hypervisor/backups — durability material (distinct from a snapshot).
+pub(crate) async fn handle_backup_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let env_id = body.get("environment_id").and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    Ok(Json(json!({ "backup": capture_workspace(&st, env_id, "backup")? })))
+}
+
+/// GET /v1/hypervisor/snapshots
+pub(crate) async fn handle_snapshots_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "snapshots": read_record_dir(&st.data_dir, "snapshots") }))
+}
+
+/// POST /v1/hypervisor/snapshots/:id/restore — restore a snapshot into its env's workspace, ONLY
+/// if the material's recomputed state_root matches the admitted one (else restore_invalid). A blob
+/// existing is not sufficient; restore validity is operation-backed.
+pub(crate) async fn handle_snapshot_restore(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let app = |c: StatusCode, e: String| AppError(c, e);
+    let path = std::path::Path::new(&st.data_dir).join("snapshots").join(format!("{}.json", safe_id(&id)));
+    let snap: Value = std::fs::read(&path).ok().and_then(|b| serde_json::from_slice(&b).ok())
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "snapshot not found".into()))?;
+    let material_path = snap["material_path"].as_str().unwrap_or_default();
+    let tar = std::fs::read(material_path).map_err(|e| app(StatusCode::CONFLICT, format!("restore material missing: {e}")))?;
+    // operation-backed validity: recompute the state_root and compare to the admitted one.
+    let recomputed = format!("sha256:{}", sha256_hex_bytes(&tar));
+    let admitted = snap["state_root"].as_str().unwrap_or_default();
+    if recomputed != admitted {
+        return Err(app(StatusCode::CONFLICT, format!("restore_invalid: state_root mismatch (admitted {admitted}, material {recomputed}) — blob tampered/corrupt")));
+    }
+    let env_id = snap["environment_ref"].as_str().unwrap_or_default().to_string();
+    let mut env = load_env(&st.data_dir, &env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"].as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment has no workspace".into()))?
+        .to_string();
+    // reproduce exactly: clear the workspace then extract the validated material.
+    let _ = std::fs::remove_dir_all(&ws);
+    super::microvm::untar_into(std::path::Path::new(&ws), &tar)
+        .map_err(|e| app(StatusCode::INTERNAL_SERVER_ERROR, format!("restore extract: {e}")))?;
+    // if a microVM is live, re-import the restored workspace.
+    if st.live_vms.lock().unwrap().contains_key(&env_id) {
+        use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+        if let Some(vm) = st.live_vms.lock().unwrap().get(&env_id) {
+            if let Ok(t) = super::microvm::tar_dir(std::path::Path::new(&ws)) {
+                let _ = CloudHypervisorMonitor.import_workspace(vm, &t);
+            }
+        }
+    }
+    observe(&mut env, "validating_restore", "storage", "content_ready", "info", &format!("snapshot {id} restored (state_root validated)"));
+    persist_env(&st.data_dir, &env)?;
+    Ok(Json(json!({ "restored": true, "snapshot_ref": id, "validated": true, "state_root": admitted })))
+}
+
 /// GET /v1/hypervisor/workruns — list (for the injected session truth window).
 pub(crate) async fn handle_workruns_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "workRuns": read_record_dir(&st.data_dir, "workruns") }))
