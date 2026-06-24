@@ -19,7 +19,15 @@ import {
   SettingsAgentPolicySelect1,
   SettingsAgentPolicySelect2,
   SettingsIntegrationsSelect,
+  SettingsEnvSelect0,
 } from "../parityCapturedMenus";
+import { ScimOperationsLog, SettingsPolicySelect } from "./HypervisorReferenceSettingsExtras";
+import {
+  MembersGroupsTab,
+  MembersTeamsTab,
+  MembersServiceAccountsTab,
+  MembersTermsTab,
+} from "./HypervisorReferenceMembersTabs";
 import { AddCreditsDialog, ConnectIntegrationDialog } from "./HypervisorReferenceSettingsDialogs";
 import { useReferenceTheme } from "../Home/HypervisorReferenceShell";
 
@@ -428,10 +436,16 @@ function BillingContent() {
 const SCIM_TAB = "inline-flex flex-row h-7 items-center @md:justify-center gap-2 overflow-hidden rounded-md border-transparent px-1.5 py-1 text-base text-content-strong text-left @md:text-center min-w-0 flex-shrink flex-grow hover:text-content-primary data-[state=active]:bg-surface-button-tab-primary data-[state=active]:border-transparent data-[state=active]:text-content-primary";
 
 function ScimContent() {
+  const [tab, setTab] = useState<"config" | "ops">("config");
+  const onTab = (e: React.MouseEvent<HTMLElement>) => {
+    const t = (e.target as HTMLElement).closest('[role="tab"]');
+    if (t) setTab((t.textContent || "").includes("Operations") ? "ops" : "config");
+  };
   return (
     <SettingsMain>
       <SettingsTitle title="SCIM" />
-      <div className="flex w-full max-w-none flex-col gap-6" data-testid="scim-page">
+      <div className="flex w-full max-w-none flex-col gap-6" data-testid="scim-page" onClick={onTab}>
+        {tab === "ops" ? (<ScimOperationsLog />) : (<>
         <div className="text-base text-content-secondary">Manage SCIM provisioning for your organization.</div>
         <div data-testid="free-tier-banner" className="flex items-center gap-2 rounded-lg text-base border px-3 shadow-sm bg-surface-banner-info-subtle text-content-info border-border-info justify-between py-4">
           <div className="flex min-w-0 flex-1 gap-2 pr-2 items-start"><span className="flex h-[18px] shrink-0 items-center"><InfoIcon /></span><div data-testid="banner-text" className="min-w-0 [overflow-wrap:anywhere]">Upgrade to <a className="font-medium text-content-brand hover:underline" href="/settings/manage-organization">Enterprise tier</a> to manage SCIM provisioning settings.</div></div>
@@ -452,6 +466,7 @@ function ScimContent() {
             </div></div>
           </div>
         </div>
+        </>)}
       </div>
     </SettingsMain>
   );
@@ -587,9 +602,13 @@ const AVATAR_SRC = "https://lh3.googleusercontent.com/a/ACg8ocIBE-yWc_g6QMTLx_fI
 function MembersContent() {
   const statusSel = useMenu();
   const roleSel = useMenu();
+  const [tab, setTab] = useState("People");
+  const onTab = (e: React.MouseEvent<HTMLElement>) => { const t = (e.target as HTMLElement).closest('[role="tab"]'); if (t) setTab((t.textContent || "").trim()); };
   return (
     <SettingsMain>
-      <SettingsTitle title="Members" />
+      {tab === "People" ? <SettingsTitle title="Members" /> : null}
+      <div onClick={onTab}>
+      {tab === "Groups" ? (<MembersGroupsTab />) : tab === "Teams" ? (<MembersTeamsTab />) : tab === "Service Accounts" ? (<MembersServiceAccountsTab />) : tab === "Terms Acceptance" ? (<MembersTermsTab />) : (<>
       <div className="mt-4 flex flex-col gap-4">
         <div dir="ltr" data-orientation="horizontal" className="@container w-full">
           <div className="mb-4 flex w-full flex-row flex-wrap justify-between gap-4">
@@ -628,6 +647,8 @@ function MembersContent() {
             </div></div></div>
           </div>
         </div>
+      </div>
+      </>)}
       </div>
     </SettingsMain>
   );
@@ -795,6 +816,16 @@ function PhaseTag({ phase }: { phase: string }) {
   );
 }
 
+function EnvFilter({ label }: { label: string }) {
+  const m = useMenu();
+  return (
+    <>
+      <button ref={m.ref} onClick={m.toggle} type="button" aria-label={label} aria-haspopup="listbox" aria-expanded={m.open} className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none"><span className="truncate"><span className="truncate text-base text-content-primary">{label}</span></span><SelectChevron /></button>
+      <AnchoredPopover open={m.open} onClose={m.close} anchorRef={m.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) m.close(); }}><SettingsEnvSelect0 /></div></AnchoredPopover>
+    </>
+  );
+}
+
 function EnvironmentsContent() {
   return (
     <SettingsMain>
@@ -802,9 +833,7 @@ function EnvironmentsContent() {
       <div className="flex h-full flex-col">
         <div className="text-base">Inventory of running and stopped environments in your organization.</div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 pt-4">
-          {ENV_FILTERS.map((f) => (
-            <button key={f} type="button" aria-label={f} aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none"><span className="truncate"><span className="truncate text-base text-content-primary">{f}</span></span><SelectChevron /></button>
-          ))}
+          {ENV_FILTERS.map((f) => <EnvFilter key={f} label={f} />)}
         </div>
         <div className="flex flex-grow flex-col pt-4"><div className="@container"><div className="relative w-full overflow-x-auto">
           <table aria-label="Environment inventory" className="w-full text-left text-base">
@@ -848,9 +877,12 @@ const EditorPill = ({ name, def }: { name: string; def?: boolean }) => (
   </div>
 );
 const POL_CARD = "flex flex-col gap-3 rounded-lg border border-border-subtle px-5 py-4";
-const SelectTrigger = ({ value, wide }: { value: string; wide?: boolean }) => (
-  <div className={`relative w-full ${wide ? "max-w-lg" : "max-w-64"}`}><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><div className="flex w-full items-center justify-between">{value}</div></span><SelectChevron /></button></div>
-);
+function SelectTrigger({ value, wide }: { value: string; wide?: boolean }) {
+  const m = useMenu();
+  return (
+    <div className={`relative w-full ${wide ? "max-w-lg" : "max-w-64"}`}><button ref={m.ref} onClick={m.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={m.open} className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><div className="flex w-full items-center justify-between">{value}</div></span><SelectChevron /></button><AnchoredPopover open={m.open} onClose={m.close} anchorRef={m.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) m.close(); }}><SettingsPolicySelect /></div></AnchoredPopover></div>
+  );
+}
 function PolicyTitleCard({ title, desc, children }: { title: string; desc: string; children?: React.ReactNode }) {
   return (
     <div className={POL_CARD}>
