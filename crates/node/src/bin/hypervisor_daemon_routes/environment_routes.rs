@@ -339,6 +339,59 @@ fn typed_port(p: &Value) -> Value {
         "access_policy": access, "capability_lease_ref": Value::Null, "url": Value::Null, "exposure_state": exposure })
 }
 
+// ---- WS-6: prebuild & warmup cache (recipe-keyed; closes gate 7) ----
+
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&from, &to)?;
+        } else {
+            std::fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
+}
+
+fn recipe_cache_dir(data_dir: &str, recipe_ref: &str) -> std::path::PathBuf {
+    std::path::Path::new(data_dir).join("recipe-cache").join(safe_id(recipe_ref))
+}
+
+/// Restore the recipe's declared `cache_paths` from the recipe-keyed cache into the workspace
+/// (warmup). Returns (cache_hit, restored_paths) — a second env from the same recipe is faster.
+fn restore_recipe_cache(data_dir: &str, recipe: &Value, ws: &str) -> (bool, Vec<String>) {
+    let recipe_ref = recipe["recipe_ref"].as_str().unwrap_or("");
+    let cache = recipe_cache_dir(data_dir, recipe_ref);
+    let mut hit = Vec::new();
+    if let Some(paths) = recipe.get("cache_paths").and_then(|v| v.as_array()) {
+        for rel in paths.iter().filter_map(|p| p.as_str()) {
+            let src = cache.join(rel);
+            if src.exists() {
+                let _ = copy_dir_all(&src, &std::path::Path::new(ws).join(rel));
+                hit.push(rel.to_string());
+            }
+        }
+    }
+    (!hit.is_empty(), hit)
+}
+
+/// Save the recipe's `cache_paths` from the workspace into the recipe-keyed cache (after prebuild).
+fn save_recipe_cache(data_dir: &str, recipe: &Value, ws: &str) {
+    let recipe_ref = recipe["recipe_ref"].as_str().unwrap_or("");
+    let cache = recipe_cache_dir(data_dir, recipe_ref);
+    if let Some(paths) = recipe.get("cache_paths").and_then(|v| v.as_array()) {
+        for rel in paths.iter().filter_map(|p| p.as_str()) {
+            let src = std::path::Path::new(ws).join(rel);
+            if src.exists() {
+                let _ = copy_dir_all(&src, &cache.join(rel));
+            }
+        }
+    }
+}
+
 // ---- WS-4: microVM provisioning (cloud-hypervisor, real KVM isolation) ----
 
 fn env_is_microvm(env: &Value, recipe: Option<&Value>) -> bool {
@@ -561,6 +614,18 @@ pub(crate) async fn handle_environment_action(
             let recipe = recipe_ref.as_deref().and_then(|r| super::recipe_routes::load_recipe(&st.data_dir, r));
             let is_microvm = env_is_microvm(&env, recipe.as_ref());
 
+            // WS-6 — prebuild/warmup: restore the recipe-keyed cache into the workspace BEFORE the
+            // sandbox (so a microVM imports it too). A second env from the same recipe is faster.
+            if let Some(r) = recipe.as_ref() {
+                let (cache_hit, hit_paths) = restore_recipe_cache(&st.data_dir, r, &ws);
+                env["status"]["cache_hit"] = json!(cache_hit);
+                if cache_hit {
+                    observe(&mut env, "warming_cache", "cache", "content_ready", "info", &format!("prebuild cache restored (warm): {hit_paths:?}"));
+                } else {
+                    observe(&mut env, "warming_cache", "cache", "content_ready", "info", "no prebuild cache (cold)");
+                }
+            }
+
             // sandbox — WS-4/5: a REAL microVM kernel boundary (selected monitor) on the microvm
             // substrate (execution runs in-guest); else the local process lane.
             let mut microvm_ok = false;
@@ -616,6 +681,8 @@ pub(crate) async fn handle_environment_action(
                     t["lifecycle"].as_str() == Some("required") && t["phase"].as_str() != Some("succeeded")
                 });
                 env["status"]["tasks"] = json!(task_results);
+                // WS-6 — persist the recipe cache from the (post-prebuild) workspace for reuse.
+                save_recipe_cache(&st.data_dir, &recipe, &ws);
                 // typed services (required services health-checked) + typed ports.
                 let services: Vec<Value> = recipe["services"].as_array().cloned().unwrap_or_default()
                     .iter().map(|s| typed_service(&ws, s)).collect();

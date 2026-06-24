@@ -265,6 +265,24 @@ async function gateWs5() {
   await api("POST", `/v1/hypervisor/environments/${qEnv}/delete`);
 }
 
+// G(WS-6): prebuild & warmup cache — a second env from the same recipe is warm (cache_hit).
+async function gateWs6() {
+  console.log("  [WS-6] prebuild & warmup cache");
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", cache_paths: ["cachedir"], prebuild_tasks: [{ name: "warm", command: "mkdir -p cachedir && echo built > cachedir/marker", trigger: "prebuild", required: false }] } });
+  const rid = r.json.recipe.recipe_ref;
+  const e1 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: rid } })).json.environment.id;
+  const s1 = (await api("POST", `/v1/hypervisor/environments/${e1}/start`)).json.environment;
+  ok(s1.status.cache_hit === false, `first env: cold cache (cache_hit=${s1.status.cache_hit})`);
+  const e2 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: rid } })).json.environment.id;
+  const s2 = (await api("POST", `/v1/hypervisor/environments/${e2}/start`)).json.environment;
+  ok(s2.status.cache_hit === true, `second env (same recipe): warm cache (cache_hit=${s2.status.cache_hit})`);
+  ok((s2.lifecycle_observations || []).some((o) => o.stage === "warming_cache" && /warm/.test(o.message || "")), "warming_cache observation records the cache hit");
+  const cat = await api("POST", "/v1/hypervisor/exec", { environment_id: e2, command: "cat cachedir/marker" });
+  ok((cat.json.stdout || "").includes("built"), "cached artifact present in the warm env");
+  await api("POST", `/v1/hypervisor/environments/${e1}/delete`);
+  await api("POST", `/v1/hypervisor/environments/${e2}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -272,6 +290,7 @@ async function runOnce(iter) {
   await gateWs3();
   await gateWs4();
   await gateWs5();
+  await gateWs6();
 }
 
 // ---- harness ----

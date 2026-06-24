@@ -115,6 +115,8 @@ pub(crate) fn new_recipe(id: &str, fields: &Value, source: &str, project_ref: Op
         // WS-5 — monitor selection hints (carried so select_monitor sees them).
         "monitor": get("monitor", Value::Null),
         "isolation_profile": get("isolation_profile", Value::Null),
+        // WS-6 — prebuild/warmup cache paths (dirs reused across envs from the same recipe).
+        "cache_paths": get("cache_paths", json!([])),
         "detected_signals": get("detected_signals", json!([])),
         "prebuild_tasks": get("prebuild_tasks", json!([])),
         "init_tasks": get("init_tasks", json!([])),
