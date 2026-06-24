@@ -72,7 +72,7 @@ ok(["reference", "native", "hybrid"].includes(uxStrategy), `UX strategy decided:
 if (!existsSync(DAEMON_BIN)) { console.error(`daemon binary missing: ${DAEMON_BIN}`); process.exit(2); }
 const dataDir = mkdtempSync(join(tmpdir(), "ioi-t7-nativeux-"));
 const daemon = spawn(DAEMON_BIN, [], {
-  env: { ...process.env, IOI_HYPERVISOR_dataDir: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
+  env: { ...process.env, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
   stdio: ["ignore", "ignore", "ignore"],
 });
 
@@ -173,6 +173,7 @@ async function runBrowserTier() {
   const http = await import("node:http");
   const { readFileSync: rf } = await import("node:fs");
   const dist = join(REPO, "apps/hypervisor/dist");
+  const MIME = { ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".html": "text/html", ".json": "application/json", ".svg": "image/svg+xml", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".map": "application/json", ".ico": "image/x-icon", ".png": "image/png", ".wasm": "application/wasm" };
   const srv = http.createServer(async (req, res) => {
     try {
       if (req.url.startsWith("/v1/")) {
@@ -182,8 +183,10 @@ async function runBrowserTier() {
         return;
       }
       const path = req.url.split("?")[0];
-      const file = path === "/" || !path.includes(".") ? join(dist, "index.html") : join(dist, path);
-      res.writeHead(200);
+      const isAsset = path.includes(".") && !path.endsWith(".html");
+      const file = isAsset ? join(dist, path) : join(dist, "index.html");
+      const ext = isAsset ? path.slice(path.lastIndexOf(".")) : ".html";
+      res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
       res.end(rf(file));
     } catch { res.writeHead(404); res.end(""); }
   });

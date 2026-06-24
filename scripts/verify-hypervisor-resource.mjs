@@ -48,7 +48,7 @@ const allocate = (o) => api("POST", "/v1/hypervisor/resource/allocate", o).then(
 if (!existsSync(DAEMON_BIN)) { console.error(`daemon binary missing: ${DAEMON_BIN}`); process.exit(2); }
 const dataDir = mkdtempSync(join(tmpdir(), "ioi-t5-resource-"));
 const daemon = spawn(DAEMON_BIN, [], {
-  env: { ...process.env, IOI_HYPERVISOR_dataDir: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
+  env: { ...process.env, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
   stdio: ["ignore", "ignore", "ignore"],
 });
 

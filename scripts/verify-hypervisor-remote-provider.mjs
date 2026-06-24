@@ -50,7 +50,7 @@ async function waitReady(timeoutMs = 15000) {
 if (!existsSync(DAEMON_BIN)) { console.error(`daemon binary missing: ${DAEMON_BIN}`); process.exit(2); }
 const dataDir = mkdtempSync(join(tmpdir(), "ioi-t6-provider-"));
 const daemon = spawn(DAEMON_BIN, [], {
-  env: { ...process.env, IOI_HYPERVISOR_dataDir: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
+  env: { ...process.env, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
   stdio: ["ignore", "ignore", "ignore"],
 });
 
