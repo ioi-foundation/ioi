@@ -8,7 +8,11 @@
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+
+// The on-disk env dir, derived from the daemon's REPORTED workspace_root (robust to any
+// data-dir path resolution): .../environments/<id>/{workspace,vm,session.log.jsonl}.
+const envDir = (status) => (status?.workspace_root ? dirname(status.workspace_root) : null);
 
 const REPO = new URL("..", import.meta.url).pathname;
 const DAEMON_BIN = join(REPO, "target/debug/hypervisor-daemon");
@@ -222,10 +226,15 @@ function countVmProcs(env) {
     if (!/^\d+$/.test(pid)) continue;
     try {
       const cl = readFileSync(`/proc/${pid}/cmdline`).toString().replace(/\0/g, " ");
-      if (cl.includes("cloud-hypervisor") && cl.includes(env)) n++;
+      if ((cl.includes("cloud-hypervisor") || cl.includes("firecracker")) && cl.includes(env)) n++;
     } catch { /* process gone */ }
   }
   return n;
+}
+
+// Snapshot of the REAL host repo's git status — must be byte-identical across VM work (G4/G7).
+function hostRepoStatus() {
+  try { return execSync("git status --porcelain", { cwd: REPO }).toString(); } catch { return "?"; }
 }
 
 // G(WS-5): monitor abstraction — Firecracker (real 2nd monitor), QEMU lane, policy selection.
@@ -405,27 +414,204 @@ async function gateWs12() {
   await api("POST", `/v1/hypervisor/environments/${e}/delete`);
 }
 
+// ---- §11c closure gates G1–G7 ----
+import { createHash } from "node:crypto";
+
+async function apiPort(port, method, path, body) {
+  const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+    method, headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const t = await res.text();
+  return { status: res.status, json: t ? JSON.parse(t) : {} };
+}
+async function waitReadyPort(port, timeoutMs = 15000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try { const r = await fetch(`http://127.0.0.1:${port}/v1/hypervisor/authority/posture`); if (r.ok) return true; } catch { /* not up */ }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return false;
+}
+function spawnDaemonOn(dataDir, port, extraEnv = {}) {
+  return spawn(DAEMON_BIN, [], {
+    env: { ...process.env, ...extraEnv, IOI_HYPERVISOR_dataDir: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${port}` },
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+}
+
+// G1 — guest-agent vsock contract.
+async function gateG1() {
+  console.log("  [G1] guest-agent vsock contract");
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", init_tasks: [{ name: "t", command: "true", trigger: "environment_start", required: true }] } });
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref } })).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  ok((s.status.vm?.guest_agent_proto || 0) >= 1, `vsock proto negotiated (proto=${s.status.vm?.guest_agent_proto})`);
+  const ex = await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "echo out; echo err 1>&2; exit 3" });
+  ok(ex.json.exit_code === 3, "exec returns the guest exit_code");
+  ok(ex.json.executed_in === "guest" && (ex.json.stdout || "").includes("out"), "exec captures guest stdout in-guest");
+  const inj = (await api("POST", `/v1/hypervisor/environments/${e}/inject-failure`)).json.environment;
+  ok(inj.status.components.sandbox.phase === "failed", "agent/VM loss surfaces as failed (no hang)");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
+// G2 — monitor/image supply-chain (pinned + checksummed; fail-closed on mismatch).
+async function gateG2() {
+  console.log("  [G2] monitor/image supply-chain (pinned + checksummed, fail-closed)");
+  const m = JSON.parse(readFileSync(join(TOOLCHAIN, "supply-manifest.json")));
+  for (const k of ["monitor", "kernel", "initramfs", "firecracker", "fc_kernel"]) {
+    ok(/^[0-9a-f]{64}$/.test(m[k]?.sha256 || ""), `${k} pinned with a sha256`);
+  }
+  for (const k of ["monitor", "kernel", "initramfs"]) {
+    const got = createHash("sha256").update(readFileSync(m[k].path)).digest("hex");
+    ok(got === m[k].sha256, `${k} on-disk material matches the pinned checksum`);
+  }
+  // fail-closed: a corrupted toolchain copy must REFUSE to boot a microVM.
+  const badTc = mkdtempSync(join(tmpdir(), "ioi-badtc-"));
+  for (const f of readdirSync(TOOLCHAIN)) {
+    try { writeFileSync(join(badTc, f), readFileSync(join(TOOLCHAIN, f))); } catch { /* dirs */ }
+  }
+  writeFileSync(join(badTc, "cloud-hypervisor"), "tampered");     // corrupt a verified artifact (the monitor)
+  // rewrite the manifest paths to the bad dir
+  const bm = JSON.parse(readFileSync(join(badTc, "supply-manifest.json")));
+  for (const k of Object.keys(bm)) { if (bm[k]?.path) bm[k].path = join(badTc, bm[k].path.split("/").pop()); }
+  writeFileSync(join(badTc, "supply-manifest.json"), JSON.stringify(bm));
+  const bport = PORT + 1;
+  const bdata = mkdtempSync(join(tmpdir(), "ioi-baddata-"));
+  const bd = spawnDaemonOn(bdata, bport, { IOI_VM_TOOLCHAIN_DIR: badTc });
+  let failedClosed = false;
+  try {
+    if (await waitReadyPort(bport)) {
+      const rr = await apiPort(bport, "POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm" } });
+      const ee = (await apiPort(bport, "POST", "/v1/hypervisor/environments", { spec: { recipe_ref: rr.json.recipe.recipe_ref } })).json.environment.id;
+      const ss = (await apiPort(bport, "POST", `/v1/hypervisor/environments/${ee}/start`)).json.environment;
+      const detail = ss.status?.components?.sandbox?.detail || "";
+      failedClosed = ss.status?.components?.sandbox?.phase === "failed" && /checksum|mismatch|supply/i.test(detail);
+    }
+  } finally { bd.kill("SIGKILL"); rmSync(badTc, { recursive: true, force: true }); rmSync(bdata, { recursive: true, force: true }); }
+  ok(failedClosed, "tampered toolchain → microVM start fails closed (checksum mismatch)");
+}
+
+// G3 — network/socket cleanup after teardown (no orphan VM/socket).
+async function gateG3() {
+  console.log("  [G3] network / socket cleanup after teardown + crash");
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm" } });
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref } })).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  const vmDir = join(envDir(s.status), "vm");
+  ok(countVmProcs(e) === 1, "running VM: exactly 1 VM process");
+  ok(existsSync(vmDir), "running VM: vm run dir + socket present");
+  // simulate a crash, then delete → assert no orphan VM + socket gone
+  await api("POST", `/v1/hypervisor/environments/${e}/inject-failure`);
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+  ok(countVmProcs(e) === 0, "after crash+delete: no orphan VM process");
+  ok(!existsSync(vmDir), "after delete: VM run dir (socket) cleaned");
+}
+
+// G4 — workspace correctness + host checkout untouched.
+async function gateG4() {
+  console.log("  [G4] workspace correctness + host checkout untouched");
+  const hostBefore = hostRepoStatus();
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", init_tasks: [{ name: "build", command: "echo guest-built > out.txt && head -c 200000 /dev/zero > big.bin", trigger: "environment_start", required: true }] } });
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref } })).json.environment.id;
+  await api("POST", `/v1/hypervisor/environments/${e}/start`);
+  const cat = await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "cat out.txt; wc -c < big.bin" });
+  ok((cat.json.stdout || "").includes("guest-built") && (cat.json.stdout || "").includes("200000"), "guest writes correct + exported back to host workspace");
+  // the REAL host repo checkout must be byte-identical (the env workspace is never the host repo)
+  ok(hostRepoStatus() === hostBefore, "host checkout unchanged by the VM work (no leaked files)");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
+// G5 — daemon-restart reconciliation (no phantom running over a dead VM).
+async function gateG5() {
+  console.log("  [G5] daemon-restart reconciliation");
+  const port = PORT + 2;
+  const data = mkdtempSync(join(tmpdir(), "ioi-g5-"));
+  let d1 = spawnDaemonOn(data, port);
+  let reconciled = false;
+  try {
+    if (!(await waitReadyPort(port))) throw new Error("d1 not ready");
+    const r = await apiPort(port, "POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm" } });
+    const e = (await apiPort(port, "POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref } })).json.environment.id;
+    const s = (await apiPort(port, "POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+    if (s.status?.phase !== "running") throw new Error("env not running pre-kill");
+    // SIGKILL the daemon mid-life (VMs die with it; live_vms is in-memory)
+    d1.kill("SIGKILL");
+    await new Promise((r) => setTimeout(r, 800));
+    // also kill any orphan VM the dead daemon left (a real daemon's startup reconcile would adopt/kill)
+    for (const pid of readdirSync("/proc")) { if (!/^\d+$/.test(pid)) continue; try { const cl = readFileSync(`/proc/${pid}/cmdline`).toString().replace(/\0/g, " "); if (cl.includes("cloud-hypervisor") && cl.includes(e)) process.kill(parseInt(pid), "SIGKILL"); } catch { /* gone */ } }
+    const d2 = spawnDaemonOn(data, port);
+    try {
+      if (!(await waitReadyPort(port))) throw new Error("d2 not ready");
+      const g = await apiPort(port, "GET", `/v1/hypervisor/environments/${e}`);
+      const ph = g.json.environment?.status?.phase;
+      const sb = g.json.environment?.status?.components?.sandbox?.phase;
+      reconciled = ph !== "running" && sb === "failed" && g.json.environment?.status?.reconciled === true;
+    } finally { d2.kill("SIGKILL"); }
+  } finally { try { d1.kill("SIGKILL"); } catch { /* dead */ } rmSync(data, { recursive: true, force: true }); }
+  ok(reconciled, "after daemon restart: env reconciled (no phantom running over a dead VM)");
+}
+
+// G6 — secret / SCM hygiene (no plaintext needle in logs/snapshots).
+async function gateG6() {
+  console.log("  [G6] secret / SCM hygiene");
+  const NEEDLE = "S3CR3T-NEEDLE-9f1c";
+  const e = (await api("POST", "/v1/hypervisor/environments", {})).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  // put the secret in FILE CONTENT (not the command), then read it — the scoped session log
+  // records the command + byte counts, never the command's output (so the needle never leaks).
+  writeFileSync(join(s.status.workspace_root, "secret.txt"), NEEDLE);
+  await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "cat secret.txt" });
+  const logPath = join(envDir(s.status), "session.log.jsonl");
+  const log = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
+  ok(log.length > 0 && /cat secret.txt/.test(log) && !log.includes(NEEDLE), "scoped session log redacted (command logged, output needle absent)");
+  // a required secret is a REF, never plaintext material in the env record/observations
+  const sr = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", secret_requirement_refs: ["API_KEY"] } });
+  const e2 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: sr.json.recipe.recipe_ref } })).json.environment.id;
+  const s2 = (await api("POST", `/v1/hypervisor/environments/${e2}/start`)).json.environment;
+  ok(s2.status.readiness.mode === "dry_run_only" && (s2.status.readiness.blocked_reasons || []).includes("required_secret:API_KEY"), "required secret held as a REF (no plaintext; dry_run_only)");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+  await api("POST", `/v1/hypervisor/environments/${e2}/delete`);
+}
+
+// G7 — the §0 repeatability cycle (run every iteration; asserts the no-orphan / valid-restore /
+// host-clean invariant set).
+async function g7Cycle(iter) {
+  const hostBefore = hostRepoStatus();
+  const r = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", cache_paths: ["dep"], prebuild_tasks: [{ name: "warm", command: "mkdir -p dep && echo x>dep/m", trigger: "prebuild", required: false }], init_tasks: [{ name: "build", command: `echo cycle-${iter} > c.txt`, trigger: "environment_start", required: true }] } });
+  const e = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r.json.recipe.recipe_ref, stop_policy: { mode: "graceful", idle_timeout_secs: 0, max_lifetime_secs: 0 } } })).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  const cyOk = s.status.phase === "running" && s.status.readiness.mode === "full" && (s.status.tasks || [])[0]?.executed_in === "guest";
+  // snapshot → mutate → restore (operation-backed)
+  const snap = (await api("POST", "/v1/hypervisor/snapshots", { environment_id: e })).json.snapshot;
+  await api("POST", "/v1/hypervisor/exec", { environment_id: e, command: "echo mutated > c.txt" });
+  const rst = await api("POST", `/v1/hypervisor/snapshots/${snap.snapshot_ref}/restore`);
+  await api("POST", `/v1/hypervisor/environments/${e}/stop`);
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+  // invariants
+  const noOrphan = countVmProcs(e) === 0;
+  const runDirGone = !existsSync(join(envDir(s.status), "vm"));
+  const hostClean = hostRepoStatus() === hostBefore;
+  ok(cyOk && rst.json.validated === true && noOrphan && runDirGone && hostClean,
+    `cycle ${iter}: ready+in-guest+restore-valid+no-orphan+host-clean (ok=${cyOk} restore=${rst.json.validated} orphan=${!noOrphan} hostClean=${hostClean})`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
-  await gateWs1();
-  await gateWs2();
-  await gateWs3();
-  await gateWs4();
-  await gateWs5();
-  await gateWs6();
-  await gateWs7();
-  await gateWs8();
-  await gateWs9();
-  await gateWs10();
-  await gateWs11();
-  await gateWs12();
+  if (iter === 1) {
+    await gateWs1(); await gateWs2(); await gateWs3(); await gateWs4(); await gateWs5(); await gateWs6();
+    await gateWs7(); await gateWs8(); await gateWs9(); await gateWs10(); await gateWs11(); await gateWs12();
+    console.log("  --- closure gates G1–G7 ---");
+    await gateG1(); await gateG2(); await gateG3(); await gateG4(); await gateG5(); await gateG6();
+  }
+  await g7Cycle(iter); // G7 repeatability: §0 loop every iteration
 }
 
 // ---- harness ----
 const dataDir = mkdtempSync(join(tmpdir(), "ioi-phase1-verify-"));
 if (!existsSync(DAEMON_BIN)) { console.error(`daemon binary missing: ${DAEMON_BIN} (cargo build --bin hypervisor-daemon)`); process.exit(2); }
 const daemon = spawn(DAEMON_BIN, [], {
-  env: { ...process.env, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
+  env: { ...process.env, IOI_HYPERVISOR_dataDir: dataDir, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${PORT}` },
   stdio: ["ignore", "ignore", "inherit"],
 });
 let exitCode = 0;

@@ -724,7 +724,22 @@ pub(crate) async fn handle_environment_get(
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     let env = match load_env(&st.data_dir, &id) {
-        Some(e) => e,
+        Some(mut e) => {
+            // G5 — daemon-restart reconciliation: a microVM env marked `running` with a VM record
+            // but no LIVE VM (e.g. after a daemon restart — live_vms is in-memory) is reconciled,
+            // never left as a phantom `running` over a dead VM.
+            let claims_vm = e["status"]["vm"].is_object() && e["status"]["phase"].as_str() == Some("running");
+            if claims_vm && !st.live_vms.lock().unwrap().contains_key(&id) {
+                set_component(&mut e, "sandbox", "failed", "vm not live (reconciled after restart)");
+                set_component(&mut e, "resource_isolation", "failed", "no sandbox");
+                e["status"]["readiness"] = json!({ "mode": "blocked", "blocked_reasons": ["sandbox_failed"] });
+                e["status"]["reconciled"] = json!(true);
+                observe(&mut e, "detecting_failure", "provider", "vm_lost", "warning", "reconciled after daemon restart: VM not live (recover to rebuild)");
+                set_phase(&mut e, "failed");
+                persist_env(&st.data_dir, &e)?;
+            }
+            e
+        }
         None => {
             let mut e = new_env(&id, &json!({}));
             observe(&mut e, "queued", "recipe", "admitted", "info", "environment registered on first reference");
