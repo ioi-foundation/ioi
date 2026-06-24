@@ -710,6 +710,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/exec",
             post(environment_routes::handle_workspace_exec),
         )
+        // WS-11: SSE stream of env status + transitions (top-level path avoids :action collision).
+        .route(
+            "/v1/hypervisor/env-events/:id",
+            get(environment_routes::handle_env_events),
+        )
         // WS-7: idle/lifetime sweep — stop running envs past their stop policy.
         .route(
             "/v1/hypervisor/maintenance/idle-sweep",

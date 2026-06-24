@@ -371,6 +371,24 @@ async function gateWs10() {
   await api("POST", `/v1/hypervisor/environments/${eB}/delete`);
 }
 
+// G(WS-11): SSE status stream — env status + readiness + transitions, without polling.
+async function gateWs11() {
+  console.log("  [WS-11] status event stream (SSE)");
+  const e = (await api("POST", "/v1/hypervisor/environments", {})).json.environment.id;
+  await api("POST", `/v1/hypervisor/environments/${e}/start`);
+  const res = await fetch(`http://127.0.0.1:${PORT}/v1/hypervisor/env-events/${e}`);
+  const ct = res.headers.get("content-type") || "";
+  const body = await res.text();
+  ok(ct.includes("text/event-stream"), "SSE content-type text/event-stream");
+  ok(/event: environment_status/.test(body), "stream emits environment_status");
+  ok(/event: readiness/.test(body), "stream emits readiness");
+  ok(/event: lifecycle_observation/.test(body), "stream emits lifecycle_observation transitions");
+  const m = body.match(/event: environment_status\ndata: (.*)/);
+  const status = m ? JSON.parse(m[1]).status : {};
+  ok(status.phase === "running" && !!status.components?.sandbox?.phase, "streamed status carries component phases (no polling)");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -383,6 +401,7 @@ async function runOnce(iter) {
   await gateWs8();
   await gateWs9();
   await gateWs10();
+  await gateWs11();
 }
 
 // ---- harness ----

@@ -998,6 +998,33 @@ pub(crate) async fn handle_workrun_create(
     Ok(Json(json!({ "workRun": record })))
 }
 
+/// GET /v1/hypervisor/env-events/:id — SSE stream of the environment's status + transitions
+/// (WS-11). Emits `environment_status` (full status), `readiness`, one `lifecycle_observation`
+/// per typed observation (the component-transition timeline), `receipt_projection` for recovery
+/// receipts, and `done`. The panel subscribes here instead of polling the env JSON.
+pub(crate) async fn handle_env_events(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> impl axum::response::IntoResponse {
+    let mut sse = String::new();
+    let mut frame = |ev: &str, data: &Value| {
+        sse.push_str(&format!("event: {ev}\ndata: {}\n\n", serde_json::to_string(data).unwrap_or_default()));
+    };
+    match load_env(&st.data_dir, &id) {
+        Some(env) => {
+            let status = env["status"].clone();
+            frame("environment_status", &json!({ "environment_id": id, "status": status }));
+            frame("readiness", &status["readiness"]);
+            for obs in env["lifecycle_observations"].as_array().cloned().unwrap_or_default() {
+                frame("lifecycle_observation", &obs);
+            }
+            frame("done", &json!({ "environment_id": id, "phase": status["phase"], "readiness": status["readiness"]["mode"] }));
+        }
+        None => frame("error", &json!({ "code": "not_found", "environment_id": id })),
+    }
+    ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], sse)
+}
+
 /// POST /v1/hypervisor/maintenance/idle-sweep — stop running envs idle beyond their stop policy
 /// (idle_timeout_secs) or past max_lifetime_secs. Each stop is graceful + receipted via a
 /// `timeout` lifecycle observation; the microVM is torn down (no orphan).
