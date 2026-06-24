@@ -42,6 +42,7 @@ import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorRefer
 import { HypervisorReferenceProjectDetail } from "./surfaces/Projects/HypervisorReferenceProjectDetail";
 import { HypervisorReferenceApplicationSurface } from "./surfaces/Applications/HypervisorReferenceApplicationSurface";
 import { HypervisorReferenceAutomations } from "./surfaces/Automations/HypervisorReferenceAutomations";
+import { HypervisorReferenceAutomationNew } from "./surfaces/Automations/HypervisorReferenceAutomationNew";
 import { HypervisorReferenceWorkspace } from "./surfaces/Workspace/HypervisorReferenceWorkspace";
 import { HypervisorReferenceSettings } from "./surfaces/Settings/HypervisorReferenceSettings";
 import type { PrimaryView } from "./surfaces/parityShellTypes";
@@ -101,6 +102,7 @@ function renderHypervisorApp() {
           <Route path="/projects/:projectId/secrets" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="secrets" /></ParityShellRoute>} />
           <Route path="/projects/:projectId/prebuilds" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="prebuilds" /></ParityShellRoute>} />
           <Route path="/automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
+          <Route path="/automations/new" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomationNew /></ParityShellRoute>} />
           {/* Blank application surface — the reference opens an app onto /insights. */}
           <Route path="/insights" element={<ParityShellRoute view="applications"><HypervisorReferenceApplicationSurface /></ParityShellRoute>} />
           <Route path="/details/:sessionId" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
