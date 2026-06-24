@@ -105,6 +105,14 @@ export function HypervisorReferenceWorkspace() {
   const onMenuItemClick: MouseEventHandler = (e) => {
     if ((e.target as HTMLElement).closest('[role="menuitem"], [role="option"], a, button')) closeMenu();
   };
+  // The captured Tasks/Terminal panels carry their own bottom tablist; switch via
+  // delegation on their tab clicks so we render exactly one tablist (no duplicate).
+  const onBottomBar: MouseEventHandler = (e) => {
+    const tab = (e.target as HTMLElement).closest('[role="tab"]');
+    if (!tab) return;
+    const txt = (tab.textContent || "").trim();
+    setBottomTab(txt.startsWith("Ports") ? "ports" : txt === "Tasks" ? "tasks" : "terminal");
+  };
   const q = fileQuery.trim().toLowerCase();
   const visibleFiles = FILES.filter((f) => (q ? f.name.toLowerCase().includes(q) : f.depth === 0 || treeOpen));
   return (
@@ -290,17 +298,21 @@ export function HypervisorReferenceWorkspace() {
                     </div>
                     <div role="separator" className="relative flex h-0 border-t border-border-base" />
                     <div data-panel data-panel-size="30.0" style={{ flex: "30 1 0px", overflow: "hidden" }}>
+                      {bottomTab === "tasks" ? (
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden h-full" onClick={onBottomBar}><TasksPanel /></div>
+                      ) : bottomTab === "terminal" ? (
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden h-full" onClick={onBottomBar}><TerminalPanel /></div>
+                      ) : (
                       <div className="flex min-h-0 flex-1 flex-col overflow-hidden h-full">
                         <div className="relative flex shrink-0 items-center after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-border-base">
                           <button type="button" onClick={() => setBottomCollapsed((c) => !c)} className={`${BTN_CLEAR_SQUARE} ml-2 h-6 w-6 shrink-0`} aria-label={bottomCollapsed ? "Expand panel" : "Collapse panel"}><svg className="text-content-secondary" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" clipRule="evenodd" d="M13.3031 5.81248L12.839 6.27652L8.61871 10.4968C8.27701 10.8386 7.72298 10.8386 7.38128 10.4968L3.16095 6.27652L2.69691 5.81248L3.62499 4.8844L4.08903 5.34844L7.99999 9.2594L11.911 5.34844L12.375 4.8844L13.3031 5.81248Z" fill="currentColor" /></svg></button>
                           <div role="tablist" className="flex items-center gap-1 overflow-x-auto h-10 flex-1">
-                            <Tab label="Ports & Services" active={bottomTab === "ports"} onSelect={() => setBottomTab("ports")} />
-                            <Tab label="Tasks" active={bottomTab === "tasks"} onSelect={() => setBottomTab("tasks")} />
-                            <Tab label="Terminal" active={bottomTab === "terminal"} onSelect={() => setBottomTab("terminal")} />
+                            <Tab label="Ports & Services" active onSelect={() => setBottomTab("ports")} />
+                            <Tab label="Tasks" onSelect={() => setBottomTab("tasks")} />
+                            <Tab label="Terminal" onSelect={() => setBottomTab("terminal")} />
                           </div>
                         </div>
                         <div className="flex min-h-0 flex-1 flex-col" hidden={bottomCollapsed}>
-                          {bottomTab === "tasks" ? (<TasksPanel />) : bottomTab === "terminal" ? (<TerminalPanel />) : (<>
                           <div className="flex items-center justify-between px-4 py-3">
                             <h3 className="text-base font-medium text-content-primary">Ports</h3>
                             <button type="button" className="select-none inline-flex items-center gap-2 text-sm font-medium rounded-lg px-3 py-2 h-8 text-content-primary hover:bg-surface-hover"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5v14" /></svg><span>Add port</span></button>
@@ -309,9 +321,9 @@ export function HypervisorReferenceWorkspace() {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><path d="M12 20h.01" /></svg>
                             <span className="text-base">No open ports</span>
                           </div>
-                          </>)}
                         </div>
                       </div>
+                      )}
                     </div>
                   </div>
                 </div>
