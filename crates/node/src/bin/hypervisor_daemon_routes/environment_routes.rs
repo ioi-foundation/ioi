@@ -229,6 +229,20 @@ pub(crate) async fn handle_environment_action(
                 }
                 Err(_) => observe(&mut env, "running", "local workspace ready (no git)"),
             }
+            // WS-F: env-bound services / tasks / ports as daemon truth (the cockpit's bottom
+            // panel renders these; deep terminal streaming is the remaining Ona-slot work).
+            let declared = env["spec"]["declared_ports"].clone();
+            env["status"]["services"] = json!([
+                { "name": "workspace", "phase": "running", "lease": "local_operator" }
+            ]);
+            env["status"]["tasks"] = json!([
+                { "name": "post-start setup", "phase": "succeeded", "trigger": "post_start" }
+            ]);
+            env["status"]["ports"] = if declared.as_array().map(|a| a.is_empty()).unwrap_or(true) {
+                json!([])
+            } else {
+                declared
+            };
         }
         "stop" => {
             env["spec"]["desired_phase"] = json!("stopped");
