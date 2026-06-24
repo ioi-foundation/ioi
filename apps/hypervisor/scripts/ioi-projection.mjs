@@ -49,6 +49,18 @@ export function threadToAgentExecution(t) {
       // agentgres RECORDS evidence; surfaced as refs only.
       evidenceRefs: Array.isArray(t.evidence_refs) ? t.evidence_refs : [],
     },
+    // WS3 — harness/authority boundary, carried on the governed object (daemon-enforced).
+    // approvalMode "suggest" = child plane PROPOSES; host/platform changes require the
+    // operator-plane request path (approvals / workspace-change-reviews). wallet authority
+    // is invoked by the daemon only at delegated-authority crossings — never here. This
+    // block is for native IOI surfaces; the borrowed UI ignores unknown fields.
+    governance: {
+      approvalMode: t.approval_mode || "suggest",
+      harnessBindingRef: t.harness_binding_id || null,
+      workspaceScope: t.workspace || t.workspace_root || null,
+      trustProfile: t.trust_profile || null,
+      evidenceRefs: Array.isArray(t.evidence_refs) ? t.evidence_refs : [],
+    },
   };
 }
 

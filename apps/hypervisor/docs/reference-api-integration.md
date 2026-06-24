@@ -49,37 +49,44 @@ frames for streams — header byte `2` + uint32 length + payload, see
 
 ## Per-endpoint wiring status & plan
 
-### Wired to the real IOI daemon
+Projection layer: `scripts/ioi-projection.mjs` (verb-disciplined daemon→UI mappers).
 
-- `UserService/GetPreference` + `SetPreference` → persisted to
-  `.ioi/hypervisor/data/hypervisor-app-preferences.json` (the daemon's data dir; survives
-  restart; replaces the mirror's ephemeral Map).
-- `AgentService/ListAgentExecutions` → `GET /v1/threads` (mapped thread → agentExecution)
-- `AgentService/GetAgentExecution` → `GET /v1/threads/:id`
-- `AgentService/CreateAgentExecution` + `StartAgent` → `POST /v1/threads` (real thread)
-- `AgentService/SendToAgentExecution` → `POST /v1/threads/:id/turns`
+### Backed by real IOI (daemon + provider + persistence)
 
-The daemon is the source of truth for the agentic surface: creating a session creates a
-real daemon thread; the list reflects real daemon state (bare threads, no demo metadata).
+- **Session** — `AgentService/{ListAgentExecutions,GetAgentExecution,CreateAgentExecution,
+  StartAgent,SendToAgentExecution}` → daemon `/v1/threads` (+ `/turns`). Creating a session
+  creates a real daemon thread; the projected object carries a `governance` block
+  (`approvalMode`, `harnessBindingRef`, `workspaceScope`, `evidenceRefs`) — WS3.
+- **Environment** (WS2) — `EnvironmentService/{Get,List,Start,Stop,Delete,Update,Create,
+  CreateFromProject,*Token,MarkActive,Archive,Unarchive}` → the `EnvironmentProvider`
+  (`scripts/ioi-environment-provider.mjs`). Interim **Simulated** provider: lifecycle
+  `STOPPED→STARTING→RUNNING→STOPPING→STOPPED`, logs, actions, persisted to the daemon data
+  dir. Phase 0 swaps daemon-owned VM/microVM/devcontainer behind the same interface.
+- **Preferences** — `UserService/{Get,Set}Preference` → persisted to the daemon data dir.
+
 If the daemon is unreachable the adapter returns null and the request falls back to the
 live reference, so the app never breaks.
 
-### Deliberately left on the live reference (not a TODO — a design decision)
+### Boundary (WS3) — daemon-enforced, surfacing awaits native UI
 
-These have **no real IOI backing that improves on the reference today**; wiring them to the
-bare local daemon would *degrade* the UX, so they stay proxied until a real IOI service
-exists:
+The daemon **enforces** the child/operator split: threads default `approval_mode: "suggest"`
+(child plane PROPOSES), and host/platform changes route through the operator-plane request
+path (`/v1/threads/:id/approvals/*`, `…/workspace-change-reviews/control`,
+`…-admissions`). wallet authority is invoked by the daemon only at delegated-authority
+crossings. The projection carries these signals on the governed object. **Rendering the
+approval/review flow needs native IOI surfaces** — the borrowed Gitpod UI is session-centric
+and has no slot for it (the impedance-mismatch case for a native UI).
 
-- `AccountService` / `OrganizationService` / `BillingService` — daemon `/v1/account` is a
-  bare `local-operator` stub (no name/email/org/billing). Wiring it replaces the polished
-  identity with a stub for no real gain.
-- `EnvironmentService` / `RunnerService` — daemon `/v1/runtime/nodes` are infra nodes, not
-  Ona workspaces; the demo's environments are interwoven with the workspace fixtures.
-- `EventService/WatchEvents` — daemon emits **per-thread SSE** (`/v1/threads/:id/events`);
-  the frontend wants a **global** Connect event stream with Gitpod-shaped resource events.
-  The app works via explicit fetches on navigation; a blind global-event bridge risks
-  breaking the stream parser, so it stays a safe end-frame until built + verified against a
-  live conversation.
+### Still on the live reference (documented reasons)
 
-Migration is complete for every endpoint with a real, mappable, verifiable IOI backend;
-the rest are documented above with the reason they remain on the reference.
+- **Project** (WS1) — daemon `/v1/hypervisor/projects` is **create-only** (requires
+  `repository_url`); no list/projection GET. Stays proxied until the daemon exposes a
+  project list (or an Agentgres projection). The borrowed UI keeps showing the demo project.
+- `Account/Org/Billing` — daemon `/v1/account` is a bare `local-operator` stub; wiring it
+  degrades the identity for no gain.
+- `EventService/WatchEvents` — daemon emits **per-thread SSE**; the frontend wants a
+  **global** Gitpod-shaped Connect stream. Stays a safe end-frame until a bridge is built +
+  verified against a live conversation (blind framing risks breaking the parser).
+
+Done for every object with a real, mappable, verifiable IOI backend; the rest are documented
+above with the reason.
