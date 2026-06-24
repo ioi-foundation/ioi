@@ -20,13 +20,28 @@ const BASE = process.env.REF_BASE || "http://localhost:9228";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(HERE, "..", "src", "reference", "html");
 
-// route path -> output slug
+// route path -> output slug. Dynamic routes capture one representative instance; the
+// renderer maps the live :id paths onto these captures.
 const ROUTES = {
   "/": "home",
   "/projects": "projects",
+  "/projects/019ee100-f64f-7554-946f-405f46528c91": "project-detail",
   "/automations": "automations",
-  "/settings": "settings",
+  "/automations/new": "automation-new",
+  "/details/019ee1b5-0cdd-72af-81e4-327345446648": "workspace",
   "/insights": "insights",
+  "/settings": "settings",
+  "/settings/agent-policies": "settings-agent-policies",
+  "/settings/billing": "settings-billing",
+  "/settings/credit-usage": "settings-credit-usage",
+  "/settings/environments": "settings-environments",
+  "/settings/manage-organization": "settings-manage-organization",
+  "/settings/members": "settings-members",
+  "/settings/organization-secrets": "settings-organization-secrets",
+  "/settings/org-integrations": "settings-org-integrations",
+  "/settings/policies": "settings-policies",
+  "/settings/runners": "settings-runners",
+  "/settings/scim": "settings-scim",
 };
 
 function stripScripts(html) {

@@ -1,8 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { useEffect, useCallback } from "react";
-import type { ReactNode } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 
 import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
@@ -35,89 +34,18 @@ import {
 import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
-import { HypervisorReferenceNotFound } from "./surfaces/NotFound/HypervisorReferenceNotFound";
-import { HypervisorReferenceHome } from "./surfaces/Home/HypervisorReferenceHome";
-import { HypervisorReferenceShell, useReferenceTheme } from "./surfaces/Home/HypervisorReferenceShell";
-import { HypervisorReferenceProjects } from "./surfaces/Projects/HypervisorReferenceProjects";
-import { HypervisorReferenceProjectDetail } from "./surfaces/Projects/HypervisorReferenceProjectDetail";
-import { HypervisorReferenceApplicationSurface } from "./surfaces/Applications/HypervisorReferenceApplicationSurface";
-import { HypervisorReferenceAutomations } from "./surfaces/Automations/HypervisorReferenceAutomations";
-import { HypervisorReferenceAutomationNew } from "./surfaces/Automations/HypervisorReferenceAutomationNew";
-import { HypervisorReferenceWorkspace } from "./surfaces/Workspace/HypervisorReferenceWorkspace";
-import { HypervisorReferenceSettings } from "./surfaces/Settings/HypervisorReferenceSettings";
-import type { PrimaryView } from "./surfaces/parityShellTypes";
+import { VerbatimRoute } from "./reference/VerbatimRoute";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
-import { ReferenceRoute } from "./reference/ReferenceRoute";
-import { wireReferenceShell } from "./reference/wiring";
-import homeVerbatimHtml from "./reference/html/home.html?raw";
-import projectsVerbatimHtml from "./reference/html/projects.html?raw";
-import automationsVerbatimHtml from "./reference/html/automations.html?raw";
-import settingsVerbatimHtml from "./reference/html/settings.html?raw";
-import insightsVerbatimHtml from "./reference/html/insights.html?raw";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
-// The reference-parity surfaces are the app's primary UX and own the root routes
-// (the reference IA). The sidebar navigates between them via real routes; Applications
-// opens the launcher modal (handled inside the shell). The legacy HypervisorShellWindow
-// has been removed: any route not owned here renders the reference-style 404
-// (unported surfaces — sessions, workbench, agents, models, etc. — until ported).
-const PRIMARY_ROUTE_FOR_VIEW: Partial<Record<PrimaryView, string>> = {
-  home: "/",
-  projects: "/projects",
-  automations: "/automations",
-  settings: "/settings",
-};
-function ParityShellRoute({ view, children }: { view: PrimaryView; children: ReactNode }) {
-  const navigate = useNavigate();
-  return (
-    <HypervisorReferenceShell
-      activeView={view}
-      onViewChange={(v) => navigate(PRIMARY_ROUTE_FOR_VIEW[v] ?? `/${v}`)}
-    >
-      {children}
-    </HypervisorReferenceShell>
-  );
-}
-
-// POC: render the captured reference DOM verbatim, with the same `.ona`/`light` theme
-// scope the parity shell applies (so the vendored preflight + token layer match :9228).
-const POC_HTML: Record<string, string> = {
-  home: homeVerbatimHtml,
-  projects: projectsVerbatimHtml,
-  automations: automationsVerbatimHtml,
-  settings: settingsVerbatimHtml,
-  insights: insightsVerbatimHtml,
-};
-const POC_HREF_TO_SLUG: Record<string, string> = {
-  "/": "home",
-  "/ai": "home",
-  "/home": "home",
-  "/projects": "projects",
-  "/automations": "automations",
-  "/settings": "settings",
-  "/insights": "insights",
-};
-function ParityPocRoute() {
-  useReferenceTheme();
-  const navigate = useNavigate();
-  const slug = window.location.pathname.split("/parity-poc/")[1] || "home";
-  const onMount = useCallback(
-    (root: HTMLDivElement) =>
-      wireReferenceShell(root, {
-        navigate,
-        // In the POC every internal href maps under /parity-poc/<slug>; unknown routes
-        // (e.g. /details/<id>) are left for the rollout's real routing.
-        mapHref: (href) => {
-          const s = POC_HREF_TO_SLUG[href];
-          return s ? `/parity-poc/${s}` : null;
-        },
-      }),
-    [navigate],
-  );
-  return <ReferenceRoute html={POC_HTML[slug] ?? homeVerbatimHtml} onMount={onMount} />;
-}
-
+// The reference-parity UX is rendered verbatim from captured reference DOM (the IOI
+// demo snapshot, brand-transformed Ona -> IOI), styled by the vendored reference CSS,
+// with client-side behavior attached by delegation. A single VerbatimRoute resolves the
+// current path to its capture (see reference/captures.ts) and renders it; unknown paths
+// fall back to the reference-style 404. The previous hand-ported JSX surfaces are
+// retained as modules (their menu/dialog components become overlay islands) but no longer
+// own routes.
 function AppMetricsBeacon() {
   useEffect(() => {
     markHypervisorMetric("react_router_mounted");
@@ -137,28 +65,9 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          {/* POC: verbatim reference render (captured #root + vendored CSS, no wiring yet). */}
-          <Route path="/parity-poc" element={<ParityPocRoute />} />
-          <Route path="/parity-poc/:slug" element={<ParityPocRoute />} />
-          {/* Reference-parity UX at the app root (the reference IA). */}
-          <Route path="/" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
-          <Route path="/home" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
-          <Route path="/ai" element={<ParityShellRoute view="home"><HypervisorReferenceHome /></ParityShellRoute>} />
-          <Route path="/projects" element={<ParityShellRoute view="projects"><HypervisorReferenceProjects /></ParityShellRoute>} />
-          <Route path="/projects/:projectId" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="home" /></ParityShellRoute>} />
-          <Route path="/projects/:projectId/settings" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="settings" /></ParityShellRoute>} />
-          <Route path="/projects/:projectId/secrets" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="secrets" /></ParityShellRoute>} />
-          <Route path="/projects/:projectId/prebuilds" element={<ParityShellRoute view="projects"><HypervisorReferenceProjectDetail tab="prebuilds" /></ParityShellRoute>} />
-          <Route path="/automations" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomations /></ParityShellRoute>} />
-          <Route path="/automations/new" element={<ParityShellRoute view="automations"><HypervisorReferenceAutomationNew /></ParityShellRoute>} />
-          {/* Blank application surface — the reference opens an app onto /insights. */}
-          <Route path="/insights" element={<ParityShellRoute view="applications"><HypervisorReferenceApplicationSurface /></ParityShellRoute>} />
-          <Route path="/details/:sessionId" element={<ParityShellRoute view="workbench"><HypervisorReferenceWorkspace /></ParityShellRoute>} />
-          <Route path="/settings" element={<HypervisorReferenceSettings />} />
-          <Route path="/settings/*" element={<HypervisorReferenceSettings />} />
-          {/* Reference-style 404 for any route the parity UX does not own (sessions,
-              workbench, agents, models, etc.). The legacy shell has been removed. */}
-          <Route path="*" element={<HypervisorReferenceNotFound />} />
+          {/* Every reference route renders verbatim from its capture; VerbatimRoute
+              resolves the path (including /projects/:id, /details/:id, /settings/*). */}
+          <Route path="*" element={<VerbatimRoute />} />
         </Routes>
       </BrowserRouter>
     </React.StrictMode>,
