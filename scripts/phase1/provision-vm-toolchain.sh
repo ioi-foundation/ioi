@@ -28,6 +28,15 @@ KERNEL_DEB_SHA="38e4ed31979895fa43401b01e2a6ec256d3a7ff3850f6408cf638d5df617eb27
 # vsock chain (load order) + virtio_blk — extracted from the deb into the initramfs.
 GUEST_MODULES="net/vmw_vsock/vsock net/vmw_vsock/vmw_vsock_virtio_transport_common net/vmw_vsock/vmw_vsock_virtio_transport drivers/block/virtio_blk"
 
+# WS-5 — Firecracker (alt isolation profile) + its MMIO kernel (vsock built-in). Same guest
+# agent + initramfs; the Debian module insmods fail harmlessly (vsock is built-in here).
+FC_VERSION="v1.16.0"
+FC_URL="https://github.com/firecracker-microvm/firecracker/releases/download/${FC_VERSION}/firecracker-${FC_VERSION}-x86_64.tgz"
+FC_SHA="9b15fcdc63f95262c40c9eacfb510fca4353b567dd7624086f759982158efa61"  # extracted binary
+FC_KERNEL_VERSION="6.1.102-fc-v1.11"
+FC_KERNEL_URL="https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.11/x86_64/vmlinux-6.1.102"
+FC_KERNEL_SHA="cf42303c29e8c4a02798f357ba056c5567baf074aaed4eec78c997fb9df08cf9"
+
 verify() { echo "$2  $1" | sha256sum -c - >/dev/null 2>&1; }
 
 fetch_pinned() {
@@ -42,12 +51,12 @@ fetch_pinned() {
   echo "  $name: downloaded + verified"
 }
 
-echo "[1/4] cloud-hypervisor + ch-remote (pinned $CH_VERSION)"
+echo "[1/5] cloud-hypervisor + ch-remote (pinned $CH_VERSION)"
 fetch_pinned "$CH_URL" "$TC/cloud-hypervisor" "$CH_SHA" "cloud-hypervisor"
 fetch_pinned "$CHREMOTE_URL" "$TC/ch-remote" "$CHREMOTE_SHA" "ch-remote"
 chmod +x "$TC/cloud-hypervisor" "$TC/ch-remote"
 
-echo "[2/4] guest kernel + modules (Debian cloud $KERNEL_VERSION, PVH/PCI)"
+echo "[2/5] guest kernel + modules (Debian cloud $KERNEL_VERSION, PVH/PCI)"
 fetch_pinned "$KERNEL_DEB_URL" "$TC/kernel.deb" "$KERNEL_DEB_SHA" "kernel.deb"
 KX="$TC/kernel-extract"
 if [ ! -f "$TC/guest-kernel.bin" ] || [ ! -d "$TC/guest-modules" ]; then
@@ -68,14 +77,14 @@ else
 fi
 KERNEL_SHA="$(sha256sum "$TC/guest-kernel.bin" | cut -d' ' -f1)"
 
-echo "[3/4] guest agent (static, from scripts/phase1/guest-agent.c)"
+echo "[3/5] guest agent (static, from scripts/phase1/guest-agent.c)"
 if ! command -v gcc >/dev/null; then echo "  gcc required to build the guest agent" >&2; exit 4; fi
 gcc -static -O2 -s -o "$TC/guest-agent" "$HERE/guest-agent.c"
 AGENT_SHA="$(sha256sum "$TC/guest-agent" | cut -d' ' -f1)"
 AGENT_SRC_SHA="$(sha256sum "$HERE/guest-agent.c" | cut -d' ' -f1)"
 echo "  guest-agent: built (sha256 $AGENT_SHA)"
 
-echo "[4/4] initramfs (static busybox + guest-agent as /init)"
+echo "[4/5] initramfs (static busybox + guest-agent as /init)"
 BUSYBOX="${IOI_BUSYBOX:-/usr/bin/busybox}"
 if [ ! -x "$BUSYBOX" ] || ! file "$BUSYBOX" 2>/dev/null | grep -q "statically linked"; then
   echo "  need a static busybox at $BUSYBOX (set IOI_BUSYBOX)" >&2; exit 5
@@ -102,12 +111,29 @@ INITRAMFS_SHA="$(sha256sum "$TC/initramfs.cpio.gz" | cut -d' ' -f1)"
 rm -rf "$RD"
 echo "  initramfs: built ($(du -h "$TC/initramfs.cpio.gz" | cut -f1), sha256 $INITRAMFS_SHA)"
 
+echo "[5/5] firecracker (alt isolation profile) + MMIO kernel"
+fetch_pinned "$FC_KERNEL_URL" "$TC/fc-kernel.bin" "$FC_KERNEL_SHA" "fc-kernel"
+if [ ! -f "$TC/firecracker" ] || ! verify "$TC/firecracker" "$FC_SHA"; then
+  curl -sSL -o "$TC/firecracker.tgz" "$FC_URL"
+  FX="$TC/fc-extract"; rm -rf "$FX"; mkdir -p "$FX"; tar -xf "$TC/firecracker.tgz" -C "$FX"
+  cp "$(find "$FX" -name "firecracker-${FC_VERSION}-x86_64" -type f | head -1)" "$TC/firecracker"
+  chmod +x "$TC/firecracker"; rm -rf "$FX" "$TC/firecracker.tgz"
+  if ! verify "$TC/firecracker" "$FC_SHA"; then
+    echo "  firecracker CHECKSUM MISMATCH — FAIL CLOSED" >&2; rm -f "$TC/firecracker"; exit 3
+  fi
+  echo "  firecracker: downloaded + verified"
+else
+  echo "  firecracker: present + verified"
+fi
+
 cat > "$TC/supply-manifest.json" <<EOF
 {
   "schema_version": "ioi.hypervisor.vm-supply-manifest.v1",
   "monitor": { "name": "cloud-hypervisor", "version": "$CH_VERSION", "sha256": "$CH_SHA", "path": "$TC/cloud-hypervisor" },
   "ch_remote": { "version": "$CH_VERSION", "sha256": "$CHREMOTE_SHA", "path": "$TC/ch-remote" },
   "kernel": { "version": "$KERNEL_VERSION", "sha256": "$KERNEL_SHA", "path": "$TC/guest-kernel.bin" },
+  "firecracker": { "version": "$FC_VERSION", "sha256": "$FC_SHA", "path": "$TC/firecracker" },
+  "fc_kernel": { "version": "$FC_KERNEL_VERSION", "sha256": "$FC_KERNEL_SHA", "path": "$TC/fc-kernel.bin" },
   "guest_agent": { "source_sha256": "$AGENT_SRC_SHA", "binary_sha256": "$AGENT_SHA", "path": "$TC/guest-agent" },
   "busybox": { "sha256": "$BUSYBOX_SHA", "path": "$BUSYBOX" },
   "initramfs": { "sha256": "$INITRAMFS_SHA", "path": "$TC/initramfs.cpio.gz" }

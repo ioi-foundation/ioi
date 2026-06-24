@@ -112,6 +112,9 @@ pub(crate) fn new_recipe(id: &str, fields: &Value, source: &str, project_ref: Op
         "project_ref": project_ref,
         "environment_class_ref": get("environment_class_ref", json!("local-workspace-v0")),
         "substrate": get("substrate", json!("local_host")),
+        // WS-5 — monitor selection hints (carried so select_monitor sees them).
+        "monitor": get("monitor", Value::Null),
+        "isolation_profile": get("isolation_profile", Value::Null),
         "detected_signals": get("detected_signals", json!([])),
         "prebuild_tasks": get("prebuild_tasks", json!([])),
         "init_tasks": get("init_tasks", json!([])),
@@ -236,9 +239,13 @@ pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &V
 
     let workspace_ready = env["status"]["components"]["workspace_content"]["phase"].as_str() == Some("ready")
         && env["status"]["components"]["provisioner"]["phase"].as_str() == Some("ready");
+    let sandbox_failed = env["status"]["components"]["sandbox"]["phase"].as_str() == Some("failed");
+    if sandbox_failed {
+        blocked.push("sandbox_failed".to_string());
+    }
 
-    let readiness_mode = if !workspace_ready || required_task_failed {
-        // no workspace, or a required setup task failed → the env is not usable.
+    let readiness_mode = if !workspace_ready || required_task_failed || sandbox_failed {
+        // no workspace, a required setup task failed, or the sandbox didn't come up → not usable.
         "blocked"
     } else if !blocked.is_empty() {
         // workspace ready but a required runtime edge (secret/scm/service) unmet → inspect-only.

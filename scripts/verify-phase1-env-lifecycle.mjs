@@ -228,12 +228,50 @@ function countVmProcs(env) {
   return n;
 }
 
+// G(WS-5): monitor abstraction — Firecracker (real 2nd monitor), QEMU lane, policy selection.
+async function gateWs5() {
+  if (!_exists(join(TOOLCHAIN, "supply-manifest.json"))) {
+    console.log("  [WS-5] SKIPPED — VM toolchain not provisioned"); failures++; console.log("    ✗ FAIL: WS-5 requires the VM toolchain"); return;
+  }
+  console.log("  [WS-5] monitor abstraction (Firecracker lane + QEMU lane + selection)");
+  // Firecracker: a real SECOND monitor runs the same recipe in-guest with kernel isolation.
+  const fcR = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", monitor: "firecracker", init_tasks: [{ name: "build", command: "echo fc-guest > out.txt", trigger: "environment_start", required: true }] } });
+  const fcEnv = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: fcR.json.recipe.recipe_ref } })).json.environment.id;
+  const fcS = (await api("POST", `/v1/hypervisor/environments/${fcEnv}/start`)).json.environment;
+  ok(fcS.status.vm?.monitor === "firecracker", `Firecracker selected + booted (monitor=${fcS.status.vm?.monitor})`);
+  ok(/firecracker|monitor=/.test(fcS.status.vm?.selection_reason || ""), "selection_reason records the monitor choice");
+  ok(fcS.status.minimum_isolation === "vm_kernel", "Firecracker env: vm_kernel isolation");
+  ok((fcS.status.tasks || [])[0]?.executed_in === "guest" && (fcS.status.tasks || [])[0]?.phase === "succeeded", "task ran IN-GUEST under Firecracker");
+  const fcU = await api("POST", "/v1/hypervisor/exec", { environment_id: fcEnv, command: "uname -r" });
+  ok(fcU.json.executed_in === "guest" && (fcU.json.stdout || "").trim() !== HOST_UNAME, `Firecracker guest kernel (${(fcU.json.stdout || "").trim()}) differs from host — real isolation`);
+  await api("POST", `/v1/hypervisor/environments/${fcEnv}/stop`);
+  await api("POST", `/v1/hypervisor/environments/${fcEnv}/delete`);
+  ok(countVmProcs(fcEnv) === 0, "no orphan firecracker process after delete");
+
+  // policy selection by isolation_profile (recorded, no boot needed to verify the choice)
+  const profR = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", isolation_profile: "minimal_sealed", init_tasks: [{ name: "noop", command: "true", trigger: "environment_start", required: true }] } });
+  const profEnv = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: profR.json.recipe.recipe_ref } })).json.environment.id;
+  const profS = (await api("POST", `/v1/hypervisor/environments/${profEnv}/start`)).json.environment;
+  ok(profS.status.vm?.monitor === "firecracker", `isolation_profile=minimal_sealed → Firecracker selected (got ${profS.status.vm?.monitor})`);
+  await api("POST", `/v1/hypervisor/environments/${profEnv}/stop`);
+  await api("POST", `/v1/hypervisor/environments/${profEnv}/delete`);
+
+  // QEMU lane: selected, host-gated, fails closed honestly (no fake boot).
+  const qR = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "microvm", monitor: "qemu" } });
+  const qEnv = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: qR.json.recipe.recipe_ref } })).json.environment.id;
+  const qS = (await api("POST", `/v1/hypervisor/environments/${qEnv}/start`)).json.environment;
+  ok(qS.status.components?.sandbox?.phase === "failed", "QEMU lane host-gated → sandbox failed (honest, no fake boot)");
+  ok(/qemu/i.test(qS.status.components?.sandbox?.detail || ""), `sandbox failure names the qemu host-gap (${(qS.status.components?.sandbox?.detail || "").slice(0, 48)})`);
+  await api("POST", `/v1/hypervisor/environments/${qEnv}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
   await gateWs2();
   await gateWs3();
   await gateWs4();
+  await gateWs5();
 }
 
 // ---- harness ----

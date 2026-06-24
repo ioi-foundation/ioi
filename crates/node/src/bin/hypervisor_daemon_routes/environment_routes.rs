@@ -346,19 +346,20 @@ fn env_is_microvm(env: &Value, recipe: Option<&Value>) -> bool {
         || recipe.and_then(|r| r["substrate"].as_str()) == Some("microvm")
 }
 
-/// Boot a cloud-hypervisor microVM for the env, import the scoped workspace into the guest tmpfs,
-/// and store the live handle. Sets the sandbox/isolation status to the REAL vm_kernel boundary.
-fn provision_microvm(st: &DaemonState, env: &mut Value, env_id: &str, ws: &str) -> Result<(), AppError> {
-    use super::microvm::{self, VmMonitor};
+/// Boot a microVM for the env via the selected VmMonitor (WS-5: cloud-hypervisor primary, QEMU /
+/// Firecracker lanes), import the scoped workspace into the guest tmpfs, and store the live handle.
+/// Sets the sandbox/isolation status to the REAL vm_kernel boundary; records the chosen monitor.
+fn provision_microvm(st: &DaemonState, env: &mut Value, env_id: &str, ws: &str, recipe: &Value) -> Result<(), AppError> {
+    use super::microvm;
     let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
-    let tc = microvm::resolve_toolchain(&st.home_dir).map_err(|e| app(format!("vm toolchain: {e}")))?;
+    let (monitor_id, reason) = microvm::select_monitor(recipe);
     let run_dir = std::path::Path::new(&st.data_dir)
         .join("environments")
         .join(safe_id(env_id))
         .join("vm");
-    let spec = microvm::VmSpec { ch_bin: tc.ch_bin, kernel: tc.kernel, initramfs: tc.initramfs, vcpus: 2, mem_mib: 1024, run_dir };
-    let monitor = microvm::CloudHypervisorMonitor;
-    let vm = monitor.start(&spec).map_err(|e| app(format!("microvm start: {e}")))?;
+    let spec = microvm::build_vm_spec(&st.home_dir, &monitor_id, run_dir, 2, 1024).map_err(|e| app(format!("vm spec: {e}")))?;
+    let monitor = microvm::make_monitor(&monitor_id);
+    let vm = monitor.start(&spec).map_err(|e| app(format!("microvm start ({monitor_id}): {e}")))?;
     let tar = microvm::tar_dir(std::path::Path::new(ws)).map_err(|e| app(format!("tar workspace: {e}")))?;
     monitor.import_workspace(&vm, &tar).map_err(|e| app(format!("import workspace: {e}")))?;
     let proto = monitor.proto_version(&vm).unwrap_or(0);
@@ -368,7 +369,7 @@ fn provision_microvm(st: &DaemonState, env: &mut Value, env_id: &str, ws: &str) 
     env["status"]["isolation_claim"] = json!("cross_tenant_capable");
     env["status"]["minimum_isolation"] = json!("vm_kernel");
     env["status"]["trust_posture"] = json!("untrusted_code_capable");
-    env["status"]["vm"] = json!({ "monitor": "cloud-hypervisor", "pid": vm.pid, "guest_agent_proto": proto });
+    env["status"]["vm"] = json!({ "monitor": monitor_id, "selection_reason": reason, "pid": vm.pid, "guest_agent_proto": proto });
     st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
     Ok(())
 }
@@ -560,14 +561,18 @@ pub(crate) async fn handle_environment_action(
             let recipe = recipe_ref.as_deref().and_then(|r| super::recipe_routes::load_recipe(&st.data_dir, r));
             let is_microvm = env_is_microvm(&env, recipe.as_ref());
 
-            // sandbox — WS-4: a REAL cloud-hypervisor microVM kernel boundary on the microvm
+            // sandbox — WS-4/5: a REAL microVM kernel boundary (selected monitor) on the microvm
             // substrate (execution runs in-guest); else the local process lane.
+            let mut microvm_ok = false;
             if is_microvm {
-                set_component(&mut env, "sandbox", "creating", "booting cloud-hypervisor microVM");
-                observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", "booting cloud-hypervisor microVM");
-                match provision_microvm(&st, &mut env, &id, &ws) {
+                let recipe_for_select = recipe.clone().unwrap_or_else(|| json!({}));
+                let (sel_id, _) = super::microvm::select_monitor(&recipe_for_select);
+                set_component(&mut env, "sandbox", "creating", &format!("booting microVM ({sel_id})"));
+                observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", &format!("booting microVM via {sel_id}"));
+                match provision_microvm(&st, &mut env, &id, &ws, &recipe_for_select) {
                     Ok(()) => {
-                        set_component(&mut env, "sandbox", "ready", "microVM kernel boundary (cloud-hypervisor)");
+                        microvm_ok = true;
+                        set_component(&mut env, "sandbox", "ready", &format!("microVM kernel boundary ({sel_id})"));
                         observe(&mut env, "reconciling_sandbox", "sandbox", "ever_ready", "info", "microVM ready (vm_kernel isolation, execution in-guest)");
                         set_component(&mut env, "resource_isolation", "ready", "vm-isolated (kernel boundary)");
                         observe(&mut env, "enforcing_resource_isolation", "resource_isolation", "content_ready", "info", "resource isolation (vm kernel)");
@@ -596,11 +601,14 @@ pub(crate) async fn handle_environment_action(
                 observe(&mut env, "resolving_recipe", "recipe", "content_ready", "info", "resolving recipe → plan");
                 let resolution = super::recipe_routes::resolve_recipe(&st.data_dir, &recipe, &id)?;
                 observe(&mut env, "starting_services", "automations", "content_ready", "info", "running resolved tasks");
-                let task_results = if is_microvm {
-                    let r = run_tasks_in_guest(&st, &id, &resolution)?;
+                let task_results = if is_microvm && microvm_ok {
+                    let r = run_tasks_in_guest(&st, &id, &resolution).unwrap_or_default();
                     // bring the guest's results back onto the host scoped workspace.
                     let _ = export_guest_workspace(&st, &id, &ws);
                     r
+                } else if is_microvm {
+                    // sandbox boot failed — do NOT fall back to the host (would defeat isolation).
+                    Vec::new()
                 } else {
                     run_resolved_tasks(&st.data_dir, &id, &ws, &resolution)
                 };
