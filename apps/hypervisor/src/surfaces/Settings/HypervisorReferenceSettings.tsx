@@ -8,6 +8,8 @@
 // reference href (navigate to the live route) until ported.
 import { useState } from "react";
 import { ToggleSwitch } from "../parityControls";
+import { ReferenceModal } from "../parityOverlays";
+import { AddCreditsDialog, ConnectIntegrationDialog } from "./HypervisorReferenceSettingsDialogs";
 import { useReferenceTheme } from "../Home/HypervisorReferenceShell";
 
 const ArrowLeft = () => (
@@ -361,6 +363,7 @@ function RunnersContent() {
 
 function BillingContent() {
   const [autoTopUp, setAutoTopUp] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   return (
     <SettingsMain>
       <SettingsTitle title="Billing" />
@@ -387,7 +390,7 @@ function BillingContent() {
           <div className="flex flex-col gap-2">
             <div data-testid="banner" className="flex items-center gap-2 rounded-lg text-base border px-3 py-2 shadow-sm bg-surface-banner-info-subtle text-content-info border-border-info justify-between">
               <div className="flex min-w-0 flex-1 gap-2 pr-2 items-start"><span className="flex h-[18px] shrink-0 items-center"><InfoIcon /></span><div data-testid="banner-text" className="min-w-0 [overflow-wrap:anywhere]">Need more OCUs? Add credits any time.</div></div>
-              <div className="flex shrink-0 items-center gap-2"><button type="button" className={BTN_PRIMARY}>Add Credits</button></div>
+              <div className="flex shrink-0 items-center gap-2"><button type="button" className={BTN_PRIMARY} onClick={() => setCreditsOpen(true)}>Add Credits</button></div>
             </div>
           </div>
         </div>
@@ -403,6 +406,7 @@ function BillingContent() {
           <div className="flex items-center justify-between"><button type="button" className={BTN_PRIMARY}><span className="truncate">Access billing portal</span><svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.66667 3H7.07273C5.64714 3 4.93434 3 4.38984 3.27744C3.91088 3.52148 3.52148 3.91088 3.27744 4.38984C3 4.93434 3 5.64714 3 7.07273V12.9273C3 14.3529 3 15.0656 3.27744 15.6102C3.52148 16.0892 3.91088 16.4785 4.38984 16.7225C4.93434 17 5.64714 17 7.07273 17H12.9273C14.3529 17 15.0656 17 15.6102 16.7225C16.0892 16.4785 16.4785 16.0892 16.7225 15.6102C17 15.0656 17 14.3529 17 12.9273V12.3333M11.4848 3H17M17 3V8.51515M17 3L9.15152 10.8485" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button></div>
         </div>
       </div>
+      <ReferenceModal open={creditsOpen} onClose={() => setCreditsOpen(false)} maxWidth="480px"><AddCreditsDialog /></ReferenceModal>
     </SettingsMain>
   );
 }
@@ -723,11 +727,12 @@ function IntegrationRow({ it }: { it: (typeof INTEGRATIONS)[number] }) {
 }
 
 function IntegrationsContent() {
+  const [connectOpen, setConnectOpen] = useState(false);
   return (
     <SettingsMain>
       <div className="flex flex-row items-center justify-between gap-2">
         <div className="relative min-w-0"><ol className="flex min-w-0 flex-row items-center h-9 gap-2 text-2xl"><li className="flex min-w-0 shrink items-center text-content-primary gap-2 text-2xl font-semibold tracking-[-0.2px]"><span className="truncate" title="Integrations">Integrations</span></li></ol></div>
-        <button type="button" className={INSTALL_BTN} data-testid="create-custom-integration-button"><svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.75V12M12 12V17.25M12 12H6.75M12 12H17.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg><span className="truncate">Add MCP integration</span></button>
+        <button type="button" className={INSTALL_BTN} data-testid="create-custom-integration-button" onClick={() => setConnectOpen(true)}><svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.75V12M12 12V17.25M12 12H6.75M12 12H17.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg><span className="truncate">Add MCP integration</span></button>
       </div>
       <div data-testid="org-integrations-page"><div className="flex flex-col gap-4"><div className="flex flex-col gap-6">
         <div className="flex flex-col">
@@ -744,6 +749,7 @@ function IntegrationsContent() {
           </ul>
         </div>
       </div></div></div>
+      <ReferenceModal open={connectOpen} onClose={() => setConnectOpen(false)} maxWidth="560px"><ConnectIntegrationDialog /></ReferenceModal>
     </SettingsMain>
   );
 }

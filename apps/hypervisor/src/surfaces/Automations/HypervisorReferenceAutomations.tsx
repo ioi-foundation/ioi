@@ -7,8 +7,16 @@
 // listboxes, row more-actions menus) are omitted — they are not visibly rendered.
 // Note: the reference renders the row as a <button> containing Run/More <button>s
 // (nested-button DOM) — reproduced verbatim for parity; React logs a dev warning.
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { MouseEventHandler } from "react";
+import { useNavigate } from "react-router-dom";
 import { SUGGESTED_TEMPLATES } from "./automationsTemplates";
+import { AnchoredPopover } from "../parityOverlays";
+import {
+  StatusFilterMenu,
+  SortMenu,
+  AutomationRowMenu,
+} from "./HypervisorReferenceAutomationMenus";
 
 const PlusGlyph = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10.25 5V10.25M10.25 10.25V15.5M10.25 10.25H5M10.25 10.25H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -54,6 +62,8 @@ const RunButton = () => (
 );
 
 function AutomationRow({ a }: { a: (typeof AUTOMATIONS)[number] }) {
+  const [open, setOpen] = useState(false);
+  const moreRef = useRef<HTMLButtonElement>(null);
   return (
     <li tabIndex={-1} role="row" aria-label={a.id} data-list-item={a.id} className="col-span-full grid grid-cols-subgrid">
       <div style={{ display: "none" }} />
@@ -75,10 +85,13 @@ function AutomationRow({ a }: { a: (typeof AUTOMATIONS)[number] }) {
             <div data-list-slot="content" className="flex grow items-center justify-end"><div className="flex items-center gap-2">{a.run ? <RunButton /> : null}</div></div>
           </div>
           <div className="flex items-center justify-end" data-tracking-id-none="true">
-            <button type="button" className={BTN_CLEAR_SQUARE} aria-label="More actions" aria-haspopup="menu" aria-expanded="false" data-state="closed"><DotsGlyph /></button>
+            <button ref={moreRef} type="button" className={BTN_CLEAR_SQUARE} aria-label="More actions" aria-haspopup="menu" aria-expanded={open} data-state={open ? "open" : "closed"} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}><DotsGlyph /></button>
           </div>
         </button>
       </div>
+      <AnchoredPopover open={open} onClose={() => setOpen(false)} anchorRef={moreRef} side="bottom" align="end">
+        <div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) setOpen(false); }}><AutomationRowMenu /></div>
+      </AnchoredPopover>
     </li>
   );
 }
@@ -97,8 +110,17 @@ function TemplateCard({ t }: { t: (typeof SUGGESTED_TEMPLATES)[number] }) {
 }
 
 export function HypervisorReferenceAutomations() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [ownerTab, setOwnerTab] = useState<"mine" | "all">("mine");
+  const [menu, setMenu] = useState<null | "status" | "sort">(null);
+  const statusRef = useRef<HTMLButtonElement>(null);
+  const sortRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = () => setMenu(null);
+  const toggleMenu = (which: "status" | "sort") => () => setMenu((m) => (m === which ? null : which));
+  const onMenuItemClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[role="option"], [role="menuitem"], a, button')) closeMenu();
+  };
   const q = query.trim().toLowerCase();
   const filtered = AUTOMATIONS.filter((a) => !q || a.name.toLowerCase().includes(q));
   return (
@@ -110,7 +132,7 @@ export function HypervisorReferenceAutomations() {
             <div className="flex min-w-0 items-center justify-between">
               <h1 className="truncate text-2xl font-semibold tracking-[-0.2px] text-content-primary">Automations</h1>
               <div className="flex items-center gap-2">
-                <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-4 py-2 h-9 text-base" data-testid="new-automation-button" data-tracking-id="new-automation-automations-page">
+                <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 px-4 py-2 h-9 text-base" data-testid="new-automation-button" data-tracking-id="new-automation-automations-page" onClick={() => navigate("/automations/new")}>
                   <PlusGlyph /><span className="truncate">New</span>
                 </button>
               </div>
@@ -162,13 +184,13 @@ export function HypervisorReferenceAutomations() {
                   <div className="grid min-w-0 grid-cols-2 gap-3 @[700px]:flex @[700px]:shrink-0">
                     <div className="relative w-full">
                       <span className="sr-only">Select</span>
-                      <button type="button" aria-label="Select" aria-haspopup="listbox" data-testid="workflow-status-filter-trigger" className={SELECT_TRIGGER}>
+                      <button ref={statusRef} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={menu === "status"} data-state={menu === "status" ? "open" : "closed"} data-testid="workflow-status-filter-trigger" className={SELECT_TRIGGER} onClick={toggleMenu("status")}>
                         <span className="truncate"><span>Status: All</span></span><SelectChevron />
                       </button>
                     </div>
                     <div className="relative w-full min-w-0 @[512px]:min-w-[210px]">
                       <span className="sr-only">Sort by</span>
-                      <button type="button" aria-label="Sort by" aria-haspopup="listbox" data-testid="automation-sort-trigger" className={SELECT_TRIGGER}>
+                      <button ref={sortRef} type="button" aria-label="Sort by" aria-haspopup="listbox" aria-expanded={menu === "sort"} data-state={menu === "sort" ? "open" : "closed"} data-testid="automation-sort-trigger" className={SELECT_TRIGGER} onClick={toggleMenu("sort")}>
                         <span className="truncate"><span>Sort: Recently completed</span></span><SelectChevron />
                       </button>
                     </div>
@@ -217,6 +239,8 @@ export function HypervisorReferenceAutomations() {
           </div>
         </div>
       </div>
+      <AnchoredPopover open={menu === "status"} onClose={closeMenu} anchorRef={statusRef} side="bottom" align="start"><div onClick={onMenuItemClick}><StatusFilterMenu /></div></AnchoredPopover>
+      <AnchoredPopover open={menu === "sort"} onClose={closeMenu} anchorRef={sortRef} side="bottom" align="start"><div onClick={onMenuItemClick}><SortMenu /></div></AnchoredPopover>
     </main>
   );
 }

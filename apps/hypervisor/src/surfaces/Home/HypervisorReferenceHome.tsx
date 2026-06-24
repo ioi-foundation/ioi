@@ -5,7 +5,14 @@
 // opacity 0) are omitted — they never render; everything visible is reproduced.
 // The mobile waiting lottie (md:hidden) is kept as its container only (hidden at
 // the reference's desktop viewport). Validate vs :9228 with .ioi/tmp/compare.mjs.
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { MouseEventHandler } from "react";
+import { AnchoredPopover } from "../parityOverlays";
+import {
+  AgentModeMenu,
+  WorkInProjectMenu,
+  AddToPromptMenu,
+} from "./HypervisorReferenceHomeMenus";
 
 const BrandMark = ({ cls }: { cls: string }) => (
   <svg className={cls} width="24" height="24" viewBox="108.97 89.47 781.56 706.06" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="currentColor" strokeWidth="12" strokeLinejoin="round" strokeLinecap="round"><path d="M295.299 434.631L295.299 654.116 485.379 544.373z" /><path d="M500 535.931L697.39 421.968 500 308.005 302.61 421.968z" /><path d="M514.621 544.373L704.701 654.115 704.701 434.631z" /><path d="M280.678 662.557L280.678 425.086 123.957 695.903 145.513 740.594z" /><path d="M719.322 662.557L854.487 740.594 876.043 695.903 719.322 425.085z" /><path d="M287.988 675.22L151.883 753.8 164.878 780.741 470.757 780.741 287.988 675.22z" /><path d="M712.012 675.219L529.242 780.741 835.122 780.741 848.117 753.8 712.012 675.219z" /><path d="M492.689 295.343L492.689 104.779 466.038 104.779 287.055 414.066z" /><path d="M507.31 295.342L712.945 414.066 533.962 104.779 507.31 104.779z" /><path d="M302.61 666.778L500 780.741 500 552.815z" /><path d="M500 552.815L500 780.741 697.39 666.778z" /></g></svg>
@@ -56,6 +63,17 @@ const RECENT_SESSIONS = [
 
 export function HypervisorReferenceHome() {
   const [prompt, setPrompt] = useState("");
+  const [menu, setMenu] = useState<null | "agent" | "project" | "addprompt">(null);
+  const agentRef = useRef<HTMLButtonElement>(null);
+  const projectRef = useRef<HTMLButtonElement>(null);
+  const addPromptRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = () => setMenu(null);
+  const toggleMenu = (which: "agent" | "project" | "addprompt") => () =>
+    setMenu((m) => (m === which ? null : which));
+  // Menus close when an item is chosen; anchor items keep their navigation.
+  const onMenuItemClick: MouseEventHandler = (e) => {
+    if ((e.target as HTMLElement).closest('[role="menuitem"], [role="option"], a, button')) closeMenu();
+  };
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -105,7 +123,7 @@ export function HypervisorReferenceHome() {
                           </div>
                           <div className="flex h-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="hidden min-w-0 flex-1 flex-col gap-2 md:flex md:flex-none md:flex-row md:items-center">
-                              <button type="button" className="h-10 rounded-lg border border-border-base px-3 py-1.5 text-base opacity-80 outline-none ring-0 hover:bg-surface-hover focus:border-border-brand active:border-border-brand md:h-8 md:py-1 flex flex-1 items-center space-x-2" data-tracking-id="add-context-prompt-input">
+                              <button ref={projectRef} type="button" className="h-10 rounded-lg border border-border-base px-3 py-1.5 text-base opacity-80 outline-none ring-0 hover:bg-surface-hover focus:border-border-brand active:border-border-brand md:h-8 md:py-1 flex flex-1 items-center space-x-2" data-tracking-id="add-context-prompt-input" onClick={toggleMenu("project")}>
                                 <FocusGlyph />
                                 <span className="flex-1 text-start">Work in a project</span>
                                 <ProjectPlusGlyph />
@@ -115,12 +133,12 @@ export function HypervisorReferenceHome() {
                             <div className="ml-auto flex min-w-0 flex-row flex-wrap items-center gap-2">
                               <input type="file" accept="image/png,image/jpeg" multiple className="hidden" />
                               <div className="relative inline-flex w-fit items-center" data-tracking-id="prompt-actions-area" aria-haspopup="menu" aria-expanded="false" data-state="closed">
-                                <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0 text-content-secondary" aria-label="Add to prompt" data-tracking-id="prompt-actions-menu-button">
+                                <button type="button" className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-clear hover:bg-surface-button-clear-accent hover:text-content-accent data-[state=open]:bg-surface-button-clear-accent data-[state=open]:text-content-accent disabled:opacity-50 disabled:text-content-primary focus-visible:outline-border-brand gap-2 h-8 text-base aspect-square p-0 text-content-secondary" aria-label="Add to prompt" data-tracking-id="prompt-actions-menu-button" ref={addPromptRef} onClick={toggleMenu("addprompt")}>
                                   <AddPlusGlyph />
                                 </button>
                               </div>
                               <span className="inline-flex" data-state="closed">
-                                <button type="button" aria-haspopup="menu" aria-expanded="false" data-state="closed" aria-label="Change agent mode" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-base px-2 text-sm font-normal text-content-primary hover:opacity-80 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-border-brand data-[state=open]:opacity-80">
+                                <button ref={agentRef} type="button" aria-haspopup="menu" aria-expanded={menu === "agent"} data-state={menu === "agent" ? "open" : "closed"} aria-label="Change agent mode" onClick={toggleMenu("agent")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-base px-2 text-sm font-normal text-content-primary hover:opacity-80 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-border-brand data-[state=open]:opacity-80">
                                   <div className="flex min-w-0 items-center gap-1.5">
                                     <BrandMark cls="hypervisor-activity-brand-mark size-4" />
                                     <span className="truncate">5.5 Medium</span>
@@ -187,6 +205,9 @@ export function HypervisorReferenceHome() {
           </div>
         </div>
       </div>
+      <AnchoredPopover open={menu === "agent"} onClose={closeMenu} anchorRef={agentRef} side="top" align="end"><div onClick={onMenuItemClick}><AgentModeMenu /></div></AnchoredPopover>
+      <AnchoredPopover open={menu === "project"} onClose={closeMenu} anchorRef={projectRef} side="top" align="start"><div onClick={onMenuItemClick}><WorkInProjectMenu /></div></AnchoredPopover>
+      <AnchoredPopover open={menu === "addprompt"} onClose={closeMenu} anchorRef={addPromptRef} side="top" align="start"><div onClick={onMenuItemClick}><AddToPromptMenu /></div></AnchoredPopover>
     </main>
   );
 }
