@@ -3,29 +3,15 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
-import "@ioi/workspace-substrate/style.css";
-// Parity foundation: vendored IOI demo-reference design tokens (Phase A). Imported
-// before global.css so the 8 overlapping token names keep current values until
-// surfaces are ported; the other reference tokens become available for parity work.
-import "./styles/reference/tokens.css";
-import "./styles/global.css"; // Hypervisor client theme overrides (retired per surface as parity ports land)
-// Import order mirrors the reference's CSS layer order (base -> components ->
-// utilities) so utilities win element-level conflicts exactly as on :9228. Notably
-// .h-8 must beat .hypervisor-wordmark-brand-host{height:100%} (equal specificity,
-// later wins) or the Home wordmark host collapses via its aspect-ratio.
-// 1) base: scoped preflight reset (under `.ona`, set by the parity shell) re-adding
-//    the reference's anchor/heading/form resets that the utility bundle strips.
-import "./styles/reference/parity-preflight.css";
-// 2) components: vendored hypervisor-* brand/Applications rules the reference server
-//    injects at serve time (logo mark, Applications sidebar section, launcher modal).
+// The whole app now renders the reference verbatim, so we vendor the reference's
+// COMPLETE CSS bundle (the single stylesheet :9228 links) rather than a Home-harvested
+// subset — every route is styled exactly as the reference, with no curated seam to drift.
+// hypervisor-brand.css (the server-injected brand rules, not part of the bundle) loads
+// first so the bundle's utilities still win element conflicts (e.g. .h-8 beating
+// .hypervisor-wordmark-brand-host). The .ona/light scope on <html> (useReferenceTheme)
+// activates the bundle's :root[class~=ona] token layer exactly as on :9228.
 import "./styles/reference/hypervisor-brand.css";
-// 3) utilities: reference utility/component classes (class-scoped, preflight-stripped)
-//    — additive and non-breaking (no current surface uses these names; zero collision).
-import "./styles/reference/utilities.css";
-// 3b) supplement: arbitrary utilities used by ported surfaces but absent from the
-//     Home-harvested utilities subset (verbatim from the reference's full bundle).
-import "./styles/reference/parity-supplement.css";
+import "./styles/reference/reference-bundle.css";
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,

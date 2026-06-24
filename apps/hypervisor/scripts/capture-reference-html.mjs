@@ -60,6 +60,29 @@ async function capture(page, route, slug) {
   const inner = await page.evaluate(() => {
     const root = document.getElementById("root");
     if (!root) throw new Error("no #root");
+    // React builds the DOM with createElement, which permits invalid nesting the HTML
+    // parser forbids — notably interactive-in-interactive (a <button> row containing Run
+    // / "..." buttons). When we later set this HTML via dangerouslySetInnerHTML, the
+    // parser HOISTS those inner elements out, wrecking the layout. Neutralize it here:
+    // any <button>/<a> that contains an interactive descendant becomes a <div
+    // role="button"> (attributes + children preserved; href stashed as data-href so the
+    // delegation wiring can still navigate). Re-parse is then structure-preserving.
+    const INNER = "button, a, input, select, textarea";
+    let changed = true;
+    let guard = 0;
+    while (changed && guard++ < 12) {
+      changed = false;
+      for (const el of Array.from(root.querySelectorAll("button, a"))) {
+        if (!el.querySelector(INNER)) continue;
+        const div = document.createElement("div");
+        for (const attr of Array.from(el.attributes)) div.setAttribute(attr.name, attr.value);
+        if (!div.getAttribute("role")) div.setAttribute("role", "button");
+        if (el.tagName === "A" && el.getAttribute("href")) div.setAttribute("data-href", el.getAttribute("href"));
+        div.innerHTML = el.innerHTML;
+        el.replaceWith(div);
+        changed = true;
+      }
+    }
     return root.innerHTML;
   });
   const html = stripScripts(inner);
