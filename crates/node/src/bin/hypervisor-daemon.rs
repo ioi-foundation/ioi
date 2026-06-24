@@ -40,6 +40,8 @@ mod authority_routes;
 mod resource_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
+#[path = "hypervisor_daemon_routes/binding_routes.rs"]
+mod binding_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -106,6 +108,10 @@ pub(crate) struct DaemonState {
     // microvm substrate keeps its VM here so WorkRun/exec requests run IN-GUEST; stop/delete
     // shuts it down. The VMs die with the daemon process (WS-5/G5 add restart reconciliation).
     pub(crate) live_vms: Mutex<HashMap<String, microvm::VmHandle>>,
+    // T7-E — live interactive PTY terminals keyed by terminal_ref. Each holds a real openpty
+    // master fd + the child shell + a shared output ring; bound to an environment_ref. They die
+    // with the daemon process (close releases the fd + reaps the child).
+    pub(crate) terminals: Mutex<HashMap<String, binding_routes::TerminalSession>>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -241,6 +247,7 @@ async fn async_main() -> anyhow::Result<()> {
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
         live_vms: Mutex::new(HashMap::new()),
+        terminals: Mutex::new(HashMap::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the
@@ -833,6 +840,61 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/provider-operations",
             get(provider_routes::handle_provider_operations),
+        )
+        // T7-2: Session Execution Binding — one ref composing session/environment/thread/work_run.
+        .route(
+            "/v1/hypervisor/session-execution-bindings",
+            post(binding_routes::handle_binding_create),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id",
+            get(binding_routes::handle_binding_get),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id/events",
+            get(binding_routes::handle_binding_events),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id/input",
+            post(binding_routes::handle_binding_input),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id/stop",
+            post(binding_routes::handle_binding_stop),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id/archive",
+            post(binding_routes::handle_binding_archive),
+        )
+        .route(
+            "/v1/hypervisor/session-execution-bindings/:id/restore",
+            post(binding_routes::handle_binding_restore),
+        )
+        // T7-3: env-files — collision-safe (body-dispatched), scoped to the env workspace.
+        .route(
+            "/v1/hypervisor/env-files",
+            post(binding_routes::handle_env_files),
+        )
+        // T7-E: interactive PTY terminals bound to an environment_ref.
+        .route(
+            "/v1/hypervisor/terminals",
+            get(binding_routes::handle_terminals_list).post(binding_routes::handle_terminal_create),
+        )
+        .route(
+            "/v1/hypervisor/terminals/:id/stream",
+            get(binding_routes::handle_terminal_stream),
+        )
+        .route(
+            "/v1/hypervisor/terminals/:id/input",
+            post(binding_routes::handle_terminal_input),
+        )
+        .route(
+            "/v1/hypervisor/terminals/:id/resize",
+            post(binding_routes::handle_terminal_resize),
+        )
+        .route(
+            "/v1/hypervisor/terminals/:id/close",
+            post(binding_routes::handle_terminal_close),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +
