@@ -6,7 +6,7 @@
 // the completion signal is `node scripts/verify-phase1-env-lifecycle.mjs --n 25` green with zero
 // orphans. Usage: --n <iterations> (default 1), --keep (don't wipe data dir on exit).
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -74,9 +74,54 @@ async function gateWs1() {
   return id;
 }
 
+// G(WS-2): recipe → resolution → readiness gate (repo-detect-first).
+async function gateWs2() {
+  console.log("  [WS-2] recipe → resolution → readiness gate (repo-detect-first)");
+  const repo = mkdtempSync(join(tmpdir(), "ioi-repo-"));
+  mkdirSync(join(repo, ".devcontainer"), { recursive: true });
+  writeFileSync(join(repo, ".devcontainer/devcontainer.json"), JSON.stringify({ postCreateCommand: "echo hi", forwardPorts: [3000] }));
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts: { start: "node ." } }));
+  const det = await api("POST", "/v1/hypervisor/recipes", { repo_path: repo });
+  const recipe = det.json.recipe || {};
+  ok(recipe.source === "repo_detected", "recipe repo-detected");
+  ok((recipe.detected_signals || []).includes("devcontainer.json"), "detected devcontainer.json signal");
+  ok((recipe.detected_signals || []).includes("package.json"), "detected package.json signal");
+  ok((recipe.ports || []).some((p) => p.port === 3000), "forwardPorts → recipe port 3000");
+
+  // satisfiable recipe → readiness full
+  const envOk = await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: recipe.recipe_ref } });
+  const idOk = envOk.json.environment.id;
+  const startedOk = await api("POST", `/v1/hypervisor/environments/${idOk}/start`);
+  const rdOk = startedOk.json.environment.status.readiness;
+  ok(rdOk.mode === "full", `satisfiable recipe → readiness full (got ${rdOk.mode})`);
+  ok(!!startedOk.json.environment.status.readiness_gate_ref, "readiness_gate_ref attached");
+  await api("POST", `/v1/hypervisor/environments/${idOk}/delete`);
+
+  // unsatisfiable required edge → dry_run_only naming the edge (READY is gated, not assumed)
+  const secretRecipe = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", secret_requirement_refs: ["DB_PASSWORD"] } });
+  const envBlk = await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: secretRecipe.json.recipe.recipe_ref } });
+  const idBlk = envBlk.json.environment.id;
+  const startedBlk = await api("POST", `/v1/hypervisor/environments/${idBlk}/start`);
+  const rd = startedBlk.json.environment.status.readiness;
+  ok(rd.mode === "dry_run_only", `unsatisfiable required secret → dry_run_only (got ${rd.mode})`);
+  ok((rd.blocked_reasons || []).includes("required_secret:DB_PASSWORD"), "blocked_reason names required_secret:DB_PASSWORD");
+  await api("POST", `/v1/hypervisor/environments/${idBlk}/delete`);
+
+  // auto-detect on env create via repo_path
+  const repo2 = mkdtempSync(join(tmpdir(), "ioi-repo2-"));
+  writeFileSync(join(repo2, "Cargo.toml"), "[package]\nname = 'x'\n");
+  const envAuto = await api("POST", "/v1/hypervisor/environments", { spec: { repo_path: repo2 } });
+  ok(!!envAuto.json.environment.spec.recipe_ref, "env create with repo_path auto-binds a recipe_ref");
+  await api("POST", `/v1/hypervisor/environments/${envAuto.json.environment.id}/delete`);
+
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(repo2, { recursive: true, force: true });
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
+  await gateWs2();
 }
 
 // ---- harness ----

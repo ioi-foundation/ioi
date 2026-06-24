@@ -30,6 +30,8 @@
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
+#[path = "hypervisor_daemon_routes/recipe_routes.rs"]
+mod recipe_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
 
@@ -700,6 +702,15 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/exec",
             post(environment_routes::handle_workspace_exec),
+        )
+        // WS-2: DevelopmentEnvironmentRecipe (repo-detect-first) → resolution → readiness gate.
+        .route(
+            "/v1/hypervisor/recipes",
+            get(recipe_routes::handle_recipes_list).post(recipe_routes::handle_recipe_create),
+        )
+        .route(
+            "/v1/hypervisor/recipes/:id",
+            get(recipe_routes::handle_recipe_get),
         )
         // WS-D: harness session binding admission.
         .route(

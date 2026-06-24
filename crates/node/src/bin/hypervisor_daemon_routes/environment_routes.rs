@@ -298,6 +298,16 @@ pub(crate) async fn handle_environment_create(
         .map(String::from)
         .unwrap_or_else(gen_env_id);
     let mut env = new_env(&id, &spec);
+    // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
+    if env["spec"]["recipe_ref"].as_str().filter(|s| !s.is_empty()).is_none() {
+        if let Some(repo) = spec.get("repo_path").and_then(|v| v.as_str()) {
+            let project_ref = spec.get("project_id").and_then(|v| v.as_str());
+            let recipe_ref = super::recipe_routes::detect_and_admit(&st.data_dir, repo, project_ref)?;
+            env["spec"]["recipe_ref"] = json!(recipe_ref);
+            env["spec"]["repo_path"] = json!(repo);
+            observe(&mut env, "resolving_recipe", "recipe", "content_ready", "info", &format!("recipe repo-detected and admitted ({recipe_ref})"));
+        }
+    }
     observe(&mut env, "queued", "recipe", "admitted", "info", "environment created (local_workspace_provider_v0)");
     persist_env(&st.data_dir, &env)?;
     Ok(Json(json!({ "environment": env })))
@@ -390,7 +400,14 @@ pub(crate) async fn handle_environment_action(
             // running + readiness rollup (replaces Phase 0's optimistic flat `running`).
             set_phase(&mut env, "running");
             recompute_readiness(&mut env);
+            // WS-2: if a recipe is bound, the ReadinessGate is the authority on readiness — it can
+            // hold the env at `dry_run_only`/`blocked` naming an unsatisfiable required edge.
+            let gated = super::recipe_routes::apply_readiness_gate(&st.data_dir, &mut env)?;
             let mode = env["status"]["readiness"]["mode"].as_str().unwrap_or("blocked").to_string();
+            if gated && mode != "full" {
+                let reasons = env["status"]["readiness"]["blocked_reasons"].clone();
+                observe(&mut env, "binding_access", "secrets", "blocked_by_policy", "warning", &format!("readiness {mode}: unsatisfied required edges {reasons}"));
+            }
             observe(&mut env, "ready", "agent_work", "ever_ready", "info", &format!("environment running (readiness: {mode})"));
         }
         "stop" => {
