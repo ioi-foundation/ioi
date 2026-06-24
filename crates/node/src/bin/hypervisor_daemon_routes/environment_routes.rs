@@ -109,6 +109,37 @@ fn provision_local_workspace(data_dir: &str, id: &str) -> Result<String, AppErro
     Ok(ws.to_string_lossy().into_owned())
 }
 
+// ---- git (WS-E: WorkRun materialization) ----
+fn run_git(ws: &str, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(ws)
+        .output()
+        .map_err(|e| format!("git spawn: {e}"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// Make the scoped workspace a real git repo (idempotent) so WorkRuns can branch. Uses a
+/// per-command local identity — never mutates global git config.
+fn ensure_git_repo(ws: &str) -> Result<String, AppError> {
+    let app_err = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git: {e}"));
+    if !std::path::Path::new(ws).join(".git").exists() {
+        run_git(ws, &["init", "-q"]).map_err(app_err)?;
+        run_git(
+            ws,
+            &[
+                "-c", "user.email=operator@local", "-c", "user.name=local_operator",
+                "commit", "--allow-empty", "-q", "-m", "init",
+            ],
+        )
+        .map_err(app_err)?;
+    }
+    run_git(ws, &["rev-parse", "HEAD"]).map_err(app_err)
+}
+
 // ---- handlers ----
 
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
@@ -183,7 +214,14 @@ pub(crate) async fn handle_environment_action(
             env["spec"]["desired_phase"] = json!("running");
             env["status"]["workspace_root"] = json!(ws);
             observe(&mut env, "provisioning", "provisioning local workspace");
-            observe(&mut env, "running", "local workspace ready");
+            // Make it a real git repo so code WorkRuns can branch (WS-E).
+            match ensure_git_repo(&ws) {
+                Ok(base) => {
+                    env["status"]["base_commit"] = json!(base);
+                    observe(&mut env, "running", "local workspace ready (git initialized)");
+                }
+                Err(_) => observe(&mut env, "running", "local workspace ready (no git)"),
+            }
         }
         "stop" => {
             env["spec"]["desired_phase"] = json!("stopped");
@@ -201,4 +239,65 @@ pub(crate) async fn handle_environment_action(
     }
     persist_env(&st.data_dir, &env)?;
     Ok(Json(json!({ "environment": env })))
+}
+
+/// POST /v1/hypervisor/workruns — bind a code WorkRun to a Git branch (the patch branch)
+/// inside the environment's scoped workspace. Child edits land on this branch (scoped, no
+/// host mutation). `{ "environment_id": "...", "objective"?: "..." }`.
+pub(crate) async fn handle_workrun_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let env_id = body
+        .get("environment_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    let env = load_env(&st.data_dir, env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"]
+        .as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
+        .to_string();
+    let base = ensure_git_repo(&ws)?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let wr_id = format!("workrun_{nanos:x}");
+    let branch = format!("workrun/{wr_id}");
+    run_git(&ws, &["checkout", "-q", "-b", &branch])
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git branch: {e}")))?;
+    let now = iso_now();
+    let record = json!({
+        "schema_version": "ioi.hypervisor.workrun.v1",
+        "id": wr_id,
+        "environment_id": env_id,
+        "base_commit": base,
+        "branch": branch,
+        "patch_branch_ref": format!("agentgres://patch-branch/{branch}"),
+        "objective": body.get("objective").cloned().unwrap_or(Value::Null),
+        "status": "open",
+        "host_mutation": false,
+        "review_state": "draft",
+        "created_at": now,
+        "updated_at": now
+    });
+    persist_record(&st.data_dir, "workruns", &wr_id, &record)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist workrun: {e}")))?;
+    Ok(Json(json!({ "workRun": record })))
+}
+
+/// GET /v1/hypervisor/workruns/:id
+pub(crate) async fn handle_workrun_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let path = std::path::Path::new(&st.data_dir)
+        .join("workruns")
+        .join(format!("{}.json", safe_id(&id)));
+    let rec = std::fs::read(path)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "workrun not found".into()))?;
+    Ok(Json(json!({ "workRun": rec })))
 }

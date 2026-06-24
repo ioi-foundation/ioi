@@ -680,6 +680,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/environments/:id/:action",
             post(environment_routes::handle_environment_action),
         )
+        // WS-E: code WorkRun materialization (Git branch / patch branch in the env workspace).
+        .route(
+            "/v1/hypervisor/workruns",
+            post(environment_routes::handle_workrun_create),
+        )
+        .route(
+            "/v1/hypervisor/workruns/:id",
+            get(environment_routes::handle_workrun_get),
+        )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(
             "/v1/hypervisor/authority/posture",
