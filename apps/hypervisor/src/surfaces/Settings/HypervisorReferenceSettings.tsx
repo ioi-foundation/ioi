@@ -6,10 +6,11 @@
 // Skills, OIDC Tokens. Remaining data-heavy sections (Members, Integrations, Policies,
 // Billing, Cost & Budgets, Runners, Environments, agent Policies, Login, SCIM) keep the
 // reference href (navigate to the live route) until ported.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ToggleSwitch } from "../parityControls";
-import { ReferenceModal } from "../parityOverlays";
+import { ReferenceModal, AnchoredPopover } from "../parityOverlays";
+import { OrgSwitcherMenu } from "../Home/HypervisorReferenceSidebarMenus";
 import { AddCreditsDialog, ConnectIntegrationDialog } from "./HypervisorReferenceSettingsDialogs";
 import { useReferenceTheme } from "../Home/HypervisorReferenceShell";
 
@@ -76,6 +77,8 @@ const PORTED = new Set(["manage-organization", "terms-of-service", "organization
 const USAGE_CHART = `<div class="recharts-responsive-container" style="width:100%;height:100%;min-width:0px;"><div class="recharts-wrapper" style="position:relative;cursor:default;width:100%;height:100%;max-height:250px;"><svg class="recharts-surface" width="1195" height="250" viewBox="0 0 1195 250" style="width:100%;height:100%;"><defs><clipPath id="recharts1-clip"><rect x="60" y="10" height="210" width="1125"></rect></clipPath></defs><defs><linearGradient id="r1t-total" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="#0048FF" stop-opacity="0.35"></stop><stop offset="95%" stop-color="#0048FF" stop-opacity="0.06"></stop></linearGradient></defs><g class="recharts-cartesian-grid"><g class="recharts-cartesian-grid-horizontal"><line stroke-dasharray="3 3" stroke="rgb(var(--border-base) / var(--border-base-baseline-opacity))" fill="none" x1="60" y1="10" x2="1185" y2="10"></line><line stroke-dasharray="3 3" stroke="rgb(var(--border-base) / var(--border-base-baseline-opacity))" fill="none" x1="60" y1="220" x2="1185" y2="220"></line></g></g><g class="recharts-cartesian-axis recharts-xAxis xAxis"><line orientation="bottom" x1="60" y1="220" x2="1185" y2="220" stroke="rgb(var(--content-tertiary))" stroke-width="1" fill="none"></line><g class="recharts-cartesian-axis-ticks"><g><text x="60" y="234" text-anchor="middle" fill="#666"><tspan x="60" dy="0.71em">Jun 15</tspan></text></g><g><text x="220.7" y="234" text-anchor="middle" fill="#666"><tspan x="220.7" dy="0.71em">Jun 16</tspan></text></g><g><text x="381.4" y="234" text-anchor="middle" fill="#666"><tspan x="381.4" dy="0.71em">Jun 17</tspan></text></g><g><text x="542.1" y="234" text-anchor="middle" fill="#666"><tspan x="542.1" dy="0.71em">Jun 18</tspan></text></g><g><text x="702.9" y="234" text-anchor="middle" fill="#666"><tspan x="702.9" dy="0.71em">Jun 19</tspan></text></g><g><text x="863.6" y="234" text-anchor="middle" fill="#666"><tspan x="863.6" dy="0.71em">Jun 20</tspan></text></g><g><text x="1024.3" y="234" text-anchor="middle" fill="#666"><tspan x="1024.3" dy="0.71em">Jun 21</tspan></text></g><g><text x="1179.5" y="234" text-anchor="middle" fill="#666"><tspan x="1179.5" dy="0.71em">Jun 22</tspan></text></g></g></g><g class="recharts-cartesian-axis recharts-yAxis yAxis"><g class="recharts-cartesian-axis-ticks"><g><text x="46" y="220" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">0</tspan></text></g><g><text x="46" y="167.5" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">6</tspan></text></g><g><text x="46" y="115" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">12</tspan></text></g><g><text x="46" y="62.5" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">18</tspan></text></g><g><text x="46" y="10" text-anchor="end" fill="#666"><tspan x="46" dy="0.355em">24</tspan></text></g></g></g><g class="recharts-area"><path fill="url(#r1t-total)" stroke="none" fill-opacity="0.6" d="M60,220L220.714,32.076L381.429,220L542.143,220L702.857,154.141L863.571,214.526L1024.286,212.836L1185,220L1185,220L1024.286,220L863.571,220L702.857,220L542.143,220L381.429,220L220.714,220L60,220Z"></path><path stroke="#0048FF" fill="none" stroke-width="2" d="M60,220L220.714,32.076L381.429,220L542.143,220L702.857,154.141L863.571,214.526L1024.286,212.836L1185,220"></path></g></svg></div></div>`;
 
 function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect: (key: string) => void }) {
+  const [orgOpen, setOrgOpen] = useState(false);
+  const orgRef = useRef<HTMLButtonElement>(null);
   return (
     <div data-sidebar-container="true" className="relative flex-shrink-0 overflow-hidden bg-surface-primary">
       <div className="h-full overflow-hidden" data-track-location="settings-sidebar">
@@ -109,7 +112,7 @@ function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect:
             </div>
             <div className="flex flex-col gap-2 p-2 pb-2 pt-4">
               <div className="rounded-lg">
-                <button type="button" className="select-none items-center font-medium whitespace-nowrap transition-colors text-content-primary hover:text-content-accent focus-visible:outline-border-brand text-base h-[48px] w-full flex gap-2 border-0 p-2 bg-transparent rounded-lg group justify-between hover:bg-surface-hover" aria-label="Switch organization. Currently in Levi Josman's Workspace 320" aria-haspopup="menu" data-testid="org-switcher">
+                <button ref={orgRef} type="button" onClick={() => setOrgOpen((o) => !o)} className="select-none items-center font-medium whitespace-nowrap transition-colors text-content-primary hover:text-content-accent focus-visible:outline-border-brand text-base h-[48px] w-full flex gap-2 border-0 p-2 bg-transparent rounded-lg group justify-between hover:bg-surface-hover" aria-label="Switch organization. Currently in Levi Josman's Workspace 320" aria-haspopup="menu" aria-expanded={orgOpen} data-state={orgOpen ? "open" : "closed"} data-testid="org-switcher">
                   <div className="flex w-full min-w-0 items-center gap-2 transform-gpu transition-all duration-200 ease-out translate-x-0">
                     <div className="relative flex-shrink-0 rounded-lg" data-testid="org-switcher-icon">
                       <span data-slot="avatar" className="relative flex shrink-0 overflow-hidden size-8 rounded-lg">
@@ -128,6 +131,7 @@ function SettingsSidebar({ activeKey, onSelect }: { activeKey: string; onSelect:
           </div>
         </div>
       </div>
+      <AnchoredPopover open={orgOpen} onClose={() => setOrgOpen(false)} anchorRef={orgRef} side="top" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) setOrgOpen(false); }}><OrgSwitcherMenu /></div></AnchoredPopover>
     </div>
   );
 }

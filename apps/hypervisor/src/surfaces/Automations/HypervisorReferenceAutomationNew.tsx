@@ -7,7 +7,10 @@
 // codex-picker-submenu-measure, fixed at -10000px, opacity 0, inside the
 // aria-hidden measurement wrapper) are omitted — they never render; everything
 // visible is reproduced, exactly as the sibling Home surface does.
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AnchoredPopover } from "../parityOverlays";
+import { AgentModeMenu } from "../Home/HypervisorReferenceHomeMenus";
 
 const BreadcrumbChevronGlyph = ({ cls }: { cls: string }) => (
   <svg className={cls} width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.733 13L10.9375 10.7955C11.3768 10.3562 11.3768 9.64382 10.9375 9.20447L8.733 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -39,6 +42,8 @@ const AddStepGlyph = () => (
 
 export function HypervisorReferenceAutomationNew() {
   const navigate = useNavigate();
+  const [agentOpen, setAgentOpen] = useState(false);
+  const agentRef = useRef<HTMLButtonElement>(null);
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div {...{ orientation: "both" }} className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -93,7 +98,7 @@ export function HypervisorReferenceAutomationNew() {
                             </div>
                             <div className="flex w-full">
                               <span className="inline-flex" data-state="closed">
-                                <button type="button" id="radix-:r2v:" aria-haspopup="menu" aria-expanded="false" data-state="closed" aria-label="Change agent mode" className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-sm font-normal text-content-primary hover:opacity-80 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-border-brand data-[state=open]:opacity-80 border-border-light">
+                                <button ref={agentRef} type="button" id="radix-:r2v:" aria-haspopup="menu" aria-expanded={agentOpen} data-state={agentOpen ? "open" : "closed"} onClick={() => setAgentOpen((o) => !o)} aria-label="Change agent mode" className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-sm font-normal text-content-primary hover:opacity-80 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-border-brand data-[state=open]:opacity-80 border-border-light">
                                   <div className="flex min-w-0 items-center gap-1.5">
                                     <BrandMark cls="hypervisor-activity-brand-mark size-4" />
                                     <span className="truncate">5.5 Medium</span>
@@ -202,6 +207,7 @@ export function HypervisorReferenceAutomationNew() {
           </div>
         </div>
       </div>
+      <AnchoredPopover open={agentOpen} onClose={() => setAgentOpen(false)} anchorRef={agentRef} side="top" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="menuitem"], [role="option"], a, button')) setAgentOpen(false); }}><AgentModeMenu /></div></AnchoredPopover>
     </main>
   );
 }
