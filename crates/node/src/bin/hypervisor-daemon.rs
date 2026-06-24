@@ -36,6 +36,8 @@ mod recipe_routes;
 mod microvm;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
+#[path = "hypervisor_daemon_routes/resource_routes.rs"]
+mod resource_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -784,6 +786,36 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/authority/receipts",
             get(authority_routes::handle_authority_receipts),
+        )
+        // T5: Resource Management — pools/budgets + the allocation decision engine + work queue +
+        // scheduler catch-up. Every allocation yields a typed decision + visible reason + receipt.
+        .route(
+            "/v1/hypervisor/resource/pools",
+            get(resource_routes::handle_pools_list).post(resource_routes::handle_pool_create),
+        )
+        .route(
+            "/v1/hypervisor/resource/budgets",
+            get(resource_routes::handle_budgets_list).post(resource_routes::handle_budget_create),
+        )
+        .route(
+            "/v1/hypervisor/resource/allocate",
+            post(resource_routes::handle_allocate),
+        )
+        .route(
+            "/v1/hypervisor/resource/release",
+            post(resource_routes::handle_release),
+        )
+        .route(
+            "/v1/hypervisor/resource/work-queue",
+            get(resource_routes::handle_work_queue),
+        )
+        .route(
+            "/v1/hypervisor/resource/catchup",
+            post(resource_routes::handle_catchup),
+        )
+        .route(
+            "/v1/hypervisor/resource/receipts",
+            get(resource_routes::handle_receipts),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +
