@@ -380,14 +380,23 @@ export function HypervisorReferenceSidebar({ activeView = "home", onViewChange, 
 export function useReferenceTheme() {
   useEffect(() => {
     const root = document.documentElement;
-    const added = ["ona", "light"].filter((c) => !root.classList.contains(c));
-    root.classList.add(...added);
-    const hadScheme = root.style.getPropertyValue("--chat-color-scheme");
-    root.style.setProperty("--chat-color-scheme", "light");
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    // Mirror the reference exactly: <html class="ona ... light|dark"> driven by the
+    // system color scheme (the reference respects prefers-color-scheme; it does NOT
+    // force light). The vendored complete bundle carries both token layers.
+    const apply = () => {
+      const dark = mq.matches;
+      root.classList.add("ona");
+      root.classList.toggle("dark", dark);
+      root.classList.toggle("light", !dark);
+      root.style.setProperty("--chat-color-scheme", dark ? "dark" : "light");
+    };
+    apply();
+    mq.addEventListener("change", apply);
     return () => {
-      root.classList.remove(...added);
-      if (hadScheme) root.style.setProperty("--chat-color-scheme", hadScheme);
-      else root.style.removeProperty("--chat-color-scheme");
+      mq.removeEventListener("change", apply);
+      root.classList.remove("ona", "dark", "light");
+      root.style.removeProperty("--chat-color-scheme");
     };
   }, []);
 }
