@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 
 import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
@@ -48,6 +48,7 @@ import { HypervisorReferenceSettings } from "./surfaces/Settings/HypervisorRefer
 import type { PrimaryView } from "./surfaces/parityShellTypes";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
 import { ReferenceRoute } from "./reference/ReferenceRoute";
+import { wireReferenceShell } from "./reference/wiring";
 import homeVerbatimHtml from "./reference/html/home.html?raw";
 import projectsVerbatimHtml from "./reference/html/projects.html?raw";
 import automationsVerbatimHtml from "./reference/html/automations.html?raw";
@@ -88,10 +89,33 @@ const POC_HTML: Record<string, string> = {
   settings: settingsVerbatimHtml,
   insights: insightsVerbatimHtml,
 };
+const POC_HREF_TO_SLUG: Record<string, string> = {
+  "/": "home",
+  "/ai": "home",
+  "/home": "home",
+  "/projects": "projects",
+  "/automations": "automations",
+  "/settings": "settings",
+  "/insights": "insights",
+};
 function ParityPocRoute() {
   useReferenceTheme();
+  const navigate = useNavigate();
   const slug = window.location.pathname.split("/parity-poc/")[1] || "home";
-  return <ReferenceRoute html={POC_HTML[slug] ?? homeVerbatimHtml} />;
+  const onMount = useCallback(
+    (root: HTMLDivElement) =>
+      wireReferenceShell(root, {
+        navigate,
+        // In the POC every internal href maps under /parity-poc/<slug>; unknown routes
+        // (e.g. /details/<id>) are left for the rollout's real routing.
+        mapHref: (href) => {
+          const s = POC_HREF_TO_SLUG[href];
+          return s ? `/parity-poc/${s}` : null;
+        },
+      }),
+    [navigate],
+  );
+  return <ReferenceRoute html={POC_HTML[slug] ?? homeVerbatimHtml} onMount={onMount} />;
 }
 
 function AppMetricsBeacon() {
