@@ -7,6 +7,7 @@
 // Billing, Cost & Budgets, Runners, Environments, agent Policies, Login, SCIM) keep the
 // reference href (navigate to the live route) until ported.
 import { useState } from "react";
+import { ToggleSwitch } from "../parityControls";
 import { useReferenceTheme } from "../Home/HypervisorReferenceShell";
 
 const ArrowLeft = () => (
@@ -359,6 +360,7 @@ function RunnersContent() {
 }
 
 function BillingContent() {
+  const [autoTopUp, setAutoTopUp] = useState(false);
   return (
     <SettingsMain>
       <SettingsTitle title="Billing" />
@@ -392,7 +394,7 @@ function BillingContent() {
         <div className="rounded-xl border-border-base border-0.5 bg-surface-glass p-6">
           <div className="mb-6"><h2 className="text-lg font-semibold text-content-primary">Auto Top-up</h2><p className="text-sm text-content-secondary">Automatically add credits when your balance drops below 20 OCUs.</p></div>
           <div className="flex flex-col gap-6"><div className="flex items-center gap-4">
-            <div className="flex w-9 justify-center"><button type="button" role="switch" aria-checked="false" data-state="unchecked" aria-label="Enable auto top-up" className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 data-[state=checked]:bg-content-success"><span data-state="unchecked" className="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]"><svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-5"><circle cx="12.5" cy="12.5" r="10" className="fill-[rgb(var(--ona-white))]" /></svg></span></button></div>
+            <div className="flex w-9 justify-center"><ToggleSwitch checked={autoTopUp} onChange={setAutoTopUp} ariaLabel="Enable auto top-up" className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 data-[state=checked]:bg-content-success" knobClassName="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]" /></div>
             <label className="cursor-pointer font-medium text-content-primary" htmlFor="auto-topup-toggle">Enable auto top-up</label>
           </div></div>
         </div>

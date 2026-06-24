@@ -15,6 +15,7 @@ import {
   PrebuildsTabContent,
 } from "./HypervisorReferenceProjectTabs";
 import { ReferenceModal, AnchoredPopover } from "../parityOverlays";
+import { ToggleSwitch } from "../parityControls";
 import {
   ShareProjectDialog,
   CreateEnvironmentDialog,
@@ -67,9 +68,6 @@ const SecretsGlyph = () => (
 );
 const PrebuildsGlyph = () => (
   <svg className="flex-shrink-0 text-content-primary" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 5V2.5H2.5V13.5H5.25H6.625M13.5 11.5V13.5H12.125" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 7.41463H10.6061V4L6 10.4865H9.39394V14L14 7.41463Z" stroke="currentColor" strokeLinejoin="round" /></svg>
-);
-const ToggleKnobGlyph = () => (
-  <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-5 pointer-coarse:size-[22px]"><circle cx="12.5" cy="12.5" r="10" className="fill-[rgb(var(--ona-white))]" /><circle cx="12.5" cy="12.5" r="11.5" fill="none" stroke="transparent" strokeWidth="2" strokeDasharray="18 76" /></svg>
 );
 const ExternalLinkGlyph = () => (
   <svg aria-hidden="true" width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.25 14V20.25H3.75V5.75H9.25M13.75 3.75H20.25V10.25M11 13L19.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" /></svg>
@@ -157,6 +155,7 @@ export function HypervisorReferenceProjectDetail({ tab = "home" }: { tab?: Proje
 }
 
 function HomeTabContent() {
+  const [prebuild, setPrebuild] = useState(false);
   return (
     <div className="flex flex-col gap-8" data-testid="project-home-page">
               <div className="flex flex-col gap-1">
@@ -210,9 +209,9 @@ function HomeTabContent() {
                       <div className="flex flex-col gap-1 pl-[22px]">
                         <div className="flex items-center gap-2" data-tracking-id="project-home-prebuilds-toggle-wrapper-0">
                           <div className="flex w-9 justify-center pointer-coarse:w-10">
-                            <button type="button" role="switch" aria-checked="false" data-state="unchecked" value="on" aria-label="Disabled" className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 disabled:cursor-default pointer-coarse:h-[22px] pointer-coarse:w-10 data-[state=checked]:bg-content-success dark:data-[state=checked]:bg-content-success disabled:data-[state=checked]:bg-content-success" data-testid="project-home-prebuilds-toggle-0" data-tracking-id="project-home-prebuilds-toggle-0"><span data-state="unchecked" className="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px] pointer-coarse:size-[22px] pointer-coarse:data-[state=checked]:translate-x-[18px]"><ToggleKnobGlyph /></span></button>
+                            <ToggleSwitch checked={prebuild} onChange={setPrebuild} value="on" ariaLabel={prebuild ? "Enabled" : "Disabled"} testid="project-home-prebuilds-toggle-0" trackingId="project-home-prebuilds-toggle-0" className="h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 disabled:cursor-default pointer-coarse:h-[22px] pointer-coarse:w-10 data-[state=checked]:bg-content-success dark:data-[state=checked]:bg-content-success disabled:data-[state=checked]:bg-content-success" knobClassName="flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px] pointer-coarse:size-[22px] pointer-coarse:data-[state=checked]:translate-x-[18px]" />
                           </div>
-                          <p className="text-sm text-content-primary">Disabled</p>
+                          <p className="text-sm text-content-primary">{prebuild ? "Enabled" : "Disabled"}</p>
                         </div>
                       </div>
                     </div>
