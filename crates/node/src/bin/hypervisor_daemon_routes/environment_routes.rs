@@ -22,6 +22,98 @@ use super::{
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
 const PROVIDER: &str = "local_workspace_provider_v0";
 
+// WS-1 — canon EnvironmentStatus component set + shared phase taxonomy
+// (docs/architecture/components/hypervisor/providers-and-environments.md §Environment Status Object).
+const COMPONENTS: &[&str] = &[
+    "recipe",
+    "provisioner",
+    "workspace_content",
+    "sandbox",
+    "resource_isolation",
+    "connectivity",
+    "secrets",
+    "automations",
+    "agent_work",
+    "model_mount",
+    "harness",
+];
+// Components the local_workspace provider actually establishes — gate readiness=full on these
+// (WS-2 replaces this with the recipe's required_* edges). The rest stay `pending`/optional.
+const REQUIRED_COMPONENTS: &[&str] = &[
+    "recipe",
+    "provisioner",
+    "workspace_content",
+    "sandbox",
+    "resource_isolation",
+    "connectivity",
+];
+// Component phase taxonomy: pending | creating | initializing | ready | degraded | recovering | failed.
+
+fn new_components() -> Value {
+    let mut map = serde_json::Map::new();
+    for c in COMPONENTS {
+        map.insert(
+            (*c).to_string(),
+            json!({ "phase": "pending", "detail": Value::Null, "evidence_ref": Value::Null }),
+        );
+    }
+    Value::Object(map)
+}
+
+/// Set one component's sub-phase (component phase taxonomy).
+fn set_component(env: &mut Value, component: &str, phase: &str, detail: &str) {
+    env["status"]["components"][component] = json!({
+        "phase": phase,
+        "detail": detail,
+        "evidence_ref": Value::Null
+    });
+}
+
+/// Set the env rollup phase (env phase taxonomy: creating | starting | running | updating |
+/// recovering | stopping | stopped | archived | failed) and bump status_version.
+fn set_phase(env: &mut Value, phase: &str) {
+    let v = env["status"]["status_version"].as_u64().unwrap_or(1) + 1;
+    env["status"]["status_version"] = json!(v);
+    env["status"]["phase"] = json!(phase);
+    env["updated_at"] = json!(iso_now());
+}
+
+/// Recompute readiness from the required components (WS-2 deepens with recipe edges):
+/// full (all required ready) · degraded (required ready but an optional degraded) ·
+/// dry_run_only (workspace ready but a required runtime component not ready) · blocked.
+fn recompute_readiness(env: &mut Value) {
+    let phase = env["status"]["phase"].as_str().unwrap_or("stopped").to_string();
+    let comp_phase = |env: &Value, c: &str| -> String {
+        env["status"]["components"][c]["phase"].as_str().unwrap_or("pending").to_string()
+    };
+    if phase != "running" {
+        let reason = if phase == "stopped" { "not_started" } else { phase.as_str() };
+        env["status"]["readiness"] = json!({ "mode": "blocked", "blocked_reasons": [reason] });
+        return;
+    }
+    let not_ready: Vec<String> = REQUIRED_COMPONENTS
+        .iter()
+        .filter(|c| comp_phase(env, c) != "ready")
+        .map(|c| (*c).to_string())
+        .collect();
+    let failed: Vec<String> = REQUIRED_COMPONENTS
+        .iter()
+        .filter(|c| matches!(comp_phase(env, c).as_str(), "failed"))
+        .map(|c| (*c).to_string())
+        .collect();
+    let mode = if !failed.is_empty() {
+        "blocked"
+    } else if not_ready.iter().any(|c| matches!(c.as_str(), "workspace_content" | "sandbox" | "provisioner")) {
+        "blocked"
+    } else if !not_ready.is_empty() {
+        // workspace + sandbox ready but a runtime edge (connectivity/services) unmet
+        "dry_run_only"
+    } else {
+        "full"
+    };
+    env["status"]["readiness"] = json!({ "mode": mode, "blocked_reasons": not_ready });
+}
+
 fn safe_id(id: &str) -> String {
     id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
 }
@@ -70,6 +162,8 @@ fn new_env(id: &str, spec: &Value) -> Value {
         "status": {
             "status_version": 1,
             "phase": "stopped",
+            "readiness": { "mode": "blocked", "blocked_reasons": ["not_started"] },
+            "components": new_components(),
             "provider": PROVIDER,
             "substrate": "local_host",
             "tenant_posture": "single_user",
@@ -87,17 +181,31 @@ fn new_env(id: &str, spec: &Value) -> Value {
     })
 }
 
-/// Append a lifecycle observation, advance phase + status_version (daemon-owned truth).
-fn observe(env: &mut Value, phase: &str, detail: &str) {
+/// Append a typed `HypervisorEnvironmentLifecycleObservation` (canon stage/component/
+/// condition_kind/severity taxonomy) — the timeline behind the status projection. Bumps
+/// status_version + last_observation_ref. Does NOT set the env phase (use `set_phase`) or
+/// component phase (use `set_component`) — observation is evidence, status is the projection.
+fn observe(env: &mut Value, stage: &str, component: &str, condition_kind: &str, severity: &str, message: &str) {
     let now = iso_now();
     let idx = env["lifecycle_observations"].as_array().map(|a| a.len()).unwrap_or(0);
     let obs_ref = format!("obs_{idx}");
     if let Some(arr) = env["lifecycle_observations"].as_array_mut() {
-        arr.push(json!({ "ref": obs_ref, "phase": phase, "detail": detail, "at": now }));
+        arr.push(json!({
+            "observation_ref": obs_ref,
+            "stage": stage,
+            "component": component,
+            "condition_kind": condition_kind,
+            "severity": severity,
+            "message": message,
+            "metrics": {},
+            "at": now,
+            "evidence_ref": Value::Null,
+            "agentgres_operation_refs": [],
+            "receipt_refs": []
+        }));
     }
     let v = env["status"]["status_version"].as_u64().unwrap_or(1) + 1;
     env["status"]["status_version"] = json!(v);
-    env["status"]["phase"] = json!(phase);
     env["status"]["last_observation_ref"] = json!(obs_ref);
     env["updated_at"] = json!(now);
 }
@@ -190,7 +298,7 @@ pub(crate) async fn handle_environment_create(
         .map(String::from)
         .unwrap_or_else(gen_env_id);
     let mut env = new_env(&id, &spec);
-    observe(&mut env, "stopped", "environment created (local_workspace_provider_v0)");
+    observe(&mut env, "queued", "recipe", "admitted", "info", "environment created (local_workspace_provider_v0)");
     persist_env(&st.data_dir, &env)?;
     Ok(Json(json!({ "environment": env })))
 }
@@ -205,7 +313,7 @@ pub(crate) async fn handle_environment_get(
         Some(e) => e,
         None => {
             let mut e = new_env(&id, &json!({}));
-            observe(&mut e, "stopped", "environment registered on first reference");
+            observe(&mut e, "queued", "recipe", "admitted", "info", "environment registered on first reference");
             persist_env(&st.data_dir, &e)?;
             e
         }
@@ -219,22 +327,51 @@ pub(crate) async fn handle_environment_action(
     AxumPath((id, action)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
     let mut env = load_env(&st.data_dir, &id).unwrap_or_else(|| new_env(&id, &json!({})));
+    // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
+    if !env["status"]["components"].is_object() {
+        env["status"]["components"] = new_components();
+    }
     match action.as_str() {
         "start" => {
-            let ws = provision_local_workspace(&st.data_dir, &id)?;
+            set_phase(&mut env, "starting");
             env["spec"]["desired_phase"] = json!("running");
+
+            // recipe — WS-2 makes this a real repo-detected resolution; here it is implicit.
+            set_component(&mut env, "recipe", "ready", "local-workspace recipe (implicit)");
+            observe(&mut env, "resolving_recipe", "recipe", "content_ready", "info", "recipe resolved (local-workspace)");
+
+            // provisioner — REAL scoped workspace on disk.
+            set_component(&mut env, "provisioner", "creating", "provisioning scoped workspace");
+            observe(&mut env, "provisioning", "provisioner", "content_ready", "info", "provisioning local workspace");
+            let ws = provision_local_workspace(&st.data_dir, &id)?;
             env["status"]["workspace_root"] = json!(ws);
-            observe(&mut env, "provisioning", "provisioning local workspace");
-            // Make it a real git repo so code WorkRuns can branch (WS-E).
+            set_component(&mut env, "provisioner", "ready", "scoped workspace provisioned");
+            observe(&mut env, "provisioning", "provisioner", "volume_mounted", "info", "scoped workspace ready");
+
+            // workspace_content — REAL git repo so WorkRuns can branch (WS-E).
             match ensure_git_repo(&ws) {
                 Ok(base) => {
                     env["status"]["base_commit"] = json!(base);
-                    observe(&mut env, "running", "local workspace ready (git initialized)");
+                    set_component(&mut env, "workspace_content", "ready", "git initialized");
+                    observe(&mut env, "initializing_content", "workspace_content", "content_ready", "info", "workspace content ready (git initialized)");
                 }
-                Err(_) => observe(&mut env, "running", "local workspace ready (no git)"),
+                Err(e) => {
+                    set_component(&mut env, "workspace_content", "degraded", "git init failed");
+                    observe(&mut env, "initializing_content", "workspace_content", "failed", "warning", &format!("git init failed: {}", e.1));
+                }
             }
-            // WS-F: env-bound services / tasks / ports as daemon truth (the cockpit's bottom
-            // panel renders these; deep terminal streaming is the remaining Ona-slot work).
+
+            // sandbox — local process lane (WS-4 replaces with the microVM kernel boundary).
+            set_component(&mut env, "sandbox", "ready", "local process sandbox (not cross-tenant)");
+            observe(&mut env, "reconciling_sandbox", "sandbox", "content_ready", "info", "local process sandbox ready");
+
+            // resource_isolation + connectivity — process/host lane (WS-10 enforces cgroups/netns).
+            set_component(&mut env, "resource_isolation", "ready", "process-scoped (cgroups: WS-10)");
+            observe(&mut env, "enforcing_resource_isolation", "resource_isolation", "content_ready", "info", "resource isolation (process-scoped)");
+            set_component(&mut env, "connectivity", "ready", "host-local connectivity");
+            observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (host-local)");
+
+            // services / tasks / ports (WS-3 makes these typed objects).
             let declared = env["spec"]["declared_ports"].clone();
             env["status"]["services"] = json!([
                 { "name": "workspace", "phase": "running", "lease": "local_operator" }
@@ -247,18 +384,49 @@ pub(crate) async fn handle_environment_action(
             } else {
                 declared
             };
+            set_component(&mut env, "automations", "ready", "post-start tasks complete");
+            observe(&mut env, "starting_services", "automations", "content_ready", "info", "services/tasks ready");
+
+            // running + readiness rollup (replaces Phase 0's optimistic flat `running`).
+            set_phase(&mut env, "running");
+            recompute_readiness(&mut env);
+            let mode = env["status"]["readiness"]["mode"].as_str().unwrap_or("blocked").to_string();
+            observe(&mut env, "ready", "agent_work", "ever_ready", "info", &format!("environment running (readiness: {mode})"));
         }
         "stop" => {
             env["spec"]["desired_phase"] = json!("stopped");
-            observe(&mut env, "stopped", "environment stopped (workspace retained)");
+            set_phase(&mut env, "stopping");
+            observe(&mut env, "stopping", "provisioner", "stopped_by_request", "info", "stopping environment (workspace retained)");
+            // Runtime components go pending; workspace material is retained.
+            for c in ["sandbox", "resource_isolation", "connectivity", "automations", "agent_work"] {
+                set_component(&mut env, c, "pending", "stopped");
+            }
+            set_phase(&mut env, "stopped");
+            recompute_readiness(&mut env);
+            observe(&mut env, "stopping", "provisioner", "stopped_by_request", "info", "environment stopped");
         }
-        "archive" => observe(&mut env, "archived", "environment archived"),
-        "restore" => observe(&mut env, "stopped", "environment restored"),
+        "archive" => {
+            set_phase(&mut env, "archived");
+            recompute_readiness(&mut env);
+            observe(&mut env, "archiving", "storage", "content_ready", "info", "environment archived");
+        }
+        "restore" => {
+            set_phase(&mut env, "stopped");
+            recompute_readiness(&mut env);
+            observe(&mut env, "validating_restore", "storage", "content_ready", "info", "environment restored");
+        }
         "delete" => {
+            set_phase(&mut env, "stopping");
             let dir = std::path::Path::new(&st.data_dir).join("environments").join(safe_id(&id));
             let _ = std::fs::remove_dir_all(&dir);
             env["status"]["workspace_root"] = Value::Null;
-            observe(&mut env, "deleting", "environment deleted (scoped workspace removed)");
+            for c in COMPONENTS {
+                set_component(&mut env, c, "pending", "deleted");
+            }
+            env["status"]["deleted"] = json!(true);
+            set_phase(&mut env, "stopped");
+            recompute_readiness(&mut env);
+            observe(&mut env, "deleting", "storage", "state_wiped", "info", "environment deleted (scoped workspace removed)");
         }
         other => return Err(AppError(StatusCode::BAD_REQUEST, format!("unknown environment action: {other}"))),
     }
