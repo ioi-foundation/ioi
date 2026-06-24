@@ -1,16 +1,21 @@
 // IOI-owned API adapter for the live reference's Gitpod Connect-RPC surface.
 //
-// "Working backwards" from the live reference: endpoints implemented here are backed by
-// the real IOI hypervisor-daemon (/v1/*) instead of the reference's mocks. handle()
-// returns a response for endpoints we own and null for the rest, so the serve layer
-// transparently proxies anything not-yet-ported to the live reference — and if the daemon
-// is unreachable we also return null (fall back to the reference) so the app never breaks.
+// "Working backwards" from the live reference: endpoints here are backed by real IOI —
+// the hypervisor-daemon (governed objects), an IOI-persisted store (preferences), and the
+// EnvironmentProvider (lifecycle). handle() returns a response for endpoints we own and
+// null for the rest, so the serve layer transparently proxies anything not-yet-ported to
+// the live reference; if the daemon is unreachable we also return null (graceful fallback).
+//
+// Boundary discipline: daemon EXECUTES · wallet AUTHORIZES (crossings only) · agentgres
+// RECORDS. Projections live in ioi-projection.mjs and must not inflate any plane.
 //
 // Daemon: IOI_HYPERVISOR_DAEMON_URL (default http://127.0.0.1:8765).
 // Plan: apps/hypervisor/docs/reference-api-integration.md
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
+import { threadToAgentExecution } from "./ioi-projection.mjs";
+import { SimulatedProvider, toGitpodEnvironment } from "./ioi-environment-provider.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const RAW_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || ".ioi/hypervisor/data";
@@ -49,38 +54,9 @@ function makePreference(key, value, entry) {
   return { key, value, id: `ioi-${stableId}`, createdAt: entry.createdAt, updatedAt: entry.updatedAt };
 }
 
-// ---- map a real daemon thread -> the frontend's Gitpod agentExecution shape ----
-function threadToAgentExecution(t) {
-  const id = t.thread_id || t.id;
-  const running = (t.status || "active") === "active";
-  const phase = running ? "AGENT_EXECUTION_PHASE_RUNNING" : "AGENT_EXECUTION_PHASE_STOPPED";
-  const session = t.session_id || id;
-  const title = t.title && t.title.trim() && t.title.trim() !== "." ? t.title.trim() : "Untitled session";
-  return {
-    id,
-    metadata: {
-      name: title,
-      creator: { id: "local-operator", principal: "PRINCIPAL_USER" },
-      createdAt: t.created_at,
-      updatedAt: t.updated_at || t.created_at,
-      role: "AGENT_EXECUTION_ROLE_DEFAULT",
-    },
-    spec: {
-      specVersion: "2",
-      session,
-      desiredPhase: running ? "PHASE_RUNNING" : "PHASE_STOPPED",
-      agentId: t.agent_id || "00000000-0000-0000-0000-000000007800",
-      limits: {},
-    },
-    status: {
-      statusVersion: String(t.latest_seq || 1),
-      session,
-      phase,
-    },
-  };
-}
-
 const textFromBody = (b) => b.text || b.message || b.prompt || b.input || b.content || "";
+const envIdFromBody = (b) =>
+  b.environmentId || b.req?.environmentId || b.spec?.environmentId || b.projectId || "default-environment";
 
 export async function handle(pathname, bodyText) {
   let body = {};
@@ -107,7 +83,44 @@ export async function handle(pathname, bodyText) {
     return json({ preference: makePreference(key, value, store[key]) });
   }
 
-  // ---- AgentService: real IOI daemon threads/turns ----
+  // ---- EnvironmentService: IOI EnvironmentProvider lifecycle (WS2) ----
+  // Local/simulated provider now; Phase 0 swaps in daemon-owned VM/microVM/devcontainer
+  // behind the same interface (object model + UI unchanged).
+  switch (pathname) {
+    case "/api/gitpod.v1.EnvironmentService/GetEnvironment":
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(envIdFromBody(body))) });
+    case "/api/gitpod.v1.EnvironmentService/ListEnvironments":
+      return json({ pagination: {}, environments: SimulatedProvider.list().map(toGitpodEnvironment) });
+    case "/api/gitpod.v1.EnvironmentService/StartEnvironment":
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.start(envIdFromBody(body))) });
+    case "/api/gitpod.v1.EnvironmentService/StopEnvironment":
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.stop(envIdFromBody(body))) });
+    case "/api/gitpod.v1.EnvironmentService/DeleteEnvironment":
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.del(envIdFromBody(body))) });
+    case "/api/gitpod.v1.EnvironmentService/UpdateEnvironment": {
+      const id = envIdFromBody(body);
+      const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
+      if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: toGitpodEnvironment(SimulatedProvider.start(id)) });
+      if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: toGitpodEnvironment(SimulatedProvider.stop(id)) });
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(id)) });
+    }
+    case "/api/gitpod.v1.EnvironmentService/CreateEnvironment":
+    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentFromProject": {
+      const id = SimulatedProvider.create(body.spec || body);
+      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(id)) });
+    }
+    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken":
+    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentLogsToken":
+      return json({ accessToken: `ioi-env-token-${envIdFromBody(body)}` });
+    case "/api/gitpod.v1.EnvironmentService/MarkEnvironmentActive":
+    case "/api/gitpod.v1.EnvironmentService/ArchiveEnvironment":
+    case "/api/gitpod.v1.EnvironmentService/UnarchiveEnvironment":
+      return json({});
+    default:
+      break;
+  }
+
+  // ---- AgentService: real IOI daemon threads/turns (Session) ----
   try {
     if (pathname === "/api/gitpod.v1.AgentService/ListAgentExecutions") {
       const threads = await daemon("GET", "/v1/threads");
@@ -133,13 +146,12 @@ export async function handle(pathname, bodyText) {
       return json({});
     }
   } catch (e) {
-    // Daemon unreachable / shape mismatch -> fall back to the live reference (proxy).
     console.error("[ioi-api-adapter] daemon call failed, proxying:", e.message);
     return null;
   }
 
-  // Not yet IOI-backed -> proxy to the live reference. Next per the plan:
-  //   EnvironmentService/* -> daemon runtime nodes / preview API
-  //   EventService/Watch   -> daemon event stream (/v1/threads/:id events) as Connect frames
+  // Not yet IOI-backed -> proxy to the live reference. Remaining (see reference-api-
+  // integration.md): ProjectService (daemon needs a project-list GET), EventService
+  // streaming bridge, Account/Org/Billing (bare daemon stub), approvals/reviews surfacing.
   return null;
 }
