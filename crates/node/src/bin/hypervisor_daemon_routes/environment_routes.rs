@@ -252,6 +252,93 @@ fn ensure_git_repo(ws: &str) -> Result<String, AppError> {
     run_git(ws, &["rev-parse", "HEAD"]).map_err(app_err)
 }
 
+// ---- WS-3: typed Services / Tasks / Ports (tasks run as REAL processes) ----
+
+/// Run one resolved task as a REAL bounded process in the workspace; return a typed
+/// `HypervisorEnvironmentTask` record with phase/exit_code/log_ref.
+fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
+    let name = task.get("name").and_then(|v| v.as_str()).unwrap_or("task");
+    let command = task.get("command").and_then(|v| v.as_str()).unwrap_or("");
+    let trigger = task.get("trigger").and_then(|v| v.as_str()).unwrap_or("environment_start");
+    let required = task.get("required").and_then(|v| v.as_bool()).unwrap_or(false);
+    let lifecycle = if required { "required" } else { "optional" };
+    let task_ref = format!("task_{}", safe_id(name));
+    let started_at = iso_now();
+    if command.is_empty() {
+        return json!({ "task_ref": task_ref, "name": name, "trigger": trigger, "lifecycle": lifecycle,
+            "phase": "succeeded", "exit_code": 0, "started_at": started_at, "ended_at": iso_now(), "log_ref": Value::Null });
+    }
+    let out = std::process::Command::new("timeout")
+        .arg("120").arg("bash").arg("-lc").arg(command)
+        .current_dir(ws)
+        .output();
+    let (phase, exit_code, log) = match out {
+        Ok(o) => {
+            let code = o.status.code().unwrap_or(-1);
+            let mut log = String::from_utf8_lossy(&o.stdout).to_string();
+            log.push_str(&String::from_utf8_lossy(&o.stderr));
+            (if o.status.success() { "succeeded" } else { "failed" }, code, log)
+        }
+        Err(e) => ("failed", -1, format!("spawn error: {e}")),
+    };
+    let log_path = log_dir.join(format!("{task_ref}.log"));
+    let _ = std::fs::write(&log_path, &log);
+    json!({ "task_ref": task_ref, "name": name, "command": command, "trigger": trigger,
+        "lifecycle": lifecycle, "phase": phase, "exit_code": exit_code,
+        "started_at": started_at, "ended_at": iso_now(), "log_ref": log_path.to_string_lossy() })
+}
+
+/// Run a resolution's tasks (prebuild → environment_start order) as real processes.
+fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value) -> Vec<Value> {
+    let log_dir = std::path::Path::new(data_dir).join("environments").join(safe_id(env_id)).join("task-logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let mut results = Vec::new();
+    for key in ["resolved_prebuild_tasks", "resolved_tasks"] {
+        if let Some(arr) = resolution.get(key).and_then(|v| v.as_array()) {
+            for t in arr {
+                results.push(run_task(ws, &log_dir, t));
+            }
+        }
+    }
+    results
+}
+
+/// Typed `HypervisorEnvironmentService`: required services must pass a healthcheck to be
+/// `running` (health-checks gate readiness); optional services without one are declared running.
+fn typed_service(ws: &str, svc: &Value) -> Value {
+    let name = svc.get("name").and_then(|v| v.as_str()).unwrap_or("service");
+    let lifecycle = svc.get("lifecycle").and_then(|v| v.as_str()).unwrap_or("optional");
+    let healthcheck = svc.get("healthcheck").and_then(|v| v.as_str());
+    let service_ref = format!("svc_{}", safe_id(name));
+    let phase = match healthcheck {
+        Some(hc) if !hc.is_empty() => {
+            let healthy = std::process::Command::new("timeout")
+                .arg("30").arg("bash").arg("-lc").arg(hc)
+                .current_dir(ws).output().map(|o| o.status.success()).unwrap_or(false);
+            if healthy { "running" } else { "degraded" }
+        }
+        _ => if lifecycle == "required" { "degraded" } else { "running" },
+    };
+    json!({ "service_ref": service_ref, "name": name, "command": svc.get("command").cloned().unwrap_or(Value::Null),
+        "lifecycle": lifecycle, "healthcheck": svc.get("healthcheck").cloned().unwrap_or(Value::Null),
+        "phase": phase, "restart_policy": "on_failure", "port_refs": svc.get("port_refs").cloned().unwrap_or_else(|| json!([])),
+        "log_ref": Value::Null })
+}
+
+/// Typed `HypervisorEnvironmentPort`: exposure_state derived from access_policy. Real opening
+/// (capability_lease_ref) is wallet-gated (Phase 0 port exposure / WS-10).
+fn typed_port(p: &Value) -> Value {
+    let port = p.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
+    let access = p.get("access_policy").and_then(|v| v.as_str()).unwrap_or("private");
+    let exposure = match access {
+        "shared" => "open",
+        "session_lease" => "lease_required",
+        _ => "closed",
+    };
+    json!({ "port": port, "protocol": p.get("protocol").cloned().unwrap_or_else(|| json!("tcp")),
+        "access_policy": access, "capability_lease_ref": Value::Null, "url": Value::Null, "exposure_state": exposure })
+}
+
 // ---- handlers ----
 
 /// GET /v1/hypervisor/projects — list persisted projects (WS-C). The POST create endpoint
@@ -381,34 +468,64 @@ pub(crate) async fn handle_environment_action(
             set_component(&mut env, "connectivity", "ready", "host-local connectivity");
             observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (host-local)");
 
-            // services / tasks / ports (WS-3 makes these typed objects).
-            let declared = env["spec"]["declared_ports"].clone();
-            env["status"]["services"] = json!([
-                { "name": "workspace", "phase": "running", "lease": "local_operator" }
-            ]);
-            env["status"]["tasks"] = json!([
-                { "name": "post-start setup", "phase": "succeeded", "trigger": "post_start" }
-            ]);
-            env["status"]["ports"] = if declared.as_array().map(|a| a.is_empty()).unwrap_or(true) {
-                json!([])
-            } else {
-                declared
-            };
-            set_component(&mut env, "automations", "ready", "post-start tasks complete");
-            observe(&mut env, "starting_services", "automations", "content_ready", "info", "services/tasks ready");
+            // WS-3 — typed Services / Tasks / Ports. If a recipe is bound, resolve it, RUN its
+            // tasks as real processes, build typed services/ports, and let the ReadinessGate
+            // (which now also gates on required-task success + service health) decide readiness.
+            let recipe_ref = env["spec"]["recipe_ref"].as_str().filter(|s| !s.is_empty()).map(String::from);
+            let recipe = recipe_ref.as_deref().and_then(|r| super::recipe_routes::load_recipe(&st.data_dir, r));
+            if let Some(recipe) = recipe {
+                observe(&mut env, "resolving_recipe", "recipe", "content_ready", "info", "resolving recipe → plan");
+                let resolution = super::recipe_routes::resolve_recipe(&st.data_dir, &recipe, &id)?;
+                // run the resolved tasks for real (prebuild → environment_start).
+                observe(&mut env, "starting_services", "automations", "content_ready", "info", "running resolved tasks");
+                let task_results = run_resolved_tasks(&st.data_dir, &id, &ws, &resolution);
+                let any_required_failed = task_results.iter().any(|t| {
+                    t["lifecycle"].as_str() == Some("required") && t["phase"].as_str() != Some("succeeded")
+                });
+                env["status"]["tasks"] = json!(task_results);
+                // typed services (required services health-checked) + typed ports.
+                let services: Vec<Value> = recipe["services"].as_array().cloned().unwrap_or_default()
+                    .iter().map(|s| typed_service(&ws, s)).collect();
+                env["status"]["services"] = json!(services);
+                let ports: Vec<Value> = recipe["ports"].as_array().cloned().unwrap_or_default()
+                    .iter().map(typed_port).collect();
+                env["status"]["ports"] = json!(ports);
+                set_component(&mut env, "automations", if any_required_failed { "failed" } else { "ready" },
+                    if any_required_failed { "a required task failed" } else { "tasks complete" });
 
-            // running + readiness rollup (replaces Phase 0's optimistic flat `running`).
-            set_phase(&mut env, "running");
-            recompute_readiness(&mut env);
-            // WS-2: if a recipe is bound, the ReadinessGate is the authority on readiness — it can
-            // hold the env at `dry_run_only`/`blocked` naming an unsatisfiable required edge.
-            let gated = super::recipe_routes::apply_readiness_gate(&st.data_dir, &mut env)?;
-            let mode = env["status"]["readiness"]["mode"].as_str().unwrap_or("blocked").to_string();
-            if gated && mode != "full" {
-                let reasons = env["status"]["readiness"]["blocked_reasons"].clone();
-                observe(&mut env, "binding_access", "secrets", "blocked_by_policy", "warning", &format!("readiness {mode}: unsatisfied required edges {reasons}"));
+                set_phase(&mut env, "running");
+                let gate = super::recipe_routes::compute_readiness_gate(&st.data_dir, &resolution, &env)?;
+                env["status"]["recipe_ref"] = json!(recipe_ref);
+                env["status"]["recipe_resolution_ref"] = resolution["resolution_ref"].clone();
+                env["status"]["readiness_gate_ref"] = gate["gate_ref"].clone();
+                env["status"]["readiness"] = json!({ "mode": gate["readiness_mode"], "blocked_reasons": gate["blocked_reasons"] });
+                let mode = gate["readiness_mode"].as_str().unwrap_or("blocked").to_string();
+                if mode != "full" {
+                    let reasons = gate["blocked_reasons"].clone();
+                    observe(&mut env, "binding_access", "automations", "blocked_by_policy", "warning", &format!("readiness {mode}: {reasons}"));
+                }
+                observe(&mut env, "ready", "agent_work", "ever_ready", "info", &format!("environment running (readiness: {mode})"));
+            } else {
+                // no recipe — default typed workspace service/task/ports (declared).
+                let declared = env["spec"]["declared_ports"].clone();
+                env["status"]["services"] = json!([
+                    { "service_ref": "svc_workspace", "name": "workspace", "lifecycle": "support", "phase": "running", "restart_policy": "on_failure" }
+                ]);
+                env["status"]["tasks"] = json!([
+                    { "task_ref": "task_post_start", "name": "post-start setup", "trigger": "post_start", "lifecycle": "optional", "phase": "succeeded", "exit_code": 0 }
+                ]);
+                env["status"]["ports"] = if declared.as_array().map(|a| a.is_empty()).unwrap_or(true) {
+                    json!([])
+                } else {
+                    json!(declared.as_array().cloned().unwrap_or_default().iter().map(typed_port).collect::<Vec<_>>())
+                };
+                set_component(&mut env, "automations", "ready", "post-start tasks complete");
+                observe(&mut env, "starting_services", "automations", "content_ready", "info", "services/tasks ready");
+                set_phase(&mut env, "running");
+                recompute_readiness(&mut env);
+                let mode = env["status"]["readiness"]["mode"].as_str().unwrap_or("blocked").to_string();
+                observe(&mut env, "ready", "agent_work", "ever_ready", "info", &format!("environment running (readiness: {mode})"));
             }
-            observe(&mut env, "ready", "agent_work", "ever_ready", "info", &format!("environment running (readiness: {mode})"));
         }
         "stop" => {
             env["spec"]["desired_phase"] = json!("stopped");

@@ -52,7 +52,7 @@ pub(crate) fn detect_recipe_fields(repo_path: &str) -> Value {
         // forwardPorts / postCreateCommand are common devcontainer keys (best-effort, no JSON5).
         if let Ok(dc) = serde_json::from_str::<Value>(&body) {
             if let Some(pcc) = dc.get("postCreateCommand").and_then(|v| v.as_str()) {
-                init_tasks.push(json!({ "name": "postCreateCommand", "command": pcc, "trigger": "post_start", "required": true }));
+                init_tasks.push(json!({ "name": "postCreateCommand", "command": pcc, "trigger": "post_start", "required": false }));
             }
             if let Some(fp) = dc.get("forwardPorts").and_then(|v| v.as_array()) {
                 for port in fp.iter().filter_map(|v| v.as_u64()) {
@@ -72,7 +72,7 @@ pub(crate) fn detect_recipe_fields(repo_path: &str) -> Value {
     }
     if has("package.json") {
         signals.push("package.json");
-        init_tasks.push(json!({ "name": "npm install", "command": "npm install", "trigger": "environment_start", "required": true }));
+        init_tasks.push(json!({ "name": "npm install", "command": "npm install", "trigger": "environment_start", "required": false }));
         let pj = read("package.json");
         if let Ok(v) = serde_json::from_str::<Value>(&pj) {
             if v.get("scripts").and_then(|s| s.get("start")).is_some() {
@@ -220,14 +220,28 @@ pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &V
             blocked.push(format!("required_service:{s}"));
         }
     }
+    // required tasks: a required task that did NOT succeed is a hard block (WS-3: tasks really ran).
+    let mut required_task_failed = false;
+    if let Some(tasks) = env["status"]["tasks"].as_array() {
+        for t in tasks {
+            let required = t.get("lifecycle").and_then(|l| l.as_str()) == Some("required");
+            let succeeded = t.get("phase").and_then(|p| p.as_str()) == Some("succeeded");
+            if required && !succeeded {
+                let name = t.get("name").and_then(|n| n.as_str()).unwrap_or("task");
+                blocked.push(format!("required_task:{name}"));
+                required_task_failed = true;
+            }
+        }
+    }
 
     let workspace_ready = env["status"]["components"]["workspace_content"]["phase"].as_str() == Some("ready")
         && env["status"]["components"]["provisioner"]["phase"].as_str() == Some("ready");
 
-    let readiness_mode = if !workspace_ready {
+    let readiness_mode = if !workspace_ready || required_task_failed {
+        // no workspace, or a required setup task failed → the env is not usable.
         "blocked"
     } else if !blocked.is_empty() {
-        // workspace ready but a required runtime edge unmet → inspect-only, no run.
+        // workspace ready but a required runtime edge (secret/scm/service) unmet → inspect-only.
         "dry_run_only"
     } else {
         "full"
@@ -260,31 +274,6 @@ pub(crate) fn detect_and_admit(data_dir: &str, repo_path: &str, project_ref: Opt
     let recipe = new_recipe(&id, &fields, "repo_detected", project_ref);
     persist_recipe(data_dir, &recipe)?;
     Ok(id)
-}
-
-/// Env-start integration: if the env carries a recipe_ref, resolve it, compute the readiness
-/// gate, and set the env's readiness from the gate (overriding the component-only rollup). The
-/// gate is the single authority that promotes an env to readiness `full` (canon: not "started").
-pub(crate) fn apply_readiness_gate(data_dir: &str, env: &mut Value) -> Result<bool, AppError> {
-    let recipe_ref = match env["spec"]["recipe_ref"].as_str() {
-        Some(r) if !r.is_empty() => r.to_string(),
-        _ => return Ok(false),
-    };
-    let recipe = match load_recipe(data_dir, &recipe_ref) {
-        Some(r) => r,
-        None => return Ok(false),
-    };
-    let env_id = env["id"].as_str().unwrap_or("env").to_string();
-    let resolution = resolve_recipe(data_dir, &recipe, &env_id)?;
-    let gate = compute_readiness_gate(data_dir, &resolution, env)?;
-    env["status"]["recipe_ref"] = json!(recipe_ref);
-    env["status"]["recipe_resolution_ref"] = resolution["resolution_ref"].clone();
-    env["status"]["readiness_gate_ref"] = gate["gate_ref"].clone();
-    env["status"]["readiness"] = json!({
-        "mode": gate["readiness_mode"],
-        "blocked_reasons": gate["blocked_reasons"]
-    });
-    Ok(true)
 }
 
 // ---- handlers ----

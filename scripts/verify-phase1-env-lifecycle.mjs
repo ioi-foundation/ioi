@@ -77,19 +77,24 @@ async function gateWs1() {
 // G(WS-2): recipe → resolution → readiness gate (repo-detect-first).
 async function gateWs2() {
   console.log("  [WS-2] recipe → resolution → readiness gate (repo-detect-first)");
+  // detection-only (many signals) — do not start an env from heavy detected commands.
   const repo = mkdtempSync(join(tmpdir(), "ioi-repo-"));
   mkdirSync(join(repo, ".devcontainer"), { recursive: true });
   writeFileSync(join(repo, ".devcontainer/devcontainer.json"), JSON.stringify({ postCreateCommand: "echo hi", forwardPorts: [3000] }));
   writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts: { start: "node ." } }));
+  writeFileSync(join(repo, "Cargo.toml"), "[package]\nname = 'x'\n");
   const det = await api("POST", "/v1/hypervisor/recipes", { repo_path: repo });
   const recipe = det.json.recipe || {};
   ok(recipe.source === "repo_detected", "recipe repo-detected");
   ok((recipe.detected_signals || []).includes("devcontainer.json"), "detected devcontainer.json signal");
   ok((recipe.detected_signals || []).includes("package.json"), "detected package.json signal");
+  ok((recipe.detected_signals || []).includes("Cargo.toml"), "detected Cargo.toml signal");
   ok((recipe.ports || []).some((p) => p.port === 3000), "forwardPorts → recipe port 3000");
+  rmSync(repo, { recursive: true, force: true });
 
-  // satisfiable recipe → readiness full
-  const envOk = await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: recipe.recipe_ref } });
+  // satisfiable recipe (succeeding required task) → readiness full
+  const okRecipe = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", init_tasks: [{ name: "setup", command: "true", trigger: "environment_start", required: true }] } });
+  const envOk = await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: okRecipe.json.recipe.recipe_ref } });
   const idOk = envOk.json.environment.id;
   const startedOk = await api("POST", `/v1/hypervisor/environments/${idOk}/start`);
   const rdOk = startedOk.json.environment.status.readiness;
@@ -107,21 +112,71 @@ async function gateWs2() {
   ok((rd.blocked_reasons || []).includes("required_secret:DB_PASSWORD"), "blocked_reason names required_secret:DB_PASSWORD");
   await api("POST", `/v1/hypervisor/environments/${idBlk}/delete`);
 
-  // auto-detect on env create via repo_path
+  // auto-detect on env create via repo_path (create+delete only — no task execution)
   const repo2 = mkdtempSync(join(tmpdir(), "ioi-repo2-"));
-  writeFileSync(join(repo2, "Cargo.toml"), "[package]\nname = 'x'\n");
+  writeFileSync(join(repo2, "go.mod"), "module x\n");
   const envAuto = await api("POST", "/v1/hypervisor/environments", { spec: { repo_path: repo2 } });
   ok(!!envAuto.json.environment.spec.recipe_ref, "env create with repo_path auto-binds a recipe_ref");
   await api("POST", `/v1/hypervisor/environments/${envAuto.json.environment.id}/delete`);
-
-  rmSync(repo, { recursive: true, force: true });
   rmSync(repo2, { recursive: true, force: true });
+}
+
+// G(WS-3): typed services/tasks/ports — tasks RUN as real processes; health-checks gate readiness.
+async function gateWs3() {
+  console.log("  [WS-3] typed services/tasks/ports (real task execution)");
+  // task actually runs as a real process and writes to the workspace
+  const r1 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", init_tasks: [{ name: "writefile", command: "echo built > marker.txt", trigger: "environment_start", required: true }] } });
+  const e1 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r1.json.recipe.recipe_ref } })).json.environment.id;
+  const s1 = (await api("POST", `/v1/hypervisor/environments/${e1}/start`)).json.environment;
+  const task = (s1.status.tasks || [])[0] || {};
+  ok(task.phase === "succeeded" && task.exit_code === 0, "required task ran (phase succeeded, exit 0)");
+  ok(!!task.log_ref, "task has a log_ref");
+  ok(s1.status.readiness.mode === "full", "task success → readiness full");
+  const cat = await api("POST", "/v1/hypervisor/exec", { environment_id: e1, command: "cat marker.txt" });
+  ok((cat.json.stdout || "").includes("built"), "task wrote a REAL file into the workspace (cat marker.txt)");
+  await api("POST", `/v1/hypervisor/environments/${e1}/delete`);
+
+  // failing required task → blocked naming required_task; automations component failed
+  const r2 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", init_tasks: [{ name: "boom", command: "exit 7", trigger: "environment_start", required: true }] } });
+  const e2 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r2.json.recipe.recipe_ref } })).json.environment.id;
+  const s2 = (await api("POST", `/v1/hypervisor/environments/${e2}/start`)).json.environment;
+  ok(s2.status.readiness.mode === "blocked", `failed required task → readiness blocked (got ${s2.status.readiness.mode})`);
+  ok((s2.status.readiness.blocked_reasons || []).includes("required_task:boom"), "blocked_reason names required_task:boom");
+  ok((s2.status.tasks || [])[0]?.exit_code === 7, "task exit_code captured (7)");
+  ok(s2.status.components.automations.phase === "failed", "automations component=failed");
+  await api("POST", `/v1/hypervisor/environments/${e2}/delete`);
+
+  // required service health-check gates readiness: pass → running/full, fail → not full
+  const r3 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", services: [{ name: "db", lifecycle: "required", healthcheck: "true" }] } });
+  const e3 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r3.json.recipe.recipe_ref } })).json.environment.id;
+  const s3 = (await api("POST", `/v1/hypervisor/environments/${e3}/start`)).json.environment;
+  ok((s3.status.services || [])[0]?.phase === "running", "required service w/ passing healthcheck → running");
+  ok(s3.status.readiness.mode === "full", "healthy required service → readiness full");
+  await api("POST", `/v1/hypervisor/environments/${e3}/delete`);
+
+  const r4 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", services: [{ name: "db", lifecycle: "required", healthcheck: "false" }] } });
+  const e4 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r4.json.recipe.recipe_ref } })).json.environment.id;
+  const s4 = (await api("POST", `/v1/hypervisor/environments/${e4}/start`)).json.environment;
+  ok((s4.status.services || [])[0]?.phase === "degraded", "required service w/ failing healthcheck → degraded");
+  ok(s4.status.readiness.mode !== "full", `unhealthy required service → readiness not full (got ${s4.status.readiness.mode})`);
+  ok((s4.status.readiness.blocked_reasons || []).includes("required_service:db"), "blocked_reason names required_service:db");
+  await api("POST", `/v1/hypervisor/environments/${e4}/delete`);
+
+  // typed ports with exposure_state derived from access_policy
+  const r5 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", ports: [{ port: 8080, access_policy: "session_lease" }, { port: 9090, access_policy: "shared" }] } });
+  const e5 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r5.json.recipe.recipe_ref } })).json.environment.id;
+  const s5 = (await api("POST", `/v1/hypervisor/environments/${e5}/start`)).json.environment;
+  const ports = s5.status.ports || [];
+  ok(ports.find((p) => p.port === 8080)?.exposure_state === "lease_required", "session_lease port → exposure_state lease_required");
+  ok(ports.find((p) => p.port === 9090)?.exposure_state === "open", "shared port → exposure_state open");
+  await api("POST", `/v1/hypervisor/environments/${e5}/delete`);
 }
 
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
   await gateWs2();
+  await gateWs3();
 }
 
 // ---- harness ----
