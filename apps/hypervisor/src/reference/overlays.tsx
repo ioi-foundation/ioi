@@ -44,8 +44,13 @@ const OVERLAYS: OverlaySpec[] = [
   { match: (el) => testid(el).startsWith("create-environment-from-project-button"), render: () => <CreateEnvironmentDialog />, kind: "modal", maxWidth: "520px" },
 ];
 
-export function ReferenceOverlays({ root }: { root: HTMLElement }) {
+export function ReferenceOverlays({ root, routeKey }: { root: HTMLElement; routeKey?: string }) {
   const [open, setOpen] = useState<{ spec: OverlaySpec; anchor: HTMLElement } | null>(null);
+
+  // Close any open overlay when the route changes (the anchor may be morphed away).
+  useEffect(() => {
+    setOpen(null);
+  }, [routeKey]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
