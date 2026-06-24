@@ -30,6 +30,8 @@
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
+#[path = "hypervisor_daemon_routes/authority_routes.rs"]
+mod authority_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -677,6 +679,15 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/environments/:id/:action",
             post(environment_routes::handle_environment_action),
+        )
+        // WS-G: local-operator authority (LocalAuthorityProvider).
+        .route(
+            "/v1/hypervisor/authority/posture",
+            get(authority_routes::handle_authority_posture),
+        )
+        .route(
+            "/v1/hypervisor/authority/evaluate",
+            post(authority_routes::handle_authority_evaluate),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +
