@@ -21,7 +21,9 @@ const TIERS = {
   app: [
     npmRun("build:workbench"),
     ["npm", ["run", "build", "--workspace=@ioi/hypervisor-app"]],
-    npmRun("check:hypervisor-app-shell"),
+    // check:hypervisor-app-shell retired: it e2e-tested the legacy ?view= shell and the
+    // reference-parity React UI, both removed. The product UI is now served as the live
+    // reference (serve-live-reference.mjs); see apps/hypervisor/docs/reference-api-integration.md.
     npmRun("test:hypervisor-app-harness"),
   ],
   wallet: [npmRun("check:wallet-packaging")],

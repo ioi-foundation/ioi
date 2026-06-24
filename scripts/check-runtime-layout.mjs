@@ -209,9 +209,6 @@ const hypervisorShellControllerSource = read(
 const hypervisorLaunchedSessionPersistenceSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorLaunchedSessionPersistence.ts",
 );
-const hypervisorAppShellContractSource = read(
-  "scripts/hypervisor-app-shell-contract.mjs",
-);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
 );

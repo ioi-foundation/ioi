@@ -14,7 +14,6 @@
     "dev:hypervisor-code-editor-adapter-host:wayland": "node scripts/launch-hypervisor-code-editor-adapter-host.mjs --ozone-platform=wayland",
     "dryrun:hypervisor-code-editor-adapter-host": "bash apps/hypervisor/scripts/dry-run-desktop.sh x11",
     "dryrun:hypervisor-code-editor-adapter-host:wayland": "bash apps/hypervisor/scripts/dry-run-desktop.sh wayland",
-    "check:hypervisor-app-shell": "node scripts/hypervisor-app-shell-contract.mjs",
     "test:hypervisor-app-harness": "node --test scripts/lib/hypervisor-app-harness-contract.test.mjs",
     "build:agent-sdk": "npm run build --workspace=@ioi/agent-sdk",
     "test:agent-sdk": "npm test --workspace=@ioi/agent-sdk",
