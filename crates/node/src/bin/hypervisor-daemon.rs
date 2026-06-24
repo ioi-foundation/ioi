@@ -28,6 +28,8 @@
 // subdirectory submodule so cargo autobin does not treat it as its own binary target.
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/environment_routes.rs"]
+mod environment_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -657,6 +659,24 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/projects",
             post(lifecycle_routes::handle_project_create),
+        )
+        // WS-A/WS-B: Environment object model + local_workspace_provider_v0 (daemon-owned).
+        .route(
+            "/v1/hypervisor/environment-classes",
+            get(environment_routes::handle_environment_classes),
+        )
+        .route(
+            "/v1/hypervisor/environments",
+            get(environment_routes::handle_environments_list)
+                .post(environment_routes::handle_environment_create),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id",
+            get(environment_routes::handle_environment_get),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/:action",
+            post(environment_routes::handle_environment_action),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +

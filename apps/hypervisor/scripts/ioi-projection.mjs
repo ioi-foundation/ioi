@@ -74,6 +74,50 @@ export function runPhase(run) {
   return "WORK_RUN_PHASE_QUEUED";
 }
 
+// ---- Environment (daemon env record -> Gitpod EnvironmentService shape) ----
+// Env truth is daemon-owned (WS-A); this is projection only. Honest IOI posture
+// (provider/isolationClaim/workspaceRoot) rides under status.ioi for native consumers; the
+// borrowed UI ignores unknown fields.
+const ENV_PHASE = {
+  running: "ENVIRONMENT_PHASE_RUNNING",
+  queued: "ENVIRONMENT_PHASE_STARTING",
+  provisioning: "ENVIRONMENT_PHASE_STARTING",
+  stopping: "ENVIRONMENT_PHASE_STOPPING",
+  deleting: "ENVIRONMENT_PHASE_DELETING",
+  archived: "ENVIRONMENT_PHASE_STOPPED",
+  failed: "ENVIRONMENT_PHASE_FAILED",
+  stopped: "ENVIRONMENT_PHASE_STOPPED",
+};
+export function daemonEnvToGitpod(env) {
+  const s = env.status || {};
+  const phase = ENV_PHASE[s.phase] || "ENVIRONMENT_PHASE_STOPPED";
+  const running = phase === "ENVIRONMENT_PHASE_RUNNING";
+  const status = {
+    statusVersion: String(s.status_version || 1),
+    phase,
+    machine: { phase: running ? "PHASE_RUNNING" : phase === "ENVIRONMENT_PHASE_STOPPING" ? "PHASE_STOPPING" : "PHASE_STOPPED" },
+    environmentUrls: { logs: `local://environments/${env.id}/logs` },
+    ioi: {
+      provider: s.provider || null,
+      isolationClaim: s.isolation_claim || null,
+      workspaceRoot: s.workspace_root || null,
+      lastObservationRef: s.last_observation_ref || null,
+    },
+  };
+  if (running) {
+    const folder = s.workspace_root || "/workspace";
+    status.devcontainer = { phase: "CONTENT_PHASE_READY", remoteWorkspaceFolder: folder };
+    status.content = { phase: "CONTENT_PHASE_READY", contentLocationInMachine: folder };
+  }
+  const desired = env.spec?.desired_phase === "running" ? "ENVIRONMENT_PHASE_RUNNING" : "ENVIRONMENT_PHASE_STOPPED";
+  return {
+    id: env.id,
+    metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at },
+    spec: { desiredPhase: desired },
+    status,
+  };
+}
+
 // ---- Project (daemon project -> Gitpod project) ----
 // The daemon is the source of truth; this maps its project record to the UI shape.
 export function daemonProjectToGitpod(p) {

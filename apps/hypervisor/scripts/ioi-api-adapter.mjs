@@ -14,8 +14,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { threadToAgentExecution } from "./ioi-projection.mjs";
-import { SimulatedProvider, toGitpodEnvironment } from "./ioi-environment-provider.mjs";
+import { threadToAgentExecution, daemonEnvToGitpod } from "./ioi-projection.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 // UserService preferences are app/client config (not daemon runtime truth), so they live
@@ -85,41 +84,52 @@ export async function handle(pathname, bodyText) {
     return json({ preference: makePreference(key, value, store[key]) });
   }
 
-  // ---- EnvironmentService: IOI EnvironmentProvider lifecycle (WS2) ----
-  // Local/simulated provider now; Phase 0 swaps in daemon-owned VM/microVM/devcontainer
-  // behind the same interface (object model + UI unchanged).
-  switch (pathname) {
-    case "/api/gitpod.v1.EnvironmentService/GetEnvironment":
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(envIdFromBody(body))) });
-    case "/api/gitpod.v1.EnvironmentService/ListEnvironments":
-      return json({ pagination: {}, environments: SimulatedProvider.list().map(toGitpodEnvironment) });
-    case "/api/gitpod.v1.EnvironmentService/StartEnvironment":
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.start(envIdFromBody(body))) });
-    case "/api/gitpod.v1.EnvironmentService/StopEnvironment":
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.stop(envIdFromBody(body))) });
-    case "/api/gitpod.v1.EnvironmentService/DeleteEnvironment":
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.del(envIdFromBody(body))) });
-    case "/api/gitpod.v1.EnvironmentService/UpdateEnvironment": {
-      const id = envIdFromBody(body);
-      const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
-      if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: toGitpodEnvironment(SimulatedProvider.start(id)) });
-      if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: toGitpodEnvironment(SimulatedProvider.stop(id)) });
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(id)) });
+  // ---- EnvironmentService: real IOI daemon environments (WS-A/WS-B) ----
+  // Env truth is daemon-owned (/v1/hypervisor/environments); the JS simulator is gone.
+  try {
+    const env = (path) => daemon("GET", path).then((r) => r.environment);
+    const act = (id, action) =>
+      daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/${action}`).then((r) => r.environment);
+    switch (pathname) {
+      case "/api/gitpod.v1.EnvironmentService/GetEnvironment":
+        return json({ environment: daemonEnvToGitpod(await env(`/v1/hypervisor/environments/${encodeURIComponent(envIdFromBody(body))}`)) });
+      case "/api/gitpod.v1.EnvironmentService/ListEnvironments": {
+        const r = await daemon("GET", "/v1/hypervisor/environments");
+        return json({ pagination: {}, environments: (r.environments || []).map(daemonEnvToGitpod) });
+      }
+      case "/api/gitpod.v1.EnvironmentService/StartEnvironment":
+        return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "start")) });
+      case "/api/gitpod.v1.EnvironmentService/StopEnvironment":
+        return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "stop")) });
+      case "/api/gitpod.v1.EnvironmentService/DeleteEnvironment":
+        return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "delete")) });
+      case "/api/gitpod.v1.EnvironmentService/UpdateEnvironment": {
+        const id = envIdFromBody(body);
+        const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
+        if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: daemonEnvToGitpod(await act(id, "start")) });
+        if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: daemonEnvToGitpod(await act(id, "stop")) });
+        return json({ environment: daemonEnvToGitpod(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
+      }
+      case "/api/gitpod.v1.EnvironmentService/CreateEnvironment":
+      case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentFromProject": {
+        const created = await daemon("POST", "/v1/hypervisor/environments", { spec: body.spec || body });
+        return json({ environment: daemonEnvToGitpod(created.environment) });
+      }
+      case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken":
+      case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentLogsToken":
+        return json({ accessToken: `ioi-env-token-${envIdFromBody(body)}` });
+      case "/api/gitpod.v1.EnvironmentService/MarkEnvironmentActive":
+        return json({});
+      case "/api/gitpod.v1.EnvironmentService/ArchiveEnvironment":
+        return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "archive")) });
+      case "/api/gitpod.v1.EnvironmentService/UnarchiveEnvironment":
+        return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "restore")) });
+      default:
+        break;
     }
-    case "/api/gitpod.v1.EnvironmentService/CreateEnvironment":
-    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentFromProject": {
-      const id = SimulatedProvider.create(body.spec || body);
-      return json({ environment: toGitpodEnvironment(SimulatedProvider.get(id)) });
-    }
-    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken":
-    case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentLogsToken":
-      return json({ accessToken: `ioi-env-token-${envIdFromBody(body)}` });
-    case "/api/gitpod.v1.EnvironmentService/MarkEnvironmentActive":
-    case "/api/gitpod.v1.EnvironmentService/ArchiveEnvironment":
-    case "/api/gitpod.v1.EnvironmentService/UnarchiveEnvironment":
-      return json({});
-    default:
-      break;
+  } catch (e) {
+    console.error("[ioi-api-adapter] daemon env call failed, proxying:", e.message);
+    return null;
   }
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
