@@ -691,6 +691,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/workruns/:id",
             get(environment_routes::handle_workrun_get),
         )
+        // WS-D: harness session binding admission.
+        .route(
+            "/v1/hypervisor/harness-bindings",
+            post(authority_routes::handle_harness_binding_create),
+        )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(
             "/v1/hypervisor/authority/posture",

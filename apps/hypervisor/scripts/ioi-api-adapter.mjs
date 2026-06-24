@@ -75,6 +75,7 @@ export async function handle(pathname, bodyText) {
       "environment-classes": "/v1/hypervisor/environment-classes",
       "environments": "/v1/hypervisor/environments",
       "workruns": "/v1/hypervisor/workruns",
+      "receipts": "/v1/model-mount/receipts",
     };
     if (!map[sub]) return json({ error: "unknown ioi endpoint" });
     try {

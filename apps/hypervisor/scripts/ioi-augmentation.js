@@ -51,11 +51,13 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
   async function render(panel) {
-    const [auth, envs, wrs] = await Promise.all([
+    const [auth, envs, wrs, rcpt] = await Promise.all([
       get("/api/ioi/authority/posture"),
       get("/api/ioi/environments"),
       get("/api/ioi/workruns"),
+      get("/api/ioi/receipts"),
     ]);
+    const receipts = rcpt.receipts || rcpt.items || (Array.isArray(rcpt) ? rcpt : []);
     const envList = (envs.environments || [])
       .slice(-5)
       .map(
@@ -79,7 +81,9 @@
         <div class="row"><span class="k">wallet.network</span><span>${auth.wallet_network_live ? "live" : "represented (not live)"}</span></div>
       </section>
       <section><div class="k" style="margin-bottom:6px">Environments</div>${envList}</section>
-      <section><div class="k" style="margin-bottom:6px">WorkRuns (patch branches)</div>${wrList}</section>`;
+      <section><div class="k" style="margin-bottom:6px">WorkRuns (patch branches)</div>${wrList}</section>
+      <section><div class="row"><span class="k">Receipts / replay</span><span class="pill">${receipts.length}</span></div>
+        <div class="k" style="margin-top:4px">agentgres-recorded; daemon truth window</div></section>`;
   }
 
   function mount() {
