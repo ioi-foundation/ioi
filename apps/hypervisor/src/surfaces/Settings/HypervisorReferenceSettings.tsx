@@ -7,6 +7,7 @@
 // Billing, Cost & Budgets, Runners, Environments, agent Policies, Login, SCIM) keep the
 // reference href (navigate to the live route) until ported.
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ToggleSwitch } from "../parityControls";
 import { ReferenceModal } from "../parityOverlays";
 import { AddCreditsDialog, ConnectIntegrationDialog } from "./HypervisorReferenceSettingsDialogs";
@@ -917,12 +918,20 @@ function SettingsContent({ section }: { section: string }) {
   }
 }
 
+const SETTINGS_KEYS = new Set(SETTINGS_NAV.flatMap((g) => g.items.map((i) => i.key)));
+
 export function HypervisorReferenceSettings() {
   useReferenceTheme();
-  const [section, setSection] = useState("manage-organization");
+  const navigate = useNavigate();
+  const location = useLocation();
+  // The URL is the source of truth for the active section (so deep links like
+  // /settings/billing and cross-surface links land on the right section). The key may
+  // contain a slash (e.g. security/oidc). Unknown/empty -> General.
+  const raw = location.pathname.replace(/^\/settings\/?/, "").replace(/\/+$/, "");
+  const section = SETTINGS_KEYS.has(raw) ? raw : "manage-organization";
   return (
     <div className="app-background flex size-full overflow-hidden">
-      <SettingsSidebar activeKey={section} onSelect={setSection} />
+      <SettingsSidebar activeKey={section} onSelect={(key) => navigate(`/settings/${key}`)} />
       <SettingsContent section={section} />
     </div>
   );
