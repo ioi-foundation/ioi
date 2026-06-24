@@ -49,20 +49,37 @@ frames for streams — header byte `2` + uint32 length + payload, see
 
 ## Per-endpoint wiring status & plan
 
-- **DONE — IOI-owned:** `UserService/GetPreference` + `SetPreference` → persisted to
-  `.ioi/hypervisor/data/hypervisor-app-preferences.json` (survives restart; replaces the
-  mirror's ephemeral Map).
-- **NEXT (proxied to mirror until wired), per endpoint:**
-  1. `AgentService/ListAgentExecutions` + `GetAgentExecution` → daemon session/run list →
-     map run → `agentExecution` shape. (Highest value: drives the sessions/Recent list.)
-  2. `AgentService/CreateAgentExecution` / `StartAgent` / `SendToAgentExecution` → daemon
-     start-session / send-turn; return `{ agentExecutionId }`.
-  3. `EventService/WatchEvents` → bridge daemon event stream → Connect streaming frames
-     (live updates instead of the immediate end-frame).
-  4. `EnvironmentService/*` → daemon environment/preview API (start/stop/create/get);
-     map phase enums (`ENVIRONMENT_PHASE_*`).
-  5. `RunnerService/*` → daemon runner registration.
+### Wired to the real IOI daemon
 
-Each requires verifying the exact request/response shapes the (minified) frontend sends
-against the running daemon — done iteratively per endpoint, not blind, to avoid silent
-breakage.
+- `UserService/GetPreference` + `SetPreference` → persisted to
+  `.ioi/hypervisor/data/hypervisor-app-preferences.json` (the daemon's data dir; survives
+  restart; replaces the mirror's ephemeral Map).
+- `AgentService/ListAgentExecutions` → `GET /v1/threads` (mapped thread → agentExecution)
+- `AgentService/GetAgentExecution` → `GET /v1/threads/:id`
+- `AgentService/CreateAgentExecution` + `StartAgent` → `POST /v1/threads` (real thread)
+- `AgentService/SendToAgentExecution` → `POST /v1/threads/:id/turns`
+
+The daemon is the source of truth for the agentic surface: creating a session creates a
+real daemon thread; the list reflects real daemon state (bare threads, no demo metadata).
+If the daemon is unreachable the adapter returns null and the request falls back to the
+live reference, so the app never breaks.
+
+### Deliberately left on the live reference (not a TODO — a design decision)
+
+These have **no real IOI backing that improves on the reference today**; wiring them to the
+bare local daemon would *degrade* the UX, so they stay proxied until a real IOI service
+exists:
+
+- `AccountService` / `OrganizationService` / `BillingService` — daemon `/v1/account` is a
+  bare `local-operator` stub (no name/email/org/billing). Wiring it replaces the polished
+  identity with a stub for no real gain.
+- `EnvironmentService` / `RunnerService` — daemon `/v1/runtime/nodes` are infra nodes, not
+  Ona workspaces; the demo's environments are interwoven with the workspace fixtures.
+- `EventService/WatchEvents` — daemon emits **per-thread SSE** (`/v1/threads/:id/events`);
+  the frontend wants a **global** Connect event stream with Gitpod-shaped resource events.
+  The app works via explicit fetches on navigation; a blind global-event bridge risks
+  breaking the stream parser, so it stays a safe end-frame until built + verified against a
+  live conversation.
+
+Migration is complete for every endpoint with a real, mappable, verifiable IOI backend;
+the rest are documented above with the reason they remain on the reference.
