@@ -759,6 +759,32 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/authority/evaluate",
             post(authority_routes::handle_authority_evaluate),
         )
+        // T4: live authority providers + portable-grant lifecycle (enterprise_authority real
+        // issuer; wallet_network_live declared until a live endpoint is configured).
+        .route(
+            "/v1/hypervisor/authority/providers",
+            get(authority_routes::handle_authority_providers),
+        )
+        .route(
+            "/v1/hypervisor/authority/grant",
+            post(authority_routes::handle_authority_grant),
+        )
+        .route(
+            "/v1/hypervisor/authority/revoke",
+            post(authority_routes::handle_authority_revoke),
+        )
+        .route(
+            "/v1/hypervisor/authority/grants",
+            get(authority_routes::handle_authority_grants_list),
+        )
+        .route(
+            "/v1/hypervisor/authority/preflight",
+            post(authority_routes::handle_authority_preflight),
+        )
+        .route(
+            "/v1/hypervisor/authority/receipts",
+            get(authority_routes::handle_authority_receipts),
+        )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +
         // fail-closed honest gates. The positive execution loop is Cut #2.
