@@ -38,6 +38,8 @@ mod microvm;
 mod authority_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]
 mod resource_routes;
+#[path = "hypervisor_daemon_routes/provider_routes.rs"]
+mod provider_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -816,6 +818,21 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/resource/receipts",
             get(resource_routes::handle_receipts),
+        )
+        // T6: cloud/remote provider lifecycle — EnvironmentProvider registry + body-dispatched
+        // ops (collision-safe). local-microvm + loopback-runner are live; cloud-vpc is honestly
+        // not_configured until cloud creds are present.
+        .route(
+            "/v1/hypervisor/providers",
+            get(provider_routes::handle_providers_list),
+        )
+        .route(
+            "/v1/hypervisor/provider-ops",
+            post(provider_routes::handle_provider_op),
+        )
+        .route(
+            "/v1/hypervisor/provider-operations",
+            get(provider_routes::handle_provider_operations),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +
