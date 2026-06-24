@@ -47,12 +47,47 @@ mirror.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGINT", () => mirror.kill("SIGINT"));
 process.on("SIGTERM", () => mirror.kill("SIGTERM"));
 
+// IOI product identity overrides applied to proxied HTML/JSON (the reference ships a demo
+// identity; we substitute ours). Applied in the committed serve layer so it survives mirror
+// regeneration and never edits the gitignored snapshot.
+const IDENTITY_REWRITES = [
+  ["Levi Josman", "John Doe"],
+  ["josmanlevi", "johndoe"],
+];
+function rewriteIdentity(text) {
+  let out = text;
+  for (const [from, to] of IDENTITY_REWRITES) out = out.split(from).join(to);
+  return out;
+}
+
 function proxyToMirror(req, res, body) {
+  // Drop accept-encoding so the mirror returns plain text we can rewrite.
+  const headers = { ...req.headers };
+  delete headers["accept-encoding"];
   const upstream = http.request(
-    { host: "127.0.0.1", port: MIRROR_PORT, method: req.method, path: req.url, headers: req.headers },
+    { host: "127.0.0.1", port: MIRROR_PORT, method: req.method, path: req.url, headers },
     (r) => {
-      res.writeHead(r.statusCode || 502, r.headers);
-      r.pipe(res);
+      const ct = String(r.headers["content-type"] || "");
+      // Only buffer + rewrite text payloads (HTML pages + JSON fixtures). Stream the rest
+      // (the JS/wasm/font/image bundle) untouched.
+      const rewritable = ct.includes("text/html") || ct.startsWith("application/json");
+      if (!rewritable) {
+        res.writeHead(r.statusCode || 502, r.headers);
+        r.pipe(res);
+        return;
+      }
+      const parts = [];
+      r.on("data", (c) => parts.push(c));
+      r.on("end", () => {
+        const out = Buffer.from(rewriteIdentity(Buffer.concat(parts).toString("utf8")), "utf8");
+        const outHeaders = { ...r.headers, "content-length": String(out.length) };
+        // We send a fixed-length body, so drop any chunked/encoding headers from upstream
+        // (keeping them alongside content-length corrupts the framing).
+        delete outHeaders["content-encoding"];
+        delete outHeaders["transfer-encoding"];
+        res.writeHead(r.statusCode || 200, outHeaders);
+        res.end(out);
+      });
     },
   );
   upstream.on("error", (e) => {
