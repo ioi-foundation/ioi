@@ -5,6 +5,7 @@
 // opacity 0) are omitted — they never render; everything visible is reproduced.
 // The mobile waiting lottie (md:hidden) is kept as its container only (hidden at
 // the reference's desktop viewport). Validate vs :9228 with .ioi/tmp/compare.mjs.
+import { useState } from "react";
 
 const BrandMark = ({ cls }: { cls: string }) => (
   <svg className={cls} width="24" height="24" viewBox="108.97 89.47 781.56 706.06" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="currentColor" strokeWidth="12" strokeLinejoin="round" strokeLinecap="round"><path d="M295.299 434.631L295.299 654.116 485.379 544.373z" /><path d="M500 535.931L697.39 421.968 500 308.005 302.61 421.968z" /><path d="M514.621 544.373L704.701 654.115 704.701 434.631z" /><path d="M280.678 662.557L280.678 425.086 123.957 695.903 145.513 740.594z" /><path d="M719.322 662.557L854.487 740.594 876.043 695.903 719.322 425.085z" /><path d="M287.988 675.22L151.883 753.8 164.878 780.741 470.757 780.741 287.988 675.22z" /><path d="M712.012 675.219L529.242 780.741 835.122 780.741 848.117 753.8 712.012 675.219z" /><path d="M492.689 295.343L492.689 104.779 466.038 104.779 287.055 414.066z" /><path d="M507.31 295.342L712.945 414.066 533.962 104.779 507.31 104.779z" /><path d="M302.61 666.778L500 780.741 500 552.815z" /><path d="M500 552.815L500 780.741 697.39 666.778z" /></g></svg>
@@ -54,6 +55,7 @@ const RECENT_SESSIONS = [
 ];
 
 export function HypervisorReferenceHome() {
+  const [prompt, setPrompt] = useState("");
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -95,6 +97,8 @@ export function HypervisorReferenceHome() {
                                 data-tracking-id="suggestion-selected-textarea-with-suggestions"
                                 className="outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-content-muted text-content-primary flex items-center gap-2 border-border-light text-base disabled:cursor-text focus-within:ring-ring-default focus-visible:ring-ring-default group-data-[state=error]:border-border-error group-data-[state=error]:ring-ring-destructive disabled:bg-inherit [&[readonly]]:border-border-subtle [&[readonly]]:bg-transparent h-auto resize-none overflow-y-auto leading-[18px] w-full rounded-none border-0 bg-transparent focus-within:ring-0 focus-visible:ring-0 max-w-full p-2"
                                 style={{ minHeight: "118px", maxHeight: "400px", height: "120px" }}
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
                               />
                             </div>
                             <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true" />
@@ -125,7 +129,7 @@ export function HypervisorReferenceHome() {
                                 </button>
                               </span>
                               <div data-state="closed">
-                                <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 text-base aspect-square m-0 h-8 flex-1 p-2 sm:aspect-square sm:flex-none" disabled aria-busy="false" type="button" data-testid="prompt-input-submit-button" aria-label="Submit" data-tracking-id="submit-prompt-prompt-input">
+                                <button className="select-none inline-flex items-center font-medium justify-center whitespace-nowrap transition-colors rounded-lg border-0 disabled:border-opacity-0 disabled:pointer-events-none disabled:shadow-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:animate-focus-pulse motion-reduce:animate-none active:outline-0 focus:ring-0 bg-surface-button-primary text-content-primary-inverted hover:bg-surface-button-primary-accent disabled:opacity-50 disabled:bg-surface-primary-inverted disabled:text-content-primary-inverted focus-visible:outline-border-brand gap-2 text-base aspect-square m-0 h-8 flex-1 p-2 sm:aspect-square sm:flex-none" disabled={!prompt.trim()} aria-busy="false" type="button" data-testid="prompt-input-submit-button" aria-label="Submit" data-tracking-id="submit-prompt-prompt-input">
                                   <div className="relative size-5">
                                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-300 scale-100 opacity-100 blur-none" aria-hidden="false"><SubmitGlyph /></div>
                                   </div>
@@ -146,7 +150,7 @@ export function HypervisorReferenceHome() {
                   {EXAMPLE_PROMPTS.map((p) => (
                     <div className="select-none w-fit" key={p.id}>
                       <input id={p.id} type="checkbox" className="peer sr-only" />
-                      <label data-testid={p.testid} data-tracking-id={p.tracking} className={PROMPT_LABEL_CLASS} htmlFor={p.id}>
+                      <label data-testid={p.testid} data-tracking-id={p.tracking} className={PROMPT_LABEL_CLASS} htmlFor={p.id} onClick={() => setPrompt(p.sr)}>
                         <span className={`flex size-5 flex-shrink-0 items-center justify-center ${p.iconColor}`}>{p.icon}</span>
                         <span className="text-base text-content-primary">{p.title}</span>
                         <span className="text-base text-content-muted sr-only">{p.sr}</span>

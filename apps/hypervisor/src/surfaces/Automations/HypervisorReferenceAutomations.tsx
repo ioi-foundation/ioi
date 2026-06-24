@@ -7,6 +7,7 @@
 // listboxes, row more-actions menus) are omitted — they are not visibly rendered.
 // Note: the reference renders the row as a <button> containing Run/More <button>s
 // (nested-button DOM) — reproduced verbatim for parity; React logs a dev warning.
+import { useState } from "react";
 import { SUGGESTED_TEMPLATES } from "./automationsTemplates";
 
 const PlusGlyph = () => (
@@ -96,6 +97,10 @@ function TemplateCard({ t }: { t: (typeof SUGGESTED_TEMPLATES)[number] }) {
 }
 
 export function HypervisorReferenceAutomations() {
+  const [query, setQuery] = useState("");
+  const [ownerTab, setOwnerTab] = useState<"mine" | "all">("mine");
+  const q = query.trim().toLowerCase();
+  const filtered = AUTOMATIONS.filter((a) => !q || a.name.toLowerCase().includes(q));
   return (
     <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
       <div className="size-full max-w-full flex min-h-0 flex-col p-0">
@@ -151,7 +156,7 @@ export function HypervisorReferenceAutomations() {
                   <div className="relative [&>div]:max-w-none min-w-0 flex-1">
                     <div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base disabled:cursor-text focus-within:ring-4 focus-within:ring-ring-default focus-visible:ring-4 focus-visible:ring-ring-default group-data-[state=error]:border-border-error group-data-[state=error]:ring-ring-destructive disabled:bg-inherit bg-surface-input [&[readonly]]:border-border-subtle [&[readonly]]:bg-transparent data-[readonly]:border-border-subtle data-[readonly]:bg-transparent">
                       <span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span>
-                      <input className="flex h-full w-full focus-visible:ring-0 text-base p-0 border-0 outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:cursor-text placeholder:text-content-muted border-border-base disabled:bg-surface-input text-content-primary bg-transparent [&[readonly]]:bg-transparent transition-all duration-150 ease-out max-w-none" type="text" placeholder="Search..." data-testid="automation-search-input" defaultValue="" />
+                      <input className="flex h-full w-full focus-visible:ring-0 text-base p-0 border-0 outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:cursor-text placeholder:text-content-muted border-border-base disabled:bg-surface-input text-content-primary bg-transparent [&[readonly]]:bg-transparent transition-all duration-150 ease-out max-w-none" type="text" placeholder="Search..." data-testid="automation-search-input" value={query} onChange={(e) => setQuery(e.target.value)} />
                     </div>
                   </div>
                   <div className="grid min-w-0 grid-cols-2 gap-3 @[700px]:flex @[700px]:shrink-0">
@@ -169,14 +174,17 @@ export function HypervisorReferenceAutomations() {
                     </div>
                     <div dir="ltr" data-orientation="horizontal" className="@container col-span-2 [container-type:normal] @[700px]:col-span-1">
                       <div role="tablist" aria-orientation="horizontal" className="scrollbar-hide flex gap-0.5 overflow-x-auto rounded-lg border border-transparent bg-surface-button-tab-base p-[3px] @md:flex-row @md:justify-between dark:border-border-subtle min-h-9 w-full flex-row justify-start @[700px]:w-auto" tabIndex={0}>
-                        <button type="button" role="tab" aria-selected="true" data-state="active" className={TAB} data-testid="owner-filter-mine" data-tracking-id="owner-filter-mine"><span className="truncate">Yours</span></button>
-                        <button type="button" role="tab" aria-selected="false" data-state="inactive" className={TAB} data-testid="owner-filter-all" data-tracking-id="owner-filter-all"><span className="truncate">All (5)</span></button>
+                        <button type="button" role="tab" aria-selected={ownerTab === "mine"} data-state={ownerTab === "mine" ? "active" : "inactive"} className={TAB} data-testid="owner-filter-mine" data-tracking-id="owner-filter-mine" onClick={() => setOwnerTab("mine")}><span className="truncate">Yours</span></button>
+                        <button type="button" role="tab" aria-selected={ownerTab === "all"} data-state={ownerTab === "all" ? "active" : "inactive"} className={TAB} data-testid="owner-filter-all" data-tracking-id="owner-filter-all" onClick={() => setOwnerTab("all")}><span className="truncate">All (5)</span></button>
                       </div>
                     </div>
                   </div>
                 </div>
                 <ul className="grid grid-cols-[auto_1fr_0fr_auto] @xl:grid-cols-[auto_minmax(120px,1fr)_1fr_auto] divide-y divide-border-base overflow-clip rounded-xl border border-border-base bg-surface-primary [&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl [&>li:first-child>*]:rounded-t-xl [&>li:last-child>*]:rounded-b-xl shadow-none">
-                  {AUTOMATIONS.map((a) => <AutomationRow key={a.id} a={a} />)}
+                  {filtered.map((a) => <AutomationRow key={a.id} a={a} />)}
+                  {filtered.length === 0 ? (
+                    <li className="col-span-full p-4 text-sm text-content-secondary">No automations match your search.</li>
+                  ) : null}
                 </ul>
               </div>
 
