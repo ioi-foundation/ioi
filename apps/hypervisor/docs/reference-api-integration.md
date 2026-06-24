@@ -60,9 +60,10 @@ Projection layer: `scripts/ioi-projection.mjs` (verb-disciplined daemon→UI map
 - **Environment** (WS2) — `EnvironmentService/{Get,List,Start,Stop,Delete,Update,Create,
   CreateFromProject,*Token,MarkActive,Archive,Unarchive}` → the `EnvironmentProvider`
   (`scripts/ioi-environment-provider.mjs`). Interim **Simulated** provider: lifecycle
-  `STOPPED→STARTING→RUNNING→STOPPING→STOPPED`, logs, actions, persisted to the daemon data
-  dir. Phase 0 swaps daemon-owned VM/microVM/devcontainer behind the same interface.
-- **Preferences** — `UserService/{Get,Set}Preference` → persisted to the daemon data dir.
+  `STOPPED→STARTING→RUNNING→STOPPING→STOPPED`, logs, actions, persisted to the non-
+  authoritative app-local store (`.ioi/hypervisor-app-local/`, NOT the daemon data dir).
+  Phase 0 swaps daemon-owned VM/microVM/devcontainer behind the same interface.
+- **Preferences** — `UserService/{Get,Set}Preference` → app-local store (client config).
 
 If the daemon is unreachable the adapter returns null and the request falls back to the
 live reference, so the app never breaks.
@@ -90,3 +91,18 @@ and has no slot for it (the impedance-mismatch case for a native UI).
 
 Done for every object with a real, mappable, verifiable IOI backend; the rest are documented
 above with the reason.
+
+## Split-brain guard (the JS boundary)
+
+The serve layer must NOT become a second runtime. Rules, enforced:
+- **Projection only.** `ioi-projection.mjs` + the AgentService wiring translate/render the
+  daemon's objects; the daemon owns runtime truth. Serving/proxy/identity-rewrite are
+  client-surface concerns, not a runtime.
+- **No JS-owned runtime truth in the daemon data dir.** `.ioi/hypervisor/data` is
+  daemon-owned. JS-owned state (the simulated env provider, app preferences) lives in the
+  separate, non-authoritative `.ioi/hypervisor-app-local/`.
+- **The Simulated EnvironmentProvider is a deletable stand-in, not a parallel runtime.**
+  The `EnvironmentProvider` interface is the seam; at Phase 0 the daemon owns the provider
+  (executes env lifecycle) and the JS simulator is **deleted** — the JS layer then projects
+  the daemon's environment like it projects Session. It must never coexist with a daemon
+  env owner. (This is the one place that, left unchecked, would reintroduce split brain.)

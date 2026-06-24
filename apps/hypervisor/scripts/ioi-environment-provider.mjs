@@ -7,21 +7,29 @@
 // daemon-owned providers (VM / microVM / devcontainer) behind the SAME interface —
 // object model and UI unchanged.
 //
-// Boundary note: a real provider's lifecycle execution is daemon-owned (the daemon
-// EXECUTES). This interim simulator lives in the serve layer only because it does no real
-// work; it persists state as a view and never authorizes or settles anything.
+// SPLIT-BRAIN GUARD: a real provider's lifecycle execution is DAEMON-OWNED (the daemon
+// EXECUTES; it owns environment runtime truth). This Simulated provider owns lifecycle
+// state in JS, which is a localized split-brain seam — tolerated ONLY as a deletable,
+// non-authoritative stand-in. Three hard rules:
+//   1. NON-AUTHORITATIVE: its state lives in an app-local sim dir, NOT the daemon data dir
+//      (.ioi/hypervisor/data is daemon truth and must not be polluted by JS-owned state).
+//   2. NO COEXISTENCE: when the daemon owns the EnvironmentProvider, this file is DELETED
+//      and the JS layer PROJECTS the daemon's environment (exactly like Session) — it must
+//      never run beside a daemon env owner.
+//   3. SEAM ONLY: the EnvironmentProvider interface is the canonical seam Phase 0 swaps.
 //
 // EnvironmentProvider interface:
 //   create(spec) -> id        start(id)      stop(id)      del(id)
 //   get(id) -> env            list() -> env[]   logs(id) -> string[]   actions(id) -> string[]
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join, isAbsolute } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const RAW = process.env.IOI_HYPERVISOR_DATA_DIR || ".ioi/hypervisor/data";
-const DATA_DIR = isAbsolute(RAW) ? RAW : join(REPO_ROOT, RAW);
-const STORE = join(DATA_DIR, "hypervisor-environments.json");
+// App-local, NON-AUTHORITATIVE simulation state — deliberately separate from the daemon
+// data dir so JS-owned state can never be mistaken for (or collide with) daemon truth.
+const APP_LOCAL = join(REPO_ROOT, ".ioi", "hypervisor-app-local");
+const STORE = join(APP_LOCAL, "simulated-environments.json");
 
 // Canonical lifecycle taxonomy (subset): queued -> provisioning -> ready ; stopping ->
 // stopped ; failed. Simulated transition delays (ms).

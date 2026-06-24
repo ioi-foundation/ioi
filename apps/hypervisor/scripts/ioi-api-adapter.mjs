@@ -12,15 +12,17 @@
 // Daemon: IOI_HYPERVISOR_DAEMON_URL (default http://127.0.0.1:8765).
 // Plan: apps/hypervisor/docs/reference-api-integration.md
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join, isAbsolute } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { threadToAgentExecution } from "./ioi-projection.mjs";
 import { SimulatedProvider, toGitpodEnvironment } from "./ioi-environment-provider.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const RAW_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || ".ioi/hypervisor/data";
-const DATA_DIR = isAbsolute(RAW_DATA_DIR) ? RAW_DATA_DIR : join(REPO_ROOT, RAW_DATA_DIR);
-const PREF_STORE = join(DATA_DIR, "hypervisor-app-preferences.json");
+// UserService preferences are app/client config (not daemon runtime truth), so they live
+// in the app-local dir, NOT the daemon data dir (.ioi/hypervisor/data stays daemon-owned).
+// If the daemon later owns user preferences, this projects to it (no JS ownership).
+const APP_LOCAL = join(REPO_ROOT, ".ioi", "hypervisor-app-local");
+const PREF_STORE = join(APP_LOCAL, "app-preferences.json");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const json = (payload) => ({ contentType: "application/json", body: JSON.stringify(payload) });
