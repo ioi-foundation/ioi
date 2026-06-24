@@ -67,6 +67,23 @@ export async function handle(pathname, bodyText) {
     /* keep {} */
   }
 
+  // ---- IOI-native passthrough (WS-I: injected surfaces; read-only daemon projections) ----
+  if (pathname.startsWith("/api/ioi/")) {
+    const sub = pathname.slice("/api/ioi/".length);
+    const map = {
+      "authority/posture": "/v1/hypervisor/authority/posture",
+      "environment-classes": "/v1/hypervisor/environment-classes",
+      "environments": "/v1/hypervisor/environments",
+      "workruns": "/v1/hypervisor/workruns",
+    };
+    if (!map[sub]) return json({ error: "unknown ioi endpoint" });
+    try {
+      return json(await daemon("GET", map[sub]));
+    } catch (e) {
+      return json({ error: e.message, daemon: "unreachable" });
+    }
+  }
+
   // ---- UserService: real IOI-persisted preferences ----
   if (pathname === "/api/gitpod.v1.UserService/GetPreference") {
     const key = body.preferenceKey || body.preference?.value || body.preference?.preferenceKey;

@@ -19,12 +19,18 @@
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-live-reference.mjs
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as adapter from "./ioi-api-adapter.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const AUG_PATH = join(HERE, "ioi-augmentation.js");
+// WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits Ona's DOM).
+const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
+function augmentHtml(html) {
+  return html.includes("</body>") ? html.replace("</body>", AUG_TAG + "</body>") : html + AUG_TAG;
+}
 const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(REPO_ROOT, "internal-docs", "reverse-engineering", "ioi", "server.js");
 const PORT = Number(process.env.PORT || 4173);
@@ -79,7 +85,9 @@ function proxyToMirror(req, res, body) {
       const parts = [];
       r.on("data", (c) => parts.push(c));
       r.on("end", () => {
-        const out = Buffer.from(rewriteIdentity(Buffer.concat(parts).toString("utf8")), "utf8");
+        let text = rewriteIdentity(Buffer.concat(parts).toString("utf8"));
+        if (ct.includes("text/html")) text = augmentHtml(text); // WS-I: inject IOI surface
+        const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
         // (keeping them alongside content-length corrupts the framing).
@@ -104,6 +112,17 @@ const server = http.createServer((req, res) => {
   req.on("end", async () => {
     const body = Buffer.concat(chunks);
     const pathname = (req.url || "").split("?")[0];
+    if (pathname === "/ioi-augmentation.js") {
+      try {
+        const js = readFileSync(AUG_PATH);
+        res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(js);
+      } catch {
+        res.writeHead(404);
+        res.end("");
+      }
+      return;
+    }
     if (pathname.startsWith("/api/")) {
       let handled = null;
       try {

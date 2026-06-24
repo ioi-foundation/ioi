@@ -294,6 +294,11 @@ pub(crate) async fn handle_workrun_create(
     Ok(Json(json!({ "workRun": record })))
 }
 
+/// GET /v1/hypervisor/workruns — list (for the injected session truth window).
+pub(crate) async fn handle_workruns_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "workRuns": read_record_dir(&st.data_dir, "workruns") }))
+}
+
 /// GET /v1/hypervisor/workruns/:id
 pub(crate) async fn handle_workrun_get(
     State(st): State<Arc<DaemonState>>,

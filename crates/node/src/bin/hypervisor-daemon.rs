@@ -684,7 +684,8 @@ async fn async_main() -> anyhow::Result<()> {
         // WS-E: code WorkRun materialization (Git branch / patch branch in the env workspace).
         .route(
             "/v1/hypervisor/workruns",
-            post(environment_routes::handle_workrun_create),
+            get(environment_routes::handle_workruns_list)
+                .post(environment_routes::handle_workrun_create),
         )
         .route(
             "/v1/hypervisor/workruns/:id",
