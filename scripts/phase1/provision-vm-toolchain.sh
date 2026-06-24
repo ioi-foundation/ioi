@@ -8,7 +8,18 @@
 # are the committed, reviewable supply-chain definition.
 set -euo pipefail
 
-TC="${IOI_VM_TOOLCHAIN_DIR:-$HOME/.ioi/vm-toolchain}"
+# T3 — portable bootstrap: --dest <dir> (where to install), --offline-cache <dir> (copy pinned
+# artifacts from a local cache instead of downloading, when present + checksum-valid).
+DEST="${IOI_VM_TOOLCHAIN_DIR:-$HOME/.ioi/vm-toolchain}"
+OFFLINE_CACHE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dest) DEST="$2"; shift 2 ;;
+    --offline-cache) OFFLINE_CACHE="$2"; shift 2 ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+TC="$DEST"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$TC"
 
@@ -42,6 +53,10 @@ verify() { echo "$2  $1" | sha256sum -c - >/dev/null 2>&1; }
 fetch_pinned() {
   local url="$1" out="$2" sha="$3" name="$4"
   if [ -f "$out" ] && verify "$out" "$sha"; then echo "  $name: present + verified"; return 0; fi
+  # offline cache: reuse a local copy by basename if checksum-valid (no network).
+  if [ -n "$OFFLINE_CACHE" ] && [ -f "$OFFLINE_CACHE/$(basename "$out")" ] && verify "$OFFLINE_CACHE/$(basename "$out")" "$sha"; then
+    cp "$OFFLINE_CACHE/$(basename "$out")" "$out"; echo "  $name: from offline-cache + verified"; return 0
+  fi
   echo "  $name: downloading $url"
   curl -sSL -o "$out" "$url"
   if ! verify "$out" "$sha"; then
@@ -126,9 +141,22 @@ else
   echo "  firecracker: present + verified"
 fi
 
+# host capability observations (recorded so monitor lanes can gate honestly).
+cap() { if eval "$2" >/dev/null 2>&1; then echo true; else echo false; fi; }
+HAS_KVM=$([ -e /dev/kvm ] && echo true || echo false)
+HAS_VHOST_VSOCK=$([ -e /dev/vhost-vsock ] && echo true || echo false)
+HAS_BWRAP=$(command -v bwrap >/dev/null 2>&1 && echo true || echo false)
+HAS_QEMU=$(command -v qemu-system-x86_64 >/dev/null 2>&1 && echo true || echo false)
+HAS_CGROUP2=$([ -f /sys/fs/cgroup/cgroup.controllers ] && echo true || echo false)
+
 cat > "$TC/supply-manifest.json" <<EOF
 {
   "schema_version": "ioi.hypervisor.vm-supply-manifest.v1",
+  "provisioned_dest": "$TC",
+  "host_capabilities": {
+    "kvm": $HAS_KVM, "vhost_vsock": $HAS_VHOST_VSOCK, "bwrap": $HAS_BWRAP,
+    "qemu_system_x86_64": $HAS_QEMU, "cgroup_v2": $HAS_CGROUP2
+  },
   "monitor": { "name": "cloud-hypervisor", "version": "$CH_VERSION", "sha256": "$CH_SHA", "path": "$TC/cloud-hypervisor" },
   "ch_remote": { "version": "$CH_VERSION", "sha256": "$CHREMOTE_SHA", "path": "$TC/ch-remote" },
   "kernel": { "version": "$KERNEL_VERSION", "sha256": "$KERNEL_SHA", "path": "$TC/guest-kernel.bin" },

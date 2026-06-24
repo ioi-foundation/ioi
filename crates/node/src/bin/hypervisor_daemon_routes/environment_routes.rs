@@ -474,7 +474,9 @@ fn provision_microvm(st: &DaemonState, env: &mut Value, env_id: &str, ws: &str, 
         .join("environments")
         .join(safe_id(env_id))
         .join("vm");
-    let spec = microvm::build_vm_spec(&st.home_dir, &monitor_id, run_dir, 2, 1024).map_err(|e| app(format!("vm spec: {e}")))?;
+    let mut spec = microvm::build_vm_spec(&st.home_dir, &monitor_id, run_dir, 2, 1024).map_err(|e| app(format!("vm spec: {e}")))?;
+    // SUN_LEN-safe vsock socket path (the data dir can be arbitrarily deep; the socket cannot).
+    spec.sock_path = microvm::short_sock_path(env_id);
     let monitor = microvm::make_monitor(&monitor_id);
     let vm = monitor.start(&spec).map_err(|e| app(format!("microvm start ({monitor_id}): {e}")))?;
     let tar = microvm::tar_dir(std::path::Path::new(ws)).map_err(|e| app(format!("tar workspace: {e}")))?;

@@ -23,6 +23,24 @@ pub(crate) struct VmSpec {
     pub vcpus: u32,
     pub mem_mib: u32,
     pub run_dir: PathBuf,
+    // The vsock UDS path. MUST be short (≤108 bytes, SUN_LEN) regardless of how deep the data dir
+    // is — the workspace/serial live under run_dir, but the socket rides a short path.
+    pub sock_path: PathBuf,
+}
+
+/// A short, SUN_LEN-safe vsock socket path that still carries the env id (so orphan-VM detection
+/// can match it). Falls back to a hash if the id would push the path over the limit.
+pub(crate) fn short_sock_path(env_id: &str) -> PathBuf {
+    let dir = std::env::var("IOI_VM_SOCK_DIR").unwrap_or_else(|_| "/tmp".to_string());
+    let safe: String = env_id.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').collect();
+    let candidate = Path::new(&dir).join(format!("ioivm-{safe}.sock"));
+    if candidate.to_string_lossy().len() <= 100 {
+        candidate
+    } else {
+        let mut h = Sha256::new();
+        h.update(env_id.as_bytes());
+        Path::new(&dir).join(format!("ioivm-{}.sock", &hex::encode(h.finalize())[..16]))
+    }
 }
 
 pub(crate) struct VmHandle {
@@ -260,7 +278,9 @@ pub(crate) fn build_vm_spec(
         }
         _ => (tc.ch_bin.clone(), tc.kernel.clone()),
     };
-    Ok(VmSpec { monitor_bin, kernel, initramfs: tc.initramfs.clone(), vcpus, mem_mib, run_dir })
+    // sock_path defaults under run_dir; provision_microvm overrides it with a SUN_LEN-safe path.
+    let sock_path = run_dir.join("vsock.uds");
+    Ok(VmSpec { monitor_bin, kernel, initramfs: tc.initramfs.clone(), vcpus, mem_mib, run_dir, sock_path })
 }
 
 fn vsock_connect(uds: &Path) -> Result<UnixStream, String> {
@@ -297,7 +317,7 @@ impl VmMonitor for CloudHypervisorMonitor {
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
-        let uds = spec.run_dir.join("vsock.uds");
+        let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
         let _ = std::fs::remove_file(&uds);
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
@@ -329,7 +349,7 @@ impl VmMonitor for FirecrackerMonitor {
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
-        let uds = spec.run_dir.join("vsock.uds");
+        let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
         let config = spec.run_dir.join("fc-config.json");
         let _ = std::fs::remove_file(&uds);
@@ -382,7 +402,7 @@ impl VmMonitor for QemuMonitor {
             return Err("qemu lane host-gated: /dev/vhost-vsock absent (needs `modprobe vhost_vsock`, root)".into());
         }
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
-        let uds = spec.run_dir.join("vsock.uds");
+        let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
         let _ = std::fs::remove_file(&uds);
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
