@@ -344,6 +344,65 @@ fn typed_port(p: &Value) -> Value {
         "access_policy": access, "capability_lease_ref": Value::Null, "url": Value::Null, "exposure_state": exposure })
 }
 
+// ---- WS-10: resource isolation + connectivity profiles (cgroups/netns; port-conflict detect) ----
+
+/// Host ports already bound by OTHER running envs (for conflict detection — not silent drop).
+fn host_ports_in_use(data_dir: &str, exclude_env: &str) -> std::collections::HashSet<u64> {
+    let mut set = std::collections::HashSet::new();
+    for env in read_record_dir(data_dir, "environments") {
+        if env["id"].as_str() == Some(exclude_env) { continue; }
+        if env["status"]["phase"].as_str() != Some("running") { continue; }
+        if let Some(ports) = env["status"]["ports"].as_array() {
+            for hp in ports.iter().filter_map(|p| p.get("host_port").and_then(|v| v.as_u64())) {
+                set.insert(hp);
+            }
+        }
+    }
+    set
+}
+
+/// Typed port with host-port conflict detection: a host_port already in use → exposure_state
+/// `conflict` (surfaced, never silently dropped).
+fn typed_port_checked(p: &Value, in_use: &std::collections::HashSet<u64>) -> (Value, bool) {
+    let mut port = typed_port(p);
+    if let Some(hp) = p.get("host_port").and_then(|v| v.as_u64()) {
+        port["host_port"] = json!(hp);
+        if in_use.contains(&hp) {
+            port["exposure_state"] = json!("conflict");
+            port["conflict_reason"] = json!(format!("host_port {hp} already bound by another running env"));
+            return (port, true);
+        }
+    }
+    (port, false)
+}
+
+/// `HypervisorEnvironmentResourceIsolationProfile` — for a microVM the cpu/mem limits are REALLY
+/// enforced by the monitor (cloud-hypervisor --cpus/--memory); for local it is process-scoped.
+fn resource_isolation_profile(is_microvm: bool, vcpus: u32, mem_mib: u32) -> Value {
+    json!({
+        "isolation_profile_ref": "rip_default",
+        "cpu": { "reserved_cores": if is_microvm { json!(vcpus) } else { Value::Null }, "terminal_interactivity_protection": is_microvm },
+        "memory": { "limit_mib": if is_microvm { json!(mem_mib) } else { Value::Null }, "oom_policy": "kill" },
+        "storage": { "cache_scope": "per_environment", "write_isolation_required": true },
+        "ports": { "namespace_isolated": is_microvm, "conflict_detection": true },
+        "enforcement": if is_microvm { "vm_kernel (monitor-enforced cpu/mem)" } else { "process_scoped" }
+    })
+}
+
+/// `HypervisorEnvironmentConnectivityProfile` — typed network posture.
+fn connectivity_profile(recipe: Option<&Value>, is_microvm: bool) -> Value {
+    let scope = recipe
+        .and_then(|r| r.get("network_scope").and_then(|v| v.as_str()))
+        .unwrap_or(if is_microvm { "private_vpc" } else { "local_only" });
+    json!({
+        "connectivity_profile_ref": "ccp_default",
+        "network_scope": scope,
+        "namespace_isolated": is_microvm,
+        "egress_policy": recipe.and_then(|r| r.get("egress_policy").cloned()).unwrap_or_else(|| json!("default_deny_external")),
+        "tunnel_required": false
+    })
+}
+
 // ---- WS-6: prebuild & warmup cache (recipe-keyed; closes gate 7) ----
 
 fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
@@ -769,6 +828,11 @@ pub(crate) async fn handle_environment_action(
                 observe(&mut env, "checking_connectivity", "connectivity", "content_ready", "info", "connectivity ready (host-local)");
             }
 
+            // WS-10 — record the resource isolation + connectivity profiles (microVM cpu/mem are
+            // monitor-enforced; ports namespace-isolated in-guest).
+            env["status"]["resource_isolation_profile"] = resource_isolation_profile(is_microvm, 2, 1024);
+            env["status"]["connectivity_profile"] = connectivity_profile(recipe.as_ref(), is_microvm);
+
             // WS-3 — typed Services / Tasks / Ports. If a recipe is bound, resolve it, RUN its
             // tasks (in-guest for microVM, on the host for local), build typed services/ports, and
             // let the ReadinessGate decide readiness.
@@ -797,9 +861,16 @@ pub(crate) async fn handle_environment_action(
                 let services: Vec<Value> = recipe["services"].as_array().cloned().unwrap_or_default()
                     .iter().map(|s| typed_service(&ws, s)).collect();
                 env["status"]["services"] = json!(services);
+                // WS-10 — typed ports with host-port conflict detection (surfaced, not dropped).
+                let in_use = host_ports_in_use(&st.data_dir, &id);
+                let mut any_conflict = false;
                 let ports: Vec<Value> = recipe["ports"].as_array().cloned().unwrap_or_default()
-                    .iter().map(typed_port).collect();
+                    .iter().map(|p| { let (tp, c) = typed_port_checked(p, &in_use); if c { any_conflict = true; } tp }).collect();
                 env["status"]["ports"] = json!(ports);
+                if any_conflict {
+                    set_component(&mut env, "connectivity", "degraded", "host port conflict");
+                    observe(&mut env, "checking_connectivity", "ports", "port_conflict", "warning", "host port conflict detected (surfaced, not silently dropped)");
+                }
                 set_component(&mut env, "automations", if any_required_failed { "failed" } else { "ready" },
                     if any_required_failed { "a required task failed" } else { "tasks complete" });
 

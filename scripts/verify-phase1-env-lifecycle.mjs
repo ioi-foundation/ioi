@@ -348,6 +348,29 @@ async function gateWs9() {
   await api("POST", `/v1/hypervisor/environments/${e}/delete`);
 }
 
+// G(WS-10): resource isolation + connectivity profiles; host-port conflict detected (not dropped).
+async function gateWs10() {
+  console.log("  [WS-10] resource isolation + connectivity profiles (port-conflict detect)");
+  const r0 = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host" } });
+  const e0 = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: r0.json.recipe.recipe_ref } })).json.environment.id;
+  const s0 = (await api("POST", `/v1/hypervisor/environments/${e0}/start`)).json.environment;
+  ok(s0.status.resource_isolation_profile?.ports?.conflict_detection === true, "resource isolation profile recorded");
+  ok(!!s0.status.connectivity_profile?.network_scope, "connectivity profile recorded");
+  await api("POST", `/v1/hypervisor/environments/${e0}/delete`);
+
+  const rp = await api("POST", "/v1/hypervisor/recipes", { recipe: { substrate: "local_host", ports: [{ port: 8080, host_port: 19090, access_policy: "shared" }] } });
+  const eA = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: rp.json.recipe.recipe_ref } })).json.environment.id;
+  const sA = (await api("POST", `/v1/hypervisor/environments/${eA}/start`)).json.environment;
+  ok((sA.status.ports || [])[0]?.exposure_state === "open", "first env: port open (no conflict)");
+  const eB = (await api("POST", "/v1/hypervisor/environments", { spec: { recipe_ref: rp.json.recipe.recipe_ref } })).json.environment.id;
+  const sB = (await api("POST", `/v1/hypervisor/environments/${eB}/start`)).json.environment;
+  ok((sB.status.ports || [])[0]?.exposure_state === "conflict", "second env (same host_port): exposure_state=conflict (not silently dropped)");
+  ok(sB.status.components?.connectivity?.phase === "degraded", "port conflict → connectivity degraded");
+  ok((sB.lifecycle_observations || []).some((o) => o.condition_kind === "port_conflict"), "port_conflict observation surfaced");
+  await api("POST", `/v1/hypervisor/environments/${eA}/delete`);
+  await api("POST", `/v1/hypervisor/environments/${eB}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -359,6 +382,7 @@ async function runOnce(iter) {
   await gateWs7();
   await gateWs8();
   await gateWs9();
+  await gateWs10();
 }
 
 // ---- harness ----
