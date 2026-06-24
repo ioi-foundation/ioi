@@ -11,6 +11,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnchoredPopover } from "../parityOverlays";
 import { AgentModeMenu } from "../Home/HypervisorReferenceHomeMenus";
+import { AutomationEditNodeMenu } from "../parityCapturedMenus";
 
 const BreadcrumbChevronGlyph = ({ cls }: { cls: string }) => (
   <svg className={cls} width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.733 13L10.9375 10.7955C11.3768 10.3562 11.3768 9.64382 10.9375 9.20447L8.733 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -44,8 +45,14 @@ export function HypervisorReferenceAutomationNew() {
   const navigate = useNavigate();
   const [agentOpen, setAgentOpen] = useState(false);
   const agentRef = useRef<HTMLButtonElement>(null);
+  const [editNodeOpen, setEditNodeOpen] = useState(false);
+  const editNodeRef = useRef<HTMLElement | null>(null);
+  const onEditorClick = (e: React.MouseEvent<HTMLElement>) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[aria-label="Edit node"]');
+    if (t) { editNodeRef.current = t; setEditNodeOpen(true); }
+  };
   return (
-    <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base">
+    <main id="main-content" className="size-full overflow-hidden bg-surface-01 p-0 border-l border-border-base" onClick={onEditorClick}>
       <div {...{ orientation: "both" }} className="size-full max-w-full flex min-h-0 flex-col p-0">
         <div data-testid="workflow-edit-page" className="flex min-h-0 max-h-full grow flex-col overflow-hidden relative size-full">
           <header className="@container/page-header flex items-center justify-between gap-4 bg-surface-primary border-b border-border-base px-6 py-3 min-h-[57px]">
@@ -208,6 +215,7 @@ export function HypervisorReferenceAutomationNew() {
         </div>
       </div>
       <AnchoredPopover open={agentOpen} onClose={() => setAgentOpen(false)} anchorRef={agentRef} side="top" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="menuitem"], [role="option"], a, button')) setAgentOpen(false); }}><AgentModeMenu /></div></AnchoredPopover>
+      <AnchoredPopover open={editNodeOpen} onClose={() => setEditNodeOpen(false)} anchorRef={editNodeRef} side="bottom" align="end"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="menuitem"], a, button')) setEditNodeOpen(false); }}><AutomationEditNodeMenu /></div></AnchoredPopover>
     </main>
   );
 }

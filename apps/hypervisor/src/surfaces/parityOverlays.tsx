@@ -4,9 +4,16 @@
 // - AnchoredPopover: a dropdown positioned from its trigger's rect, portaled to body
 //   so the surface's overflow never clips it.
 // Both dismiss on Escape and on backdrop / outside click.
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
+
+// Convenience for a single anchored dropdown: open state + a typed trigger ref.
+export function useMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  return { open, ref, toggle: () => setOpen((o) => !o), close: () => setOpen(false) };
+}
 
 function useEscapeToClose(open: boolean, onClose: () => void) {
   useEffect(() => {

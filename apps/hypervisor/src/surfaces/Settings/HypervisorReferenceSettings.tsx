@@ -9,8 +9,17 @@
 import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ToggleSwitch } from "../parityControls";
-import { ReferenceModal, AnchoredPopover } from "../parityOverlays";
+import { ReferenceModal, AnchoredPopover, useMenu } from "../parityOverlays";
 import { OrgSwitcherMenu } from "../Home/HypervisorReferenceSidebarMenus";
+import {
+  SettingsCreditUsageSelect,
+  SettingsMembersSelect0,
+  SettingsMembersSelect1,
+  SettingsAgentPolicySelect0,
+  SettingsAgentPolicySelect1,
+  SettingsAgentPolicySelect2,
+  SettingsIntegrationsSelect,
+} from "../parityCapturedMenus";
 import { AddCreditsDialog, ConnectIntegrationDialog } from "./HypervisorReferenceSettingsDialogs";
 import { useReferenceTheme } from "../Home/HypervisorReferenceShell";
 
@@ -531,6 +540,7 @@ function LoginContent() {
 }
 
 function CreditUsageContent() {
+  const periodSel = useMenu();
   return (
     <SettingsMain>
       <SettingsTitle title="Cost & Budgets" />
@@ -538,7 +548,7 @@ function CreditUsageContent() {
         <div className="flex flex-col gap-3 text-sm text-content-strong sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-1 gap-y-2"><span>View your usage, measured in Hypervisor Compute Units (OCUs).</span><a className="inline-flex items-center gap-1 text-content-link underline" target="_blank" rel="noreferrer" href="https://ona.com/pricing">Learn about OCUs</a></div>
           <div className="flex items-center gap-1 sm:justify-end"><span>Showing the last</span>
-            <div className="relative inline-flex w-auto"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-sm text-content-primary outline-none h-auto px-2 py-1 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>7 days</span></span><SelectChevron /></button></div>
+            <div className="relative inline-flex w-auto"><button ref={periodSel.ref} onClick={periodSel.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={periodSel.open} className="flex w-full items-center justify-between gap-2 text-sm text-content-primary outline-none h-auto px-2 py-1 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>7 days</span></span><SelectChevron /></button><AnchoredPopover open={periodSel.open} onClose={periodSel.close} anchorRef={periodSel.ref} side="bottom" align="end"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) periodSel.close(); }}><SettingsCreditUsageSelect /></div></AnchoredPopover></div>
           </div>
         </div>
         <div className="rounded-xl border border-border-light p-6">
@@ -575,6 +585,8 @@ const TH = "px-4 py-3.5 h-11 text-base font-bold text-content-primary outline-no
 const AVATAR_SRC = "https://lh3.googleusercontent.com/a/ACg8ocIBE-yWc_g6QMTLx_fI4gV6NkJ6Q1ERKa4YxbkEy2U9RsS3DCHb=s96-c";
 
 function MembersContent() {
+  const statusSel = useMenu();
+  const roleSel = useMenu();
   return (
     <SettingsMain>
       <SettingsTitle title="Members" />
@@ -592,8 +604,8 @@ function MembersContent() {
             <div className="flex flex-col gap-2 @container @lg:flex-row @lg:items-center">
               <div className="relative [&>div]:max-w-none flex-1"><div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input"><span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span><input className="flex h-full w-full text-base p-0 border-0 outline-none placeholder:text-content-muted text-content-primary bg-transparent max-w-none @sm:min-w-[20ch]" type="text" placeholder="Search by name, email or ID" defaultValue="" /></div></div>
               <div className="flex flex-col items-stretch gap-2 @sm:flex-row">
-                <div className="relative w-full grow @lg:min-w-36"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate">All roles</span><SelectChevron /></button></div>
-                <div className="relative w-full grow @lg:min-w-56"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>Status: All (0)</span></span><SelectChevron /></button></div>
+                <div className="relative w-full grow @lg:min-w-36"><button ref={roleSel.ref} onClick={roleSel.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={roleSel.open} className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate">All roles</span><SelectChevron /></button><AnchoredPopover open={roleSel.open} onClose={roleSel.close} anchorRef={roleSel.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) roleSel.close(); }}><SettingsMembersSelect0 /></div></AnchoredPopover></div>
+                <div className="relative w-full grow @lg:min-w-56"><button ref={statusSel.ref} onClick={statusSel.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={statusSel.open} className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span>Status: All (0)</span></span><SelectChevron /></button><AnchoredPopover open={statusSel.open} onClose={statusSel.close} anchorRef={statusSel.ref} side="bottom" align="end"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) statusSel.close(); }}><SettingsMembersSelect1 /></div></AnchoredPopover></div>
               </div>
             </div>
             <div className="flex w-full flex-col"><div className="mt-4" /><div className="@container"><div className="relative w-full overflow-x-auto mt-4">
@@ -647,6 +659,9 @@ function CapabilityCard({ label, desc, children }: { label: string; desc: string
 }
 
 function AgentPoliciesContent() {
+  const policySearchSel = useMenu();
+  const reasoningSel = useMenu();
+  const speedSel = useMenu();
   return (
     <SettingsMain>
       <SettingsTitle title="Policies" />
@@ -672,8 +687,8 @@ function AgentPoliciesContent() {
                 <div className="flex flex-wrap gap-2"><div className={AGENT_PILL}>GPT-5.5</div><div className={AGENT_PILL}>GPT-5.4</div><div className={AGENT_PILL}>GPT-5.4 Mini</div></div>
               </div>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
-                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest reasoning effort</label><HelpIcon /></div><div className="relative w-full max-w-64"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Extra high</span></span><SelectChevron /></button></div></div>
-                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest service tier</label><HelpIcon /></div><div className="relative w-full max-w-64"><button type="button" aria-label="Select" aria-haspopup="listbox" className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Fast</span></span><SelectChevron /></button></div></div>
+                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest reasoning effort</label><HelpIcon /></div><div className="relative w-full max-w-64"><button ref={reasoningSel.ref} onClick={reasoningSel.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={reasoningSel.open} className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Extra high</span></span><SelectChevron /></button><AnchoredPopover open={reasoningSel.open} onClose={reasoningSel.close} anchorRef={reasoningSel.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) reasoningSel.close(); }}><SettingsAgentPolicySelect0 /></div></AnchoredPopover></div></div>
+                <div className="flex flex-col gap-2"><div className="flex items-center gap-1.5"><label className="font-normal text-content-primary text-sm">Highest service tier</label><HelpIcon /></div><div className="relative w-full max-w-64"><button ref={speedSel.ref} onClick={speedSel.toggle} type="button" aria-label="Select" aria-haspopup="listbox" aria-expanded={speedSel.open} className="flex w-full items-center justify-between gap-2 text-base text-content-primary outline-none h-9 px-3 rounded-lg border border-border-input-default bg-surface-input"><span className="truncate"><span className="truncate text-base text-content-primary">Fast</span></span><SelectChevron /></button><AnchoredPopover open={speedSel.open} onClose={speedSel.close} anchorRef={speedSel.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) speedSel.close(); }}><SettingsAgentPolicySelect1 /></div></AnchoredPopover></div></div>
               </div>
             </div>
           </div>
@@ -682,7 +697,7 @@ function AgentPoliciesContent() {
             <CapabilityCard label="Model Context Protocol (MCP)" desc="Allow agents to use MCP servers for extended functionality" />
             <div className={CAP_CARD}>
               <div className="flex gap-4"><Toggle checked disabled={false} /><div className="flex flex-col"><label className="cursor-pointer text-base text-content-primary">SCM Tools</label><p className="text-sm text-content-secondary">Allow agents to interact with source control management systems (GitHub, GitLab, etc.)</p></div></div>
-              <div className="ml-12 flex flex-col gap-2"><label className="font-normal text-content-primary text-sm">Restrict access to</label><button type="button" aria-label="Search" aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-fit max-w-80"><span className="truncate"><span className="truncate text-base text-content-primary flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded bg-surface-tertiary text-xs">∞</span><span>All</span></span></span><SelectChevron /></button></div>
+              <div className="ml-12 flex flex-col gap-2"><label className="font-normal text-content-primary text-sm">Restrict access to</label><button ref={policySearchSel.ref} onClick={policySearchSel.toggle} type="button" aria-label="Search" aria-haspopup="listbox" aria-expanded={policySearchSel.open} className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-fit max-w-80"><span className="truncate"><span className="truncate text-base text-content-primary flex items-center gap-2"><span className="flex size-5 items-center justify-center rounded bg-surface-tertiary text-xs">∞</span><span>All</span></span></span><SelectChevron /></button><AnchoredPopover open={policySearchSel.open} onClose={policySearchSel.close} anchorRef={policySearchSel.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) policySearchSel.close(); }}><SettingsAgentPolicySelect2 /></div></AnchoredPopover></div>
             </div>
             <CapabilityCard label="Conversation sharing" desc="Allow users to share agent conversation transcripts with other members of the organization." />
           </div>
@@ -733,6 +748,7 @@ function IntegrationRow({ it }: { it: (typeof INTEGRATIONS)[number] }) {
 
 function IntegrationsContent() {
   const [connectOpen, setConnectOpen] = useState(false);
+  const catSel = useMenu();
   return (
     <SettingsMain>
       <div className="flex flex-row items-center justify-between gap-2">
@@ -746,7 +762,7 @@ function IntegrationsContent() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative [&>div]:max-w-none flex-1"><div className="flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2 rounded-lg border border-border-light text-base bg-surface-input"><span className="flex-shrink-0 text-content-secondary"><SearchGlyph /></span><input className="flex h-full w-full text-base p-0 border-0 outline-none placeholder:text-content-muted text-content-primary bg-transparent max-w-none" type="text" placeholder="Search integrations..." defaultValue="" /></div></div>
-          <button type="button" aria-label="Filter by category" aria-haspopup="listbox" className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-48"><span className="truncate"><span className="truncate text-base text-content-primary">All</span></span><SelectChevron /></button>
+          <button ref={catSel.ref} onClick={catSel.toggle} type="button" aria-label="Filter by category" aria-haspopup="listbox" aria-expanded={catSel.open} className="flex h-9 min-w-40 items-center justify-between gap-2 rounded-lg border border-border-input-default bg-surface-input px-3 outline-none w-48"><span className="truncate"><span className="truncate text-base text-content-primary">All</span></span><SelectChevron /></button><AnchoredPopover open={catSel.open} onClose={catSel.close} anchorRef={catSel.ref} side="bottom" align="start"><div onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"], button, a')) catSel.close(); }}><SettingsIntegrationsSelect /></div></AnchoredPopover>
         </div>
         <div className="@container">
           <ul aria-label="Integrations" role="grid" className="grid grid-cols-[auto_1fr_0fr_auto] @xl:grid-cols-[auto_minmax(120px,1fr)_1fr_auto] divide-y divide-border-base overflow-clip rounded-xl border border-border-base bg-surface-primary [&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl [&>li:first-child>*]:rounded-t-xl [&>li:last-child>*]:rounded-b-xl">
