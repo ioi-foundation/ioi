@@ -715,6 +715,9 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/env-events/:id",
             get(environment_routes::handle_env_events),
         )
+        // WS-9/12: recovery incidents + attempts (projected by the IOI panel).
+        .route("/v1/hypervisor/incidents", get(environment_routes::handle_incidents_list))
+        .route("/v1/hypervisor/recovery-attempts", get(environment_routes::handle_recovery_attempts_list))
         // WS-7: idle/lifetime sweep — stop running envs past their stop policy.
         .route(
             "/v1/hypervisor/maintenance/idle-sweep",

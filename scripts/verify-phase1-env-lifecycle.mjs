@@ -389,6 +389,22 @@ async function gateWs11() {
   await api("POST", `/v1/hypervisor/environments/${e}/delete`);
 }
 
+// G(WS-12): narrow app surface — the daemon serves the Phase 1 truth the IOI panel projects.
+async function gateWs12() {
+  console.log("  [WS-12] narrow app surface (panel projects component/readiness/recovery)");
+  const inc = await api("GET", "/v1/hypervisor/incidents");
+  ok(Array.isArray(inc.json.incidents), "daemon serves /incidents (panel Recovery section)");
+  const ra = await api("GET", "/v1/hypervisor/recovery-attempts");
+  ok(Array.isArray(ra.json.recoveryAttempts), "daemon serves /recovery-attempts");
+  const e = (await api("POST", "/v1/hypervisor/environments", {})).json.environment.id;
+  const s = (await api("POST", `/v1/hypervisor/environments/${e}/start`)).json.environment;
+  ok(s.status.components && Object.keys(s.status.components).length === 11, "env carries 11 component phases (panel grid)");
+  ok(!!s.status.readiness?.mode, "env carries readiness mode (panel readiness pill)");
+  const ev = await fetch(`http://127.0.0.1:${PORT}/v1/hypervisor/env-events/${e}`);
+  ok((ev.headers.get("content-type") || "").includes("event-stream"), "env-events SSE available for the panel live view");
+  await api("POST", `/v1/hypervisor/environments/${e}/delete`);
+}
+
 async function runOnce(iter) {
   console.log(`\n=== iteration ${iter}/${N} ===`);
   await gateWs1();
@@ -402,6 +418,7 @@ async function runOnce(iter) {
   await gateWs9();
   await gateWs10();
   await gateWs11();
+  await gateWs12();
 }
 
 // ---- harness ----

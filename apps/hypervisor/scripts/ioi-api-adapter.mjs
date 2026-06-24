@@ -100,6 +100,11 @@ export async function handle(pathname, bodyText) {
       "environments": "/v1/hypervisor/environments",
       "workruns": "/v1/hypervisor/workruns",
       "receipts": "/v1/model-mount/receipts",
+      // WS-12 — Phase 1 surfaces the panel projects.
+      "recipes": "/v1/hypervisor/recipes",
+      "snapshots": "/v1/hypervisor/snapshots",
+      "incidents": "/v1/hypervisor/incidents",
+      "recovery-attempts": "/v1/hypervisor/recovery-attempts",
     };
     if (!map[sub]) return json({ error: "unknown ioi endpoint" });
     try {

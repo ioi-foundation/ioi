@@ -998,6 +998,16 @@ pub(crate) async fn handle_workrun_create(
     Ok(Json(json!({ "workRun": record })))
 }
 
+/// GET /v1/hypervisor/incidents — provider-failure incidents (WS-9; projected by the panel).
+pub(crate) async fn handle_incidents_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "incidents": read_record_dir(&st.data_dir, "incidents") }))
+}
+
+/// GET /v1/hypervisor/recovery-attempts — recovery attempts (WS-9).
+pub(crate) async fn handle_recovery_attempts_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "recoveryAttempts": read_record_dir(&st.data_dir, "recovery-attempts") }))
+}
+
 /// GET /v1/hypervisor/env-events/:id — SSE stream of the environment's status + transitions
 /// (WS-11). Emits `environment_status` (full status), `readiness`, one `lifecycle_observation`
 /// per typed observation (the component-transition timeline), `receipt_projection` for recovery

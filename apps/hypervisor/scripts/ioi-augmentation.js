@@ -80,18 +80,30 @@
   }
 
   async function render(panel) {
-    const [auth, envs, wrs, rcpt] = await Promise.all([
+    const [auth, envs, wrs, rcpt, inc] = await Promise.all([
       get("/api/ioi/authority/posture"),
       get("/api/ioi/environments"),
       get("/api/ioi/workruns"),
       get("/api/ioi/receipts"),
+      get("/api/ioi/incidents"),
     ]);
     const envList = envs.environments || [];
     const wrList = wrs.workRuns || [];
     const receipts = rcpt.receipts || rcpt.items || (Array.isArray(rcpt) ? rcpt : []);
+    const incidents = inc.incidents || [];
     activeEnvId = pickActiveEnv(envList);
     const active = envList.find((e) => e.id === activeEnvId);
     const st = active?.status || {};
+
+    // WS-12 — component-phase grid + readiness + monitor (Phase 1 daemon truth).
+    const COMP = ["recipe", "provisioner", "workspace_content", "sandbox", "resource_isolation", "connectivity", "secrets", "automations", "agent_work", "model_mount", "harness"];
+    const compDot = (p) => ({ ready: "●", running: "●", creating: "◐", initializing: "◐", degraded: "◑", recovering: "◑", failed: "✕", pending: "○" }[p] || "○");
+    const compGrid = (status) =>
+      COMP.map((c) => {
+        const p = status.components?.[c]?.phase || "pending";
+        return `<span class="pill mini" title="${c}: ${p}">${compDot(p)} ${esc(c.replace(/_/g, " ").slice(0, 10))}</span>`;
+      }).join(" ");
+    const readinessMode = st.readiness?.mode || "-";
 
     const envSummary = envList
       .slice(-4)
@@ -103,11 +115,22 @@
 
     const activeBlock = active
       ? `<div class="row"><span class="k">active env</span><code>${esc(active.id)}</code></div>
-         <div class="row"><span class="k">isolation</span><span class="mini">${esc(st.isolation_claim || "-")}</span></div>
+         <div class="row"><span class="k">readiness</span><span class="pill accent">${esc(readinessMode)}</span></div>
+         <div class="row"><span class="k">isolation</span><span class="mini">${esc(st.isolation_claim || "-")}${st.vm?.monitor ? " · " + esc(st.vm.monitor) : ""}</span></div>
+         <div style="margin-top:6px"><span class="k mini">components</span><div style="margin-top:3px;line-height:1.8">${compGrid(st)}</div></div>
          <div style="margin-top:6px"><span class="k mini">services </span>${chips(st.services, "services")}</div>
          <div style="margin-top:3px"><span class="k mini">tasks </span>${chips(st.tasks, "tasks")}</div>
          <div style="margin-top:3px"><span class="k mini">ports </span>${chips(st.ports, "ports")}</div>`
       : "<span class='k mini'>no running environment</span>";
+
+    const recoveryBlock =
+      incidents
+        .slice(-3)
+        .map(
+          (i) =>
+            `<div class="row mini"><code>${esc(i.failure_kind)}</code><span class="pill">${esc(i.status)}</span></div>`
+        )
+        .join("") || "<span class='k mini'>no incidents</span>";
 
     const termOut = lastExec
       ? `<pre class="term">${esc(lastExec)}</pre>`
@@ -151,6 +174,10 @@
         <div class="row"><span class="k">WorkRuns <span class="mini">(patch branches · model turns)</span></span>
           <button class="act" data-act="newwr" ${activeEnvId ? "" : "disabled"}>＋ WorkRun</button></div>
         <div style="margin-top:6px">${wrBlock}</div>
+      </section>
+      <section>
+        <div class="row"><span class="k">Recovery <span class="mini">(provider failure incidents)</span></span><span class="pill">${incidents.length}</span></div>
+        <div style="margin-top:6px">${recoveryBlock}</div>
       </section>
       <section><div class="row"><span class="k">Receipts / replay</span><span class="pill">${receipts.length}</span></div>
         <div class="k mini" style="margin-top:4px">agentgres-recorded; model invocations replayable</div></section>`;
