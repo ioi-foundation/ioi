@@ -50,11 +50,91 @@ pub(crate) struct VmHandle {
     pub serial_log: PathBuf,
     pub monitor: &'static str,
     pub pid: u32,
+    // QEMU's kernel vhost-vsock uses a guest CID (global host resource); CH/FC use the UDS, where
+    // cid=3 is per-socket and informational.
+    pub cid: u32,
 }
 
 pub(crate) struct ExecOut {
     pub exit_code: i32,
     pub output: String,
+}
+
+/// A byte stream to the guest agent: the CH/Firecracker UDS hybrid, or a direct AF_VSOCK socket
+/// (QEMU's kernel vhost-vsock). The binary guest-agent protocol is identical over both.
+pub(crate) enum Conn {
+    Uds(UnixStream),
+    Vsock(VsockStream),
+}
+impl Read for Conn {
+    fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
+        match self { Conn::Uds(s) => s.read(b), Conn::Vsock(s) => s.read(b) }
+    }
+}
+impl Write for Conn {
+    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+        match self { Conn::Uds(s) => s.write(b), Conn::Vsock(s) => s.write(b) }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self { Conn::Uds(s) => s.flush(), Conn::Vsock(s) => s.flush() }
+    }
+}
+
+/// A host-side AF_VSOCK stream (libc) for the QEMU lane (kernel vhost-vsock).
+pub(crate) struct VsockStream {
+    fd: std::os::unix::io::RawFd,
+}
+impl Read for VsockStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = unsafe { libc::read(self.fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+        if n < 0 { Err(std::io::Error::last_os_error()) } else { Ok(n as usize) }
+    }
+}
+impl Write for VsockStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = unsafe { libc::write(self.fd, buf.as_ptr() as *const libc::c_void, buf.len()) };
+        if n < 0 { Err(std::io::Error::last_os_error()) } else { Ok(n as usize) }
+    }
+    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+}
+impl Drop for VsockStream {
+    fn drop(&mut self) { unsafe { libc::close(self.fd); } }
+}
+
+/// Connect to the guest agent over AF_VSOCK (cid, port). Used by the QEMU lane.
+fn af_vsock_connect(cid: u32, port: u32) -> Result<VsockStream, String> {
+    unsafe {
+        let fd = libc::socket(libc::AF_VSOCK, libc::SOCK_STREAM, 0);
+        if fd < 0 {
+            return Err(format!("socket(AF_VSOCK): {}", std::io::Error::last_os_error()));
+        }
+        let tv = libc::timeval { tv_sec: 180, tv_usec: 0 };
+        let tvp = &tv as *const libc::timeval as *const libc::c_void;
+        let tvl = std::mem::size_of::<libc::timeval>() as libc::socklen_t;
+        libc::setsockopt(fd, libc::SOL_SOCKET, libc::SO_RCVTIMEO, tvp, tvl);
+        libc::setsockopt(fd, libc::SOL_SOCKET, libc::SO_SNDTIMEO, tvp, tvl);
+        let mut addr: libc::sockaddr_vm = std::mem::zeroed();
+        addr.svm_family = libc::AF_VSOCK as libc::sa_family_t;
+        addr.svm_cid = cid;
+        addr.svm_port = port;
+        let r = libc::connect(
+            fd,
+            &addr as *const libc::sockaddr_vm as *const libc::sockaddr,
+            std::mem::size_of::<libc::sockaddr_vm>() as libc::socklen_t,
+        );
+        if r < 0 {
+            let e = std::io::Error::last_os_error();
+            libc::close(fd);
+            return Err(format!("AF_VSOCK connect cid={cid}: {e}"));
+        }
+        Ok(VsockStream { fd })
+    }
+}
+
+/// Allocate a guest CID for a QEMU VM (vhost-vsock CIDs are a global host resource).
+fn alloc_guest_cid() -> u32 {
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    19 + (nanos % 4_000_000) as u32
 }
 
 /// The monitor trait — cloud-hypervisor / QEMU / Firecracker behind one seam (WS-5). Monitors
@@ -64,8 +144,14 @@ pub(crate) trait VmMonitor {
     fn id(&self) -> &'static str;
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String>;
 
+    /// Open a byte stream to the guest agent. Default = the CH/Firecracker UDS hybrid; QEMU
+    /// overrides to a direct AF_VSOCK connection (kernel vhost-vsock).
+    fn connect(&self, vm: &VmHandle) -> Result<Conn, String> {
+        Ok(Conn::Uds(vsock_connect(&vm.uds)?))
+    }
+
     fn import_workspace(&self, vm: &VmHandle, tar: &[u8]) -> Result<(), String> {
-        let mut s = vsock_connect(&vm.uds)?;
+        let mut s = self.connect(vm)?;
         s.write_all(b"I").map_err(|e| e.to_string())?;
         s.write_all(&(tar.len() as u64).to_le_bytes()).map_err(|e| e.to_string())?;
         s.write_all(tar).map_err(|e| format!("import write: {e}"))?;
@@ -78,7 +164,7 @@ pub(crate) trait VmMonitor {
     }
 
     fn exec(&self, vm: &VmHandle, cmd: &str) -> Result<ExecOut, String> {
-        let mut s = vsock_connect(&vm.uds)?;
+        let mut s = self.connect(vm)?;
         let cb = cmd.as_bytes();
         s.write_all(b"E").map_err(|e| e.to_string())?;
         s.write_all(&(cb.len() as u32).to_le_bytes()).map_err(|e| e.to_string())?;
@@ -97,7 +183,7 @@ pub(crate) trait VmMonitor {
     }
 
     fn export_workspace(&self, vm: &VmHandle) -> Result<Vec<u8>, String> {
-        let mut s = vsock_connect(&vm.uds)?;
+        let mut s = self.connect(vm)?;
         s.write_all(b"X").map_err(|e| e.to_string())?;
         let mut l = [0u8; 8];
         s.read_exact(&mut l).map_err(|e| format!("export len: {e}"))?;
@@ -108,7 +194,7 @@ pub(crate) trait VmMonitor {
     }
 
     fn proto_version(&self, vm: &VmHandle) -> Result<u32, String> {
-        let mut s = vsock_connect(&vm.uds)?;
+        let mut s = self.connect(vm)?;
         s.write_all(b"H").map_err(|e| e.to_string())?;
         let mut v = [0u8; 4];
         s.read_exact(&mut v).map_err(|e| format!("proto: {e}"))?;
@@ -116,7 +202,7 @@ pub(crate) trait VmMonitor {
     }
 
     fn stop(&self, vm: &mut VmHandle) -> Result<(), String> {
-        if let Ok(mut s) = vsock_connect(&vm.uds) {
+        if let Ok(mut s) = self.connect(vm) {
             let _ = s.write_all(b"S");
         }
         let deadline = Instant::now() + Duration::from_secs(8);
@@ -271,9 +357,13 @@ pub(crate) fn build_vm_spec(
     let (monitor_bin, kernel) = match monitor_id {
         "firecracker" => (verify("firecracker")?, verify("fc_kernel")?),
         "qemu" => {
-            // host-installed binary; the MMIO (fc) kernel boots under qemu microvm.
-            let bin = format!("{dir}/qemu-system-x86_64");
-            let monitor_bin = if Path::new(&bin).exists() { PathBuf::from(bin) } else { PathBuf::from("qemu-system-x86_64") };
+            // QEMU lane: the relocatable wrapper from provision-qemu.sh, or IOI_QEMU_BIN, or PATH.
+            // The MMIO (fc) kernel boots under qemu microvm (same kernel as Firecracker).
+            let provisioned = format!("{dir}/qemu/qemu-system-x86_64");
+            let monitor_bin = std::env::var("IOI_QEMU_BIN").ok().map(PathBuf::from)
+                .filter(|p| p.exists())
+                .or_else(|| Some(PathBuf::from(&provisioned)).filter(|p| p.exists()))
+                .unwrap_or_else(|| PathBuf::from("qemu-system-x86_64"));
             (monitor_bin, verify("fc_kernel")?)
         }
         _ => (tc.ch_bin.clone(), tc.kernel.clone()),
@@ -336,7 +426,7 @@ impl VmMonitor for CloudHypervisorMonitor {
             .spawn()
             .map_err(|e| format!("spawn cloud-hypervisor: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid };
+        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid: 3 };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }
@@ -375,7 +465,7 @@ impl VmMonitor for FirecrackerMonitor {
             .spawn()
             .map_err(|e| format!("spawn firecracker: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid };
+        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid: 3 };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }
@@ -386,45 +476,62 @@ impl VmMonitor for QemuMonitor {
         "qemu"
     }
 
+    // QEMU speaks AF_VSOCK over the KERNEL vhost-vsock device (not the CH/FC UDS hybrid).
+    fn connect(&self, vm: &VmHandle) -> Result<Conn, String> {
+        Ok(Conn::Vsock(af_vsock_connect(vm.cid, 1024)?))
+    }
+
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
-        // QEMU compat/diagnostic lane. AF_VSOCK under QEMU needs vhost-vsock (a host kernel module
-        // that requires root to load) — host-gated on this sandbox. The lane is registered + the
-        // command is constructed; it fails closed with a clear reason when the prerequisites are
-        // absent, rather than faking a boot.
-        if Command::new(&spec.monitor_bin).arg("--version").output().is_err() {
+        // QEMU compat/diagnostic lane — a REAL boot (microvm machine + qboot firmware + the MMIO
+        // guest kernel + vhost-vsock-device). Fails CLOSED with a precise reason if the qemu binary
+        // is absent or /dev/vhost-vsock is not openable (group kvm) — never a fake boot.
+        if Command::new(&spec.monitor_bin).arg("--version").output().map(|o| !o.status.success()).unwrap_or(true) {
             return Err(format!(
-                "qemu lane host-gated: {} not available (+ AF_VSOCK needs vhost_vsock, root). \
-                 cloud-hypervisor (primary) and firecracker are the bootable lanes here.",
+                "qemu host-gated: {} not runnable (provision with scripts/phase1/provision-qemu.sh; \
+                 cloud-hypervisor + firecracker are the always-available lanes)",
                 spec.monitor_bin.display()
             ));
         }
-        if !Path::new("/dev/vhost-vsock").exists() {
-            return Err("qemu lane host-gated: /dev/vhost-vsock absent (needs `modprobe vhost_vsock`, root)".into());
+        // vhost-vsock must be openable (root:kvm 0660). The user needs the kvm group / an ACL.
+        match std::fs::OpenOptions::new().read(true).write(true).open("/dev/vhost-vsock") {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(format!(
+                    "qemu host-gated: /dev/vhost-vsock not openable ({e}) — grant access as root: \
+                     `usermod -aG kvm $USER` (re-login) or `setfacl -m u:$USER:rw /dev/vhost-vsock`"
+                ));
+            }
         }
+        // firmware: microvm needs qboot.rom (resolved next to the qemu binary's share/ or via env).
+        let fw = std::env::var("IOI_QEMU_FIRMWARE").ok().map(PathBuf::from).or_else(|| {
+            spec.monitor_bin.parent().map(|d| d.join("share/qboot.rom")).filter(|p| p.exists())
+        });
+        let cid = alloc_guest_cid();
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
-        let _ = std::fs::remove_file(&uds);
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
         let log2 = log.try_clone().map_err(|e| format!("serial log clone: {e}"))?;
-        let child = Command::new(&spec.monitor_bin)
-            .arg("-M").arg("microvm,x-option-roms=off,rtc=off")
+        let mut cmd = Command::new(&spec.monitor_bin);
+        cmd.arg("-M").arg("microvm,x-option-roms=off,pic=off,rtc=off")
             .arg("-enable-kvm").arg("-cpu").arg("host")
             .arg("-m").arg(format!("{}", spec.mem_mib.max(256)))
-            .arg("-smp").arg(format!("{}", spec.vcpus.max(1)))
-            .arg("-kernel").arg(&spec.kernel)
+            .arg("-smp").arg(format!("{}", spec.vcpus.max(1)));
+        if let Some(fw) = &fw {
+            cmd.arg("-bios").arg(fw);
+        }
+        cmd.arg("-kernel").arg(&spec.kernel)
             .arg("-initrd").arg(&spec.initramfs)
             .arg("-append").arg("console=ttyS0 reboot=t panic=-1 rdinit=/init")
-            .arg("-device").arg("vhost-vsock-device,guest-cid=3")
-            .arg("-nodefaults").arg("-no-reboot")
-            .arg("-serial").arg("file:".to_string() + &serial_log.to_string_lossy())
+            .arg("-device").arg(format!("vhost-vsock-device,guest-cid={cid}"))
+            .arg("-nodefaults").arg("-no-reboot").arg("-display").arg("none")
+            .arg("-serial").arg(format!("file:{}", serial_log.to_string_lossy()))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
-            .spawn()
-            .map_err(|e| format!("spawn qemu: {e}"))?;
+            .stderr(Stdio::from(log2));
+        let child = cmd.spawn().map_err(|e| format!("spawn qemu: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid };
+        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }

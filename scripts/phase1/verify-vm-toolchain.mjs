@@ -49,11 +49,16 @@ if (m.guest_agent?.source_sha256 && existsSync(agentSrc)) {
 // host capabilities — present/absent with reason (monitor lanes gate on these).
 const cap = (name, present, reason) => ({ name, present, reason });
 const has = (bin) => { try { execSync(`command -v ${bin}`, { stdio: "ignore" }); return true; } catch { return false; } };
+const qemuWrapper = join(DIR, "qemu/qemu-system-x86_64");
+const qemuPresent = existsSync(qemuWrapper) || has("qemu-system-x86_64");
+// vhost-vsock must be openable r+w (root:kvm 0660 — the user needs the kvm group or an ACL).
+let vhostOpenable = false;
+try { const fd = require("node:fs").openSync("/dev/vhost-vsock", "r+"); require("node:fs").closeSync(fd); vhostOpenable = true; } catch { vhostOpenable = false; }
 const caps = [
   cap("kvm", existsSync("/dev/kvm"), existsSync("/dev/kvm") ? "/dev/kvm present" : "/dev/kvm absent (no hardware virt)"),
-  cap("vhost_vsock", existsSync("/dev/vhost-vsock"), existsSync("/dev/vhost-vsock") ? "present" : "absent (QEMU vsock lane host-gated; needs root modprobe vhost_vsock)"),
+  cap("vhost_vsock_openable", vhostOpenable, vhostOpenable ? "/dev/vhost-vsock openable" : "/dev/vhost-vsock NOT openable (QEMU host-gated; root: usermod -aG kvm $USER or setfacl -m u:$USER:rw /dev/vhost-vsock)"),
   cap("bwrap", has("bwrap"), has("bwrap") ? "present" : "absent"),
-  cap("qemu", has("qemu-system-x86_64"), has("qemu-system-x86_64") ? "present" : "absent (QEMU lane host-gated)"),
+  cap("qemu", qemuPresent, qemuPresent ? `present (${existsSync(qemuWrapper) ? "provisioned" : "PATH"})` : "absent (run scripts/phase1/provision-qemu.sh)"),
   cap("cgroup_v2", existsSync("/sys/fs/cgroup/cgroup.controllers"), existsSync("/sys/fs/cgroup/cgroup.controllers") ? "present" : "absent"),
 ];
 
@@ -62,7 +67,10 @@ const verdict = failed.length === 0 ? "PASS" : "FAIL";
 const monitorReadiness = {
   "cloud-hypervisor": existsSync("/dev/kvm") ? "READY" : "HOST_GATED:no-kvm",
   firecracker: existsSync("/dev/kvm") ? "READY" : "HOST_GATED:no-kvm",
-  qemu: existsSync("/dev/kvm") && existsSync("/dev/vhost-vsock") && has("qemu-system-x86_64") ? "READY" : "HOST_GATED:needs qemu+vhost_vsock",
+  qemu: !qemuPresent ? "HOST_GATED:qemu-absent"
+    : !existsSync("/dev/kvm") ? "HOST_GATED:no-kvm"
+    : !vhostOpenable ? "HOST_GATED:vhost-vsock-permission"
+    : "READY",
 };
 
 const report = { dir: DIR, manifest_version: m.schema_version, verdict, checks, host_capabilities: caps, monitor_readiness: monitorReadiness };
