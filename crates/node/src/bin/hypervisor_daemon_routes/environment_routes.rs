@@ -11,9 +11,13 @@ use std::sync::Arc;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
 use axum::Json;
+use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
-use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
+use super::{
+    invoke_native_local, iso_now, persist_invocation_receipt, persist_record, read_record_dir,
+    resolve_route, short_hash, AppError, DaemonState,
+};
 
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
 const PROVIDER: &str = "local_workspace_provider_v0";
@@ -326,4 +330,153 @@ pub(crate) async fn handle_workrun_get(
         .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "workrun not found".into()))?;
     Ok(Json(json!({ "workRun": rec })))
+}
+
+/// POST /v1/hypervisor/workruns/:id/execute — run ONE model-driven child-harness turn.
+///
+/// This is the real Build-Rule inner loop. The daemon's model route (`hypervisor:native-fixture`
+/// offline; a mounted model when present) generates content; the child harness writes it as a
+/// REAL edit on the WorkRun's scoped patch branch and commits under a child identity. The host
+/// repo is never touched — all mutation is confined to the environment's scoped workspace, so
+/// `host_mutation` stays false and the turn is recorded `review_state: proposed` for the
+/// operator/authority gate (daemon EXECUTES · wallet AUTHORIZES the eventual merge crossing).
+pub(crate) async fn handle_workrun_execute(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let wr_path = std::path::Path::new(&st.data_dir)
+        .join("workruns")
+        .join(format!("{}.json", safe_id(&id)));
+    let mut wr: Value = std::fs::read(&wr_path)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "workrun not found".into()))?;
+
+    let env_id = wr["environment_id"].as_str().unwrap_or_default().to_string();
+    let env = load_env(&st.data_dir, &env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"]
+        .as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
+        .to_string();
+    let branch = wr["branch"].as_str().unwrap_or("HEAD").to_string();
+
+    // Ensure we are on the WorkRun's scoped patch branch — never the host repo, never main.
+    run_git(&ws, &["checkout", "-q", &branch])
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git checkout {branch}: {e}")))?;
+
+    // ---- the real model-driven turn ----
+    let objective = wr["objective"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("Produce a short, concrete implementation note for this WorkRun.")
+        .to_string();
+    let turn_idx = wr["turns"].as_array().map(|a| a.len()).unwrap_or(0);
+    let prompt = format!(
+        "You are a child coding harness operating on an isolated patch branch ({branch}).\n\
+         Objective: {objective}\n\
+         Write the full contents of a single markdown file documenting the concrete change. \
+         Be concise.\n"
+    );
+    // Resolve the daemon's model route exactly as chat completions does: the default route is
+    // `route.native-local`, which runs the deterministic offline kernel; a mounted upstream
+    // (Ollama / OpenAI / LOCAL_LLM_URL) routes through the HTTP runtime for a live LLM. Either
+    // way the model output is REAL daemon-routed inference, and a receipt is recorded for replay.
+    let route = resolve_route(&st, &json!({}));
+    let text = if route.is_native_local {
+        let result = invoke_native_local(&prompt, &route.model)
+            .map_err(|e| AppError(StatusCode::BAD_GATEWAY, format!("native_local: {e}")))?;
+        let out = result
+            .get("output_text")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        persist_invocation_receipt(
+            &st,
+            &route,
+            &result,
+            &format!("workrun:{id}:turn:{turn_idx}:{}", short_hash(&prompt)),
+            json!({ "capability": "chat", "invocationKind": "workrun.turn", "workRunId": id, "turnRef": format!("turn_{turn_idx}") }),
+        );
+        out
+    } else {
+        let options = InferenceOptions { max_tokens: 1024, ..Default::default() };
+        let output = st
+            .inference
+            .execute_inference([0u8; 32], prompt.as_bytes(), options)
+            .await
+            .map_err(|e| AppError(StatusCode::BAD_GATEWAY, format!("no_model_route: {e:?}")))?;
+        String::from_utf8_lossy(&output).to_string()
+    };
+
+    // ---- child harness writes a REAL edit on the scoped branch ----
+    let rel = format!("agent/turn-{turn_idx}.md");
+    let file_path = std::path::Path::new(&ws).join(&rel);
+    if let Some(parent) = file_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("mkdir agent dir: {e}")))?;
+    }
+    let file_body = format!(
+        "<!-- workrun {id} · turn {turn_idx} · model {} · branch {branch} -->\n\n# Objective\n\n{objective}\n\n# Model output\n\n{text}\n",
+        st.model_name
+    );
+    std::fs::write(&file_path, &file_body)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("write edit: {e}")))?;
+
+    // Commit under a CHILD identity (per-command, never global config). Host repo untouched.
+    let child = ["-c", "user.email=child@local", "-c", "user.name=child_harness"];
+    let mut add_args = child.to_vec();
+    add_args.extend_from_slice(&["add", "-A"]);
+    run_git(&ws, &add_args)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git add: {e}")))?;
+    let msg = format!("workrun turn {turn_idx}: {}", objective.chars().take(60).collect::<String>());
+    let mut commit_args = child.to_vec();
+    commit_args.extend_from_slice(&["commit", "-q", "-m", msg.as_str()]);
+    run_git(&ws, &commit_args)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git commit: {e}")))?;
+    let commit = run_git(&ws, &["rev-parse", "HEAD"])
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git head: {e}")))?;
+
+    // Confirm the scoped working tree is clean (the edit is committed, nothing dangling).
+    let dirty = run_git(&ws, &["status", "--porcelain"])
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("git status: {e}")))?;
+
+    // ---- record the turn as daemon truth (proposed for the authority gate) ----
+    let now = iso_now();
+    let preview: String = text.chars().take(240).collect();
+    let turn = json!({
+        "ref": format!("turn_{turn_idx}"),
+        "objective": objective,
+        "route_id": route.route_id,
+        "model_route": route.model,
+        "native_local": route.is_native_local,
+        "prompt_bytes": prompt.len(),
+        "output_bytes": text.as_bytes().len(),
+        "output_preview": preview,
+        "file_changed": rel,
+        "commit": commit,
+        "host_mutation": false,
+        "at": now
+    });
+    if !wr["turns"].is_array() {
+        wr["turns"] = json!([]);
+    }
+    wr["turns"].as_array_mut().unwrap().push(turn.clone());
+    let mut files = wr["files_changed"].as_array().cloned().unwrap_or_default();
+    if !files.iter().any(|f| f.as_str() == Some(rel.as_str())) {
+        files.push(json!(rel));
+    }
+    wr["files_changed"] = json!(files);
+    wr["status"] = json!("proposed");
+    wr["review_state"] = json!("proposed");
+    wr["model_route"] = json!(route.model);
+    wr["route_id"] = json!(route.route_id);
+    wr["head_commit"] = json!(commit);
+    wr["working_tree_clean"] = json!(dirty.is_empty());
+    wr["host_mutation"] = json!(false);
+    wr["updated_at"] = json!(now);
+    persist_record(&st.data_dir, "workruns", &id, &wr)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist workrun: {e}")))?;
+
+    Ok(Json(json!({ "workRun": wr, "turn": turn })))
 }

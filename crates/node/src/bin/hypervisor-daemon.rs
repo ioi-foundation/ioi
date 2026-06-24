@@ -691,6 +691,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/workruns/:id",
             get(environment_routes::handle_workrun_get),
         )
+        // Real model-driven child-harness turn: edits the scoped patch branch (host untouched).
+        .route(
+            "/v1/hypervisor/workruns/:id/execute",
+            post(environment_routes::handle_workrun_execute),
+        )
         // WS-D: harness session binding admission.
         .route(
             "/v1/hypervisor/harness-bindings",
