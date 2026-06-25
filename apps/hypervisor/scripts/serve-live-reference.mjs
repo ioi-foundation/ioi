@@ -215,10 +215,11 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
-    // Telemetry beacons (Segment analytics): the harvested SPA fires /segment/v1/{t,i,...}; with no
-    // handler they proxy to the mirror and hang open (real pending requests). Ack them instantly so
-    // nothing is left pending. We collect no analytics — this is a local, self-contained app.
-    if (pathname.startsWith("/segment/")) {
+    // Telemetry / error-reporting beacons: the harvested SPA fires Segment analytics (/segment/v1/*)
+    // and a Sentry error tunnel (/sentry-tunnel). With no handler they proxy to the mirror and hang
+    // / abort (real pending+failed requests on nearly every surface). Ack them instantly. We collect
+    // no analytics and report no errors externally — this is a local, self-contained app.
+    if (pathname.startsWith("/segment/") || pathname === "/sentry-tunnel" || pathname.startsWith("/sentry")) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
       return;
