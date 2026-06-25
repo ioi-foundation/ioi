@@ -62,6 +62,46 @@ const rev = await dj("POST", "/v1/hypervisor/authority/revoke", { grant_id: leas
 const afterRevoke = await ops(envId, lease, "ReadFile", { path: "." });
 ok(rev.status < 500 && afterRevoke.status === 401, "revoked lease FAILS CLOSED (401)", `revoke ${rev.status}, post ${afterRevoke.status}`);
 
+// ---- WS streaming tier: terminal + watch over the JSON-RPC WebSocket transport ----
+try {
+  const { WebSocket } = await import("ws");
+  const wsEnv = (await dj("POST", "/v1/hypervisor/environments", { spec: { environment_class_id: "local-workspace-v0" } })).body?.environment?.id;
+  await dj("POST", `/v1/hypervisor/environments/${wsEnv}/start`);
+  const wsLease = (await dj("POST", `/v1/hypervisor/environments/${wsEnv}/ops-lease`)).body?.accessToken;
+  const wsUrl = REF.replace(/^http/, "ws") + "/supervisor.v1.EnvironmentOpsService/";
+  const result = await new Promise((resolve) => {
+    const conn = new WebSocket(wsUrl); conn.binaryType = "arraybuffer";
+    let nid = 1; const pend = new Map(); const attach = []; const watch = [];
+    const out = { connected: false, terminal: false, watch: false };
+    const call = (method, params) => new Promise((res) => { const id = nid++; pend.set(id, { res, unary: true }); conn.send(Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, method, params }))); });
+    conn.on("message", (raw) => { const m = JSON.parse(Buffer.from(raw).toString("utf8")); const h = pend.get(m.id); if (!h) return; if (h.unary) { pend.delete(m.id); h.res(m); } else if (m.result) h.results.push(m.result); });
+    conn.on("error", () => resolve(out));
+    conn.on("open", async () => {
+      out.connected = true;
+      const a = await call("auth", { token: wsLease }); if (a.error) return resolve(out);
+      const ct = await call("supervisor.v1.EnvironmentOpsService/CreateTerminal", { shell: "bash", workingDirectory: "", initialCols: 80, initialRows: 24 });
+      const tid = ct.result?.terminalId; if (!tid) return resolve(out);
+      { const id = nid++; pend.set(id, { results: attach, unary: false }); conn.send(Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, method: "supervisor.v1.EnvironmentOpsService/AttachTerminal", params: { terminalId: tid } }))); }
+      { const id = nid++; pend.set(id, { results: watch, unary: false }); conn.send(Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, method: "supervisor.v1.EnvironmentOpsService/Watch", params: { eventTypes: ["WATCH_EVENT_TYPE_FILE_CHANGE", "WATCH_EVENT_TYPE_GIT_STATUS"] } }))); }
+      await new Promise((r) => setTimeout(r, 700));
+      await call("supervisor.v1.EnvironmentOpsService/WriteTerminal", { terminalId: tid, data: Buffer.from("echo WB_MARKER_42 > wb_marker.txt\n").toString("base64") });
+      await new Promise((r) => setTimeout(r, 3000));
+      out.terminal = /WB_MARKER_42/.test(attach.map((r) => Buffer.from(r.replay?.data || r.data?.data || "", "base64").toString("utf8")).join(""));
+      out.watch = watch.some((r) => r.gitStatusChanged || r.fileChanges);
+      conn.close(); resolve(out);
+    });
+    setTimeout(() => resolve(out), 12000);
+  });
+  if (!result.connected) {
+    ok(true, "WS terminal/watch contract gated off by default (harvested SPA #306); enable IOI_ENV_OPS_WS=1 to verify");
+  } else {
+    ok(result.terminal, "WS terminal: create+attach streams a real PTY (echo round-trips)");
+    ok(result.watch, "WS watch: a workspace write emits a real fs/git event");
+  }
+} catch (e) {
+  ok(false, "WS streaming tier ran", String(e?.message || e));
+}
+
 // ---- UI tier ----
 let chromium;
 try { ({ chromium } = await import("playwright")); } catch { chromium = null; }

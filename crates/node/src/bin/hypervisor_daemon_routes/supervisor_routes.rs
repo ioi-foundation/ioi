@@ -112,6 +112,25 @@ fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// The environment a lease is bound to (from its `resources: ["environment:<env>"]`).
+fn lease_env(data_dir: &str, lease_id: &str) -> Option<String> {
+    let path = Path::new(data_dir).join("authority-grants").join(format!("{}.json", safe(lease_id)));
+    let v: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+    v.get("resources")?.as_array()?.iter().find_map(|x| x.as_str().and_then(|s| s.strip_prefix("environment:")).map(str::to_string))
+}
+
+/// `GET /v1/hypervisor/ops-lease/:token` — resolve a lease to its environment + live status. The
+/// env-ops WebSocket transport (serve layer) calls this to authenticate the `auth` frame and learn
+/// which environment the connection is bound to (the WS URL drops the env path by design).
+pub(crate) async fn handle_ops_lease_resolve(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(token): AxumPath<String>,
+) -> Json<Value> {
+    let active = capability_lease_status(&st.data_dir, &token) == "active";
+    let env = lease_env(&st.data_dir, &token);
+    Json(json!({ "active": active && env.is_some(), "environment_id": env }))
+}
+
 /// True iff the request carries an active capability lease bound to this environment.
 fn authed(data_dir: &str, env_id: &str, headers: &HeaderMap) -> bool {
     let Some(token) = bearer(headers) else { return false };
@@ -249,7 +268,7 @@ pub(crate) async fn handle_environment_ops(
     let i64s = |k: &str| req.get(k).and_then(|v| v.as_str().and_then(|x| x.parse::<i64>().ok()).or_else(|| v.as_i64())).unwrap_or(0);
 
     match method.as_str() {
-        "ListCapabilities" => ok_json(json!({ "capabilities": [] })), // WATCH advertised when the watcher lands
+        "ListCapabilities" => ok_json(json!({ "capabilities": [] })), // WATCH served by the WS transport (fs watcher)
 
         "ReadFile" => {
             let rel = s("path");
@@ -411,12 +430,36 @@ pub(crate) async fn handle_environment_ops(
             }))
         }
 
-        // Terminal / Watch / Exec / Browser: wired in subsequent env-ops increments. Honest
-        // Connect `unimplemented` (never a fabricated response) so the SPA degrades cleanly.
+        "ListTerminalProfiles" => {
+            let bash = if Path::new("/usr/bin/bash").exists() { "/usr/bin/bash" } else { "/bin/bash" };
+            ok_json(json!({ "profiles": [{ "profileName": "bash", "path": bash, "isAutoDetected": true }] }))
+        }
+
+        "Exec" => {
+            let command = s("command");
+            let cwd = {
+                let wd = s("workingDirectory");
+                if wd.is_empty() { ws.clone() } else { scoped(&ws, &wd).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| ws.clone()) }
+            };
+            match Command::new("bash").arg("-lc").arg(&command).current_dir(&cwd).output() {
+                Ok(out) => ok_json(json!({
+                    "exitCode": out.status.code().unwrap_or(-1),
+                    "stdout": String::from_utf8_lossy(&out.stdout),
+                    "stderr": String::from_utf8_lossy(&out.stderr),
+                })),
+                Err(e) => connect_err(StatusCode::INTERNAL_SERVER_ERROR, "internal", &e.to_string()),
+            }
+        }
+
+        "CancelExec" => ok_json(json!({})),
+
+        // Terminal control + streaming (CreateTerminal/ReadTerminal/AttachTerminal/WriteTerminal/
+        // ResizeTerminal/CloseTerminal/Watch) are served over the WebSocket transport (serve layer
+        // bridges the daemon's real openpty terminals + an fs watcher); the SPA never calls them over
+        // HTTP. StartBrowser is a declared follow-on. Honest Connect `unimplemented` over HTTP.
         "CreateTerminal" | "ReadTerminal" | "AttachTerminal" | "WriteTerminal" | "ResizeTerminal"
-        | "CloseTerminal" | "ListTerminals" | "ListTerminalProfiles" | "Exec" | "CancelExec"
-        | "Watch" | "StartBrowser" => {
-            connect_err(StatusCode::NOT_IMPLEMENTED, "unimplemented", &format!("{method} not yet implemented in the env-ops plane"))
+        | "CloseTerminal" | "ListTerminals" | "Watch" | "StartBrowser" => {
+            connect_err(StatusCode::NOT_IMPLEMENTED, "unimplemented", &format!("{method} is served over the env-ops WebSocket transport"))
         }
 
         other => connect_err(StatusCode::NOT_IMPLEMENTED, "unimplemented", &format!("unknown method {other}")),

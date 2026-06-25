@@ -19,9 +19,10 @@
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-live-reference.mjs
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, watch as fsWatch } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -284,6 +285,162 @@ const server = http.createServer((req, res) => {
     }
     proxyToMirror(req, res, body);
   });
+});
+
+// ---- Cut A — env-ops streaming transport: JSON-RPC 2.0 over WebSocket ----------------------------
+// The SPA opens ws(s)://<host>/supervisor.v1.EnvironmentOpsService/ (env path dropped by design) and
+// speaks JSON-RPC: {id, method:"auth", params:{token}} on open (env derives from the lease), then
+// {id, method:"supervisor.v1.EnvironmentOpsService/<M>", params}. Server-streaming methods emit
+// {id, result:<chunk>} repeatedly then {id, result:null} to end. Frames are binary UTF-8 JSON.
+// Transport only — unary delegates to the daemon EnvironmentOpsService (the contract home, D1);
+// terminal bridges the daemon's real openpty terminals; Watch uses a real fs watcher (inotify).
+const C = { InvalidArgument: 3, NotFound: 5, Unimplemented: 12, Internal: 13, Unavailable: 14, Unauthenticated: 16 };
+const STREAMING = new Set(["AttachTerminal", "ReadTerminal", "Watch"]);
+
+async function djson(method, path, body, token) {
+  const headers = { "content-type": "application/json" };
+  if (token) headers["authorization"] = `Bearer ${token}`;
+  const r = await fetch(DAEMON + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const t = await r.text(); let j = {}; try { j = t ? JSON.parse(t) : {}; } catch { j = {}; }
+  return { status: r.status, body: j };
+}
+
+function handleSupervisorWs(ws) {
+  let env = null;
+  let token = null;
+  const streams = new Map(); // jsonrpc id -> cleanup fn
+  const send = (obj) => { try { ws.send(Buffer.from(JSON.stringify(obj))); } catch { /* closed */ } };
+  const ok = (id, result) => send({ jsonrpc: "2.0", id, result });
+  const err = (id, code, message) => send({ jsonrpc: "2.0", id, error: { code, message } });
+
+  ws.on("message", async (raw) => {
+    let msg;
+    try { msg = JSON.parse(Buffer.isBuffer(raw) ? raw.toString("utf8") : String(raw)); } catch { return; }
+    const { id, method, params } = msg;
+    if (typeof id !== "number") return;
+    try {
+      if (method === "auth") {
+        token = params?.token || "";
+        const res = await djson("GET", `/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+        if (res.body?.active && res.body?.environment_id) { env = res.body.environment_id; ok(id, {}); }
+        else err(id, C.Unauthenticated, "invalid or expired env-ops lease");
+        return;
+      }
+      if (!env) { err(id, C.Unauthenticated, "not authenticated"); return; }
+      const m = String(method || "").split("/").pop();
+      const envRef = `environment:${env}`;
+
+      // --- terminal control (bridge to the daemon's real openpty terminals) ---
+      if (m === "CreateTerminal") {
+        const cwd = params?.workingDirectory && String(params.workingDirectory).trim() ? params.workingDirectory : undefined;
+        const body = { environment_ref: envRef, shell: params?.shell || "bash", cols: params?.initialCols || 80, rows: params?.initialRows || 24 };
+        if (cwd) body.cwd = cwd; // else the daemon defaults to the env workspace (empty cwd would fail)
+        const r = await djson("POST", "/v1/hypervisor/terminals", body, token);
+        return r.body?.terminal_id ? ok(id, { terminalId: r.body.terminal_id }) : err(id, C.Internal, r.body?.reason || "create terminal failed");
+      }
+      if (m === "ListTerminals") {
+        const r = await djson("GET", "/v1/hypervisor/terminals");
+        const terminals = (r.body?.terminals || []).filter((t) => t.environment_ref === envRef).map((t) => ({ terminalId: t.terminal_id, shell: t.shell, cols: t.cols, rows: t.rows }));
+        return ok(id, { terminals });
+      }
+      if (m === "WriteTerminal") {
+        const data = Buffer.from(params?.data || "", "base64").toString("utf8");
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/input`, { data }, token);
+        return ok(id, {});
+      }
+      if (m === "ResizeTerminal") {
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/resize`, { cols: params?.cols, rows: params?.rows }, token);
+        return ok(id, {});
+      }
+      if (m === "CloseTerminal") {
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/close`, {}, token);
+        return ok(id, {});
+      }
+
+      // --- terminal output stream (server-streaming): poll the daemon terminal stream (snapshot
+      // per `since` offset) and forward new output as connect-style chunks until close/abort ---
+      if (m === "AttachTerminal" || m === "ReadTerminal") {
+        const termId = params?.terminalId;
+        let aborted = false;
+        let since = 0;
+        let first = !params?.skipHistory;
+        streams.set(id, () => { aborted = true; });
+        (async () => {
+          try {
+            while (!aborted) {
+              let r;
+              try { r = await fetch(`${DAEMON}/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`); }
+              catch { break; }
+              if (r.status === 404) { ok(id, { exited: { exitCode: 0 } }); ok(id, null); break; }
+              const text = await r.text();
+              let outChunk = ""; let newOffset = since; let running = true;
+              for (const f of text.split("\n\n")) {
+                let ev = null, data = null;
+                for (const line of f.split("\n")) { if (line.startsWith("event: ")) ev = line.slice(7); else if (line.startsWith("data: ")) data = line.slice(6); }
+                if (ev === "output" && data) { try { const d = JSON.parse(data); outChunk += d.output || ""; if (typeof d.offset === "number") newOffset = d.offset; if (typeof d.running === "boolean") running = d.running; } catch { /* */ } }
+              }
+              if (outChunk) {
+                const b64 = Buffer.from(outChunk, "utf8").toString("base64");
+                if (first) { first = false; ok(id, { replay: { data: b64, cols: 80, rows: 24 } }); }
+                else ok(id, { data: { data: b64 } });
+              }
+              since = newOffset;
+              if (!running) { ok(id, { exited: { exitCode: 0 } }); ok(id, null); break; }
+              await new Promise((res) => setTimeout(res, 250));
+            }
+          } catch { /* aborted/closed */ }
+        })();
+        return;
+      }
+
+      // --- Watch (server-streaming): a real fs watcher (inotify) over the env workspace ---
+      if (m === "Watch") {
+        const envInfo = await djson("GET", `/v1/hypervisor/environments/${encodeURIComponent(env)}`);
+        const wsRoot = envInfo.body?.environment?.status?.workspace_root;
+        if (!wsRoot) { return err(id, C.Unavailable, "workspace not started"); }
+        let timer = null;
+        const watcher = fsWatch(wsRoot, { recursive: true }, (_evt, fname) => {
+          if (fname && String(fname).includes(".git/")) return; // ignore git internals churn
+          ok(id, { fileChanges: { events: [{ path: String(fname || ""), type: "FILE_CHANGE_TYPE_UPDATED", isDirectory: false }] } });
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => ok(id, { gitStatusChanged: {} }), 250);
+        });
+        streams.set(id, () => { try { watcher.close(); } catch { /* */ } if (timer) clearTimeout(timer); });
+        return;
+      }
+
+      // --- everything else (files / git / capabilities / exec): delegate to the daemon contract ---
+      const r = await djson("POST", `/supervisor/${encodeURIComponent(env)}/supervisor.v1.EnvironmentOpsService/${m}`, params || {}, token);
+      if (r.status >= 200 && r.status < 300) {
+        if (STREAMING.has(m)) ok(id, null); // shouldn't happen (handled above)
+        else ok(id, r.body);
+      } else {
+        err(id, r.status === 404 ? C.NotFound : r.status === 501 ? C.Unimplemented : C.Internal, r.body?.message || `daemon ${r.status}`);
+      }
+    } catch (e) {
+      err(id, C.Internal, String(e?.message || e));
+    }
+  });
+
+  ws.on("close", () => { for (const c of streams.values()) { try { c(); } catch { /* */ } } streams.clear(); });
+  ws.on("error", () => {});
+}
+
+// The env-ops WS transport is GATED OFF by default. The terminal/watch contract works over it
+// (verified at the protocol level: PTY echo + fs-watch, lease-secured), BUT the harvested reference
+// SPA throws React #306 in its EnvironmentContent component the moment the supervisor probe reports
+// "available" — which would regress the working Code/Files/Changes panels. So for the product SPA we
+// keep the WS unavailable (probe 404s → available:false → files/git keep working over HTTP). Enable
+// with IOI_ENV_OPS_WS=1 for non-SPA clients (CLI/SDK) or a bundle where #306 is fixed.
+const ENV_OPS_WS = process.env.IOI_ENV_OPS_WS === "1";
+const supervisorWss = new WebSocketServer({ noServer: true });
+server.on("upgrade", (req, socket, head) => {
+  const pathname = (req.url || "").split("?")[0];
+  if (ENV_OPS_WS && (pathname === "/supervisor.v1.EnvironmentOpsService/" || pathname.startsWith("/supervisor/"))) {
+    supervisorWss.handleUpgrade(req, socket, head, (ws) => handleSupervisorWs(ws));
+  } else {
+    socket.destroy();
+  }
 });
 
 // Wait for the mirror to accept connections, then listen.
