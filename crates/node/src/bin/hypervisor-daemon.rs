@@ -46,6 +46,8 @@ mod binding_routes;
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_routes.rs"]
 mod editor_routes;
+#[path = "hypervisor_daemon_routes/editor_proxy.rs"]
+mod editor_proxy;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -120,6 +122,8 @@ pub(crate) struct DaemonState {
     // holds the child process + internal port; stop/restart-reconcile tears them down. They die
     // with the daemon process (WS-3r reconcile marks survivors degraded on the next boot).
     pub(crate) editor_runtimes: Mutex<HashMap<String, editor_host::EditorRuntime>>,
+    // WS-4 — live lease-authenticated proxies fronting editor runtimes, keyed by editor service_id.
+    pub(crate) editor_proxies: Mutex<HashMap<String, editor_proxy::EditorProxy>>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -260,6 +264,7 @@ async fn async_main() -> anyhow::Result<()> {
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
+        editor_proxies: Mutex::new(HashMap::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the
@@ -942,6 +947,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/editor-services/:service_id/rebuild",
             post(editor_routes::handle_editor_service_rebuild),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/expose",
+            post(editor_routes::handle_editor_service_expose),
         )
         .route(
             "/v1/hypervisor/editor-services/:service_id/status",

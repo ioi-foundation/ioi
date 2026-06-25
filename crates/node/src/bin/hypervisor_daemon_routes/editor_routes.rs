@@ -212,15 +212,55 @@ pub(crate) async fn handle_editor_service_start(State(st): State<Arc<DaemonState
     }
 }
 
+/// POST /v1/hypervisor/editor-services/:service_id/expose — bind a lease-authenticated WS proxy
+/// (WS-4) in front of the ready runtime's internal port. Body: `{ lease_id }`. The public URL is
+/// served by the proxy; the raw internal port is never exposed. Fail-closed: requires a ready
+/// service + an active capability lease.
+pub(crate) async fn handle_editor_service_expose(State(st): State<Arc<DaemonState>>, AxumPath(service_id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
+        return Json(json!({ "ok": false, "reason": "editor service not found" }));
+    };
+    if svc.get("phase").and_then(|v| v.as_str()) != Some("ready") {
+        return Json(json!({ "ok": false, "reason": "editor service not ready (start it first)", "phase": svc.get("phase") }));
+    }
+    let internal_port = match svc.get("internal_port").and_then(|v| v.as_u64()) {
+        Some(p) => p as u16,
+        None => return Json(json!({ "ok": false, "reason": "no internal runtime port" })),
+    };
+    let lease_id = s(&body, "lease_id", "");
+    if capability_lease_status(&st.data_dir, &lease_id) != "active" {
+        return Json(json!({ "ok": false, "reason": format!("capability lease not active ({})", capability_lease_status(&st.data_dir, &lease_id)), "fail_closed": true }));
+    }
+    // replace any prior proxy for this service.
+    { let mut proxies = st.editor_proxies.lock().unwrap(); super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id); }
+    let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(&st.data_dir, &service_id, internal_port, &lease_id).await {
+        Ok(v) => v,
+        Err(e) => return Json(json!({ "ok": false, "reason": format!("proxy bind failed: {e}") })),
+    };
+    st.editor_proxies.lock().unwrap().insert(service_id.clone(), proxy);
+    svc["public_proxy_port"] = json!(public_port);
+    svc["bound_lease_id"] = json!(lease_id);
+    save_service(&st.data_dir, &svc);
+    editor_receipt(&st.data_dir, &service_id, "editor_proxy_bound");
+    Json(json!({
+        "ok": true, "service_id": service_id,
+        "public_proxy_port": public_port,
+        "open_url": format!("http://127.0.0.1:{public_port}/?lease={lease_id}"),
+        "auth_mode": "first_message_session_token", "lease_id": lease_id
+    }))
+}
+
 /// POST /v1/hypervisor/editor-services/:service_id/stop
 pub(crate) async fn handle_editor_service_stop(State(st): State<Arc<DaemonState>>, AxumPath(service_id): AxumPath<String>) -> Json<Value> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
         return Json(json!({ "ok": false, "reason": "editor service not found" }));
     };
+    { let mut proxies = st.editor_proxies.lock().unwrap(); super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id); }
     super::editor_host::stop_oss_runtime(&st, &service_id);
     svc["phase"] = json!("stopped");
     svc["readiness"] = json!({ "mode": "blocked", "reason": "stopped" });
     svc["internal_port"] = Value::Null;
+    svc["public_proxy_port"] = Value::Null;
     save_service(&st.data_dir, &svc);
     editor_receipt(&st.data_dir, &service_id, "editor_service_stopped");
     Json(json!({ "ok": true, "editorService": svc }))
