@@ -105,6 +105,13 @@ try {
   else if (ws4json?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["WebSocket proxy auth/revoke"] = "HOST_GATED"; for (const g of ws4json.declared_gaps || []) declaredGaps.push(g); }
   else { lines["WebSocket proxy auth/revoke"] = "FAIL"; failures.push("WS-4 proxy verifier not PASS"); }
 
+  // ---- editor restart reconcile + negatives — delegate to the WS-3r verifier ----
+  const ws3r = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-editor-reconcile.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 320000 });
+  let ws3rjson = null; try { ws3rjson = JSON.parse((ws3r.stdout || "").slice((ws3r.stdout || "").indexOf("{"))); } catch {}
+  if (ws3rjson?.verdict === "PASS") lines["Editor restart reconcile + negatives"] = "PASS";
+  else if (ws3rjson?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["Editor restart reconcile + negatives"] = "HOST_GATED"; for (const g of ws3rjson.declared_gaps || []) declaredGaps.push(g); }
+  else { lines["Editor restart reconcile + negatives"] = "FAIL"; failures.push("WS-3r reconcile verifier not PASS"); }
+
   // ---- packaged VS Code adapter host (external Electron binary) ----
   const packaged = existsSync(join(REPO, "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor"));
   lines["Packaged VS Code adapter host"] = packaged ? "PASS" : "HOST_GATED";
@@ -139,7 +146,14 @@ try {
   rmSync(dataDir, { recursive: true, force: true });
 }
 
-if (WANT_BROWSER && !JSON_OUT) console.log("  (--browser tier runs once the native editor UI lands; declared until then)");
+// ---- optional --browser tier: real Playwright render of the native cockpit (Open-in affordance) ----
+if (WANT_BROWSER) {
+  const nb = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-native-ux.mjs"), "--browser", "--json"], { encoding: "utf8", cwd: REPO, timeout: 600000 });
+  let nbjson = null; try { nbjson = JSON.parse((nb.stdout || "").slice((nb.stdout || "").indexOf("{"))); } catch {}
+  if (nbjson?.verdict === "PASS") lines["Native UI browser render"] = "PASS";
+  else if (nbjson?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["Native UI browser render"] = "HOST_GATED"; for (const g of nbjson.declared_gaps || []) declaredGaps.push(g); }
+  else { lines["Native UI browser render"] = "FAIL"; failures.push("native-ux --browser render not PASS"); }
+}
 
 // ---- Overall ----
 const REQUIRED_PASS = ["Editor target registry", "VS Code Browser host (OSS)", "Editor access leases", "WebSocket proxy auth/revoke", "Extension bundle install", "Extension context runtime refs", "Environment services/tasks/ports UI", "Workbench Hypervisorization guard"];
