@@ -92,11 +92,14 @@ export function daemonEnvToGitpod(env) {
   const s = env.status || {};
   const phase = ENV_PHASE[s.phase] || "ENVIRONMENT_PHASE_STOPPED";
   const running = phase === "ENVIRONMENT_PHASE_RUNNING";
+  // The env gateway origin the browser reaches (serve front). `ops` MUST contain `/supervisor/` or
+  // the SPA strips the path; it fronts the daemon-native EnvironmentOpsService (Cut A).
+  const gatewayOrigin = process.env.IOI_ENV_GATEWAY_ORIGIN || `http://127.0.0.1:${process.env.PORT || 4173}`;
   const status = {
     statusVersion: String(s.status_version || 1),
     phase,
     machine: { phase: running ? "PHASE_RUNNING" : phase === "ENVIRONMENT_PHASE_STOPPING" ? "PHASE_STOPPING" : "PHASE_STOPPED" },
-    environmentUrls: { logs: `local://environments/${env.id}/logs` },
+    environmentUrls: { logs: `local://environments/${env.id}/logs`, ops: `${gatewayOrigin}/supervisor/${env.id}/` },
     ioi: {
       provider: s.provider || null,
       isolationClaim: s.isolation_claim || null,

@@ -237,7 +237,13 @@ export async function handle(pathname, bodyText) {
         }
         return json({ environment: daemonEnvToGitpod(envRecord) });
       }
-      case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken":
+      case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken": {
+        // Mint a real env-scoped capability lease (Cut A): the SPA uses this as the Bearer for the
+        // EnvironmentOpsService gateway, which fails closed on revoke/expire.
+        const id = envIdFromBody(body);
+        const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
+        return json({ accessToken: lease.accessToken || lease.lease_id });
+      }
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentLogsToken":
         return json({ accessToken: `ioi-env-token-${envIdFromBody(body)}` });
       case "/api/gitpod.v1.EnvironmentService/MarkEnvironmentActive":

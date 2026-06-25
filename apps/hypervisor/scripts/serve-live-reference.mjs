@@ -159,6 +159,27 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+    // Cut A — env-ops plane: forward the EnvironmentOpsService Connect surface (and any env gateway
+    // path) to the daemon, preserving the capability-lease Authorization header. Contract + lease
+    // logic live in the daemon (D1); this is a transparent route, not a shim.
+    if (pathname.startsWith("/supervisor/")) {
+      try {
+        const headers = { "Content-Type": req.headers["content-type"] || "application/json" };
+        if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+        const upstream = await fetch(DAEMON + req.url, {
+          method: req.method,
+          headers,
+          body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
+        });
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+        res.end(buf);
+      } catch (e) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "unavailable", message: `daemon unreachable: ${e.message}` }));
+      }
+      return;
+    }
     if (pathname === "/ioi-augmentation.js") {
       try {
         const js = readFileSync(AUG_PATH);

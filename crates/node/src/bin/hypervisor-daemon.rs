@@ -48,6 +48,8 @@ mod editor_host;
 mod editor_routes;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
 mod editor_proxy;
+#[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
+mod supervisor_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -901,6 +903,16 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/env-files",
             post(binding_routes::handle_env_files),
+        )
+        // Cut A — env-ops plane: the EnvironmentOpsService Connect contract (files/git/terminal/…)
+        // the native Workbench consumes, + the env-scoped ops-lease the gateway validates.
+        .route(
+            "/v1/hypervisor/environments/:id/ops-lease",
+            post(supervisor_routes::handle_env_ops_lease),
+        )
+        .route(
+            "/supervisor/:env/supervisor.v1.EnvironmentOpsService/:method",
+            post(supervisor_routes::handle_environment_ops),
         )
         // T7-E: interactive PTY terminals bound to an environment_ref.
         .route(
