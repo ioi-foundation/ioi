@@ -3,3 +3,4 @@
 import "./kit.css";
 export * from "./primitives";
 export * from "./patterns";
+export * from "./icons";
