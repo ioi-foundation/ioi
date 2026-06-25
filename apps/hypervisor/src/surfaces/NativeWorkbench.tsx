@@ -10,7 +10,7 @@ import {
   type SessionExecutionBinding,
 } from "../services/hypervisorDaemonClient";
 import { createHypervisorWorkspaceAdapter } from "../services/HypervisorWorkspaceAdapter";
-import { Heading, Mono, Muted, Spacer, ReceiptRefs, BlockerNotice } from "../ui";
+import { Heading, Mono, Muted, Spacer, StatusDot, ReceiptRefs, BlockerNotice } from "../ui";
 import { OpenInPicker } from "./NativeCockpit";
 
 const client = createHypervisorDaemonClient();
@@ -49,6 +49,7 @@ export function NativeWorkbench() {
     <div className="hv-col" style={{ height: "100%" }} data-testid="workbench-surface">
       <div className="hv-toolbar">
         <Heading level={2}>Hypervisor Workbench</Heading>
+        <StatusDot tone={binding ? "success" : error ? "danger" : "neutral"} />
         <Mono>{binding?.binding_ref ?? "resolving…"}</Mono>
         <Muted>thread: {binding?.thread_ref ?? "—"}</Muted>
         <Muted>workrun: {binding?.work_run_ref ?? "—"}</Muted>

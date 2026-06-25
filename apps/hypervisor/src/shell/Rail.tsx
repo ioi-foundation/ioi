@@ -1,13 +1,17 @@
 // Layer 3 — the canonical global rail (foundations/01-ux-shell-and-ia.md), product-grade: brand
 // mark, icons, primary New Session with shortcut hint, Sessions section, org/account footer.
 // Stable + minimal. Providers/Environments are NOT rail items — they are catalog surfaces.
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BrandMark, IconHome, IconProjects, IconAutomations, IconApplications, IconSessions,
   IconSettings, IconPlus, StatusDot,
 } from "../ui";
+import { createHypervisorDaemonClient, type EnvironmentSummary } from "../services/hypervisorDaemonClient";
 
 const cx = (...c: Array<string | false | undefined>) => c.filter(Boolean).join(" ");
+const client = createHypervisorDaemonClient();
+const shortId = (id: string) => id.replace(/^env_/, "").slice(0, 8);
 
 const NAV = [
   { to: "/", label: "Home", Icon: IconHome },
@@ -18,6 +22,14 @@ const NAV = [
 export function Rail({ onOpenApplications }: { onOpenApplications: () => void }) {
   const { pathname } = useLocation();
   const active = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
+  const [sessions, setSessions] = useState<EnvironmentSummary[]>([]);
+  useEffect(() => {
+    let on = true;
+    const load = () => client.listEnvironments().then((r) => { if (on) setSessions((r.environments ?? []).filter((e) => e.status?.phase === "running")); }).catch(() => {});
+    void load();
+    const t = setInterval(load, 5000); // live-ish without ceremony
+    return () => { on = false; clearInterval(t); };
+  }, [pathname]);
   return (
     <nav className="hv-rail" data-testid="hv-rail">
       <div className="hv-rail__brand"><BrandMark size={18} /><span>Hypervisor</span></div>
@@ -40,9 +52,12 @@ export function Rail({ onOpenApplications }: { onOpenApplications: () => void })
       <Link to="/sessions" className={cx("hv-rail__item", active("/sessions") && "hv-rail__item--active")} data-testid="rail-sessions">
         <IconSessions size={16} /><span>All sessions</span>
       </Link>
-      <div className="hv-rail__session">
-        <StatusDot tone="success" /><span className="hv-mono">main</span><span className="hv-tertiary">Ready</span>
-      </div>
+      {sessions.slice(0, 4).map((e) => (
+        <Link key={e.id} to={`/workbench/${e.id}`} className="hv-rail__session" data-testid="rail-live-session">
+          <StatusDot tone="success" /><span className="hv-mono">{shortId(e.id)}</span><span className="hv-tertiary">running</span>
+        </Link>
+      ))}
+      {sessions.length === 0 && <div className="hv-rail__session"><span className="hv-tertiary">No active sessions</span></div>}
 
       <span className="hv-spacer" />
       <div className="hv-rail__sep" />

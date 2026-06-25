@@ -9,9 +9,12 @@ import {
   type ProviderInfo,
 } from "../services/hypervisorDaemonClient";
 import {
-  Heading, Muted, Mono, Button, Card, Row, Spacer, Badge,
+  Heading, Muted, Mono, Button, Card, Row, Spacer, Badge, StatusDot,
   ReadinessBadge, ComponentGrid, BlockerNotice, AuthorityControl,
+  IconPlus,
 } from "../ui";
+
+const phaseTone = (phase?: string) => (phase === "running" ? "success" : phase === "stopped" ? "neutral" : "danger");
 
 const client = createHypervisorDaemonClient();
 
@@ -60,12 +63,14 @@ export function EnvironmentsSurface() {
   const [envs, setEnvs] = useState<EnvironmentSummary[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [rebuilding, setRebuilding] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [e, p] = await Promise.all([client.listEnvironments(), client.listProviders()]);
     setEnvs(e.environments ?? []);
     setProviders(p.providers ?? []);
+    setLoaded(true);
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -85,7 +90,7 @@ export function EnvironmentsSurface() {
   return (
     <div className="hv-page" data-testid="environments-surface">
       <div className="hv-page__head">
-        <Heading level={1}>Environments</Heading>
+        <Row><Heading level={1}>Environments</Heading><Badge tone="neutral">{envs.length}</Badge></Row>
         <Muted>Provider placement, runtime substrate, and environment lifecycle.</Muted>
       </div>
 
@@ -94,9 +99,13 @@ export function EnvironmentsSurface() {
         {providers.map((p) => <Badge key={p.provider_ref} tone={tone(p.status)}>{p.provider_ref}: {p.status}</Badge>)}
       </Row>
 
-      <Button variant="primary" onClick={create} disabled={busy} data-testid="create-env">
-        {busy ? "Creating…" : "Create + Start environment"}
-      </Button>
+      <div>
+        <Button variant="primary" onClick={create} disabled={busy} data-testid="create-env">
+          <IconPlus size={15} />{busy ? "Creating…" : "Create + Start environment"}
+        </Button>
+      </div>
+
+      {!loaded && <Muted>Loading environments…</Muted>}
 
       <div className="hv-stack">
         {envs.map((e) => (
@@ -104,7 +113,7 @@ export function EnvironmentsSurface() {
             <Row>
               <Mono>{e.id}</Mono>
               <ReadinessBadge mode={e.status?.readiness?.mode} />
-              <Muted>{e.status?.phase}</Muted>
+              <StatusDot tone={phaseTone(e.status?.phase)} /><Muted>{e.status?.phase}</Muted>
               <Spacer />
               <Link to={`/workbench/${e.id}`} className="hv-link" data-testid="open-workbench">Open Workbench</Link>
               <Button size="sm" onClick={() => rebuild(e.id)} disabled={rebuilding === e.id} data-testid="rebuild-env" title="Rebuild from devcontainer/recipe (daemon lifecycle)">{rebuilding === e.id ? "Rebuilding…" : "Rebuild"}</Button>

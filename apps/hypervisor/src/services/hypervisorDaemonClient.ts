@@ -83,6 +83,18 @@ export class HypervisorDaemonClient {
     return this.req("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/${action}`);
   }
 
+  // --- models / projects (composer inputs) ---
+  // /v1/models returns a bare array (daemon inventory); normalize to { models: [{id}] }.
+  async listModels(): Promise<{ models: Array<{ id: string }> }> {
+    const r = await this.req<unknown>("GET", "/v1/models");
+    const arr = Array.isArray(r) ? r : ((r as { data?: unknown[]; models?: unknown[] })?.data ?? (r as { models?: unknown[] })?.models ?? []);
+    const models = (arr as Array<{ id?: string }>).filter((m) => m && m.id).map((m) => ({ id: String(m.id) }));
+    return { models };
+  }
+  listProjects(): Promise<{ projects?: Array<{ id?: string; project_id?: string; name?: string }> }> {
+    return this.req("GET", "/v1/hypervisor/projects");
+  }
+
   // --- providers / resource / authority (status projections) ---
   listProviders(): Promise<{ providers?: ProviderInfo[] }> {
     return this.req("GET", "/v1/hypervisor/providers");
