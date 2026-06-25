@@ -141,6 +141,14 @@ export class HypervisorDaemonClient {
     return this.req("POST", "/v1/hypervisor/env-files", { environment_id: environmentId, op, ...extra });
   }
 
+  // --- devcontainer / recipe config + rebuild (daemon environment lifecycle) ---
+  envConfig(environmentId: string, op: "open" | "validate" | "rebuild" | "apply_automations"): Promise<Record<string, unknown>> {
+    return this.req("POST", "/v1/hypervisor/env-config", { environment_id: environmentId, op });
+  }
+  rebuildEnvironment(environmentId: string): Promise<{ ok?: boolean; state?: string; reason?: string; readiness_mode?: string }> {
+    return this.req("POST", "/v1/hypervisor/env-config", { environment_id: environmentId, op: "rebuild" });
+  }
+
   // --- editor targets + access services (Open in…) ---
   listEditorTargets(): Promise<{ active_targets?: string[]; targets?: Array<{ target_id: string; status: string; profile?: Record<string, unknown> }> }> {
     return this.req("GET", "/v1/hypervisor/editor-targets");

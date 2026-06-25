@@ -738,6 +738,12 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/exec",
             post(environment_routes::handle_workspace_exec),
         )
+        // WS-5: devcontainer/recipe config workflow (open/validate/rebuild/apply_automations).
+        // Rebuild flows through the daemon environment lifecycle, not editor-local commands.
+        .route(
+            "/v1/hypervisor/env-config",
+            post(environment_routes::handle_env_config),
+        )
         // WS-11: SSE stream of env status + transitions (top-level path avoids :action collision).
         .route(
             "/v1/hypervisor/env-events/:id",

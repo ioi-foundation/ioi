@@ -105,6 +105,12 @@ try {
   else if (ws4json?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["WebSocket proxy auth/revoke"] = "HOST_GATED"; for (const g of ws4json.declared_gaps || []) declaredGaps.push(g); }
   else { lines["WebSocket proxy auth/revoke"] = "FAIL"; failures.push("WS-4 proxy verifier not PASS"); }
 
+  // ---- Devcontainer/rebuild flow — delegate to the WS-5 verifier ----
+  const ws5 = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-devcontainer-rebuild.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 120000 });
+  let ws5json = null; try { ws5json = JSON.parse((ws5.stdout || "").slice((ws5.stdout || "").indexOf("{"))); } catch {}
+  lines["Devcontainer/rebuild flow"] = ws5json?.verdict === "PASS" ? "PASS" : "FAIL";
+  if (lines["Devcontainer/rebuild flow"] !== "PASS") failures.push("WS-5 devcontainer/rebuild verifier not PASS");
+
   // ---- editor restart reconcile + negatives — delegate to the WS-3r verifier ----
   const ws3r = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-editor-reconcile.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 320000 });
   let ws3rjson = null; try { ws3rjson = JSON.parse((ws3r.stdout || "").slice((ws3r.stdout || "").indexOf("{"))); } catch {}
@@ -139,7 +145,7 @@ try {
   for (const [line, status] of [
     ["WebSocket proxy auth/revoke", "NOT_BUILT"],
     ["Extension bundle install", "NOT_BUILT"],
-    ["Devcontainer/rebuild flow", "PARTIAL"],
+    ["Devcontainer/rebuild flow", "NOT_BUILT"],
   ]) { if (!(line in lines)) lines[line] = status; }
 } finally {
   daemon.kill("SIGKILL");
@@ -156,7 +162,7 @@ if (WANT_BROWSER) {
 }
 
 // ---- Overall ----
-const REQUIRED_PASS = ["Editor target registry", "VS Code Browser host (OSS)", "Editor access leases", "WebSocket proxy auth/revoke", "Extension bundle install", "Extension context runtime refs", "Environment services/tasks/ports UI", "Workbench Hypervisorization guard"];
+const REQUIRED_PASS = ["Editor target registry", "VS Code Browser host (OSS)", "Editor access leases", "WebSocket proxy auth/revoke", "Extension bundle install", "Extension context runtime refs", "Environment services/tasks/ports UI", "Workbench Hypervisorization guard", "Devcontainer/rebuild flow", "Editor restart reconcile + negatives"];
 const pendingMarkers = ["NOT_BUILT", "NOT_YET_PROVISIONED", "PARTIAL"];
 const anyHardFail = failures.length > 0 || Object.values(lines).includes("FAIL");
 const anyPending = REQUIRED_PASS.some((l) => pendingMarkers.includes(lines[l]));

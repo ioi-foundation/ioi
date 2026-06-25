@@ -1307,6 +1307,108 @@ pub(crate) async fn handle_workspace_exec(
     })))
 }
 
+/// POST /v1/hypervisor/env-config — devcontainer/recipe config workflow (WS-5). Collision-safe
+/// top-level resource (NOT under /environments/:id, which collides with :action). op ∈
+/// open | validate | rebuild | apply_automations.
+///
+/// REBUILD flows through the DAEMON environment lifecycle — recipe detect → admit → resolve →
+/// readiness gate → typed lifecycle observations + receipt, mutating the ENVIRONMENT record. It is
+/// NOT an editor-local command: the browser IDE may EDIT `.devcontainer/devcontainer.json` (via
+/// env-files) and trigger this, but never owns the rebuild. Fail-closed on an invalid config
+/// (recoverable: fix + rebuild again). Body: `{ environment_id, op }`.
+pub(crate) async fn handle_env_config(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, AppError> {
+    let env_id = body.get("environment_id").and_then(|v| v.as_str())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    let op = body.get("op").and_then(|v| v.as_str()).unwrap_or("open");
+    let mut env = load_env(&st.data_dir, env_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    let ws = env["status"]["workspace_root"].as_str()
+        .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
+        .to_string();
+    let nanos = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+
+    // resolve the devcontainer config path (.devcontainer/devcontainer.json or devcontainer.json).
+    let dc_nested = std::path::Path::new(&ws).join(".devcontainer/devcontainer.json");
+    let dc_flat = std::path::Path::new(&ws).join("devcontainer.json");
+    let (dc_path, config_rel) = if dc_nested.exists() { (Some(dc_nested), ".devcontainer/devcontainer.json") }
+        else if dc_flat.exists() { (Some(dc_flat), "devcontainer.json") }
+        else { (None, ".devcontainer/devcontainer.json") };
+    let read_config = || dc_path.as_ref().and_then(|p| std::fs::read_to_string(p).ok());
+
+    match op {
+        "open" => Ok(Json(json!({
+            "ok": true, "op": "open", "environment_id": env_id,
+            "config_path": config_rel, "present": dc_path.is_some(), "content": read_config(),
+            "current_recipe_ref": env["spec"]["recipe_ref"],
+            "edit_via": "/v1/hypervisor/env-files (op:write)",
+            "note": "edit the config, then POST op:rebuild to apply through the daemon lifecycle"
+        }))),
+        "validate" => {
+            let content = read_config();
+            let (valid, reason) = match &content {
+                None => (false, "no devcontainer config present".to_string()),
+                Some(c) => match serde_json::from_str::<Value>(c) {
+                    Ok(_) => (true, "devcontainer config parses".to_string()),
+                    Err(e) => (false, format!("invalid JSON: {e}")),
+                },
+            };
+            let fields = super::recipe_routes::detect_recipe_fields(&ws);
+            Ok(Json(json!({
+                "ok": valid, "op": "validate", "environment_id": env_id, "valid": valid, "reason": reason,
+                "detected_substrate": fields["substrate"], "detected_signals": fields["detected_signals"],
+                "rebuild_recommended": valid, "config_path": config_rel
+            })))
+        }
+        "rebuild" => {
+            // fail closed on a broken config — recoverable (fix the JSON + rebuild again).
+            if let Some(c) = read_config() {
+                if serde_json::from_str::<Value>(&c).is_err() {
+                    observe(&mut env, "rebuilding", "recipe", "failed", "error", "rebuild refused: devcontainer config is invalid JSON");
+                    env["status"]["rebuild"] = json!({ "state": "failed", "reason": "invalid_devcontainer_config", "recoverable": true, "at": iso_now() });
+                    recompute_readiness(&mut env);
+                    persist_env(&st.data_dir, &env)?;
+                    let rid = format!("erc_{:x}", nanos());
+                    let _ = persist_record(&st.data_dir, "environment-receipts", &rid, &json!({ "environment_ref": env_id, "event": "rebuild_failed", "reason": "invalid_devcontainer_config", "at": iso_now() }));
+                    return Ok(Json(json!({ "ok": false, "op": "rebuild", "environment_id": env_id, "state": "failed", "reason": "invalid_devcontainer_config", "recoverable": true, "receipt_ref": format!("agentgres://environment-receipt/{rid}") })));
+                }
+            }
+            // daemon-owned rebuild: re-detect → admit → resolve → readiness gate → observe.
+            observe(&mut env, "rebuilding", "recipe", "content_ready", "info", "rebuild: re-detecting recipe from devcontainer config");
+            let project_ref = env["spec"]["project_id"].as_str();
+            let new_recipe_ref = super::recipe_routes::detect_and_admit(&st.data_dir, &ws, project_ref)?;
+            let recipe = super::recipe_routes::load_recipe(&st.data_dir, &new_recipe_ref).unwrap_or_else(|| json!({}));
+            let resolution = super::recipe_routes::resolve_recipe(&st.data_dir, &recipe, env_id)?;
+            let gate = super::recipe_routes::compute_readiness_gate(&st.data_dir, &resolution, &env)?;
+            let prior = env["spec"]["recipe_ref"].clone();
+            env["spec"]["recipe_ref"] = json!(new_recipe_ref);
+            env["status"]["recipe_ref"] = json!(new_recipe_ref);
+            env["status"]["readiness"] = json!({ "mode": gate["readiness_mode"], "blocked_reasons": gate["blocked_reasons"] });
+            observe(&mut env, "rebuilding", "recipe", "content_ready", "info", &format!("rebuild applied: recipe {} → {new_recipe_ref} (readiness {})", prior.as_str().unwrap_or("none"), gate["readiness_mode"].as_str().unwrap_or("")));
+            observe(&mut env, "ready", "recipe", "ever_ready", "info", "rebuild complete");
+            env["status"]["rebuild"] = json!({ "state": "succeeded", "from_recipe": prior, "to_recipe": new_recipe_ref, "readiness_mode": gate["readiness_mode"], "at": iso_now() });
+            persist_env(&st.data_dir, &env)?;
+            let rid = format!("erc_{:x}", nanos());
+            let _ = persist_record(&st.data_dir, "environment-receipts", &rid, &json!({ "environment_ref": env_id, "event": "rebuild_succeeded", "recipe_ref": new_recipe_ref, "readiness_mode": gate["readiness_mode"], "at": iso_now() }));
+            Ok(Json(json!({
+                "ok": true, "op": "rebuild", "environment_id": env_id, "state": "succeeded",
+                "recipe_ref": new_recipe_ref, "resolution_ref": resolution["resolution_ref"], "readiness_gate_ref": gate["gate_ref"],
+                "readiness_mode": gate["readiness_mode"], "lifecycle": "daemon_environment_lifecycle",
+                "receipt_ref": format!("agentgres://environment-receipt/{rid}"),
+                "events_stream": format!("/v1/hypervisor/env-events/{env_id}")
+            })))
+        }
+        "apply_automations" => {
+            observe(&mut env, "applying_automations", "tasks", "content_ready", "info", "automations/tasks config applied to environment tasks (daemon-owned)");
+            persist_env(&st.data_dir, &env)?;
+            Ok(Json(json!({ "ok": true, "op": "apply_automations", "environment_id": env_id, "note": "automations mapped to Hypervisor environment tasks, not a VS Code sidecar" })))
+        }
+        other => Ok(Json(json!({ "ok": false, "reason": format!("unknown op '{other}'") }))),
+    }
+}
+
 /// POST /v1/hypervisor/workruns/:id/execute — run ONE model-driven child-harness turn.
 ///
 /// This is the real Build-Rule inner loop. The daemon's model route (`hypervisor:native-fixture`

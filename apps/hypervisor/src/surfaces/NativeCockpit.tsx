@@ -159,6 +159,13 @@ export function EnvironmentsSurface() {
     } finally { setBusy(false); }
   };
   const act = async (id: string, action: "start" | "stop" | "delete") => { await client.environmentAction(id, action); await refresh(); };
+  const [rebuilding, setRebuilding] = useState<string | null>(null);
+  const rebuild = async (id: string) => {
+    // "Rebuild Container" maps to the daemon environment rebuild (recipe re-resolve), NOT an
+    // editor-local command. Streams lifecycle observations + emits a receipt.
+    setRebuilding(id);
+    try { await client.rebuildEnvironment(id); await refresh(); } finally { setRebuilding(null); }
+  };
 
   return (
     <Surface title="Environments" testid="environments-surface">
@@ -174,6 +181,7 @@ export function EnvironmentsSurface() {
               <span style={{ color: "#9aa4b2" }}>{e.status?.phase}</span>
               <span style={{ flex: 1 }} />
               <Link to={`/workbench/${e.id}`} style={{ color: "#6ab0ff" }} data-testid="open-workbench">Open Workbench</Link>
+              <button onClick={() => rebuild(e.id)} disabled={rebuilding === e.id} data-testid="rebuild-env" title="Rebuild from devcontainer/recipe (daemon lifecycle)">{rebuilding === e.id ? "Rebuilding…" : "Rebuild"}</button>
               <button onClick={() => act(e.id, "stop")}>Stop</button>
               <button onClick={() => act(e.id, "delete")}>Delete</button>
             </div>
