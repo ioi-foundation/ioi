@@ -918,6 +918,20 @@ async fn async_main() -> anyhow::Result<()> {
             "/supervisor/:env/supervisor.v1.EnvironmentOpsService/:method",
             post(supervisor_routes::handle_environment_ops),
         )
+        // Cut C — port preview: observe live ports, expose one behind a lease + the loopback
+        // preview gateway, unexpose (revoke + teardown). Fail-closed via the gateway's own auth.
+        .route(
+            "/v1/hypervisor/environments/:id/ports",
+            get(environment_routes::handle_env_ports),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/ports/:port/expose",
+            post(environment_routes::handle_env_port_expose),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/ports/:port/unexpose",
+            post(environment_routes::handle_env_port_unexpose),
+        )
         // T7-E: interactive PTY terminals bound to an environment_ref.
         .route(
             "/v1/hypervisor/terminals",

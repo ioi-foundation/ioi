@@ -419,6 +419,172 @@ fn typed_port_checked(p: &Value, in_use: &std::collections::HashSet<u64>) -> (Va
     (port, false)
 }
 
+// ---- Cut C: port preview — lease-bound expose / observe / revoke via the env gateway ----------
+// A port that a service/task actually opened is OBSERVED (TCP liveness), EXPOSED behind a
+// capability lease through the SAME loopback gateway that fronts the browser-IDE (one public port,
+// fail-closed on revoke/expire), and UNEXPOSED (revoke + teardown). For the local provider the
+// env's server binds a HOST loopback port, so the gateway forwards to 127.0.0.1:<port>. The
+// microVM guest port-forward is the provider-ladder follow-up — a microVM env fails closed here
+// (NEVER a fake forward to an unrelated host port).
+
+/// Parse `devcontainer.json`, which is officially JSONC: it allows `//` line comments, `/* */`
+/// block comments, and trailing commas (the scaffold the daemon itself writes is JSONC). Strip
+/// them STRING-AWARE (a `//` or comma inside a JSON string is data, e.g. an `https://` URL) and
+/// then parse strictly. This is what the devcontainer spec mandates — strict serde would reject
+/// the daemon's own scaffold.
+fn parse_jsonc(input: &str) -> Result<Value, String> {
+    let b = input.as_bytes();
+    let mut out = String::with_capacity(input.len());
+    let (mut i, mut in_str, mut esc) = (0usize, false, false);
+    while i < b.len() {
+        let c = b[i] as char;
+        if in_str {
+            out.push(c);
+            if esc { esc = false; } else if c == '\\' { esc = true; } else if c == '"' { in_str = false; }
+            i += 1;
+            continue;
+        }
+        if c == '"' { in_str = true; out.push(c); i += 1; continue; }
+        if c == '/' && i + 1 < b.len() {
+            match b[i + 1] as char {
+                '/' => { i += 2; while i < b.len() && b[i] != b'\n' { i += 1; } continue; }
+                '*' => { i += 2; while i + 1 < b.len() && !(b[i] == b'*' && b[i + 1] == b'/') { i += 1; } i += 2; continue; }
+                _ => {}
+            }
+        }
+        out.push(c);
+        i += 1;
+    }
+    // drop trailing commas (`,}` / `,]`, whitespace-tolerant), string-aware over the de-commented text.
+    let ob = out.as_bytes();
+    let mut clean = String::with_capacity(out.len());
+    let (mut j, mut s2, mut e2) = (0usize, false, false);
+    while j < ob.len() {
+        let c = ob[j] as char;
+        if s2 {
+            clean.push(c);
+            if e2 { e2 = false; } else if c == '\\' { e2 = true; } else if c == '"' { s2 = false; }
+            j += 1;
+            continue;
+        }
+        if c == '"' { s2 = true; clean.push(c); j += 1; continue; }
+        if c == ',' {
+            let mut k = j + 1;
+            while k < ob.len() && (ob[k] as char).is_whitespace() { k += 1; }
+            if k < ob.len() && (ob[k] == b'}' || ob[k] == b']') { j += 1; continue; }
+        }
+        clean.push(c);
+        j += 1;
+    }
+    serde_json::from_str(&clean).map_err(|e| e.to_string())
+}
+
+/// TCP liveness probe: is something accepting on 127.0.0.1:<port> right now?
+fn port_listening(port: u64) -> bool {
+    if port == 0 || port > 65535 { return false; }
+    match format!("127.0.0.1:{port}").parse::<std::net::SocketAddr>() {
+        Ok(addr) => std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300)).is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// GET /v1/hypervisor/environments/:id/ports — observe the env's ports with live TCP liveness.
+pub(crate) async fn handle_env_ports(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(env) = load_env(&st.data_dir, &id) else {
+        return Ok(Json(json!({ "ok": false, "reason": "environment not found" })));
+    };
+    let ports: Vec<Value> = env["status"]["ports"].as_array().cloned().unwrap_or_default()
+        .into_iter().map(|mut p| {
+            let port = p.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
+            p["listening"] = json!(port_listening(port));
+            p
+        }).collect();
+    Ok(Json(json!({ "ok": true, "environment_id": id, "ports": ports })))
+}
+
+/// POST /v1/hypervisor/environments/:id/ports/:port/expose — mint an env+port-scoped capability
+/// lease, bind the loopback preview gateway in front of the env's listening port, and return a
+/// real preview URL. Fail-closed: a non-running or microVM env is refused (named gap), and a later
+/// revoke/expire kills the preview through the gateway's own auth.
+pub(crate) async fn handle_env_port_expose(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((id, port)): AxumPath<(String, u64)>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut env) = load_env(&st.data_dir, &id) else {
+        return Ok(Json(json!({ "ok": false, "reason": "environment not found" })));
+    };
+    if env["status"]["phase"].as_str() != Some("running") {
+        return Ok(Json(json!({ "ok": false, "reason": "environment not running", "fail_closed": true })));
+    }
+    if env["status"]["substrate"].as_str() == Some("microvm") {
+        return Ok(Json(json!({ "ok": false, "reason": "guest_forward_unwired",
+            "detail": "microVM guest port-forward is the provider-ladder follow-up; the local provider preview is live",
+            "fail_closed": true })));
+    }
+    if port == 0 || port > 65535 {
+        return Ok(Json(json!({ "ok": false, "reason": "invalid port" })));
+    }
+    let listening = port_listening(port);
+    let lease = super::authority_routes::issue_capability_lease(
+        &st.data_dir, "operator", "environment.port",
+        json!([format!("environment:{id}"), format!("port:{port}")]), 3600);
+    let lease_id = lease.get("grant_id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let service_key = format!("envport_{}_{}", safe_id(&id), port);
+    { let mut proxies = st.editor_proxies.lock().unwrap(); super::editor_proxy::stop_editor_proxy(&mut proxies, &service_key); }
+    let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(&st.data_dir, &service_key, port as u16, &lease_id).await {
+        Ok(v) => v,
+        Err(e) => return Ok(Json(json!({ "ok": false, "reason": format!("preview gateway bind failed: {e}") }))),
+    };
+    st.editor_proxies.lock().unwrap().insert(service_key, proxy);
+    let url = format!("http://127.0.0.1:{public_port}/?lease={lease_id}");
+    let mut ports = env["status"]["ports"].as_array().cloned().unwrap_or_default();
+    let entry = json!({ "port": port, "protocol": "tcp", "access_policy": "session_lease",
+        "exposure_state": "open", "capability_lease_ref": lease_id, "url": url,
+        "public_proxy_port": public_port, "listening": listening });
+    match ports.iter_mut().find(|p| p.get("port").and_then(|v| v.as_u64()) == Some(port)) {
+        Some(existing) => { for (k, v) in entry.as_object().unwrap() { existing[k] = v.clone(); } }
+        None => ports.push(entry),
+    }
+    env["status"]["ports"] = json!(ports);
+    observe(&mut env, "exposing_port", "connectivity", "content_ready", "info",
+        &format!("port {port} exposed behind a capability lease (preview {url})"));
+    persist_env(&st.data_dir, &env)?;
+    Ok(Json(json!({ "ok": true, "environment_id": id, "port": port, "url": url,
+        "accessToken": lease_id, "public_proxy_port": public_port, "listening": listening,
+        "fail_closed_on_revoke": true })))
+}
+
+/// POST /v1/hypervisor/environments/:id/ports/:port/unexpose — revoke the bound lease + tear down
+/// the gateway. The preview URL then fails closed.
+pub(crate) async fn handle_env_port_unexpose(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((id, port)): AxumPath<(String, u64)>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut env) = load_env(&st.data_dir, &id) else {
+        return Ok(Json(json!({ "ok": false, "reason": "environment not found" })));
+    };
+    let service_key = format!("envport_{}_{}", safe_id(&id), port);
+    { let mut proxies = st.editor_proxies.lock().unwrap(); super::editor_proxy::stop_editor_proxy(&mut proxies, &service_key); }
+    let mut ports = env["status"]["ports"].as_array().cloned().unwrap_or_default();
+    let mut lease_ref = None;
+    if let Some(existing) = ports.iter_mut().find(|p| p.get("port").and_then(|v| v.as_u64()) == Some(port)) {
+        lease_ref = existing.get("capability_lease_ref").and_then(|v| v.as_str()).map(str::to_string);
+        existing["exposure_state"] = json!("closed");
+        existing["url"] = Value::Null;
+        existing["capability_lease_ref"] = Value::Null;
+        existing["public_proxy_port"] = Value::Null;
+    }
+    if let Some(l) = &lease_ref { super::authority_routes::revoke_lease(&st.data_dir, l); }
+    env["status"]["ports"] = json!(ports);
+    observe(&mut env, "closing_port", "connectivity", "content_ready", "info",
+        &format!("port {port} unexposed (lease revoked, gateway torn down)"));
+    persist_env(&st.data_dir, &env)?;
+    Ok(Json(json!({ "ok": true, "environment_id": id, "port": port, "exposure_state": "closed" })))
+}
+
 /// `HypervisorEnvironmentResourceIsolationProfile` — for a microVM the cpu/mem limits are REALLY
 /// enforced by the monitor (cloud-hypervisor --cpus/--memory); for local it is process-scoped.
 fn resource_isolation_profile(is_microvm: bool, vcpus: u32, mem_mib: u32) -> Value {
@@ -1396,7 +1562,7 @@ pub(crate) async fn handle_env_config(
             let content = read_config();
             let (valid, reason) = match &content {
                 None => (false, "no devcontainer config present".to_string()),
-                Some(c) => match serde_json::from_str::<Value>(c) {
+                Some(c) => match parse_jsonc(c) {
                     Ok(_) => (true, "devcontainer config parses".to_string()),
                     Err(e) => (false, format!("invalid JSON: {e}")),
                 },
@@ -1411,7 +1577,7 @@ pub(crate) async fn handle_env_config(
         "rebuild" => {
             // fail closed on a broken config — recoverable (fix the JSON + rebuild again).
             if let Some(c) = read_config() {
-                if serde_json::from_str::<Value>(&c).is_err() {
+                if parse_jsonc(&c).is_err() {
                     observe(&mut env, "rebuilding", "recipe", "failed", "error", "rebuild refused: devcontainer config is invalid JSON");
                     env["status"]["rebuild"] = json!({ "state": "failed", "reason": "invalid_devcontainer_config", "recoverable": true, "at": iso_now() });
                     recompute_readiness(&mut env);

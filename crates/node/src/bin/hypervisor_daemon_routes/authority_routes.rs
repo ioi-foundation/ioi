@@ -151,6 +151,24 @@ pub(crate) fn capability_lease_status(data_dir: &str, lease_ref: &str) -> &'stat
     }
 }
 
+/// Revoke a capability lease by id/ref — the reusable core of `POST /authority/revoke`, also used
+/// by the env port-preview gateway to fail-close a lease on unexpose. Returns true if a granted
+/// lease was revoked. (The HTTP handler keeps its richer response; this is the in-process path.)
+pub(crate) fn revoke_lease(data_dir: &str, key: &str) -> bool {
+    let Some(mut grant) = load_grant(data_dir, key) else { return false; };
+    if grant.get("decision").and_then(|v| v.as_str()) != Some("granted") { return false; }
+    let grant_id = grant.get("grant_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let grant_ref = grant.get("grant_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let subject = grant.get("subject").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let action = grant.get("action").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    grant["revoked"] = json!(true);
+    grant["revoked_at"] = json!(iso_now());
+    let receipt_ref = emit_receipt(data_dir, "revoked", &grant_ref, &subject, &action, "port-preview unexpose / operator revoke");
+    if let Some(arr) = grant.get_mut("authority_receipt_refs").and_then(|v| v.as_array_mut()) { arr.push(json!(receipt_ref)); }
+    let _ = persist_record(data_dir, "authority-grants", &grant_id, &grant);
+    true
+}
+
 /// GET /v1/hypervisor/authority/posture — the local-operator authority posture.
 pub(crate) async fn handle_authority_posture(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({
