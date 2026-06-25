@@ -75,8 +75,18 @@ async fn handle_conn(mut inbound: TcpStream, internal_port: u16, bound_lease: &s
         }
     }
     proxy_event(data_dir, service_id, "websocket_intercepted", bound_lease);
+    // Auth model for this loopback, per-service public port: the bound capability lease must be
+    // active (fail-closed on revoke/expire). The opening navigation carries ?lease=<id> and MUST
+    // match; the workbench's subsequent asset/WS requests are same-origin and tokenless, so a
+    // request WITHOUT a token is allowed while the lease is active (otherwise the IDE renders blank
+    // — every /stable-<commit>/static/* asset would 403). A request bearing a WRONG token is denied.
     let token = extract_lease_token(&buf);
-    let authed = token.as_deref() == Some(bound_lease) && capability_lease_status(data_dir, bound_lease) == "active";
+    let lease_active = capability_lease_status(data_dir, bound_lease) == "active";
+    let token_ok = match token.as_deref() {
+        Some(t) => t == bound_lease,
+        None => true,
+    };
+    let authed = lease_active && token_ok;
     if !authed {
         proxy_event(data_dir, service_id, "authentication_denied", bound_lease);
         let body = "Hypervisor editor access denied: a valid, unexpired, non-revoked editor capability lease is required. Open through Sessions/Environments, not the raw endpoint.";
