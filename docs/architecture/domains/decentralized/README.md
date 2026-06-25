@@ -92,7 +92,8 @@ decentralized.trade
   and venue-action candidates
 
 wallet.network
-  presents the user-facing cockpit and authorizes or denies exact intents
+  authorizes or denies exact intents; Wallet may present the high-trust cockpit
+  while embedded products may present narrower permission and approval flows
 
 Hypervisor
   executes autonomous work and provider-backed workloads

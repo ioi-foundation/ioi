@@ -83,10 +83,9 @@ Client surfaces
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
 
 Hypervisor application surfaces
-  Workbench, Foundry, Agents / Workers, Models, Connectors / Tools / MCP,
-  Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
-  Operate / Monitoring, Providers / Environments, Privacy / cTEE,
-  Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
+  Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
+  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  Robot Fleets / Embodied
   organize the same Core by job-to-be-done without owning runtime truth
 ```
 
@@ -289,7 +288,7 @@ L1:
 For run-per-launch work, the domain kernel may route to:
 
 - user-local Hypervisor Daemon managed through Hypervisor App, Hypervisor Web,
-  CLI/headless, Workbench surfaces, or Providers / Environments views;
+  CLI/headless, Workbench surfaces, or Environments views;
 - hosted Hypervisor Daemon;
 - provider runtime;
 - DePIN node;
@@ -331,7 +330,7 @@ It synchronizes with IOI L1 only for:
 5. All surfaces must use stable runtime/substrate envelopes.
 6. Client surfaces such as Hypervisor App, Hypervisor Web, CLI/headless,
    optional TUI, SDK, ADK, Workbench, Workflow Compositor, Foundry, and
-   Providers / Environments views must not bypass domain kernels or daemon
+   Environments views must not bypass domain kernels or daemon
    runtime contracts for canonical work.
 
 ## One-Line Doctrine

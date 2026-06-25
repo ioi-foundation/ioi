@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-06-23.
 
 ## Canonical Definition
 
@@ -18,7 +18,7 @@ In the Hypervisor/daemon canon, the Hypervisor Daemon is the hypervisor/control 
 for autonomous execution and Agentgres is the operational truth substrate behind
 that control plane. Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, and application surfaces such as Workbench, Foundry, and
-Providers / Environments views may render Agentgres-backed projections, but they must not become the
+Environments views may render Agentgres-backed projections, but they must not become the
 canonical state store.
 
 In the machine-economy canon, Agentgres is the local/domain operational truth
@@ -56,6 +56,27 @@ replacement" language unless the context is an internal ambition. The precise
 claim is that Agentgres replaces row-centric databases as canonical truth when
 state is produced by workers, scoped authority, artifacts, receipts,
 projections, and settlement mirrors.
+
+## Product Presentation
+
+Agentgres is an owner term, not default product copy. Product surfaces should
+usually speak in terms of **Work Ledger**, **run history**, **evidence**,
+**receipts**, **state history**, **archives**, and **replay**. The Agentgres
+name belongs in builder, protocol, audit, export, and implementation contexts
+where the user needs to understand the state substrate, Postgres bridge,
+operation log, state roots, archive/restore validity, or projection mechanics.
+
+Examples:
+
+```text
+Product surface: Review evidence for this run.
+Admin surface: Export work-ledger receipts for this project.
+Developer surface: Inspect Agentgres operation refs and projection watermarks.
+Protocol surface: Verify Agentgres state root and archive refs.
+```
+
+This keeps product flows readable without weakening the rule that Agentgres owns
+admitted operational truth.
 
 ## What Agentgres Owns
 

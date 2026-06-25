@@ -57,6 +57,25 @@ normal background agent to the user, but the canonical object remains a managed
 worker instance over daemon execution, Agentgres truth, authority-provider
 grants, and receipts.
 
+Buyer-facing product language should stay simple:
+
+```text
+Discover agent
+-> Hire
+-> Connect apps
+-> Set permissions
+-> Choose delivery channels
+-> Set schedule / standing orders
+-> Review evidence
+-> Pay / renew / revoke
+```
+
+Advanced, admin, audit, and developer views may reveal the canonical
+`ManagedWorkerInstance`, authority provider, Agentgres refs, receipts,
+ContributionReceipts, runtime placement, MCP/API exports, and settlement
+commitments. The marketplace listing and first-run setup should not require a
+buyer to understand those owner terms before they can safely use the agent.
+
 ## What aiagent.xyz Is
 
 aiagent.xyz is:
@@ -280,15 +299,19 @@ aiagent.xyz listings should make the hire path explicit:
 
 ```text
 listing
-  -> inspect benchmarks, evals, authority, connector, runtime, and contact needs
+  -> inspect fit, benchmarks, evals, access needs, runtime options, and delivery options
   -> hire / subscribe / install
-  -> choose supported model route, harness profile, runtime, and persistence
-  -> connect required integrations through scoped connector authority
+  -> choose supported model, runtime, and persistence options
+  -> connect required apps and set permissions
   -> choose contact and delivery channels
   -> configure standing orders, schedules, escalation, quiet hours, and approvals
   -> start managed instance
   -> receive receipts, console URL, API/MCP/model-compatible exports, and revoke controls
 ```
+
+Advanced setup and audit drawers may disclose the model route, harness profile,
+authority provider, connector scope, runtime assignment, receipt refs, and
+settlement posture behind those buyer-facing steps.
 
 Connector access and user communication must stay separate in the product
 model. A Product Analytics worker may need a Databricks connector to read data

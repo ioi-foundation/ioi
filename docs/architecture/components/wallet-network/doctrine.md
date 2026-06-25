@@ -25,8 +25,9 @@ spend limits, declassification decisions, data-use permissions, payment
 authority, and revocation events.
 
 wallet.network must not become the owner of every product permission in the
-system. Hypervisor application surfaces, Foundry, Data / Knowledge, Ontology,
-Automations, domain apps, and Agentgres may own local governance state,
+system, and it does not need to be a visible destination for every permission
+flow. Hypervisor application surfaces, Foundry, ODK/data/ontology surfaces,
+Automations, Domain Apps, and Agentgres may own local governance state,
 project/org policy, eligibility records, workflow permissions, and admission
 decisions. wallet.network becomes the authority substrate when that local
 decision requires portable, revocable, secret-bearing, spend-bearing,
@@ -107,6 +108,38 @@ It may render as a Wallet console, embedded approval panel, mobile/passkey
 step-up, CLI signer, enterprise authority service, or Hypervisor authority
 panel. The presentation can vary; the authority contract cannot.
 
+## Product Presentation
+
+wallet.network should usually appear to end users as SSO, account security,
+permissions, connected access, recovery, or approval review inside the product
+they are already using. Hypervisor, aiagent.xyz, ioi.ai, sas.xyz, and domain
+apps may embed wallet-powered permission flows without sending the user to a
+separate wallet.network destination for routine setup.
+
+The wallet.network name belongs in advanced, high-trust, or protocol contexts:
+
+- portable authority and cross-app account control;
+- security factors, guardians, key shards, recovery, and panic revoke;
+- CLI, MCP, SDK, local signer, or enterprise authority-client setup;
+- audit export, compliance review, and authority receipt drilldowns;
+- external effects, declassification, spend, provider credentials, and other
+  high-risk approvals that require an explicit authority provider.
+
+User-facing copy should prefer:
+
+```text
+Sign in with SSO
+Connect GitHub
+Connect Slack
+Allow weekly scheduled runs
+Require approval before sending
+Review evidence
+Revoke access
+```
+
+Protocol and audit views may disclose the underlying authority provider, grant,
+lease, receipt, revocation epoch, and signature path.
+
 ## Boundary Statement
 
 wallet.network does not execute work, store app-domain operational truth, or
@@ -117,7 +150,7 @@ remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
 - Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
-  Workbench, Automations, Foundry, Applications, Providers / Environments views,
+  Workbench, Automations, Foundry, Applications, Environments views,
   and domain surfaces request, approve, and inspect work as operator clients,
   application surfaces, and projections.
 - Agentgres records operational state, runs, receipts, projections, delivery,
@@ -195,7 +228,7 @@ wallet.network does not own:
 ## Worker Training Authority
 
 Worker Training improves capability; it does not grant power. Hypervisor,
-Foundry, Data / Knowledge, Ontology, and Agentgres may own the local training
+Foundry, ODK/data/ontology surfaces, and Agentgres may own the local training
 governance objects: PolicyBoundDataViews, DataRecipes, dataset eligibility,
 Foundry job settings, eval suites, scorecards, and admitted lineage.
 

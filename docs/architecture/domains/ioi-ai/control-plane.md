@@ -1,14 +1,14 @@
 # ioi.ai Control Plane Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Providers / Environments views, and remote-runtime coordination boundaries.
+Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Environments views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
 
 ## Canonical Definition
 
-**ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, console/org administration, Hypervisor Providers / Environments web views, and remote-runtime coordination.**
+**ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, console/org administration, Hypervisor Environments web views, and remote-runtime coordination.**
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
 
@@ -152,7 +152,7 @@ ioi.ai may own:
 - remote compute entitlement and billing metadata;
 - provider integration metadata for DePIN, cloud, GPU, storage, customer VPC,
   and HypervisorOS targets;
-- Hypervisor Providers / Environments web/org/admin view state for node, VM,
+- Hypervisor Environments web/org/admin view state for node, VM,
   container, microVM, WASM, image, volume, network, GPU pool, provider, status,
   policy visibility, cost posture, remote access, billing, and team posture;
 - Private Workspace cTEE node status, entitlement, and restore pointers;
@@ -175,8 +175,8 @@ ioi.ai must not become:
 - a plaintext store for private user/app profile payloads, service intake
   forms, app preferences, workspace snapshots, or non-public service outputs;
 - an always-on VM host by default;
-- the owner of Hypervisor Providers / Environments substrate semantics;
-- the owner of Hypervisor Providers / Environments execution, authority, or truth;
+- the owner of Hypervisor Environments substrate semantics;
+- the owner of Hypervisor Environments execution, authority, or truth;
 - the owner of Private Workspace cTEE execution semantics;
 - a store for large trace bundles or artifact bytes;
 - a store for raw training datasets or full training traces by default;
@@ -186,11 +186,11 @@ ioi.ai must not become:
 - the service-order operational truth source;
 - the final settlement authority.
 
-Those roles belong to Hypervisor Providers / Environments canon, Hypervisor Daemon
+Those roles belong to Hypervisor Environments / Providers canon, Hypervisor Daemon
 runtime nodes, wallet.network, Agentgres domains, storage backends,
 aiagent.xyz, sas.xyz, and IOI L1.
 
-## Hypervisor Providers / Environments Views
+## Hypervisor Environments Views
 
 `console.ioi.ai` is the natural cloud/org view for Hypervisor provider and
 environment posture. It may show and coordinate node, provider, restore,
@@ -237,7 +237,7 @@ CLI/headless Provider / Environment Projection
   scripted provider and restore workflows
 ```
 
-Providers / Environments canon is owned by
+Environments / Providers canon is owned by
 [`components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md).
 ioi.ai owns the web/account/org coordination view; Hypervisor App/Web/CLI
 clients host the hands-on operator presentations; Hypervisor Daemon executes;
@@ -365,7 +365,7 @@ Private Workspace backed by cTEE:
   useful without receiving protected plaintext; Candidate-Lattice Private
   Decoding is the default protected-agency strategy
 
-Providers / Environments views:
+Environments views:
   general infrastructure inventory for autonomous systems, including
   VM/container/microVM/WASM posture, placement, health, cost, cTEE posture,
   storage posture, receipt/replay projections, and provider coordination
@@ -386,18 +386,18 @@ ioi.ai control plane
 
 The SDK may submit, inspect, stream, or control the run as a client. It is not the runtime node.
 
-Providers / Environments placement follows the same boundary:
+Environments placement follows the same boundary:
 
 ```text
-console.ioi.ai, Hypervisor App/Web Providers / Environments view, or CLI/headless provider projection
-→ Hypervisor Providers / Environments placement projection
+console.ioi.ai, Hypervisor App/Web Environments view, or CLI/headless provider projection
+→ Hypervisor Environments placement projection
 → wallet.network authority check
 → domain kernel/runtime router
 → Hypervisor Daemon runtime-node profile
 → Agentgres receipts, state roots, artifact refs, and projection updates
 ```
 
-Providers / Environments views can recommend or display placement. They
+Environments views can recommend or display placement. They
 do not grant authority, execute the workload, or admit truth.
 
 Worker Training and benchmark jobs follow the same boundary:
@@ -449,7 +449,7 @@ selected Hypervisor Daemon runtime-node profile.
 - Hypervisor Foundry owns the Worker Training application surface.
 - Hypervisor Foundry owns conductor-advisor, model/worker/eval/training, and
   package improvement jobs; ioi.ai may draft or consume refs but not own them.
-- Hypervisor Providers / Environments canon owns general infrastructure-manager
+- Hypervisor Environments / Providers canon owns general infrastructure-manager
   semantics for autonomous systems, with views in Hypervisor App, Hypervisor
   Web, CLI/headless, and console.ioi.ai.
 - authority providers and local/domain governance authorize as required.

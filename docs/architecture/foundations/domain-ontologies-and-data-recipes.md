@@ -1,7 +1,7 @@
 # Domain Ontologies and Data Recipes
 
 Status: canonical architecture authority.
-Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, and ontology-to-worker generation.
+Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, and ontology-to-worker generation.
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
 Last alignment pass: 2026-06-20.
@@ -18,6 +18,7 @@ truth.
 Ontology = what the domain means.
 Data Recipe = how raw sources become ontology-bound runtime, training, and evaluation data.
 Distilled Ontology Dataset = compact, high-signal training/evaluation data derived from ontology-bound source truth.
+Ontology Development Kit = how semantic contracts become repeatable builders, generated surfaces, domain apps, evals, workers, and packages.
 ```
 
 This layer is required for serious Worker Training. Without it, a training
@@ -99,6 +100,8 @@ This layer is not:
 | `EvaluationDataset` | Golden cases, holdouts, adversarial examples, regressions, rubric bindings, benchmark refs, and provenance commitments. |
 | `OntologyProjection` | Agentgres projection generated from ontology relationships, canonical object models, recipes, and policy-bound views. |
 | `OntologyToWorkerPlan` | Plan that turns ontology, recipes, workflow schemas, tools, policies, evals, and benchmarks into a WorkerManifest. |
+| `OntologyDevelopmentKitManifest` | Builder-kit manifest that packages ontology refs, object models, recipes, connector mappings, policy-bound views, surface descriptors, workflow schemas, eval refs, and conformance expectations for repeatable surface/domain-app/worker construction. |
+| `OntologySurfaceDescriptor` | Object-aware surface descriptor for generated or builder-authored views, editors, graphs, forms, review queues, consoles, dashboards, and domain apps over the ontology. |
 
 ## Lifecycle
 
@@ -118,7 +121,7 @@ This layer is not:
    through an explicit connector mapping.
 
 4. **Authorize Policy-Bound Views**
-   Hypervisor, Data / Knowledge, Ontology, domain apps, org governance, or
+   Hypervisor, ODK, Domain Apps, org governance, or
    Agentgres-backed project policy define the PolicyBoundDataView that
    specifies which data may be read, transformed, used for training, used for
    distillation, used for evaluation, exported, published, or retained.
@@ -162,23 +165,33 @@ This layer is not:
    canonical object models. Query and UI surfaces should read from these
    projections with visible freshness, policy, and source watermarks.
 
-10. **Create Ontology-to-Worker Plan**
+10. **Compile ODK Surface And Package Descriptors**
+    The Ontology Development Kit compiles ontology refs, object models, data
+    recipes, connector mappings, policy-bound data views, projections, workflow
+    schemas, authority requirements, receipt obligations, and conformance checks
+    into reusable descriptors. These descriptors may scaffold object views,
+    editors, graphs, forms, dashboards, operator consoles, domain apps, eval
+    packs, worker/package manifests, or marketplace-ready ontology packs.
+
+11. **Create Ontology-to-Worker Plan**
    The ontology, data recipes, workflow schemas, policy-bound data views,
    distilled datasets, tools, evals, benchmarks, and routing category combine
    into a plan for Worker Training or worker/package generation.
 
-11. **Train, Benchmark, Publish, and Route**
+12. **Train, Benchmark, Publish, and Route**
     Hypervisor Foundry, daemon jobs, or sas.xyz training engagements use the
     plan to produce a WorkerManifest, policy envelope, lineage refs,
     evaluation receipts, benchmark receipts, and MoW routing metadata.
 
 ## Product and Domain Roles
 
-Hypervisor should expose `Data / Knowledge` and `Ontology` as first-party
-Applications catalog entries, Open Application views, or contextual
-project/session panels over this semantic data plane.
+Hypervisor should expose **ODK** as the first-party Applications catalog entry,
+Open Application view, or contextual project/session panel over this semantic
+data plane. `Data / Knowledge`, `Ontology`, `Data Studio`, `Ontology Studio`,
+`Workshop`, and `Domain Blueprints` remain architectural family aliases or ODK
+facets, not separate final product apps.
 
-`Data / Knowledge` owns product-level views for:
+The ODK data facet owns product-level views for:
 
 ```text
 source inventory
@@ -192,7 +205,7 @@ memory and knowledge refs
 freshness, lineage, quality, and access posture
 ```
 
-`Ontology` owns product-level views for:
+The ODK ontology facet owns product-level views for:
 
 ```text
 domain ontologies
@@ -209,12 +222,37 @@ author or propose ontology and recipe changes, but Agentgres-backed semantic
 truth, wallet/network data authority, and transformation receipts remain the
 canon boundaries.
 
+The Ontology Development Kit is the builder kit over this layer. It should make
+the breadth of Hypervisor surfaces scalable by generating or validating
+ontology-bound descriptors for:
+
+```text
+object views and object editors
+list/detail surfaces
+graphs and relationship explorers
+forms and guided wizards
+review queues and approval inboxes
+monitoring consoles and dashboards
+data-recipe builders
+connector-mapping editors
+domain apps and vertical consoles
+eval, benchmark, and worker-package skeletons
+operator-plane and MCP contract manifests
+```
+
+ODK output is scaffolding and conformance material. It can create descriptors,
+templates, generated UI, package manifests, and test fixtures, but it does not
+own runtime execution, semantic truth, authority, raw data, training consent,
+marketplace ranking, or settlement. Generated surfaces must still register as
+Hypervisor Applications and bind to daemon APIs, Agentgres refs, policy-bound
+views, authority requirements, receipts, replay, and conformance profiles.
+
 Guided views should come first. Advanced users may open the same ontology,
 data, training, evaluation, benchmark, deployment, or outcome recipe in the
 Workflow Compositor when graph-level editing is useful.
 
-Patterns / Examples / Training consumes this layer whenever an example becomes
-launchable. A useful example should identify the DomainOntology,
+Learning / Patterns / Examples / Training facets consume this layer whenever an
+example becomes launchable. A useful example should identify the DomainOntology,
 CanonicalObjectModel, DataRecipe, ConnectorMapping, PolicyBoundDataView,
 EvaluationDataset, and TransformationReceipt posture needed to run, replay,
 evaluate, package, or sell the pattern. Without that binding, the example is a
@@ -278,6 +316,8 @@ DistilledOntologyDataset refs
 EvaluationDataset refs
 OntologyProjection
 OntologyToWorkerPlan
+OntologyDevelopmentKitManifest
+OntologySurfaceDescriptor
 ```
 
 Agentgres does not own raw connector credentials, decryption keys, or large
@@ -329,10 +369,17 @@ trained on, published, or challenged.
    freshness, recipe version, policy, and source watermark.
 8. OntologyToWorkerPlan can propose workers, tools, schemas, evals, and
    manifests, but it cannot grant authority.
-9. The semantic data plane connects Worker Training to the IOI stack; it does
+9. Ontology Development Kit descriptors can scaffold surfaces, domain apps,
+   evals, workers, and packages, but they cannot become runtime truth,
+   permission truth, semantic truth, or marketplace truth by themselves.
+10. Every ODK-generated surface must declare owning ontology refs, object-model
+   refs, data-recipe refs where applicable, policy-bound data view refs,
+   authority requirements, daemon/API dependencies, receipt obligations, and
+   conformance expectations before it becomes durable product inventory.
+11. The semantic data plane connects Worker Training to the IOI stack; it does
    not replace compute markets, Agentgres, wallet.network, storage backends,
    MoW, service composition, settlement, or disputes.
 
 ## One-Line Doctrine
 
-> **Domain Ontologies say what the work means; Data Recipes prove how source data became trainable, evaluable, queryable worker truth.**
+> **Domain Ontologies say what the work means; Data Recipes prove how source data became trainable, evaluable, queryable worker truth; the Ontology Development Kit turns those contracts into repeatable surfaces, domain apps, evals, workers, and packages without owning truth.**

@@ -774,10 +774,10 @@ Foundry
 Sessions
   live embodied runs, command timelines, telemetry, receipts, e-stop state
 
-Authority / Govern
+Governance
   physical scopes, e-stop authority, supervision policy, liability policy
 
-Receipts / Replay
+Work Ledger
   physical replay bundles, sensor evidence, actuator receipts, incidents
 ```
 

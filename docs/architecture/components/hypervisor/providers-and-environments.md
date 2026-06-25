@@ -46,12 +46,10 @@ Hypervisor App / Hypervisor Web / CLI-headless
   -> Sessions
 
 Applications Catalog / Open Application / Contextual Views
-  -> Providers / Environments
-  -> Operate / Monitoring
-  -> Privacy / cTEE
-  -> Authority / Govern
-  -> Receipts / Replay
-  -> Change Plane
+  -> Environments
+  -> Operations
+  -> Governance
+  -> Work Ledger
   -> Workbench
   -> Foundry
 ```
@@ -96,7 +94,7 @@ environment operations.
 
 ## Does Not Own
 
-Providers / Environments views do not own:
+Environments views do not own:
 
 ```text
 wallet.network authority
@@ -157,6 +155,116 @@ workloads when policy allows. Filecoin can hold encrypted payload/archive bytes
 and retrieval commitments. Neither owns Hypervisor execution, wallet authority,
 Agentgres artifact meaning, private plaintext, or restore validity.
 
+## Development Environment Substrate Doctrine
+
+Autonomous software work is a stateful, interactive, adversarial workload, not
+a fungible stateless application pod. Hypervisor must avoid rebuilding a
+generic application orchestrator underneath the product.
+
+Default posture:
+
+```text
+untrusted autonomous code work -> VM, microVM, HypervisorOS node, or customer
+  boundary with a real kernel/isolation boundary
+devcontainer/container -> reproducible setup format or inner sandbox lane,
+  not sufficient cross-tenant security by itself
+Kubernetes/container platform -> possible provider substrate and evidence
+  source, not Hypervisor runtime truth or the default isolation claim
+git branch/worktree -> code/materialization isolation, not runtime isolation
+```
+
+Raw worktrees are insufficient for parallel background agents unless each
+WorkRun also receives isolated runtime state: dependency installs, caches,
+ports, databases, services, network namespace, credentials, logs, and restore
+material. A worktree or branch may back the code proposal, but the environment
+must still isolate the processes and state that execute the proposal.
+
+Development environments need more permissive capabilities than ordinary
+application workloads: package installation, nested container/tool use, test
+databases, language servers, build caches, service ports, browser automation,
+and sometimes root-like operations. If the platform grants those capabilities
+inside a shared kernel or shared runtime state, it must not claim strong
+agent-grade isolation. For untrusted or cross-tenant autonomous agents,
+containers may run inside a VM/microVM/HypervisorOS boundary; they must not be
+the sole boundary.
+
+Hypervisor should use declarative APIs and control theory where useful, but
+the canonical product contract is:
+
+```text
+recipe declares desired environment
+daemon resolves and admits a concrete plan
+provider substrate executes as evidence
+Agentgres records truth and restore validity
+```
+
+Provider-native schedulers, orchestrators, volume controllers, ingress
+proxies, DNS, cache layers, image pullers, and autoscalers are implementation
+details. They may contribute observations and resource evidence, but they must
+not become the canonical state machine, authority path, or restore source.
+
+## Autonomous Readiness And Setup Automation
+
+Reproducible setup is necessary but not sufficient. Agent-ready environments
+must self-assemble without hidden human steps. A recipe should compile project
+setup, prebuild/warmup, dependency install, code generation, database migration,
+seed data, service startup, health checks, port policy, model/harness defaults,
+and required credentials into an admitted readiness plan.
+
+Environment tasks and services should be typed:
+
+```text
+HypervisorEnvironmentTask
+  task_ref
+  command_ref
+  trigger: prebuild | environment_start | post_start | manual | recovery
+  idempotent: true | false | policy_declared
+  timeout_policy_ref
+  resource_class_ref
+  authority_scope_refs
+  output_artifact_refs
+  receipt_policy_ref
+
+HypervisorEnvironmentService
+  service_ref
+  command_ref
+  lifecycle: required | optional | agent_service | support
+  healthcheck_ref
+  port_refs
+  restart_policy_ref
+  log_ref
+  authority_scope_refs
+  receipt_policy_ref
+```
+
+Readiness is admitted only when the daemon can prove the environment is fit for
+the intended WorkRun:
+
+```text
+HypervisorEnvironmentReadinessGate
+  gate_ref
+  environment_ref
+  recipe_resolution_ref
+  required_task_refs
+  required_service_refs
+  required_port_refs
+  required_connector_refs
+  required_secret_refs
+  required_scm_auth_refs
+  required_network_refs
+  required_resource_isolation_ref
+  readiness_mode: full | degraded | dry_run_only | blocked
+  blocked_reasons
+  evidence_refs
+  receipt_refs
+```
+
+Onboarding or productivity claims should be measured against this readiness
+gate, not against "container started" or "shell attached." A new user or agent
+should be able to create repeatable, programmatically provisioned environments;
+if readiness requires manual commands, the missing task/service/authority edge
+must be visible in the recipe resolution.
+
 ## Environment Ops
 
 Canonical environment ops objects:
@@ -183,6 +291,11 @@ HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
 HypervisorScmAuthRequirement
+HypervisorEnvironmentSubstratePolicy
+HypervisorEnvironmentResourceIsolationProfile
+HypervisorEnvironmentConnectivityProfile
+HypervisorEnvironmentStartupPlan
+HypervisorEnvironmentReadinessGate
 HypervisorResourcePool
 HypervisorResourceBudget
 HypervisorResourceAllocationRequest
@@ -274,6 +387,8 @@ HypervisorEnvironmentStatus
     provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
     workspace_content { phase, initializer_ref, custody_posture, evidence_ref }
     sandbox           { phase, container_ref, evidence_ref }     # devcontainer/microVM/host lane
+    resource_isolation { phase, isolation_profile_ref, evidence_ref }
+    connectivity      { phase, connectivity_profile_ref, evidence_ref }
     secrets           { phase, capability_lease_refs, evidence_ref }
     automations       { phase, evidence_ref }
     agent_work        { phase, work_run_refs, evidence_ref }     # IOI-native
@@ -335,9 +450,11 @@ objects; truth, authority, and state are IOI-native):
 ```text
 Conventional remote-environment shape     ->  IOI-native
 top-level environment phase               ->  HypervisorEnvironmentStatus.phase
-per-component sub-status                   ->  components.{provisioner,workspace_content,
-  (machine/content/devcontainer/               sandbox,secrets,automations} + model_mount + harness
-   secrets/automations)
+per-component sub-status                   ->  components.{provisioner,
+                                               workspace_content, sandbox,
+                                               resource_isolation, connectivity,
+                                               secrets, automations,
+                                               model_mount, harness}
 component phase enum                       ->  shared component phase taxonomy
 workspace initializer (context url / git)  ->  HypervisorWorkspaceInitializer + custody_posture
 port admission + owner token               ->  HypervisorEnvironmentPort + access_policy + wallet lease
@@ -380,6 +497,7 @@ HypervisorDevelopmentEnvironmentRecipe
     workspace_location
   workspace_initializer_ref
   init_tasks
+  prebuild_tasks
   post_start_tasks
   services
   agent_services
@@ -389,8 +507,12 @@ HypervisorDevelopmentEnvironmentRecipe
   environment_variable_refs
   secret_requirement_refs
   scm_auth_requirement_refs
+  connectivity_profile_ref
   cache_policy_ref
   warmup_policy_ref
+  startup_plan_ref
+  readiness_gate_policy_ref
+  resource_isolation_profile_ref
   snapshot_policy_ref
   backup_policy_ref
   archive_policy_ref
@@ -419,6 +541,9 @@ resolved_ports
 resolved_tasks
 resolved_services
 resolved_agent_services
+resolved_connectivity_profile_ref
+resolved_resource_isolation_profile_ref
+readiness_gate_ref
 resolved_editor_adapters
 required_wallet_scope_refs
 required_secret_refs
@@ -430,6 +555,99 @@ receipt_refs
 blocked_reason?
 runtimeTruthSource: daemon-runtime
 ```
+
+`HypervisorEnvironmentSubstratePolicy` records why the selected substrate is
+allowed for the workload and tenant posture:
+
+```text
+HypervisorEnvironmentSubstratePolicy
+  policy_ref
+  workload_kind: human_dev | autonomous_agent | agent_service |
+                 training | eval | service_runtime | support
+  tenant_posture: single_user | org_internal | cross_tenant | marketplace
+  trust_posture: trusted_user | untrusted_code | protected_workspace |
+                 provider_trust | customer_boundary
+  allowed_substrates:
+    - vm
+    - microvm
+    - hypervisoros_node
+    - customer_vpc
+    - container_inside_vm
+    - devcontainer_inside_vm
+    - local_host
+  forbidden_substrates:
+    - shared_kernel_container_only
+    - raw_worktree_only
+  minimum_isolation:
+    process | container | vm_kernel | hardware_tee | ctee_private_workspace
+  receipt_policy_ref
+```
+
+`HypervisorEnvironmentResourceIsolationProfile` is the per-environment contract
+for noisy-neighbor control. It exists because development environments have
+spiky CPU needs, high-churn storage, shared caches, language servers, nested
+tools, and interactive terminals:
+
+```text
+HypervisorEnvironmentResourceIsolationProfile
+  isolation_profile_ref
+  environment_ref
+  cpu:
+    reserved_cores?
+    burst_policy_ref?
+    terminal_interactivity_protection: true | false
+  memory:
+    limit
+    swap_policy_ref?
+    oom_policy_ref
+  storage:
+    workspace_quota
+    cache_quota
+    iops_limit?
+    bandwidth_limit?
+    backup_restore_bandwidth_policy_ref?
+  network:
+    bandwidth_limit?
+    egress_policy_ref
+    namespace_isolated: true | false
+  ports:
+    namespace_isolated: true | false
+    conflict_detection: true
+  caches:
+    cache_scope: per_environment | per_project | per_node | read_only_shared
+    write_isolation_required: true | false
+  placement:
+    density_policy_ref
+    noisy_neighbor_guard: true
+  evidence_refs
+  receipt_refs
+```
+
+`HypervisorEnvironmentConnectivityProfile` makes internal network access a
+typed posture instead of a tunnel workaround:
+
+```text
+HypervisorEnvironmentConnectivityProfile
+  connectivity_profile_ref
+  environment_ref
+  network_scope:
+    public_internet | private_vpc | customer_vpc | local_only |
+    declassified_proxy | no_egress
+  internal_service_refs
+  iam_or_provider_role_refs
+  connector_refs
+  forbidden_routes
+  tunnel_required: true | false
+  tunnel_risk_ref?
+  egress_policy_ref
+  evidence_refs
+  receipt_refs
+```
+
+Connectivity must be enough for the intended workflow: clone, branch, install,
+build, test, run services, use internal APIs, validate, commit, push, and open
+review artifacts when policy allows. A shell with source code but no path to
+run or validate the system is not a complete agent work environment.
 
 Recipes should make the development path ergonomic without hiding governance.
 Image selection, dependency setup, port exposure, SSH/editor/browser access,
@@ -536,18 +754,20 @@ HypervisorEnvironmentLifecycleObservation
   environment_ref
   observed_at
   stage:
-    queued | resolving_recipe | provisioning | pulling_image |
-    initializing_content | restoring_snapshot | restoring_backup |
-    restoring_archive | reconciling_sandbox | starting_services |
-    starting_agent_work | binding_access | mounting_model |
-    binding_harness | ready | active | idle | backing_up |
-    snapshotting | archiving | detecting_failure | planning_recovery |
-    failing_over | rebuilding | retrying_workrun | validating_restore |
-    stopping | deleting | wiping_state | failed
+    queued | resolving_recipe | provisioning | prebuilding |
+    pulling_image | warming_cache | initializing_content |
+    restoring_snapshot | restoring_backup | restoring_archive |
+    reconciling_sandbox | enforcing_resource_isolation |
+    checking_connectivity | starting_services | starting_agent_work |
+    binding_access | mounting_model | binding_harness | ready | active |
+    idle | backing_up | snapshotting | archiving | detecting_failure |
+    planning_recovery | failing_over | rebuilding | retrying_workrun |
+    validating_restore | stopping | deleting | wiping_state | failed
   component:
     recipe | provisioner | workspace_content | sandbox | secrets |
     automations | services | agent_work | tasks | ports | model_mount |
-    harness | adapters | storage | provider
+    harness | adapters | storage | provider | resource_isolation |
+    connectivity | cache
   condition_kind:
     content_ready | ever_ready | backup_complete | backup_failed |
     snapshot_complete | snapshot_failed | stopped_by_request |
@@ -555,7 +775,10 @@ HypervisorEnvironmentLifecycleObservation
     volume_attached | volume_mounted | state_wiped | force_killed |
     network_degraded | archive_invalid | snapshot_invalid |
     backup_invalid | restore_invalid | waiting_for_input |
-    ready_for_review | blocked_by_policy | blocked_by_authority | failed
+    ready_for_review | blocked_by_policy | blocked_by_authority |
+    port_conflict | cache_collision | noisy_neighbor_detected |
+    cpu_starved | memory_pressure | iops_throttled |
+    network_bandwidth_throttled | image_pull_slow | failed
   severity: info | warning | error
   message
   metrics:
@@ -563,6 +786,12 @@ HypervisorEnvironmentLifecycleObservation
     bytes?
     image_bytes?
     cache_hit?
+    cpu_wait_ms?
+    memory_pressure?
+    iops?
+    io_wait_ms?
+    network_bytes?
+    port_conflict?
   evidence_ref
   provider_event_ref?
   agentgres_operation_refs
@@ -703,13 +932,13 @@ receipts, replay, and proof refs
 
 ## Capacity, Budget, And Allocation Pressure
 
-Capacity shock and budget exhaustion are Resource Management and scheduler
+Capacity shock and budget exhaustion are Operations resource and scheduler
 problems, not proof that compute seconds are the product goal. Compute seconds,
 token counts, GPU occupancy, runtime seconds, and queue depth are internal
 capacity signals. User-facing completion remains verified accepted work,
 blocked-state clarity, and outcome proof.
 
-Resource Management owns the cross-workload posture for:
+Operations owns the cross-workload resource posture for:
 
 ```text
 capacity pools
@@ -736,7 +965,8 @@ HypervisorResourcePool
   resource_kind:
     cpu | gpu | memory | storage | model_api | connector_api |
     browser_sandbox | worker_runtime | training_runtime |
-    confidential_compute | physical_device | custom
+    confidential_compute | physical_device | io_bandwidth |
+    network_bandwidth | cache | port_namespace | custom
   provider_refs
   region_refs
   data_residency_refs
@@ -876,23 +1106,24 @@ user/business outcome refs. Raw usage is not success.
 Hypervisor should manage infrastructure and autonomous-work changes as explicit
 plans, not as invisible provider control loops.
 
-Release Controls is the product cockpit over the Change Plane. It coordinates
+Governance release/change controls are the product cockpit over the Change
+Plane. They coordinate
 capability promotion, release, rollout, pause, rollback, recall, kill-switch,
 remote-config, release-target, gate, cohort, and deployment-risk decisions
-across reusable capability. It may appear as an Applications catalog surface,
+across reusable capability. They may appear as an Applications catalog surface,
 Open Application, org/admin view, Foundry handoff, Automations handoff, or
 contextual detail drawer.
 
 The Change Plane does not replace local surface ownership:
 
 ```text
-Providers / Environments
+Environments
   runtime environment lifecycle and provider placement evidence
 
-Job Tracker
+Operations
   execution queue, run, retry, failure, and build state
 
-Resource Management
+Operations resource facet
   quota, queue, capacity, rate-limit, utilization, and spend posture
 
 Foundry
@@ -902,17 +1133,17 @@ Foundry
 Automations
   trigger, workflow, service, API, schedule, and run lifecycle
 
-Marketplace / Artifacts
+Marketplace / Work Ledger
   package install/publish/recall evidence, artifact refs, contribution refs,
   and settlement handoffs
 
-Approvals / Checkpoints / Issues
+Governance / Operations
   human approval, policy review, remediation, incident, and support gates
 
-Workflow Lineage / Data Lineage
+Work Ledger / ODK
   dependency, provenance, and impact graph
 
-Run Replay / Proof Explorer
+Work Ledger
   trace, receipt, proof, settlement, and replay inspection
 ```
 
@@ -978,9 +1209,9 @@ authority_scope_refs
 receipt_refs
 ```
 
-`CapabilityLifecycleControl` is the cross-surface projection used by Release
-Controls / Change Plane to inspect and coordinate reusable capability lifecycle.
-It is not a new truth store.
+`CapabilityLifecycleControl` is the cross-surface projection used by Governance
+release/change controls and Change Plane views to inspect and coordinate
+reusable capability lifecycle. It is not a new truth store.
 
 ```text
 lifecycle_ref
@@ -1092,9 +1323,9 @@ shadow mode, canary, rollout, production, or recall review to the affected
 capability, baseline/candidate versions, release target, scorecard, evidence
 refs, affected scope, recommended action, and adjudication refs. It is the
 handoff object between Foundry/eval evidence and Change Plane consequences.
-Release Controls may pause, roll back, recall, constrain, shadow longer, or
-queue patched retry from that record, but the record does not by itself grant
-training reuse or runtime mutation.
+Governance release/change controls may pause, roll back, recall, constrain,
+shadow longer, or queue patched retry from that record, but the record does not
+by itself grant training reuse or runtime mutation.
 
 `RecallPolicy` and `RecallReceipt` are how Hypervisor blocks or rolls off bad
 releases, model routes, workers, connectors, images, datasets, automation
@@ -1262,10 +1493,27 @@ restore/import receipt chain.
 - Provider and infrastructure posture belongs to Hypervisor sessions,
   environment views, provider views, and daemon APIs.
 - Provider state must be evidence, not Agentgres truth.
+- Untrusted or cross-tenant autonomous agent development environments must not
+  use a shared-kernel container as the sole isolation boundary. Use VM,
+  microVM, HypervisorOS, customer VPC, hardware TEE, cTEE private workspace, or
+  another policy-admitted boundary appropriate to the workload.
+- Git branches and worktrees are code/materialization isolation only. Parallel
+  WorkRuns must also isolate runtime state: services, databases, ports, caches,
+  network namespace, credentials, logs, and restore material.
+- Generic application orchestrators may be provider substrates, but they must
+  not become Hypervisor's canonical environment state machine, authority path,
+  or restore truth.
 - Development environment recipes are setup contracts and desired posture; they
   do not authorize secret use, expose ports, execute tasks, or mutate restore
   truth without daemon admission, wallet.network authority where relevant, and
   Agentgres operation/receipt refs.
+- Agent-ready recipes must compile into typed tasks, services, readiness gates,
+  resource-isolation profiles, connectivity profiles, and lifecycle
+  observations. "Container started" or "shell attached" is not sufficient
+  readiness for autonomous work.
+- Resource management must track CPU burst/interactivity, memory pressure,
+  storage quota, IOPS, backup/restore bandwidth, network bandwidth, port
+  namespaces, and cache scope when those affect developer or agent experience.
 - The environment status object, its component phases, ports, and initializer
   must be projections of Agentgres-admitted operations, not authoritative state;
   port exposure and secret injection must be wallet capability-gated, not
@@ -1328,6 +1576,15 @@ cloud provider catalog = compute provider
 provider lifecycle state = restore truth
 encrypted blob = restore truth
 provider recovery = invisible restart
+shared-kernel container = sufficient boundary for untrusted autonomous agents
+raw git worktree = isolated agent environment
+Kubernetes or provider scheduler = Hypervisor truth
+container started = environment ready
+shell attached = agent work loop validated
+port conflict = user problem
+shared writable cache = harmless optimization
+image pull / backup / restore IO starvation = invisible implementation detail
+CPU throttling terminal lag = acceptable scheduler behavior
 raw compute seconds = product success
 budget exhaustion = provider bill surprise
 queue priority = hidden provider scheduler

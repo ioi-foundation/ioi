@@ -69,6 +69,55 @@ workers, tools, and domain applications without surrendering runtime truth,
 authority, or capability supply to one vendor.
 ```
 
+## Product Language Layers
+
+Hypervisor product surfaces should present subsystem capabilities as familiar
+user controls first. The architecture may name subsystem owners, but ordinary
+product copy should not make users think they must understand every internal
+plane before they can do useful work.
+
+Use three vocabulary layers:
+
+| Layer | Audience | Preferred terms |
+| --- | --- | --- |
+| Product | users and buyers | agents, jobs, projects, sessions, permissions, connected apps, delivery channels, evidence, receipts, run history, payments, revoke |
+| Admin / builder | operators, org admins, builders | policies, scopes, work ledger, evals, worker packages, runtime profiles, data recipes, ontology kits, surface descriptors, integration surfaces, authority clients |
+| Protocol / architecture | implementers, auditors, protocol integrators | wallet.network, Agentgres, Hypervisor Daemon, authority grants, Agentgres operations, ContributionReceipts, IOI L1 commitments |
+
+Default product wording should be outcome-shaped:
+
+```text
+discover agent
+-> hire / install
+-> configure access
+-> choose delivery channels
+-> run / schedule
+-> review evidence
+-> pay / renew / revoke
+```
+
+The underlying architecture still binds those steps to authority providers,
+daemon admission, Agentgres truth, receipts, marketplace attribution, and
+settlement where applicable. Those subsystem names belong in advanced details,
+audit exports, developer views, proof drilldowns, and protocol docs.
+
+Term map for product surfaces:
+
+| Protocol / owner term | Product-facing default |
+| --- | --- |
+| wallet.network | SSO, permissions, connected access, authority, recovery, powered-by label in advanced contexts |
+| Agentgres | Work Ledger, evidence, run history, receipts, state/history |
+| Hypervisor Daemon | secure runtime, execution environment, worker runtime |
+| IOI L1 / mainnet | proof network, settlement, public commitment |
+| aiagent.xyz | agent marketplace, worker marketplace, agent supply |
+| ContributionReceipt | contribution record, payout evidence, attribution |
+
+Users should not be bounced between domains to grant ordinary access. Hypervisor
+and aiagent.xyz should embed the permission and connector flows; wallet.network
+may appear as the powered-by authority provider for advanced security,
+recovery, portable authority, CLI/MCP/SDK clients, audit export, cross-app
+account governance, and high-assurance step-up.
+
 The product should make the full autonomous-system lifecycle legible without
 turning lifecycle categories into default navigation:
 
@@ -120,6 +169,8 @@ Hypervisor Core includes or coordinates:
   computer-use routing;
 - adapter registry and adapter-target mediation;
 - Hypervisor MCP Gateway profile mediation for external agents and harnesses;
+- Ontology Development Kit descriptor mediation for ontology-aware generated
+  surfaces, domain apps, eval packs, worker plans, and surface conformance;
 - receipt and replay projections;
 - local product projections;
 - policy admission hooks;
@@ -147,7 +198,7 @@ Hypervisor
       Hypervisor App
       Hypervisor Web
       Hypervisor CLI / Headless Client
-      SDK / ADK clients
+      SDK / ADK / ODK clients
   -> default shell
       Home
       Projects
@@ -156,21 +207,17 @@ Hypervisor
       Sessions
   -> application surfaces
       Workbench
+      Agent Studio
       Foundry
-      Agents / Workers
-      Models
-      Connectors / Tools / MCP
-      Data / Knowledge
-      Ontology
-      Authority / Govern
-      Receipts / Replay
-      Operate / Monitoring
-      Providers / Environments
-      Privacy / cTEE
-      Change Plane
-      Marketplace
-      Patterns / Examples / Training
+      ODK
       Domain Apps
+      Developer & Integrations
+      Governance
+      Operations
+      Work Ledger
+      Environments
+      Marketplace
+      Robot Fleets / Embodied
   -> session, project, and contextual views
       Services / Tasks / Ports / Logs / Restore
   -> Hypervisor Core
@@ -202,13 +249,13 @@ Hypervisor CLI / Headless Client
   Hypervisor Core; TUI is an optional presentation of this client, not a
   separate first-class client lane
 
-SDK / ADK clients
+SDK / ADK / ODK clients
   protocol clients and builder frameworks over daemon/domain contracts
 ```
 
 First-class clients may render different interaction patterns, but they must
 share the same authority, session, daemon, receipt, replay, Agentgres, wallet,
-cTEE, and provider contracts.
+cTEE, provider, and ontology/domain-contract contracts.
 
 They do not own runtime truth.
 
@@ -228,8 +275,8 @@ Hypervisor MCP Gateway
 ```
 
 The gateway should expose selected capabilities from Applications, Projects,
-Sessions, Automations, Foundry, Connectors / Tools / MCP, Receipts / Replay, and
-the Hypervisor Operator Plane through declared profiles. It must compile every
+Sessions, Automations, Foundry, Developer & Integrations, Work Ledger, and the
+Hypervisor Operator Plane through declared profiles. It must compile every
 tool or action to RuntimeToolContract, surface MCP contract, or operator-plane
 contract refs, then route effectful work through daemon admission,
 wallet.network authority, Agentgres, receipts, and replay.
@@ -319,26 +366,24 @@ region is not canonical; pinned/favorite/promoted entries are catalog, Home, or
 project/session affordances. `Open Application` remains a singular active
 surface slot when a specialized surface is selected.
 
-The Applications catalog may include these first-party families:
+The Applications catalog may include these first-party product surfaces. The
+left-hand labels are the preferred product names; parenthetical phrases
+preserve older architectural family names where those still help cross-reference
+contracts:
 
 ```text
+Workbench
+Environments
+Agent Studio (Agents / Workers)
 Foundry
-Agents / Workers
-Models
-Connectors / Tools / MCP
-Tool / Function Builder
-Data / Knowledge
-Ontology
-Authority / Govern
-Receipts / Replay
-Operate / Monitoring
-Providers / Environments
-Privacy / cTEE
-Change Plane
+ODK (Ontology, Data / Knowledge, Blueprints, Surface Generate)
+Domain Apps (generated domain apps, Analyst/query lens)
+Developer & Integrations (Connections, Connectors / Tools / MCP, APIs, SDKs, ADK)
+Governance (Authority / Govern, privacy, policy, approvals, release/change controls)
+Operations (Operate / Monitoring, jobs, incidents, resource posture)
+Work Ledger (Receipts / Replay, artifacts, lineage, proof)
 Marketplace
-Patterns / Examples / Training
-Application Builder / Surface Studio
-Domain Apps
+Robot Fleets / Embodied (roadmap)
 ```
 
 The compact doctrine:
@@ -360,9 +405,8 @@ The product-management lifecycle is:
 
 ```text
 Build
-  Projects, Workbench, Automations, Canvas, SDK/ADK, Connectors, MCP,
-  Tool / Function Builder, Data Recipes, Ontology, Patterns, Examples,
-  Training, Solution Designer, Application Builder / Surface Studio
+  Projects, Workbench, Automations, Canvas, SDK/ADK/ODK,
+  Developer & Integrations, ODK, Foundry, Marketplace facets
 
 Run
   Sessions, daemon runtime, providers, environments, HypervisorOS, cTEE,
@@ -403,7 +447,7 @@ cross-surface projection over shared Core contracts.
 The durable product shape is:
 
 ```text
-Change Plane / Release Controls
+Governance release/change facet
   primary cockpit for capability promotion, release, rollout, pause,
   rollback, recall, kill-switch, remote-config, release-target, gate,
   cohort, and deployment-risk coordination
@@ -411,49 +455,49 @@ Change Plane / Release Controls
 Owning application surfaces
   local lifecycle evidence and work state, with lifecycle strips, blocked
   reasons, authority gates, run/job refs, dependency impact, receipts, replay,
-  proof refs, and deep links back to Change Plane / Release Controls
+  proof refs, and deep links back to Governance, Operations, or Work Ledger
 ```
 
-Release Controls may appear as an Application, Open Application surface,
-Change Plane panel, org/admin view, Foundry handoff, Automations handoff, or
-contextual detail drawer. It should not become a permanent shell rail item by
-default.
+Release/change controls are a Governance facet. They may appear as an Open
+Application view, change-plane panel, org/admin view, Foundry handoff,
+Automations handoff, or contextual detail drawer. They should not become a
+permanent shell rail item or separate peer product by default.
 
 Local ownership stays explicit:
 
 ```text
-Providers / Environments
+Environments
   environment create/start/readiness/idle/archive/restore/delete,
   provider placement, ports, services, tasks, logs, restore posture
 
-Job Tracker
+Operations
   queued/running/failed/retried jobs, builds, retries, and execution status
 
-Resource Management
+Operations resource facet
   queues, quotas, rate limits, capacity, utilization, spend, and budgets
 
 Foundry
   dataset, eval, build, training, artifact conversion, registration, and
   promotion-candidate lifecycle
 
-Agent Studio / Agents / Workers
+Agent Studio
   agent/harness/tool/memory/authority/eval-readiness and worker/package
   candidacy
 
 Automations
   trigger, workflow, service, API, schedule, catch-up, and run lifecycle
 
-Marketplace / Artifacts
+Marketplace / Work Ledger
   install, publish, package, artifact, recall evidence, contribution, and
   settlement handoffs
 
-Approvals / Checkpoints / Issues
+Governance / Operations
   human approval, policy review, remediation, incident, and support gates
 
-Workflow Lineage / Data Lineage
+Work Ledger / ODK
   dependency, provenance, and impact graph
 
-Run Replay / Proof Explorer
+Work Ledger
   transition trace, receipt, proof, settlement, and replay inspection
 ```
 
@@ -467,7 +511,7 @@ replay refs, proof refs, and operator/MCP contracts.
 The lifecycle projection is not a new truth store. Agentgres admits truth,
 wallet.network authorizes, the Hypervisor Daemon executes, Foundry builds and
 evaluates, Marketplace/aiagent/MoW attributes external supply when applicable,
-and Run Replay / Proof Explorer inspect evidence.
+and Work Ledger inspects evidence.
 
 ## Application Surfaces
 
@@ -630,35 +674,33 @@ inside Hypervisor.
 
 An Application is a specialized UI/work surface over Hypervisor Core that
 creates, inspects, modifies, or governs Projects, Automations, Sessions,
-Agents, Workers, Models, Connectors / Tools / MCP, Tool / Function Builder,
-Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
-Providers / Environments, Artifacts, Application Builder / Surface Studio, or
-other domain objects.
+Agents, Workers, Models, Environments, ODK descriptors, Domain Apps,
+Developer & Integrations, Governance, Operations, Work Ledger, Marketplace, or
+other domain objects. Older family labels such as `Providers / Environments`,
+`Connections`, `Connectors / Tools / MCP`, `Data / Knowledge`, `Ontology`,
+`Workshop`, `Domain Blueprints`, `Authority / Govern`, `Release Controls`,
+`Resource Management`, `Operations Center`, `Learning Center`, and
+`Receipts / Replay` remain aliases or facets for those product surfaces.
 
-Applications may be first-party, organization-built, generated, marketplace, or
-vertical-specific. They are product surfaces, not separate runtimes or authority
-owners.
+Applications may be first-party, organization-built, ODK-generated,
+marketplace, or vertical-specific. They are product surfaces, not separate
+runtimes or authority owners.
 
 Examples:
 
 ```text
+Workbench
+Environments
+Agent Studio
 Foundry
-Agents / Workers
-Models
-Connectors / Tools / MCP
-Tool / Function Builder
-Data / Knowledge
-Ontology
-Authority / Govern
-Receipts / Replay
-Operate / Monitoring
-Providers / Environments
-Privacy / cTEE
-Change Plane
+ODK
+Domain Apps
+Developer & Integrations
+Governance
+Operations
+Work Ledger
 Marketplace
-Patterns / Examples / Training
-Application Builder / Surface Studio
-Domain-specific operations consoles
+Robot Fleets / Embodied
 ```
 
 Applications may contain or manage Automations, Projects, or Sessions, but they
@@ -698,7 +740,11 @@ A surface registration should declare:
 - receipt, replay, eval, package, and promotion obligations where applicable;
 - lifecycle-control posture where applicable: local owner, state machine,
   current/target refs, rollout/rollback/recall posture, blocking gates, linked
-  jobs/runs, dependency impact, and Change Plane / Release Controls deep links;
+  jobs/runs, dependency impact, and Governance release/change deep links;
+- ontology and ODK posture where applicable: DomainOntology refs,
+  CanonicalObjectModel refs, DataRecipe refs, PolicyBoundDataView refs,
+  OntologyProjection refs, OntologySurfaceDescriptor refs, and generated
+  artifact refs;
 - install, favorite, recent, recommended, and marketplace metadata where
   applicable.
 
@@ -725,6 +771,15 @@ The pressure check should cover:
 The registration contract prevents Applications from becoming a junk drawer: a
 surface must say what it operates, where it can open, what authority it needs,
 and which canonical owners retain truth.
+
+ODK-generated surfaces must pass the same registration contract as hand-authored
+surfaces. The Ontology Development Kit may scaffold the descriptor, code,
+fixtures, test cases, package skeletons, and conformance checks, but generated
+React, templates, examples, or local descriptors are not runtime truth,
+authority truth, semantic truth, or marketplace truth. Durable generated
+surfaces still bind to Hypervisor Core, daemon APIs, Agentgres ontology/object
+refs, policy-bound views, authority requirements, receipts, replay, and
+conformance profiles.
 
 ### Application Composition Contract
 
@@ -771,8 +826,8 @@ permanent rail items, but they should not be hidden as vague panels either.
 Relevant surface modes include:
 
 ```text
-Tool / Function Builder
-Application Builder / Surface Studio
+Automations tool/function builder
+ODK generate / blueprint surface builder
 solution designer / architecture planner
 walkthrough / recipe builder
 object view
@@ -806,11 +861,14 @@ inference readiness
 domain app consoles
 ```
 
-Each mode should be classified under an owning application family, such as
-Automations, Data / Knowledge, Ontology, Authority / Govern, Privacy / cTEE,
-Change Plane, Receipts / Replay, Operate / Monitoring, Projects / Workbench,
-Foundry, Marketplace, Patterns / Examples / Training, Application Builder /
-Surface Studio, Tool / Function Builder, or Domain Apps.
+Each mode should be classified under an owning product surface, such as
+Automations, ODK, Governance, Environments, Work Ledger, Operations,
+Projects / Workbench, Foundry, Marketplace, Developer & Integrations, or
+Domain Apps. Older family labels such as `Data / Knowledge`, `Ontology`,
+`Workshop`, `Domain Blueprints`, `Providers / Environments`,
+`Release Controls`, `Resource Management`, `Authority / Govern`,
+`Receipts / Replay`, and `Patterns / Examples / Training` are aliases or
+facets, not separate product surfaces.
 
 ## Hypervisor Operator Plane
 
@@ -873,27 +931,29 @@ or admit private truth outside daemon and Agentgres paths.
 
 ## Builder Surfaces
 
-**Tool / Function Builder** is the product surface for typed functions, tools,
-MCP wrappers, and workflow-as-tool contracts. It may appear in Applications, in
-Automations node creation, in project context, or in package/pattern flows. Its
-outputs compile into `RuntimeToolContract`, primitive capability declarations,
-authority scopes, schema validation, receipt obligations, and optional
-Automations nodes.
+**Tool / Function Builder** is an alias for typed-function and tool-building
+flows housed primarily in Automations and Developer & Integrations. It may
+appear in Applications, in Automations node creation, in project context, or in
+package/pattern flows. Its outputs compile into `RuntimeToolContract`,
+primitive capability declarations, authority scopes, schema validation, receipt
+obligations, and optional Automations nodes.
 
-**Application Builder / Surface Studio** is the product surface for object-aware
-application shells, widgets, forms, dashboards, operator consoles, and generated
-domain apps. It may use Ontology object/action/value types, Data / Knowledge
+**ODK Generate** is the product path for object-aware application shells,
+widgets, forms, dashboards, operator consoles, autonomous-system blueprints, and
+generated domain apps. It may use ODK object/action/value types, ODK data
 recipes, Workbench code, Automations, tool contracts, and package metadata.
 
-Both builder surfaces are proposal and packaging paths over Hypervisor Core.
-They do not own runtime truth, authority, semantic truth, or storage truth.
-Effectful actions they expose to agents must use the Hypervisor Operator Plane,
-daemon admission, wallet.network, Agentgres, and receipts.
+These builder paths are proposal and packaging paths over Hypervisor Core. They
+do not own runtime truth, authority, semantic truth, or storage truth. Effectful
+actions they expose to agents must use the Hypervisor Operator Plane, daemon
+admission, authority-provider gates as required, Agentgres, and receipts.
 
-## Patterns, Examples, And Training
+## Learning, Patterns, Examples, And Training
 
-**Patterns / Examples / Training** is the role-guided enablement and reusable
-recipe surface inside Hypervisor Applications.
+**Learning / Patterns / Examples / Training** is an enablement facet, not a
+standalone product surface. It may appear in Home, Applications, Marketplace,
+Foundry, ODK, Domain Apps, and onboarding flows when a recipe can become
+governed work.
 
 It is not passive documentation. It is a product path from learning or
 exploration into governed work:
@@ -918,7 +978,7 @@ This surface may expose:
   eval packs, dashboard/application shells, model routes, provider profiles,
   and marketplace packages;
 - solution diagrams and architecture planners that compile into reviewed
-  Workbench, Automations, Foundry, Data / Knowledge, Ontology, or Domain App
+  Workbench, Automations, Foundry, ODK, or Domain App
   proposals.
 
 Every serious example should declare the vertical problem, required data and
@@ -1118,8 +1178,8 @@ coordination is not Foundry and Foundry is not a chat room.
 
 **Workflow Compositor** is the high-level directed-work surface over Hypervisor
 Core. It is a shared graph/projection model used by Automations, Workbench,
-Foundry, other application surfaces, Providers / Environments views, and
-SDK/ADK clients when work needs explicit structure.
+Foundry, other application surfaces, Environments views, and
+SDK/ADK/ODK clients when work needs explicit structure.
 
 The compositor owns:
 
@@ -1607,7 +1667,7 @@ receipt obligations
 ```
 
 External harnesses, Workbench, Automations, Foundry, Canvas views, Hypervisor
-App/Web, CLI/headless clients, and Providers / Environments views may receive
+App/Web, CLI/headless clients, and Environments views may receive
 structured outputs and exit codes. They do not get durable secrets, plaintext
 custody, or authority except through wallet.network capability leases and
 receipts.
@@ -2271,7 +2331,7 @@ not mutate host state directly.
   environments to both a materialized Git branch/worktree and an Agentgres patch
   branch unless the work is explicitly read-only, non-code, or ephemeral.
 - Workbench, Automations, Foundry, Canvas, other application surfaces, and
-  Providers / Environments views must share Core session, authority, receipt,
+  Environments views must share Core session, authority, receipt,
   replay, and projection contracts.
 - Automations must use Workflow Compositor contracts for graph shape and the
   daemon/Agentgres path for execution truth; it must not invent a separate
@@ -2374,7 +2434,7 @@ Hypervisor Operator Plane = governed control-plane harness over declared
 application-surface contracts
 code WorkRun = isolated child environment + materialized Git branch/worktree +
 Agentgres patch branch + receipts
-Provider and infrastructure posture = Providers / Environments views through
+Provider and infrastructure posture = Environments views through
 Applications, Open Application, sessions, projects, provider settings,
 org/admin views, or operator consoles
 Sessions = governed live workspaces/runs

@@ -44,7 +44,7 @@ The default stack relation is:
 Hypervisor clients and surfaces
   Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
   Workbench/Automations/Foundry surfaces, other application surfaces,
-  Canvas views, Providers / Environments views, Authority Gateway adapters
+  Canvas views, Environments views, Authority Gateway adapters
 
 Hypervisor Daemon
   execution owner and policy/authority/effect boundary

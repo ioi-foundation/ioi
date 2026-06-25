@@ -26,16 +26,16 @@ Hypervisor clients
   TUI is an optional CLI presentation, not a separate first-class client
 
 Hypervisor product shell
-  Home starts/resumes work; Projects organize persistent software/system work;
-  Automations own durable workflows/services; Applications expose specialized
-  surfaces; Sessions show live and historical execution
+  New Session launches governed work; Home starts/resumes work; Projects
+  organize persistent software/system work; Automations own durable
+  workflows/services; Applications expose specialized surfaces; Sessions show
+  live and historical execution; Open Application is the singular active-surface slot
 
 Hypervisor application surfaces
   organize the same Core by job-to-be-done
-  Workbench, Automations, Foundry, Agents / Workers, Models,
-  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
-  Receipts / Replay, Operate / Monitoring, Providers / Environments,
-  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
+  Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
+  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  Robot Fleets / Embodied
 
 ioi.ai collaborative outcome pattern
   chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over Hypervisor,
@@ -81,7 +81,8 @@ Persistent workspace intelligence
 wallet.network
   authorizes identity, secrets, approvals, payments, exchanges, scopes,
   decryption, revocation, and protection actions; route sources produce
-  exchange candidates, but Wallet owns authority and the user-facing cockpit
+  exchange candidates, but wallet.network owns authority while products may
+  present it as Wallet, SSO, permissions, approval review, or connected access
 
 decentralized.exchange / decentralized.trade
   Wallet-consumed route/venue intelligence engines for asset conversion and
@@ -199,7 +200,7 @@ Intent
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
 Workbench/Automations/Foundry surfaces, other application surfaces, and
-Providers / Environments views are clients, projections, application surfaces,
+Environments views are clients, projections, application surfaces,
 editors, views, or daemon-executed profiles.
 
 ## Route By Problem
@@ -391,7 +392,7 @@ Start here:
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
 Workbench/Automations/Foundry application surfaces, other Applications
-surfaces, Providers / Environments views, package install/publish flows, and
+surfaces, Environments views, package install/publish flows, and
 clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor Daemon,
 Agentgres, wallet.network, and L1.
 
@@ -470,7 +471,7 @@ ioi.ai collaborative outcomes are goal-appropriate multi-model/multi-path
 pursuits over Hypervisor with evidence, receipts, and authority gates
 Foundry builds and evaluates models, workers, datasets, endpoints, registries,
 simulation-training jobs, and ontology-aware packages
-Providers / Environments views manage sessions, providers, and environments
+Environments views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work
 selected HarnessProfiles resolve scoped steps

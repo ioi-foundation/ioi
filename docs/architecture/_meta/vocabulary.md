@@ -9,6 +9,59 @@ Last alignment pass: 2026-06-22.
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
 
+## Language Layers
+
+Architecture terms should not automatically become product copy. Use the
+smallest visible vocabulary that matches the audience:
+
+| Layer | Use For | Default Language |
+| --- | --- | --- |
+| Product | users, buyers, first-run flows, marketplace listings | agents, jobs, projects, sessions, permissions, connected apps, delivery channels, evidence, run history, payments, renew, revoke |
+| Admin / Builder | org admins, builders, operators, advanced settings | policies, scopes, work ledger, evals, worker packages, runtime profiles, data recipes, ontology kits, surface descriptors, integration surfaces, authority clients |
+| Protocol / Architecture | implementers, auditors, conformance, proof drilldowns | wallet.network, Agentgres, Hypervisor Daemon, authority grants, Agentgres operations, ContributionReceipts, IOI L1 commitments |
+
+Default presentation map:
+
+| Owner Term | Default Product Term |
+| --- | --- |
+| wallet.network | SSO, permissions, connected access, authority, recovery |
+| Agentgres | Work Ledger, evidence, run history, receipts |
+| Hypervisor Daemon | secure runtime, execution environment, worker runtime |
+| IOI L1 / mainnet | proof network, settlement, public commitment |
+| aiagent.xyz | agent marketplace, worker marketplace, agent supply |
+| ContributionReceipt | contribution record, payout evidence, attribution |
+
+Subsystem names should be visible in advanced security, audit, proof,
+developer, protocol, and conformance contexts. They should not carry the default
+product pitch or routine onboarding flow.
+
+## Builder Kit Terms
+
+- `SDK`: the low-level protocol/client library over daemon/domain APIs. It may
+  submit, inspect, stream, or control work through admitted APIs; it is not the
+  execution substrate or a truth store.
+- `ADK`: the autonomous-system builder framework. It scaffolds workers, service
+  modules, harness adapters, evals, manifests, receipts, and deployment profiles
+  over daemon/domain contracts; it is not a peer runtime.
+- `ODK` / `OntologyDevelopmentKit`: the ontology-aware builder kit over Domain
+  Ontologies, Canonical Object Models, Data Recipes, Connector Mappings,
+  PolicyBoundDataViews, OntologyProjections, workflow schemas, evals, and
+  conformance profiles. It scaffolds object-aware surfaces, domain apps,
+  operator consoles, dashboards, data-recipe builders, connector-mapping
+  editors, eval packs, worker/package skeletons, and marketplace-ready ontology
+  packs. It is not a runtime, authority layer, semantic truth store, data
+  warehouse, training-consent owner, marketplace, or settlement layer.
+- `OntologyDevelopmentKitManifest`: a builder/conformance manifest that packages
+  ontology refs, object-model refs, recipe refs, connector mappings,
+  policy-bound views, surface descriptors, workflow schemas, eval refs,
+  operator/MCP contract refs, package refs, and conformance expectations.
+- `OntologySurfaceDescriptor`: an object-aware surface descriptor for generated
+  or authored list/detail views, object views, object editors, graphs, forms,
+  review queues, monitoring consoles, dashboards, data-recipe builders,
+  connector-mapping editors, and domain apps. It declares binding and
+  obligations; it does not own execution, authority, semantic truth, or
+  marketplace status.
+
 ## Runtime Terms
 
 - `HypervisorDaemon`: the hypervisor/control plane for autonomous execution. It
@@ -310,11 +363,13 @@ compliance acronyms for hidden audit material.
   consoles. It evaluates intent, simulation, risk, eligibility, policy,
   approval mode, execution handoff, receipt, and revocation. It is not the full
   Wallet application UI.
-- `WalletAuthorityCockpit`: the user-facing wallet.network product shape for
+- `WalletAuthorityCockpit`: the high-trust wallet.network product shape for
   autonomous agents and autonomous finance. It lets users and organizations see
   agents, active authority, provider credential bindings, budgets, approval
   modes, auth-factor posture, guardian surfaces, key shards, receipts, and
-  revocation controls without making the agent a raw credential holder.
+  revocation controls without making the agent a raw credential holder. Routine
+  product flows may render the same authority contract as SSO, permissions,
+  connected access, approval review, or recovery inside the product being used.
 - `WalletPresentationProfile`: a UI profile over the same `WalletAuthorityCore`
   review contract. Canonical profiles are `lite_approval_card`,
   `standard_wallet_review`, `advanced_authority_console`, `cli_prompt`, and
@@ -366,16 +421,18 @@ compliance acronyms for hidden audit material.
   `scope:broker.place_order`, or `scope:cloud.deploy` without receiving
   long-lived credentials or root authority by default.
 - `WalletExchange`: the source-agnostic Wallet product surface for exchanges.
-  wallet.network is the user-facing cockpit and owns exchange authority, risk
-  disclosure, policy evaluation, signing or denial, revocation, and receipts;
-  route sources only produce candidates.
+  wallet.network owns exchange authority, risk disclosure, policy evaluation,
+  signing or denial, revocation, and receipts; the Wallet product is the
+  high-trust cockpit, while embedded products may present narrower approval
+  cards over the same contract. Route sources only produce candidates.
 - `WalletTrade`: the advanced Wallet product surface for exposure management,
   including spot orders, perps, prediction markets, event contracts, leverage,
   collateral, margin, liquidation, funding, resolution, and position lifecycle.
-  wallet.network is the user-facing cockpit and owns trade authority, risk
-  disclosure, policy evaluation, signing or denial, revocation, and receipts;
-  trading route sources and venues only produce candidates or execute approved
-  intents.
+  wallet.network owns trade authority, risk disclosure, policy evaluation,
+  signing or denial, revocation, and receipts; the Wallet product is the
+  high-trust cockpit, while embedded products may present narrower approval
+  cards over the same contract. Trading route sources and venues only produce
+  candidates or execute approved intents.
 - `ExchangeIntent`: the semantic wallet object above raw transaction calldata.
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
@@ -512,18 +569,16 @@ compliance acronyms for hidden audit material.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Workbench, Automations, Foundry, Agents / Workers, Models,
-  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
-  Receipts / Replay, Operate / Monitoring, Providers / Environments,
-  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps,
-  and other application surfaces.
+  Workbench, Automations, Environments, Agent Studio, Foundry, ODK,
+  Domain Apps, Developer & Integrations, Governance, Operations, Work Ledger,
+  Marketplace, Robot Fleets / Embodied, and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
   contracts.
 - `HypervisorCliHeadless`: the terminal, scripting, CI, node-ops, and headless
   operator client over Hypervisor Core. It can render plans, controls, traces,
-  approvals, receipts, Providers / Environments projections, and node operations,
+  approvals, receipts, Environments projections, and node operations,
   but it does not own execution semantics.
 - `HypervisorTui`: an optional interactive presentation of the
   HypervisorCliHeadless client. It is not a separate first-class client lane and
@@ -537,21 +592,34 @@ compliance acronyms for hidden audit material.
   inside Hypervisor. Applications can expose first-party, organization-built,
   generated, marketplace, or domain-specific surfaces over Hypervisor Core.
   Applications may create, inspect, modify, or govern Projects, Automations,
-  Sessions, Agents, Workers, Models, Connectors / Tools / MCP,
-  Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
-  Providers / Environments, Artifacts, or other domain objects, but they are not
-  separate runtimes, authority owners, or Agentgres truth sources.
+  Sessions, agents, workers, models, environments, ODK descriptors, Domain
+  Apps, developer integrations, governance, operations, evidence, artifacts,
+  or other domain objects, but they are not separate runtimes, authority
+  owners, or Agentgres truth sources.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Workbench, Automations, Foundry, Agents / Workers, Models,
-  Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern,
-  Receipts / Replay, Operate / Monitoring, Providers / Environments,
-  Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, or Domain
-  Apps. Providers / Environments posture may appear through the Applications
-  catalog, Open Application, session, project, provider, org/admin, or
-  operator-console views, not through a standalone provider-management product.
-  Application surfaces are not separate apps with separate runtime truth.
+  such as Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
+  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  or roadmap Robot Fleets / Embodied. Provider/environment posture may appear
+  through the Applications catalog, Open Application, session, project,
+  provider, org/admin, or operator-console views, not through a standalone
+  provider-management product. Application surfaces are not separate apps with
+  separate runtime truth.
+- `HypervisorSurfaceAlias`: a legacy or architectural-family label that maps to
+  a preferred product surface name. `Providers / Environments` maps to
+  Environments; `Data / Knowledge`, `Ontology`, `Data Studio`,
+  `Ontology Studio`, `Workshop`, and `Domain Blueprints` map to ODK;
+  `Analyst` maps to Domain Apps; `Connections`, `Connectors / Tools / MCP`,
+  and `Developer Console` map to Developer & Integrations;
+  `Authority / Govern`, `Governance Center`, `Change Plane`, and
+  `Release Controls` map to Governance; `Operate / Monitoring`,
+  `Operations Center`, and `Resource Management` map to Operations;
+  `Receipts / Replay` and `Proof Explorer` map to Work Ledger;
+  `Patterns / Examples / Training` and `Learning Center` map to enablement
+  facets in Home, Applications, Marketplace, Foundry, ODK, and onboarding;
+  `Outcome Services / Delivery` maps to the Marketplace declared outcome
+  service facet. Aliases are not separate final product apps.
 - `HypervisorPatternsExamplesTraining`: the role-guided recipe and enablement
-  surface inside Hypervisor Applications. It turns role tracks, speedruns,
+  facet inside Hypervisor. It turns role tracks, speedruns,
   solution diagrams, examples, starter automations, data recipes, ontology
   packs, eval packs, and package templates into governed sessions,
   automations, Foundry jobs, domain apps, receipts, replay, improvement, and
@@ -763,7 +831,7 @@ compliance acronyms for hidden audit material.
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Automations, Foundry, or Providers / Environments view by itself.
+  Workbench, Automations, Foundry, or Environments view by itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic

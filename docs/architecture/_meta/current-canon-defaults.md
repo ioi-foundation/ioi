@@ -83,6 +83,15 @@ synchronized.
   lifecycle lens of Build, Run, Govern, Observe, and Improve behind the
   stable shell. Package / Market is a marketplace/settlement path that follows
   from improved capability, not a default navigation burden;
+- Product surfaces should use layered language. Users and buyers see agents,
+  jobs, sessions, permissions, connected apps, delivery channels, evidence,
+  payments, and revoke controls. Admins and builders see policies, scopes,
+  work ledgers, evals, worker packages, runtime profiles, data recipes, ontology
+  kits, surface descriptors, and authority clients. Protocol, audit, and
+  implementation views may name
+  wallet.network, Agentgres, Hypervisor Daemon, authority grants, IOI L1
+  commitments, and ContributionReceipts. Subsystem names support trust; they
+  should not carry the default product pitch;
 - Hypervisor's compounding loop is: governed work happens; receipts,
   artifacts, traces, corrections, and evals accumulate; failures and wins are
   mined; Foundry proposes or builds reusable capability; aiagent.xyz/MoW
@@ -95,15 +104,13 @@ synchronized.
   rollback, recall, and proof envelopes. Bounded recursive improvement is
   proposal-mediated improvement, not direct self-mutation or
   self-escalation;
-- Hypervisor Workbench, Automations, Foundry, Agents / Workers, Models,
-  Connectors / Tools / MCP, Tool / Function Builder, Data / Knowledge,
-  Ontology, Authority / Govern, Receipts / Replay, Operate / Monitoring,
-  Providers / Environments, Privacy / cTEE, Change Plane, Marketplace,
-  Patterns / Examples / Training, Application Builder / Surface Studio, and
-  Domain Apps are application surfaces over Hypervisor Core, not
-  runtime-truth owners; favorites, recommended apps, promoted apps, pinned
-  apps, and organization shortcuts are catalog, Home, project/session, or
-  user preference affordances, not canonical shell categories;
+- Hypervisor Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
+  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  and roadmap Robot Fleets / Embodied are application surfaces over Hypervisor
+  Core, not runtime-truth owners. Automations is a shell-blessed durable work
+  container over the same Core. Favorites, recommended apps, promoted apps,
+  pinned apps, and organization shortcuts are catalog, Home, project/session,
+  or user preference affordances, not canonical shell categories;
 - Hypervisor application surfaces should register stable identity, owner doc,
 object families, allowed placements, launch modes, project/session
 compatibility, daemon/API dependencies, authority/privacy posture,
@@ -111,7 +118,7 @@ operator-plane tool or MCP contract refs, host/platform mutation boundary,
 composition pattern, receipts/replay/eval/package obligations, and
 install/favorite/recommended metadata before becoming durable first-class
 inventory;
-- Autonomous-system domain manifests and Domain Blueprints must be concrete
+- Autonomous-system domain manifests and ODK blueprints must be concrete
 enough to instantiate real domains, not only diagrams. They should name
 source/project bindings, runtime placement, authority scopes, connector
 requirements, exposed operator/API/MCP/AIIP interfaces, generated domain
@@ -126,19 +133,26 @@ applicable;
   package/install/publish flow, and generated domain surface. These are UX
   composition patterns over shared Core contracts, not new truth owners;
 - Hypervisor capability lifecycle control is a cross-surface projection, not
-  a separate runtime, authority owner, or permanent shell category. The
-  Change Plane / Release Controls surface is the primary cockpit for
-  promote, deploy, roll out, pause, rollback, recall, kill-switch,
-  remote-config, release-target, gate, and cohort coordination across
-  reusable capability; local surfaces still own their local evidence and
-  work state. Providers / Environments owns environment runtime lifecycle,
-  Job Tracker owns execution queue/run state, Resource Management owns
-  capacity/queue/spend posture, Foundry owns build/eval/training and
-  promotion candidates, Automations owns trigger/workflow/service lifecycle,
-  Marketplace / Artifacts owns install/publish/package evidence, Approvals /
-  Checkpoints / Issues own human and policy gates, Workflow Lineage owns
-  dependency impact, and Run Replay / Proof Explorer owns trace/proof
-  inspection;
+  a separate runtime, authority owner, or permanent shell category. Governance
+  owns the release/change facet for promote, deploy, roll out, pause, rollback,
+  recall, kill-switch, remote-config, release-target, gate, and cohort
+  coordination across reusable capability; local surfaces still own their local
+  evidence and work state. Environments owns environment runtime lifecycle,
+  Operations owns execution queue/run/remediation and capacity/queue/spend
+  posture, Foundry owns build/eval/training and promotion candidates,
+  Automations owns trigger/workflow/service lifecycle, Marketplace and Work
+  Ledger own install/publish/package evidence and artifact/contribution
+  handoffs, Governance and Operations own human approval, policy, remediation,
+  and incident gates, ODK and Work Ledger own dependency, provenance, and
+  impact views, and Work Ledger owns trace/proof inspection;
+- agent-ready development environments are stateful, interactive, and
+  potentially adversarial. For untrusted or cross-tenant autonomous work,
+  Hypervisor should use VM, microVM, HypervisorOS, customer-boundary, TEE, or
+  cTEE profiles as the isolation claim; devcontainers and containers are setup
+  or inner-sandbox lanes unless admitted inside an appropriate boundary.
+  Readiness means the daemon admitted recipe, tasks, services, resources,
+  connectivity, ports, caches, authority, receipts, and restore posture, not
+  merely that a shell or container started;
 - application surface modes such as solution planners, walkthrough builders,
   typed tool/function builders, object views, value-type managers,
   graph/object explorers, schedulers, object/state monitors, authority
@@ -150,20 +164,24 @@ applicable;
   dataset/time-series explorers, model libraries, model rules/guardrails,
   inference readiness, and domain consoles are Applications catalog or
   contextual surface inventory, not permanent shell categories;
-- Patterns / Examples / Training is the role-guided recipe surface for
-  turning learning tracks, solution diagrams, example apps, starter
-  automations, data recipes, ontology packs, eval packs, and package
-  templates into governed sessions, automations, Foundry jobs, domain apps,
-  receipts, replay, promotion proposals, and marketplace paths;
+- Learning / Patterns / Examples / Training is the role-guided recipe facet for
+  turning learning
+  tracks, solution diagrams, example apps, starter automations, data recipes,
+  ontology packs, eval packs, and package templates into governed sessions,
+  automations, Foundry jobs, domain apps, receipts, replay, promotion
+  proposals, and marketplace paths. It appears through Home, Applications,
+  Marketplace, Foundry, ODK, Domain Apps, and onboarding rather than as a
+  separate final product app;
 - Agents are configurable, buildable product objects over Hypervisor Core;
   Workers remain the accountable protocol package/manifest boundary.
   Product controls such as Agent, Mode, Model, Reasoning, Speed, Harness,
-  Tools / Connectors, Memory, Authority, Budget, Evals, and
-  Receipts / Replay compile into daemon records, wallet authority, model
-  routing, HarnessProfile selection, Agentgres operations, and receipts;
-- Models is the product-facing surface label; ModelRoute remains the
-  implementation/runtime object for provider, custody, fallback, spend,
-  privacy, eligibility, and invocation policy;
+  Tools / Integrations, Memory, Authority, Budget, Evals, and Work Ledger
+  posture compile into daemon records, wallet authority, model routing,
+  HarnessProfile selection, Agentgres operations, and receipts;
+- Model is the product-facing control label inside New Session, Agent Studio,
+  Foundry, and related surfaces; ModelRoute remains the implementation/runtime
+  object for provider, custody, fallback, spend, privacy, eligibility, and
+  invocation policy;
 - Hypervisor's Agent Operating Plane is daemon-owned: configured agent
   records, agent/session admission, work queues, work items, work runs,
   turn control, conversation streams, subagent delegation, runner
@@ -196,10 +214,19 @@ applicable;
   models, workers, data recipes, evals, model routes, packages, endpoints,
   conductor-advisor candidates, or promotion proposals. ioi.ai may draft or
   consume Foundry refs, but Foundry owns training/eval lineage;
-- Data / Knowledge and Ontology are first-party Hypervisor surfaces over the
-  semantic data plane; Foundry consumes them for training, evaluation,
-  simulation, worker/package generation, and capability improvement, but does
-  not own semantic truth;
+- ODK is the first-party Hypervisor surface over the semantic data plane;
+  Foundry consumes ODK-governed ontology/data artifacts for training,
+  evaluation, simulation, worker/package generation, and capability
+  improvement, but does not own semantic truth. `Data / Knowledge`,
+  `Ontology`, `Data Studio`, `Ontology Studio`, `Workshop`, and
+  `Domain Blueprints` are aliases or facets, not separate final product apps;
+- the Ontology Development Kit is the source-neutral builder kit over Domain
+  Ontologies, Canonical Object Models, Data Recipes, Connector Mappings,
+  PolicyBoundDataViews, OntologyProjections, evals, and workflow schemas. It may
+  scaffold or validate object-aware surfaces, domain apps, operator consoles,
+  eval packs, worker/package skeletons, and marketplace-ready ontology packs,
+  but it is not a runtime, truth store, authority layer, data warehouse,
+  training-consent owner, marketplace, or settlement layer;
 - Connectors / Tools / MCP is a first-party Hypervisor surface over the
   authority-aware registry; MCP servers, external agent tools, and
   workflow-as-tool subgraphs must compile to RuntimeToolContract, primitive
@@ -267,13 +294,16 @@ applicable;
   portable delegated authority, secrets, decryption leases, external effects,
   or high-risk approval, and IOI L1 receives only selected
   public/economic/cross-domain commitments;
-- wallet.network is the authority wallet and user-facing cockpit for
-  autonomous agents and autonomous finance: it owns auth-factor posture,
-  guardian and key-shard posture, provider credential binding posture,
-  agent/session authority, exchange authority, trade authority, risk
-  disclosure, approval, signing/denial, revocation, protection actions, and
-  wallet receipts, while agents, routes, venues, connectors, and provider
-  adapters only produce requests or candidates;
+- wallet.network is the authority wallet/gateway for autonomous agents and
+  autonomous finance. It may render as a Wallet cockpit in high-trust or
+  advanced contexts, but ordinary product flows should usually present it as
+  SSO, permissions, connected access, approvals, recovery, and revoke controls
+  embedded inside the current product. It owns auth-factor posture, guardian
+  and key-shard posture, provider credential binding posture, agent/session
+  authority, exchange authority, trade authority, risk disclosure, approval,
+  signing/denial, revocation, protection actions, and wallet receipts, while
+  agents, routes, venues, connectors, and provider adapters only produce
+  requests or candidates;
 - `decentralized.exchange` is a preferred first-party route-intelligence
   engine for asset conversion, not a mandatory exchange UI, exchange
   backend, authority layer, liquidity owner, execution owner, or trust root;
@@ -323,7 +353,7 @@ applicable;
   replay, routing, and interop domain for many governed autonomous-system
   chains;
 - Hypervisor App, Hypervisor Web, CLI/headless, Workbench, Automations,
-  Foundry, other application surfaces, and Providers / Environments views
+  Foundry, other application surfaces, and Environments views
   are not the Hypervisor Node; they are clients, application surfaces, or
   projections, while the node is the local settlement domain composed around
   Hypervisor Daemon, Agentgres, wallet.network authority paths, local
@@ -357,14 +387,15 @@ applicable;
 - policy, receipts, replay, approvals, authority scopes, and settlement hooks
   are the shared trust/audit substrate;
 - clients are projections or operators, not private runtime truth;
-- Providers / Environments views in Hypervisor App, Hypervisor Web,
+- Environments views in Hypervisor App, Hypervisor Web,
   CLI/headless projections, and console.ioi.ai are projections and control
   lenses over daemon, Agentgres, wallet.network, cTEE, AIIP, and provider
   substrate; they are not separate apps with separate runtime truth;
-- CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the
+- CLI/headless, SDK, ADK, and ODK are separate surfaces: CLI/headless is the
   operator/scripting/CI client, TUI is an optional presentation of it, SDK is
-  the low-level protocol/client library, and ADK is the autonomous-system
-  builder framework;
+  the low-level protocol/client library, ADK is the autonomous-system builder
+  framework, and ODK is the ontology-aware surface/domain-app/data-recipe builder
+  kit over semantic data-plane contracts;
 - IDE/CLI/browser/hosted-agent adapters mediate through available control
   points only and must not claim total interception of opaque tools;
 - models and agents may reason or propose; the daemon authorizes anything
@@ -381,8 +412,7 @@ applicable;
   ModelCapacityProfile, and TrainingCostLedger are first-class Foundry and
   Agentgres objects when batch-level training mechanics matter;
 - Domain Ontologies and Data Recipes are the semantic data plane, surfaced
-  in Hypervisor through Data / Knowledge and Ontology applications or
-  contextual views;
+  in Hypervisor through ODK facets, Domain Apps, or contextual views;
 - DistilledOntologyDataset is the compact high-signal data substrate for
   efficient specialist training and evaluation when useful;
 - adaptive work graph is execution strategy only.

@@ -115,7 +115,7 @@ The long-term infrastructure path is therefore natural:
 HypervisorOS
   daemon-rooted node profile
   -> VMs / containers / microVMs / WASM workloads / model servers
-  -> Hypervisor Providers / Environments management
+  -> Hypervisor Environments management
   -> private workspaces, authority scopes, receipts, replay, and service outcomes
 ```
 
@@ -349,6 +349,7 @@ HypervisorOSNode:
   node_enforcement_profile_ref: node_enforcement://... | null
   agentgres_domain_ref: agentgres://domain/...
   supported_worker_substrates:
+    - vm
     - microvm
     - container
     - wasm

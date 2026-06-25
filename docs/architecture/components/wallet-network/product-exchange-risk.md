@@ -149,16 +149,22 @@ protect
 The product surface may vary by app, mobile, extension, web, CLI, or enterprise
 profile, but the action grammar and receipt semantics must remain stable.
 
-Wallet is the canonical user-facing cockpit for Exchange and Trade. The user
+Wallet is the canonical high-trust cockpit for Exchange and Trade. The user
 should be able to review, approve, deny, execute, monitor, and receipt exchange
 or trade actions inside Wallet without first visiting `decentralized.exchange`
 or `decentralized.trade`.
 
-Wallet is also the canonical user-facing cockpit for agent authority. The user
-should be able to connect an agent, bind provider credentials, set authority
-limits, choose approval modes, inspect active sessions, review pending
-authority, revoke grants, and verify receipts without exposing raw secrets or
-root credentials to the agent.
+Wallet is also the high-trust cockpit for agent authority. The user should be
+able to connect an agent, bind provider credentials, set authority limits,
+choose approval modes, inspect active sessions, review pending authority,
+revoke grants, and verify receipts without exposing raw secrets or root
+credentials to the agent.
+
+This does not require every product to send the user to Wallet for routine
+setup. Hypervisor, aiagent.xyz, ioi.ai, sas.xyz, and domain apps may present the
+same authority contract as SSO, permissions, connected apps, approval review,
+recovery, or revoke controls inside their own flows. Wallet remains the dense
+authority cockpit and audit/control surface when the user needs the full view.
 
 ## Agent Authority Cockpit
 

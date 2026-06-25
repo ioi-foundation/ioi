@@ -10,9 +10,9 @@ Last alignment pass: 2026-05-30.
 
 The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
 for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
-presentation, `@ioi/agent-sdk`, future IOI ADK, Hypervisor App,
+presentation, `@ioi/agent-sdk`, future IOI ADK, future IOI ODK, Hypervisor App,
 Hypervisor Web, Workbench/Foundry surfaces, other application surfaces,
-Providers / Environments views, Workflow Compositor, harness profiles,
+Environments views, Workflow Compositor, harness profiles,
 benchmarks, editor extension-host code, and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
 this public runtime API. They must not own separate execution semantics. Local
@@ -26,8 +26,11 @@ Compute nodes initialize daemon-compatible runtime-node profiles, optionally
 bridging into lower-level runtime services. The SDK may submit, inspect, stream,
 or control work through this API, but it is not the execution substrate booted
 on a compute node. The ADK may scaffold workers, service modules, harnesses,
-evals, manifests, receipts, and deployment profiles over this API, but it is
-not the daemon or the canonical runtime owner.
+evals, manifests, receipts, and deployment profiles over this API. The ODK may
+scaffold ontology-aware surfaces, domain apps, data recipes, connector mappings,
+eval packs, operator/MCP contracts, and package descriptors over this API and
+the semantic data-plane contracts. Neither kit is the daemon or the canonical
+runtime owner.
 
 Workers, models, tools, connectors, browsers, shells, and computer-use providers
 are guest workloads/capabilities from this API's point of view. Policy,
@@ -1576,7 +1579,7 @@ wallet, receipt, and state-root refs.
 
 Data recipe, transformation, training, evaluation, benchmark, and routing
 endpoints are daemon execution surfaces. Hypervisor, CLI/headless, optional TUI,
-SDK, ADK, harnesses,
+SDK, ADK, ODK, harnesses,
 and benchmarks can call them as clients; they must not implement a separate
 semantic-data or training runtime.
 
@@ -1640,7 +1643,7 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
 Workflow Compositor, Workbench/Foundry surfaces, other application surfaces,
-and Providers / Environments views may render these controls differently, but
+and Environments views may render these controls differently, but
 they must converge on these daemon contracts rather than maintaining private
 session loops.
 
@@ -1671,8 +1674,8 @@ session loops.
 
 Projects, sessions, missions, adapter targets, and environment operations are
 daemon/Core APIs. Hypervisor App, Hypervisor Web, CLI/headless clients,
-Workbench, Foundry, other application surfaces, Providers / Environments
-views, SDK/ADK clients, and agent harness adapters may render or call these
+Workbench, Foundry, other application surfaces, Environments
+views, SDK/ADK/ODK clients, and agent harness adapters may render or call these
 APIs, but they must not maintain parallel lifecycle truth.
 
 ### Projects
@@ -2008,7 +2011,7 @@ POST /v1/connectors/{connector_id}/subscriptions
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, SDK, ADK, Workbench, Workflow Compositor, Foundry
-surfaces, other application surfaces, and Providers / Environments views.
+surfaces, other application surfaces, and Environments views.
 Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
 `/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 
@@ -2164,7 +2167,7 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 3. The daemon cannot receive raw secrets unless it is local/customer-controlled or Enterprise Secure mode with attestation.
 4. All effectful actions require policy decision persistence.
 5. Every exposed API must support redacted diagnostic export.
-6. SDK, ADK, CLI/headless, optional TUI, GUI, Workflow Compositor, harness
+6. SDK, ADK, ODK, CLI/headless, optional TUI, GUI, Workflow Compositor, harness
    profiles, and benchmark clients must observe the same run contracts rather
    than owning separate runtimes.
 7. Workflow Compositor owns directed workflow/service shape; selected

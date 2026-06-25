@@ -194,10 +194,9 @@ Client Surfaces
   Workbench, Workflow Compositor, browser apps, harness profiles, benchmarks
 
 Hypervisor Application Surfaces
-  Workbench, Foundry, Agents / Workers, Models, Connectors / Tools / MCP,
-  Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay,
-  Operate / Monitoring, Providers / Environments, Privacy / cTEE,
-  Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
+  Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
+  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  Robot Fleets / Embodied
 
 Storage Backends
   immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive byte availability
@@ -259,7 +258,7 @@ Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Portable Authority Plane  = wallet.network
 Artifact-Ref Plane        = Agentgres artifact refs
 Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
-Application Surfaces      = Workbench, Foundry, Agents / Workers, Models, Connectors / Tools / MCP, Data / Knowledge, Ontology, Authority / Govern, Receipts / Replay, Operate / Monitoring, Providers / Environments, Privacy / cTEE, Change Plane, Marketplace, Patterns / Examples / Training, Domain Apps
+Application Surfaces      = Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps, Developer & Integrations, Governance, Operations, Work Ledger, Marketplace, Robot Fleets / Embodied
 Developer/Operator Clients = Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, Workbench, Workflow Compositor, harness profiles
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
 ```
@@ -278,7 +277,7 @@ MoW = labor routing layer for bounded workers
 Hypervisor App/Web/CLI-headless/SDK/ADK/Workbench/Workflow Compositor = clients, builder frameworks, and projections over runtime/domain contracts
 TUI = optional CLI presentation over the same runtime/domain contracts
 Workbench/Foundry = application surfaces over Hypervisor Core and daemon/domain contracts
-Providers / Environments = first-party application catalog, Open Application, and contextual views over sessions, providers, and environments
+Environments = first-party application catalog, Open Application, and contextual views over sessions, providers, and environments
 ```
 
 ## Edge-In Topology
@@ -352,10 +351,11 @@ A canonical Web4 app is a stateful, authority-aware, autonomous application doma
 | IOI CLI/headless | Local operator, scripting, CI, and node-ops client for daemon, domain, authority, receipt, and settlement workflows; TUI is an optional presentation. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
+| IOI ODK | Ontology development kit for building ontology-aware surfaces, domain apps, data recipes, connector mappings, eval packs, worker/package skeletons, and marketplace-ready ontology packs over semantic data-plane contracts. |
 | Hypervisor Daemon | Portable runtime endpoint for local, hosted, provider, DePIN, TEE, and customer execution. |
 | IOI Kernel / L0 Substrate | Reusable substrate for creating application domains, sovereign domains, and intelligent or non-intelligent chains/state machines. |
 | MoW | Labor-routing layer for bounded workers, sparse categories, routing receipts, and contribution accounting. |
-| Domain Ontologies and Data Recipes | Semantic data plane for ontology-bound training, evaluation, connector mapping, and Agentgres projections. |
+| Domain Ontologies and Data Recipes | Semantic data plane for ontology-bound training, evaluation, connector mapping, generated surfaces, domain apps, and Agentgres projections. |
 | Hypervisor Foundry | Product surface for capturing, training, evaluating, and deploying workers through Hypervisor. |
 | aiagent.xyz | First-party marketplace for portable Web4 workers, benchmarks, sparse categories, installs, managed instances, and routing eligibility, built on AIIP and IOI settlement. |
 | sas.xyz | First-party marketplace for Web4 service outcomes, including Worker Training contracts, built on AIIP and IOI settlement. |

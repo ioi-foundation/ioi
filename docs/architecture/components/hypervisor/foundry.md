@@ -92,7 +92,7 @@ Foundry does not own:
   gates.
 - rollout, rollback, recall, kill-switch, or remote-config truth after a
   candidate leaves Foundry for runtime promotion. Those transitions belong to
-  Change Plane / Release Controls, with Foundry evidence attached as gates.
+  Governance release/change controls, with Foundry evidence attached as gates.
 
 ## Surface Shape
 
@@ -170,8 +170,8 @@ sessions, receipts, traces, work analytics, tool analytics, feedback,
 
 This loop is the product path from work evidence to reusable capability.
 Promotions still require the appropriate daemon, authority refs when delegated
-power is involved, Agentgres, policy, receipt, Change Plane / Release Controls,
-and marketplace gates.
+power is involved, Agentgres, policy, receipt, Governance release/change
+controls, and marketplace gates.
 
 The compounding loop should remain visible in product and architecture:
 
@@ -186,12 +186,12 @@ governed work happens
 
 Foundry may train or distill a conductor advisor from eligible synthetic,
 redacted, full-private opt-in, or org-policy evidence. The eligibility decision
-is local product governance first: Hypervisor, Foundry, Data / Knowledge,
-Ontology, domain apps, and org governance surfaces may propose it; Agentgres
-admits the resulting record and receipts. wallet.network supplies authority
-refs when that eligibility needs decryption, connector access, model-provider
-keys, GPU spend, provider-trust acceptance, publication, export, cross-domain
-reuse, or another delegated machine power.
+is local product governance first: Hypervisor, Foundry, ODK, Domain Apps, and
+Governance may propose it; Agentgres admits the
+resulting record and receipts. wallet.network supplies authority refs when that
+eligibility needs decryption, connector access, model-provider keys, GPU spend,
+provider-trust acceptance, publication, export, cross-domain reuse, or another
+delegated machine power.
 
 Sensitive evidence must first receive a `TrainingEvidenceEligibility` record.
 Evidence with `never_train`, expired consent, revoked authority, missing
@@ -273,8 +273,8 @@ promotion/rollback gates.
 The optimizer may not accept a single objective improvement when declared
 guardrails regress. Mixed results produce a regression record, shadow-more
 decision, rejection, or human-review queue. If the regression is discovered
-after canary or production exposure, Release Controls owns pause, rollback,
-recall, constraint, or patched-retry posture; Foundry receives the admitted
+after canary or production exposure, Governance release/change controls own
+pause, rollback, recall, constraint, or patched-retry posture; Foundry receives the admitted
 regression evidence as future eval or training material only after training
 evidence eligibility permits that reuse.
 
@@ -645,8 +645,9 @@ FoundryConductorAdvisorCandidate:
   policy-bound data views, eval suites, scorecards, privacy/incident counters
   from shadow mode, and promotion gates before any ioi.ai use.
 - Endpoint, model-route, worker, package, and conductor-advisor promotion must
-  be reversible, replayable, policy-bound, and handed to Change Plane / Release
-  Controls for rollout, rollback, recall, kill-switch, and runtime placement.
+  be reversible, replayable, policy-bound, and handed to Governance
+  release/change controls for rollout, rollback, recall, kill-switch, and
+  runtime placement.
 - Regression evidence from offline eval, shadow mode, canary, rollout,
   production, or recall review must be recorded as `CapabilityRegressionRecord`
   when it changes promotion, routing, eligibility, rollback, recall, or future
