@@ -2,10 +2,13 @@
   "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
   "target": "windsurf",
   "displayName": "Windsurf",
-  "family": "vscode",
+  "family": "vscode_family",
   "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
   "installedExtensionDirName": "hypervisor-vscode-extension",
   "hostProfile": "vscode-electron-packaged-host",
+  "runtimeVariant": "external_editor",
+  "licensePosture": "user_accepts_vendor_terms",
+  "status": "declared",
   "divergentModule": false,
   "notes": "VS Code-family host. Reuses the shared vscode-extension module. Split into a windsurf-extension module only after target-specific activation, packaging, transport, or policy behavior appears."
 }

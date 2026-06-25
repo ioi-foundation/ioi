@@ -2,10 +2,13 @@
   "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
   "target": "vscode",
   "displayName": "VS Code",
-  "family": "vscode",
+  "family": "vscode_family",
   "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
   "installedExtensionDirName": "hypervisor-vscode-extension",
   "hostProfile": "vscode-electron-packaged-host",
+  "runtimeVariant": "packaged_electron",
+  "licensePosture": "user_accepts_vendor_terms",
+  "status": "active",
   "divergentModule": false,
   "notes": "Canonical packaged VS Code host. The vscode-extension module is the shared VS Code-family adapter; Cursor and Windsurf reuse it as host profiles until target-specific behavior appears."
 }

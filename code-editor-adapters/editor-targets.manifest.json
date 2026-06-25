@@ -32,12 +32,39 @@
         "requiredForRuntimeLaunch": true
       },
       "editors": [
-        { "id": "vscode", "label": "VS Code", "flagship": true, "profile": "code-editors/profiles/vscode.json" },
-        { "id": "vscode-insiders", "label": "VS Code Insiders", "profile": "code-editors/profiles/vscode-insiders.json" },
-        { "id": "cursor", "label": "Cursor", "profile": "code-editors/profiles/cursor.json" },
-        { "id": "windsurf", "label": "Windsurf", "profile": "code-editors/profiles/windsurf.json" },
-        { "id": "devin", "label": "Devin", "profile": "code-editors/profiles/devin.json" }
-      ]
+        {
+          "id": "vscode",
+          "label": "VS Code",
+          "flagship": true,
+          "profile": "code-editors/profiles/vscode.json",
+          "status": "active"
+        },
+        {
+          "id": "vscode-insiders",
+          "label": "VS Code Insiders",
+          "profile": "code-editors/profiles/vscode-insiders.json",
+          "status": "active"
+        },
+        {
+          "id": "cursor",
+          "label": "Cursor",
+          "profile": "code-editors/profiles/cursor.json",
+          "status": "declared"
+        },
+        {
+          "id": "windsurf",
+          "label": "Windsurf",
+          "profile": "code-editors/profiles/windsurf.json",
+          "status": "declared"
+        },
+        {
+          "id": "devin",
+          "label": "Devin",
+          "profile": "code-editors/profiles/devin.json",
+          "status": "declared"
+        }
+      ],
+      "runtimeVariant": "packaged_electron"
     },
     {
       "id": "web",
@@ -46,8 +73,14 @@
       "status": "active",
       "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
       "editors": [
-        { "id": "vscode-browser", "label": "VS Code Browser", "profile": "code-editors/profiles/vscode-browser.json" }
-      ]
+        {
+          "id": "vscode-browser",
+          "label": "VS Code Browser",
+          "profile": "code-editors/profiles/vscode-browser.json",
+          "status": "active"
+        }
+      ],
+      "runtimeVariant": "oss_openvscode"
     },
     {
       "id": "jetbrains-gateway",
@@ -56,15 +89,51 @@
       "status": "declared",
       "adapterModule": "packages/hypervisor-adapter-targets/jetbrains",
       "editors": [
-        { "id": "intellij", "label": "IntelliJ IDEA Ultimate" },
-        { "id": "goland", "label": "GoLand" },
-        { "id": "pycharm", "label": "PyCharm Professional" },
-        { "id": "phpstorm", "label": "PhpStorm" },
-        { "id": "rubymine", "label": "RubyMine" },
-        { "id": "webstorm", "label": "WebStorm" },
-        { "id": "clion", "label": "CLion" },
-        { "id": "rustrover", "label": "RustRover" },
-        { "id": "rider", "label": "Rider" }
+        {
+          "id": "intellij",
+          "label": "IntelliJ IDEA Ultimate",
+          "status": "declared"
+        },
+        {
+          "id": "goland",
+          "label": "GoLand",
+          "status": "declared"
+        },
+        {
+          "id": "pycharm",
+          "label": "PyCharm Professional",
+          "status": "declared"
+        },
+        {
+          "id": "phpstorm",
+          "label": "PhpStorm",
+          "status": "declared"
+        },
+        {
+          "id": "rubymine",
+          "label": "RubyMine",
+          "status": "declared"
+        },
+        {
+          "id": "webstorm",
+          "label": "WebStorm",
+          "status": "declared"
+        },
+        {
+          "id": "clion",
+          "label": "CLion",
+          "status": "declared"
+        },
+        {
+          "id": "rustrover",
+          "label": "RustRover",
+          "status": "declared"
+        },
+        {
+          "id": "rider",
+          "label": "Rider",
+          "status": "declared"
+        }
       ]
     },
     {
@@ -74,8 +143,18 @@
       "status": "declared",
       "adapterModule": "packages/hypervisor-adapter-targets/ssh",
       "editors": [
-        { "id": "ssh", "label": "SSH" }
+        {
+          "id": "ssh",
+          "label": "SSH",
+          "status": "declared"
+        }
       ]
     }
-  ]
+  ],
+  "lockedDecisions": {
+    "oneTargetProvenFirst": "vscode-browser (oss_openvscode) is proven end-to-end before app breadth; others stay declared",
+    "leasePrimitive": "capability_lease_ref (no parallel SessionAccessLease)",
+    "browserRuntimeReproducible": "openvscode-server pinned commit/version/sha256, fetch-once, fail-closed",
+    "adapterOwnership": "source-controlled hypervisor-vscode-extension; the Ona binary is reference-only, never vendored"
+  }
 }

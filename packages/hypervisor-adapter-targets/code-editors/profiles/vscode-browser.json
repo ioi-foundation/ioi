@@ -2,11 +2,29 @@
   "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
   "target": "vscode-browser",
   "displayName": "VS Code Browser",
-  "family": "web",
+  "family": "browser_ide",
   "launchKind": "browser",
   "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
   "installedExtensionDirName": "hypervisor-vscode-extension",
   "hostProfile": "vscode-browser-host",
+  "runtimeVariant": "oss_openvscode",
+  "licensePosture": "oss",
+  "status": "active",
   "divergentModule": false,
-  "notes": "Browser-served VS Code over the same vscode-extension module. Web launch path (no packaged Electron host); served against the running Environment."
+  "supportedConnectionProfiles": ["browser-websocket-lease"],
+  "provisioning": {
+    "requires": [
+      "editor_host_provisioning_plan",
+      "editor_access_service",
+      "editor_ws_proxy",
+      "capability_lease"
+    ],
+    "runtimeVariant": "oss_openvscode",
+    "serverBinary": "openvscode-server",
+    "reproducible": true,
+    "supplyManifest": "pinned commit/version/sha256, fetch-once cache, checksum-verified, fail-closed (Phase 1 ~/.ioi/vm-toolchain pattern)",
+    "accessLease": "capability_lease_ref (reused; no parallel SessionAccessLease)",
+    "proxy": "lease-authenticated WebSocket proxy: first-message session token -> principal -> raw forward; expiry/revoke/receipts; fail-closed"
+  },
+  "notes": "Browser-served VS Code over the same source-controlled vscode-extension module. Reproducible OSS openvscode-server runtime (NOT a permitted host-gap); served against the running Environment as a normal editor_access_service. The concrete proof that the generic editor/access model is real."
 }
