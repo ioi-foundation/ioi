@@ -72,6 +72,54 @@ fn http_get_version(port: u16) -> Option<String> {
     Some(commit.map(str::to_string).unwrap_or_else(|| body.trim().to_string()))
 }
 
+fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let to = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() { copy_dir(&entry.path(), &to)?; } else { std::fs::copy(entry.path(), to)?; }
+    }
+    Ok(())
+}
+
+/// The source-controlled required adapter extension (override for the negative test).
+fn required_extension_source() -> PathBuf {
+    std::env::var("IOI_HYPERVISOR_REQUIRED_EXTENSION_DIR").map(PathBuf::from).unwrap_or_else(|_| {
+        std::env::current_dir().unwrap_or_default().join("packages/hypervisor-adapter-targets/code-editors/vscode-extension")
+    })
+}
+
+/// WS-6b — install the REQUIRED Hypervisor adapter into a per-service extensions dir and gate
+/// readiness on it. Returns (extensions_dir, installed_ids) or Err(`editor_required_extension_missing`)
+/// — a required-extension failure blocks the browser-host readiness gate (never a fake ready). The
+/// install copy's engines.vscode is adapted to the runtime; the source manifest is untouched.
+pub(crate) fn install_required_extensions(data_dir: &str, service_id: &str) -> Result<(PathBuf, Vec<String>), String> {
+    let ext_dir = Path::new(data_dir).join("editor-services").join(service_id).join("extensions");
+    let _ = std::fs::create_dir_all(&ext_dir);
+    let src = required_extension_source();
+    let manifest_src = src.join("package.json");
+    if !src.is_dir() || !manifest_src.exists() {
+        return Err("editor_required_extension_missing".to_string());
+    }
+    let manifest: Value = serde_json::from_slice(&std::fs::read(&manifest_src).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let name = manifest.get("name").and_then(|v| v.as_str()).unwrap_or("hypervisor-vscode-extension");
+    let publisher = manifest.get("publisher").and_then(|v| v.as_str()).unwrap_or("ioi");
+    let version = manifest.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.1");
+    let ext_id = format!("{publisher}.{name}");
+    let install = ext_dir.join(format!("{ext_id}-{version}"));
+    let _ = std::fs::remove_dir_all(&install);
+    copy_dir(&src, &install).map_err(|e| format!("copy adapter extension: {e}"))?;
+    // adapt engines.vscode in the INSTALL COPY so the runtime loads it (source manifest untouched).
+    let copied_manifest = install.join("package.json");
+    if let Ok(bytes) = std::fs::read(&copied_manifest) {
+        if let Ok(mut j) = serde_json::from_slice::<Value>(&bytes) {
+            j["engines"]["vscode"] = json!("^1.60.0");
+            let _ = std::fs::write(&copied_manifest, serde_json::to_vec_pretty(&j).unwrap_or_default());
+        }
+    }
+    Ok((ext_dir, vec![ext_id]))
+}
+
 fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
     let safe: String = env_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
     let path = Path::new(data_dir).join("environments").join(format!("{safe}.json"));
@@ -91,6 +139,9 @@ pub(crate) async fn start_oss_runtime(st: &DaemonState, service_id: &str, svc: &
     let env_id = svc.get("environment_id").and_then(|v| v.as_str()).unwrap_or("");
     let workspace_root = env_workspace(&st.data_dir, env_id)
         .ok_or_else(|| "environment not started (no scoped workspace) for the editor host".to_string())?;
+    // WS-6b — install the REQUIRED Hypervisor adapter FIRST; a required-extension failure blocks
+    // readiness (no editor without its adapter).
+    let (extensions_dir, installed_exts) = install_required_extensions(&st.data_dir, service_id)?;
     let port = free_port().ok_or("could not allocate an internal port")?;
     let log_dir = Path::new(&st.data_dir).join("editor-services");
     let _ = std::fs::create_dir_all(&log_dir);
@@ -108,6 +159,7 @@ pub(crate) async fn start_oss_runtime(st: &DaemonState, service_id: &str, svc: &
         .arg("--host").arg("127.0.0.1")
         .arg("--port").arg(port.to_string())
         .arg("--default-folder").arg(&workspace_root)
+        .arg("--extensions-dir").arg(&extensions_dir)
         .current_dir(&workspace_root)
         .env("IOI_HYPERVISOR_ENVIRONMENT_REF", format!("environment:{env_id}"))
         .env("IOI_HYPERVISOR_SESSION_REF", session_ref)
@@ -144,7 +196,9 @@ pub(crate) async fn start_oss_runtime(st: &DaemonState, service_id: &str, svc: &
     updated["phase"] = json!("ready");
     updated["internal_port"] = json!(port);
     updated["runtime_version"] = json!(version);
-    updated["readiness"] = json!({ "mode": "full", "reason": "openvscode-server /version ready", "internal_port": port });
+    updated["installed_extensions"] = json!(installed_exts);
+    updated["required_extension"] = json!("ioi.hypervisor-vscode-extension");
+    updated["readiness"] = json!({ "mode": "full", "reason": "openvscode-server /version ready + required adapter installed", "internal_port": port, "installed_extensions": installed_exts });
     updated["started_at"] = json!(started_at);
     Ok(updated)
 }

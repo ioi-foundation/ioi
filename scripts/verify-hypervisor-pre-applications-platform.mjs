@@ -91,6 +91,13 @@ try {
   else if (ws2json?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["VS Code Browser host (OSS)"] = "HOST_GATED"; for (const g of ws2json.declared_gaps || []) declaredGaps.push(g); }
   else { lines["VS Code Browser host (OSS)"] = "FAIL"; failures.push("WS-2 browser host verifier not PASS"); }
 
+  // ---- Extension bundle install — delegate to the WS-6b verifier ----
+  const ws6b = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-editor-extension-readiness.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 320000 });
+  let ws6bjson = null; try { ws6bjson = JSON.parse((ws6b.stdout || "").slice((ws6b.stdout || "").indexOf("{"))); } catch {}
+  if (ws6bjson?.verdict === "PASS") lines["Extension bundle install"] = "PASS";
+  else if (ws6bjson?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["Extension bundle install"] = "HOST_GATED"; for (const g of ws6bjson.declared_gaps || []) declaredGaps.push(g); }
+  else { lines["Extension bundle install"] = "FAIL"; failures.push("WS-6b extension readiness verifier not PASS"); }
+
   // ---- WebSocket proxy auth/revoke — delegate to the WS-4 verifier ----
   const ws4 = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-editor-access-leases.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 320000 });
   let ws4json = null; try { ws4json = JSON.parse((ws4.stdout || "").slice((ws4.stdout || "").indexOf("{"))); } catch {}

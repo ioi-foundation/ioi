@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "ioi.hypervisor.editor-extension-bundles.v1",
+  "note": "WS-6b extension allowlist. The Hypervisor adapter is REQUIRED and its absence fails the browser-host readiness gate. Optional baseline extensions are declared with offline-cache refs; a marketplace timeout marks them degraded (not failed) when a cache/prior install exists. Source-controlled adapter only — never the Ona binary.",
+  "required": [
+    {
+      "extension_id": "ioi.hypervisor-vscode-extension",
+      "source": "package://hypervisor-adapter-targets/code-editors/vscode-extension",
+      "install_scope": "machine",
+      "required": true,
+      "engine_adapt": "^1.60.0",
+      "note": "the source-controlled Hypervisor adapter; install rewrites engines.vscode to the runtime in the install copy only"
+    }
+  ],
+  "optional": [
+    { "extension_id": "github.vscode-pull-request-github", "required": false, "source": "marketplace://github.vscode-pull-request-github", "offline_cache_ref": null, "timeout_policy": "degraded_if_cached_else_skip" },
+    { "extension_id": "redhat.vscode-yaml", "required": false, "source": "marketplace://redhat.vscode-yaml", "offline_cache_ref": null, "timeout_policy": "degraded_if_cached_else_skip" },
+    { "extension_id": "ms-vscode-remote.remote-containers", "required": false, "source": "marketplace://ms-vscode-remote.remote-containers", "offline_cache_ref": null, "timeout_policy": "degraded_if_cached_else_skip" }
+  ]
+}
