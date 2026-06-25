@@ -54,6 +54,8 @@ mod supervisor_routes;
 mod agentops_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
 mod orchestration_routes;
+#[path = "hypervisor_daemon_routes/operability_routes.rs"]
+mod operability_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -860,6 +862,31 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/warm-pools/:id/claim",
             post(orchestration_routes::handle_warm_pool_claim),
+        )
+        // Cut F — trust/operability: guardrails, logs, metrics, incident reconstruction, MCP gateway.
+        .route(
+            "/v1/hypervisor/guardrails",
+            get(operability_routes::handle_guardrails_get).post(operability_routes::handle_guardrails_set),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/logs",
+            get(operability_routes::handle_env_logs),
+        )
+        .route(
+            "/v1/hypervisor/operability/metrics",
+            get(operability_routes::handle_operability_metrics),
+        )
+        .route(
+            "/v1/hypervisor/operability/incidents/:id",
+            get(operability_routes::handle_incident_reconstruct),
+        )
+        .route(
+            "/v1/hypervisor/mcp-gateway/tools",
+            get(operability_routes::handle_mcp_gateway_tools),
+        )
+        .route(
+            "/v1/hypervisor/mcp-gateway/tools/:tool",
+            post(operability_routes::handle_mcp_gateway_invoke),
         )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(

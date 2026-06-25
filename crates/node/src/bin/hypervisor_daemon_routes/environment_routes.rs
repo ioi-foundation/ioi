@@ -1457,6 +1457,18 @@ pub(crate) async fn handle_workspace_exec(
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment not started (no workspace)".into()))?
         .to_string();
 
+    // Cut F (M) — guardrail enforcement at the exec primitive: the deny-list is checked on the
+    // command string itself, so an agent cannot bypass policy via ordinary shell (a `bash -c "rm
+    // -rf /"` is still this command string). Fail-closed + audited; the in-guest path is gated too.
+    if let Some(denial) = super::operability_routes::guardrail_check(&st.data_dir, &env, command) {
+        super::operability_routes::audit_guardrail_denial(&st.data_dir, env_id, command, &denial);
+        return Ok(Json(json!({
+            "environment_id": env_id, "command": command, "denied": true,
+            "policy_denied": true, "denial": denial, "exit_code": 126,
+            "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
+        })));
+    }
+
     // WS-4: if a live microVM backs this env, the terminal runs IN-GUEST (real kernel boundary).
     let in_guest = st.live_vms.lock().unwrap().contains_key(env_id);
     let (stdout, stderr, exit_code) = if in_guest {
