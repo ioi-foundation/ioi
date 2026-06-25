@@ -116,6 +116,10 @@ pub(crate) struct DaemonState {
     // master fd + the child shell + a shared output ring; bound to an environment_ref. They die
     // with the daemon process (close releases the fd + reaps the child).
     pub(crate) terminals: Mutex<HashMap<String, binding_routes::TerminalSession>>,
+    // WS-2 — live OSS browser-IDE runtimes (openvscode-server) keyed by editor service_id. Each
+    // holds the child process + internal port; stop/restart-reconcile tears them down. They die
+    // with the daemon process (WS-3r reconcile marks survivors degraded on the next boot).
+    pub(crate) editor_runtimes: Mutex<HashMap<String, editor_host::EditorRuntime>>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -221,6 +225,9 @@ async fn async_main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| ".ioi/hypervisor/data".to_string());
     let _ = std::fs::create_dir_all(&data_dir);
     seed_default_state(&data_dir);
+    // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
+    // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
+    let _ = editor_host::reconcile_editor_services(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -252,6 +259,7 @@ async fn async_main() -> anyhow::Result<()> {
         preview_servers: Mutex::new(HashMap::new()),
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
+        editor_runtimes: Mutex::new(HashMap::new()),
     });
 
     // Author the baseline provider + backend catalog as admitted records so the

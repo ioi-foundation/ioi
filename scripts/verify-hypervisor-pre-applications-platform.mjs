@@ -79,16 +79,17 @@ try {
     const ouRev = (await api("GET", `/v1/hypervisor/editor-services/${sid}/open-url?lease_ref=${encodeURIComponent(lease.lease_ref)}`)).json;
     if (ouRev.ok !== false || !/revoked/.test(ouRev.reason || "")) leasesOk = false;
 
-    // VS Code Browser host readiness: honest start. Provisioned (WS-2) -> ready; else NOT_YET.
-    const start = (await api("POST", `/v1/hypervisor/editor-services/${sid}/start`, {})).json;
-    if (i === 0) {
-      if (start.ok && start.editorService?.phase === "ready") lines["VS Code Browser host (OSS)"] = "PASS";
-      else lines["VS Code Browser host (OSS)"] = "NOT_YET_PROVISIONED"; // WS-2 pending — honest
-    }
   }
   lines["Editor target registry"] = objectsOk && lines["Editor target registry"] === "PASS" ? "PASS" : lines["Editor target registry"];
   lines["Editor access leases"] = leasesOk ? "PASS" : "FAIL";
   if (!leasesOk) failures.push("editor access lease / capability-lease machinery failed");
+
+  // ---- VS Code Browser host (OSS) — delegate to the WS-2 verifier (real openvscode launch) ----
+  const ws2 = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-vscode-browser-host.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 320000 });
+  let ws2json = null; try { ws2json = JSON.parse((ws2.stdout || "").slice((ws2.stdout || "").indexOf("{"))); } catch {}
+  if (ws2json?.verdict === "PASS") lines["VS Code Browser host (OSS)"] = "PASS";
+  else if (ws2json?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["VS Code Browser host (OSS)"] = "HOST_GATED"; for (const g of ws2json.declared_gaps || []) declaredGaps.push(g); }
+  else { lines["VS Code Browser host (OSS)"] = "FAIL"; failures.push("WS-2 browser host verifier not PASS"); }
 
   // ---- packaged VS Code adapter host (external Electron binary) ----
   const packaged = existsSync(join(REPO, "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor"));

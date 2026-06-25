@@ -182,24 +182,27 @@ fn save_service(data_dir: &str, svc: &Value) {
     }
 }
 
-/// POST /v1/hypervisor/editor-services/:service_id/start — start the editor runtime.
-/// WS-2 wires the real openvscode-server launch; until a runtime is provisioned this fails CLOSED
-/// with `editor_runtime_not_provisioned` (honest skeleton — never a fake ready).
-pub(crate) async fn handle_editor_service_start(State(st): State<Arc<DaemonState>>, AxumPath(service_id): AxumPath<String>) -> Json<Value> {
+/// POST /v1/hypervisor/editor-services/:service_id/start — start the editor runtime (openvscode-
+/// server) and wait for real /version readiness. Body may carry `{ session_ref, access_lease_ref }`
+/// (WS-6a binding refs injected into the editor host). Until a reproducible OSS runtime is pinned,
+/// fails CLOSED with `editor_runtime_not_provisioned` (honest — never a fake ready).
+pub(crate) async fn handle_editor_service_start(State(st): State<Arc<DaemonState>>, AxumPath(service_id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
         return Json(json!({ "ok": false, "reason": "editor service not found" }));
     };
+    // inject binding refs (WS-6a) the editor host will surface in context envelopes.
+    if let Some(sr) = body.get("session_ref").and_then(|v| v.as_str()) { svc["session_ref"] = json!(sr); }
+    if let Some(lr) = body.get("access_lease_ref").and_then(|v| v.as_str()) { svc["access_lease_ref"] = json!(lr); }
     // WS-2 gate: is an OSS browser-IDE runtime provisioned + reachable?
-    let provisioned = super::editor_host::oss_runtime_present();
-    if !provisioned {
+    if !super::editor_host::oss_runtime_present() {
         svc["phase"] = json!("waiting_for_runtime");
         svc["readiness"] = json!({ "mode": "blocked", "reason": "editor_runtime_not_provisioned", "detail": "openvscode-server not pinned/installed yet (WS-2). Run scripts/provision-hypervisor-vscode-browser-host.mjs" });
         save_service(&st.data_dir, &svc);
         return Json(json!({ "ok": false, "editorService": svc, "reason": "editor_runtime_not_provisioned" }));
     }
-    // WS-2 present: delegate to the host launcher.
-    match super::editor_host::start_oss_runtime(&st, &service_id, &svc) {
-        Ok(updated) => { save_service(&st.data_dir, &updated); Json(json!({ "ok": true, "editorService": updated })) }
+    // WS-2 present: launch + wait for /version.
+    match super::editor_host::start_oss_runtime(&st, &service_id, &svc).await {
+        Ok(updated) => { save_service(&st.data_dir, &updated); editor_receipt(&st.data_dir, &service_id, "editor_service_ready"); Json(json!({ "ok": true, "editorService": updated })) }
         Err(reason) => {
             svc["phase"] = json!("failed");
             svc["readiness"] = json!({ "mode": "blocked", "reason": reason });
@@ -265,11 +268,15 @@ pub(crate) async fn handle_editor_service_open_url(State(st): State<Arc<DaemonSt
     if svc.get("phase").and_then(|v| v.as_str()) != Some("ready") {
         return Json(json!({ "ok": false, "reason": "editor service not ready", "phase": svc.get("phase"), "readiness": svc.get("readiness") }));
     }
-    // Ready: the URL routes through the proxy (WS-4) bound to the lease — never the raw WS port.
+    // Ready runtime, but the lease-bound PUBLIC url routes through the WS proxy (WS-4). Until the
+    // proxy is bound we do NOT hand out the raw internal port as a durable URL — fail closed honestly.
     let port = svc.get("public_proxy_port").and_then(|v| v.as_u64());
+    let Some(p) = port else {
+        return Json(json!({ "ok": false, "reason": "websocket_proxy_not_ready", "detail": "editor runtime is ready on its internal port; the lease-bound public URL needs the WS proxy (WS-4)", "phase": "ready" }));
+    };
     Json(json!({
         "ok": true, "service_id": service_id,
-        "open_url": port.map(|p| format!("http://127.0.0.1:{p}/?lease={lease}")),
+        "open_url": format!("http://127.0.0.1:{p}/?lease={lease}"),
         "lease_ref": lease, "websocket_only": true,
         "note": "route through the browser-IDE shell URL; the raw WS-only target is not a plain preview",
     }))
