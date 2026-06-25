@@ -994,7 +994,7 @@ pub(crate) async fn handle_environment_action(
                 set_component(&mut env, c, "pending", "deleted");
             }
             env["status"]["deleted"] = json!(true);
-            set_phase(&mut env, "stopped");
+            set_phase(&mut env, "deleted"); // terminal — not "stopped" (the env is gone, not idle)
             recompute_readiness(&mut env);
             observe(&mut env, "deleting", "storage", "state_wiped", "info", "environment deleted (scoped workspace removed)");
         }

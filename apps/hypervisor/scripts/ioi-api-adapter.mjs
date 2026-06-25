@@ -198,7 +198,10 @@ export async function handle(pathname, bodyText) {
         return json({ environment: daemonEnvToGitpod(await env(`/v1/hypervisor/environments/${encodeURIComponent(envIdFromBody(body))}`)) });
       case "/api/gitpod.v1.EnvironmentService/ListEnvironments": {
         const r = await daemon("GET", "/v1/hypervisor/environments");
-        return json({ pagination: {}, environments: (r.environments || []).map(daemonEnvToGitpod) });
+        // Deleted envs stay in the daemon as an audit record (status.deleted / phase "deleted"),
+        // but a deleted env is not a live lifecycle entry — exclude it from the UI list.
+        const live = (r.environments || []).filter((e) => !e.status?.deleted && e.status?.phase !== "deleted");
+        return json({ pagination: {}, environments: live.map(daemonEnvToGitpod) });
       }
       case "/api/gitpod.v1.EnvironmentService/ListEnvironmentClasses": {
         const r = await daemon("GET", "/v1/hypervisor/environment-classes");
