@@ -98,9 +98,11 @@ export function runToAgentExecution(run) {
       phase,
       conversationUrl: convo,
       transcriptUrl: convo,
-      // history → empty-but-valid JSON; live → a long-lived keepalive SSE (held open so the SPA
-      // does NOT reconnect-loop). Both at the same endpoint, which branches on the Accept header.
-      conversationUrls: { history: convo, live: convo, blobs: "" },
+      // V1 conversation path (the harvested reference's own mode): the SPA fetches the bare
+      // conversationUrl as a FINITE newline-delimited-JSON replay (userInput/todoGroup/text entries)
+      // and renders it, then stops loading. We intentionally do NOT set `conversationUrls` (that
+      // forces the v2 /history+/live streaming path, whose /live must emit `event: end` or the pane
+      // shows "Thinking…" forever). V1 terminates cleanly and shows the real transcript.
       currentActivity: run.activity,
       iterations: run.iterations,
       inputTokensUsed: 0,

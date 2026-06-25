@@ -24,6 +24,40 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
+import { getRun } from "./ioi-agent-runs.mjs";
+
+// Build the V1 conversation replay (newline-delimited JSON) for a run — the exact shape the SPA's
+// conversation pane renders: a userInput entry (the prompt), an optional todoGroup of the files the
+// agent wrote, and a text summary. Mirrors the harvested reference's bare-/conversation format.
+function conversationReplay(run) {
+  const lines = [];
+  // NOTE: we intentionally do NOT emit the userInput entry. The SPA renders the submitted prompt
+  // optimistically as its own user bubble; emitting it again here produced a DUPLICATE prompt. We
+  // emit only the agent side (the work it did + its summary), which the pane shows as the response.
+  // the files the agent actually changed → a done todo group (concrete evidence of the work).
+  const files = [];
+  for (const g of run.changedFiles || []) {
+    if (Array.isArray(g?.files)) for (const f of g.files) files.push(typeof f === "string" ? f : f?.path);
+    else if (typeof g === "string") files.push(g);
+    else if (g?.path) files.push(g.path);
+  }
+  const uniqueFiles = [...new Set(files.filter(Boolean))];
+  if (run.status === "done" && uniqueFiles.length) {
+    lines.push(JSON.stringify({
+      id: `${run.id}-todos`, phase: "PHASE_COMPLETED",
+      todoGroup: { groupId: `${run.id}-todos`, todos: uniqueFiles.slice(0, 12).map((p, i) => ({ id: `f${i}`, title: `Wrote ${p}`, phase: "PHASE_DONE" })) },
+    }));
+  }
+  let summary = run.summary;
+  if (run.status === "running" || run.status === "waiting") summary = run.activity || "Working in the environment…";
+  else if (run.status === "failed") summary = `Run failed: ${run.error || "unknown error"}`;
+  else if (!summary) summary = "Run complete.";
+  lines.push(JSON.stringify({
+    id: `${run.id}-summary`, phase: run.status === "running" || run.status === "waiting" ? "PHASE_RUNNING" : "PHASE_COMPLETED",
+    text: { content: summary, sequenceId: 1 },
+  }));
+  return lines.join("\n") + "\n";
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
@@ -181,6 +215,14 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+    // Telemetry beacons (Segment analytics): the harvested SPA fires /segment/v1/{t,i,...}; with no
+    // handler they proxy to the mirror and hang open (real pending requests). Ack them instantly so
+    // nothing is left pending. We collect no analytics — this is a local, self-contained app.
+    if (pathname.startsWith("/segment/")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
     if (pathname === "/ioi-augmentation.js") {
       try {
         const js = readFileSync(AUG_PATH);
@@ -204,27 +246,43 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
-    // WS-3: agent-run conversation history. The reference SPA's conversation pane consumes a
-    // base64 protobuf frame protocol (chunks[].frames[] -> Pi protobuf decode); reconstructing that
-    // binary wire format is out of scope, so we serve a VALID EMPTY history ({chunks:[],has_more})
-    // — the pane renders cleanly (no error boundary, no reconnect), and the agent's real output is
-    // visible in the editor + run status. (Rich transcript = declared follow-up: protobuf encoder.)
-    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/conversation")) {
-      const accept = String(req.headers["accept"] || "");
-      if (accept.includes("text/event-stream")) {
-        // LIVE stream: the SPA opens this as SSE and RECONNECTS every 3s on any close/error
-        // (the "Retrying in 3s…" loop). Hold a long-lived stream open with keepalive comments so
-        // it stays connected (no reconnect storm); we emit no message frames yet (empty transcript
-        // — declared protobuf gap). Closes cleanly when the client navigates away.
+    // Agent-run conversation. The SPA's conversation pane is the harvested reference's V1 mode: it
+    // fetches the bare `conversationUrl` as a FINITE newline-delimited-JSON replay (userInput /
+    // todoGroup / text entries with a top-level {id,phase}) and renders it, then stops loading. We
+    // build that replay from the REAL run (the user's prompt, the files the agent wrote, its summary)
+    // — so the transcript shows the agent's actual work, not an empty pane. The /live + /history
+    // sub-paths are the V2 streaming mode; we are NOT in it (the projection omits conversationUrls),
+    // but we answer them defensively and ALWAYS terminate /live with `event: end` (an unterminated
+    // /live is exactly what made the pane say "Thinking…" forever).
+    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation")) {
+      const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
+      const run = getRun(runId);
+      if (pathname.endsWith("/conversation/live")) {
+        const state = { chunk_id: `${runId}-live`, todo_groups: [], available_commands: null, clarifying_questions: null, next_steps_proposal: null, user_inputs: [] };
         res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-        res.write(": connected\n\n");
-        const ka = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { /* closed */ } }, 20000);
-        req.on("close", () => clearInterval(ka));
+        res.write(`event: state\ndata: ${JSON.stringify(state)}\n\n`);
+        res.write("event: end\n\n"); // terminate — never an open-ended keepalive (that = perpetual "Thinking…")
+        res.end();
         return;
       }
-      // HISTORY: valid empty envelope (chunks[].frames are base64 protobuf — none yet).
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ chunks: [], has_more: false }));
+      if (pathname.endsWith("/conversation/history")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ chunks: [], has_more: false }));
+        return;
+      }
+      // bare /conversation — the V1 finite NDJSON replay built from the real run. The SPA's v1 pane
+      // fetches this ONCE and does not re-poll, so if we answered immediately during the run it would
+      // cache a PHASE_RUNNING entry and show "Thinking…" forever. Briefly wait for the run to settle
+      // (runs finish in ~10s) so the single fetch returns the COMPLETED transcript. The pane shows a
+      // normal loading state until then, then renders the final prompt + summary + files and stops.
+      if (run) {
+        const deadline = Date.now() + 30000;
+        while ((run.status === "running" || run.status === "waiting") && Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(run ? conversationReplay(run) : "");
       return;
     }
     // WS-5: editor "Open in VS Code Browser". The reference SPA opens the editor's urlTemplate;

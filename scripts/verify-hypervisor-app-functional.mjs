@@ -117,6 +117,18 @@ try {
     ok(treeOk, "editor shows the env workspace files (.devcontainer in the explorer)");
   }
 
+  // 4c) The conversation transcript serves the agent's REAL work (not an empty pane). The SPA's v1
+  // conversation pane fetches the bare conversationUrl as finite NDJSON (text/todoGroup entries); we
+  // build it from the run, so it shows the agent's summary + the files it wrote.
+  if (envId) {
+    const list = await fetch(`${REF}/api/gitpod.v1.AgentService/ListAgentExecutions`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json()).catch(() => ({}));
+    const mine = (list.agentExecutions || list.executions || []).find((x) => (x.status?.usedEnvironments || []).some((u) => u.environmentId === envId));
+    const convoUrl = mine?.status?.conversationUrl;
+    let convo = "";
+    if (convoUrl) convo = await fetch(`${REF}${convoUrl}`).then((r) => r.text()).catch(() => "");
+    ok(convoUrl && convo.trim().length > 0 && /"text"|"todoGroup"|"content"/.test(convo), "conversation transcript serves the agent's real work (not an empty pane)", convo.slice(0, 60).replace(/\n/g, " "));
+  }
+
   // 5) No console/page errors; app stays self-contained (no external CDN).
   ok(errs.length === 0, "zero JS/page errors across the flow", errs.slice(0, 2).join("; "));
   const nonSupervisorFailures = failedUrls.filter((u) => !/supervisor/i.test(u));
