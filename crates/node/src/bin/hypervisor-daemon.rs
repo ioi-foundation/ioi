@@ -56,6 +56,8 @@ mod agentops_routes;
 mod orchestration_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
+#[path = "hypervisor_daemon_routes/endgame_routes.rs"]
+mod endgame_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -887,6 +889,19 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/mcp-gateway/tools/:tool",
             post(operability_routes::handle_mcp_gateway_invoke),
+        )
+        // Cut G — provider ladder (one recipe across rungs, honest claims) + end-game consumers.
+        .route(
+            "/v1/hypervisor/provider-ladder",
+            get(endgame_routes::handle_provider_ladder),
+        )
+        .route(
+            "/v1/hypervisor/provider-ladder/resolve",
+            post(endgame_routes::handle_provider_ladder_resolve),
+        )
+        .route(
+            "/v1/hypervisor/endgame/consumers",
+            get(endgame_routes::handle_endgame_consumers),
         )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(
