@@ -52,6 +52,8 @@ mod editor_proxy;
 mod supervisor_routes;
 #[path = "hypervisor_daemon_routes/agentops_routes.rs"]
 mod agentops_routes;
+#[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
+mod orchestration_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -821,6 +823,43 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/agentops/conversations/:id/events",
             get(agentops_routes::handle_conversation_events),
+        )
+        // Cut E — orchestration/scale: automation workflows, runner placement, warm pools.
+        .route(
+            "/v1/hypervisor/automations",
+            get(orchestration_routes::handle_automation_list).post(orchestration_routes::handle_automation_create),
+        )
+        .route(
+            "/v1/hypervisor/automations/:id",
+            get(orchestration_routes::handle_automation_get),
+        )
+        .route(
+            "/v1/hypervisor/automations/:id/start",
+            post(orchestration_routes::handle_automation_start),
+        )
+        .route(
+            "/v1/hypervisor/automation-executions/:id",
+            get(orchestration_routes::handle_automation_execution_get),
+        )
+        .route(
+            "/v1/hypervisor/automation-executions/:id/cancel",
+            post(orchestration_routes::handle_automation_cancel),
+        )
+        .route(
+            "/v1/hypervisor/placement/resolve",
+            post(orchestration_routes::handle_placement_resolve),
+        )
+        .route(
+            "/v1/hypervisor/placement/metrics",
+            get(orchestration_routes::handle_placement_metrics),
+        )
+        .route(
+            "/v1/hypervisor/warm-pools",
+            get(orchestration_routes::handle_warm_pool_list).post(orchestration_routes::handle_warm_pool_create),
+        )
+        .route(
+            "/v1/hypervisor/warm-pools/:id/claim",
+            post(orchestration_routes::handle_warm_pool_claim),
         )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(

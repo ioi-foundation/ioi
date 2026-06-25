@@ -57,6 +57,7 @@ bs58 = "0.4"
 async-trait = { workspace = true }
 toml = { workspace = true }
 axum = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_jcs = "0.1.0"
 rand = { workspace = true }
