@@ -28,14 +28,31 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits Ona's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
+// Only inject into a real HTML document (one with a </body>). The mirror mislabels some JSON
+// endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
+// body the SPA later parses with Response.json() — so never append when there's no </body>.
 function augmentHtml(html) {
-  return html.includes("</body>") ? html.replace("</body>", AUG_TAG + "</body>") : html + AUG_TAG;
+  return html.includes("</body>") ? html.replace("</body>", AUG_TAG + "</body>") : html;
 }
 const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(REPO_ROOT, "internal-docs", "reverse-engineering", "ioi", "server.js");
 const PORT = Number(process.env.PORT || 4173);
 const MIRROR_PORT = Number(process.env.MIRROR_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+
+// Terminability tracker: any gitpod.v1.* RPC that falls through to the mock mirror (adapter
+// returned null) is recorded here. ":4173 functional" ⇔ this set is empty after exercising flows.
+// Exposed at GET /__ioi/fallthrough (+ POST /__ioi/fallthrough/reset).
+const fallthrough = new Set();
+// A Connect end-stream frame: header byte 0x02 + uint32-BE length + payload.
+function connectEndStreamFrame(payloadObj = {}) {
+  const payload = Buffer.from(JSON.stringify(payloadObj), "utf8");
+  const frame = Buffer.alloc(5 + payload.length);
+  frame.writeUInt8(0x02, 0);
+  frame.writeUInt32BE(payload.length, 1);
+  payload.copy(frame, 5);
+  return frame;
+}
 
 if (!existsSync(REF_SERVER)) {
   console.error(
@@ -142,6 +159,25 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+    // Terminability introspection.
+    if (pathname === "/__ioi/fallthrough") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ proxied: [...fallthrough] }));
+      return;
+    }
+    if (pathname === "/__ioi/fallthrough/reset") {
+      fallthrough.clear();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    // EventService/WatchEvents is a Connect stream — own it here (UI polls via List*; real push is a
+    // follow-up). Emitting the end-stream frame keeps it adapter-owned (no mock fallthrough).
+    if (pathname === "/api/gitpod.v1.EventService/WatchEvents") {
+      res.writeHead(200, { "Content-Type": "application/connect+json" });
+      res.end(connectEndStreamFrame({}));
+      return;
+    }
     if (pathname.startsWith("/api/")) {
       let handled = null;
       try {
@@ -154,6 +190,9 @@ const server = http.createServer((req, res) => {
         res.end(handled.body);
         return;
       }
+      // Unported → proxied to mock. Record any gitpod.v1.* RPC for the terminability done-bar.
+      const m = pathname.match(/^\/api\/(gitpod\.v1\.[A-Za-z]+\/[A-Za-z]+)/);
+      if (m) fallthrough.add(m[1]);
     }
     proxyToMirror(req, res, body);
   });

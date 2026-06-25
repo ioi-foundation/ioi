@@ -1,14 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-// Native Hypervisor product UI (v2 estate). The served reference (serve-live-reference.mjs) is now
-// the dev_reference_only design oracle; this app is the source-neutral product over daemon truth.
+// The Hypervisor product UI is the LIVE REFERENCE, served + made functional by the IOI /api adapter
+// (work-backwards): `npm run serve:reference --workspace=@ioi/hypervisor-app`
+// (apps/hypervisor/scripts/serve-live-reference.mjs + ioi-api-adapter.mjs). See
+// internal-docs/implementation/hypervisor-reference-functional-master-guide.md. This Vite app only
+// hosts the workbench dev preview + runtime services; it is NOT a second product UI.
 import "@ioi/hypervisor-workbench/dist/style.css";
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css";
-import "./ui"; // UX kit stylesheet (design system)
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,
@@ -18,16 +20,6 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
-import { AppShell } from "./shell/AppShell";
-import { HomeCockpit } from "./shell/HomeCockpit";
-import { AppStatusFrame } from "./shell/AppStatusFrame";
-import {
-  SessionsSurface,
-  SessionDetailSurface,
-  EnvironmentsSurface,
-} from "./surfaces/NativeCockpit";
-import { NativeWorkbench } from "./surfaces/NativeWorkbench";
-import { Heading, Muted } from "./ui";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -42,12 +34,15 @@ function AppMetricsBeacon() {
   return null;
 }
 
-function NotFound() {
+function ServedElsewhereNotice() {
   return (
-    <div className="hv-page" data-testid="not-found">
-      <Heading level={1}>Not found</Heading>
-      <Muted>That route isn't part of the current estate.</Muted>
-      <Link to="/" className="hv-link">← Home</Link>
+    <div style={{ font: "14px/1.6 system-ui, sans-serif", padding: "2rem" }}>
+      <h1 style={{ fontSize: "1.25rem", margin: "0 0 .5rem" }}>Hypervisor</h1>
+      <p style={{ margin: 0 }}>
+        The product UI is the live reference, made functional by the IOI /api adapter. Run{" "}
+        <code>npm run serve:reference --workspace=@ioi/hypervisor-app</code> and open{" "}
+        <code>http://localhost:4173</code>.
+      </p>
     </div>
   );
 }
@@ -57,22 +52,10 @@ function renderHypervisorApp() {
     <React.StrictMode>
       <BrowserRouter>
         <AppMetricsBeacon />
-        <AppShell>
-          <Routes>
-            <Route path="/" element={<HomeCockpit />} />
-            <Route path="/new" element={<HomeCockpit />} />
-            <Route path="/projects" element={<AppStatusFrame surfaceId="projects" />} />
-            <Route path="/automations" element={<AppStatusFrame surfaceId="automations" />} />
-            <Route path="/settings" element={<AppStatusFrame surfaceId="settings" />} />
-            <Route path="/environments" element={<EnvironmentsSurface />} />
-            <Route path="/workbench/:id" element={<NativeWorkbench />} />
-            <Route path="/sessions" element={<SessionsSurface />} />
-            <Route path="/sessions/:id" element={<SessionDetailSurface />} />
-            <Route path="/app/:id" element={<AppStatusFrame />} />
-            <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppShell>
+        <Routes>
+          <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
+          <Route path="*" element={<ServedElsewhereNotice />} />
+        </Routes>
       </BrowserRouter>
     </React.StrictMode>,
   );

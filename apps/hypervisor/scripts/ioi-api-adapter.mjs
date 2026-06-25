@@ -26,6 +26,23 @@ const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765"
 
 const json = (payload) => ({ contentType: "application/json", body: JSON.stringify(payload) });
 
+// Local operator identity. Account/Org/User are NOT daemon runtime truth — in a local
+// single-operator hypervisor there is exactly one account, one organization (admin role),
+// one user. We own these directly (stable local identity, same class as app-local
+// preferences) rather than proxying the harvested demo identity. Display name/email match the
+// serve layer's IDENTITY_REWRITES so the header/avatar stay consistent across surfaces.
+const IDENTITY = {
+  userId: "00000000-0000-4000-8000-000000000001",
+  orgId: "00000000-0000-4000-8000-0000000000a1",
+  accountId: "00000000-0000-4000-8000-0000000000ac",
+  groupId: "00000000-0000-4000-8000-0000000000a2",
+  orgName: "IOI Workspace",
+  name: "John Doe",
+  email: "johndoe@ioi.local",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
+
 async function daemon(method, path, body) {
   const res = await fetch(DAEMON + path, {
     method,
@@ -130,6 +147,35 @@ export async function handle(pathname, bodyText) {
     saveStore(store);
     return json({ preference: makePreference(key, value, store[key]) });
   }
+  if (pathname === "/api/gitpod.v1.UserService/ListPreferences") {
+    const store = loadStore();
+    // App-local defaults that keep the harvested shell past the onboarding gate (config, not truth).
+    const seedTime = { createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt };
+    const merged = { IS_ONA_ONBOARDED: "true" };
+    for (const [k, v] of Object.entries(store)) merged[k] = v.value;
+    const preferences = Object.entries(merged).map(([key, value]) => makePreference(key, value, store[key] || seedTime));
+    return json({ pagination: {}, preferences });
+  }
+
+  // ---- Identity: UserService / AccountService / OrganizationService (local single operator) ----
+  if (pathname === "/api/gitpod.v1.UserService/GetAuthenticatedUser") {
+    return json({ user: { id: IDENTITY.userId, organizationId: IDENTITY.orgId, name: IDENTITY.name, avatarUrl: "", createdAt: IDENTITY.createdAt, status: "USER_STATUS_ACTIVE", email: IDENTITY.email } });
+  }
+  if (pathname === "/api/gitpod.v1.AccountService/GetAccount") {
+    return json({ account: { id: IDENTITY.accountId, name: IDENTITY.name, avatarUrl: "", email: IDENTITY.email, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, memberships: [{ userId: IDENTITY.userId, userRole: "ORGANIZATION_ROLE_ADMIN", organizationId: IDENTITY.orgId, organizationName: IDENTITY.orgName, organizationMemberCount: 1, organizationTier: "ORGANIZATION_TIER_CORE" }], publicEmailProvider: false } });
+  }
+  if (pathname === "/api/gitpod.v1.AccountService/GetChatIdentityToken") {
+    return json({});
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetOrganization") {
+    return json({ organization: { id: IDENTITY.orgId, name: IDENTITY.orgName, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, inviteDomains: {}, tier: "ORGANIZATION_TIER_CORE" } });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetTermsOfService") {
+    return json({ termsOfService: { organizationId: IDENTITY.orgId } });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetOrganizationPolicies") {
+    return json({ policies: { organizationId: IDENTITY.orgId, membersCreateProjects: true, maximumRunningEnvironmentsPerUser: "10", maximumEnvironmentsPerUser: "50", deleteArchivedEnvironmentsAfter: "1209600s", agentPolicy: { conversationSharingPolicy: "CONVERSATION_SHARING_POLICY_ORGANIZATION" }, securityAgentPolicy: {}, vetoExecPolicy: {}, vetoFilePolicy: {}, archiveEnvironmentsAfter: "259200s" } });
+  }
 
   // ---- EnvironmentService: real IOI daemon environments (WS-A/WS-B) ----
   // Env truth is daemon-owned (/v1/hypervisor/environments); the JS simulator is gone.
@@ -143,6 +189,18 @@ export async function handle(pathname, bodyText) {
       case "/api/gitpod.v1.EnvironmentService/ListEnvironments": {
         const r = await daemon("GET", "/v1/hypervisor/environments");
         return json({ pagination: {}, environments: (r.environments || []).map(daemonEnvToGitpod) });
+      }
+      case "/api/gitpod.v1.EnvironmentService/ListEnvironmentClasses": {
+        const r = await daemon("GET", "/v1/hypervisor/environment-classes");
+        const classes = (r.environmentClasses || []).map((c) => ({
+          id: c.id,
+          displayName: c.display_name || c.id,
+          description: [c.substrate_class, c.minimum_isolation || c.isolation_claim || c.note].filter(Boolean).join(" • "),
+          configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
+          runnerId: "local-microvm",
+          enabled: c.enabled !== false,
+        }));
+        return json({ pagination: {}, environmentClasses: classes });
       }
       case "/api/gitpod.v1.EnvironmentService/StartEnvironment":
         return json({ environment: daemonEnvToGitpod(await act(envIdFromBody(body), "start")) });
@@ -204,13 +262,135 @@ export async function handle(pathname, bodyText) {
       if (id && text) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text });
       return json({});
     }
+    if (pathname === "/api/gitpod.v1.AgentService/StopAgentExecution") {
+      const id = body.agentExecutionId;
+      if (id) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/cancel`);
+      return json({});
+    }
+    if (pathname === "/api/gitpod.v1.AgentService/DeleteAgentExecution") {
+      const id = body.agentExecutionId;
+      if (id) await daemon("DELETE", `/v1/threads/${encodeURIComponent(id)}`);
+      return json({});
+    }
+    if (pathname === "/api/gitpod.v1.AgentService/CreateAgentExecutionConversationToken") {
+      return json({ token: `ioi-agent-conv-${body.agentExecutionId || "anon"}` });
+    }
   } catch (e) {
     console.error("[ioi-api-adapter] daemon call failed, proxying:", e.message);
     return null;
   }
 
+  // ---- RunnerService: runners backed by the EnvironmentProvider registry (local authority) ----
+  if (pathname === "/api/gitpod.v1.RunnerService/CheckAuthenticationForHost") {
+    return json({ type: "Authenticated" });
+  }
+  if (pathname === "/api/gitpod.v1.RunnerService/ListRunners") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/providers");
+      const runners = (r.providers || []).map((p) => ({
+        runnerId: p.provider_ref,
+        name: p.reason || p.provider_ref,
+        spec: { desiredPhase: "RUNNER_PHASE_ACTIVE", configuration: { region: p.capabilities?.locality || "local" }, variant: "RUNNER_VARIANT_STANDARD" },
+        status: { phase: p.status === "available" ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE", message: p.reason || "" },
+        kind: "RUNNER_KIND_LOCAL_CONFIGURATION",
+      }));
+      return json({ pagination: {}, runners });
+    } catch {
+      return json({ pagination: {}, runners: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.RunnerService/CreateRunner") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/providers");
+      const p = (r.providers || []).find((x) => x.status === "available") || (r.providers || [])[0];
+      const id = p?.provider_ref || "local-microvm";
+      return json({ runner: { id, spec: { configuration: { region: "local" } }, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_LOCAL_CONFIGURATION" } });
+    } catch {
+      return json({ runner: { id: "local-microvm", spec: {}, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_LOCAL_CONFIGURATION" } });
+    }
+  }
+
+  // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
+  if (pathname === "/api/gitpod.v1.EditorService/ListEditors") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/editor-targets");
+      const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
+      const editors = (r.active_targets || []).map((t) => ({ id: t, name: labels[t] || t, alias: t, urlTemplate: "", installationInstructions: "" }));
+      return json({ editors });
+    } catch {
+      return json({ editors: [] });
+    }
+  }
+
+  // ---- Local-deployment projections: honest local posture for planes the daemon does not yet
+  // own (projects / groups / workflows / per-env automation / SCM). These are deferred data
+  // planes — empty is the honest local truth (NOT the mock's fabricated rows). Identity-derived
+  // surfaces (members, org-members group) reflect the single local operator. ----
+  if (pathname === "/api/gitpod.v1.ProjectService/ListProjects") {
+    return json({ pagination: {}, projects: [] });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/ListMembers") {
+    return json({ pagination: {}, members: [{ userId: IDENTITY.userId, role: "ORGANIZATION_ROLE_ADMIN", memberSince: IDENTITY.createdAt, avatarUrl: "", fullName: IDENTITY.name, email: IDENTITY.email, status: "USER_STATUS_ACTIVE", loginProvider: "local" }] });
+  }
+  if (pathname === "/api/gitpod.v1.GroupService/GetGroup") {
+    return json({ group: { id: IDENTITY.groupId, organizationId: IDENTITY.orgId, name: "org-members", systemManaged: true, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, memberCount: 1 } });
+  }
+  if (pathname === "/api/gitpod.v1.GroupService/ListGroups") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.GroupService/ListRoleAssignments") {
+    return json({ pagination: {}, assignments: [] });
+  }
+  if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListSCMIntegrations") {
+    return json({ pagination: {}, integrations: [] });
+  }
+  if (pathname === "/api/gitpod.v1.PrebuildService/ListPrebuilds") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.WorkflowService/ListWorkflows") {
+    return json({ pagination: {}, workflows: [] });
+  }
+  if (pathname === "/api/gitpod.v1.WorkflowService/ListWorkflowExecutions") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.WorkflowService/GetWorkflowExecutionSummary") {
+    return json({ totalWorkflowsInOrganization: "0" });
+  }
+  if (pathname === "/api/gitpod.v1.EnvironmentAutomationService/ListServices") {
+    return json({ pagination: {}, services: [] });
+  }
+  if (pathname === "/api/gitpod.v1.EnvironmentAutomationService/ListTasks") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.EnvironmentAutomationService/ListTaskExecutions") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.BillingService/GetBillingInfo") {
+    // A local hypervisor has no billing plane: report an unmetered local posture (never gates).
+    return json({ totalCredits: 0, availableCredits: 0, usedCredits: 0, paymentMethodStatus: "PAYMENT_METHOD_STATUS_VERIFIED", creditStatus: "CREDIT_STATUS_HAS_CREDITS", autoTopupSettings: {}, monthlyCommitmentCents: "0" });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetAnnouncementBanner") {
+    return json({ banner: { organizationId: IDENTITY.orgId } });
+  }
+  if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrations") {
+    // No integrations wired in the local deployment yet (honest empty state).
+    return json({ pagination: {}, integrations: [] });
+  }
+  if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrationDefinitions") {
+    // No integration catalog provisioned in the local deployment yet (honest empty state).
+    return json({ pagination: {}, definitions: [] });
+  }
+  if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListHostAuthenticationTokens") {
+    // Local authority is unconditional (CheckAuthenticationForHost -> Authenticated); no stored
+    // host OAuth tokens to enumerate.
+    return json({ pagination: {}, tokens: [] });
+  }
+  if (pathname === "/api/gitpod.v1.AgentService/ListPrompts") {
+    return json({ pagination: {} });
+  }
+
   // Not yet IOI-backed -> proxy to the live reference. Remaining (see reference-api-
   // integration.md): ProjectService (daemon needs a project-list GET), EventService
-  // streaming bridge, Account/Org/Billing (bare daemon stub), approvals/reviews surfacing.
+  // streaming bridge, approvals/reviews surfacing.
   return null;
 }

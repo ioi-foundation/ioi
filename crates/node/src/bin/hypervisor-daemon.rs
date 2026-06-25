@@ -411,7 +411,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads",
             get(lifecycle_routes::handle_threads_list).post(lifecycle_routes::handle_thread_create),
         )
-        .route("/v1/threads/:id", get(lifecycle_routes::handle_thread_get))
+        .route(
+            "/v1/threads/:id",
+            get(lifecycle_routes::handle_thread_get).delete(lifecycle_routes::handle_thread_delete),
+        )
+        .route("/v1/threads/:id/cancel", post(lifecycle_routes::handle_thread_cancel))
         .route(
             "/v1/threads/:id/turns",
             post(lifecycle_routes::handle_turn_create),

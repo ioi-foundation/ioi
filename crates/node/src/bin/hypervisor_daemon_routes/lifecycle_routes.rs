@@ -372,6 +372,45 @@ pub(crate) async fn handle_thread_create(
     Ok(Json(record))
 }
 
+/// POST /v1/threads/:id/cancel — cancel a thread/agent execution. Real, no fake: marks the persisted
+/// agent record cancelled (so the thread projection + list reflect it). Backs AgentService/Stop.
+pub(crate) async fn handle_thread_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, "thread not found".into()));
+    };
+    let agent_id = agent.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    agent["status"] = json!("cancelled");
+    agent["cancelled_at"] = json!(iso_now());
+    persist_record(&st.data_dir, "agents", &agent_id, &agent)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({ "ok": true, "thread_id": thread_id, "status": "cancelled", "at": iso_now() })))
+}
+
+/// DELETE /v1/threads/:id — delete a thread/agent execution. Real, no fake: removes the persisted
+/// agent record (so /v1/threads no longer lists it) + best-effort drops its event log. Backs
+/// AgentService/DeleteAgentExecution.
+pub(crate) async fn handle_thread_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let agent_id = agent_id_for_thread(&thread_id);
+    let safe = |s: &str| s.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let agent_path = std::path::Path::new(&st.data_dir).join("agents").join(format!("{}.json", safe(&agent_id)));
+    let existed = agent_path.exists();
+    let _ = std::fs::remove_file(&agent_path);
+    let suffix = thread_id.strip_prefix("thread_").unwrap_or(&thread_id).to_string();
+    let ev_dir = std::path::Path::new(&st.data_dir).join("events");
+    if let Ok(entries) = std::fs::read_dir(&ev_dir) {
+        for e in entries.flatten() {
+            if e.file_name().to_string_lossy().contains(&suffix) { let _ = std::fs::remove_file(e.path()); }
+        }
+    }
+    Ok(Json(json!({ "ok": true, "deleted": thread_id, "existed": existed, "at": iso_now() })))
+}
+
 /// POST /v1/agents — create an agent (no thread) via plan_agent_create_state_update.
 pub(crate) async fn handle_agent_create(
     State(st): State<Arc<DaemonState>>,

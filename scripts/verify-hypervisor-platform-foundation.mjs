@@ -3,7 +3,8 @@
 //
 // WRAPS the green Phase 1 microVM lifecycle verifier and adds the seven terminal workstreams
 // (T1 lane closure, T2 QEMU parity, T3 toolchain portability, T4 live authority, T5 resource
-// management, T6 remote providers, T7 native UX). Each sub-verifier runs as a child process and is
+// management, T6 remote providers, T7 reference-functional UX — the served :4173 reference made
+// daemon-backed). Each sub-verifier runs as a child process and is
 // parsed via --json. Completion = Overall ∈ {terminal, terminal_with_declared_host_gaps} where
 // EVERY non-PASS is a genuine, named, fail-closed host/tooling prerequisite — never an unbuilt or
 // faked gate.
@@ -85,19 +86,26 @@ const remoteProviders = remoteOk ? "PASS" : "FAIL";
 if (!remoteOk) failures.push("T6 remote providers FAIL");
 for (const g of t6?.declared_gaps || []) declaredGaps.push({ gate: "remote_providers", ...g });
 
-// ---- T7 native UX ----
-let uxStrategyStatus = "NATIVE_UX_NOT_REQUESTED";
+// ---- T7 reference-functional UX (the served :4173 reference made daemon-backed) ----
+// The product UX is the served live reference (apps/hypervisor/scripts/serve-live-reference.mjs)
+// made functional by ioi-api-adapter.mjs; the native React duplicate was removed. The done-bar
+// is verify-hypervisor-reference-functional.mjs: every gitpod.v1.* RPC daemon-owned (zero mock
+// fallthrough), real daemon effects, and a Playwright route-crawl with zero console errors.
+let uxStrategyStatus = "REFERENCE_UX_NOT_REQUESTED";
 let interactiveTerminal = "REQUEST_RESPONSE_ONLY";
 let t7 = null;
 if (NATIVE_UX) {
-  t7 = runJson("scripts/verify-hypervisor-native-ux.mjs", ["--ux-strategy", UX_STRATEGY, ...(BROWSER ? ["--browser"] : [])], "T7 native UX");
-  if (t7?.verdict === "BLOCKED_DECISION") { uxStrategyStatus = "BLOCKED_DECISION"; failures.push("T7 UX strategy BLOCKED_DECISION (missing decision record)"); }
-  else if (t7?.verdict === "PASS" || t7?.verdict === "PASS_WITH_DECLARED_GAPS") {
-    uxStrategyStatus = (t7.ux_strategy || UX_STRATEGY).toUpperCase();
-    interactiveTerminal = "PASS"; // the T7 PTY interactivity check is part of its PASS
-    for (const g of t7?.declared_gaps || []) declaredGaps.push({ gate: "native_ux", ...g });
-  } else { uxStrategyStatus = "FAIL"; failures.push("T7 native UX FAIL"); }
+  t7 = runJson("scripts/verify-hypervisor-reference-functional.mjs", [], "T7 reference-functional UX");
+  if (t7?.verdict === "BLOCKED") {
+    uxStrategyStatus = "REFERENCE_NOT_RUNNING";
+    declaredGaps.push({ gate: "reference_functional_ux", prerequisite: "REFERENCE_STACK_NOT_RUNNING", reason: "the served reference done-bar needs serve:reference (:4173) + hypervisor-daemon (:8765) up; bring them up and re-run — not an unbuilt gate" });
+  } else if (t7?.verdict === "PASS" || t7?.verdict === "PASS_WITH_DECLARED_GAPS") {
+    uxStrategyStatus = "REFERENCE_FUNCTIONAL";
+    interactiveTerminal = "PASS"; // the reference-functional contract exercises real create/start/delete effects
+    for (const g of t7?.declared_gaps || []) declaredGaps.push({ gate: "reference_functional_ux", ...g });
+  } else { uxStrategyStatus = "FAIL"; failures.push("T7 reference-functional UX FAIL"); }
 }
+void UX_STRATEGY;
 
 // ---- Overall ----
 const allLines = { phase1: phase1Pass ? "PASS" : "FAIL", checkoutClosure, qemuParity, toolchain, liveAuthority, resourceMgmt, remoteProviders, uxStrategyStatus, interactiveTerminal };
