@@ -82,13 +82,31 @@ try {
   }
   ok(fileSeen, "REAL EFFECT: the agent harness produced index.html in the env workspace", ws ? (fs.existsSync(ws) ? fs.readdirSync(ws).join(",") : "no workspace") : "");
 
-  // 4) The visual code editor opens against that workspace (real openvscode-server).
+  // 3b) REAL EFFECT: the env was scaffolded with the default Dev Container baseline.
+  ok(ws && fs.existsSync(`${ws}/.devcontainer/devcontainer.json`) && fs.existsSync(`${ws}/.devcontainer/Dockerfile`),
+    "REAL EFFECT: env scaffolded with .devcontainer/{devcontainer.json,Dockerfile}");
+
+  // 4) The visual code editor opens AND RENDERS against that workspace (real openvscode-server) —
+  // load it in a real browser and assert the Monaco workbench mounts + shows the scaffolded files
+  // (not just that the HTML shell is served).
   if (envId) {
     const r = await fetch(`${REF}/__ioi/editor/open?environmentId=${envId}`, { redirect: "manual" });
     const loc = r.headers.get("location");
-    let editorServes = false;
-    if (loc) { try { const e = await fetch(loc, { signal: AbortSignal.timeout(8000) }); editorServes = e.ok && /Microsoft Corporation|openvscode|Visual Studio Code/i.test(await e.text()); } catch { /* ignore */ } }
-    ok(editorServes, "editor Open-in serves a live VS Code Browser (openvscode-server) bound to the workspace", loc || `status ${r.status}`);
+    let rendered = false, treeOk = false;
+    if (loc) {
+      try {
+        const ep = await b.newPage({ viewport: { width: 1440, height: 900 } });
+        await ep.goto(loc, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await ep.waitForFunction(() => !!document.querySelector(".monaco-workbench"), { timeout: 30000 }).catch(() => {});
+        rendered = await ep.evaluate(() => !!document.querySelector(".monaco-workbench"));
+        // The explorer tree populates after the workbench mounts — wait for the scaffolded file label.
+        await ep.waitForFunction(() => /devcontainer/i.test(document.body?.innerText || ""), { timeout: 25000 }).catch(() => {});
+        treeOk = await ep.evaluate(() => /devcontainer|Dockerfile/i.test(document.body?.innerText || ""));
+        await ep.close();
+      } catch { /* ignore */ }
+    }
+    ok(rendered, "editor Open-in renders a live VS Code Browser workbench (openvscode-server)", loc || `status ${r.status}`);
+    ok(treeOk, "editor shows the env workspace files (.devcontainer in the explorer)");
   }
 
   // 5) No console/page errors; app stays self-contained (no external CDN).
