@@ -7344,6 +7344,35 @@ fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result
     })
 }
 
+/// Bind a session to an EXISTING started environment's workspace (the env's `status.workspace_root`)
+/// instead of provisioning a fresh temp dir, so agent execution and the editor host operate on the
+/// SAME files. Returns None when the env is unknown or not started (caller falls back to a fresh
+/// session workspace) — never fabricates a path.
+fn bind_env_workspace(data_dir: &str, env_id: &str, initializer: &Value) -> Option<ProvisionOutcome> {
+    let safe = env_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let path = std::path::Path::new(data_dir).join("environments").join(format!("{safe}.json"));
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).ok()?).ok()?;
+    let workspace_root = v
+        .get("status")
+        .and_then(|status| status.get("workspace_root"))
+        .and_then(Value::as_str)
+        .filter(|root| !root.trim().is_empty())?
+        .to_string();
+    let artifact_digest = sha256_hex_str(&workspace_root).chars().take(24).collect::<String>();
+    Some(ProvisionOutcome {
+        workspace_root,
+        workspace_artifact_ref: format!("agentgres://artifact/workspace/{artifact_digest}"),
+        component_phases: json!({ "provisioner": "ready", "workspace_content": "ready" }),
+        realized_specs: vec![json!({ "environment_id": env_id, "bound": true })],
+        custody_posture: initializer
+            .get("custody_posture")
+            .and_then(Value::as_str)
+            .unwrap_or("public_trunk")
+            .to_string(),
+        initializer: initializer.clone(),
+    })
+}
+
 /// A filesystem-safe, length-bounded session tag for the workspace dir name.
 fn safe_session_tag(session_ref: &str) -> String {
     let mut out = String::with_capacity(session_ref.len());
@@ -7501,7 +7530,17 @@ pub(crate) async fn handle_session_create(
             let seed = format!("{}:{now}", project_ref.as_deref().unwrap_or("session"));
             format!("session:hyp-{}", short_hash(&seed))
         });
-    let environment_ref = format!("environment:{}", safe_session_tag(&session_ref));
+    // A session may bind to an EXISTING started environment's workspace so agent execution and
+    // the editor host operate on the SAME files (the app's compose→run→open-editor loop).
+    let bound_env_id = body
+        .get("environment_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    let environment_ref = match &bound_env_id {
+        Some(env_id) => format!("environment:{env_id}"),
+        None => format!("environment:{}", safe_session_tag(&session_ref)),
+    };
 
     // Typed workspace initializer (camelCase input mirrors the JS builder args).
     let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
@@ -7516,14 +7555,20 @@ pub(crate) async fn handle_session_create(
         .unwrap_or("workspace-initializer:session")
         .to_string();
 
-    let provision = match provision_session_workspace(&session_ref, &initializer) {
-        Ok(outcome) => outcome,
-        Err(error) => {
-            return (
-                error.0,
-                Json(json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } })),
-            );
-        }
+    let provision = match bound_env_id
+        .as_deref()
+        .and_then(|env_id| bind_env_workspace(&st.data_dir, env_id, &initializer))
+    {
+        Some(outcome) => outcome,
+        None => match provision_session_workspace(&session_ref, &initializer) {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                return (
+                    error.0,
+                    Json(json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } })),
+                );
+            }
+        },
     };
 
     let substrate = ExecutionSubstrate::probe();

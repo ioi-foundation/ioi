@@ -182,6 +182,49 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
+    // WS-3: agent-run conversation history. The reference SPA's conversation pane consumes a
+    // base64 protobuf frame protocol (chunks[].frames[] -> Pi protobuf decode); reconstructing that
+    // binary wire format is out of scope, so we serve a VALID EMPTY history ({chunks:[],has_more})
+    // — the pane renders cleanly (no error boundary, no reconnect), and the agent's real output is
+    // visible in the editor + run status. (Rich transcript = declared follow-up: protobuf encoder.)
+    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/conversation")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ chunks: [], has_more: false }));
+      return;
+    }
+    // WS-5: editor "Open in VS Code Browser". The reference SPA opens the editor's urlTemplate;
+    // we point vscode-browser at this endpoint, which drives the proven daemon editor chain
+    // (create service → lease → start openvscode-server → expose lease-auth proxy) and 302s to
+    // the live editor URL. Fail-closed with an honest page if the runtime isn't provisioned.
+    if (pathname === "/__ioi/editor/open") {
+      const envId = new URLSearchParams((req.url || "").split("?")[1] || "").get("environmentId");
+      if (!envId) { res.writeHead(400, { "Content-Type": "text/plain" }); res.end("missing environmentId"); return; }
+      const dj = async (m, p, b) => {
+        const r = await fetch(DAEMON + p, { method: m, headers: b ? { "content-type": "application/json" } : undefined, body: b ? JSON.stringify(b) : undefined });
+        return { status: r.status, body: await r.json().catch(() => ({})) };
+      };
+      const fail = (reason) => {
+        res.writeHead(503, { "Content-Type": "text/html" });
+        res.end(`<!doctype html><meta charset=utf-8><body style="font:15px system-ui;background:#0d0f14;color:#e6e9ef;padding:3rem"><h2>Editor not ready</h2><p>The VS Code Browser runtime could not start for this environment.</p><pre style="color:#b7791f">${String(reason || "unknown").replace(/[<&]/g, "")}</pre><p style="color:#7a818c">Provision it with <code>node scripts/provision-hypervisor-vscode-browser-host.mjs</code> and retry.</p></body>`);
+      };
+      try {
+        const svc = await dj("POST", "/v1/hypervisor/editor-services", { environment_id: envId, target_profile: "vscode-browser" });
+        const serviceId = svc.body.editorService?.service_id || svc.body.service_id;
+        if (!serviceId) return fail(svc.body.reason || `editor-service create ${svc.status}`);
+        const lease = await dj("POST", "/v1/hypervisor/editor-access-leases", { environment_id: envId, service_id: serviceId, session_id: `editor:${envId}` });
+        const leaseId = lease.body.lease_id;
+        const leaseRef = lease.body.lease_ref || lease.body.capability_lease_ref;
+        const start = await dj("POST", `/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/start`, { access_lease_ref: leaseRef, session_ref: `editor:${envId}` });
+        if (!start.body.ok) return fail(start.body.reason || "editor service did not reach ready");
+        const expose = await dj("POST", `/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/expose`, { lease_id: leaseId });
+        if (!expose.body.ok || !expose.body.open_url) return fail(expose.body.reason || "editor proxy bind failed");
+        res.writeHead(302, { Location: expose.body.open_url });
+        res.end();
+      } catch (e) {
+        fail(e.message);
+      }
+      return;
+    }
     // EventService/WatchEvents is a Connect stream — own it here (UI polls via List*; real push is a
     // follow-up). Emitting the end-stream frame keeps it adapter-owned (no mock fallthrough).
     if (pathname === "/api/gitpod.v1.EventService/WatchEvents") {

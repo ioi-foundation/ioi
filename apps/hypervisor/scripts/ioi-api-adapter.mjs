@@ -15,6 +15,16 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { threadToAgentExecution, daemonEnvToGitpod } from "./ioi-projection.mjs";
+import {
+  startAgentRun,
+  registerAgentRun,
+  sendToAgentRun,
+  getRun,
+  listRuns,
+  runToAgentExecution,
+  extractPrompt,
+  extractEnvClass,
+} from "./ioi-agent-runs.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 // UserService preferences are app/client config (not daemon runtime truth), so they live
@@ -218,7 +228,14 @@ export async function handle(pathname, bodyText) {
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironment":
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentFromProject": {
         const created = await daemon("POST", "/v1/hypervisor/environments", { spec: body.spec || body });
-        return json({ environment: daemonEnvToGitpod(created.environment) });
+        let envRecord = created.environment;
+        // The compose flow asks for desiredPhase RUNNING — actually start it so it has a real
+        // workspace (the daemon create leaves it stopped). This is what makes the agent + editor work.
+        const desired = body.spec?.desiredPhase || body.desiredPhase;
+        if (desired === "ENVIRONMENT_PHASE_RUNNING" && envRecord?.id) {
+          try { envRecord = await act(envRecord.id, "start"); } catch (e) { console.error("[ioi-api-adapter] env auto-start failed:", e.message); }
+        }
+        return json({ environment: daemonEnvToGitpod(envRecord) });
       }
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentAccessToken":
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironmentLogsToken":
@@ -239,13 +256,34 @@ export async function handle(pathname, bodyText) {
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
   try {
+    // CreateAgentSession is the /ai composer's submit: spin up a real env + run the agent over
+    // the harness (create env → start → bound session → mint grant → execute). Returns once the
+    // env exists; the harness runs async (tracked in the run registry). The SPA then navigates to
+    // /details/:environmentId and polls GetAgentExecution.
+    if (pathname === "/api/gitpod.v1.AgentService/CreateAgentSession") {
+      const prompt = extractPrompt(body) || "Work in this environment.";
+      const environmentClassId = extractEnvClass(body) || "local-workspace-v0";
+      if (process.env.IOI_HYPERVISOR_DEBUG) console.error("[ioi-api-adapter] CreateAgentSession body:", bodyText.slice(0, 800));
+      const { agentExecutionId, environment, userInputBlockId } = await startAgentRun({
+        daemonBase: DAEMON,
+        prompt,
+        environmentClassId,
+      });
+      return json({ environment, agentExecutionId, userInputBlockId });
+    }
     if (pathname === "/api/gitpod.v1.AgentService/ListAgentExecutions") {
+      const wanted = body.filter?.environmentIds || body.filter?.environment_ids || null;
+      const runList = listRuns()
+        .filter((run) => !wanted || wanted.includes(run.envId))
+        .map(runToAgentExecution);
       const threads = await daemon("GET", "/v1/threads");
       const list = Array.isArray(threads) ? threads : threads.threads || [];
-      return json({ pagination: {}, agentExecutions: list.map(threadToAgentExecution) });
+      return json({ pagination: {}, agentExecutions: [...runList, ...list.map(threadToAgentExecution)] });
     }
     if (pathname === "/api/gitpod.v1.AgentService/GetAgentExecution") {
       const id = body.agentExecutionId;
+      const run = getRun(id);
+      if (run) return json({ agentExecution: runToAgentExecution(run) });
       const t = await daemon("GET", `/v1/threads/${encodeURIComponent(id)}`);
       return json({ agentExecution: threadToAgentExecution(t) });
     }
@@ -253,13 +291,25 @@ export async function handle(pathname, bodyText) {
       pathname === "/api/gitpod.v1.AgentService/CreateAgentExecution" ||
       pathname === "/api/gitpod.v1.AgentService/StartAgent"
     ) {
+      // Compose flow: StartAgent binds the agent to a just-created (running) env via
+      // codeContext.environmentId. Register a real run against that env; the harness fires on
+      // the subsequent SendToAgentExecution (which carries the prompt).
+      const envId = body.codeContext?.environmentId || body.code_context?.environmentId;
+      if (envId) {
+        const run = registerAgentRun({ envId });
+        return json({ agentExecutionId: run.id });
+      }
       const created = await daemon("POST", "/v1/threads", { title: textFromBody(body).slice(0, 80) || undefined });
       return json({ agentExecutionId: created.thread_id || created.id });
     }
     if (pathname === "/api/gitpod.v1.AgentService/SendToAgentExecution") {
       const id = body.agentExecutionId;
-      const text = textFromBody(body);
-      if (id && text) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text });
+      const prompt = extractPrompt(body) || textFromBody(body);
+      if (getRun(id)) {
+        await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt });
+        return json({});
+      }
+      if (id && prompt) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text: prompt });
       return json({});
     }
     if (pathname === "/api/gitpod.v1.AgentService/StopAgentExecution") {
@@ -285,14 +335,19 @@ export async function handle(pathname, bodyText) {
     return json({ type: "Authenticated" });
   }
   if (pathname === "/api/gitpod.v1.RunnerService/ListRunners") {
+    // The compose flow filters runners to RUNNER_KIND_REMOTE (environments run on a remote-shaped
+    // host). Our local provider IS that host for the served app, so present it as a REMOTE runner —
+    // otherwise the env class has no supported runner and shows "Unsupported" (unselectable).
     try {
       const r = await daemon("GET", "/v1/hypervisor/providers");
       const runners = (r.providers || []).map((p) => ({
         runnerId: p.provider_ref,
         name: p.reason || p.provider_ref,
-        spec: { desiredPhase: "RUNNER_PHASE_ACTIVE", configuration: { region: p.capabilities?.locality || "local" }, variant: "RUNNER_VARIANT_STANDARD" },
-        status: { phase: p.status === "available" ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE", message: p.reason || "" },
-        kind: "RUNNER_KIND_LOCAL_CONFIGURATION",
+        spec: { desiredPhase: "RUNNER_PHASE_ACTIVE", configuration: { region: p.capabilities?.locality || "local", releaseChannel: "RUNNER_RELEASE_CHANNEL_STABLE" }, variant: "RUNNER_VARIANT_STANDARD" },
+        // status.capabilities gates env-class selectability in the composer: it must include
+        // AGENT_EXECUTION or the class shows "Unsupported" (RunnerCapability enum, unprefixed names).
+        status: { phase: p.status === "available" ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE", message: p.reason || "", version: "ioi-local", capabilities: [3, 4, 5] },
+        kind: "RUNNER_KIND_REMOTE",
       }));
       return json({ pagination: {}, runners });
     } catch {
@@ -304,21 +359,33 @@ export async function handle(pathname, bodyText) {
       const r = await daemon("GET", "/v1/hypervisor/providers");
       const p = (r.providers || []).find((x) => x.status === "available") || (r.providers || [])[0];
       const id = p?.provider_ref || "local-microvm";
-      return json({ runner: { id, spec: { configuration: { region: "local" } }, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_LOCAL_CONFIGURATION" } });
+      return json({ runner: { id, spec: { configuration: { region: "local" } }, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_REMOTE" } });
     } catch {
-      return json({ runner: { id: "local-microvm", spec: {}, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_LOCAL_CONFIGURATION" } });
+      return json({ runner: { id: "local-microvm", spec: {}, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_REMOTE" } });
     }
   }
 
   // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
   if (pathname === "/api/gitpod.v1.EditorService/ListEditors") {
+    // vscode-browser is the proven end-to-end target: its urlTemplate points at the serve layer's
+    // /__ioi/editor/open, which drives the daemon editor chain and redirects to the live editor.
+    // Desktop targets carry their native deep-link scheme (best-effort on the host).
+    const URL_TEMPLATES = {
+      "vscode-browser": "/__ioi/editor/open?environmentId={{.EnvironmentId}}",
+      vscode: "vscode://gitpod.gitpod-flex/connect?environmentId={{.EnvironmentId}}",
+      "vscode-insiders": "vscode-insiders://gitpod.gitpod-flex/connect?environmentId={{.EnvironmentId}}",
+    };
+    const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
     try {
       const r = await daemon("GET", "/v1/hypervisor/editor-targets");
-      const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
-      const editors = (r.active_targets || []).map((t) => ({ id: t, name: labels[t] || t, alias: t, urlTemplate: "", installationInstructions: "" }));
+      let active = r.active_targets || [];
+      // Surface vscode-browser first (the working one); ensure it's present even if the registry shifts.
+      if (!active.includes("vscode-browser")) active = ["vscode-browser", ...active];
+      active = ["vscode-browser", ...active.filter((t) => t !== "vscode-browser")];
+      const editors = active.map((t) => ({ id: t, name: labels[t] || t, alias: t, urlTemplate: URL_TEMPLATES[t] || "", installationInstructions: "" }));
       return json({ editors });
     } catch {
-      return json({ editors: [] });
+      return json({ editors: [{ id: "vscode-browser", name: "VS Code (Browser)", alias: "vscode-browser", urlTemplate: URL_TEMPLATES["vscode-browser"], installationInstructions: "" }] });
     }
   }
 
