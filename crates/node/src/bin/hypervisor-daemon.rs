@@ -42,6 +42,10 @@ mod resource_routes;
 mod provider_routes;
 #[path = "hypervisor_daemon_routes/binding_routes.rs"]
 mod binding_routes;
+#[path = "hypervisor_daemon_routes/editor_host.rs"]
+mod editor_host;
+#[path = "hypervisor_daemon_routes/editor_routes.rs"]
+mod editor_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -895,6 +899,61 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/terminals/:id/close",
             post(binding_routes::handle_terminal_close),
+        )
+        // Pre-applications WS-3/8: editor-target registry + host-provisioning plans + editor access
+        // services + capability-lease-backed access leases. Collision-safe (editor-services is a
+        // TOP-LEVEL resource, not /environments/:id/editor-services which would clash with :action).
+        .route(
+            "/v1/hypervisor/editor-targets",
+            get(editor_routes::handle_editor_targets_list),
+        )
+        .route(
+            "/v1/hypervisor/editor-targets/:id",
+            get(editor_routes::handle_editor_target_get),
+        )
+        .route(
+            "/v1/hypervisor/editor-host-provisioning-plans",
+            post(editor_routes::handle_provisioning_plan_create),
+        )
+        .route(
+            "/v1/hypervisor/editor-host-provisioning-plans/:id",
+            get(editor_routes::handle_provisioning_plan_get),
+        )
+        .route(
+            "/v1/hypervisor/editor-services",
+            get(editor_routes::handle_editor_services_list).post(editor_routes::handle_editor_service_create),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/start",
+            post(editor_routes::handle_editor_service_start),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/stop",
+            post(editor_routes::handle_editor_service_stop),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/rebuild",
+            post(editor_routes::handle_editor_service_rebuild),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/status",
+            get(editor_routes::handle_editor_service_status),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/logs",
+            get(editor_routes::handle_editor_service_logs),
+        )
+        .route(
+            "/v1/hypervisor/editor-services/:service_id/open-url",
+            get(editor_routes::handle_editor_service_open_url),
+        )
+        .route(
+            "/v1/hypervisor/editor-access-leases",
+            post(editor_routes::handle_editor_access_lease_create),
+        )
+        .route(
+            "/v1/hypervisor/editor-access-leases/:lease_id/revoke",
+            post(editor_routes::handle_editor_access_lease_revoke),
         )
         // Hypervisor session execution surface (Lane A, Cut #1): real workspace
         // provisioning + environment-status/diff/readiness/receipt surfacing +

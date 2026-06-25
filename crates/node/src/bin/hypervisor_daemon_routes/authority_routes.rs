@@ -111,6 +111,46 @@ const LOCAL_ALLOWED: &[&str] = &[
     "local_exec",
 ];
 
+/// Mint a capability lease as a real authority grant (the SAME grant/revoke/expiry/receipt
+/// machinery — Locked Decision 1: no parallel SessionAccessLease). Returns the grant record; its
+/// `grant_ref` IS the `capability_lease_ref`. Used by the editor access-lease surface (effect
+/// `environment.editor.open`) so editor access is lease-bound, revocable, expiring, receipt-backed
+/// — revocable via POST /v1/hypervisor/authority/revoke and visible in /authority/grants.
+pub(crate) fn issue_capability_lease(data_dir: &str, subject: &str, action: &str, resources: Value, expiry_seconds: i64) -> Value {
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let grant_id = format!("agr_{nanos:x}");
+    let live_wallet = wallet_network_endpoint().is_some();
+    let provider = if live_wallet { "wallet_network_live" } else { "enterprise_authority" };
+    let grant_ref = if live_wallet { format!("wallet.network://grant/{grant_id}") } else { format!("enterprise.authority://grant/{grant_id}") };
+    let now = now_unix();
+    let expires_at_unix = now + expiry_seconds;
+    let receipt_ref = emit_receipt(data_dir, "granted", &grant_ref, subject, action, "capability lease (editor access)");
+    let record = json!({
+        "schema_version": "ioi.hypervisor.authority-grant.v1",
+        "grant_id": grant_id, "grant_ref": grant_ref,
+        "authority_provider_ref": provider, "provider": provider,
+        "subject": subject, "action": action, "resources": resources, "budget": Value::Null,
+        "policy_hash": "policy:editor.access", "decision": "granted",
+        "reason": format!("capability lease issued for '{action}'"),
+        "revoked": false, "revoked_at": Value::Null,
+        "issued_at": iso_now(), "issued_at_unix": now,
+        "expires_at_unix": expires_at_unix, "expires_at": iso_now(),
+        "authority_receipt_refs": [receipt_ref],
+        "lease_kind": "capability_lease",
+    });
+    let _ = persist_record(data_dir, "authority-grants", &grant_id, &record);
+    record
+}
+
+/// Resolve a capability lease's LIVE admission status (active | expired | revoked | missing) — the
+/// SAME enforcement the authority preflight uses. The WS proxy / open-url gate calls this.
+pub(crate) fn capability_lease_status(data_dir: &str, lease_ref: &str) -> &'static str {
+    match load_grant(data_dir, lease_ref) {
+        Some(g) => live_grant_status(&g),
+        None => "missing",
+    }
+}
+
 /// GET /v1/hypervisor/authority/posture — the local-operator authority posture.
 pub(crate) async fn handle_authority_posture(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({
