@@ -60,3 +60,33 @@ test("code editor adapter transport writes only adapter context envelopes", asyn
     server.close();
   }
 });
+
+test("WS-6a: runtime refs are populated from the Session Execution Binding env when launched through Hypervisor", () => {
+  const env = {
+    IOI_HYPERVISOR_SESSION_REF: "session:s1",
+    IOI_HYPERVISOR_ENVIRONMENT_REF: "environment:env1",
+    IOI_HYPERVISOR_WORK_RUN_REF: "work_run:wr1",
+    IOI_HYPERVISOR_BINDING_REF: "binding:bind1",
+    IOI_HYPERVISOR_ACCESS_LEASE_REF: "enterprise.authority://grant/agr_1",
+    IOI_HYPERVISOR_RECEIPT_REFS: "agentgres://r/1, agentgres://r/2",
+  };
+  const refs = buildRuntimeRefs(env);
+  assert.equal(refs.sessionRef, "session:s1");
+  assert.equal(refs.environmentRef, "environment:env1");
+  assert.equal(refs.workRunRef, "work_run:wr1");
+  assert.equal(refs.bindingRef, "binding:bind1");
+  assert.equal(refs.accessLeaseRef, "enterprise.authority://grant/agr_1");
+  assert.deepEqual(refs.receiptRefs, ["agentgres://r/1", "agentgres://r/2"]);
+  assert.deepEqual(refs.capabilityRefs, ["enterprise.authority://grant/agr_1"]);
+  assert.deepEqual(refs.authorityRefs, ["enterprise.authority://grant/agr_1"]);
+  assert.equal(refs.boundThroughHypervisor, true);
+});
+
+test("WS-6a: runtime refs stay empty (not faked) when NOT launched through Hypervisor", () => {
+  const refs = buildRuntimeRefs({});
+  assert.equal(refs.sessionRef, null);
+  assert.equal(refs.bindingRef, null);
+  assert.equal(refs.boundThroughHypervisor, false);
+  assert.deepEqual(refs.receiptRefs, []);
+  assert.deepEqual(refs.capabilityRefs, []);
+});
