@@ -1,16 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { useEffect } from "react";
 
-// The reference-parity UX is no longer rendered by this React app — it is served as the
-// LIVE reference (real bundle + IOI /api adapter) via
-// `npm run serve:reference --workspace=@ioi/hypervisor-app`
-// (apps/hypervisor/scripts/serve-live-reference.mjs). This Vite app now only hosts the
-// workbench dev preview + runtime services.
+// Native Hypervisor product UI (v2 estate). The served reference (serve-live-reference.mjs) is now
+// the dev_reference_only design oracle; this app is the source-neutral product over daemon truth.
 import "@ioi/hypervisor-workbench/dist/style.css";
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css";
+import "./ui"; // UX kit stylesheet (design system)
 import "./services/sessionRuntime";
 import {
   applyHypervisorAppearance,
@@ -20,17 +18,16 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
-// T7 (hybrid UX) — native operator surfaces projecting daemon truth over the Session Execution
-// Binding. The served reference is now dev_reference_only; these React routes are the product
-// projection. See internal-docs/implementation/hypervisor-ux-strategy-decision.md.
+import { AppShell } from "./shell/AppShell";
+import { HomeCockpit } from "./shell/HomeCockpit";
+import { AppStatusFrame } from "./shell/AppStatusFrame";
 import {
-  HomeSurface,
   SessionsSurface,
   SessionDetailSurface,
-  ProvidersSurface,
   EnvironmentsSurface,
 } from "./surfaces/NativeCockpit";
 import { NativeWorkbench } from "./surfaces/NativeWorkbench";
+import { Heading, Muted } from "./ui";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -42,20 +39,15 @@ function AppMetricsBeacon() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
-
   return null;
 }
 
-// The hypervisor product UI is the live reference (served by serve-live-reference.mjs);
-// this placeholder only shows if someone opens the bare Vite app directly.
-function ServedElsewhereNotice() {
+function NotFound() {
   return (
-    <div style={{ font: "14px/1.6 system-ui, sans-serif", padding: "2rem", color: "#1c1c1c" }}>
-      <h1 style={{ fontSize: "1.25rem", margin: "0 0 .5rem" }}>Hypervisor</h1>
-      <p style={{ margin: 0 }}>
-        The product UI is served as the live reference. Run{" "}
-        <code>npm run serve:reference --workspace=@ioi/hypervisor-app</code>.
-      </p>
+    <div className="hv-page" data-testid="not-found">
+      <Heading level={1}>Not found</Heading>
+      <Muted>That route isn't part of the current estate.</Muted>
+      <Link to="/" className="hv-link">← Home</Link>
     </div>
   );
 }
@@ -65,16 +57,22 @@ function renderHypervisorApp() {
     <React.StrictMode>
       <BrowserRouter>
         <AppMetricsBeacon />
-        <Routes>
-          <Route path="/" element={<HomeSurface />} />
-          <Route path="/sessions" element={<SessionsSurface />} />
-          <Route path="/sessions/:id" element={<SessionDetailSurface />} />
-          <Route path="/providers" element={<ProvidersSurface />} />
-          <Route path="/environments" element={<EnvironmentsSurface />} />
-          <Route path="/workbench/:id" element={<NativeWorkbench />} />
-          <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          <Route path="*" element={<ServedElsewhereNotice />} />
-        </Routes>
+        <AppShell>
+          <Routes>
+            <Route path="/" element={<HomeCockpit />} />
+            <Route path="/new" element={<HomeCockpit />} />
+            <Route path="/projects" element={<AppStatusFrame surfaceId="projects" />} />
+            <Route path="/automations" element={<AppStatusFrame surfaceId="automations" />} />
+            <Route path="/settings" element={<AppStatusFrame surfaceId="settings" />} />
+            <Route path="/environments" element={<EnvironmentsSurface />} />
+            <Route path="/workbench/:id" element={<NativeWorkbench />} />
+            <Route path="/sessions" element={<SessionsSurface />} />
+            <Route path="/sessions/:id" element={<SessionDetailSurface />} />
+            <Route path="/app/:id" element={<AppStatusFrame />} />
+            <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AppShell>
       </BrowserRouter>
     </React.StrictMode>,
   );

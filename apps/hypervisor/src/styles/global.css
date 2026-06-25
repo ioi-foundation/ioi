@@ -207,6 +207,17 @@
     0 0 0 1px rgba(250, 248, 244, 0.02),
     0 18px 44px rgba(0, 0, 0, 0.28),
     0 0 20px rgba(var(--cb-shadow-rgb), 0.03);
+
+  /* --- UX-substrate semantic aliases (kit consumes these; no raw hex in surfaces) --- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+  --link: var(--accent-blue);
+  --link-hover: var(--accent-blue-strong);
+  --readiness-full: var(--status-success);
+  --readiness-degraded: var(--status-warning);
+  --readiness-blocked: var(--status-error);
 }
 
 :root[data-hypervisor-theme="light-modern"],
