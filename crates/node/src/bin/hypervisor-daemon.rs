@@ -50,6 +50,8 @@ mod editor_routes;
 mod editor_proxy;
 #[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
 mod supervisor_routes;
+#[path = "hypervisor_daemon_routes/agentops_routes.rs"]
+mod agentops_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -789,6 +791,36 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/harness-bindings",
             post(authority_routes::handle_harness_binding_create),
+        )
+        // Cut D — runner profiles: the capability matrix the composer admits controls against.
+        .route(
+            "/v1/hypervisor/agent-runner-profiles",
+            get(authority_routes::handle_agent_runner_profiles),
+        )
+        // Cut D — AgentOps conversation service: real event-block turns + waiting/resume + interrupt.
+        .route(
+            "/v1/hypervisor/agentops/conversations",
+            get(agentops_routes::handle_conversation_list).post(agentops_routes::handle_conversation_create),
+        )
+        .route(
+            "/v1/hypervisor/agentops/conversations/:id",
+            get(agentops_routes::handle_conversation_get),
+        )
+        .route(
+            "/v1/hypervisor/agentops/conversations/:id/send",
+            post(agentops_routes::handle_conversation_send),
+        )
+        .route(
+            "/v1/hypervisor/agentops/conversations/:id/provide",
+            post(agentops_routes::handle_conversation_provide),
+        )
+        .route(
+            "/v1/hypervisor/agentops/conversations/:id/interrupt",
+            post(agentops_routes::handle_conversation_interrupt),
+        )
+        .route(
+            "/v1/hypervisor/agentops/conversations/:id/events",
+            get(agentops_routes::handle_conversation_events),
         )
         // WS-G: local-operator authority (LocalAuthorityProvider).
         .route(

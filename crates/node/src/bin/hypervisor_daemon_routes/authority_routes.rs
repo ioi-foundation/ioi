@@ -186,29 +186,119 @@ pub(crate) async fn handle_authority_posture(State(_st): State<Arc<DaemonState>>
     }))
 }
 
+/// Cut D — AgentRunnerProfile catalog: the REAL capability matrix per harness. Session controls are
+/// admitted against this (no universal dropdown lies — only show/accept what the route supports).
+fn agent_runner_profiles() -> Value {
+    json!([
+        { "harness": "hypervisor_worker", "display_name": "Hypervisor Worker (native)",
+          "models": ["hypervisor:native-local"], "modes": ["agent", "plan", "goal", "spec"],
+          "reasoning": ["low", "medium", "high"], "speed": ["fast", "balanced", "thorough"],
+          "service_tier": ["standard"], "tool_use": true, "image_input": false,
+          "provider_trust": "local", "default": true },
+        { "harness": "shell", "display_name": "Shell / tmux",
+          "models": ["hypervisor:native-local"], "modes": ["agent"],
+          "reasoning": ["medium"], "speed": ["balanced"],
+          "service_tier": ["standard"], "tool_use": true, "image_input": false,
+          "provider_trust": "local", "default": false },
+        { "harness": "claude_code", "display_name": "Claude Code",
+          "models": ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
+          "modes": ["agent", "plan", "goal", "spec"], "reasoning": ["low", "medium", "high"],
+          "speed": ["fast", "balanced", "thorough"], "service_tier": ["standard", "priority"],
+          "tool_use": true, "image_input": true, "provider_trust": "remote_attested", "default": false },
+        { "harness": "codex", "display_name": "Codex",
+          "models": ["gpt-5-codex"], "modes": ["agent", "plan"], "reasoning": ["medium", "high"],
+          "speed": ["balanced", "thorough"], "service_tier": ["standard"], "tool_use": true,
+          "image_input": false, "provider_trust": "remote", "default": false },
+        { "harness": "opencode", "display_name": "OpenCode",
+          "models": ["hypervisor:native-local"], "modes": ["agent"], "reasoning": ["medium"],
+          "speed": ["balanced"], "service_tier": ["standard"], "tool_use": true,
+          "image_input": false, "provider_trust": "local", "default": false }
+    ])
+}
+
+/// GET /v1/hypervisor/agent-runner-profiles — the capability matrix the session composer reads so it
+/// only offers capabilities the chosen harness actually supports.
+pub(crate) async fn handle_agent_runner_profiles(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "schema_version": "ioi.hypervisor.agent-runner-profiles.v1", "profiles": agent_runner_profiles() }))
+}
+
+/// Admit a requested control against the chosen harness's capability matrix. Returns the offending
+/// (field, value) on a violation — the basis for fail-closed "no dropdown lies".
+fn admit_controls(req: &Value) -> Result<Value, (String, String)> {
+    let harness = req.get("harness").and_then(|v| v.as_str()).unwrap_or("hypervisor_worker");
+    let profiles = agent_runner_profiles();
+    let profile = profiles.as_array().unwrap().iter()
+        .find(|p| p["harness"].as_str() == Some(harness))
+        .ok_or_else(|| ("harness".to_string(), harness.to_string()))?
+        .clone();
+    let check = |field: &str, default: &str| -> Result<String, (String, String)> {
+        let val = req.get(field).and_then(|v| v.as_str()).unwrap_or(default).to_string();
+        let allowed = profile.get(field).and_then(|v| v.as_array());
+        match allowed {
+            Some(list) if list.iter().any(|x| x.as_str() == Some(val.as_str())) => Ok(val),
+            Some(_) => Err((field.to_string(), val)),
+            None => Ok(val),
+        }
+    };
+    // model is keyed under "models"; map field name.
+    let model = {
+        let val = req.get("model").and_then(|v| v.as_str())
+            .unwrap_or_else(|| profile["models"][0].as_str().unwrap_or("hypervisor:native-local")).to_string();
+        match profile["models"].as_array() {
+            Some(list) if list.iter().any(|x| x.as_str() == Some(val.as_str())) => val,
+            _ => return Err(("model".to_string(), val)),
+        }
+    };
+    Ok(json!({
+        "harness": harness, "model": model,
+        "mode": check("modes", "agent").map_err(|_| ("mode".to_string(), req.get("mode").and_then(|v| v.as_str()).unwrap_or("").to_string()))?,
+        "reasoning": check("reasoning", "medium").map_err(|_| ("reasoning".to_string(), req.get("reasoning").and_then(|v| v.as_str()).unwrap_or("").to_string()))?,
+        "speed": check("speed", "balanced").map_err(|_| ("speed".to_string(), req.get("speed").and_then(|v| v.as_str()).unwrap_or("").to_string()))?,
+        "service_tier": check("service_tier", "standard").map_err(|_| ("service_tier".to_string(), req.get("service_tier").and_then(|v| v.as_str()).unwrap_or("").to_string()))?,
+        "tool_use": profile["tool_use"].clone(), "image_input": profile["image_input"].clone(),
+        "provider_trust": profile["provider_trust"].clone()
+    }))
+}
+
 /// POST /v1/hypervisor/harness-bindings — WS-D: compile a per-session config into an
 /// admitted HarnessSessionBinding (Agent/Mode/Model/Reasoning/Speed/Harness/Tools/Memory/
 /// Authority/Budget/Privacy). Daemon-owned; persisted under state_dir/harness-bindings.
+/// Capability-correct: a control the chosen harness does not support FAILS CLOSED (no dropdown lies).
 pub(crate) async fn handle_harness_binding_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
+    // Admit the requested controls against the harness capability matrix before compiling.
+    let admitted = match admit_controls(&body) {
+        Ok(a) => a,
+        Err((field, value)) => {
+            return Json(json!({ "ok": false, "admitted": false, "fail_closed": true,
+                "reason": format!("capability violation: harness '{}' does not support {field} '{value}'", body.get("harness").and_then(|v| v.as_str()).unwrap_or("hypervisor_worker")),
+                "violation": { "field": field, "value": value } }));
+        }
+    };
     let now = iso_now();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let id = format!("hsb_{nanos:x}");
+    // capability-gated controls come from `admitted`; non-gated session prefs from the body.
+    let a = |k: &str, default: &str| admitted.get(k).and_then(|v| v.as_str()).unwrap_or(default).to_string();
     let pick = |k: &str, default: &str| body.get(k).and_then(|v| v.as_str()).unwrap_or(default).to_string();
     let record = json!({
         "schema_version": "ioi.hypervisor.harness-session-binding.v1",
         "harness_binding_id": id,
         "agent": pick("agent", "default"),
-        "mode": pick("mode", "agent"),
-        "model": pick("model", "hypervisor:native-local"),
-        "reasoning": pick("reasoning", "medium"),
-        "speed": pick("speed", "balanced"),
-        "harness": pick("harness", "default-harness-profile"),
+        "mode": a("mode", "agent"),
+        "model": a("model", "hypervisor:native-local"),
+        "reasoning": a("reasoning", "medium"),
+        "speed": a("speed", "balanced"),
+        "service_tier": a("service_tier", "standard"),
+        "harness": a("harness", "hypervisor_worker"),
+        "tool_use": admitted.get("tool_use").cloned().unwrap_or(json!(true)),
+        "image_input": admitted.get("image_input").cloned().unwrap_or(json!(false)),
+        "provider_trust": a("provider_trust", "local"),
         "tools": body.get("tools").cloned().unwrap_or_else(|| json!([])),
         "memory": pick("memory", "session_scoped"),
         "authority_posture": "local_operator",
