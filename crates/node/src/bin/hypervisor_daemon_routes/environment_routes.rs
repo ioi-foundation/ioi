@@ -257,6 +257,49 @@ fn ensure_git_repo(ws: &str) -> Result<String, AppError> {
     run_git(ws, &["rev-parse", "HEAD"]).map_err(app_err)
 }
 
+/// Scaffold the default Dev Container into a fresh workspace (the `from scratch` baseline the
+/// reference shows: `.devcontainer/devcontainer.json` + `.devcontainer/Dockerfile`). Written as
+/// UNCOMMITTED working-tree files (the git repo's HEAD is the empty init commit), so they surface
+/// as the environment's initial uncommitted changes — just like the reference. No-op if a
+/// `.devcontainer` already exists (repo-detected or already scaffolded).
+fn scaffold_devcontainer(ws: &str) {
+    let dc_dir = std::path::Path::new(ws).join(".devcontainer");
+    if dc_dir.exists() {
+        return;
+    }
+    if std::fs::create_dir_all(&dc_dir).is_err() {
+        return;
+    }
+    let devcontainer_json = r#"// The Dev Container format allows you to configure your environment. At the heart of it
+// is a Docker image or Dockerfile which controls the tools available in your environment.
+//
+// See https://aka.ms/devcontainer.json for more information.
+{
+	"name": "Hypervisor",
+	// Use "image": "mcr.microsoft.com/devcontainers/base:2.0.4-noble",
+	// instead of the build to use a pre-built image.
+	"build": {
+        "context": ".",
+        "dockerfile": "Dockerfile"
+    }
+	// Features add additional features to your environment. See https://containers.dev/features
+	// Beware: features are not supported on all platforms and may have unintended side-effects.
+	// "features": {
+    //   "ghcr.io/devcontainers/features/docker-in-docker": {
+    //     "moby": false
+    //   }
+    // }
+}
+"#;
+    let dockerfile = r#"FROM mcr.microsoft.com/devcontainers/base:2.0.4-noble
+# use this Dockerfile to install additional tools you might need, e.g.
+# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+#     && apt-get -y install --no-install-recommends <your-package-list-here>
+"#;
+    let _ = std::fs::write(dc_dir.join("devcontainer.json"), devcontainer_json);
+    let _ = std::fs::write(dc_dir.join("Dockerfile"), dockerfile);
+}
+
 // ---- WS-3: typed Services / Tasks / Ports (tasks run as REAL processes) ----
 
 /// Run one resolved task as a REAL bounded process in the workspace; return a typed
@@ -786,7 +829,10 @@ pub(crate) async fn handle_environment_action(
             match ensure_git_repo(&ws) {
                 Ok(base) => {
                     env["status"]["base_commit"] = json!(base);
-                    set_component(&mut env, "workspace_content", "ready", "git initialized");
+                    // Scaffold the default Dev Container (.devcontainer/{devcontainer.json,Dockerfile})
+                    // as uncommitted working-tree files — the `from scratch` baseline.
+                    scaffold_devcontainer(&ws);
+                    set_component(&mut env, "workspace_content", "ready", "git initialized + devcontainer scaffolded");
                     observe(&mut env, "initializing_content", "workspace_content", "content_ready", "info", "workspace content ready (git initialized)");
                 }
                 Err(e) => {

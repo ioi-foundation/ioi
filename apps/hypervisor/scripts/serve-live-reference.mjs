@@ -188,6 +188,19 @@ const server = http.createServer((req, res) => {
     // — the pane renders cleanly (no error boundary, no reconnect), and the agent's real output is
     // visible in the editor + run status. (Rich transcript = declared follow-up: protobuf encoder.)
     if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/conversation")) {
+      const accept = String(req.headers["accept"] || "");
+      if (accept.includes("text/event-stream")) {
+        // LIVE stream: the SPA opens this as SSE and RECONNECTS every 3s on any close/error
+        // (the "Retrying in 3s…" loop). Hold a long-lived stream open with keepalive comments so
+        // it stays connected (no reconnect storm); we emit no message frames yet (empty transcript
+        // — declared protobuf gap). Closes cleanly when the client navigates away.
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+        res.write(": connected\n\n");
+        const ka = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { /* closed */ } }, 20000);
+        req.on("close", () => clearInterval(ka));
+        return;
+      }
+      // HISTORY: valid empty envelope (chunks[].frames are base64 protobuf — none yet).
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ chunks: [], has_more: false }));
       return;

@@ -98,8 +98,9 @@ export function runToAgentExecution(run) {
       phase,
       conversationUrl: convo,
       transcriptUrl: convo,
-      // history → our empty-but-valid endpoint; live SSE disabled (no protobuf live stream yet).
-      conversationUrls: { history: convo, live: "", blobs: "" },
+      // history → empty-but-valid JSON; live → a long-lived keepalive SSE (held open so the SPA
+      // does NOT reconnect-loop). Both at the same endpoint, which branches on the Accept header.
+      conversationUrls: { history: convo, live: convo, blobs: "" },
       currentActivity: run.activity,
       iterations: run.iterations,
       inputTokensUsed: 0,
