@@ -141,6 +141,25 @@ export class HypervisorDaemonClient {
     return this.req("POST", "/v1/hypervisor/env-files", { environment_id: environmentId, op, ...extra });
   }
 
+  // --- editor targets + access services (Open in…) ---
+  listEditorTargets(): Promise<{ active_targets?: string[]; targets?: Array<{ target_id: string; status: string; profile?: Record<string, unknown> }> }> {
+    return this.req("GET", "/v1/hypervisor/editor-targets");
+  }
+  createEditorService(environmentId: string, targetProfile: string): Promise<{ editorService?: { service_id?: string; phase?: string } }> {
+    return this.req("POST", "/v1/hypervisor/editor-services", { environment_id: environmentId, target_profile: targetProfile });
+  }
+  startEditorService(serviceId: string): Promise<{ ok?: boolean; reason?: string; editorService?: Record<string, unknown> }> {
+    return this.req("POST", `/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/start`);
+  }
+  createEditorAccessLease(sessionRef: string, environmentId: string, serviceId: string): Promise<{ capability_lease_ref?: string; lease_ref?: string; lease_id?: string }> {
+    return this.req("POST", "/v1/hypervisor/editor-access-leases", { session_id: sessionRef, environment_id: environmentId, service_id: serviceId });
+  }
+  async editorServiceOpenUrl(serviceId: string, leaseRef: string): Promise<{ ok?: boolean; open_url?: string | null; reason?: string }> {
+    const res = await fetch(`${this.base}/v1/hypervisor/editor-services/${encodeURIComponent(serviceId)}/open-url?lease_ref=${encodeURIComponent(leaseRef)}`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : {};
+  }
+
   // --- terminals (interactive PTY) ---
   createTerminal(environmentRef: string, cols: number, rows: number): Promise<Record<string, unknown>> {
     return this.req("POST", "/v1/hypervisor/terminals", { environment_ref: environmentRef, cols, rows });

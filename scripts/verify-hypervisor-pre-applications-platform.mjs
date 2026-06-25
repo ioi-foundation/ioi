@@ -10,7 +10,7 @@
 // named host/tooling prerequisite.
 // Usage: [--browser] [--n <iters>] [--json].
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -98,13 +98,26 @@ try {
   // ---- still-pending lines (named, not faked) — land in later slices ----
   if (lines["VS Code Browser host (OSS)"] === "NOT_YET_PROVISIONED")
     declaredGaps.push({ gate: "vscode_browser_host", prerequisite: "OSS_RUNTIME_NOT_YET_PROVISIONED", reason: "WS-2 pins openvscode-server (commit/sha256, fetch-once, fail-closed); editor service start fails closed until then" });
+  // ---- WS-6a / WS-7 static UI guards ----
+  const read = (p) => { try { return readFileSync(join(REPO, p), "utf8"); } catch { return ""; } };
+  const transport = read("packages/hypervisor-adapter-targets/code-editors/vscode-extension/transport/context-transport.js");
+  lines["Extension context runtime refs"] = /IOI_HYPERVISOR_BINDING_REF/.test(transport) && /sessionRef/.test(transport) && /accessLeaseRef/.test(transport) ? "PASS" : "NOT_BUILT";
+
+  const cockpit = read("apps/hypervisor/src/surfaces/NativeCockpit.tsx");
+  const workbench = read("apps/hypervisor/src/surfaces/NativeWorkbench.tsx");
+  const hasOpenIn = /OpenInPicker/.test(cockpit) && /open-in-vscode-browser/.test(cockpit) && /OpenInPicker/.test(workbench);
+  const hasServicesUi = /EnvironmentComponentGrid/.test(cockpit) && /OpenInPicker environmentId/.test(cockpit);
+  lines["Environment services/tasks/ports UI"] = hasServicesUi && hasOpenIn ? "PASS" : "NOT_BUILT";
+  // de-fork guard: native surfaces must not present a VS Code product identity (only target labels).
+  const forkTell = /Visual Studio Code|VS Code Fork|vscode-fork|SRC-TAURI/i.test(cockpit + workbench);
+  const nativeChrome = /Hypervisor Workbench/.test(workbench) && /Operator Cockpit|mediation/.test(cockpit);
+  lines["Workbench Hypervisorization guard"] = !forkTell && nativeChrome && hasOpenIn ? "PASS" : "FAIL";
+  if (lines["Workbench Hypervisorization guard"] === "FAIL") failures.push("native UI exposes VS Code product identity or lacks Open-in/native chrome");
+
   for (const [line, status] of [
     ["WebSocket proxy auth/revoke", "NOT_BUILT"],
     ["Extension bundle install", "NOT_BUILT"],
-    ["Extension context runtime refs", "NOT_BUILT"],
     ["Devcontainer/rebuild flow", "PARTIAL"],
-    ["Environment services/tasks/ports UI", "NOT_BUILT"],
-    ["Workbench Hypervisorization guard", "NOT_BUILT"],
   ]) { if (!(line in lines)) lines[line] = status; }
 } finally {
   daemon.kill("SIGKILL");

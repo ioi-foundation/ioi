@@ -56,6 +56,47 @@ export function AuthorityBlockerPanel({ reasons }: { reasons?: string[] }) {
   return <div style={{ color: "#b7791f", fontSize: 12 }}>Blocked: {reasons.join("; ")}</div>;
 }
 
+// Mediation limits the operator surface advertises for a target (Gitpod/Ona-derived guardrails).
+const MEDIATION = ["observe_only", "propose_actions", "gated_execution", "managed_session"] as const;
+
+// WS-7 — "Open in…" affordance: every editor target maps to a daemon route or is visibly disabled
+// with a blocker reason. Native Workbench is first-party; external/browser editors are targets.
+export function OpenInPicker({ environmentId }: { environmentId: string }) {
+  const [targets, setTargets] = useState<Array<{ target_id: string; status: string }>>([]);
+  const [status, setStatus] = useState<string>("");
+  useEffect(() => { void client.listEditorTargets().then((r) => setTargets((r.targets ?? []).map((t) => ({ target_id: t.target_id, status: t.status })))); }, []);
+
+  const openBrowser = async () => {
+    setStatus("provisioning…");
+    const svc = await client.createEditorService(environmentId, "vscode-browser");
+    const sid = svc.editorService?.service_id;
+    if (!sid) { setStatus("could not create editor service"); return; }
+    const lease = await client.createEditorAccessLease(`session:${environmentId}`, environmentId, sid);
+    await client.startEditorService(sid);
+    const open = await client.editorServiceOpenUrl(sid, lease.lease_ref ?? "");
+    if (open.ok && open.open_url) { window.open(open.open_url, "_blank"); setStatus("opened"); }
+    else setStatus(open.reason ?? "editor runtime not ready"); // honest blocker (NOT_YET_PROVISIONED until WS-2)
+  };
+
+  const labelFor = (id: string): string =>
+    ({ vscode: "Packaged VS Code", "vscode-browser": "VS Code Browser", "vscode-insiders": "VS Code Insiders" } as Record<string, string>)[id] ?? id;
+
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }} data-testid="open-in-picker">
+      <span style={{ color: "#9aa4b2", fontSize: 12 }}>Open in…</span>
+      <Link to={`/workbench/${environmentId}`} style={{ color: "#6ab0ff", fontSize: 12 }} data-testid="open-in-native">Native Workbench</Link>
+      <button onClick={openBrowser} data-testid="open-in-vscode-browser" style={{ fontSize: 12 }}>VS Code Browser</button>
+      {targets.filter((t) => t.status === "declared").map((t) => (
+        <button key={t.target_id} disabled title={`${t.target_id} is a declared target (not yet provable end-to-end)`} style={{ fontSize: 12, opacity: 0.5 }} data-testid="open-in-declared">
+          {labelFor(t.target_id)} (declared)
+        </button>
+      ))}
+      {status && <span style={{ color: status === "opened" ? "#1f9d55" : "#b7791f", fontSize: 12 }} data-testid="open-in-status">{status}</span>}
+      <span style={{ color: "#4a5160", fontSize: 11 }} title={`mediation limits: ${MEDIATION.join(", ")}`}>· mediation: gated_execution</span>
+    </div>
+  );
+}
+
 // ---- shell ----
 
 const shell: React.CSSProperties = { font: "14px/1.5 system-ui, sans-serif", color: "#e6e9ef", background: "#0d0f14", minHeight: "100vh" };
@@ -138,6 +179,7 @@ export function EnvironmentsSurface() {
             </div>
             <AuthorityBlockerPanel reasons={e.status?.readiness?.reasons} />
             <div style={{ marginTop: 8 }}><EnvironmentComponentGrid components={e.status?.components} /></div>
+            <div style={{ marginTop: 8 }}><OpenInPicker environmentId={e.id} /></div>
           </div>
         ))}
         {envs.length === 0 && <p style={{ color: "#7a818c" }}>No environments yet.</p>}

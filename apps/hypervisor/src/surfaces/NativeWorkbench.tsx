@@ -12,7 +12,7 @@ import {
   type SessionExecutionBinding,
 } from "../services/hypervisorDaemonClient";
 import { createHypervisorWorkspaceAdapter } from "../services/HypervisorWorkspaceAdapter";
-import { CockpitNav, ReceiptRefs } from "./NativeCockpit";
+import { CockpitNav, ReceiptRefs, OpenInPicker } from "./NativeCockpit";
 
 const client = createHypervisorDaemonClient();
 
@@ -51,11 +51,12 @@ export function NativeWorkbench() {
     <div style={{ font: "14px/1.5 system-ui, sans-serif", color: "#e6e9ef", background: "#0d0f14", minHeight: "100vh", display: "flex", flexDirection: "column" }} data-testid="workbench-surface">
       <CockpitNav />
       <div style={{ padding: "8px 16px", borderBottom: "1px solid #2a2f3a", display: "flex", gap: 12, alignItems: "center" }}>
-        <strong>Workbench</strong>
+        <strong>Hypervisor Workbench</strong>
         <span style={{ color: "#7a818c", fontSize: 12 }} data-testid="binding-ref">{binding?.binding_ref ?? "resolving…"}</span>
         <span style={{ color: "#7a818c", fontSize: 12 }}>thread: {binding?.thread_ref ?? "—"}</span>
         <span style={{ color: "#7a818c", fontSize: 12 }}>workrun: {binding?.work_run_ref ?? "—"}</span>
         <span style={{ flex: 1 }} />
+        <OpenInPicker environmentId={environmentId} />
         <Link to="/environments" style={{ color: "#6ab0ff" }}>← Environments</Link>
       </div>
       {error && <div style={{ color: "#9b2c2c", padding: 16 }} data-testid="workbench-error">Binding failed: {error}</div>}
