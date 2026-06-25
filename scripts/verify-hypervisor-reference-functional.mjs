@@ -103,11 +103,13 @@ ok(!hasThread(threadsAfter), "REAL EFFECT: DeleteAgentExecution removed the daem
 const proxied = await fallthroughSet();
 ok(proxied.length === 0, "zero gitpod.v1.* RPC fell through to the mock mirror (fully adapter-owned)", proxied.slice(0, 6).join(", "));
 
-// ---- Playwright UI tier: :4173 loads + crawls every in-app route + no console errors ----
-// "Completely functional when you click around": discover internal routes from the shell nav
-// and visit each, asserting zero gitpod.v1.* fallthrough + zero console errors per route. This
-// self-extends the done-bar across surfaces (Home/AI/Projects/Automations/env-details/Settings),
-// not just the landing page.
+// ---- Playwright UI tier: :4173 loads + crawls every route + asserts a *completely working* UX ----
+// "Completely functional when you click around" means more than zero network fallthrough: a route
+// can render an error boundary ("Something went wrong") with zero console errors and zero fallthrough
+// (e.g. a lazy chunk that fails to import). So this tier also asserts (a) no route renders the error
+// boundary, and (b) the app is self-contained — zero requests to the external app.gitpod.io CDN
+// (the harvested bundle's __toAssetUrl base is localized; a regression there reintroduces a remote
+// chunk dependency that flakily crashes routes like /ai). /ai is stress-visited since it lazy-loads.
 let chromium; try { ({ chromium } = await import("playwright")); } catch { chromium = null; }
 if (!chromium) {
   declaredGaps.push({ gate: "ui_render", prerequisite: "PLAYWRIGHT_UNAVAILABLE" });
@@ -117,16 +119,19 @@ if (!chromium) {
   try {
     const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
     const errs = []; p.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); }); p.on("pageerror", (e) => errs.push("pageerror: " + e.message));
+    const cdnUrls = new Set();
+    p.on("request", (r) => { try { if (new URL(r.url()).host === "app.gitpod.io") cdnUrls.add(r.url()); } catch { /* ignore */ } });
     const settle = async () => { await p.waitForTimeout(3500); };
+    const isErrorBoundary = async () => /Something went wrong|ran into a hiccup/i.test(await p.evaluate(() => document.body?.innerText || ""));
 
-    // 1) Landing renders.
+    // 1) Landing renders + is not itself an error boundary.
     await fetch(`${REF}/__ioi/fallthrough/reset`, { method: "POST" });
     await p.goto(`${REF}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
     await p.waitForFunction(() => /get done today|New Session|Home/i.test(document.body?.innerText || ""), { timeout: 20000 }).catch(() => {});
     await settle();
-    ok(await p.evaluate(() => (document.body?.innerText || "").length > 40), "Playwright: :4173 reference shell renders");
+    ok((await p.evaluate(() => (document.body?.innerText || "").length > 40)) && !(await isErrorBoundary()), "Playwright: :4173 reference shell renders (not an error boundary)");
 
-    // 2) Discover internal routes (dedup /details/<id> to a single sample).
+    // 2) Discover internal routes (dedup /details/<id> to a single sample); stress-visit /ai.
     const links = await p.evaluate(() => {
       const out = new Set();
       for (const a of document.querySelectorAll("a[href]")) {
@@ -139,20 +144,24 @@ if (!chromium) {
       if (l.startsWith("/details/")) { if (!sampledDetails) { sampledDetails = true; routes.push(l); } }
       else routes.push(l);
     }
+    routes.push("/ai", "/ai"); // lazy-loaded compose surface — exercise it repeatedly
 
-    // 3) Visit each route; accumulate fallthrough + console errors.
-    const dirtyRoutes = []; const allErrs = [];
-    for (const route of routes.slice(0, 24)) {
+    // 3) Visit each route; accumulate fallthrough, console errors, and error-boundary renders.
+    const dirtyRoutes = []; const allErrs = []; const boundaryRoutes = [];
+    for (const route of routes.slice(0, 28)) {
       await fetch(`${REF}/__ioi/fallthrough/reset`, { method: "POST" });
       errs.length = 0;
       try { await p.goto(`${REF}${route}`, { waitUntil: "domcontentloaded", timeout: 20000 }); await settle(); }
       catch (e) { dirtyRoutes.push(`${route} (nav-err: ${e.message})`); continue; }
+      if (await isErrorBoundary()) boundaryRoutes.push(route);
       const proxied = await fallthroughSet();
       if (proxied.length) dirtyRoutes.push(`${route} -> ${proxied.join(", ")}`);
       if (errs.length) allErrs.push(`${route}: ${errs.slice(0, 2).join("; ")}`);
     }
-    ok(dirtyRoutes.length === 0, `Playwright: all ${routes.length} in-app routes fully adapter-owned (zero fallthrough)`, dirtyRoutes.slice(0, 4).join(" | "));
+    ok(boundaryRoutes.length === 0, "Playwright: no route renders the 'Something went wrong' error boundary", [...new Set(boundaryRoutes)].slice(0, 6).join(", "));
+    ok(dirtyRoutes.length === 0, `Playwright: all ${routes.length} route visits fully adapter-owned (zero fallthrough)`, dirtyRoutes.slice(0, 4).join(" | "));
     ok(allErrs.length === 0, "Playwright: zero console/page errors across all routes", allErrs.slice(0, 3).join(" | "));
+    ok(cdnUrls.size === 0, "Playwright: app is self-contained (zero external app.gitpod.io CDN requests)", [...cdnUrls].slice(0, 3).join(", "));
   } finally { await b.close(); }
 }
 

@@ -84,6 +84,17 @@ function rewriteIdentity(text) {
   return out;
 }
 
+// Localize the asset base. The harvested index pins dynamic-chunk + font loads to the real CDN
+// via `globalThis.__toAssetUrl = (f) => \`https://app.gitpod.io/static/${f}\`` (plus absolute font
+// preloads). Left as-is, every lazy chunk (e.g. /ai's OnaAIPage-*.js) is fetched from app.gitpod.io
+// — and a single blip / rotated hash there makes the dynamic import reject → the SPA's "Something
+// went wrong" error boundary. The mirror already serves all assets locally, so point the base at
+// our own origin (root-relative /static/) for a self-contained, deterministic app.
+const ASSET_CDN_BASE = "https://app.gitpod.io/static/";
+function localizeAssetBase(html) {
+  return html.split(ASSET_CDN_BASE).join("/static/");
+}
+
 function proxyToMirror(req, res, body) {
   // Drop accept-encoding so the mirror returns plain text we can rewrite.
   const headers = { ...req.headers };
@@ -104,7 +115,7 @@ function proxyToMirror(req, res, body) {
       r.on("data", (c) => parts.push(c));
       r.on("end", () => {
         let text = rewriteIdentity(Buffer.concat(parts).toString("utf8"));
-        if (ct.includes("text/html")) text = augmentHtml(text); // WS-I: inject IOI surface
+        if (ct.includes("text/html")) text = augmentHtml(localizeAssetBase(text)); // localize CDN base + WS-I inject
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
