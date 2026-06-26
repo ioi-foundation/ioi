@@ -68,6 +68,99 @@ function conversationEntries(run) {
   return out;
 }
 
+function varint(value) {
+  let n = BigInt(value);
+  const bytes = [];
+  do {
+    let byte = Number(n & 0x7fn);
+    n >>= 7n;
+    if (n) byte |= 0x80;
+    bytes.push(byte);
+  } while (n);
+  return Buffer.from(bytes);
+}
+function concat(...parts) {
+  return Buffer.concat(parts.filter((part) => part && part.length !== 0));
+}
+function fieldVarint(fieldNo, value) {
+  return concat(varint((BigInt(fieldNo) << 3n) | 0n), varint(value));
+}
+function fieldBytes(fieldNo, bytes) {
+  return concat(varint((BigInt(fieldNo) << 3n) | 2n), varint(bytes.length), bytes);
+}
+function fieldString(fieldNo, value) {
+  return fieldBytes(fieldNo, Buffer.from(String(value), "utf8"));
+}
+function fieldMessage(fieldNo, message) {
+  return fieldBytes(fieldNo, message);
+}
+function encodeUserTextBlock(id, content) {
+  // gitpod.v1.UserInputBlock:
+  //   id = 1
+  //   repeated inputs = 30
+  // UserInputBlock.Input.text = 20
+  const textInput = fieldString(1, content);
+  const input = fieldMessage(20, textInput);
+  return concat(fieldString(1, id), fieldMessage(30, input));
+}
+function encodeAgentTextBlock(id, content) {
+  // gitpod.v1.AgentResponseBlock:
+  //   id = 1
+  //   phase = 2 (PHASE_COMPLETED)
+  //   text = 10, with TextOutput.type = 1 (TYPE_USER_FACING_OUTPUT)
+  const textOutput = concat(fieldVarint(1, 1), fieldString(2, content), fieldVarint(3, 1));
+  return concat(fieldString(1, id), fieldVarint(2, 2), fieldMessage(10, textOutput));
+}
+function conversationSummary(run) {
+  const summary = run.status === "failed"
+    ? `Run failed: ${run.error || "unknown error"}`
+    : (run.summary || "Run complete.");
+  const files = conversationFiles(run);
+  return files.length ? `${summary}\n\nChanged files:\n${files.map((path) => `- ${path}`).join("\n")}` : summary;
+}
+function frame(kind, payload) {
+  // The harvested V2 conversation stream uses a compact frame:
+  //   1 = AgentResponseBlock, 2 = UserInputBlock, 3 = AgentMessage
+  // followed by protobuf binary for that message.
+  return Buffer.concat([Buffer.from([kind]), payload]).toString("base64");
+}
+function conversationChunks(run) {
+  const chunks = [];
+  if (run?.prompt && run?.userInputBlockId) {
+    chunks.push({
+      id: `${run.id}-input`,
+      previous_id: null,
+      frames: [frame(2, encodeUserTextBlock(run.userInputBlockId, run.prompt))],
+    });
+  }
+  const done = run?.status === "done" || run?.status === "failed";
+  if (done) {
+    chunks.push({
+      id: `${run.id}-output`,
+      previous_id: chunks[chunks.length - 1]?.id || null,
+      frames: [frame(1, encodeAgentTextBlock(`${run.id}-summary`, conversationSummary(run)))],
+    });
+  }
+  if (chunks.length === 0) {
+    chunks.push({ id: `${run.id}-empty`, previous_id: null, frames: [] });
+  }
+  return chunks;
+}
+function selectConversationChunks(chunks, query) {
+  const at = query.get("at");
+  if (at) return chunks.filter((chunk) => chunk.id === at).slice(0, 1);
+  const before = query.get("before");
+  if (before) {
+    const idx = chunks.findIndex((chunk) => chunk.id === before);
+    return idx > 0 ? chunks.slice(0, idx).reverse() : [];
+  }
+  const after = query.get("after");
+  if (after) {
+    const idx = chunks.findIndex((chunk) => chunk.id === after);
+    return idx >= 0 ? chunks.slice(idx + 1).reverse() : chunks.slice().reverse();
+  }
+  return chunks.slice(-1);
+}
 const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits Ona's DOM).
@@ -264,20 +357,55 @@ const server = http.createServer((req, res) => {
     // progresses: the user prompt, then (on completion) the files the agent wrote + its summary. The
     // final PHASE_COMPLETED entries replace the optimistic "Thinking…" placeholder; keeping the
     // socket open (never EOF) means no "Stream closed"/"Retrying". /history + /live are the V2 mode
-    // (unused — the projection omits conversationUrls); answered defensively.
+    // the harvested SPA prefers for the native workbench conversation pane.
     if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation")) {
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
       if (pathname.endsWith("/conversation/history")) {
+        const run = getRun(runId);
+        const chunks = run ? conversationChunks(run) : [];
+        const selected = selectConversationChunks(chunks, new URLSearchParams((req.url || "").split("?")[1] || ""));
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ chunks: [], has_more: false }));
+        res.end(JSON.stringify({ chunks: selected, has_more: false }));
         return;
       }
       if (pathname.endsWith("/conversation/live")) {
         res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-        res.write(`event: state\ndata: ${JSON.stringify({ chunk_id: `${runId}-live`, todo_groups: [], available_commands: null, clarifying_questions: null, next_steps_proposal: null, user_inputs: [] })}\n\n`);
-        res.write("event: end\n\n");
-        res.end();
-        return;
+        const seen = new Set();
+        const pump = () => {
+          const run = getRun(runId);
+          if (!run) return;
+          const chunks = conversationChunks(run);
+          const latest = chunks.at(-1);
+          const inputChunk = chunks.find((chunk) => chunk.id.endsWith("-input"));
+          const userInputs = inputChunk ? [{ chunk_id: inputChunk.id, block_idx: 0 }] : [];
+          try {
+            res.write(`event: state\ndata: ${JSON.stringify({
+              chunk_id: latest?.id || `${runId}-empty`,
+              todo_groups: [],
+              available_commands: null,
+              clarifying_questions: null,
+              next_steps_proposal: null,
+              user_inputs: userInputs,
+            })}\n\n`);
+            for (const chunk of chunks) {
+              for (const frameValue of chunk.frames || []) {
+                const key = `${chunk.id}:${frameValue}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                res.write(`event: block\ndata: ${JSON.stringify({ frame: frameValue })}\n\n`);
+              }
+            }
+          } catch {
+            // Client closed; the request close handler clears the interval.
+          }
+        };
+        pump();
+        const interval = setInterval(() => {
+          pump();
+          try { res.write(":\n\n"); } catch { clearInterval(interval); }
+        }, 1000);
+        req.on("close", () => clearInterval(interval));
+        return; // keep open; V2 live subscriptions reconnect on EOF.
       }
       // bare /conversation — long-lived NDJSON stream, held open.
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive" });

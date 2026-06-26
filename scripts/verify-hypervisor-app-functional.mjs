@@ -74,7 +74,7 @@ try {
   const submitEnabled = (await p.locator('[data-testid="prompt-input-submit-button"]').isDisabled().catch(() => true)) === false;
   ok(submitEnabled, "composer: env class is selectable and submit enables (no 'Unsupported' gate)");
   await p.locator('[data-testid="prompt-input-submit-button"]').click({ timeout: 4000 }).catch(() => {});
-  await p.waitForTimeout(4000);
+  await p.waitForURL(/\/details\//, { timeout: 90000 }).catch(() => {});
 
   // 2) Navigated to the environment workbench, not an error boundary.
   envId = (p.url().match(/details\/([^/?#]+)/) || [])[1] || null;
@@ -93,6 +93,19 @@ try {
   // 3b) REAL EFFECT: the env was scaffolded with the default Dev Container baseline.
   ok(ws && fs.existsSync(`${ws}/.devcontainer/devcontainer.json`) && fs.existsSync(`${ws}/.devcontainer/Dockerfile`),
     "REAL EFFECT: env scaffolded with .devcontainer/{devcontainer.json,Dockerfile}");
+
+  // 3c) UX EFFECT: the live conversation pane resolves the optimistic "Thinking…" placeholder
+  // into the agent's completed reply. This guards the harvested SPA hydration edge where the run
+  // had completed and files were visible, but the transcript stayed stuck in a pending row.
+  await p.waitForTimeout(5000);
+  const transcriptText = await p.evaluate(() => document.body?.innerText || "");
+  const replyText = transcriptText.split(TASK).join("");
+  ok(!/Retrying in|Stream closed unexpectedly/i.test(transcriptText),
+    "conversation pane has no retry loop after submit");
+  ok(!/Thinking/i.test(transcriptText),
+    "conversation pane resolves the optimistic 'Thinking' placeholder after completion");
+  ok(/Generated|Created|Wrote|Run complete|Changed files/i.test(replyText),
+    "conversation pane renders the completed agent reply", replyText.slice(0, 160).replace(/\n/g, " "));
 
   // 4) The visual code editor opens AND RENDERS against that workspace (real openvscode-server) —
   // load it in a real browser and assert the Monaco workbench mounts + shows the scaffolded files

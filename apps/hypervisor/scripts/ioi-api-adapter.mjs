@@ -86,6 +86,16 @@ const textFromBody = (b) => b.text || b.message || b.prompt || b.input || b.cont
 const envIdFromBody = (b) =>
   b.environmentId || b.req?.environmentId || b.spec?.environmentId || b.projectId || "default-environment";
 
+async function waitForRunTerminal(runId, timeoutMs = 45000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const run = getRun(runId);
+    if (!run || run.status === "done" || run.status === "failed") return run;
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+  return getRun(runId);
+}
+
 export async function handle(pathname, bodyText) {
   let body = {};
   try {
@@ -320,6 +330,13 @@ export async function handle(pathname, bodyText) {
         // stream so the pending turn reconciles (no duplicate prompt, "Thinking…" resolves).
         const clientBlockId = body.userInput?.id || body.input?.value?.id || body.input?.userInput?.id;
         const userInputBlockId = await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt, userInputBlockId: clientBlockId });
+        // The harvested SPA invalidates/refetches the execution immediately after this RPC
+        // completes. If we return while the local harness is still RUNNING, the conversation pane
+        // keeps its optimistic "Thinking…" row even though the files and final reply arrive in our
+        // run registry a moment later. Hold this local compose RPC until the run reaches a terminal
+        // state (bounded timeout) so the normal refetch hydrates STOPPED + completed conversation
+        // chunks without teaching the bundle a bespoke execution-status channel.
+        await waitForRunTerminal(id);
         return json({ userInputBlockId });
       }
       if (id && prompt) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text: prompt });
