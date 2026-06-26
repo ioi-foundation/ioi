@@ -82,7 +82,38 @@ ok((hosted.body?.connector?.auth_posture || "").startsWith("token-lease"), "host
 const hostedPub = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: hostedId, title: "x" });
 ok(hostedPub.status === 428 && hostedPub.body?.reason === "scm_credential_required", "hosted publish FAILS CLOSED pending a credential lease (428)", `status ${hostedPub.status}`);
 
-try { fs.rmSync(bare, { recursive: true, force: true }); } catch { /* */ }
+// 6) CREDENTIAL SWAP — exercised locally (no external host): a credential-REQUIRED connector
+// pointed at a local bare repo. Binding a credential flips the gate and the credentialed crossing
+// completes against the local remote (file:// ignores the injected token). github.com itself stays
+// fail-closed (the real PR-API path needs an operator-supplied token + repo).
+const bare2 = fs.mkdtempSync(`${os.tmpdir()}/ioi-scm2-`) + "/remote.git";
+execFileSync("git", ["init", "-q", "--bare", bare2]);
+const credConn = await j("POST", "/v1/hypervisor/scm-connectors", { kind: "git", remote_url: `file://${bare2}`, requires_credential: true, name: "local-cred" });
+const credId = credConn.body?.connector?.connector_id;
+ok(credConn.body?.connector?.requires_credential === true && credConn.body?.connector?.auth_posture === "token-lease:unbound", "credential-required connector starts unbound");
+
+// publish before binding → fails closed (428)
+const preBind = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: credId, title: "x" });
+ok(preBind.status === 428, "credential-required publish FAILS CLOSED before binding (428)", `status ${preBind.status}`);
+
+// bind a credential (dummy token) → posture flips bound; token must NOT leak into listings
+const bind = await j("POST", `/v1/hypervisor/scm-connectors/${credId}/credential`, { token: "ghp_DUMMY_done_bar_token_value" });
+ok(bind.body?.ok && bind.body?.auth_posture === "token-lease:bound", "binding a credential flips auth_posture → token-lease:bound");
+ok(!("token" in (bind.body || {})), "bind response does NOT echo the token");
+const listAfter = JSON.stringify((await j("GET", "/v1/hypervisor/scm-connectors")).body?.connectors || []);
+ok(!listAfter.includes("ghp_DUMMY_done_bar_token_value"), "connector listing NEVER exposes the bound token");
+
+// authorized publish now passes the credential gate AND the wallet gate → real push to local remote
+const credUnauth = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: credId, title: "Ship (cred)" });
+ok(credUnauth.status === 403, "after binding, publish still requires the wallet crossing grant (403)", `status ${credUnauth.status}`);
+const cGrant = mintApprovalGrant({ policyHash: credUnauth.body?.approval?.policy_hash, requestHash: credUnauth.body?.approval?.request_hash });
+const credPub = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: credId, title: "Ship (cred)", wallet_approval_grant: cGrant });
+ok(credPub.status === 200 && credPub.body?.receipt?.credential_bound === true, "credential-resolved publish succeeds (credential_bound:true)", `status ${credPub.status}`);
+let cLanded = null;
+try { cLanded = execFileSync("git", ["--git-dir", bare2, "rev-parse", credPub.body?.receipt?.branch], { encoding: "utf8" }).trim(); } catch { /* */ }
+ok(cLanded === credPub.body?.receipt?.commit_sha, "REAL EFFECT: credentialed push landed in the local remote");
+
+try { fs.rmSync(bare, { recursive: true, force: true }); fs.rmSync(bare2, { recursive: true, force: true }); } catch { /* */ }
 
 const verdict = failures > 0 ? "FAIL" : "PASS";
 if (JSON_OUT) console.log(JSON.stringify({ workstream: "scm-connector", verdict, failures, checks: checks.length, envId, connectorId }, null, 2));

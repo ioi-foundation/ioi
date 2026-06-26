@@ -7880,11 +7880,10 @@ pub(crate) async fn handle_scm_connector_register(
     // local file:// remotes need no credentials; hosted connectors declare a token-lease posture
     // that a scoped secret lease must satisfy before publish (fail-closed until bound).
     let is_local = remote_url.starts_with("file:") || remote_url.starts_with('/') || remote_url.starts_with("./");
-    let auth_posture = if is_local {
-        "local-none".to_string()
-    } else {
-        body.get("auth").and_then(Value::as_str).unwrap_or("token-lease:unbound").to_string()
-    };
+    // Hosted (non-local) connectors require a credential by default; an explicit flag lets a local
+    // remote also require one (exercises the credential gate without an external host).
+    let requires_credential = body.get("requires_credential").and_then(Value::as_bool).unwrap_or(!is_local);
+    let auth_posture = if requires_credential { "token-lease:unbound".to_string() } else { "local-none".to_string() };
     let connector_id = format!("scm_{}", short_hash(&format!("{remote_url}:{kind}")));
     let record = json!({
         "schema_version": "ioi.hypervisor.scm-connector.v1",
@@ -7892,6 +7891,7 @@ pub(crate) async fn handle_scm_connector_register(
         "kind": kind,
         "name": name,
         "remote_url": remote_url,
+        "requires_credential": requires_credential,
         "auth_posture": auth_posture,
         "created_at": iso_now(),
     });
@@ -7899,9 +7899,39 @@ pub(crate) async fn handle_scm_connector_register(
     Json(json!({ "ok": true, "connector": record }))
 }
 
-/// GET /v1/hypervisor/scm-connectors — list registered connectors.
+/// GET /v1/hypervisor/scm-connectors — list registered connectors (NEVER includes tokens).
 pub(crate) async fn handle_scm_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "scm-connectors") }))
+}
+
+/// POST /v1/hypervisor/scm-connectors/:id/credential — bind a scoped credential (SCM token) to a
+/// connector. The token is stored in a SEPARATE scoped record (`scm-credentials`) that is never
+/// returned in connector listings; the connector only flips auth_posture unbound→bound. Interim
+/// posture: the daemon data dir is the trust boundary — encrypted / wallet.network secret leases are
+/// the named long-term. Binding ≠ release: the wallet gate stays on the publish CROSSING.
+pub(crate) async fn handle_scm_connector_bind_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if token.is_empty() {
+        return Json(json!({ "ok": false, "reason": "token is required" }));
+    }
+    let Some(mut connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    // store the secret scoped (never surfaced in connector listings)
+    let cred = json!({ "connector_id": id, "token": token, "bound_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &id, &cred);
+    connector["auth_posture"] = json!("token-lease:bound");
+    connector["requires_credential"] = json!(true);
+    let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+    // NEVER return the token
+    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound" }))
 }
 
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
@@ -7935,8 +7965,19 @@ pub(crate) async fn handle_scm_publish(
         .map(str::to_string)
         .unwrap_or_else(|| format!("hypervisor/publish-{}", short_hash(&format!("{id}:{connector_id}"))));
 
-    // Hosted connector with no bound credential lease — fail closed (declared gap; not a crossing yet).
-    if auth_posture.starts_with("token-lease:") && auth_posture.ends_with("unbound") {
+    let kind = connector["kind"].as_str().unwrap_or("git").to_string();
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(auth_posture.starts_with("token-lease"));
+    // Resolve the scoped credential if this connector requires one (read from the separate
+    // scm-credentials store; never surfaced in listings). Fail closed if required but unbound.
+    let token: Option<String> = if requires_credential {
+        read_record_dir(&st.data_dir, "scm-credentials")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+            .and_then(|c| c["token"].as_str().map(str::to_string))
+    } else {
+        None
+    };
+    if requires_credential && token.is_none() {
         return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
             "ok": false, "decision": "blocked", "reason": "scm_credential_required",
             "message": "This connector needs a bound credential lease (SCM token) before publishing.",
@@ -7989,7 +8030,28 @@ pub(crate) async fn handle_scm_publish(
         "commit", "--allow-empty", "-m", &title,
     ]);
     let head = { let (_, s) = git(&["rev-parse", "HEAD"]); s.trim().to_string() };
-    let (pushed, push_out) = git(&["push", "--force", &remote_url, &format!("{branch}:{branch}")]);
+    // Inject the resolved credential into an https remote for the push; file:// remotes ignore it.
+    let push_url = match (&token, remote_url.starts_with("https://")) {
+        (Some(tok), true) => remote_url.replacen("https://", &format!("https://x-access-token:{tok}@"), 1),
+        _ => remote_url.clone(),
+    };
+    let (pushed, push_out_raw) = git(&["push", "--force", &push_url, &format!("{branch}:{branch}")]);
+    // REDACT the token from any captured output before it is stored or returned.
+    let push_out = match &token { Some(tok) => push_out_raw.replace(tok.as_str(), "***"), None => push_out_raw };
+
+    // GitHub connector → open a REAL pull request via the API. Outward call; only fires for a real
+    // https github remote with a bound token (skipped/fail-closed otherwise — e.g. the local slice).
+    let mut pr_url: Option<String> = None;
+    let mut pr_error: Option<String> = None;
+    if pushed && kind == "github" && remote_url.starts_with("https://") {
+        if let Some(tok) = &token {
+            let base = body.get("base").and_then(Value::as_str).unwrap_or("main").to_string();
+            match create_github_pull_request(&remote_url, tok, &branch, &base, &title).await {
+                Ok(url) => pr_url = Some(url),
+                Err(e) => pr_error = Some(e),
+            }
+        }
+    }
 
     let receipt_id = format!("scmpub_{}", short_hash(&format!("{id}:{branch}:{head}")));
     let receipt = json!({
@@ -8002,6 +8064,9 @@ pub(crate) async fn handle_scm_publish(
         "commit_sha": head,
         "title": title,
         "published": pushed,
+        "credential_bound": token.is_some(),
+        "pull_request_url": pr_url,
+        "pull_request_error": pr_error,
         "grant_ref": grant_ref,
         "host_mutation": true,
         "push_tail": push_out.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"),
@@ -8013,6 +8078,57 @@ pub(crate) async fn handle_scm_publish(
         return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "git push failed", "receipt": receipt })));
     }
     (StatusCode::OK, Json(json!({ "ok": true, "receipt": receipt, "remote_ref": format!("{remote_url}#{branch}") })))
+}
+
+/// Open a GitHub pull request via the REST API (a REAL outward call). Parses owner/repo from the
+/// https remote and authenticates with the bound token. Returns the PR html_url or an error string.
+/// Only invoked for a real https github remote with a bound credential (the local slice never hits
+/// this; github.com stays fail-closed until an operator binds a token to a real repo).
+async fn create_github_pull_request(
+    remote_url: &str,
+    token: &str,
+    head: &str,
+    base: &str,
+    title: &str,
+) -> Result<String, String> {
+    let path = remote_url
+        .trim_start_matches("https://github.com/")
+        .trim_end_matches(".git")
+        .trim_matches('/');
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").to_string();
+    let repo = parts.next().unwrap_or("").to_string();
+    if owner.is_empty() || repo.is_empty() {
+        return Err(format!("could not parse owner/repo from {remote_url}"));
+    }
+    let api = format!("https://api.github.com/repos/{owner}/{repo}/pulls");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .json(&json!({
+            "title": title, "head": head, "base": base,
+            "body": "Opened by IOI Hypervisor (governed publish crossing).",
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("html_url")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "github pr api: no html_url in response".to_string())
+    } else {
+        Err(format!(
+            "github pr api {}: {}",
+            status.as_u16(),
+            body.get("message").and_then(Value::as_str).unwrap_or("error")
+        ))
+    }
 }
 
 /// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.
