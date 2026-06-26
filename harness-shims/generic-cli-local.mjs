@@ -79,6 +79,12 @@ async function runIntent(intent) {
   let manifest;
   try {
     manifest = await requestFileManifest(intent);
+    // Small local models occasionally return prose/empty with no parseable file. Retry once with a
+    // more directive instruction so a single flaky turn doesn't silently produce nothing.
+    if (!manifest.files.length) {
+      console.log(`[generic-cli:${model}] no files parsed; retrying with a stricter instruction`);
+      manifest = await requestFileManifest(intent, true);
+    }
   } catch (error) {
     console.error(
       `[generic-cli:${model}] no model route: ${truncate(String(error), 200)} ` +
@@ -115,13 +121,15 @@ async function runIntent(intent) {
   return true;
 }
 
-async function requestFileManifest(intent) {
+async function requestFileManifest(intent, strict = false) {
   const system =
     "You are a coding harness operating inside an isolated workspace. Given a " +
     "task, respond with ONLY a JSON object of the form " +
     '{"summary": string, "files": [{"path": string, "content": string}]}. ' +
-    "Each path is relative to the workspace root. Emit complete file contents. " +
-    "Do not include any prose outside the JSON object.";
+    "Each path is relative to the workspace root and MUST include a file extension " +
+    "(e.g. main.py, index.html, styles.css, README.md). Emit complete file contents. " +
+    "Do not include any prose outside the JSON object." +
+    (strict ? " You MUST return at least one file with non-empty content." : "");
   const response = await fetch(`${modelEndpoint}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -149,7 +157,7 @@ async function requestFileManifest(intent) {
 function parseManifest(content, intent = "") {
   const text = String(content).trim();
   // 1) Preferred: a JSON manifest (fenced ```json or the first {...}).
-  const fromJson = tryJsonManifest(text);
+  const fromJson = tryJsonManifest(text, intent);
   if (fromJson && fromJson.files.length) return fromJson;
   // 2) Fenced code blocks → one file each, filename inferred from the fence
   //    language / an inline filename hint / the task.
@@ -168,7 +176,7 @@ function parseManifest(content, intent = "") {
   throw new Error("model response did not contain files");
 }
 
-function tryJsonManifest(text) {
+function tryJsonManifest(text, intent = "") {
   try {
     const fenced = text.match(/```(?:json)\s*([\s\S]*?)```/i);
     const jsonText = fenced ? fenced[1] : sliceFirstJsonObject(text);
@@ -178,12 +186,21 @@ function tryJsonManifest(text) {
     return {
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
       files: files
-        .filter((file) => file && typeof file.path === "string")
-        .map((file) => ({ path: file.path, content: String(file.content ?? "") })),
+        .filter((file) => file && typeof file.path === "string" && file.path.trim())
+        // Models sometimes emit an extension-less path (e.g. "styles"); give it one.
+        .map((file) => ({ path: ensureExtension(file.path.trim(), String(file.content ?? ""), intent), content: String(file.content ?? "") })),
     };
   } catch {
     return null;
   }
+}
+
+// Ensure a manifest path has a sensible extension (infer from content/language/intent if missing).
+function ensureExtension(p, content, intent) {
+  const base = p.split("/").pop() || p;
+  if (/\.[A-Za-z0-9]{1,6}$/.test(base)) return p; // already has an extension
+  const ext = EXT_FOR[langFromIntent(String(intent).toLowerCase(), content)] || "txt";
+  return `${p}.${ext}`;
 }
 
 const EXT_FOR = { python: "py", py: "py", javascript: "js", js: "js", node: "js", typescript: "ts", ts: "ts", html: "html", xml: "html", css: "css", scss: "css", json: "json", jsonc: "json", bash: "sh", sh: "sh", shell: "sh", zsh: "sh", sql: "sql", markdown: "md", md: "md", java: "java", go: "go", golang: "go", ruby: "rb", rb: "rb", rust: "rs", rs: "rs", c: "c", cpp: "cpp", "c++": "cpp", yaml: "yaml", yml: "yaml", toml: "toml", text: "txt", "": "" };
