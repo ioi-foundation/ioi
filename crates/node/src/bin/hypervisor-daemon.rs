@@ -1073,7 +1073,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/scm-connectors/:id/credential",
-            post(lifecycle_routes::handle_scm_connector_bind_credential),
+            post(lifecycle_routes::handle_scm_connector_bind_credential)
+                .delete(lifecycle_routes::handle_scm_connector_revoke_credential),
         )
         .route(
             "/v1/hypervisor/scm-connect/github",
@@ -1531,6 +1532,14 @@ pub(crate) fn persist_record(
         dir.join(format!("{safe}.json")),
         serde_json::to_vec_pretty(record).unwrap_or_default(),
     )
+}
+
+/// Delete a persisted record (used by credential revoke). Returns true if a file was removed.
+pub(crate) fn remove_record(data_dir: &str, record_dir: &str, record_id: &str) -> bool {
+    let dir = std::path::Path::new(data_dir).join(record_dir);
+    let safe = record_id
+        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    std::fs::remove_file(dir.join(format!("{safe}.json"))).is_ok()
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<String> {

@@ -614,6 +614,28 @@ function localizeAssetBase(html) {
   return html.split(ASSET_CDN_BASE).join("/static/");
 }
 
+// Rename the "Personal access tokens" settings surface — which is really about Hypervisor *API*
+// tokens (inbound API access to Hypervisor) — to "API access tokens". This removes the collision
+// with GitHub's *Personal Access Token* (the outbound git-auth method under Git authentications),
+// the exact confusion users hit. The GitHub auth-method label (`Jr.PAT:t=`Personal Access Token``)
+// is DELIBERATELY preserved — that one genuinely is a GitHub PAT. Each pair is scoped so it cannot
+// match the Jr.PAT case (different casing / trailing `;break` vs `)` / plural).
+const API_TOKEN_RENAMES = [
+  ["`Personal access tokens`", "`API access tokens`"], // nav label (x2) + table aria-label
+  ["`Personal access token`", "`API access token`"], // token-value aria-label
+  ["Personal access tokens (PATs)", "API access tokens"], // page/nav description lead-in
+  ["Personal Access Token deleted", "API access token deleted"], // delete toast
+  ["Delete Personal Access Token", "Delete API access token"], // delete dialog title
+  ["`Personal Access Token`)", "`API access token`)"], // $o(e.length,`Personal Access Token`) pluralize
+  ["No Personal Access Tokens", "No API access tokens"], // empty state
+  ["`Personal Access Tokens`", "`API access tokens`"], // breadcrumb wS(`Personal Access Tokens`)
+];
+function renameApiTokens(js) {
+  for (const [a, b] of API_TOKEN_RENAMES) js = js.split(a).join(b);
+  return js;
+}
+const SETTINGS_BUNDLE_RE = /SegmentProvider-[^/]+\.js/;
+
 function proxyToMirror(req, res, body) {
   // Drop accept-encoding so the mirror returns plain text we can rewrite.
   const headers = { ...req.headers };
@@ -623,9 +645,11 @@ function proxyToMirror(req, res, body) {
     (r) => {
       const ct = String(r.headers["content-type"] || "");
       // Only buffer + rewrite text payloads (HTML pages + JSON fixtures). Stream the rest
-      // (the JS/wasm/font/image bundle) untouched.
+      // (the JS/wasm/font/image bundle) untouched — EXCEPT the one settings bundle that carries
+      // the "Personal access tokens" copy, which we buffer to rename → "API access tokens".
+      const renameJs = ct.includes("javascript") && SETTINGS_BUNDLE_RE.test(req.url || "");
       const rewritable = ct.includes("text/html") || ct.startsWith("application/json");
-      if (!rewritable) {
+      if (!rewritable && !renameJs) {
         res.writeHead(r.statusCode || 502, r.headers);
         r.pipe(res);
         return;
@@ -633,14 +657,19 @@ function proxyToMirror(req, res, body) {
       const parts = [];
       r.on("data", (c) => parts.push(c));
       r.on("end", () => {
-        let text = rewriteIdentity(Buffer.concat(parts).toString("utf8"));
-        if (ct.includes("text/html")) text = augmentHtml(localizeAssetBase(text)); // localize CDN base + WS-I inject
+        let text = Buffer.concat(parts).toString("utf8");
+        if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no identity/HTML rewrite
+        else text = rewriteIdentity(text);
+        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeAssetBase(text)); // localize CDN base + WS-I inject
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
         // (keeping them alongside content-length corrupts the framing).
         delete outHeaders["content-encoding"];
         delete outHeaders["transfer-encoding"];
+        // The renamed settings bundle keeps the same hashed URL, so defeat immutable caching to
+        // ensure the browser re-fetches the renamed copy instead of a stale "Personal access tokens".
+        if (renameJs) outHeaders["cache-control"] = "no-cache";
         res.writeHead(r.statusCode || 200, outHeaders);
         res.end(out);
       });

@@ -76,8 +76,11 @@ ok(pubList.body?.ok, "connector registry lists connectors");
 const recheck = await j("POST", `/v1/hypervisor/environments/${sameEnvId}/scm/publish`, { connector_id: connectorId, title: "Ship feature", wallet_approval_grant: grant });
 ok(recheck.status === 200, "authorized re-publish is idempotent-safe (200)");
 
-// 5) hosted connector fails closed until a credential lease is bound
-const hosted = await j("POST", "/v1/hypervisor/scm-connectors", { kind: "github", remote_url: "https://github.com/ioi/example.git" });
+// 5) hosted connector fails closed until a credential lease is bound. Use a NON-github remote so
+// the assertion is deterministic regardless of whether a github host authentication is connected
+// (a github.com remote would resolve the connected host token via the git-auth fallback — that
+// fallback path is exercised by the live publish e2e instead).
+const hosted = await j("POST", "/v1/hypervisor/scm-connectors", { kind: "git", remote_url: "https://git.example.com/ioi/example.git" });
 const hostedId = hosted.body?.connector?.connector_id;
 ok((hosted.body?.connector?.auth_posture || "").startsWith("token-lease"), "hosted connector declares a token-lease posture", hosted.body?.connector?.auth_posture);
 const hostedPub = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: hostedId, title: "x" });
@@ -123,6 +126,18 @@ let cLanded = null;
 try { cLanded = execFileSync("git", ["--git-dir", bare2, "rev-parse", credPub.body?.receipt?.branch], { encoding: "utf8" }).trim(); } catch { /* */ }
 ok(cLanded === credPub.body?.receipt?.commit_sha, "REAL EFFECT: credentialed push landed in the local remote");
 ok(typeof credPub.body?.receipt?.credential_key_source === "string", "receipt records the credential key_source (sealed token was opened)", credPub.body?.receipt?.credential_key_source);
+
+// 6) REVOKE the credential (the endpoint the native "Disconnect" calls) → authority must fail closed
+const revoke = await j("DELETE", `/v1/hypervisor/scm-connectors/${credId}/credential`);
+ok(revoke.status === 200 && revoke.body?.ok === true && revoke.body?.revoked === true, "revoke deletes the sealed credential (revoked:true)", `status ${revoke.status}`);
+ok(revoke.body?.auth_posture === "token-lease:unbound", "revoke flips the connector back to unbound");
+const afterRevoke = (await j("GET", "/v1/hypervisor/scm-connectors")).body?.connectors?.find((c) => c.connector_id === credId);
+ok(afterRevoke?.auth_posture === "token-lease:unbound", "connector reads unbound after revoke");
+const postRevokePub = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: credId, title: "x", wallet_approval_grant: cGrant });
+ok(postRevokePub.status === 428 && postRevokePub.body?.reason === "scm_credential_required", "publish AFTER revoke FAILS CLOSED (428, credential required)", `status ${postRevokePub.status}`);
+ok(postRevokePub.body?.host_mutation === false, "no host mutation attempted after revoke");
+const reRevoke = await j("DELETE", `/v1/hypervisor/scm-connectors/${credId}/credential`);
+ok(reRevoke.body?.ok === true && reRevoke.body?.revoked === false, "revoke is idempotent (second revoke → revoked:false)");
 
 try { fs.rmSync(bare, { recursive: true, force: true }); fs.rmSync(bare2, { recursive: true, force: true }); } catch { /* */ }
 

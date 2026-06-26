@@ -107,6 +107,18 @@ try {
 const fallthrough = await fetch(`${REF}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({ proxied: ["fallthrough-read-failed"] }));
 ok(Array.isArray(fallthrough.proxied) && fallthrough.proxied.length === 0, "native Git-auth exercised zero mirror fallthrough RPCs", (fallthrough.proxied || []).join(", "));
 
+// "Personal access tokens" → "API access tokens" rename (de-collide from GitHub's PAT git-auth
+// method). Asserted on the SERVED settings bundle. Hash pinned to the harvested snapshot — if a
+// re-harvest rotates it, this fails loudly so the rename gets re-pointed (intended).
+const bundle = await fetch(`${REF}/static/assets/SegmentProvider-CXCNBY9U.js`).then((r) => (r.ok ? r.text() : "")).catch(() => "");
+ok(bundle.length > 0, "settings bundle is served");
+if (bundle.length > 0) {
+  ok(bundle.includes("label:`API access tokens`"), "settings nav renamed to 'API access tokens'");
+  ok(bundle.includes("No API access tokens"), "API-tokens empty state renamed");
+  ok(!bundle.includes("label:`Personal access tokens`"), "no stale 'Personal access tokens' label remains");
+  ok(bundle.includes("Jr.PAT:t=`Personal Access Token`"), "GitHub's PAT git-auth method label is PRESERVED (correctly still 'Personal Access Token')");
+}
+
 const verdict = failures > 0 ? "FAIL" : "PASS";
 if (JSON_OUT) console.log(JSON.stringify({ workstream: "git-auth-native", verdict, failures, checks: checks.length }, null, 2));
 else console.log(`  VERDICT: ${verdict} (${checks.length - failures}/${checks.length} checks)`);

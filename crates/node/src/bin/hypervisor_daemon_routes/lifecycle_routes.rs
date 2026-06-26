@@ -114,8 +114,8 @@ use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 use super::{
-    build_route_decision, debug_string, iso_now, persist_record, read_record_dir, route_selection,
-    sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
+    build_route_decision, debug_string, iso_now, persist_record, read_record_dir, remove_record,
+    route_selection, sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
 };
 
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
@@ -7964,6 +7964,30 @@ pub(crate) async fn handle_scm_connector_bind_credential(
     Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "key_source": key_source }))
 }
 
+/// DELETE /v1/hypervisor/scm-connectors/:id/credential — revoke a bound credential. Deletes the
+/// sealed credential record and flips the connector back to unbound. After revoke, the publish
+/// crossing fails closed (no credential to resolve — and for github repos, no host-fallback either,
+/// once the host connection is revoked). This is the real backing for the native "Git
+/// authentications → Disconnect" (no fake ack).
+pub(crate) async fn handle_scm_connector_revoke_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let revoked = remove_record(&st.data_dir, "scm-credentials", &id);
+    // Flip the connector posture back to unbound (if the connector record still exists).
+    if let Some(mut connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    {
+        connector["auth_posture"] = json!("token-lease:unbound");
+        connector["credential_key_source"] = Value::Null;
+        connector["connected_login"] = Value::Null;
+        connector["revoked_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+    }
+    Json(json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }))
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
 pub(crate) async fn handle_scm_publish(
     State(st): State<Arc<DaemonState>>,
@@ -8011,15 +8035,22 @@ pub(crate) async fn handle_scm_publish(
         if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
     };
     let mut token: Option<String> = cred_record.as_ref().and_then(open_cred);
+    let mut credential_key_source = cred_record.as_ref().and_then(|c| c["key_source"].as_str().map(str::to_string));
+    let mut credential_source = if token.is_some() { Some("connector") } else { None };
     // Host-level git-auth fallback: a repo connector with no own credential uses the connected
     // host account's sealed token (github.com) — the native "Git authentications" connection.
     if token.is_none() && requires_credential && remote_url.contains("github.com") {
-        token = read_record_dir(&st.data_dir, "scm-credentials")
+        if let Some(host_cred) = read_record_dir(&st.data_dir, "scm-credentials")
             .into_iter()
             .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
-            .and_then(|c| open_cred(&c));
+        {
+            token = open_cred(&host_cred);
+            if token.is_some() {
+                credential_key_source = host_cred["key_source"].as_str().map(str::to_string);
+                credential_source = Some("host-authentication");
+            }
+        }
     }
-    let credential_key_source = cred_record.as_ref().and_then(|c| c["key_source"].as_str().map(str::to_string));
     if requires_credential && token.is_none() {
         return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
             "ok": false, "decision": "blocked", "reason": "scm_credential_required",
@@ -8109,6 +8140,7 @@ pub(crate) async fn handle_scm_publish(
         "published": pushed,
         "credential_bound": token.is_some(),
         "credential_key_source": credential_key_source,
+        "credential_source": credential_source,
         "pull_request_url": pr_url,
         "pull_request_error": pr_error,
         "grant_ref": grant_ref,

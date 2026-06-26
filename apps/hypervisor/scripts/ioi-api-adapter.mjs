@@ -616,8 +616,15 @@ export async function handle(pathname, bodyText) {
     }
   }
   if (pathname === "/api/gitpod.v1.RunnerConfigurationService/DeleteHostAuthenticationToken") {
-    // Disconnect a git authentication — best-effort (the daemon connector remains; a real
-    // disconnect endpoint is a follow-on). Honest ack so the UI reflects removal intent.
+    // Disconnect a git authentication = REAL revoke. Deletes the sealed credential in the daemon
+    // and flips the connector to unbound; after this the publish crossing fails closed. The token
+    // id projected by ListHostAuthenticationTokens is the daemon connector_id.
+    const id = (body && (body.id || body.tokenId)) || "scm_host_github";
+    try {
+      await daemon("DELETE", `/v1/hypervisor/scm-connectors/${encodeURIComponent(id)}/credential`);
+    } catch {
+      /* idempotent: already gone -> still report removed */
+    }
     return json({});
   }
   if (pathname === "/api/gitpod.v1.AgentService/ListPrompts") {
