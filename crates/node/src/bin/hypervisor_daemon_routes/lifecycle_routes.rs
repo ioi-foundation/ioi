@@ -7836,6 +7836,185 @@ fn execute_authority_gate(
     })
 }
 
+// ---- SCM connector registry + wallet-authorized publish crossing -------------------------------
+// Publishing the env's work to a remote LEAVES the scoped workspace for an external SCM, so — unlike
+// local exec — it is a CROSSING and REQUIRES a wallet capability grant. A connector is the named
+// remote target. The publish gate mirrors `execute_authority_gate` (daemon-derived policy + request
+// hashes, verified bound grant), then the daemon performs a REAL `git push` and records a durable
+// receipt. Boundary: daemon EXECUTES the push · wallet AUTHORIZES the crossing · agentgres RECORDS
+// the receipt (host_mutation:true — it touches an external remote). The local-none (file://)
+// connector is the verifiable slice; hosted (github/gitlab) connectors fail closed until a scoped
+// credential lease is bound.
+
+const SCM_PUBLISH_SCOPES: &[&str] = &["scm_push", "remote_publish"];
+
+fn scm_publish_policy_hash(environment_id: &str, remote_url: &str) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.scm.publish.policy.v1",
+        "environment_id": environment_id,
+        "remote_url": remote_url,
+        "scopes": SCM_PUBLISH_SCOPES,
+    }))
+}
+fn scm_publish_request_hash(environment_id: &str, connector_id: &str, branch: &str) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.scm.publish.request.v1",
+        "environment_id": environment_id,
+        "connector_id": connector_id,
+        "branch": branch,
+        "scopes": SCM_PUBLISH_SCOPES,
+    }))
+}
+
+/// POST /v1/hypervisor/scm-connectors — register a named SCM remote target.
+pub(crate) async fn handle_scm_connector_register(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let remote_url = body.get("remote_url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if remote_url.is_empty() {
+        return Json(json!({ "ok": false, "reason": "remote_url is required" }));
+    }
+    let kind = body.get("kind").and_then(Value::as_str).unwrap_or("git").to_string();
+    let name = body.get("name").and_then(Value::as_str).unwrap_or(remote_url.as_str()).to_string();
+    // local file:// remotes need no credentials; hosted connectors declare a token-lease posture
+    // that a scoped secret lease must satisfy before publish (fail-closed until bound).
+    let is_local = remote_url.starts_with("file:") || remote_url.starts_with('/') || remote_url.starts_with("./");
+    let auth_posture = if is_local {
+        "local-none".to_string()
+    } else {
+        body.get("auth").and_then(Value::as_str).unwrap_or("token-lease:unbound").to_string()
+    };
+    let connector_id = format!("scm_{}", short_hash(&format!("{remote_url}:{kind}")));
+    let record = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id,
+        "kind": kind,
+        "name": name,
+        "remote_url": remote_url,
+        "auth_posture": auth_posture,
+        "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &record);
+    Json(json!({ "ok": true, "connector": record }))
+}
+
+/// GET /v1/hypervisor/scm-connectors — list registered connectors.
+pub(crate) async fn handle_scm_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "scm-connectors") }))
+}
+
+/// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
+pub(crate) async fn handle_scm_publish(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(env) = read_record_dir(&st.data_dir, "environments")
+        .into_iter()
+        .find(|e| e["id"].as_str() == Some(id.as_str()))
+    else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "environment not found" })));
+    };
+    let Some(ws) = env["status"]["workspace_root"].as_str().filter(|s| !s.is_empty()).map(str::to_string) else {
+        return (StatusCode::CONFLICT, Json(json!({ "ok": false, "reason": "workspace not started", "fail_closed": true })));
+    };
+    let connector_id = body.get("connector_id").and_then(Value::as_str).unwrap_or("").to_string();
+    let Some(connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let remote_url = connector["remote_url"].as_str().unwrap_or("").to_string();
+    let auth_posture = connector["auth_posture"].as_str().unwrap_or("").to_string();
+    let branch = body
+        .get("branch")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("hypervisor/publish-{}", short_hash(&format!("{id}:{connector_id}"))));
+
+    // Hosted connector with no bound credential lease — fail closed (declared gap; not a crossing yet).
+    if auth_posture.starts_with("token-lease:") && auth_posture.ends_with("unbound") {
+        return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
+            "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+            "message": "This connector needs a bound credential lease (SCM token) before publishing.",
+            "connector_id": connector_id, "auth_posture": auth_posture, "host_mutation": false,
+        })));
+    }
+
+    // --- wallet authority gate (the crossing) — daemon-derived hashes, verified bound grant ---
+    let policy_hash = scm_publish_policy_hash(&id, &remote_url);
+    let request_hash = scm_publish_request_hash(&id, &connector_id, &branch);
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let now_ms = daemon_now_ms_fail_closed();
+    let grant_ref = if grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+            .map(|binding| binding.grant_ref)
+    };
+    let grant_ref = match grant_ref {
+        Ok(reference) => reference,
+        Err(reason) => {
+            return (StatusCode::FORBIDDEN, Json(json!({
+                "ok": false, "decision": "blocked", "reason": "scm_publish_authority_required",
+                "message": format!(
+                    "Publishing to {remote_url} is a crossing and requires a wallet grant ({reason}). \
+                     Bind a grant to policy_hash {policy_hash} + request_hash {request_hash}."
+                ),
+                "required_scopes": SCM_PUBLISH_SCOPES,
+                "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                "host_mutation": false,
+            })));
+        }
+    };
+
+    // --- daemon EXECUTES the real push (authorized) ---
+    let git = |args: &[&str]| -> (bool, String) {
+        match std::process::Command::new("git").arg("-C").arg(&ws).args(args).output() {
+            Ok(o) => (
+                o.status.success(),
+                format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr)),
+            ),
+            Err(e) => (false, e.to_string()),
+        }
+    };
+    let title = body.get("title").and_then(Value::as_str).unwrap_or("Hypervisor publish").to_string();
+    let _ = git(&["checkout", "-B", &branch]);
+    let _ = git(&["add", "-A"]);
+    let _ = git(&[
+        "-c", "user.email=hypervisor@ioi.local", "-c", "user.name=Hypervisor",
+        "commit", "--allow-empty", "-m", &title,
+    ]);
+    let head = { let (_, s) = git(&["rev-parse", "HEAD"]); s.trim().to_string() };
+    let (pushed, push_out) = git(&["push", "--force", &remote_url, &format!("{branch}:{branch}")]);
+
+    let receipt_id = format!("scmpub_{}", short_hash(&format!("{id}:{branch}:{head}")));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.scm-publish-receipt.v1",
+        "receipt_id": receipt_id,
+        "environment_id": id,
+        "connector_id": connector_id,
+        "remote_url": remote_url,
+        "branch": branch,
+        "commit_sha": head,
+        "title": title,
+        "published": pushed,
+        "grant_ref": grant_ref,
+        "host_mutation": true,
+        "push_tail": push_out.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"),
+        "published_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-publish-receipts", &receipt_id, &receipt);
+
+    if !pushed {
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "git push failed", "receipt": receipt })));
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "receipt": receipt, "remote_ref": format!("{remote_url}#{branch}") })))
+}
+
 /// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.
 /// It derives a deterministic decision from the intent (sha256-seeded, mirroring
 /// the model_mount native-local backend's determinism — no external model, no

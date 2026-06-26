@@ -24,7 +24,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
-import { getRun, listRuns, hydrateRunsFromDaemon } from "./ioi-agent-runs.mjs";
+import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -492,6 +492,7 @@ const RUN_TIMELINE_HTML = `<!doctype html>
         }
         if(pf.leaseRef){ kv.appendChild(el("dt",null,"capability lease")); kv.appendChild(el("dd",null,pf.leaseRef)); }
         (pf.proposalRefs||[]).forEach(function(r){ kv.appendChild(el("dt",null,"proposal")); kv.appendChild(el("dd",null,r)); });
+        (pf.publishReceipts||[]).forEach(function(p){ kv.appendChild(el("dt",null,"published")); kv.appendChild(el("dd",null,p.branch+" → "+p.remoteUrl+" ("+String(p.commit||"").slice(0,10)+")")); });
         kv.appendChild(el("dt",null,"authority receipts")); kv.appendChild(el("dd",null,String((pf.receipts||[]).length)+" recorded"));
         card.appendChild(kv); s5.appendChild(card);
       } else { s5.appendChild(el("div","rt-muted", pf.note || "No governance crossing recorded for this run.")); }
@@ -504,6 +505,16 @@ const RUN_TIMELINE_HTML = `<!doctype html>
         turn.followUps.forEach(function(f){
           var node = f.href ? el("a","rt-act",f.label) : el("button","rt-act",f.label);
           if(f.href){ node.setAttribute("href",f.href); node.setAttribute("target","_top"); }
+          else if(f.post){
+            // governed command — POST then refresh the timeline (e.g. wallet-authorized Publish PR)
+            node.addEventListener("click",function(){
+              node.disabled=true; node.textContent=f.label+"…";
+              fetch(f.post,{method:"POST",headers:{"content-type":"application/json"},body:"{}"})
+                .then(function(r){return r.json();})
+                .then(function(d){ node.textContent = d&&d.ok ? "Published ✓" : (d&&d.reason ? "Failed: "+d.reason : "Failed"); setTimeout(load,800); })
+                .catch(function(){ node.disabled=false; node.textContent=f.label; });
+            });
+          }
           acts.appendChild(node);
         });
         s6.appendChild(acts);
@@ -950,6 +961,15 @@ const server = http.createServer((req, res) => {
     // final PHASE_COMPLETED entries replace the optimistic "Thinking…" placeholder; keeping the
     // socket open (never EOF) means no "Stream closed"/"Retrying". /history + /live are the V2 mode
     // the harvested SPA prefers for the native workbench conversation pane.
+    // Governed "Publish PR" command — orchestrates the wallet-authorized SCM publish crossing for a
+    // run (challenge → mint grant → real git push to the connector remote) and records the receipt.
+    if (pathname.startsWith("/__ioi/run-publish/") && req.method === "POST") {
+      const runId = decodeURIComponent(pathname.slice("/__ioi/run-publish/".length).split("/")[0]);
+      const result = await publishRunViaConnector(runId).catch((e) => ({ ok: false, reason: String(e?.message || e) }));
+      res.writeHead(result.ok ? 200 : 409, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(result));
+      return;
+    }
     // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned
     // Run Timeline for the env in view (Workbench/Sessions/Studio/Automations/IOI.ai all key by env).
     if (pathname.startsWith("/__ioi/env-latest-run/")) {
@@ -969,7 +989,10 @@ const server = http.createServer((req, res) => {
       // merge the daemon governance audit trail (authority receipts) — real records, never fabricated
       let authorityReceipts = [];
       try { const r = await djson("GET", "/v1/hypervisor/authority/receipts"); authorityReceipts = r.body?.receipts || []; } catch { /* daemon transient — empty trail */ }
-      const timeline = projectRunTimeline(run, { authorityReceipts });
+      // is a usable SCM connector registered? (gates the governed "Publish PR" follow-up)
+      let hasConnector = false;
+      try { const c = await djson("GET", "/v1/hypervisor/scm-connectors"); hasConnector = (c.body?.connectors || []).some((x) => x.auth_posture === "local-none"); } catch { /* */ }
+      const timeline = projectRunTimeline(run, { authorityReceipts, hasConnector });
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(timeline));
       return;

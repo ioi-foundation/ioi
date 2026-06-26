@@ -41,6 +41,7 @@ function runRecord(run) {
     capability_lease_ref: run.capabilityLeaseRef || null,
     proposal_ref: run.proposalRef || null,
     changed_files: run.changedFiles || [],
+    publish_receipts: run.publishReceipts || [],
     transcript: (run.transcript || []).slice(-50),
     user_input_block_id: run.userInputBlockId || null,
     created_at: run.createdAt || null,
@@ -67,6 +68,7 @@ function recordToRun(r) {
     updatedAt: r.updated_at || nowIso(),
     transcript: r.transcript || [],
     changedFiles: r.changed_files || [],
+    publishReceipts: r.publish_receipts || [],
     summary: r.summary || null,
     error: r.error || null,
     activityLog: r.activity_log || [],
@@ -402,6 +404,50 @@ async function createLocalPullRequestDraft(run, dj) {
     run.error = String(error?.message || error);
     bump(run, `Failed: ${run.error}`);
   }
+}
+
+// Governed "Publish PR" command — the wallet-authorized SCM publish CROSSING. Orchestrates the same
+// challenge → mint wallet grant → publish loop as executeRun, but for the daemon's scm/publish
+// endpoint (a real git push to the connector remote). Resolves a usable connector (given, else the
+// latest credential-free local one) and records the publish receipt onto the run (durable via bump).
+export async function publishRunViaConnector(runId, connectorId) {
+  const run = runs.get(runId);
+  if (!run) return { ok: false, reason: "run not found" };
+  if (!run.envId) return { ok: false, reason: "run has no environment" };
+  const dj = async (method, path, payload) => {
+    const res = await fetch(DAEMON + path, { method, headers: payload ? { "content-type": "application/json" } : undefined, body: payload ? JSON.stringify(payload) : undefined });
+    return { status: res.status, body: await res.json().catch(() => ({})) };
+  };
+  let cid = connectorId;
+  if (!cid) {
+    const list = await dj("GET", "/v1/hypervisor/scm-connectors");
+    const usable = (list.body?.connectors || [])
+      .filter((c) => c.auth_posture === "local-none")
+      .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+    cid = usable[usable.length - 1]?.connector_id || null; // newest credential-free connector
+  }
+  if (!cid) return { ok: false, reason: "no usable SCM connector registered" };
+  const path = `/v1/hypervisor/environments/${encodeURIComponent(run.envId)}/scm/publish`;
+  const title = run.prompt ? run.prompt.slice(0, 72) : "Hypervisor publish";
+  bump(run, "Requesting publish authority…");
+  const challenge = await dj("POST", path, { connector_id: cid, title });
+  const policyHash = challenge.body?.approval?.policy_hash;
+  const requestHash = challenge.body?.approval?.request_hash;
+  if (!policyHash || !requestHash) {
+    bump(run, `Publish blocked: ${challenge.body?.reason || challenge.status}`);
+    return { ok: false, reason: challenge.body?.reason || `publish challenge failed (${challenge.status})` };
+  }
+  bump(run, "Authorizing publish (wallet grant)…");
+  const grant = mintApprovalGrant({ policyHash, requestHash });
+  const pub = await dj("POST", path, { connector_id: cid, title, wallet_approval_grant: grant });
+  if (pub.status !== 200 || !pub.body?.ok) {
+    bump(run, `Publish failed: ${pub.body?.reason || pub.status}`);
+    return { ok: false, reason: pub.body?.reason || `publish failed (${pub.status})` };
+  }
+  run.publishReceipts = run.publishReceipts || [];
+  run.publishReceipts.push(pub.body.receipt);
+  bump(run, `Published ${pub.body.receipt?.branch} → ${pub.body.receipt?.remote_url}`);
+  return { ok: true, receipt: pub.body.receipt, remote_ref: pub.body.remote_ref };
 }
 
 async function executeRun(run, base, dj) {

@@ -72,8 +72,9 @@ function followUps(run) {
 
 export function projectRunTimeline(run, extra = {}) {
   if (!run) return null;
-  const { authorityReceipts = [], drafts = [] } = extra;
+  const { authorityReceipts = [], drafts = [], hasConnector = false } = extra;
   const files = runFiles(run);
+  const publishReceipts = Array.isArray(run.publishReceipts) ? run.publishReceipts : [];
 
   // --- 2) activity: governed-work steps (timestamped history) ---
   const activity = (run.activityLog || []).map((s) => ({ kind: classifyActivity(s.text), text: s.text, at: s.at }));
@@ -91,6 +92,7 @@ export function projectRunTimeline(run, extra = {}) {
     receipts: myReceipts,
     leaseRef: run.capabilityLeaseRef || null,
     proposalRefs: [run.proposalRef].filter(Boolean),
+    publishReceipts: publishReceipts.map((p) => ({ branch: p.branch, remoteUrl: p.remote_url, commit: p.commit_sha, grantRef: p.grant_ref, at: p.published_at })),
     stateRoot: run.stateRoot || null, // #3 — tamper-evident handle of the durable daemon record
     // when no authority was minted (no gate), say so plainly rather than implying ungoverned exec
     note: run.authority ? null : (run.status === "done" || run.status === "failed" ? "No wallet gate was required for this run." : null),
@@ -116,7 +118,15 @@ export function projectRunTimeline(run, extra = {}) {
       : null,
     artifacts,
     proof,
-    followUps: followUps(run),
+    followUps: (() => {
+      const ups = followUps(run);
+      // Governed "Publish PR" command (the wallet-authorized SCM crossing) — offered only when there
+      // are changes to publish, a usable connector is registered, and it hasn't been published yet.
+      if (hasConnector && run.status === "done" && files.length && !publishReceipts.length) {
+        ups.push({ label: "Publish PR", kind: "publish", post: `/__ioi/run-publish/${run.id}` });
+      }
+      return ups;
+    })(),
   };
 
   return {

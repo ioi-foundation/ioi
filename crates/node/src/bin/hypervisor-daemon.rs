@@ -1065,6 +1065,16 @@ async fn async_main() -> anyhow::Result<()> {
             get(environment_routes::handle_agent_run_get)
                 .post(environment_routes::handle_agent_run_upsert),
         )
+        // SCM connector registry + wallet-authorized publish crossing (real git push + receipt)
+        .route(
+            "/v1/hypervisor/scm-connectors",
+            get(lifecycle_routes::handle_scm_connector_list)
+                .post(lifecycle_routes::handle_scm_connector_register),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/scm/publish",
+            post(lifecycle_routes::handle_scm_publish),
+        )
         // T7-E: interactive PTY terminals bound to an environment_ref.
         .route(
             "/v1/hypervisor/terminals",
