@@ -1,17 +1,66 @@
-// WS-I / WS-F — injected IOI-native surface (the IOI-native cockpit panel).
+// WS-I / WS-F — injected IOI-native surface (the IOI-native cockpit panel + owned Run Timeline).
 //
 // The Ona cockpit has no slot for IOI-native objects (operator authority, environment
 // lifecycle/isolation posture + services/tasks/ports, the WorkRun patch branch + its
-// model-driven turns, the scoped terminal, receipts). Deep injection into Ona's frozen
-// minified terminal/bottom-panel is out of scope; instead this vanilla script mounts an
-// IOI-native panel beside the cockpit (same mechanism as the brand boot-guard) that reads
-// AND drives the daemon via /api/ioi/*. It owns no truth — the daemon is the source; the
-// panel only renders daemon state and posts intents (exec / WorkRun turn) the daemon executes.
+// model-driven turns, the scoped terminal, receipts). This vanilla script mounts an IOI-native
+// panel beside the cockpit (same mechanism as the brand boot-guard) that reads AND drives the
+// daemon via /api/ioi/*. It owns no truth — the daemon is the source.
+//
+// CANONICAL OWNERSHIP: Hypervisor owns its conversation surface. On the workbench we REPLACE the
+// borrowed transcript in-pane with our Run Timeline (mounted as an iframe to /__ioi/run-timeline,
+// the owned governed-work surface), keeping the native composer so follow-ups still post through
+// the adapter. This is the one place we deliberately edit Ona's DOM (the transcript region of
+// [data-testid=environment-agent-execution-conversation]); everything else stays hands-off.
 //
 // Boundary: daemon EXECUTES · wallet AUTHORIZES crossings · agentgres RECORDS (receipts).
 (function () {
   if (window.__ioiAugmentationMounted) return;
   window.__ioiAugmentationMounted = true;
+
+  // ---- Owned Run Timeline as the default workbench transcript (replaces the borrowed pane) ----
+  const CONV_SEL = '[data-testid="environment-agent-execution-conversation"]';
+  const runGate = {}; // envId -> { has, at } — throttled "does this env have a run yet" check
+  function envHasRun(envId) {
+    const g = runGate[envId];
+    const now = Date.now();
+    if (!g || now - g.at >= 5000) {
+      runGate[envId] = { has: g ? g.has : false, at: now };
+      fetch("/__ioi/env-latest-run/" + encodeURIComponent(envId))
+        .then((r) => r.json())
+        .then((d) => { runGate[envId] = { has: !!(d && d.runId), at: Date.now() }; })
+        .catch(() => {});
+    }
+    return runGate[envId].has;
+  }
+  function mountTimelineInWorkbench() {
+    const m = location.pathname.match(/\/details\/([^/?#]+)/);
+    const C = document.querySelector(CONV_SEL);
+    if (!m || !C) return;
+    // Only take over the pane once the env actually has a run — otherwise leave the native composer
+    // so the user can start one (the owned follow-up composer needs an existing run to post to).
+    if (!envHasRun(m[1])) return;
+    const want = "/__ioi/run-timeline/env/" + encodeURIComponent(m[1]) + "?embed=1";
+    let frame = C.querySelector("#ioi-timeline-frame");
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.id = "ioi-timeline-frame";
+      frame.title = "Run Timeline";
+      frame.setAttribute("src", want);
+      frame.style.cssText = "flex:1 1 auto;width:100%;min-height:0;border:0;background:transparent;";
+      if (!getComputedStyle(C).display.includes("flex")) C.style.display = "flex";
+      C.style.flexDirection = "column";
+      C.appendChild(frame);
+    } else if (frame.getAttribute("src") !== want) {
+      frame.setAttribute("src", want); // env changed (SPA nav) → repoint
+    }
+    // Full replacement: hide ALL borrowed pane children (transcript + the SPA's empty-state hero +
+    // its composer), leaving only our owned timeline. The owned surface carries its own follow-up
+    // composer, so it owns the whole conversation (transcript + send). Re-applied each tick because
+    // React re-creates these children on its own renders.
+    Array.prototype.forEach.call(C.children, function (ch) {
+      ch.style.display = ch === frame ? "" : "none";
+    });
+  }
 
   let activeEnvId = null;
   let lastExec = null;
@@ -68,6 +117,10 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
   function pickActiveEnv(envs) {
+    // Prefer the environment the user is actually viewing (/details/:envId) so the panel + the Run
+    // Timeline launcher target the env in view, not just the latest running one.
+    const m = location.pathname.match(/\/details\/([^/?#]+)/);
+    if (m) { const urlEnv = envs.find((e) => e.id === m[1]); if (urlEnv) return urlEnv.id; }
     const running = envs.filter((e) => e.status?.phase === "running");
     return (running[running.length - 1] || envs[envs.length - 1] || null)?.id || null;
   }
@@ -120,7 +173,9 @@
          <div style="margin-top:6px"><span class="k mini">components</span><div style="margin-top:3px;line-height:1.8">${compGrid(st)}</div></div>
          <div style="margin-top:6px"><span class="k mini">services </span>${chips(st.services, "services")}</div>
          <div style="margin-top:3px"><span class="k mini">tasks </span>${chips(st.tasks, "tasks")}</div>
-         <div style="margin-top:3px"><span class="k mini">ports </span>${chips(st.ports, "ports")}</div>`
+         <div style="margin-top:3px"><span class="k mini">ports </span>${chips(st.ports, "ports")}</div>
+         <div class="row" style="margin-top:8px"><span class="k mini">run timeline</span>
+           <a class="act" href="/__ioi/run-timeline/env/${esc(active.id)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Open Run Timeline</a></div>`
       : "<span class='k mini'>no running environment</span>";
 
     const recoveryBlock =
@@ -235,6 +290,10 @@
       }
     });
     matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", style);
+    // Keep the owned Run Timeline mounted as the workbench transcript across SPA navigation + the
+    // SPA's own re-renders (cheap idempotent re-apply; the SPA is a client-router, no full reloads).
+    setInterval(mountTimelineInWorkbench, 700);
+    mountTimelineInWorkbench();
   }
 
   if (document.body) mount();

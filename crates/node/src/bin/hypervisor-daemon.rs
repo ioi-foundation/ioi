@@ -1045,6 +1045,26 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/environments/:id/ports/:port/unexpose",
             post(environment_routes::handle_env_port_unexpose),
         )
+        // Watch (daemon-owned file/git snapshot the env-ops Watch streams from) + PR draft
+        // (daemon-owned governed proposal; the daemon writes the artifact, not the serve layer).
+        .route(
+            "/v1/hypervisor/environments/:id/watch-state",
+            get(environment_routes::handle_env_watch_state),
+        )
+        .route(
+            "/v1/hypervisor/environments/:id/pull-request-drafts",
+            post(environment_routes::handle_env_pr_draft),
+        )
+        // Durable agent-run transcripts (Agentgres-backed Run Timeline truth; survives serve restart)
+        .route(
+            "/v1/hypervisor/agent-run-transcripts",
+            get(environment_routes::handle_agent_run_list),
+        )
+        .route(
+            "/v1/hypervisor/agent-run-transcripts/:id",
+            get(environment_routes::handle_agent_run_get)
+                .post(environment_routes::handle_agent_run_upsert),
+        )
         // T7-E: interactive PTY terminals bound to an environment_ref.
         .route(
             "/v1/hypervisor/terminals",

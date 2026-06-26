@@ -89,6 +89,38 @@ const ENV_PHASE = {
   failed: "ENVIRONMENT_PHASE_FAILED",
   stopped: "ENVIRONMENT_PHASE_STOPPED",
 };
+
+function projectPortProtocol(protocol) {
+  const p = String(protocol || "").toLowerCase();
+  if (p.includes("https")) return "PROTOCOL_HTTPS";
+  return "PROTOCOL_HTTP";
+}
+
+function projectPortAdmission(port) {
+  const access = String(port?.access_policy || "").toLowerCase();
+  if (access === "shared") return "ADMISSION_LEVEL_EVERYONE";
+  if (access === "session_lease") return "ADMISSION_LEVEL_CREATOR_ONLY";
+  return "ADMISSION_LEVEL_CREATOR_ONLY";
+}
+
+function projectEnvironmentPorts(statusPorts) {
+  return (Array.isArray(statusPorts) ? statusPorts : [])
+    .filter((p) => Number(p?.port) > 0)
+    .map((p) => ({
+      port: Number(p.port),
+      name: p.name || `Port ${p.port}`,
+      admission: projectPortAdmission(p),
+      protocol: projectPortProtocol(p.protocol),
+      authNonce: p.capability_lease_ref ? String(p.capability_lease_ref).length : undefined,
+    }));
+}
+
+function projectEnvironmentPortUrls(statusPorts) {
+  return (Array.isArray(statusPorts) ? statusPorts : [])
+    .filter((p) => Number(p?.port) > 0 && typeof p?.url === "string" && p.url)
+    .map((p) => ({ port: Number(p.port), url: p.url }));
+}
+
 export function daemonEnvToGitpod(env) {
   const s = env.status || {};
   const phase = ENV_PHASE[s.phase] || "ENVIRONMENT_PHASE_STOPPED";
@@ -100,7 +132,11 @@ export function daemonEnvToGitpod(env) {
     statusVersion: String(s.status_version || 1),
     phase,
     machine: { phase: running ? "PHASE_RUNNING" : phase === "ENVIRONMENT_PHASE_STOPPING" ? "PHASE_STOPPING" : "PHASE_STOPPED" },
-    environmentUrls: { logs: `local://environments/${env.id}/logs`, ops: `${gatewayOrigin}/supervisor/${env.id}/` },
+    environmentUrls: {
+      logs: `local://environments/${env.id}/logs`,
+      ops: `${gatewayOrigin}/supervisor/${env.id}/`,
+      ports: projectEnvironmentPortUrls(s.ports),
+    },
     ioi: {
       provider: s.provider || null,
       isolationClaim: s.isolation_claim || null,
@@ -117,7 +153,7 @@ export function daemonEnvToGitpod(env) {
   return {
     id: env.id,
     metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at },
-    spec: { desiredPhase: desired },
+    spec: { desiredPhase: desired, ports: projectEnvironmentPorts(s.ports) },
     status,
   };
 }

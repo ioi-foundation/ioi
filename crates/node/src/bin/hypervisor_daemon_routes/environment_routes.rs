@@ -585,6 +585,176 @@ pub(crate) async fn handle_env_port_unexpose(
     Ok(Json(json!({ "ok": true, "environment_id": id, "port": port, "exposure_state": "closed" })))
 }
 
+// ---- Watch (daemon-owned file/git watch snapshot — the EnvironmentOpsService.Watch source) -------
+// The watch TRUTH lives in the daemon (it owns the workspace), not the serve layer's local fs.watch
+// — so it generalizes to any provider the daemon can read (local now; the daemon-exported microVM
+// workspace next). The serve / in-guest transport POLLS this snapshot and emits gitStatusChanged /
+// fileChanges deltas to the SPA (snapshot+poll matches the terminal-stream pattern; no long-lived
+// push-SSE machinery the daemon doesn't use elsewhere).
+
+/// Recursively list workspace-relative file paths (sorted; excludes .git), the file side of the
+/// watch snapshot. Bounded so a huge tree can't stall the poll.
+fn list_workspace_files(ws: &str) -> Vec<String> {
+    let root = std::path::Path::new(ws);
+    let mut out: Vec<String> = Vec::new();
+    fn walk(dir: &std::path::Path, root: &std::path::Path, out: &mut Vec<String>) {
+        if out.len() >= 4000 { return; }
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for e in rd.flatten() {
+            if out.len() >= 4000 { return; }
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            if name == ".git" { continue; }
+            let p = e.path();
+            match e.file_type() {
+                Ok(ft) if ft.is_dir() => walk(&p, root, out),
+                Ok(ft) if ft.is_file() => {
+                    if let Ok(rel) = p.strip_prefix(root) { out.push(rel.to_string_lossy().replace('\\', "/")); }
+                }
+                _ => {}
+            }
+        }
+    }
+    walk(root, root, &mut out);
+    out.sort();
+    out
+}
+
+/// GET /v1/hypervisor/environments/:id/watch-state — the authoritative {porcelain, files} snapshot
+/// the env-ops Watch streams from. The transport polls this and diffs it into Watch events.
+pub(crate) async fn handle_env_watch_state(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let Some(env) = load_env(&st.data_dir, &id) else {
+        return Json(json!({ "ok": false, "reason": "environment not found" }));
+    };
+    let Some(ws) = env["status"]["workspace_root"].as_str().filter(|s| !s.is_empty()).map(str::to_string) else {
+        return Json(json!({ "ok": false, "reason": "workspace not started" }));
+    };
+    let porcelain = run_git(&ws, &["status", "--porcelain", "-uall"]).unwrap_or_default();
+    Json(json!({ "ok": true, "porcelain": porcelain, "files": list_workspace_files(&ws) }))
+}
+
+// ---- Pull-request draft (daemon-owned governed proposal — aligns with automation-proposal.v1) ----
+
+/// POST /v1/hypervisor/environments/:id/pull-request-drafts — create a DAEMON-OWNED PR proposal from
+/// the current workspace changes (review_state: proposed; real git diff), and write the draft
+/// artifact INTO the scoped workspace via the daemon (the serve/adapter never mutates the workspace).
+/// Remote publishing is a separate crossing that needs an SCM connector + wallet authority — reported
+/// here, not performed (so `host_mutation` stays false; only the env's scoped workspace is touched).
+pub(crate) async fn handle_env_pr_draft(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(env) = load_env(&st.data_dir, &id) else {
+        return Ok(Json(json!({ "ok": false, "reason": "environment not found" })));
+    };
+    let Some(ws) = env["status"]["workspace_root"].as_str().filter(|s| !s.is_empty()).map(str::to_string) else {
+        return Ok(Json(json!({ "ok": false, "reason": "workspace not started", "fail_closed": true })));
+    };
+    // lenient git (git diff exits 1 when differences exist — not an error for our read paths).
+    let git = |args: &[&str]| -> String {
+        std::process::Command::new("git").arg("-C").arg(&ws).args(args).output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default()
+    };
+    let porcelain = git(&["status", "--porcelain", "-uall"]);
+    let changed: Vec<String> = porcelain.lines().filter_map(|l| l.get(3..).map(|s| s.trim().to_string())).filter(|s| !s.is_empty()).collect();
+    let base_ref = { let h = git(&["rev-parse", "HEAD"]).trim().to_string(); if h.is_empty() { "EMPTY".to_string() } else { h } };
+    let mut diff = git(&["diff", "--binary"]);
+    for line in porcelain.lines() {
+        if let Some(rest) = line.strip_prefix("?? ") {
+            let d = git(&["diff", "--no-index", "--binary", "--", "/dev/null", rest.trim()]);
+            if !d.is_empty() { diff.push('\n'); diff.push_str(&d); }
+        }
+    }
+    let diff = diff.trim().to_string();
+    let stat = git(&["diff", "--stat"]).trim().to_string();
+    let branch = { let b = git(&["branch", "--show-current"]).trim().to_string(); if b.is_empty() { "local-workspace".to_string() } else { b } };
+    let head = git(&["rev-parse", "HEAD"]).trim().to_string();
+    let pid = format!("prd_{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+    let title = if changed.is_empty() { "No workspace changes detected" } else { "Proposed workspace changes" };
+    // DAEMON writes the artifact into the env's scoped workspace (.hypervisor/pr-drafts/<id>.*).
+    let dir = std::path::Path::new(&ws).join(".hypervisor").join("pr-drafts");
+    let _ = std::fs::create_dir_all(&dir);
+    let md_rel = format!(".hypervisor/pr-drafts/{pid}.md");
+    let patch_rel = format!(".hypervisor/pr-drafts/{pid}.patch");
+    let md = format!(
+        "# {title}\n\nSource branch: {branch}\nBase: {base_ref}\nHead: {head}\nEnvironment: {id}\n\n## Changed files\n\n{}\n\n## Diffstat\n\n```text\n{}\n```\n\n## Notes\n\n- Daemon-owned local PR draft (proposal {pid}); not a remote pull request.\n- Remote publication requires an SCM connector and scoped (wallet) authority.\n",
+        if changed.is_empty() { "- None".to_string() } else { changed.iter().map(|f| format!("- {f}")).collect::<Vec<_>>().join("\n") },
+        if stat.is_empty() { "No tracked diff." } else { &stat },
+    );
+    let _ = std::fs::write(std::path::Path::new(&ws).join(&md_rel), md);
+    let _ = std::fs::write(std::path::Path::new(&ws).join(&patch_rel), if diff.is_empty() { "# No tracked diff.\n".to_string() } else { format!("{diff}\n") });
+    let draft = json!({
+        "schema_version": "ioi.hypervisor.pull-request-draft.v1",
+        "draft_id": pid, "environment_id": id, "title": title,
+        "review_state": "proposed", "base_ref": base_ref, "head_ref": head, "source_branch": branch,
+        "changed_files": changed, "diffstat": stat,
+        "artifact_refs": { "summary": md_rel, "patch": patch_rel },
+        "remote_publish": { "supported": false, "reason": "remote pull-request publishing requires an SCM connector + wallet authority" },
+        "host_mutation": false, "at": iso_now()
+    });
+    let _ = persist_record(&st.data_dir, "pull-request-drafts", &pid, &draft);
+    Ok(Json(json!({ "ok": true, "draft": draft, "proposal_ref": format!("agentgres://pull-request-draft/{pid}") })))
+}
+
+// ---- Durable agent-run transcripts (Agentgres-backed Run Timeline truth) -------------------------
+// The serve adapter ORCHESTRATES a run over daemon sessions/execute and assembles a Run Timeline
+// view; that view used to live ONLY in the serve process's memory (lost on every restart). These
+// endpoints give it a durable home: the daemon RECORDS the run-transcript (agentgres record store)
+// and stamps an integrity envelope (state_root + recorded_at), so the timeline survives restart and
+// becomes replayable/auditable. The serve writes-through here and rehydrates from here at boot — the
+// in-memory map becomes a cache, the daemon record is the durable truth (boundary: daemon RECORDS).
+
+/// POST /v1/hypervisor/agent-run-transcripts/:id — upsert the durable run-transcript record.
+pub(crate) async fn handle_agent_run_upsert(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(mut body): Json<Value>,
+) -> Json<Value> {
+    if !body.is_object() {
+        return Json(json!({ "ok": false, "reason": "expected a run-transcript object" }));
+    }
+    {
+        let obj = body.as_object_mut().unwrap();
+        obj.insert("run_id".into(), json!(id));
+        obj.insert("schema_version".into(), json!("ioi.hypervisor.agent-run-transcript.v1"));
+        obj.remove("state_root"); // recomputed below
+        obj.insert("recorded_at".into(), json!(iso_now()));
+    }
+    // state_root over the canonical content (minus the volatile envelope) — tamper-evident handle.
+    let mut canon = body.clone();
+    if let Some(o) = canon.as_object_mut() { o.remove("state_root"); o.remove("recorded_at"); }
+    let state_root = format!("fnv:{}", short_hash(&serde_json::to_string(&canon).unwrap_or_default()));
+    body["state_root"] = json!(state_root);
+    let _ = persist_record(&st.data_dir, "agent-run-transcripts", &id, &body);
+    Json(json!({ "ok": true, "run_id": id, "state_root": state_root, "recorded_at": body["recorded_at"] }))
+}
+
+/// GET /v1/hypervisor/agent-run-transcripts/:id — read one durable run-transcript.
+pub(crate) async fn handle_agent_run_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    match read_record_dir(&st.data_dir, "agent-run-transcripts")
+        .into_iter()
+        .find(|r| r["run_id"].as_str() == Some(id.as_str()))
+    {
+        Some(run) => Json(json!({ "ok": true, "run": run })),
+        None => Json(json!({ "ok": false, "reason": "run-transcript not found" })),
+    }
+}
+
+/// GET /v1/hypervisor/agent-run-transcripts — list durable run-transcripts (newest-first).
+pub(crate) async fn handle_agent_run_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut runs = read_record_dir(&st.data_dir, "agent-run-transcripts");
+    runs.sort_by(|a, b| {
+        a["created_at"].as_str().unwrap_or("").cmp(b["created_at"].as_str().unwrap_or(""))
+    });
+    Json(json!({ "ok": true, "runs": runs }))
+}
+
 /// `HypervisorEnvironmentResourceIsolationProfile` — for a microVM the cpu/mem limits are REALLY
 /// enforced by the monitor (cloud-hypervisor --cpus/--memory); for local it is process-scoped.
 fn resource_isolation_profile(is_microvm: bool, vcpus: u32, mem_mib: u32) -> Value {

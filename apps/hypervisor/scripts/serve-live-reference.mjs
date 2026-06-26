@@ -19,12 +19,13 @@
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-live-reference.mjs
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, watch as fsWatch } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
-import { getRun } from "./ioi-agent-runs.mjs";
+import { getRun, listRuns, hydrateRunsFromDaemon } from "./ioi-agent-runs.mjs";
+import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -124,6 +125,27 @@ function frame(kind, payload) {
   // followed by protobuf binary for that message.
   return Buffer.concat([Buffer.from([kind]), payload]).toString("base64");
 }
+// The SPA's workbench terminal is a parser-less <pre> (no xterm.js / ANSI lib anywhere in the
+// harvested bundle), so raw VT/ANSI escapes render as literal garbage (boxes + "[?2004h", "[01;32m").
+// Sanitize the PTY byte stream in this transport bridge: strip CSI (incl. bracketed-paste + SGR
+// color), OSC (window title), other ESC sequences, and stray control bytes — keeping \t \n \r.
+// Stateful: a sequence split across poll chunks is held in `tail` so it still strips cleanly next
+// poll. The daemon still OWNS execution + emits correct ANSI; this only adapts the bytes for a
+// renderer that has no emulator.
+function makeTerminalSanitizer() {
+  let tail = "";
+  // strip CSI | OSC | other-ESC | stray control bytes; keep only \t (09) and \n (0a) — drop \r (0d)
+  // too, since the parser-less <pre> would render a lone CR as a box.
+  const SEQ = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]|[\x00-\x08\x0b-\x1f\x7f]/g;
+  const INCOMPLETE = /\x1b(\[[0-9;?]*[ -/]*|\][^\x07\x1b]*)?$/; // trailing partial CSI/OSC/lone ESC
+  return (chunk) => {
+    let s = tail + chunk;
+    tail = "";
+    const m = s.match(INCOMPLETE);
+    if (m && m[0].length <= 512) { tail = m[0]; s = s.slice(0, s.length - m[0].length); }
+    return s.replace(SEQ, "");
+  };
+}
 function conversationChunks(run) {
   const chunks = [];
   if (run?.prompt && run?.userInputBlockId) {
@@ -165,11 +187,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits Ona's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
+const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true")}catch(e){}</script>';
 // Only inject into a real HTML document (one with a </body>). The mirror mislabels some JSON
 // endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
 // body the SPA later parses with Response.json() — so never append when there's no </body>.
 function augmentHtml(html) {
-  return html.includes("</body>") ? html.replace("</body>", AUG_TAG + "</body>") : html;
+  if (!html.includes("</body>")) return html;
+  const withFlags = html.includes("<head>") ? html.replace("<head>", `<head>${FEATURE_FLAG_TAG}`) : FEATURE_FLAG_TAG + html;
+  return withFlags.replace("</body>", AUG_TAG + "</body>");
 }
 const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(REPO_ROOT, "internal-docs", "reverse-engineering", "ioi", "server.js");
@@ -190,6 +215,352 @@ function connectEndStreamFrame(payloadObj = {}) {
   payload.copy(frame, 5);
   return frame;
 }
+function connectMessageFrame(payloadObj = {}) {
+  const payload = Buffer.from(JSON.stringify(payloadObj), "utf8");
+  const frame = Buffer.alloc(5 + payload.length);
+  frame.writeUInt8(0x00, 0);
+  frame.writeUInt32BE(payload.length, 1);
+  payload.copy(frame, 5);
+  return frame;
+}
+
+const TERMINAL_CHUNK_PATH = "/static/assets/Terminal-CAzwFiqq.js";
+const TERMINAL_CHUNK = `
+import{a as __toESM}from"./rolldown-runtime-CGYlQKCx.js";
+import{n as __reactFactory}from"./@mux-DLaEVubF.js";
+import{v_ as __jsxRuntime}from"./vendor-DAwbZtf0.js";
+const React=__toESM(__reactFactory(),1);
+const jsx=__jsxRuntime();
+const enc=new TextEncoder();
+const dec=new TextDecoder();
+function fromBase64(value){try{const bin=atob(value||"");const bytes=Uint8Array.from(bin,ch=>ch.charCodeAt(0));return dec.decode(bytes)}catch{return""}}
+function appendText(setLog,text){if(!text)return;setLog(prev=>{const next=prev+text;return next.length>20000?next.slice(-20000):next})}
+// This <pre> has no VT/ANSI emulator, so raw PTY escapes would render as literal garbage. Strip
+// them with a tiny char-scan state machine (escaping-free for this template literal): drop CSI
+// (incl. SGR color + bracketed-paste), OSC (window title, terminated by BEL or ESC-backslash), other
+// 2-char ESC sequences, and stray control bytes; keep tab(9), newline(10), and all printable/UTF-8.
+// State persists across poll chunks so a sequence split mid-stream still strips cleanly.
+function makeStripper(){
+  let mode=0; // 0 normal, 1 after-ESC, 2 in-CSI, 3 in-OSC
+  return function(input){
+    let out="";
+    for(let i=0;i<input.length;i++){
+      const c=input.charCodeAt(i);
+      if(mode===0){
+        if(c===27)mode=1;
+        else if(c===9||c===10)out+=input[i];
+        else if(c>=32&&c!==127)out+=input[i];
+      }else if(mode===1){
+        if(c===91)mode=2; else if(c===93)mode=3; else mode=0;
+      }else if(mode===2){
+        if(c>=64&&c<=126)mode=0;
+      }else if(mode===3){
+        if(c===7)mode=0; else if(c===27)mode=1;
+      }
+    }
+    return out;
+  };
+}
+export const Terminal=React.forwardRef(function Terminal({environmentId,terminalId,focusOnReady,onExit},ref){
+  const [log,setLog]=React.useState("");
+  const [line,setLine]=React.useState("");
+  const [status,setStatus]=React.useState("connecting");
+  const inputRef=React.useRef(null);
+  const sinceRef=React.useRef(0);
+  const stripRef=React.useRef(null);
+  if(!stripRef.current)stripRef.current=makeStripper();
+  React.useImperativeHandle(ref,()=>({focus:()=>inputRef.current?.focus()}),[]);
+  React.useEffect(()=>{if(focusOnReady)inputRef.current?.focus()},[focusOnReady]);
+  React.useEffect(()=>{
+    let cancelled=false;
+    let timer=null;
+    async function poll(){
+      if(cancelled||!terminalId)return;
+      try{
+        const r=await fetch("/v1/hypervisor/terminals/"+encodeURIComponent(terminalId)+"/stream?since="+sinceRef.current);
+        if(r.status===404){setStatus("closed");onExit?.();return}
+        const text=await r.text();
+        for(const frame of text.split("\\n\\n")){
+          let ev="",data="";
+          for(const row of frame.split("\\n")){
+            if(row.startsWith("event: "))ev=row.slice(7);
+            else if(row.startsWith("data: "))data=row.slice(6);
+          }
+          if(ev==="output"&&data){
+            const payload=JSON.parse(data);
+            if(typeof payload.offset==="number")sinceRef.current=payload.offset;
+            appendText(setLog,stripRef.current(payload.output||""));
+          }
+        }
+        setStatus("connected");
+      }catch(e){setStatus("reconnecting")}
+      if(!cancelled)timer=setTimeout(poll,350);
+    }
+    poll();
+    return()=>{cancelled=true;if(timer)clearTimeout(timer)};
+  },[terminalId,onExit]);
+  const send=React.useCallback(async()=>{
+    const text=line;
+    setLine("");
+    if(!terminalId||!text.trim())return;
+    try{
+      await fetch("/v1/hypervisor/terminals/"+encodeURIComponent(terminalId)+"/input",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({data:text+"\\n"})});
+    }catch(e){setStatus("input failed")}
+  },[terminalId,line]);
+  const rows=(log||"").split("\\n").slice(-500).join("\\n");
+  return jsx.jsxs("div",{className:"flex size-full flex-col bg-[#0d1117] text-[#d8dee9]",children:[
+    jsx.jsxs("div",{className:"flex items-center justify-between border-b border-[#273241] px-3 py-2 text-xs text-[#8b949e]",children:[
+      jsx.jsxs("span",{children:["Terminal ",terminalId?terminalId.slice(0,12):"pending"]}),
+      jsx.jsxs("span",{children:[status," / ",environmentId||"environment"]})
+    ]}),
+    jsx.jsx("pre",{className:"min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-3 font-mono text-xs leading-5",children:rows||"$ "}),
+    jsx.jsxs("div",{className:"flex items-center gap-2 border-t border-[#273241] p-2",children:[
+      jsx.jsx("span",{className:"font-mono text-xs text-[#8b949e]",children:"$"}),
+      jsx.jsx("input",{ref:inputRef,value:line,onChange:e=>setLine(e.target.value),onKeyDown:e=>{if(e.key==="Enter")send()},className:"min-w-0 flex-1 bg-transparent font-mono text-sm outline-none",placeholder:"Type a command and press Enter","aria-label":"Terminal input"}),
+      jsx.jsx("button",{type:"button",onClick:send,className:"rounded border border-[#3b4658] px-2 py-1 text-xs text-[#d8dee9] hover:bg-[#161b22]",children:"Send"})
+    ]})
+  ]});
+});
+`;
+
+// Hypervisor's OWN transcript primitive — the Run Timeline surface. A self-contained, owned page
+// (not the borrowed SPA chat pane) styled with the ona design tokens (linked from the bundle CSS so
+// the look is native). It polls /__ioi/agent-runs/:id/timeline and renders the 6-part governed-work
+// turn: request → activity → response → artifacts → proof → follow-ups. Any surface (Workbench,
+// Sessions, Agent Studio, Automations, IOI.ai handoffs) routes/embeds this by runId. Client JS avoids
+// backticks/${} so it survives the outer template literal; RUN_ID is injected via __RUN_ID__.
+const RUN_TIMELINE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Timeline · Hypervisor</title>
+<link rel="stylesheet" href="/static/assets/SegmentProvider-gQNN48J_.css">
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; background:rgb(var(--surface-base)); color:rgb(var(--content-primary));
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:14px; line-height:1.5; }
+  .rt-wrap { max-width:840px; margin:0 auto; padding:24px 20px 80px; }
+  .rt-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:8px; }
+  .rt-title { font-size:18px; font-weight:600; margin:0; }
+  .rt-sub { color:rgb(var(--content-muted)); font-size:12px; margin-top:2px; }
+  .rt-sub code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .rt-badge { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:9999px; font-size:12px; font-weight:500;
+    border:1px solid rgb(var(--border-base)); white-space:nowrap; }
+  .rt-dot { width:7px; height:7px; border-radius:9999px; background:rgb(var(--content-muted)); }
+  .rt-running .rt-dot { background:rgb(var(--content-brand)); animation:rtpulse 1.2s ease-in-out infinite; }
+  .rt-done .rt-dot { background:rgb(var(--content-positive)); }
+  .rt-failed .rt-dot { background:rgb(var(--content-destructive)); }
+  @keyframes rtpulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .rt-turn { border:1px solid rgb(var(--border-base)); border-radius:12px; background:rgb(var(--surface-base)); margin-top:18px; overflow:hidden; }
+  .rt-sec { padding:14px 16px; border-top:1px solid rgb(var(--border-subtle)); }
+  .rt-sec:first-child { border-top:0; }
+  .rt-label { display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:rgb(var(--content-muted)); margin-bottom:8px; }
+  .rt-label .n { width:18px; height:18px; border-radius:9999px; display:inline-flex; align-items:center; justify-content:center;
+    background:rgb(var(--surface-muted)); color:rgb(var(--content-secondary)); font-size:10px; font-weight:600; }
+  .rt-request { background:rgb(var(--surface-muted)); border-radius:8px; padding:10px 12px; }
+  .rt-response { font-size:14px; }
+  .rt-response.fail { color:rgb(var(--content-destructive)); }
+  .rt-steps { list-style:none; margin:0; padding:0; }
+  .rt-step { display:flex; align-items:baseline; gap:10px; padding:3px 0; }
+  .rt-step .sd { width:8px; height:8px; border-radius:9999px; flex:none; transform:translateY(3px); background:rgb(var(--content-muted)); }
+  .rt-step.authority .sd { background:rgb(var(--content-brand)); }
+  .rt-step.tool .sd { background:rgb(var(--content-secondary)); }
+  .rt-step.done .sd { background:rgb(var(--content-positive)); }
+  .rt-step.error .sd { background:rgb(var(--content-destructive)); }
+  .rt-step .st { color:rgb(var(--content-muted)); font-size:11px; font-family:ui-monospace,monospace; flex:none; }
+  .rt-chip { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; margin:3px 6px 0 0; border-radius:6px;
+    background:rgb(var(--surface-muted)); font-size:12px; font-family:ui-monospace,monospace; }
+  .rt-kv { display:grid; grid-template-columns:120px 1fr; gap:4px 12px; font-size:12px; }
+  .rt-kv dt { color:rgb(var(--content-muted)); }
+  .rt-kv dd { margin:0; font-family:ui-monospace,monospace; word-break:break-all; }
+  .rt-proof { border:1px solid rgb(var(--border-base)); border-left:3px solid rgb(var(--content-brand)); border-radius:8px; padding:10px 12px; background:rgb(var(--surface-base)); }
+  .rt-term { background:#0d1117; color:#d8dee9; border-radius:8px; padding:10px; font-family:ui-monospace,monospace; font-size:12px; white-space:pre-wrap; max-height:220px; overflow:auto; }
+  .rt-acts { display:flex; flex-wrap:wrap; gap:8px; }
+  .rt-act { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px; border:1px solid rgb(var(--border-base));
+    background:rgb(var(--surface-base)); color:rgb(var(--content-primary)); font-size:13px; text-decoration:none; cursor:pointer; }
+  .rt-act:hover { background:rgb(var(--surface-muted)); }
+  .rt-muted { color:rgb(var(--content-muted)); font-style:italic; }
+  .rt-loading,.rt-error { color:rgb(var(--content-muted)); padding:40px; text-align:center; }
+  /* embed mode — mounted inside the workbench pane (replaces the borrowed transcript) */
+  html.rt-embed, html.rt-embed body { background:transparent; }
+  html.rt-embed .rt-wrap { max-width:none; margin:0; padding:12px 14px 32px; }
+  html.rt-embed .rt-head { position:sticky; top:0; background:rgb(var(--surface-base)); padding-bottom:8px; z-index:1; }
+  /* owned follow-up composer (so the surface owns transcript + send, no borrowed pane) */
+  .rt-composer { position:sticky; bottom:0; display:flex; gap:8px; max-width:840px; margin:0 auto; padding:12px 14px;
+    background:rgb(var(--surface-base)); border-top:1px solid rgb(var(--border-base)); }
+  html.rt-embed .rt-composer { max-width:none; }
+  .rt-cin { flex:1; border:1px solid rgb(var(--border-base)); border-radius:8px; padding:8px 12px; font-size:13px;
+    background:rgb(var(--surface-base)); color:rgb(var(--content-primary)); outline:none; }
+  .rt-cbtn { border:0; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer;
+    background:rgb(var(--content-brand)); color:#fff; }
+  .rt-cbtn:disabled { opacity:.5; cursor:default; }
+</style>
+</head>
+<body>
+<div class="rt-wrap"><div id="rt-root"><div class="rt-loading">Loading run timeline…</div></div></div>
+<script>
+(function(){
+  var RUN_ID = "__RUN_ID__";
+  var ENV_ID = "__ENV_ID__";
+  if (location.search.indexOf("embed=1") >= 0) document.documentElement.classList.add("rt-embed");
+  function el(tag, cls, text){ var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e; }
+  function trunc(s,n){ s=String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
+  function timeShort(at){ if(!at) return ""; try { var d=new Date(at); return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}); } catch(e){ return ""; } }
+  function label(n, title){ var d=el("div","rt-label"); d.appendChild(el("span","n",String(n))); d.appendChild(el("span",null,title)); return d; }
+  function sec(node){ var s=el("div","rt-sec"); s.appendChild(node); return s; }
+
+  function render(tl){
+    var root=document.getElementById("rt-root"); root.textContent="";
+    if(!tl){ root.appendChild(el("div","rt-error","Run not found.")); return; }
+    ensureComposer();
+    var statusCls = tl.status==="done"?"rt-done":(tl.status==="failed"?"rt-failed":(tl.status==="running"?"rt-running":""));
+
+    var head=el("div","rt-head");
+    var left=el("div");
+    left.appendChild(el("h1","rt-title",tl.title||"Agent session"));
+    var sub=el("div","rt-sub");
+    sub.appendChild(el("span",null,"Run "+(tl.runId||"")));
+    if(tl.environmentId){ sub.appendChild(el("span",null,"  ·  env ")); var c=el("code",null,tl.environmentId); sub.appendChild(c); }
+    if(tl.updatedAt){ sub.appendChild(el("span",null,"  ·  updated "+timeShort(tl.updatedAt))); }
+    left.appendChild(sub);
+    head.appendChild(left);
+    var badge=el("span","rt-badge "+statusCls);
+    badge.appendChild(el("span","rt-dot"));
+    badge.appendChild(el("span",null,(tl.activeStatus||tl.status||"").replace(/…$/,"")||tl.status));
+    head.appendChild(badge);
+    root.appendChild(head);
+
+    (tl.turns||[]).forEach(function(turn){
+      var box=el("div","rt-turn");
+
+      // 1) Request
+      var s1=el("div"); s1.appendChild(label(1,"Request"));
+      if(turn.request && turn.request.text){ s1.appendChild(el("div","rt-request",turn.request.text)); }
+      else { s1.appendChild(el("div","rt-muted","No request recorded.")); }
+      box.appendChild(sec(s1));
+
+      // 2) Activity (governed-work steps)
+      var s2=el("div"); s2.appendChild(label(2,"Activity"));
+      if((turn.activity||[]).length){
+        var ul=el("ul","rt-steps");
+        turn.activity.forEach(function(a){
+          var li=el("li","rt-step "+(a.kind||"status"));
+          li.appendChild(el("span","sd"));
+          li.appendChild(el("span","sx",a.text));
+          if(a.at){ var t=el("span","st",timeShort(a.at)); li.appendChild(t); }
+          ul.appendChild(li);
+        });
+        s2.appendChild(ul);
+      } else { s2.appendChild(el("div","rt-muted","No activity recorded.")); }
+      box.appendChild(sec(s2));
+
+      // 3) Response
+      var s3=el("div"); s3.appendChild(label(3,"Response"));
+      if(turn.response && turn.response.text){ s3.appendChild(el("div","rt-response"+(turn.response.failed?" fail":""),turn.response.text)); }
+      else { s3.appendChild(el("div","rt-muted", tl.status==="running"||tl.status==="waiting" ? "Awaiting agent response…" : "No response.")); }
+      box.appendChild(sec(s3));
+
+      // 4) Artifacts
+      var art=turn.artifacts||{};
+      var hasArt=(art.files&&art.files.length)||(art.drafts&&art.drafts.length)||(art.terminals&&art.terminals.length);
+      var s4=el("div"); s4.appendChild(label(4,"Artifacts"));
+      if(hasArt){
+        if(art.files&&art.files.length){ var fwrap=el("div"); art.files.forEach(function(f){ fwrap.appendChild(el("span","rt-chip",f)); }); s4.appendChild(fwrap); }
+        (art.drafts||[]).forEach(function(d){
+          var dl=el("dl","rt-kv");
+          dl.appendChild(el("dt",null,"PR draft")); dl.appendChild(el("dd",null,(d.title||d.id)+" ("+(d.reviewState||"")+")"));
+          if(d.summary){ dl.appendChild(el("dt",null,"summary")); dl.appendChild(el("dd",null,d.summary)); }
+          if(d.remotePublish&&d.remotePublish.supported===false){ dl.appendChild(el("dt",null,"remote")); dl.appendChild(el("dd",null,"unavailable — "+(d.remotePublish.reason||""))); }
+          s4.appendChild(dl);
+        });
+        if(art.terminals&&art.terminals.length){ var pre=el("div","rt-term"); pre.textContent=art.terminals.map(function(t){return t.text;}).join("\\n"); s4.appendChild(pre); }
+      } else { s4.appendChild(el("div","rt-muted","No artifacts produced.")); }
+      box.appendChild(sec(s4));
+
+      // 5) Proof (governance audit trail)
+      var pf=turn.proof||{};
+      var s5=el("div"); s5.appendChild(label(5,"Proof"));
+      if(pf.authority||pf.proposalRefs&&pf.proposalRefs.length||pf.receipts&&pf.receipts.length||pf.leaseRef||pf.stateRoot){
+        var card=el("div","rt-proof"); var kv=el("dl","rt-kv");
+        if(pf.stateRoot){ kv.appendChild(el("dt",null,"state root")); kv.appendChild(el("dd",null,pf.stateRoot+" · durable")); }
+        if(pf.authority){
+          kv.appendChild(el("dt",null,"policy hash")); kv.appendChild(el("dd",null,trunc(pf.authority.policyHash,24)));
+          kv.appendChild(el("dt",null,"request hash")); kv.appendChild(el("dd",null,trunc(pf.authority.requestHash,24)));
+          if(pf.authority.grantId){ kv.appendChild(el("dt",null,"grant")); kv.appendChild(el("dd",null,pf.authority.grantId)); }
+          if(pf.authority.expiresAt){ kv.appendChild(el("dt",null,"expires")); kv.appendChild(el("dd",null,pf.authority.expiresAt)); }
+        }
+        if(pf.leaseRef){ kv.appendChild(el("dt",null,"capability lease")); kv.appendChild(el("dd",null,pf.leaseRef)); }
+        (pf.proposalRefs||[]).forEach(function(r){ kv.appendChild(el("dt",null,"proposal")); kv.appendChild(el("dd",null,r)); });
+        kv.appendChild(el("dt",null,"authority receipts")); kv.appendChild(el("dd",null,String((pf.receipts||[]).length)+" recorded"));
+        card.appendChild(kv); s5.appendChild(card);
+      } else { s5.appendChild(el("div","rt-muted", pf.note || "No governance crossing recorded for this run.")); }
+      box.appendChild(sec(s5));
+
+      // 6) Follow-ups
+      var s6=el("div"); s6.appendChild(label(6,"Next"));
+      if((turn.followUps||[]).length){
+        var acts=el("div","rt-acts");
+        turn.followUps.forEach(function(f){
+          var node = f.href ? el("a","rt-act",f.label) : el("button","rt-act",f.label);
+          if(f.href){ node.setAttribute("href",f.href); node.setAttribute("target","_top"); }
+          acts.appendChild(node);
+        });
+        s6.appendChild(acts);
+      } else { s6.appendChild(el("div","rt-muted","No follow-up actions available.")); }
+      box.appendChild(sec(s6));
+
+      root.appendChild(box);
+    });
+  }
+
+  function renderEmpty(msg){
+    var root=document.getElementById("rt-root"); root.textContent="";
+    root.appendChild(el("div","rt-loading",msg));
+  }
+  // Owned follow-up composer — posts SendToAgentExecution for this run; the timeline poll then picks
+  // up the new activity/response. Created once (outside #rt-root, which render() rebuilds each poll).
+  function ensureComposer(){
+    if(!RUN_ID || document.getElementById("rt-composer")) return;
+    var bar=el("div","rt-composer"); bar.id="rt-composer";
+    var input=el("input","rt-cin"); input.type="text"; input.placeholder="Send a follow-up to this run…";
+    var btn=el("button","rt-cbtn","Send");
+    function send(){
+      var v=(input.value||"").trim(); if(!v) return;
+      input.value=""; btn.disabled=true; btn.textContent="…";
+      fetch("/api/gitpod.v1.AgentService/SendToAgentExecution",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({agentExecutionId:RUN_ID,userInput:{id:"rt-"+Date.now(),inputs:[{text:{content:v}}]}})})
+        .then(function(){ btn.disabled=false; btn.textContent="Send"; load(); })
+        .catch(function(){ btn.disabled=false; btn.textContent="Send"; });
+    }
+    btn.addEventListener("click",send);
+    input.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); send(); } });
+    bar.appendChild(input); bar.appendChild(btn);
+    document.body.appendChild(bar);
+  }
+  function load(){
+    if(!RUN_ID){
+      // env mode and no run yet — resolve env -> latest run (self-healing if the run appears later)
+      if(!ENV_ID){ render(null); return; }
+      fetch("/__ioi/env-latest-run/"+encodeURIComponent(ENV_ID),{headers:{"accept":"application/json"}})
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if(d&&d.runId){ RUN_ID=d.runId; load(); } else { renderEmpty("No run for this environment yet."); setTimeout(load, 2000); } })
+        .catch(function(){ setTimeout(load, 2500); });
+      return;
+    }
+    fetch("/__ioi/agent-runs/"+encodeURIComponent(RUN_ID)+"/timeline", {headers:{"accept":"application/json"}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(tl){
+        render(tl);
+        if(tl && (tl.status==="running"||tl.status==="waiting")) setTimeout(load, 1500);
+      })
+      .catch(function(){ setTimeout(load, 2500); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>`;
 
 if (!existsSync(REF_SERVER)) {
   console.error(
@@ -271,6 +642,186 @@ function proxyToMirror(req, res, body) {
   upstream.end(body);
 }
 
+function supervisorRoute(pathname) {
+  const m = pathname.match(/^\/supervisor\/([^/]+)\/supervisor\.v1\.EnvironmentOpsService\/([^/]+)$/);
+  return m ? { env: decodeURIComponent(m[1]), method: decodeURIComponent(m[2]) } : null;
+}
+
+async function authorizeSupervisorReq(req, env) {
+  const auth = String(req.headers["authorization"] || "");
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  if (!token) return { ok: false, status: 401, body: { code: "unauthenticated", message: "missing env-ops lease" } };
+  const lease = await djson("GET", `/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+  if (!lease.body?.active || lease.body?.environment_id !== env) {
+    return { ok: false, status: 401, body: { code: "unauthenticated", message: "invalid or expired env-ops lease" } };
+  }
+  return { ok: true, token };
+}
+
+function terminalInfo(t) {
+  return {
+    terminalId: t.terminal_id,
+    shell: t.shell || "bash",
+    workingDirectory: t.cwd || "",
+    cols: t.cols || 80,
+    rows: t.rows || 24,
+    annotations: {},
+  };
+}
+
+function parseSupervisorBody(body) {
+  if (!body || body.length === 0) return {};
+  let payload = body;
+  if (body.length >= 5 && body[0] === 0x00) {
+    const len = body.readUInt32BE(1);
+    payload = body.subarray(5, 5 + len);
+  }
+  const text = payload.toString("utf8").trim();
+  return text ? JSON.parse(text) : {};
+}
+
+async function handleSupervisorUnary(route, req, body) {
+  const { env, method } = route;
+  if (!["CreateTerminal", "ListTerminals", "CloseTerminal", "ListTerminalProfiles", "ListCapabilities"].includes(method)) return null;
+  const auth = await authorizeSupervisorReq(req, env);
+  if (!auth.ok) return { status: auth.status, body: auth.body };
+  const params = parseSupervisorBody(body);
+  const envRef = `environment:${env}`;
+  if (method === "ListCapabilities") return { status: 200, body: { capabilities: ["CAPABILITY_WATCH"] } };
+  if (method === "ListTerminalProfiles") {
+    const configured = Object.entries(params?.configProfiles || {}).map(([profileName, profile]) => ({
+      profileName,
+      path: profile?.path || profileName,
+      isAutoDetected: false,
+    }));
+    return {
+      status: 200,
+      body: {
+        profiles: configured.length ? configured : [
+          { profileName: "bash", path: "bash", isAutoDetected: true },
+          { profileName: "sh", path: "sh", isAutoDetected: true },
+        ],
+      },
+    };
+  }
+  if (method === "ListTerminals") {
+    const r = await djson("GET", "/v1/hypervisor/terminals");
+    const terminals = (r.body?.terminals || [])
+      .filter((t) => t.environment_ref === envRef)
+      .map(terminalInfo);
+    return { status: 200, body: { terminals } };
+  }
+  if (method === "CreateTerminal") {
+    const cwd = params?.workingDirectory && String(params.workingDirectory).trim() ? params.workingDirectory : undefined;
+    const payload = {
+      environment_ref: envRef,
+      shell: params?.shell || "bash",
+      cols: params?.initialCols || 80,
+      rows: params?.initialRows || 24,
+    };
+    if (cwd) payload.cwd = cwd;
+    const r = await djson("POST", "/v1/hypervisor/terminals", payload, auth.token);
+    if (!r.body?.terminal_id) return { status: 500, body: { code: "internal", message: r.body?.reason || "create terminal failed" } };
+    return { status: 200, body: { terminalId: r.body.terminal_id } };
+  }
+  if (method === "CloseTerminal") {
+    await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId || "")}/close`, {}, auth.token);
+    return { status: 200, body: {} };
+  }
+  return null;
+}
+
+async function handleSupervisorStream(route, req, res, body) {
+  const { env, method } = route;
+  if (!["ReadTerminal", "AttachTerminal", "Watch"].includes(method)) return false;
+  const auth = await authorizeSupervisorReq(req, env);
+  if (!auth.ok) {
+    res.writeHead(auth.status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(auth.body));
+    return true;
+  }
+  const params = parseSupervisorBody(body);
+  res.writeHead(200, { "Content-Type": "application/connect+json", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  if (method === "Watch") {
+    // Daemon-owned watch: poll the daemon's authoritative {porcelain, files} snapshot and emit
+    // gitStatusChanged / fileChanges deltas. The watch TRUTH lives in the daemon (works for any
+    // provider it can read the workspace for); the serve is a pure transport bridge — no local
+    // fs.watch (which only worked because serve was co-located with the workspace).
+    const wsUrl = `/v1/hypervisor/environments/${encodeURIComponent(env)}/watch-state`;
+    const initial = await djson("GET", wsUrl);
+    if (!initial.body?.ok) {
+      res.end(connectEndStreamFrame({ error: { code: "unavailable", message: initial.body?.reason || "workspace not started" } }));
+      return true;
+    }
+    let lastPorcelain = initial.body.porcelain || "";
+    let lastFiles = Array.isArray(initial.body.files) ? initial.body.files : [];
+    const poll = setInterval(async () => {
+      let r;
+      try { r = await djson("GET", wsUrl); } catch { return; }
+      if (!r.body?.ok) return;
+      const porcelain = r.body.porcelain || "";
+      const files = Array.isArray(r.body.files) ? r.body.files : [];
+      try {
+        if (porcelain !== lastPorcelain) res.write(connectMessageFrame({ gitStatusChanged: {} }));
+        const prev = new Set(lastFiles);
+        const now = new Set(files);
+        const events = [];
+        for (const f of files) if (!prev.has(f)) events.push({ path: f, type: "FILE_CHANGE_TYPE_ADDED", isDirectory: false });
+        for (const f of lastFiles) if (!now.has(f)) events.push({ path: f, type: "FILE_CHANGE_TYPE_DELETED", isDirectory: false });
+        if (events.length) res.write(connectMessageFrame({ fileChanges: { events } }));
+      } catch { clearInterval(poll); return; }
+      lastPorcelain = porcelain;
+      lastFiles = files;
+    }, 700);
+    req.on("close", () => clearInterval(poll));
+    return true;
+  }
+  const termId = params?.terminalId;
+  let since = 0;
+  let first = !params?.skipHistory;
+  const sanitize = makeTerminalSanitizer();
+  const interval = setInterval(async () => {
+    try {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`);
+      if (r.status === 404) {
+        res.write(connectMessageFrame({ exited: { exitCode: 0 } }));
+        res.end(connectEndStreamFrame({}));
+        clearInterval(interval);
+        return;
+      }
+      const text = await r.text();
+      let outChunk = "";
+      let newOffset = since;
+      for (const f of text.split("\n\n")) {
+        let ev = null, data = null;
+        for (const line of f.split("\n")) {
+          if (line.startsWith("event: ")) ev = line.slice(7);
+          else if (line.startsWith("data: ")) data = line.slice(6);
+        }
+        if (ev === "output" && data) {
+          const d = JSON.parse(data);
+          outChunk += d.output || "";
+          if (typeof d.offset === "number") newOffset = d.offset;
+        }
+      }
+      if (outChunk) {
+        const clean = sanitize(outChunk);
+        if (clean) {
+          const b64 = Buffer.from(clean, "utf8").toString("base64");
+          res.write(connectMessageFrame(first ? { replay: { data: b64, cols: 80, rows: 24 } } : { data: { data: b64 } }));
+          first = false;
+        }
+      }
+      since = newOffset;
+    } catch {
+      res.end(connectEndStreamFrame({}));
+      clearInterval(interval);
+    }
+  }, 250);
+  req.on("close", () => clearInterval(interval));
+  return true;
+}
+
 // 2) Front server: IOI /api adapter first, proxy everything else to the mirror.
 const server = http.createServer((req, res) => {
   const chunks = [];
@@ -278,6 +829,39 @@ const server = http.createServer((req, res) => {
   req.on("end", async () => {
     const body = Buffer.concat(chunks);
     const pathname = (req.url || "").split("?")[0];
+    if (pathname === TERMINAL_CHUNK_PATH) {
+      res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(TERMINAL_CHUNK);
+      return;
+    }
+    // Owned Run Timeline surface (Hypervisor's transcript primitive). /__ioi/run-timeline/:runId
+    // (or ?runId=). Any surface routes/embeds this by runId; it polls the timeline projection above.
+    if (pathname === "/__ioi/run-timeline" || pathname.startsWith("/__ioi/run-timeline/")) {
+      const rest = pathname.startsWith("/__ioi/run-timeline/") ? pathname.slice("/__ioi/run-timeline/".length) : "";
+      let runId = "";
+      let envId = "";
+      if (rest.startsWith("env/")) {
+        // /env/:envId — resolve to the env's latest run server-side (the launcher/embed is a plain
+        // anchor/iframe; window.open after an async resolve is popup-blocked). Pass env so the page
+        // self-heals if the run appears after load.
+        envId = decodeURIComponent(rest.slice(4).split("/")[0]);
+        const mine = listRuns().filter((r) => r.envId === envId).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+        runId = mine[mine.length - 1]?.id || "";
+      } else if (rest.startsWith("draft/")) {
+        // /draft/:draftId — contextual deep-link from a PR-draft artifact to the run that produced it.
+        const draftId = decodeURIComponent(rest.slice(6).split("/")[0]);
+        const owner = listRuns().find((r) => String(r.proposalRef || "").includes(draftId));
+        runId = owner?.id || "";
+        envId = owner?.envId || "";
+      } else {
+        runId = rest ? decodeURIComponent(rest.split("/")[0]) : (new URLSearchParams((req.url || "").split("?")[1] || "").get("runId") || "");
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(RUN_TIMELINE_HTML
+        .replace(/__RUN_ID__/g, String(runId).replace(/[^A-Za-z0-9_-]/g, ""))
+        .replace(/__ENV_ID__/g, String(envId).replace(/[^A-Za-z0-9_-]/g, "")));
+      return;
+    }
     // T7 — daemon spine passthrough so the native client's /v1/* calls resolve in the hybrid
     // served context (Session Execution Binding, env-files, terminals, environments, threads).
     if (pathname.startsWith("/v1/")) {
@@ -301,6 +885,14 @@ const server = http.createServer((req, res) => {
     // logic live in the daemon (D1); this is a transparent route, not a shim.
     if (pathname.startsWith("/supervisor/")) {
       try {
+        const route = supervisorRoute(pathname);
+        if (route && await handleSupervisorStream(route, req, res, body)) return;
+        const handled = route ? await handleSupervisorUnary(route, req, body) : null;
+        if (handled) {
+          res.writeHead(handled.status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(handled.body));
+          return;
+        }
         const headers = { "Content-Type": req.headers["content-type"] || "application/json" };
         if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
         const upstream = await fetch(DAEMON + req.url, {
@@ -358,6 +950,30 @@ const server = http.createServer((req, res) => {
     // final PHASE_COMPLETED entries replace the optimistic "Thinking…" placeholder; keeping the
     // socket open (never EOF) means no "Stream closed"/"Retrying". /history + /live are the V2 mode
     // the harvested SPA prefers for the native workbench conversation pane.
+    // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned
+    // Run Timeline for the env in view (Workbench/Sessions/Studio/Automations/IOI.ai all key by env).
+    if (pathname.startsWith("/__ioi/env-latest-run/")) {
+      const envId = decodeURIComponent(pathname.slice("/__ioi/env-latest-run/".length).split("/")[0]);
+      const mine = listRuns().filter((r) => r.envId === envId).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+      const latest = mine[mine.length - 1] || null;
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify({ ok: !!latest, runId: latest?.id || null, status: latest?.status || null, count: mine.length }));
+      return;
+    }
+    // Owned Run Timeline projection (Hypervisor's transcript primitive) — daemon-truth, 6-part
+    // governed-work turns. The UI surface at /__ioi/run-timeline/:id polls this.
+    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/timeline")) {
+      const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
+      const run = getRun(runId);
+      if (!run) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, reason: "run not found" })); return; }
+      // merge the daemon governance audit trail (authority receipts) — real records, never fabricated
+      let authorityReceipts = [];
+      try { const r = await djson("GET", "/v1/hypervisor/authority/receipts"); authorityReceipts = r.body?.receipts || []; } catch { /* daemon transient — empty trail */ }
+      const timeline = projectRunTimeline(run, { authorityReceipts });
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(timeline));
+      return;
+    }
     if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation")) {
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
       if (pathname.endsWith("/conversation/history")) {
@@ -560,6 +1176,7 @@ function handleSupervisorWs(ws) {
         let aborted = false;
         let since = 0;
         let first = !params?.skipHistory;
+        const sanitize = makeTerminalSanitizer();
         streams.set(id, () => { aborted = true; });
         (async () => {
           try {
@@ -576,9 +1193,12 @@ function handleSupervisorWs(ws) {
                 if (ev === "output" && data) { try { const d = JSON.parse(data); outChunk += d.output || ""; if (typeof d.offset === "number") newOffset = d.offset; if (typeof d.running === "boolean") running = d.running; } catch { /* */ } }
               }
               if (outChunk) {
-                const b64 = Buffer.from(outChunk, "utf8").toString("base64");
-                if (first) { first = false; ok(id, { replay: { data: b64, cols: 80, rows: 24 } }); }
-                else ok(id, { data: { data: b64 } });
+                const clean = sanitize(outChunk);
+                if (clean) {
+                  const b64 = Buffer.from(clean, "utf8").toString("base64");
+                  if (first) { first = false; ok(id, { replay: { data: b64, cols: 80, rows: 24 } }); }
+                  else ok(id, { data: { data: b64 } });
+                }
               }
               since = newOffset;
               if (!running) { ok(id, { exited: { exitCode: 0 } }); ok(id, null); break; }
@@ -589,19 +1209,40 @@ function handleSupervisorWs(ws) {
         return;
       }
 
-      // --- Watch (server-streaming): a real fs watcher (inotify) over the env workspace ---
+      // --- Watch (server-streaming): poll the daemon's authoritative {porcelain, files} snapshot
+      // and forward gitStatusChanged / fileChanges deltas. The watch TRUTH lives in the daemon (it
+      // owns the workspace), so this generalizes beyond a serve-co-located fs; serve is pure
+      // transport (mirrors the terminal-stream poll above). ---
       if (m === "Watch") {
-        const envInfo = await djson("GET", `/v1/hypervisor/environments/${encodeURIComponent(env)}`);
-        const wsRoot = envInfo.body?.environment?.status?.workspace_root;
-        if (!wsRoot) { return err(id, C.Unavailable, "workspace not started"); }
-        let timer = null;
-        const watcher = fsWatch(wsRoot, { recursive: true }, (_evt, fname) => {
-          if (fname && String(fname).includes(".git/")) return; // ignore git internals churn
-          ok(id, { fileChanges: { events: [{ path: String(fname || ""), type: "FILE_CHANGE_TYPE_UPDATED", isDirectory: false }] } });
-          if (timer) clearTimeout(timer);
-          timer = setTimeout(() => ok(id, { gitStatusChanged: {} }), 250);
-        });
-        streams.set(id, () => { try { watcher.close(); } catch { /* */ } if (timer) clearTimeout(timer); });
+        const wsUrl = `/v1/hypervisor/environments/${encodeURIComponent(env)}/watch-state`;
+        const initial = await djson("GET", wsUrl);
+        if (!initial.body?.ok) { return err(id, C.Unavailable, initial.body?.reason || "workspace not started"); }
+        let aborted = false;
+        streams.set(id, () => { aborted = true; });
+        let lastPorcelain = initial.body.porcelain || "";
+        let lastFiles = Array.isArray(initial.body.files) ? initial.body.files : [];
+        (async () => {
+          try {
+            while (!aborted) {
+              await new Promise((res) => setTimeout(res, 700));
+              if (aborted) break;
+              let r;
+              try { r = await djson("GET", wsUrl); } catch { continue; }
+              if (!r.body?.ok) continue;
+              const porcelain = r.body.porcelain || "";
+              const files = Array.isArray(r.body.files) ? r.body.files : [];
+              const prev = new Set(lastFiles);
+              const now = new Set(files);
+              const events = [];
+              for (const f of files) if (!prev.has(f)) events.push({ path: f, type: "FILE_CHANGE_TYPE_ADDED", isDirectory: false });
+              for (const f of lastFiles) if (!now.has(f)) events.push({ path: f, type: "FILE_CHANGE_TYPE_DELETED", isDirectory: false });
+              if (events.length) ok(id, { fileChanges: { events } });
+              if (porcelain !== lastPorcelain) ok(id, { gitStatusChanged: {} });
+              lastPorcelain = porcelain;
+              lastFiles = files;
+            }
+          } catch { /* aborted/closed */ }
+        })();
         return;
       }
 
@@ -622,13 +1263,12 @@ function handleSupervisorWs(ws) {
   ws.on("error", () => {});
 }
 
-// The env-ops WS transport is GATED OFF by default. The terminal/watch contract works over it
-// (verified at the protocol level: PTY echo + fs-watch, lease-secured), BUT the harvested reference
-// SPA throws React #306 in its EnvironmentContent component the moment the supervisor probe reports
-// "available" — which would regress the working Code/Files/Changes panels. So for the product SPA we
-// keep the WS unavailable (probe 404s → available:false → files/git keep working over HTTP). Enable
-// with IOI_ENV_OPS_WS=1 for non-SPA clients (CLI/SDK) or a bundle where #306 is fixed.
-const ENV_OPS_WS = process.env.IOI_ENV_OPS_WS === "1";
+// The env-ops WS transport drives the reference app's supervisor availability probe. The terminal
+// tab treats a failed probe as "old environment" even when the HTTP EnvironmentOpsService works, so
+// the product app keeps the probe available by default. IOI-owned HTTP handlers still serve the
+// unary/streaming Connect surface; WS remains a compatibility transport for the probe and non-SPA
+// clients. Set IOI_ENV_OPS_WS=0 to fail the probe closed during low-level bridge debugging.
+const ENV_OPS_WS = process.env.IOI_ENV_OPS_WS !== "0";
 const supervisorWss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (req, socket, head) => {
   const pathname = (req.url || "").split("?")[0];
@@ -643,9 +1283,13 @@ server.on("upgrade", (req, socket, head) => {
 function waitForMirror(attempt = 0) {
   const probe = http.get({ host: "127.0.0.1", port: MIRROR_PORT, path: "/" }, (r) => {
     r.destroy();
-    server.listen(PORT, () =>
-      console.log(`[hypervisor] LIVE reference + IOI /api adapter on http://localhost:${PORT}`),
-    );
+    server.listen(PORT, async () => {
+      console.log(`[hypervisor] LIVE reference + IOI /api adapter on http://localhost:${PORT}`);
+      // #3 — rehydrate the run-registry cache from the daemon's durable agent-run-transcripts so the
+      // Run Timeline + env→run resolvers survive a serve restart (durable truth lives in the daemon).
+      const n = await hydrateRunsFromDaemon();
+      if (n) console.log(`[hypervisor] rehydrated ${n} durable run transcript(s) from the daemon`);
+    });
   });
   probe.on("error", () => {
     if (attempt > 50) {

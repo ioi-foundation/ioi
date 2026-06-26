@@ -10,11 +10,101 @@
 //   and the conversation stream. The daemon EXECUTES; this is an app-side view of its run.
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 import { daemonEnvToGitpod } from "./ioi-projection.mjs";
+import { join } from "node:path";
 
-const runs = new Map(); // agentExecutionId -> run
+const runs = new Map(); // agentExecutionId -> run (in-memory CACHE; durable truth is the daemon)
 const nowIso = () => new Date().toISOString();
 let counter = 0;
 const genId = (prefix) => `${prefix}_${Date.now().toString(36)}${(counter++).toString(36)}`;
+
+// #3 — Agentgres-durable transcript. The run-registry is the serve-side orchestrator/cache; the
+// DURABLE truth lives in the daemon (`/v1/hypervisor/agent-run-transcripts`), so the Run Timeline
+// survives serve restarts and becomes replayable/auditable. We write-through on every state change
+// and rehydrate the cache from the daemon at boot. Boundary: daemon RECORDS, this layer PROJECTS.
+const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+
+// The durable subset of a run (the Run Timeline truth). Transcript is bounded — it's a view, not a
+// raw-context dump.
+function runRecord(run) {
+  return {
+    run_id: run.id,
+    agent_id: run.agentId || null,
+    environment_id: run.envId || null,
+    session_ref: run.sessionRef || null,
+    prompt: run.prompt || null,
+    name: run.name || null,
+    status: run.status || null,
+    error: run.error || null,
+    activity_log: run.activityLog || [],
+    summary: run.summary || null,
+    authority: run.authority || null,
+    capability_lease_ref: run.capabilityLeaseRef || null,
+    proposal_ref: run.proposalRef || null,
+    changed_files: run.changedFiles || [],
+    transcript: (run.transcript || []).slice(-50),
+    user_input_block_id: run.userInputBlockId || null,
+    created_at: run.createdAt || null,
+    updated_at: run.updatedAt || null,
+  };
+}
+
+// Rebuild a cache run object from a durable daemon record (boot rehydrate).
+function recordToRun(r) {
+  return {
+    id: r.run_id,
+    agentId: r.agent_id || genId("agentdef"),
+    envId: r.environment_id || null,
+    env: null,
+    sessionRef: r.session_ref || `session:ai-${r.run_id}`,
+    sessionStarted: true,
+    prompt: r.prompt || null,
+    name: r.name || "Agent session",
+    status: r.status || "done",
+    activity: (r.activity_log || []).slice(-1)[0]?.text || null,
+    iterations: 1,
+    statusVersion: 1,
+    createdAt: r.created_at || nowIso(),
+    updatedAt: r.updated_at || nowIso(),
+    transcript: r.transcript || [],
+    changedFiles: r.changed_files || [],
+    summary: r.summary || null,
+    error: r.error || null,
+    activityLog: r.activity_log || [],
+    authority: r.authority || null,
+    capabilityLeaseRef: r.capability_lease_ref || null,
+    proposalRef: r.proposal_ref || null,
+    userInputBlockId: r.user_input_block_id || null,
+    stateRoot: r.state_root || null,
+    sessionRehydrated: true,
+  };
+}
+
+// Write-through (fire-and-forget) — records the run durably and captures the daemon's state_root.
+function persistRun(run) {
+  if (!run?.id) return;
+  fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(run.id)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(runRecord(run)),
+  })
+    .then((r) => r.json())
+    .then((d) => { if (d && d.state_root) run.stateRoot = d.state_root; })
+    .catch(() => { /* durability is eventual; terminal state is re-written on finalize */ });
+}
+
+// Boot rehydrate — load durable run-transcripts into the cache so the timeline + env→run resolvers
+// survive a serve restart. Called once at serve startup.
+export async function hydrateRunsFromDaemon() {
+  try {
+    const res = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts`);
+    const body = await res.json();
+    let n = 0;
+    for (const r of body.runs || []) {
+      if (r.run_id && !runs.has(r.run_id)) { runs.set(r.run_id, recordToRun(r)); n++; }
+    }
+    return n;
+  } catch { return 0; }
+}
 
 export function getRun(id) {
   return runs.get(id);
@@ -172,6 +262,7 @@ export async function startAgentRun({ daemonBase, prompt, environmentClassId }) 
   const userInputBlockId = genId("blk");
   run.userInputBlockId = userInputBlockId;
   runs.set(id, run);
+  persistRun(run); // #3 durable from creation
 
   // Async harness execution (challenge → mint → execute). Never throws into the caller.
   void executeRun(run, base, dj);
@@ -205,6 +296,7 @@ export function registerAgentRun({ envId }) {
     error: null,
   };
   runs.set(id, run);
+  persistRun(run); // #3 durable from creation
   return run;
 }
 
@@ -220,7 +312,7 @@ export async function sendToAgentRun({ daemonBase, runId, prompt, userInputBlock
   // fall back to a synthetic id if the client didn't send one. The conversation stream echoes this
   // id so the SPA reconciles the pending turn (no duplicate prompt; "Thinking…" resolves).
   run.userInputBlockId = userInputBlockId || run.userInputBlockId || genId("blk");
-  bump(run, "Agent working in the environment…");
+  bump(run, "Starting run…");
   const base = daemonBase.replace(/\/$/, "");
   const dj = async (method, path, payload) => {
     const res = await fetch(base + path, {
@@ -241,6 +333,15 @@ export async function sendToAgentRun({ daemonBase, runId, prompt, userInputBlock
     await dj("POST", "/v1/hypervisor/sessions", { session_ref: run.sessionRef, project_ref: "project:ai", environment_id: run.envId });
     run.sessionStarted = true;
   }
+  // The SPA surfaces "Create PR" as agent-prompt templates, not a dedicated SCM RPC: the quick
+  // action sends "Create a pull request for the current changes." and the /pull-request slash
+  // command sends "Raise a draft PR for a branch …". Intercept BOTH (a PR noun + a creation verb)
+  // and route to the daemon-owned governed proposal instead of the generic harness.
+  const p = prompt || "";
+  if (/\b(pull request|draft pr)\b/i.test(p) && /\b(create|raise|open|draft|make|prepare|submit)\b/i.test(p)) {
+    void createLocalPullRequestDraft(run, dj);
+    return run.userInputBlockId;
+  }
   void executeRun(run, base, dj);
   return run.userInputBlockId;
 }
@@ -260,9 +361,47 @@ async function ensureEnvStarted(dj, envId) {
 }
 
 function bump(run, activity) {
-  if (activity) run.activity = activity;
+  if (activity) {
+    run.activity = activity;
+    // Retain the governed-work step history (authority → grant → execute → done) so the owned Run
+    // Timeline can show the activity progression, not just the latest status.
+    if (!Array.isArray(run.activityLog)) run.activityLog = [];
+    const last = run.activityLog[run.activityLog.length - 1];
+    if (!last || last.text !== activity) run.activityLog.push({ at: nowIso(), text: activity });
+  }
   run.updatedAt = nowIso();
   run.statusVersion += 1;
+  persistRun(run); // #3 write-through every state change to the durable daemon record
+}
+
+async function createLocalPullRequestDraft(run, dj) {
+  try {
+    bump(run, "Proposing a pull-request draft...");
+    // Daemon-owned governed proposal: the daemon owns the workspace + execution, so IT computes the
+    // git diff, writes the draft artifact INTO the env's scoped workspace, and records a
+    // pull-request-draft.v1 proposal (review_state: proposed) — aligned with Cut E's automation
+    // proposals. The serve/adapter never mutates the workspace; it only routes to this endpoint.
+    const r = await dj("POST", `/v1/hypervisor/environments/${encodeURIComponent(run.envId)}/pull-request-drafts`);
+    const draft = r.body?.draft;
+    if (!r.body?.ok || !draft) throw new Error(r.body?.reason || `daemon declined PR draft (status ${r.status})`);
+    const refs = draft.artifact_refs || {};
+    const files = [refs.summary, refs.patch].filter(Boolean);
+    const remote = draft.remote_publish || {};
+    const changedCount = Array.isArray(draft.changed_files) ? draft.changed_files.length : 0;
+    run.status = "done";
+    run.proposalRef = r.body.proposal_ref;
+    run.transcript = [{ stream: "stdout", text: `Proposed PR draft ${draft.draft_id} (review_state: ${draft.review_state}, ${changedCount} changed file(s)).\n` }];
+    run.changedFiles = files.length ? [{ files }] : [];
+    run.summary = [
+      `Proposed a pull-request draft at ${refs.summary || draft.draft_id} (${changedCount} changed file(s)).`,
+      remote.supported ? "" : `Remote publishing is unavailable: ${remote.reason || "requires an SCM connector + wallet authority"}.`,
+    ].filter(Boolean).join(" ");
+    bump(run, "Done");
+  } catch (error) {
+    run.status = "failed";
+    run.error = String(error?.message || error);
+    bump(run, `Failed: ${run.error}`);
+  }
 }
 
 async function executeRun(run, base, dj) {
@@ -279,6 +418,15 @@ async function executeRun(run, base, dj) {
     }
     bump(run, "Authorizing run (wallet grant)…");
     const grant = mintApprovalGrant({ policyHash, requestHash });
+    // Record the authority proof on the run (hashes + grant identity only — never the secret) so the
+    // owned Run Timeline can surface the governed-work authority crossing.
+    run.authority = {
+      policyHash,
+      requestHash,
+      grantId: grant?.grant_id || grant?.id || grant?.approval_id || null,
+      expiresAt: grant?.expires_at || grant?.expiresAt || null,
+      mintedAt: nowIso(),
+    };
     bump(run, "Agent working in the environment…");
     const result = await dj("POST", execPath, { intent: run.prompt, wallet_approval_grant: grant });
     finalize(run, result);

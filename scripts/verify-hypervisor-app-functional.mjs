@@ -48,8 +48,8 @@ let envId = null;
 try {
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   // JS/page errors (real bugs) vs failing request URLs (network). Network "Failed to load resource"
-  // lines carry no URL, so attribute network failures by URL — the env-ops terminal/watch streaming
-  // (supervisor WS + unimplemented stream methods) is a declared next increment, tolerated by URL.
+  // lines carry no URL, so attribute network failures by URL. The reference may probe optional
+  // supervisor files before they exist; those 404s are normal empty states.
   const errs = [];
   p.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|WebSocket connection/i.test(m.text())) errs.push(m.text()); });
   p.on("pageerror", (e) => errs.push("pageerror: " + e.message));
@@ -94,18 +94,23 @@ try {
   ok(ws && fs.existsSync(`${ws}/.devcontainer/devcontainer.json`) && fs.existsSync(`${ws}/.devcontainer/Dockerfile`),
     "REAL EFFECT: env scaffolded with .devcontainer/{devcontainer.json,Dockerfile}");
 
-  // 3c) UX EFFECT: the live conversation pane resolves the optimistic "Thinking…" placeholder
-  // into the agent's completed reply. This guards the harvested SPA hydration edge where the run
-  // had completed and files were visible, but the transcript stayed stuck in a pending row.
-  await p.waitForTimeout(5000);
-  const transcriptText = await p.evaluate(() => document.body?.innerText || "");
-  const replyText = transcriptText.split(TASK).join("");
-  ok(!/Retrying in|Stream closed unexpectedly/i.test(transcriptText),
-    "conversation pane has no retry loop after submit");
-  ok(!/Thinking/i.test(transcriptText),
-    "conversation pane resolves the optimistic 'Thinking' placeholder after completion");
-  ok(/Generated|Created|Wrote|Run complete|Changed files/i.test(replyText),
-    "conversation pane renders the completed agent reply", replyText.slice(0, 160).replace(/\n/g, " "));
+  // 3c) UX EFFECT: the workbench conversation surface is now Hypervisor's OWNED Run Timeline (the
+  // borrowed chat pane is replaced in-pane by an iframe to /__ioi/run-timeline). Read the owned
+  // timeline's content for the conversation assertions — it must resolve the run into a completed
+  // response (no stuck 'Thinking', no retry loop).
+  let convText = "";
+  for (let i = 0; i < 12; i++) {
+    await p.waitForTimeout(1500);
+    const frame = p.frames().find((f) => /\/__ioi\/run-timeline\//.test(f.url()));
+    if (frame) { try { convText = await frame.evaluate(() => document.body?.innerText || ""); } catch { /* iframe navigating */ } }
+    if (/Generated|Created|Wrote|Run complete|Changed files/i.test(convText)) break;
+  }
+  ok(!/Retrying in|Stream closed unexpectedly/i.test(convText),
+    "owned Run Timeline: no retry/stream-closed error");
+  ok(!/Thinking/i.test(convText),
+    "owned Run Timeline: no stuck 'Thinking' placeholder");
+  ok(/Generated|Created|Wrote|Run complete|Changed files/i.test(convText),
+    "owned Run Timeline renders the completed agent response", convText.replace(/\s+/g, " ").slice(0, 160));
 
   // 4) The visual code editor opens AND RENDERS against that workspace (real openvscode-server) —
   // load it in a real browser and assert the Monaco workbench mounts + shows the scaffolded files
@@ -162,8 +167,8 @@ try {
 
   // 5) No console/page errors; app stays self-contained (no external CDN).
   ok(errs.length === 0, "zero JS/page errors across the flow", errs.slice(0, 2).join("; "));
-  const nonSupervisorFailures = failedUrls.filter((u) => !/supervisor/i.test(u));
-  ok(nonSupervisorFailures.length === 0, "no failing requests beyond the declared supervisor terminal/watch gap", nonSupervisorFailures.slice(0, 3).join(" | "));
+  const unexpectedFailures = failedUrls.filter((u) => !/supervisor\/.*\/ReadFile/i.test(u));
+  ok(unexpectedFailures.length === 0, "no failing requests beyond optional supervisor file probes", unexpectedFailures.slice(0, 3).join(" | "));
   ok(cdn.size === 0, "app is self-contained (zero external app.gitpod.io CDN requests)", [...cdn].slice(0, 2).join(", "));
 } finally {
   await b.close();

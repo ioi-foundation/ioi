@@ -5,7 +5,9 @@
 //      EnvironmentOpsService through the env gateway: ReadFile(dir) lists the scaffolded .devcontainer,
 //      GetGitDiffFiles lists the two files as added, GetGitDiff returns real hunks; an unleased call
 //      and a revoked lease both FAIL CLOSED (401) — security assertion, not happy-path only.
-//   2. UI (Playwright): /details/:envId native panels load real files (no "Unable to load files"),
+//   2. STREAMING: terminal/watch over the env-ops WebSocket transport use the daemon's real PTY
+//      and fs watcher.
+//   3. UI (Playwright): /details/:envId native panels load real files (no "Unable to load files"),
 //      zero console errors, app self-contained.
 // Requires serve (:4173) + daemon (:8765). Missing ⇒ BLOCKED (named host gap), never a fake pass.
 const JSON_OUT = process.argv.includes("--json");
@@ -93,7 +95,7 @@ try {
     setTimeout(() => resolve(out), 12000);
   });
   if (!result.connected) {
-    ok(true, "WS terminal/watch contract gated off by default (harvested SPA #306); enable IOI_ENV_OPS_WS=1 to verify");
+    ok(false, "WS terminal/watch contract is available by default");
   } else {
     ok(result.terminal, "WS terminal: create+attach streams a real PTY (echo round-trips)");
     ok(result.watch, "WS watch: a workspace write emits a real fs/git event");
@@ -127,10 +129,10 @@ if (!chromium) {
     const body = await p.evaluate(() => document.body?.innerText || "");
     ok(!/Unable to load files/i.test(body), "native panel does NOT show 'Unable to load files'");
     ok(/devcontainer|Dockerfile/i.test(body), "native panel shows the workspace files (.devcontainer/Dockerfile)");
-    // Declared gap: terminal/watch streaming (the SPA opens a supervisor WS + hits unimplemented
-    // stream methods) is the next env-ops increment. Tolerate ONLY supervisor-URL failures.
-    const nonSupervisorFailures = failedUrls.filter((u) => !/supervisor/i.test(u));
-    ok(nonSupervisorFailures.length === 0, "no failing requests beyond the declared supervisor terminal/watch gap", nonSupervisorFailures.slice(0, 3).join(" | "));
+    // The reference probes an optional review-comments file through ReadFile before it exists. That
+    // 404 is a normal empty state; everything else should be clean.
+    const unexpectedFailures = failedUrls.filter((u) => !/supervisor\/.*\/ReadFile/i.test(u));
+    ok(unexpectedFailures.length === 0, "no failing requests beyond optional supervisor file probes", unexpectedFailures.slice(0, 3).join(" | "));
     ok(jsErrs.length === 0, "zero JS/page errors", jsErrs.slice(0, 2).join("; "));
     ok(cdn.size === 0, "app self-contained (no app.gitpod.io)", [...cdn].slice(0, 2).join(", "));
   } finally { await b.close(); }

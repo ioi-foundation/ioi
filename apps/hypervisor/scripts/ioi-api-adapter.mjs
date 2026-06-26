@@ -85,6 +85,15 @@ function makePreference(key, value, entry) {
 const textFromBody = (b) => b.text || b.message || b.prompt || b.input || b.content || "";
 const envIdFromBody = (b) =>
   b.environmentId || b.req?.environmentId || b.spec?.environmentId || b.projectId || "default-environment";
+const portsFromBody = (b) => {
+  const candidates = [b.spec?.ports, b.req?.spec?.ports, b.ports, b.req?.ports];
+  return candidates.find((ports) => Array.isArray(ports)) || [];
+};
+const portAdmissionValue = (port) => port?.admission ?? port?.access ?? port?.admissionLevel;
+const isPortUnexpose = (port) => {
+  const admission = portAdmissionValue(port);
+  return admission === 0 || admission === "0" || admission === "ADMISSION_LEVEL_UNSPECIFIED" || admission === "UNSPECIFIED";
+};
 
 async function waitForRunTerminal(runId, timeoutMs = 45000) {
   const deadline = Date.now() + timeoutMs;
@@ -236,6 +245,12 @@ export async function handle(pathname, bodyText) {
         const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
         if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: daemonEnvToGitpod(await act(id, "start")) });
         if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: daemonEnvToGitpod(await act(id, "stop")) });
+        for (const port of portsFromBody(body)) {
+          const portNo = Number(port?.port || 0);
+          if (!Number.isFinite(portNo) || portNo <= 0) continue;
+          const endpoint = isPortUnexpose(port) ? "unexpose" : "expose";
+          await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ports/${portNo}/${endpoint}`, {});
+        }
         return json({ environment: daemonEnvToGitpod(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
       }
       case "/api/gitpod.v1.EnvironmentService/CreateEnvironment":
