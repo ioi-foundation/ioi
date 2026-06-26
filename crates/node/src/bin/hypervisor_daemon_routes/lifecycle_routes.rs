@@ -7885,6 +7885,9 @@ struct CapabilityLeaseRequest {
     request_facets: Value,
     /// Connector whose sealed credential to resolve (None = authority-only crossing, no secret).
     credential_connector_id: Option<String>,
+    /// Which sealed-credential vault to resolve from ("scm-credentials" for SCM, "connector-
+    /// credentials" for the generic estate). The same gateway serves every connector family.
+    credential_store: String,
     /// Fail closed (428) if the credential is required but unresolved.
     credential_required: bool,
     /// Allow the github host git-auth fallback (a repo lease borrows the connected host token).
@@ -7971,7 +7974,7 @@ async fn authorize_capability_lease(
     let mut credential_source: Option<String> = None;
     let mut credential_key_source: Option<String> = None;
     if let Some(cid) = req.credential_connector_id.as_deref() {
-        if let Some(rec) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(cid)) {
+        if let Some(rec) = read_record_dir(&st.data_dir, &req.credential_store).into_iter().find(|c| c["connector_id"].as_str() == Some(cid)) {
             let (t, src, ks) = resolve_sealed_credential(&rec).await;
             token = t; credential_source = src; credential_key_source = ks;
         }
@@ -8049,6 +8052,187 @@ async fn authorize_capability_lease(
 /// (the 9-field shape). NEVER includes a credential/secret — leases are use-only by construction.
 pub(crate) async fn handle_capability_lease_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "ok": true, "leases": read_record_dir(&st.data_dir, "capability-leases") }))
+}
+
+// ================================================================================================
+// Generic connector estate (master-guide #5) — ANY external service as a USE-ONLY lease.
+//
+// The SCM connectors proved the CapabilityLease gateway; this generalizes it: a connector declares a
+// `service`, a `base_url`, and a set of named `allowed_tools` (each {name, method, path}). The agent
+// invokes a tool by NAME; the daemon authorizes the crossing through the SAME gateway, resolves the
+// connector's sealed bearer credential, performs the authenticated HTTP call, and records a receipt.
+// The agent receives a use-only lease scoped to declared tools — it NEVER sees the credential.
+// Slack/Databricks/Linear/etc. are just a (service, base_url, allowed_tools) triple. Catalog/connect
+// UX + non-bearer auth (OAuth refresh / AWS SigV4) are follow-ons on this same spine.
+// ================================================================================================
+
+/// POST /v1/hypervisor/connectors — register a generic service connector (no credential yet).
+pub(crate) async fn handle_connector_register(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let service = body.get("service").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let base_url = body.get("base_url").and_then(Value::as_str).unwrap_or("").trim_end_matches('/').to_string();
+    if service.is_empty() || base_url.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "service and base_url are required" })));
+    }
+    let kind = body.get("kind").and_then(Value::as_str).unwrap_or("bearer").to_string();
+    let name = body.get("name").and_then(Value::as_str).unwrap_or(service.as_str()).to_string();
+    let allowed_tools = body.get("allowed_tools").cloned().unwrap_or_else(|| json!([]));
+    let requires_credential = body.get("requires_credential").and_then(Value::as_bool).unwrap_or(true);
+    let connector_id = format!("conn_{}", short_hash(&format!("{service}:{name}:{base_url}")));
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.connector.v1",
+        "connector_id": connector_id, "service": service, "kind": kind, "name": name,
+        "base_url": base_url, "allowed_tools": allowed_tools, "requires_credential": requires_credential,
+        "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "connectors", &connector_id, &connector);
+    (StatusCode::OK, Json(json!({ "ok": true, "connector": connector })))
+}
+
+/// GET /v1/hypervisor/connectors — list registered service connectors (NEVER includes credentials).
+pub(crate) async fn handle_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "connectors") }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/credential — bind a sealed bearer credential to a connector.
+pub(crate) async fn handle_connector_bind_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if token.is_empty() {
+        return Json(json!({ "ok": false, "reason": "token is required" }));
+    }
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    let Some(sealed) = seal_scm_token(&token) else {
+        return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+    };
+    let key_source = scm_key_source();
+    let cred = json!({ "connector_id": id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+    connector["auth_posture"] = json!("token-lease:bound");
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound" }))
+}
+
+/// DELETE /v1/hypervisor/connectors/:id/credential — revoke the sealed credential (fail-closed after).
+pub(crate) async fn handle_connector_revoke_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let revoked = remove_record(&st.data_dir, "connector-credentials", &id);
+    if let Some(mut connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) {
+        connector["auth_posture"] = json!("token-lease:unbound");
+        connector["revoked_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    }
+    Json(json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }))
+}
+
+/// DELETE /v1/hypervisor/connectors/:id — remove a connector and its sealed credential entirely.
+pub(crate) async fn handle_connector_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let cred = remove_record(&st.data_dir, "connector-credentials", &id);
+    let conn = remove_record(&st.data_dir, "connectors", &id);
+    Json(json!({ "ok": true, "connector_id": id, "removed": conn, "credential_removed": cred }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/invoke — the wallet-authorized USE crossing: invoke a declared
+/// tool on the connector's service with its sealed credential. The agent names a tool; the daemon
+/// authorizes via the CapabilityLease gateway, performs the authenticated call, and returns the tool
+/// RESULT (credential redacted). The credential never leaves the daemon.
+pub(crate) async fn handle_connector_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let service = connector["service"].as_str().unwrap_or("service").to_string();
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(true);
+    let tool_name = body.get("tool").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if tool_name.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "tool is required" })));
+    }
+    // The lease only permits DECLARED tools — the agent cannot invoke anything off-manifest.
+    let Some(tool) = connector["allowed_tools"].as_array().and_then(|tools| tools.iter().find(|t| t["name"].as_str() == Some(tool_name.as_str())).cloned()) else {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "tool_not_allowed", "message": format!("'{tool_name}' is not a declared tool on this connector") })));
+    };
+    let method = tool["method"].as_str().unwrap_or("POST").to_uppercase();
+    let path = tool["path"].as_str().unwrap_or("/").to_string();
+    let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
+
+    // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("{service}:connector:{id}"),
+        allowed_tools: vec![tool_name.clone()],
+        resource_refs: vec![base_url.clone(), service.clone()],
+        scopes: vec![format!("{service}.{tool_name}")],
+        policy_domain: "hypervisor.connector.invoke.policy.v1".to_string(),
+        request_domain: "hypervisor.connector.invoke.request.v1".to_string(),
+        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args) }),
+        credential_connector_id: Some(id.clone()),
+        credential_store: "connector-credentials".to_string(),
+        credential_required: requires_credential,
+        github_host_fallback: false,
+        receipt_required: true,
+        revocation_ref: format!("connectors/{id}/credential"),
+        authority_reason: "connector_invoke_authority_required".to_string(),
+        grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
+    };
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
+    };
+    let token = lease.token.unwrap_or_default();
+
+    // daemon EXECUTES the authenticated call (the agent never holds the token).
+    let url = format!("{}{}", base_url, if path.starts_with('/') { path.clone() } else { format!("/{path}") });
+    let client = reqwest::Client::new();
+    let mut rb = match method.as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
+        "DELETE" => client.delete(&url),
+        other => return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": format!("unsupported method {other}") }))),
+    };
+    rb = rb.header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").timeout(std::time::Duration::from_secs(20));
+    if !token.is_empty() { rb = rb.bearer_auth(&token); }
+    if method != "GET" { rb = rb.json(&request_args); }
+    let (status_code, response_value, error) = match rb.send().await {
+        Ok(r) => {
+            let sc = r.status().as_u16();
+            let text = r.text().await.unwrap_or_default();
+            // REDACT the credential from any echoed response before returning/recording.
+            let red = if token.is_empty() { text } else { text.replace(token.as_str(), "***") };
+            let parsed: Value = serde_json::from_str(&red).unwrap_or(Value::String(red.chars().take(2000).collect()));
+            (sc, parsed, None)
+        }
+        Err(e) => (0, Value::Null, Some(e.to_string().replace(token.as_str(), "***"))),
+    };
+    let ok = (200..300).contains(&status_code);
+    let receipt_id = format!("invk_{}", short_hash(&format!("{id}:{tool_name}:{status_code}")));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
+        "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
+        "method": method, "url": url, "status": status_code, "ok": ok,
+        "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
+        "capability_lease": lease.descriptor, "host_mutation": true, "error": error,
+        "invoked_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "connector-invoke-receipts", &receipt_id, &receipt);
+    (StatusCode::OK, Json(json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt })))
 }
 
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
@@ -8229,6 +8413,7 @@ pub(crate) async fn handle_scm_publish(
         request_domain: "hypervisor.scm.publish.request.v1".to_string(),
         request_facets: json!({ "environment_id": id, "connector_id": connector_id, "branch": branch }),
         credential_connector_id: Some(connector_id.clone()),
+        credential_store: "scm-credentials".to_string(),
         credential_required: requires_credential,
         github_host_fallback: remote_url.contains("github.com"),
         receipt_required: true,
@@ -8528,6 +8713,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
         request_domain: "hypervisor.scm.abandon.request.v1".to_string(),
         request_facets: json!({ "connector_id": connector_id, "pull_request_url": pull_request_url, "delete_branch": delete_branch }),
         credential_connector_id: Some(connector_id.clone()),
+        credential_store: "scm-credentials".to_string(),
         credential_required: requires_credential,
         github_host_fallback: remote_url.contains("github.com"),
         receipt_required: true,

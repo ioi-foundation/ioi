@@ -1084,6 +1084,25 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/capability-leases",
             get(lifecycle_routes::handle_capability_lease_list),
         )
+        // Generic connector estate — ANY service as a use-only lease through the same gateway.
+        .route(
+            "/v1/hypervisor/connectors",
+            get(lifecycle_routes::handle_connector_list)
+                .post(lifecycle_routes::handle_connector_register),
+        )
+        .route(
+            "/v1/hypervisor/connectors/:id/credential",
+            post(lifecycle_routes::handle_connector_bind_credential)
+                .delete(lifecycle_routes::handle_connector_revoke_credential),
+        )
+        .route(
+            "/v1/hypervisor/connectors/:id",
+            axum::routing::delete(lifecycle_routes::handle_connector_delete),
+        )
+        .route(
+            "/v1/hypervisor/connectors/:id/invoke",
+            post(lifecycle_routes::handle_connector_invoke),
+        )
         .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),
