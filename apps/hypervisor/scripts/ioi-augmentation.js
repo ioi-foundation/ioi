@@ -62,6 +62,33 @@
     });
   }
 
+  // ---- BYOA "Create & connect GitHub App" affordance on the Git authentications surface ----------
+  // The harvested SPA's native connect modal only knows PAT/OAuth; GitHub App is a method it can't
+  // render, so we add it ourselves — below the connections list, styled with the SPA's own design
+  // tokens. It LAUNCHES IN A NEW TAB so the settings dialog stays put; the flow's success page tells
+  // the user to close that tab. Idempotent + re-applied each tick (React re-renders the panel).
+  function mountGitAppButton() {
+    const panel = document.querySelector('[data-testid="git-authentications"]');
+    if (!panel || document.getElementById("ioi-ghapp-connect")) return;
+    const btn = document.createElement("button");
+    btn.id = "ioi-ghapp-connect";
+    btn.type = "button";
+    btn.className =
+      "mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-dashed " +
+      "border-border-base bg-surface-secondary px-4 py-3.5 text-left transition-colors " +
+      "hover:bg-surface-button-clear-accent hover:border-border-brand";
+    btn.innerHTML =
+      '<span class="flex min-w-0 flex-col gap-0.5">' +
+      '<span class="text-base font-medium text-content-primary">Create &amp; connect GitHub App</span>' +
+      '<span class="text-sm text-content-secondary">Bring your own — created in your account, no shared secret. Fine-grained, auto-refreshing access.</span>' +
+      "</span>" +
+      '<span class="shrink-0 text-content-secondary" aria-hidden="true">↗</span>';
+    btn.addEventListener("click", function () {
+      window.open("/__ioi/github-app/start", "_blank", "noopener");
+    });
+    panel.appendChild(btn);
+  }
+
   let activeEnvId = null;
   let lastExec = null;
 
@@ -294,6 +321,9 @@
     // SPA's own re-renders (cheap idempotent re-apply; the SPA is a client-router, no full reloads).
     setInterval(mountTimelineInWorkbench, 700);
     mountTimelineInWorkbench();
+    // Keep the BYOA GitHub App affordance present on the Git authentications surface.
+    setInterval(mountGitAppButton, 700);
+    mountGitAppButton();
   }
 
   if (document.body) mount();
