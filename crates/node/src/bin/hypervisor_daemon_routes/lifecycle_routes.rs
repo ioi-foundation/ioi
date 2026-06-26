@@ -7866,6 +7866,30 @@ fn scm_publish_request_hash(environment_id: &str, connector_id: &str, branch: &s
     }))
 }
 
+// SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
+// + AEAD), keyed by the SAME wallet-secret passphrase the wallet.network secret model uses
+// (IOI_WALLET_SECRET_PASS → IOI_GUARDIAN_KEY_PASS → "local-mode" fallback). With a real passphrase
+// set this is genuine at-rest protection (key supplied out-of-band, never in the data dir); without
+// one it seals under the local-mode fallback (no plaintext at rest, but key is well-known — honest
+// label travels via key_source). Decrypt failure → token unavailable → publish fails closed.
+fn scm_secret_passphrase() -> String {
+    std::env::var("IOI_WALLET_SECRET_PASS").ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+        .or_else(|| std::env::var("IOI_GUARDIAN_KEY_PASS").ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty()))
+        .unwrap_or_else(|| "local-mode".to_string())
+}
+fn scm_key_source() -> &'static str {
+    let has = |k: &str| std::env::var(k).map(|v| !v.trim().is_empty()).unwrap_or(false);
+    if has("IOI_WALLET_SECRET_PASS") || has("IOI_GUARDIAN_KEY_PASS") { "wallet-secret-pass" } else { "local-mode-fallback" }
+}
+fn seal_scm_token(token: &str) -> Option<String> {
+    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &scm_secret_passphrase()).ok().map(hex::encode)
+}
+fn open_scm_token(sealed_hex: &str) -> Option<String> {
+    let bytes = hex::decode(sealed_hex).ok()?;
+    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &scm_secret_passphrase()).ok()?;
+    String::from_utf8(plain.0.to_vec()).ok()
+}
+
 /// POST /v1/hypervisor/scm-connectors — register a named SCM remote target.
 pub(crate) async fn handle_scm_connector_register(
     State(st): State<Arc<DaemonState>>,
@@ -7924,14 +7948,20 @@ pub(crate) async fn handle_scm_connector_bind_credential(
     else {
         return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
     };
-    // store the secret scoped (never surfaced in connector listings)
-    let cred = json!({ "connector_id": id, "token": token, "bound_at": iso_now() });
+    // Seal the secret at rest (no plaintext token in the record) and store it scoped — never
+    // surfaced in connector listings. Fail closed if sealing fails (do not fall back to plaintext).
+    let Some(sealed) = seal_scm_token(&token) else {
+        return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+    };
+    let key_source = scm_key_source();
+    let cred = json!({ "connector_id": id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
     let _ = persist_record(&st.data_dir, "scm-credentials", &id, &cred);
     connector["auth_posture"] = json!("token-lease:bound");
     connector["requires_credential"] = json!(true);
+    connector["credential_key_source"] = json!(key_source);
     let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
     // NEVER return the token
-    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound" }))
+    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "key_source": key_source }))
 }
 
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
@@ -7969,14 +7999,22 @@ pub(crate) async fn handle_scm_publish(
     let requires_credential = connector["requires_credential"].as_bool().unwrap_or(auth_posture.starts_with("token-lease"));
     // Resolve the scoped credential if this connector requires one (read from the separate
     // scm-credentials store; never surfaced in listings). Fail closed if required but unbound.
-    let token: Option<String> = if requires_credential {
+    let cred_record = if requires_credential {
         read_record_dir(&st.data_dir, "scm-credentials")
             .into_iter()
             .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
-            .and_then(|c| c["token"].as_str().map(str::to_string))
     } else {
         None
     };
+    // Open the sealed token (decrypt failure → None → fail closed); legacy plaintext records still resolve.
+    let token: Option<String> = cred_record.as_ref().and_then(|c| {
+        if let Some(sealed) = c["sealed_token"].as_str() {
+            open_scm_token(sealed)
+        } else {
+            c["token"].as_str().map(str::to_string)
+        }
+    });
+    let credential_key_source = cred_record.as_ref().and_then(|c| c["key_source"].as_str().map(str::to_string));
     if requires_credential && token.is_none() {
         return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
             "ok": false, "decision": "blocked", "reason": "scm_credential_required",
@@ -8065,6 +8103,7 @@ pub(crate) async fn handle_scm_publish(
         "title": title,
         "published": pushed,
         "credential_bound": token.is_some(),
+        "credential_key_source": credential_key_source,
         "pull_request_url": pr_url,
         "pull_request_error": pr_error,
         "grant_ref": grant_ref,

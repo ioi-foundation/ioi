@@ -17,6 +17,7 @@ import os from "node:os";
 
 const JSON_OUT = process.argv.includes("--json");
 const DAEMON = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
+const DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${os.homedir()}/.ioi/hypervisor/data`;
 const checks = [];
 let failures = 0;
 const ok = (cond, msg, detail) => { checks.push({ ok: !!cond, msg }); if (!cond) failures++; if (!JSON_OUT) console.log(`    ${cond ? "✓" : "✗ FAIL:"} ${msg}${detail ? ` (${detail})` : ""}`); };
@@ -103,6 +104,15 @@ ok(!("token" in (bind.body || {})), "bind response does NOT echo the token");
 const listAfter = JSON.stringify((await j("GET", "/v1/hypervisor/scm-connectors")).body?.connectors || []);
 ok(!listAfter.includes("ghp_DUMMY_done_bar_token_value"), "connector listing NEVER exposes the bound token");
 
+// HARDENING: the token is SEALED at rest (ioi-crypto AEAD) — the on-disk credential record holds a
+// sealed_token, never the plaintext.
+let credFile = "";
+try { credFile = fs.readFileSync(`${DATA_DIR}/scm-credentials/${credId}.json`, "utf8"); } catch { /* */ }
+ok(credFile && !credFile.includes("ghp_DUMMY_done_bar_token_value"), "HARDENING: no plaintext token in the at-rest credential record");
+let credJson = {}; try { credJson = JSON.parse(credFile); } catch { /* */ }
+ok(credJson.sealed === true && typeof credJson.sealed_token === "string" && credJson.sealed_token.length > 0, "HARDENING: credential is sealed (sealed_token present)", credJson.key_source);
+ok(!("token" in credJson), "HARDENING: at-rest record has no plaintext `token` field");
+
 // authorized publish now passes the credential gate AND the wallet gate → real push to local remote
 const credUnauth = await j("POST", `/v1/hypervisor/environments/${envId}/scm/publish`, { connector_id: credId, title: "Ship (cred)" });
 ok(credUnauth.status === 403, "after binding, publish still requires the wallet crossing grant (403)", `status ${credUnauth.status}`);
@@ -112,6 +122,7 @@ ok(credPub.status === 200 && credPub.body?.receipt?.credential_bound === true, "
 let cLanded = null;
 try { cLanded = execFileSync("git", ["--git-dir", bare2, "rev-parse", credPub.body?.receipt?.branch], { encoding: "utf8" }).trim(); } catch { /* */ }
 ok(cLanded === credPub.body?.receipt?.commit_sha, "REAL EFFECT: credentialed push landed in the local remote");
+ok(typeof credPub.body?.receipt?.credential_key_source === "string", "receipt records the credential key_source (sealed token was opened)", credPub.body?.receipt?.credential_key_source);
 
 try { fs.rmSync(bare, { recursive: true, force: true }); fs.rmSync(bare2, { recursive: true, force: true }); } catch { /* */ }
 
