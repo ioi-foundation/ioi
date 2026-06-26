@@ -8277,7 +8277,7 @@ pub(crate) async fn handle_scm_publish(
     // https github remote with a bound token (skipped/fail-closed otherwise — e.g. the local slice).
     let mut pr_url: Option<String> = None;
     let mut pr_error: Option<String> = None;
-    if pushed && kind == "github" && remote_url.starts_with("https://") {
+    if pushed && (kind == "github" || kind == "github-app") && remote_url.starts_with("https://") {
         if let Some(tok) = &token {
             let base = body.get("base").and_then(Value::as_str).unwrap_or("main").to_string();
             match create_github_pull_request(&remote_url, tok, &branch, &base, &title).await {
@@ -8504,6 +8504,16 @@ pub(crate) async fn handle_scm_abandon_pull_request(
     let Some(pr_number) = pull_request_url.rsplit('/').next().and_then(|s| s.parse::<u64>().ok()) else {
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "could not parse PR number from pull_request_url" })));
     };
+    // The repo to act on comes from the PR URL itself (https://github.com/{owner}/{repo}/pull/{n}),
+    // so this works for a host-level connector (App / host PAT) whose remote_url is just github.com.
+    let target_remote = {
+        let path = pull_request_url.trim_start_matches("https://github.com/");
+        let mut it = path.split('/');
+        match (it.next(), it.next()) {
+            (Some(o), Some(r)) if !o.is_empty() && !r.is_empty() => format!("https://github.com/{o}/{r}.git"),
+            _ => remote_url.clone(),
+        }
+    };
 
     // Authorize the cleanup CROSSING through the SAME generic capability-lease gateway as publish —
     // distinct scopes/domains (scm.pr.close) so a publish grant can't authorize an abandon.
@@ -8537,7 +8547,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
     // daemon EXECUTES the cleanup (authorized).
     let tok = token.unwrap_or_default();
     let (closed, head_branch, branch_deleted, error) =
-        match close_github_pull_request(&remote_url, &tok, pr_number, delete_branch).await {
+        match close_github_pull_request(&target_remote, &tok, pr_number, delete_branch).await {
             Ok((c, b, d)) => (c, b, d, None),
             Err(e) => (false, String::new(), false, Some(e.replace(tok.as_str(), "***"))),
         };
@@ -8797,13 +8807,16 @@ pub(crate) async fn handle_github_app_manifest(
         .filter(|s| !s.trim().is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| format!("ioi-hypervisor-{}", short_hash(&format!("{now}:{owner}"))));
+    // No hook_attributes: GitHub requires the webhook URL be publicly reachable (localhost is
+    // rejected), and a GitHub App needs no webhook for this flow. Omitting it = no webhook, which
+    // keeps the manifest valid for a localhost (BYOA/dev) callback. redirect_url + setup_url on
+    // localhost are accepted (they're browser redirects, not server-reachable hooks).
     let manifest = json!({
         "name": name,
         "url": callback_base,
         "redirect_url": format!("{callback_base}/__ioi/github-app/callback"),
         "setup_url": format!("{callback_base}/__ioi/github-app/installed"),
         "setup_on_update": true,
-        "hook_attributes": { "url": format!("{callback_base}/__ioi/github-app/webhook"), "active": false },
         "public": false,
         "default_permissions": { "contents": "write", "pull_requests": "write", "metadata": "read" },
         "default_events": [],
