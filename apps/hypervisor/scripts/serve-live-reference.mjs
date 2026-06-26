@@ -26,37 +26,46 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun } from "./ioi-agent-runs.mjs";
 
-// Build the V1 conversation replay (newline-delimited JSON) for a run — the exact shape the SPA's
-// conversation pane renders: a userInput entry (the prompt), an optional todoGroup of the files the
-// agent wrote, and a text summary. Mirrors the harvested reference's bare-/conversation format.
-function conversationReplay(run) {
-  const lines = [];
-  // NOTE: we intentionally do NOT emit the userInput entry. The SPA renders the submitted prompt
-  // optimistically as its own user bubble; emitting it again here produced a DUPLICATE prompt. We
-  // emit only the agent side (the work it did + its summary), which the pane shows as the response.
-  // the files the agent actually changed → a done todo group (concrete evidence of the work).
+// Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
+// renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
+// id) as the run progresses. While running we emit only the user prompt (the SPA shows its own
+// "Thinking…" placeholder); on completion we emit the files the agent wrote + its summary, which
+// replace the placeholder. Mirrors the harvested reference's bare-/conversation wire format.
+function conversationFiles(run) {
   const files = [];
   for (const g of run.changedFiles || []) {
     if (Array.isArray(g?.files)) for (const f of g.files) files.push(typeof f === "string" ? f : f?.path);
     else if (typeof g === "string") files.push(g);
     else if (g?.path) files.push(g.path);
   }
-  const uniqueFiles = [...new Set(files.filter(Boolean))];
-  if (run.status === "done" && uniqueFiles.length) {
-    lines.push(JSON.stringify({
-      id: `${run.id}-todos`, phase: "PHASE_COMPLETED",
-      todoGroup: { groupId: `${run.id}-todos`, todos: uniqueFiles.slice(0, 12).map((p, i) => ({ id: `f${i}`, title: `Wrote ${p}`, phase: "PHASE_DONE" })) },
-    }));
+  return [...new Set(files.filter(Boolean))];
+}
+function conversationEntries(run) {
+  const out = [];
+  // Block phase enum (the SPA's AgentResponseBlock.phase): UNSPECIFIED=0, UPDATE=1, COMPLETED=2,
+  // DELTA=3. The SPA computes a text fragment's `completed` as `phase === COMPLETED(2)`; a
+  // non-completed agent text renders as a shimmer "Thinking…" placeholder. So agent blocks MUST use
+  // the numeric value 2 (an enum NAME string like "PHASE_COMPLETED" is unknown → defaults to 0 →
+  // perpetual "Thinking…"). TextOutput.Type: USER_FACING_OUTPUT=1 (THOUGHTS=2 would render as a
+  // collapsed thought, not the answer).
+  const PHASE_COMPLETED = 2, TEXT_USER_FACING = 1;
+  // Echo the userInput with the SAME id the SPA generated for its optimistic pending message
+  // (body.userInput.id, captured as run.userInputBlockId). The SPA reconciles its pending turn
+  // against the streamed message by this id (exactly as the real Ona backend echoes the client id),
+  // so there is no duplicate and the pending "Thinking…" resolves once the agent reply follows.
+  if (run.prompt && run.userInputBlockId) {
+    out.push({ id: run.userInputBlockId, phase: PHASE_COMPLETED, userInput: { id: run.userInputBlockId, inputs: [{ text: { content: run.prompt } }] } });
   }
-  let summary = run.summary;
-  if (run.status === "running" || run.status === "waiting") summary = run.activity || "Working in the environment…";
-  else if (run.status === "failed") summary = `Run failed: ${run.error || "unknown error"}`;
-  else if (!summary) summary = "Run complete.";
-  lines.push(JSON.stringify({
-    id: `${run.id}-summary`, phase: run.status === "running" || run.status === "waiting" ? "PHASE_RUNNING" : "PHASE_COMPLETED",
-    text: { content: summary, sequenceId: 1 },
-  }));
-  return lines.join("\n") + "\n";
+  const done = run.status === "done" || run.status === "failed";
+  if (done) {
+    const files = conversationFiles(run);
+    if (run.status === "done" && files.length) {
+      out.push({ id: `${run.id}-todos`, phase: PHASE_COMPLETED, todoGroup: { groupId: `${run.id}-todos`, todos: files.slice(0, 12).map((p, i) => ({ id: `f${i}`, title: `Wrote ${p}`, completed: true })) } });
+    }
+    const summary = run.status === "failed" ? `Run failed: ${run.error || "unknown error"}` : (run.summary || "Run complete.");
+    out.push({ id: `${run.id}-summary`, phase: PHASE_COMPLETED, text: { content: summary, type: TEXT_USER_FACING } });
+  }
+  return out;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -247,44 +256,44 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
-    // Agent-run conversation. The SPA's conversation pane is the harvested reference's V1 mode: it
-    // fetches the bare `conversationUrl` as a FINITE newline-delimited-JSON replay (userInput /
-    // todoGroup / text entries with a top-level {id,phase}) and renders it, then stops loading. We
-    // build that replay from the REAL run (the user's prompt, the files the agent wrote, its summary)
-    // — so the transcript shows the agent's actual work, not an empty pane. The /live + /history
-    // sub-paths are the V2 streaming mode; we are NOT in it (the projection omits conversationUrls),
-    // but we answer them defensively and ALWAYS terminate /live with `event: end` (an unterminated
-    // /live is exactly what made the pane say "Thinking…" forever).
+    // Agent-run conversation. The SPA's V1 conversation pane (`sr` in use-conversation-stream) opens
+    // the bare `conversationUrl` as a LONG-LIVED newline-delimited-JSON STREAM and reads it with a
+    // ReadableStream reader until EOF — at which point it `throw new Error("Stream closed
+    // unexpectedly")` and shows the "Retrying in 3s…2s…" banner, then reconnects. So a finite
+    // response makes it retry forever. We must HOLD THE STREAM OPEN and push entries as the run
+    // progresses: the user prompt, then (on completion) the files the agent wrote + its summary. The
+    // final PHASE_COMPLETED entries replace the optimistic "Thinking…" placeholder; keeping the
+    // socket open (never EOF) means no "Stream closed"/"Retrying". /history + /live are the V2 mode
+    // (unused — the projection omits conversationUrls); answered defensively.
     if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation")) {
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
-      const run = getRun(runId);
-      if (pathname.endsWith("/conversation/live")) {
-        const state = { chunk_id: `${runId}-live`, todo_groups: [], available_commands: null, clarifying_questions: null, next_steps_proposal: null, user_inputs: [] };
-        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-        res.write(`event: state\ndata: ${JSON.stringify(state)}\n\n`);
-        res.write("event: end\n\n"); // terminate — never an open-ended keepalive (that = perpetual "Thinking…")
-        res.end();
-        return;
-      }
       if (pathname.endsWith("/conversation/history")) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ chunks: [], has_more: false }));
         return;
       }
-      // bare /conversation — the V1 finite NDJSON replay built from the real run. The SPA's v1 pane
-      // fetches this ONCE and does not re-poll, so if we answered immediately during the run it would
-      // cache a PHASE_RUNNING entry and show "Thinking…" forever. Briefly wait for the run to settle
-      // (runs finish in ~10s) so the single fetch returns the COMPLETED transcript. The pane shows a
-      // normal loading state until then, then renders the final prompt + summary + files and stops.
-      if (run) {
-        const deadline = Date.now() + 30000;
-        while ((run.status === "running" || run.status === "waiting") && Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 500));
-        }
+      if (pathname.endsWith("/conversation/live")) {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+        res.write(`event: state\ndata: ${JSON.stringify({ chunk_id: `${runId}-live`, todo_groups: [], available_commands: null, clarifying_questions: null, next_steps_proposal: null, user_inputs: [] })}\n\n`);
+        res.write("event: end\n\n");
+        res.end();
+        return;
       }
-      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(run ? conversationReplay(run) : "");
-      return;
+      // bare /conversation — long-lived NDJSON stream, held open.
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive" });
+      const seen = new Set();
+      const pump = () => {
+        const run = getRun(runId);
+        if (!run) return;
+        for (const entry of conversationEntries(run)) {
+          const key = entry.id; // entries are stable; emit each once, updated entries get a new id suffix
+          if (!seen.has(key)) { seen.add(key); try { res.write(JSON.stringify(entry) + "\n"); } catch { /* closed */ } }
+        }
+      };
+      pump();
+      const interval = setInterval(() => { pump(); try { res.write("\n"); } catch { clearInterval(interval); } }, 1000); // newline = keepalive (reader skips empty lines)
+      req.on("close", () => clearInterval(interval));
+      return; // NEVER res.end() — the SPA's reader treats EOF as "Stream closed" and retries.
     }
     // WS-5: editor "Open in VS Code Browser". The reference SPA opens the editor's urlTemplate;
     // we point vscode-browser at this endpoint, which drives the proven daemon editor chain

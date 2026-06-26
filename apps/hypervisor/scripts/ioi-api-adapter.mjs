@@ -315,8 +315,12 @@ export async function handle(pathname, bodyText) {
       const id = body.agentExecutionId;
       const prompt = extractPrompt(body) || textFromBody(body);
       if (getRun(id)) {
-        await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt });
-        return json({});
+        // The SPA generates the userInput block id client-side and sends it here; it uses the SAME
+        // id as its optimistic pending message (pendingMessageId). Echo THIS id in the conversation
+        // stream so the pending turn reconciles (no duplicate prompt, "Thinking…" resolves).
+        const clientBlockId = body.userInput?.id || body.input?.value?.id || body.input?.userInput?.id;
+        const userInputBlockId = await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt, userInputBlockId: clientBlockId });
+        return json({ userInputBlockId });
       }
       if (id && prompt) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text: prompt });
       return json({});

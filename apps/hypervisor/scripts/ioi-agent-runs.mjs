@@ -162,12 +162,17 @@ export async function startAgentRun({ daemonBase, prompt, environmentClassId }) 
     summary: null,
     error: null,
   };
+  // The optimistic user message the SPA renders on submit is keyed by this id (it navigates with
+  // {pendingMessageId: userInputBlockId}). The conversation stream MUST echo the userInput entry
+  // with the SAME id so the two reconcile (no duplicate prompt; the pending turn resolves).
+  const userInputBlockId = genId("blk");
+  run.userInputBlockId = userInputBlockId;
   runs.set(id, run);
 
   // Async harness execution (challenge → mint → execute). Never throws into the caller.
   void executeRun(run, base, dj);
 
-  return { agentExecutionId: id, environment: envGitpod, userInputBlockId: genId("blk"), envId };
+  return { agentExecutionId: id, environment: envGitpod, userInputBlockId, envId };
 }
 
 // Register a run bound to an ALREADY-created environment (the compose flow's StartAgent step:
@@ -201,12 +206,16 @@ export function registerAgentRun({ envId }) {
 
 // Attach the task prompt to a run and kick off the real harness execution (bound session →
 // challenge → mint grant → execute). The compose flow calls this via SendToAgentExecution.
-export async function sendToAgentRun({ daemonBase, runId, prompt }) {
+export async function sendToAgentRun({ daemonBase, runId, prompt, userInputBlockId }) {
   const run = runs.get(runId);
   if (!run) return false;
   run.prompt = prompt;
   run.name = deriveName(prompt);
   run.status = "running";
+  // Prefer the SPA's own client-generated id (it keys its optimistic pending message by it). Only
+  // fall back to a synthetic id if the client didn't send one. The conversation stream echoes this
+  // id so the SPA reconciles the pending turn (no duplicate prompt; "Thinking…" resolves).
+  run.userInputBlockId = userInputBlockId || run.userInputBlockId || genId("blk");
   bump(run, "Agent working in the environment…");
   const base = daemonBase.replace(/\/$/, "");
   const dj = async (method, path, payload) => {
@@ -229,7 +238,7 @@ export async function sendToAgentRun({ daemonBase, runId, prompt }) {
     run.sessionStarted = true;
   }
   void executeRun(run, base, dj);
-  return true;
+  return run.userInputBlockId;
 }
 
 // Idempotently start the env and wait until it has a real workspace_root (so a bound session +

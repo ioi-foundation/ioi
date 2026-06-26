@@ -124,9 +124,27 @@ try {
     const list = await fetch(`${REF}/api/gitpod.v1.AgentService/ListAgentExecutions`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json()).catch(() => ({}));
     const mine = (list.agentExecutions || list.executions || []).find((x) => (x.status?.usedEnvironments || []).some((u) => u.environmentId === envId));
     const convoUrl = mine?.status?.conversationUrl;
+    // The conversation is a long-lived NDJSON stream (held open so the SPA's reader never sees an
+    // unexpected EOF → no "Retrying" loop). Read a bounded prefix, then abort.
     let convo = "";
-    if (convoUrl) convo = await fetch(`${REF}${convoUrl}`).then((r) => r.text()).catch(() => "");
-    ok(convoUrl && convo.trim().length > 0 && /"text"|"todoGroup"|"content"/.test(convo), "conversation transcript serves the agent's real work (not an empty pane)", convo.slice(0, 60).replace(/\n/g, " "));
+    if (convoUrl) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 4000);
+        const r = await fetch(`${REF}${convoUrl}`, { signal: ctrl.signal });
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        const deadline = Date.now() + 4000;
+        while (Date.now() < deadline) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          convo += dec.decode(value, { stream: true });
+          if (convo.includes("\"userInput\"")) break;
+        }
+        clearTimeout(t); ctrl.abort();
+      } catch { /* aborted — expected for a held-open stream */ }
+    }
+    ok(convoUrl && /"userInput"|"text"|"content"/.test(convo), "conversation transcript serves the agent's real work (not an empty pane)", convo.slice(0, 60).replace(/\n/g, " "));
   }
 
   // 5) No console/page errors; app stays self-contained (no external CDN).
