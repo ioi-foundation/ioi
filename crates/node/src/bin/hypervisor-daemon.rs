@@ -1089,6 +1089,18 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_scm_connect_github),
         )
         .route(
+            "/v1/hypervisor/scm-connect/github-app/manifest",
+            post(lifecycle_routes::handle_github_app_manifest),
+        )
+        .route(
+            "/v1/hypervisor/scm-connect/github-app/conversion",
+            post(lifecycle_routes::handle_github_app_conversion),
+        )
+        .route(
+            "/v1/hypervisor/scm-connect/github-app/installation",
+            post(lifecycle_routes::handle_github_app_installation),
+        )
+        .route(
             "/v1/hypervisor/environments/:id/scm/publish",
             post(lifecycle_routes::handle_scm_publish),
         )

@@ -49,6 +49,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
+use jsonwebtoken::{encode as jwt_encode, Algorithm as JwtAlgorithm, EncodingKey, Header as JwtHeader};
 use ioi_services::agentic::runtime::kernel::approval::{
     verify_wallet_approval_grant_binding, ApprovalDecisionAuthorityRequest,
     ApprovalDecisionStateUpdateRequest, ApprovalRequestAuthorityRequest,
@@ -7928,39 +7929,56 @@ fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
     }))
 }
 
+/// Resolve a sealed credential record into a usable token + (source, key_source). Two kinds:
+/// a github-app record MINTS a fresh installation token (RS256 JWT → exchange); any other record
+/// opens its sealed PAT. The secret material (pem / sealed token) never leaves the daemon.
+async fn resolve_sealed_credential(rec: &Value) -> (Option<String>, Option<String>, Option<String>) {
+    let key_source = rec["key_source"].as_str().map(str::to_string);
+    if rec["kind"].as_str() == Some("github-app") {
+        let pem = rec["sealed_pem"].as_str().and_then(open_scm_token);
+        let app_id = rec["app_id"].as_str().unwrap_or("").to_string();
+        let installation_id = rec["installation_id"].as_str().unwrap_or("").to_string();
+        if let Some(pem) = pem {
+            if !app_id.is_empty() && !installation_id.is_empty() {
+                if let Ok(tok) = mint_github_installation_token(&app_id, &pem, &installation_id).await {
+                    return (Some(tok), Some("github-app-installation".to_string()), key_source);
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
+    let token = if let Some(sealed) = rec["sealed_token"].as_str() { open_scm_token(sealed) } else { rec["token"].as_str().map(str::to_string) };
+    let source = token.as_ref().map(|_| "connector".to_string());
+    (token, source, key_source)
+}
+
 /// The single authority gateway. Order: resolve sealed credential (428) → verify wallet grant (403)
 /// → issue + persist the lease. Returns the authorized lease, or a (StatusCode, body) the caller
 /// returns verbatim. This is THE crossing — publish/abandon/future-connectors all route through it.
-fn authorize_capability_lease(
+/// Async because some credential kinds (github-app) MINT a fresh token (network) at resolution time.
+async fn authorize_capability_lease(
     st: &Arc<DaemonState>,
     req: &CapabilityLeaseRequest,
 ) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
     let policy_hash = capability_lease_policy_hash(req);
     let request_hash = capability_lease_request_hash(req);
 
-    // 1) Resolve the SEALED backing credential (decrypt failure → None → fail closed). Connector's
-    //    own credential first, then the github host git-auth fallback. Never exported.
-    let open_cred = |c: &Value| -> Option<String> {
-        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
-    };
+    // 1) Resolve the SEALED backing credential (decrypt/mint failure → None → fail closed). Connector's
+    //    own credential first, then the github host git-auth fallback. Never exported. Two credential
+    //    KINDS resolve here: a sealed PAT (open the sealed token) and a github-app (mint a fresh
+    //    installation token from the sealed pem + app_id + installation_id).
     let mut token: Option<String> = None;
     let mut credential_source: Option<String> = None;
     let mut credential_key_source: Option<String> = None;
     if let Some(cid) = req.credential_connector_id.as_deref() {
         if let Some(rec) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(cid)) {
-            token = open_cred(&rec);
-            if token.is_some() {
-                credential_source = Some("connector".to_string());
-                credential_key_source = rec["key_source"].as_str().map(str::to_string);
-            }
+            let (t, src, ks) = resolve_sealed_credential(&rec).await;
+            token = t; credential_source = src; credential_key_source = ks;
         }
         if token.is_none() && req.github_host_fallback {
             if let Some(host) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some("scm_host_github")) {
-                token = open_cred(&host);
-                if token.is_some() {
-                    credential_source = Some("host-authentication".to_string());
-                    credential_key_source = host["key_source"].as_str().map(str::to_string);
-                }
+                let (t, _src, ks) = resolve_sealed_credential(&host).await;
+                if t.is_some() { token = t; credential_source = Some("host-authentication".to_string()); credential_key_source = ks; }
             }
         }
         if req.credential_required && token.is_none() {
@@ -8177,7 +8195,16 @@ pub(crate) async fn handle_scm_publish(
     else {
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
     };
-    let remote_url = connector["remote_url"].as_str().unwrap_or("").to_string();
+    // A host-level connector (the github host PAT or a BYOA github-app) can publish to ANY repo it
+    // is authorized for, so it takes an explicit target `remote_url` from the request; a repo
+    // connector uses its own pinned remote.
+    let connector_host_level = connector["host_level"].as_bool().unwrap_or(false);
+    let remote_url = body
+        .get("remote_url")
+        .and_then(Value::as_str)
+        .filter(|s| connector_host_level && s.starts_with("https://"))
+        .map(str::to_string)
+        .unwrap_or_else(|| connector["remote_url"].as_str().unwrap_or("").to_string());
     let auth_posture = connector["auth_posture"].as_str().unwrap_or("").to_string();
     let branch = body
         .get("branch")
@@ -8209,7 +8236,7 @@ pub(crate) async fn handle_scm_publish(
         authority_reason: "scm_publish_authority_required".to_string(),
         grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
     };
-    let lease = match authorize_capability_lease(&st, &lease_req) {
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
         Err((code, challenge)) => return (code, Json(challenge)),
     };
@@ -8406,6 +8433,51 @@ async fn close_github_pull_request(
     Ok((true, head_branch, branch_deleted))
 }
 
+// ---- GitHub App (BYOA) authentication — manifest-created App, installation tokens ----------------
+// The App is created in the USER's own account via GitHub's App-Manifest flow (no vendor-owned
+// secret). The App private key (pem) is sealed in the daemon; to ACT, the daemon mints a short-lived
+// RS256 JWT from the pem, exchanges it for an installation access token (1h), and uses THAT for the
+// crossing. The pem + installation token never leave the daemon; refresh is automatic per use.
+
+#[derive(serde::Serialize)]
+struct GithubAppJwtClaims {
+    iat: u64,
+    exp: u64,
+    iss: String,
+}
+
+/// Mint a GitHub App JWT (RS256, signed by the App private key). Authenticates AS the App to list
+/// installations and mint installation tokens. The pem never leaves the daemon.
+fn mint_github_app_jwt(app_id: &str, pem: &str) -> Result<String, String> {
+    let now = daemon_now_ms_fail_closed() / 1000;
+    let claims = GithubAppJwtClaims { iat: now.saturating_sub(60), exp: now + 540, iss: app_id.to_string() };
+    let key = EncodingKey::from_rsa_pem(pem.as_bytes()).map_err(|e| format!("invalid app private key: {e}"))?;
+    jwt_encode(&JwtHeader::new(JwtAlgorithm::RS256), &claims, &key).map_err(|e| format!("app jwt sign failed: {e}"))
+}
+
+/// Exchange the App JWT for a short-lived INSTALLATION access token (server-to-server). This is the
+/// token the daemon USES for the crossing — minted fresh per use, never exported.
+async fn mint_github_installation_token(app_id: &str, pem: &str, installation_id: &str) -> Result<String, String> {
+    let jwt = mint_github_app_jwt(app_id, pem)?;
+    let api = format!("https://api.github.com/app/installations/{installation_id}/access_tokens");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(&jwt)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no token in installation response".to_string())
+    } else {
+        Err(format!("installation token {}: {}", status.as_u16(), body.get("message").and_then(Value::as_str).unwrap_or("error")))
+    }
+}
+
 /// POST /v1/hypervisor/scm-connectors/:id/abandon-pull-request — the wallet-authorized CLEANUP
 /// crossing: close a published PR (and delete its branch) using the connector's sealed credential
 /// (or the github host git-auth fallback). The daemon USES the token; it is never exported. Fails
@@ -8453,7 +8525,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
         authority_reason: "scm_abandon_authority_required".to_string(),
         grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
     };
-    let lease = match authorize_capability_lease(&st, &lease_req) {
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
         Err((code, challenge)) => return (code, Json(challenge)),
     };
@@ -8698,6 +8770,166 @@ fn run_native_local_lane(
             "runtimeTruthSource": "daemon-runtime",
         })),
     )
+}
+
+// ---- GitHub App BYOA manifest flow (the "Create & connect GitHub App" connect button) ------------
+// No vendor-owned OAuth App: the user creates an App in THEIR OWN account via GitHub's App-Manifest
+// flow. (1) manifest → the browser POSTs it to github.com and the user clicks "Create GitHub App";
+// (2) GitHub redirects back with a temporary code; (3) conversion exchanges the code for the App's
+// id/client_secret/PRIVATE KEY, which the daemon SEALS; (4) the user installs the App and we capture
+// the installation_id. To act, the daemon mints a short-lived installation token from the sealed pem
+// (see resolve_sealed_credential) — the credential never leaves the daemon. wallet.network still
+// authorizes every crossing on top.
+
+/// POST /v1/hypervisor/scm-connect/github-app/manifest — build the App manifest + the github.com
+/// create-app URL the browser POSTs it to. No secret involved yet (the App doesn't exist).
+pub(crate) async fn handle_github_app_manifest(
+    State(_st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let callback_base = body.get("callback_base").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173").trim_end_matches('/').to_string();
+    let owner = body.get("owner").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let now = daemon_now_ms_fail_closed();
+    let state = short_hash(&format!("ghapp:{now}:{owner}"));
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("ioi-hypervisor-{}", short_hash(&format!("{now}:{owner}"))));
+    let manifest = json!({
+        "name": name,
+        "url": callback_base,
+        "redirect_url": format!("{callback_base}/__ioi/github-app/callback"),
+        "setup_url": format!("{callback_base}/__ioi/github-app/installed"),
+        "setup_on_update": true,
+        "hook_attributes": { "url": format!("{callback_base}/__ioi/github-app/webhook"), "active": false },
+        "public": false,
+        "default_permissions": { "contents": "write", "pull_requests": "write", "metadata": "read" },
+        "default_events": [],
+    });
+    let create_url = if owner.is_empty() {
+        format!("https://github.com/settings/apps/new?state={state}")
+    } else {
+        format!("https://github.com/organizations/{owner}/settings/apps/new?state={state}")
+    };
+    (StatusCode::OK, Json(json!({ "ok": true, "create_url": create_url, "manifest": manifest, "state": state })))
+}
+
+/// POST /v1/hypervisor/scm-connect/github-app/conversion — exchange the manifest `code` for the App
+/// credentials (id, client_secret, PRIVATE KEY), SEAL the secrets, and register a github-app
+/// connector. Returns the install_url. Fail-closed if GitHub rejects the code or sealing fails.
+pub(crate) async fn handle_github_app_conversion(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let code = body.get("code").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if code.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "code is required" })));
+    }
+    let api = format!("https://api.github.com/app-manifests/{code}/conversions");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let resp = match resp {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("github unreachable: {e}") }))),
+    };
+    let status = resp.status();
+    let conv: Value = resp.json().await.unwrap_or(Value::Null);
+    if !status.is_success() {
+        return (StatusCode::BAD_GATEWAY, Json(json!({
+            "ok": false, "reason": "github rejected the manifest code",
+            "status": status.as_u16(), "message": conv.get("message").and_then(Value::as_str).unwrap_or("error"),
+        })));
+    }
+    let app_id = conv.get("id").and_then(Value::as_i64).map(|n| n.to_string()).unwrap_or_default();
+    let slug = conv.get("slug").and_then(Value::as_str).unwrap_or("").to_string();
+    let client_id = conv.get("client_id").and_then(Value::as_str).unwrap_or("").to_string();
+    let client_secret = conv.get("client_secret").and_then(Value::as_str).unwrap_or("");
+    let pem = conv.get("pem").and_then(Value::as_str).unwrap_or("");
+    let owner_login = conv.pointer("/owner/login").and_then(Value::as_str).unwrap_or("").to_string();
+    let html_url = conv.get("html_url").and_then(Value::as_str).unwrap_or("").to_string();
+    if app_id.is_empty() || slug.is_empty() || pem.is_empty() {
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "incomplete app conversion response" })));
+    }
+    // Seal the App PRIVATE KEY + client secret at rest. Fail closed if sealing fails (no plaintext).
+    let (Some(sealed_pem), Some(sealed_secret)) = (seal_scm_token(pem), seal_scm_token(client_secret)) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal app credentials" })));
+    };
+    let key_source = scm_key_source();
+    let connector_id = format!("scm_ghapp_{}", short_hash(&format!("{app_id}:{slug}")));
+    let cred = json!({
+        "connector_id": connector_id, "kind": "github-app", "sealed_pem": sealed_pem,
+        "sealed_client_secret": sealed_secret, "app_id": app_id, "installation_id": Value::Null,
+        "key_source": key_source, "sealed": true, "bound_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id, "kind": "github-app",
+        "name": format!("github-app:@{owner_login} ({slug})"),
+        "remote_url": "https://github.com", "host": "github.com", "requires_credential": true,
+        "auth_posture": "token-lease:unbound", "credential_key_source": key_source,
+        "connected_login": owner_login, "app_id": app_id, "app_slug": slug, "client_id": client_id,
+        "html_url": html_url, "installation_id": Value::Null, "host_level": true, "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    let install_url = format!("https://github.com/apps/{slug}/installations/new");
+    (StatusCode::OK, Json(json!({
+        "ok": true, "connector_id": connector_id, "app_slug": slug, "app_id": app_id,
+        "connected_login": owner_login, "install_url": install_url, "html_url": html_url,
+    })))
+}
+
+/// POST /v1/hypervisor/scm-connect/github-app/installation — capture the installation_id after the
+/// user installs the App (binds the connector). If no connector_id is given, attaches to the newest
+/// github-app connector still awaiting an installation. Verifies by minting an installation token.
+pub(crate) async fn handle_github_app_installation(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let installation_id = body
+        .get("installation_id")
+        .and_then(|v| v.as_str().map(str::to_string).or_else(|| v.as_i64().map(|n| n.to_string())))
+        .unwrap_or_default();
+    if installation_id.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "installation_id is required" })));
+    }
+    let explicit = body.get("connector_id").and_then(Value::as_str).map(str::to_string);
+    let mut connectors: Vec<Value> = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .filter(|c| c["kind"].as_str() == Some("github-app"))
+        .collect();
+    // newest first (ISO created_at sorts lexically)
+    connectors.sort_by(|a, b| b["created_at"].as_str().unwrap_or("").cmp(a["created_at"].as_str().unwrap_or("")));
+    let Some(mut connector) = (match &explicit {
+        Some(id) => connectors.into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())),
+        None => connectors.into_iter().find(|c| c["installation_id"].is_null() || c["installation_id"].as_str().unwrap_or("").is_empty()),
+    }) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "no github-app connector awaiting installation" })));
+    };
+    let connector_id = connector["connector_id"].as_str().unwrap_or("").to_string();
+    connector["installation_id"] = json!(installation_id);
+    connector["auth_posture"] = json!("token-lease:bound");
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    // mirror installation_id onto the sealed cred record (the gateway reads it there to mint tokens)
+    if let Some(mut cred) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(connector_id.as_str())) {
+        cred["installation_id"] = json!(installation_id);
+        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        // verify by minting a token (proves the sealed pem + installation are usable). Never returned.
+        let app_id = cred["app_id"].as_str().unwrap_or("").to_string();
+        let verified = match cred["sealed_pem"].as_str().and_then(open_scm_token) {
+            Some(pem) => mint_github_installation_token(&app_id, &pem, &installation_id).await.is_ok(),
+            None => false,
+        };
+        return (StatusCode::OK, Json(json!({ "ok": true, "connector_id": connector_id, "installation_id": installation_id, "verified": verified })));
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "connector_id": connector_id, "installation_id": installation_id, "verified": false })))
 }
 
 /// POST /v1/hypervisor/sessions/:id/execute — session execution (Lane A or Lane B).

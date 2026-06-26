@@ -43,6 +43,7 @@ env_logger = { workspace = true, optional = true }
 futures = { workspace = true }
 hex = { workspace = true }
 sha2 = "0.10"
+jsonwebtoken = "8.3"
 libp2p = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }

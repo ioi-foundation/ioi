@@ -202,6 +202,22 @@ const PORT = Number(process.env.PORT || 4173);
 const MIRROR_PORT = Number(process.env.MIRROR_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
+// Minimal ona-dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
+function githubAppShell(title, inner) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hypervisor</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0c0d10;color:#e6e7ea;font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
+  .card{max-width:520px;padding:40px;background:#15171c;border:1px solid #24262d;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+  h1{font-size:20px;margin:0 0 14px;letter-spacing:-.01em}
+  p{margin:0 0 14px;color:#c7c9cf} b{color:#fff;font-weight:600}
+  .muted{color:#878a93;font-size:13px}
+  .btn{display:inline-block;margin:6px 0 14px;padding:11px 18px;background:#fff;color:#111;border:0;border-radius:9px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+  .btn:hover{background:#eee}
+  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6f7280;margin-bottom:18px}
+</style></head><body><div class="card"><div class="brand">IOI Hypervisor · Git authentications</div><h1>${title}</h1>${inner}</div></body></html>`;
+}
+
 // Terminability tracker: any gitpod.v1.* RPC that falls through to the mock mirror (adapter
 // returned null) is recorded here. ":4173 functional" ⇔ this set is empty after exercising flows.
 // Exposed at GET /__ioi/fallthrough (+ POST /__ioi/fallthrough/reset).
@@ -997,6 +1013,74 @@ const server = http.createServer((req, res) => {
       const result = await publishRunViaConnector(runId).catch((e) => ({ ok: false, reason: String(e?.message || e) }));
       res.writeHead(result.ok ? 200 : 409, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(result));
+      return;
+    }
+    // ---- BYOA GitHub App (manifest) connect flow — the "Create & connect GitHub App" button -------
+    // No vendor-owned OAuth App: the user creates an App in their OWN account. start → renders an
+    // auto-submitting form that POSTs the manifest to github.com; callback ← GitHub redirects with a
+    // code we exchange (daemon seals the App key) → redirect to install; installed ← captures the
+    // installation_id. The page chrome is intentionally minimal + ona-dark.
+    if (pathname === "/__ioi/github-app/start") {
+      const qp = new URL(req.url, "http://x").searchParams;
+      const owner = qp.get("owner") || ""; // omit for a USER account (e.g. teamioitest)
+      let page;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/manifest`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, callback_base: `http://${req.headers.host || "127.0.0.1:4173"}` }) });
+        const d = await r.json();
+        const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        page = githubAppShell("Create your GitHub App", `
+          <p>Hypervisor doesn't own a GitHub App — you'll create one in <b>your own</b> account. GitHub will show you exactly what it can access (Contents + Pull requests), then hand the key straight to your daemon. Nothing is shared with us.</p>
+          <form id="gh" action="${esc(d.create_url)}" method="post">
+            <input type="hidden" name="manifest" value="${esc(JSON.stringify(d.manifest))}">
+            <button type="submit" class="btn">Create GitHub App on GitHub →</button>
+          </form>
+          <p class="muted">You'll be returned here automatically to finish the connection.</p>
+          <script>setTimeout(function(){try{document.getElementById('gh').submit()}catch(e){}}, 1200)</script>`);
+      } catch (e) {
+        page = githubAppShell("Couldn't start", `<p class="muted">Daemon unavailable: ${String(e?.message || e)}</p>`);
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(page);
+      return;
+    }
+    if (pathname === "/__ioi/github-app/callback") {
+      const qp = new URL(req.url, "http://x").searchParams;
+      const code = qp.get("code") || "";
+      let page;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/conversion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
+        const d = await r.json();
+        if (d.ok && d.install_url) {
+          page = githubAppShell("GitHub App created ✓", `
+            <p>Your App <b>${d.app_slug}</b> was created in <b>@${d.connected_login}</b> and its key is sealed in your daemon. One more step: install it on the repositories it may act on.</p>
+            <a class="btn" href="${d.install_url}">Install the App →</a>
+            <p class="muted">Redirecting you to install…</p>
+            <script>setTimeout(function(){location.href=${JSON.stringify(d.install_url)}}, 1500)</script>`);
+        } else {
+          page = githubAppShell("Couldn't create the App", `<p class="muted">${d.message || d.reason || "conversion failed"}</p>`);
+        }
+      } catch (e) {
+        page = githubAppShell("Couldn't create the App", `<p class="muted">${String(e?.message || e)}</p>`);
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(page);
+      return;
+    }
+    if (pathname === "/__ioi/github-app/installed") {
+      const qp = new URL(req.url, "http://x").searchParams;
+      const installation_id = qp.get("installation_id") || "";
+      let page;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github-app/installation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ installation_id }) });
+        const d = await r.json();
+        page = d.ok
+          ? githubAppShell("GitHub App connected ✓", `<p>Installation <b>${d.installation_id}</b> bound to <b>${d.connector_id}</b>${d.verified ? " — installation token minted successfully." : "."}</p><p class="muted">The agent will receive a use-only lease; the App key never leaves your daemon. You can close this tab.</p>`)
+          : githubAppShell("Couldn't finish install", `<p class="muted">${d.reason || "installation capture failed"}</p>`);
+      } catch (e) {
+        page = githubAppShell("Couldn't finish install", `<p class="muted">${String(e?.message || e)}</p>`);
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(page);
       return;
     }
     // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned

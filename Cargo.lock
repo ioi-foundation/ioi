@@ -6885,6 +6885,7 @@ dependencies = [
  "ioi-types",
  "ioi-validator",
  "ioi-vm-wasm",
+ "jsonwebtoken",
  "libc",
  "libp2p",
  "log",
