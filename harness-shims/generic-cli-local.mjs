@@ -139,32 +139,106 @@ async function requestFileManifest(intent) {
   }
   const payload = await response.json();
   const content = payload?.choices?.[0]?.message?.content ?? "";
-  return parseManifest(content);
+  return parseManifest(content, intent);
 }
 
-function parseManifest(content) {
+// Parse the model response into {summary, files[]}. Small local models are
+// inconsistent: some emit the requested JSON manifest, many emit fenced code
+// blocks, and some emit raw code. We accept all three so DIVERSE tasks (python,
+// sql, css, bash, …) reliably produce files — not just the JSON-friendly ones.
+function parseManifest(content, intent = "") {
   const text = String(content).trim();
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const jsonText = fenced ? fenced[1] : sliceFirstJsonObject(text);
-  // Small local models routinely emit file `content` with RAW newlines/tabs
-  // inside the JSON string (which is invalid JSON). Try strict parse first,
-  // then a targeted repair that escapes only control chars inside strings.
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    parsed = JSON.parse(escapeControlCharsInStrings(jsonText));
+  // 1) Preferred: a JSON manifest (fenced ```json or the first {...}).
+  const fromJson = tryJsonManifest(text);
+  if (fromJson && fromJson.files.length) return fromJson;
+  // 2) Fenced code blocks → one file each, filename inferred from the fence
+  //    language / an inline filename hint / the task.
+  const blocks = [...text.matchAll(/```([A-Za-z0-9_.+-]*)\r?\n([\s\S]*?)```/g)];
+  if (blocks.length) {
+    const files = blocks.map((m, i) => ({
+      path: inferFilename(m[1] || "", m[2], intent, i, blocks.length),
+      content: `${m[2].replace(/\s+$/, "")}\n`,
+    }));
+    return { summary: fromJson?.summary || leadingProse(text) || "Generated files from the agent response.", files: dedupePaths(files) };
   }
-  const files = Array.isArray(parsed.files) ? parsed.files : [];
-  return {
-    summary: typeof parsed.summary === "string" ? parsed.summary : "",
-    files: files
-      .filter((file) => file && typeof file.path === "string")
-      .map((file) => ({
-        path: file.path,
-        content: String(file.content ?? ""),
-      })),
-  };
+  // 3) No fence + not JSON → the whole reply is the file; infer its name from the task.
+  if (text) {
+    return { summary: "Generated a file from the agent response.", files: [{ path: inferFilename("", text, intent, 0, 1), content: `${text}\n` }] };
+  }
+  throw new Error("model response did not contain files");
+}
+
+function tryJsonManifest(text) {
+  try {
+    const fenced = text.match(/```(?:json)\s*([\s\S]*?)```/i);
+    const jsonText = fenced ? fenced[1] : sliceFirstJsonObject(text);
+    let parsed;
+    try { parsed = JSON.parse(jsonText); } catch { parsed = JSON.parse(escapeControlCharsInStrings(jsonText)); }
+    const files = Array.isArray(parsed.files) ? parsed.files : [];
+    return {
+      summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      files: files
+        .filter((file) => file && typeof file.path === "string")
+        .map((file) => ({ path: file.path, content: String(file.content ?? "") })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const EXT_FOR = { python: "py", py: "py", javascript: "js", js: "js", node: "js", typescript: "ts", ts: "ts", html: "html", xml: "html", css: "css", scss: "css", json: "json", jsonc: "json", bash: "sh", sh: "sh", shell: "sh", zsh: "sh", sql: "sql", markdown: "md", md: "md", java: "java", go: "go", golang: "go", ruby: "rb", rb: "rb", rust: "rs", rs: "rs", c: "c", cpp: "cpp", "c++": "cpp", yaml: "yaml", yml: "yaml", toml: "toml", text: "txt", "": "" };
+
+function langFromIntent(it, body) {
+  if (/\bpython\b|\.py\b|fibonacci|binary search tree/.test(it)) return "python";
+  if (/\btypescript\b|\.ts\b/.test(it)) return "typescript";
+  if (/\bjavascript\b|\bjs\b|node|debounce/.test(it)) return "javascript";
+  if (/\bbash\b|\bshell\b|\.sh\b|backs? up|tarball/.test(it)) return "bash";
+  if (/\bsql\b|schema|database|\btable\b/.test(it)) return "sql";
+  if (/\bcss\b|stylesheet|theme|styles?/.test(it)) return "css";
+  if (/readme|markdown|\bdoc/.test(it)) return "markdown";
+  if (/\bjson\b|config/.test(it)) return "json";
+  if (/\bhtml\b|website|web ?page|\bform\b|landing/.test(it)) return "html";
+  // sniff the body as a last resort.
+  if (/^\s*(def |import |print\(|class .*:)/m.test(body)) return "python";
+  if (/<!doctype|<html/i.test(body)) return "html";
+  if (/^\s*(CREATE TABLE|INSERT INTO|SELECT )/im.test(body)) return "sql";
+  if (/^\s*(function |const |let |var |=>|export )/m.test(body)) return "javascript";
+  if (/^\s*#!\s*\/.*sh\b/m.test(body)) return "bash";
+  if (/^\s*[#*-]\s|^#{1,6}\s/m.test(body)) return "markdown";
+  return "text";
+}
+
+function inferFilename(lang, body, intent, idx, total) {
+  const it = String(intent || "").toLowerCase();
+  // an explicit filename in the body (e.g. a "# fibonacci.py" header) or the task.
+  const hint = (body.match(/(?:^|[\s#/*"'`(])([A-Za-z0-9._-]+\.(?:py|js|ts|html|css|json|sh|sql|md|java|go|rb|rs|c|cpp|ya?ml|toml|txt))\b/) ||
+    it.match(/\b([a-z0-9._-]+\.(?:py|js|ts|html|css|json|sh|sql|md|java|go|rb|rs|c|cpp|ya?ml|toml|txt))\b/) || [])[1];
+  if (hint) return hint;
+  const ext = EXT_FOR[String(lang).toLowerCase()] || EXT_FOR[langFromIntent(it, body)] || "txt";
+  const base = /readme/.test(it) ? "README"
+    : /schema|database/.test(it) ? "schema"
+    : /config/.test(it) ? "config"
+    : ext === "css" ? "styles"
+    : ext === "html" ? "index"
+    : ext === "sql" ? "schema"
+    : ext === "md" ? "README"
+    : "main";
+  return total > 1 ? `${base}${idx > 0 ? idx + 1 : ""}.${ext}` : `${base}.${ext}`;
+}
+
+function dedupePaths(files) {
+  const seen = new Set();
+  return files.map((f) => {
+    let p = f.path;
+    if (seen.has(p)) { const dot = p.lastIndexOf("."); p = dot > 0 ? `${p.slice(0, dot)}-${seen.size}${p.slice(dot)}` : `${p}-${seen.size}`; }
+    seen.add(p);
+    return { ...f, path: p };
+  });
+}
+
+function leadingProse(text) {
+  const before = text.split("```")[0].trim();
+  return before && before.length < 200 ? before : "";
 }
 
 // Escape raw control characters (newlines/tabs/etc.) that appear INSIDE JSON
