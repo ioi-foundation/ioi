@@ -1081,6 +1081,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_scm_abandon_pull_request),
         )
         .route(
+            "/v1/hypervisor/capability-leases",
+            get(lifecycle_routes::handle_capability_lease_list),
+        )
+        .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),
         )

@@ -7846,46 +7846,191 @@ fn execute_authority_gate(
 // connector is the verifiable slice; hosted (github/gitlab) connectors fail closed until a scoped
 // credential lease is bound.
 
+// SCM crossing scopes — the wallet capability scopes each lease class requires. Distinct so a
+// publish grant can never authorize an abandon (and vice versa). The per-crossing policy/request
+// HASHES are now derived generically by the CapabilityLease gateway below (no hand-rolled gates).
 const SCM_PUBLISH_SCOPES: &[&str] = &["scm_push", "remote_publish"];
-
-fn scm_publish_policy_hash(environment_id: &str, remote_url: &str) -> String {
-    sha256_json_ref(&json!({
-        "domain": "hypervisor.scm.publish.policy.v1",
-        "environment_id": environment_id,
-        "remote_url": remote_url,
-        "scopes": SCM_PUBLISH_SCOPES,
-    }))
-}
-fn scm_publish_request_hash(environment_id: &str, connector_id: &str, branch: &str) -> String {
-    sha256_json_ref(&json!({
-        "domain": "hypervisor.scm.publish.request.v1",
-        "environment_id": environment_id,
-        "connector_id": connector_id,
-        "branch": branch,
-        "scopes": SCM_PUBLISH_SCOPES,
-    }))
-}
-
-// Abandoning a published PR (close + delete branch) is ALSO a host mutation via the sealed token, so
-// it is a governed crossing too — same use-only model as publish (the daemon uses the token, never
-// exports it). Distinct scopes/domains so a publish grant can't authorize an abandon.
 const SCM_ABANDON_SCOPES: &[&str] = &["scm_pr_close", "remote_publish"];
-fn scm_abandon_policy_hash(connector_id: &str, remote_url: &str) -> String {
+
+// ================================================================================================
+// Generic CapabilityLease — the single authority-crossing primitive (master-guide #3).
+//
+// Every host-touching crossing (SCM publish, SCM abandon, and every future connector) flows through
+// ONE gateway instead of hand-rolling its own gate. A caller DECLARES a lease (what tools, what
+// resources, what backs it, how to revoke it); the gateway derives the canonical policy/request
+// hashes, resolves the SEALED backing credential (never exported), verifies a bound wallet grant,
+// and issues a durable lease descriptor. The agent receives USE-ONLY authority (scoped tools +
+// resources + receipt + revocation) — NEVER the underlying credential. wallet.network sits ABOVE
+// the credential: it authorizes the crossing; the daemon uses the sealed secret; agentgres records
+// the lease + receipt. Adding a connector becomes "declare a lease", not "write a new gate".
+// ================================================================================================
+
+/// What a caller declares to request a capability lease for one crossing.
+struct CapabilityLeaseRequest {
+    /// Who authorizes the crossing (the grant authority). Default "wallet.network".
+    authority_provider_ref: String,
+    /// What credential backs the lease: "scm:host:github" | "scm:connector:<id>" | "none".
+    backing_provider: String,
+    /// The operations this lease permits, e.g. ["scm.publish"], ["scm.pr.close"].
+    allowed_tools: Vec<String>,
+    /// The scoped resources the lease is bound to (remote_url, environment_id, pr_url, …).
+    resource_refs: Vec<String>,
+    /// The wallet capability scopes the grant must carry.
+    scopes: Vec<String>,
+    /// Stable domain tags so a grant can never be replayed across operation kinds.
+    policy_domain: String,
+    request_domain: String,
+    /// Request-specific binding params folded into the request hash (branch, pr#, intent, …).
+    request_facets: Value,
+    /// Connector whose sealed credential to resolve (None = authority-only crossing, no secret).
+    credential_connector_id: Option<String>,
+    /// Fail closed (428) if the credential is required but unresolved.
+    credential_required: bool,
+    /// Allow the github host git-auth fallback (a repo lease borrows the connected host token).
+    github_host_fallback: bool,
+    /// Whether a receipt must be emitted for this crossing.
+    receipt_required: bool,
+    /// How the backing authority is revoked (the revocation surface).
+    revocation_ref: String,
+    /// Reason string surfaced on the 403 challenge (per-crossing for API clarity).
+    authority_reason: String,
+    /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
+    grant_value: Value,
+}
+
+/// The authorized lease. `token` is for the daemon to USE; it is NEVER serialized or returned.
+struct AuthorizedCapabilityLease {
+    /// The 9-field lease descriptor (persisted + embeddable in receipts; carries NO secret).
+    descriptor: Value,
+    token: Option<String>,
+    grant_ref: String,
+    credential_source: Option<String>,
+    credential_key_source: Option<String>,
+}
+
+fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
     sha256_json_ref(&json!({
-        "domain": "hypervisor.scm.abandon.policy.v1",
-        "connector_id": connector_id,
-        "remote_url": remote_url,
-        "scopes": SCM_ABANDON_SCOPES,
+        "domain": req.policy_domain,
+        "authority_provider_ref": req.authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
     }))
 }
-fn scm_abandon_request_hash(connector_id: &str, pull_request_url: &str, delete_branch: bool) -> String {
+fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
     sha256_json_ref(&json!({
-        "domain": "hypervisor.scm.abandon.request.v1",
-        "connector_id": connector_id,
-        "pull_request_url": pull_request_url,
-        "delete_branch": delete_branch,
-        "scopes": SCM_ABANDON_SCOPES,
+        "domain": req.request_domain,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+        "facets": req.request_facets,
     }))
+}
+
+/// The single authority gateway. Order: resolve sealed credential (428) → verify wallet grant (403)
+/// → issue + persist the lease. Returns the authorized lease, or a (StatusCode, body) the caller
+/// returns verbatim. This is THE crossing — publish/abandon/future-connectors all route through it.
+fn authorize_capability_lease(
+    st: &Arc<DaemonState>,
+    req: &CapabilityLeaseRequest,
+) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
+    let policy_hash = capability_lease_policy_hash(req);
+    let request_hash = capability_lease_request_hash(req);
+
+    // 1) Resolve the SEALED backing credential (decrypt failure → None → fail closed). Connector's
+    //    own credential first, then the github host git-auth fallback. Never exported.
+    let open_cred = |c: &Value| -> Option<String> {
+        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
+    };
+    let mut token: Option<String> = None;
+    let mut credential_source: Option<String> = None;
+    let mut credential_key_source: Option<String> = None;
+    if let Some(cid) = req.credential_connector_id.as_deref() {
+        if let Some(rec) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(cid)) {
+            token = open_cred(&rec);
+            if token.is_some() {
+                credential_source = Some("connector".to_string());
+                credential_key_source = rec["key_source"].as_str().map(str::to_string);
+            }
+        }
+        if token.is_none() && req.github_host_fallback {
+            if let Some(host) = read_record_dir(&st.data_dir, "scm-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some("scm_host_github")) {
+                token = open_cred(&host);
+                if token.is_some() {
+                    credential_source = Some("host-authentication".to_string());
+                    credential_key_source = host["key_source"].as_str().map(str::to_string);
+                }
+            }
+        }
+        if req.credential_required && token.is_none() {
+            return Err((StatusCode::PRECONDITION_REQUIRED, json!({
+                "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+                "message": "This lease needs a resolvable backing credential before the crossing.",
+                "backing_provider": req.backing_provider, "host_mutation": false,
+            })));
+        }
+    }
+
+    // 2) Wallet authority gate — daemon-derived hashes, verified bound grant. 403 challenge otherwise.
+    let now_ms = daemon_now_ms_fail_closed();
+    let binding = if req.grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&req.grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+    };
+    let binding = match binding {
+        Ok(b) => b,
+        Err(reason) => {
+            return Err((StatusCode::FORBIDDEN, json!({
+                "ok": false, "decision": "blocked", "reason": req.authority_reason,
+                "message": format!(
+                    "This crossing requires a wallet grant ({reason}) bound to policy_hash {policy_hash} + request_hash {request_hash}."
+                ),
+                "required_scopes": req.scopes,
+                "allowed_tools": req.allowed_tools,
+                "resource_refs": req.resource_refs,
+                "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                "host_mutation": false,
+            })));
+        }
+    };
+
+    // 3) Issue + persist the lease (the 9-field shape). No secret in the descriptor.
+    let expires_at = req.grant_value.get("expires_at").or_else(|| req.grant_value.get("expiresAt")).cloned().unwrap_or(Value::Null);
+    let lease_id = format!("lease_{}", short_hash(&format!("{policy_hash}:{request_hash}")));
+    let authority_provider_ref = if binding.provider_ref.trim().is_empty() { req.authority_provider_ref.clone() } else { binding.provider_ref.clone() };
+    let descriptor = json!({
+        "schema_version": "ioi.hypervisor.capability-lease.v1",
+        "lease_id": lease_id,
+        "authority_provider_ref": authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
+        "expires_at": expires_at,
+        "receipt_required": req.receipt_required,
+        "revocation_ref": req.revocation_ref,
+        "grant_ref": binding.grant_ref,
+        "credential_source": credential_source,
+        "issued_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "capability-leases", &lease_id, &descriptor);
+
+    Ok(AuthorizedCapabilityLease {
+        descriptor,
+        token,
+        grant_ref: binding.grant_ref,
+        credential_source,
+        credential_key_source,
+    })
+}
+
+/// GET /v1/hypervisor/capability-leases — the authority audit trail: every issued use-only lease
+/// (the 9-field shape). NEVER includes a credential/secret — leases are use-only by construction.
+pub(crate) async fn handle_capability_lease_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "leases": read_record_dir(&st.data_dir, "capability-leases") }))
 }
 
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
@@ -8043,70 +8188,36 @@ pub(crate) async fn handle_scm_publish(
 
     let kind = connector["kind"].as_str().unwrap_or("git").to_string();
     let requires_credential = connector["requires_credential"].as_bool().unwrap_or(auth_posture.starts_with("token-lease"));
-    // Resolve the scoped credential if this connector requires one (read from the separate
-    // scm-credentials store; never surfaced in listings). Fail closed if required but unbound.
-    let cred_record = if requires_credential {
-        read_record_dir(&st.data_dir, "scm-credentials")
-            .into_iter()
-            .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
-    } else {
-        None
-    };
-    // Open the sealed token (decrypt failure → None → fail closed); legacy plaintext records still resolve.
-    let open_cred = |c: &Value| -> Option<String> {
-        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
-    };
-    let mut token: Option<String> = cred_record.as_ref().and_then(open_cred);
-    let mut credential_key_source = cred_record.as_ref().and_then(|c| c["key_source"].as_str().map(str::to_string));
-    let mut credential_source = if token.is_some() { Some("connector") } else { None };
-    // Host-level git-auth fallback: a repo connector with no own credential uses the connected
-    // host account's sealed token (github.com) — the native "Git authentications" connection.
-    if token.is_none() && requires_credential && remote_url.contains("github.com") {
-        if let Some(host_cred) = read_record_dir(&st.data_dir, "scm-credentials")
-            .into_iter()
-            .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
-        {
-            token = open_cred(&host_cred);
-            if token.is_some() {
-                credential_key_source = host_cred["key_source"].as_str().map(str::to_string);
-                credential_source = Some("host-authentication");
-            }
-        }
-    }
-    if requires_credential && token.is_none() {
-        return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
-            "ok": false, "decision": "blocked", "reason": "scm_credential_required",
-            "message": "This connector needs a bound credential lease (SCM token) before publishing.",
-            "connector_id": connector_id, "auth_posture": auth_posture, "host_mutation": false,
-        })));
-    }
 
-    // --- wallet authority gate (the crossing) — daemon-derived hashes, verified bound grant ---
-    let policy_hash = scm_publish_policy_hash(&id, &remote_url);
-    let request_hash = scm_publish_request_hash(&id, &connector_id, &branch);
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
-    let now_ms = daemon_now_ms_fail_closed();
-    let grant_ref = if grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
-            .map(|binding| binding.grant_ref)
+    // Authorize the publish CROSSING through the generic capability-lease gateway: it resolves the
+    // sealed backing credential (connector or github host fallback), verifies the bound wallet grant,
+    // and issues a lease. Fail-closed responses (428 credential / 403 authority) return verbatim.
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: if requires_credential { format!("scm:connector:{connector_id}") } else { "none".to_string() },
+        allowed_tools: vec!["scm.publish".to_string()],
+        resource_refs: vec![remote_url.clone(), id.clone()],
+        scopes: SCM_PUBLISH_SCOPES.iter().map(|s| s.to_string()).collect(),
+        policy_domain: "hypervisor.scm.publish.policy.v1".to_string(),
+        request_domain: "hypervisor.scm.publish.request.v1".to_string(),
+        request_facets: json!({ "environment_id": id, "connector_id": connector_id, "branch": branch }),
+        credential_connector_id: Some(connector_id.clone()),
+        credential_required: requires_credential,
+        github_host_fallback: remote_url.contains("github.com"),
+        receipt_required: true,
+        revocation_ref: format!("scm-connectors/{connector_id}/credential"),
+        authority_reason: "scm_publish_authority_required".to_string(),
+        grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
     };
-    let grant_ref = match grant_ref {
-        Ok(reference) => reference,
-        Err(reason) => {
-            return (StatusCode::FORBIDDEN, Json(json!({
-                "ok": false, "decision": "blocked", "reason": "scm_publish_authority_required",
-                "message": format!(
-                    "Publishing to {remote_url} is a crossing and requires a wallet grant ({reason}). \
-                     Bind a grant to policy_hash {policy_hash} + request_hash {request_hash}."
-                ),
-                "required_scopes": SCM_PUBLISH_SCOPES,
-                "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
-                "host_mutation": false,
-            })));
-        }
+    let lease = match authorize_capability_lease(&st, &lease_req) {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
     };
+    let token = lease.token;
+    let credential_key_source = lease.credential_key_source;
+    let credential_source = lease.credential_source;
+    let grant_ref = lease.grant_ref;
+    let capability_lease = lease.descriptor;
 
     // --- daemon EXECUTES the real push (authorized) ---
     let git = |args: &[&str]| -> (bool, String) {
@@ -8166,6 +8277,7 @@ pub(crate) async fn handle_scm_publish(
         "pull_request_url": pr_url,
         "pull_request_error": pr_error,
         "grant_ref": grant_ref,
+        "capability_lease": capability_lease,
         "host_mutation": true,
         "push_tail": push_out.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"),
         "published_at": iso_now(),
@@ -8321,57 +8433,34 @@ pub(crate) async fn handle_scm_abandon_pull_request(
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "could not parse PR number from pull_request_url" })));
     };
 
-    // Resolve the sealed credential (connector's own, else the github host git-auth fallback) — same
-    // use-only resolution as publish. Fail closed if none.
+    // Authorize the cleanup CROSSING through the SAME generic capability-lease gateway as publish —
+    // distinct scopes/domains (scm.pr.close) so a publish grant can't authorize an abandon.
     let requires_credential = connector["requires_credential"].as_bool().unwrap_or(auth_posture.starts_with("token-lease"));
-    let open_cred = |c: &Value| -> Option<String> {
-        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("scm:connector:{connector_id}"),
+        allowed_tools: vec!["scm.pr.close".to_string()],
+        resource_refs: vec![remote_url.clone(), pull_request_url.clone()],
+        scopes: SCM_ABANDON_SCOPES.iter().map(|s| s.to_string()).collect(),
+        policy_domain: "hypervisor.scm.abandon.policy.v1".to_string(),
+        request_domain: "hypervisor.scm.abandon.request.v1".to_string(),
+        request_facets: json!({ "connector_id": connector_id, "pull_request_url": pull_request_url, "delete_branch": delete_branch }),
+        credential_connector_id: Some(connector_id.clone()),
+        credential_required: requires_credential,
+        github_host_fallback: remote_url.contains("github.com"),
+        receipt_required: true,
+        revocation_ref: format!("scm-connectors/{connector_id}/credential"),
+        authority_reason: "scm_abandon_authority_required".to_string(),
+        grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
     };
-    let cred_record = read_record_dir(&st.data_dir, "scm-credentials")
-        .into_iter()
-        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()));
-    let mut token: Option<String> = cred_record.as_ref().and_then(open_cred);
-    let mut credential_source = if token.is_some() { Some("connector") } else { None };
-    if token.is_none() && remote_url.contains("github.com") {
-        if let Some(host_cred) = read_record_dir(&st.data_dir, "scm-credentials")
-            .into_iter()
-            .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
-        {
-            token = open_cred(&host_cred);
-            if token.is_some() { credential_source = Some("host-authentication"); }
-        }
-    }
-    if requires_credential && token.is_none() {
-        return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
-            "ok": false, "decision": "blocked", "reason": "scm_credential_required",
-            "message": "This connector needs a resolvable credential to abandon a pull request.",
-            "connector_id": connector_id, "host_mutation": false,
-        })));
-    }
-
-    // Wallet authority gate (the cleanup crossing).
-    let policy_hash = scm_abandon_policy_hash(&connector_id, &remote_url);
-    let request_hash = scm_abandon_request_hash(&connector_id, &pull_request_url, delete_branch);
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
-    let now_ms = daemon_now_ms_fail_closed();
-    let grant_ref = if grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
-            .map(|binding| binding.grant_ref)
+    let lease = match authorize_capability_lease(&st, &lease_req) {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
     };
-    let grant_ref = match grant_ref {
-        Ok(reference) => reference,
-        Err(reason) => {
-            return (StatusCode::FORBIDDEN, Json(json!({
-                "ok": false, "decision": "blocked", "reason": "scm_abandon_authority_required",
-                "message": format!("Closing {pull_request_url} is a crossing and requires a wallet grant ({reason})."),
-                "required_scopes": SCM_ABANDON_SCOPES,
-                "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
-                "host_mutation": false,
-            })));
-        }
-    };
+    let token = lease.token;
+    let credential_source = lease.credential_source;
+    let grant_ref = lease.grant_ref;
+    let capability_lease = lease.descriptor;
 
     // daemon EXECUTES the cleanup (authorized).
     let tok = token.unwrap_or_default();
@@ -8394,6 +8483,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
         "branch_deleted": branch_deleted,
         "credential_source": credential_source,
         "grant_ref": grant_ref,
+        "capability_lease": capability_lease,
         "host_mutation": closed,
         "error": error,
         "abandoned_at": iso_now(),
