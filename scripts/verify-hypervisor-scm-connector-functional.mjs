@@ -139,6 +139,12 @@ ok(postRevokePub.body?.host_mutation === false, "no host mutation attempted afte
 const reRevoke = await j("DELETE", `/v1/hypervisor/scm-connectors/${credId}/credential`);
 ok(reRevoke.body?.ok === true && reRevoke.body?.revoked === false, "revoke is idempotent (second revoke → revoked:false)");
 
+// 7) abandon-pull-request (close PR + delete branch via the sealed token) is a governed crossing
+// too — fails closed without a wallet grant. (The authorized path needs a real github PR; it is
+// exercised by the live e2e — here we assert the gate is wired.)
+const abandonNoGrant = await j("POST", `/v1/hypervisor/scm-connectors/${connectorId}/abandon-pull-request`, { pull_request_url: "https://github.com/x/y/pull/1", delete_branch: false });
+ok(abandonNoGrant.status === 403 && abandonNoGrant.body?.reason === "scm_abandon_authority_required", "abandon-pull-request FAILS CLOSED without a wallet grant (403)", `status ${abandonNoGrant.status}`);
+
 try { fs.rmSync(bare, { recursive: true, force: true }); fs.rmSync(bare2, { recursive: true, force: true }); } catch { /* */ }
 
 const verdict = failures > 0 ? "FAIL" : "PASS";

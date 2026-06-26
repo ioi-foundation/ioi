@@ -1077,6 +1077,10 @@ async fn async_main() -> anyhow::Result<()> {
                 .delete(lifecycle_routes::handle_scm_connector_revoke_credential),
         )
         .route(
+            "/v1/hypervisor/scm-connectors/:id/abandon-pull-request",
+            post(lifecycle_routes::handle_scm_abandon_pull_request),
+        )
+        .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),
         )

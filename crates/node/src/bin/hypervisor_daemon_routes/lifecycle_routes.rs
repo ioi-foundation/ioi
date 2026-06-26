@@ -7866,6 +7866,28 @@ fn scm_publish_request_hash(environment_id: &str, connector_id: &str, branch: &s
     }))
 }
 
+// Abandoning a published PR (close + delete branch) is ALSO a host mutation via the sealed token, so
+// it is a governed crossing too — same use-only model as publish (the daemon uses the token, never
+// exports it). Distinct scopes/domains so a publish grant can't authorize an abandon.
+const SCM_ABANDON_SCOPES: &[&str] = &["scm_pr_close", "remote_publish"];
+fn scm_abandon_policy_hash(connector_id: &str, remote_url: &str) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.scm.abandon.policy.v1",
+        "connector_id": connector_id,
+        "remote_url": remote_url,
+        "scopes": SCM_ABANDON_SCOPES,
+    }))
+}
+fn scm_abandon_request_hash(connector_id: &str, pull_request_url: &str, delete_branch: bool) -> String {
+    sha256_json_ref(&json!({
+        "domain": "hypervisor.scm.abandon.request.v1",
+        "connector_id": connector_id,
+        "pull_request_url": pull_request_url,
+        "delete_branch": delete_branch,
+        "scopes": SCM_ABANDON_SCOPES,
+    }))
+}
+
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
 // + AEAD), keyed by the SAME wallet-secret passphrase the wallet.network secret model uses
 // (IOI_WALLET_SECRET_PASS → IOI_GUARDIAN_KEY_PASS → "local-mode" fallback). With a real passphrase
@@ -8205,6 +8227,182 @@ async fn create_github_pull_request(
             body.get("message").and_then(Value::as_str).unwrap_or("error")
         ))
     }
+}
+
+/// Close a GitHub pull request (and optionally delete its head branch) via the REST API — a REAL
+/// outward mutation authenticated with the sealed token. Returns (closed, head_branch, branch_deleted).
+async fn close_github_pull_request(
+    remote_url: &str,
+    token: &str,
+    pr_number: u64,
+    delete_branch: bool,
+) -> Result<(bool, String, bool), String> {
+    let path = remote_url
+        .trim_start_matches("https://github.com/")
+        .trim_end_matches(".git")
+        .trim_matches('/');
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").to_string();
+    let repo = parts.next().unwrap_or("").to_string();
+    if owner.is_empty() || repo.is_empty() {
+        return Err(format!("could not parse owner/repo from {remote_url}"));
+    }
+    let client = reqwest::Client::new();
+    let pr_api = format!("https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}");
+    // Read the PR first to learn the head branch (needed for branch deletion).
+    let getr = client
+        .get(&pr_api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let pr: Value = getr.json().await.unwrap_or(Value::Null);
+    let head_branch = pr.pointer("/head/ref").and_then(Value::as_str).unwrap_or("").to_string();
+    // Close the PR.
+    let patch = client
+        .patch(&pr_api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .json(&json!({ "state": "closed" }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !patch.status().is_success() {
+        let b: Value = patch.json().await.unwrap_or(Value::Null);
+        return Err(format!("github close pr {}: {}", pr_number, b.get("message").and_then(Value::as_str).unwrap_or("error")));
+    }
+    // Optionally delete the head branch (only for branches in this repo, not cross-fork heads).
+    let mut branch_deleted = false;
+    if delete_branch && !head_branch.is_empty() {
+        let ref_api = format!("https://api.github.com/repos/{owner}/{repo}/git/refs/heads/{head_branch}");
+        let del = client
+            .delete(&ref_api)
+            .header("User-Agent", "ioi-hypervisor")
+            .header("Accept", "application/vnd.github+json")
+            .bearer_auth(token)
+            .timeout(std::time::Duration::from_secs(20))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        branch_deleted = del.status().is_success();
+    }
+    Ok((true, head_branch, branch_deleted))
+}
+
+/// POST /v1/hypervisor/scm-connectors/:id/abandon-pull-request — the wallet-authorized CLEANUP
+/// crossing: close a published PR (and delete its branch) using the connector's sealed credential
+/// (or the github host git-auth fallback). The daemon USES the token; it is never exported. Fails
+/// closed (428) without a resolvable credential and (403) without a bound wallet grant.
+pub(crate) async fn handle_scm_abandon_pull_request(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let connector_id = id;
+    let Some(connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let remote_url = connector["remote_url"].as_str().unwrap_or("").to_string();
+    let auth_posture = connector["auth_posture"].as_str().unwrap_or("").to_string();
+    let pull_request_url = body.get("pull_request_url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if pull_request_url.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "pull_request_url is required" })));
+    }
+    let delete_branch = body.get("delete_branch").and_then(Value::as_bool).unwrap_or(true);
+    let Some(pr_number) = pull_request_url.rsplit('/').next().and_then(|s| s.parse::<u64>().ok()) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "could not parse PR number from pull_request_url" })));
+    };
+
+    // Resolve the sealed credential (connector's own, else the github host git-auth fallback) — same
+    // use-only resolution as publish. Fail closed if none.
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(auth_posture.starts_with("token-lease"));
+    let open_cred = |c: &Value| -> Option<String> {
+        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
+    };
+    let cred_record = read_record_dir(&st.data_dir, "scm-credentials")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()));
+    let mut token: Option<String> = cred_record.as_ref().and_then(open_cred);
+    let mut credential_source = if token.is_some() { Some("connector") } else { None };
+    if token.is_none() && remote_url.contains("github.com") {
+        if let Some(host_cred) = read_record_dir(&st.data_dir, "scm-credentials")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
+        {
+            token = open_cred(&host_cred);
+            if token.is_some() { credential_source = Some("host-authentication"); }
+        }
+    }
+    if requires_credential && token.is_none() {
+        return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
+            "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+            "message": "This connector needs a resolvable credential to abandon a pull request.",
+            "connector_id": connector_id, "host_mutation": false,
+        })));
+    }
+
+    // Wallet authority gate (the cleanup crossing).
+    let policy_hash = scm_abandon_policy_hash(&connector_id, &remote_url);
+    let request_hash = scm_abandon_request_hash(&connector_id, &pull_request_url, delete_branch);
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let now_ms = daemon_now_ms_fail_closed();
+    let grant_ref = if grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+            .map(|binding| binding.grant_ref)
+    };
+    let grant_ref = match grant_ref {
+        Ok(reference) => reference,
+        Err(reason) => {
+            return (StatusCode::FORBIDDEN, Json(json!({
+                "ok": false, "decision": "blocked", "reason": "scm_abandon_authority_required",
+                "message": format!("Closing {pull_request_url} is a crossing and requires a wallet grant ({reason})."),
+                "required_scopes": SCM_ABANDON_SCOPES,
+                "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                "host_mutation": false,
+            })));
+        }
+    };
+
+    // daemon EXECUTES the cleanup (authorized).
+    let tok = token.unwrap_or_default();
+    let (closed, head_branch, branch_deleted, error) =
+        match close_github_pull_request(&remote_url, &tok, pr_number, delete_branch).await {
+            Ok((c, b, d)) => (c, b, d, None),
+            Err(e) => (false, String::new(), false, Some(e.replace(tok.as_str(), "***"))),
+        };
+
+    let receipt_id = format!("scmaband_{}", short_hash(&format!("{connector_id}:{pr_number}")));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.scm-abandon-receipt.v1",
+        "receipt_id": receipt_id,
+        "connector_id": connector_id,
+        "remote_url": remote_url,
+        "pull_request_url": pull_request_url,
+        "pull_request_number": pr_number,
+        "closed": closed,
+        "branch": head_branch,
+        "branch_deleted": branch_deleted,
+        "credential_source": credential_source,
+        "grant_ref": grant_ref,
+        "host_mutation": closed,
+        "error": error,
+        "abandoned_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-abandon-receipts", &receipt_id, &receipt);
+    if !closed {
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "github close failed", "receipt": receipt })));
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "receipt": receipt })))
 }
 
 /// POST /v1/hypervisor/scm-connect/github — "Connect GitHub" (the login). Validates the token
