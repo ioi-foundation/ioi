@@ -8007,13 +8007,18 @@ pub(crate) async fn handle_scm_publish(
         None
     };
     // Open the sealed token (decrypt failure → None → fail closed); legacy plaintext records still resolve.
-    let token: Option<String> = cred_record.as_ref().and_then(|c| {
-        if let Some(sealed) = c["sealed_token"].as_str() {
-            open_scm_token(sealed)
-        } else {
-            c["token"].as_str().map(str::to_string)
-        }
-    });
+    let open_cred = |c: &Value| -> Option<String> {
+        if let Some(sealed) = c["sealed_token"].as_str() { open_scm_token(sealed) } else { c["token"].as_str().map(str::to_string) }
+    };
+    let mut token: Option<String> = cred_record.as_ref().and_then(open_cred);
+    // Host-level git-auth fallback: a repo connector with no own credential uses the connected
+    // host account's sealed token (github.com) — the native "Git authentications" connection.
+    if token.is_none() && requires_credential && remote_url.contains("github.com") {
+        token = read_record_dir(&st.data_dir, "scm-credentials")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
+            .and_then(|c| open_cred(&c));
+    }
     let credential_key_source = cred_record.as_ref().and_then(|c| c["key_source"].as_str().map(str::to_string));
     if requires_credential && token.is_none() {
         return (StatusCode::PRECONDITION_REQUIRED, Json(json!({
@@ -8168,6 +8173,90 @@ async fn create_github_pull_request(
             body.get("message").and_then(Value::as_str).unwrap_or("error")
         ))
     }
+}
+
+/// POST /v1/hypervisor/scm-connect/github — "Connect GitHub" (the login). Validates the token
+/// against the GitHub API (identifies the account), then registers a github connector for
+/// {owner}/{repo} and SEAL-binds the token in one step. The token is validated + sealed at rest;
+/// never returned. Fail-closed if GitHub rejects the token. With no repo it returns identity only
+/// (account connected; provide a repo to materialize a connector). This is the PAT-connect flow;
+/// OAuth/device flow is a follow-on (needs a registered GitHub OAuth App client_id).
+pub(crate) async fn handle_scm_connect_github(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if token.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "token is required" })));
+    }
+    // validate + identify the account (read-only)
+    let resp = reqwest::Client::new()
+        .get("https://api.github.com/user")
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(&token)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let resp = match resp {
+        Ok(r) => r,
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("github unreachable: {e}") }))),
+    };
+    if !resp.status().is_success() {
+        return (StatusCode::UNAUTHORIZED, Json(json!({
+            "ok": false, "decision": "blocked", "reason": "github rejected the token",
+            "status": resp.status().as_u16(),
+        })));
+    }
+    let login = resp.json::<Value>().await.ok().and_then(|v| v["login"].as_str().map(str::to_string)).unwrap_or_default();
+    if login.is_empty() {
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "could not read github login" })));
+    }
+    let owner = body.get("owner").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).unwrap_or(login.as_str()).trim().to_string();
+    let repo = body.get("repo").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if repo.is_empty() {
+        // Host-level git authentication (no specific repo) — the native "Git authentications" flow.
+        // Persist a HOST connector for github.com + seal the token; publish to any github repo
+        // resolves this host credential when the repo connector has none of its own.
+        let connector_id = "scm_host_github".to_string();
+        let key_source = scm_key_source();
+        let Some(sealed) = seal_scm_token(&token) else {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal credential" })));
+        };
+        let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        let connector = json!({
+            "schema_version": "ioi.hypervisor.scm-connector.v1",
+            "connector_id": connector_id, "kind": "github", "name": format!("github:@{login}"),
+            "remote_url": "https://github.com", "host": "github.com", "requires_credential": true,
+            "auth_posture": "token-lease:bound", "credential_key_source": key_source,
+            "connected_login": login, "host_level": true, "created_at": iso_now(),
+        });
+        let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+        return (StatusCode::OK, Json(json!({ "ok": true, "login": login, "connected": true, "connector_id": connector_id, "host": "github.com" })));
+    }
+    let remote_url = format!("https://github.com/{owner}/{repo}.git");
+    let connector_id = format!("scm_{}", short_hash(&format!("{remote_url}:github")));
+    let key_source = scm_key_source();
+    let Some(sealed) = seal_scm_token(&token) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal credential" })));
+    };
+    let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id,
+        "kind": "github",
+        "name": format!("github:{owner}/{repo}"),
+        "remote_url": remote_url,
+        "requires_credential": true,
+        "auth_posture": "token-lease:bound",
+        "credential_key_source": key_source,
+        "connected_login": login,
+        "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    (StatusCode::OK, Json(json!({ "ok": true, "login": login, "connector": connector, "connector_id": connector_id })))
 }
 
 /// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.

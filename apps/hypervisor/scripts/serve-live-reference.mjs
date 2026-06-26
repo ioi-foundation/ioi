@@ -1110,7 +1110,7 @@ const server = http.createServer((req, res) => {
         console.error("[ioi-api-adapter]", e);
       }
       if (handled) {
-        res.writeHead(200, { "Content-Type": handled.contentType || "application/json" });
+        res.writeHead(handled.status || 200, { "Content-Type": handled.contentType || "application/json" });
         res.end(handled.body);
         return;
       }

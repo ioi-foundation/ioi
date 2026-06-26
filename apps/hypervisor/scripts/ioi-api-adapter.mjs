@@ -35,6 +35,9 @@ const PREF_STORE = join(APP_LOCAL, "app-preferences.json");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const json = (payload) => ({ contentType: "application/json", body: JSON.stringify(payload) });
+// Connect-protocol error: non-2xx HTTP + {code,message} so the SPA's client rejects (e.g. a
+// rejected GitHub token surfaces as a real connect failure, not a silent success).
+const jsonStatus = (status, payload) => ({ contentType: "application/json", body: JSON.stringify(payload), status });
 
 // Local operator identity. Account/Org/User are NOT daemon runtime truth — in a local
 // single-operator hypervisor there is exactly one account, one organization (admin role),
@@ -85,6 +88,67 @@ function makePreference(key, value, entry) {
 const textFromBody = (b) => b.text || b.message || b.prompt || b.input || b.content || "";
 const envIdFromBody = (b) =>
   b.environmentId || b.req?.environmentId || b.spec?.environmentId || b.projectId || "default-environment";
+const parseGitHubContextUrl = (contextUrl) => {
+  let url;
+  try {
+    url = new URL(String(contextUrl || "").trim());
+  } catch {
+    return null;
+  }
+  const host = url.host.toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (!host.endsWith("github.com") || parts.length < 2) return null;
+  const owner = parts[0];
+  const repo = (parts[1] || "").replace(/\.git$/, "");
+  if (!owner || !repo) return null;
+  const cloneUrl = `https://${host}/${owner}/${repo}.git`;
+  return {
+    originalContextUrl: url.toString(),
+    git: {
+      cloneUrl,
+      branch: "",
+      commit: "",
+      host,
+      owner,
+      repo,
+      upstreamRemoteUrl: cloneUrl,
+      tag: "",
+    },
+    projectIds: [],
+    scmId: "github",
+  };
+};
+const runnerFromProvider = (p = {}) => {
+  const id = p.provider_ref || p.runnerId || "local-microvm";
+  const active = !p.status || p.status === "available";
+  const label = p.reason || id;
+  return {
+    id,
+    runnerId: id,
+    name: label,
+    spec: {
+      desiredPhase: "RUNNER_PHASE_ACTIVE",
+      configuration: {
+        region: p.capabilities?.locality || "local",
+        releaseChannel: "RUNNER_RELEASE_CHANNEL_STABLE",
+      },
+      variant: "RUNNER_VARIANT_STANDARD",
+    },
+    // status.capabilities gates env-class selectability and the Git-auth connect action. It must
+    // include AGENT_EXECUTION plus the local side capabilities this borrowed shell expects.
+    status: {
+      phase: active ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE",
+      message: label,
+      version: "ioi-local",
+      capabilities: [3, 4, 5],
+    },
+    kind: "RUNNER_KIND_REMOTE",
+  };
+};
+async function listProjectedRunners() {
+  const r = await daemon("GET", "/v1/hypervisor/providers");
+  return (r.providers || []).map(runnerFromProvider);
+}
 const portsFromBody = (b) => {
   const candidates = [b.spec?.ports, b.req?.spec?.ports, b.ports, b.req?.ports];
   return candidates.find((ports) => Array.isArray(ports)) || [];
@@ -377,37 +441,58 @@ export async function handle(pathname, bodyText) {
 
   // ---- RunnerService: runners backed by the EnvironmentProvider registry (local authority) ----
   if (pathname === "/api/gitpod.v1.RunnerService/CheckAuthenticationForHost") {
-    return json({ type: "Authenticated" });
+    // The native Git-authentications flow asks whether the host (github.com) is authenticated, and
+    // whether PAT is supported. We support PAT (CreateHostAuthenticationToken → daemon connect);
+    // authenticated reflects whether a host credential is sealed in the daemon.
+    const host = body.host || body.host_name || "github.com";
+    let authenticated = false;
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/scm-connectors");
+      authenticated = (r.connectors || []).some((c) => c.host === host && c.auth_posture === "token-lease:bound");
+    } catch { /* daemon transient */ }
+    // CheckAuthenticationForHostResponse has both an older boolean (`pat_supported`) and the
+    // current PAT method object (`supports_pat`). The settings row reads `supportsPat`, but the
+    // generated decoder still expects the message shape — returning a boolean makes the hook retry
+    // forever and leaves the row on "Checking...".
+    const supportsPat = {
+      createUrl: "https://github.com/settings/tokens/new?scopes=repo,workflow",
+      docsUrl: "https://docs.github.com/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token",
+      example: "ghp_...",
+      requiredScopes: ["repo", "workflow"],
+    };
+    return json({ authenticated, authenticationUrl: "", patSupported: true, supportsPat, scmId: "github", scmName: "GitHub" });
   }
   if (pathname === "/api/gitpod.v1.RunnerService/ListRunners") {
     // The compose flow filters runners to RUNNER_KIND_REMOTE (environments run on a remote-shaped
     // host). Our local provider IS that host for the served app, so present it as a REMOTE runner —
     // otherwise the env class has no supported runner and shows "Unsupported" (unselectable).
     try {
-      const r = await daemon("GET", "/v1/hypervisor/providers");
-      const runners = (r.providers || []).map((p) => ({
-        runnerId: p.provider_ref,
-        name: p.reason || p.provider_ref,
-        spec: { desiredPhase: "RUNNER_PHASE_ACTIVE", configuration: { region: p.capabilities?.locality || "local", releaseChannel: "RUNNER_RELEASE_CHANNEL_STABLE" }, variant: "RUNNER_VARIANT_STANDARD" },
-        // status.capabilities gates env-class selectability in the composer: it must include
-        // AGENT_EXECUTION or the class shows "Unsupported" (RunnerCapability enum, unprefixed names).
-        status: { phase: p.status === "available" ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE", message: p.reason || "", version: "ioi-local", capabilities: [3, 4, 5] },
-        kind: "RUNNER_KIND_REMOTE",
-      }));
-      return json({ pagination: {}, runners });
+      return json({ pagination: {}, runners: await listProjectedRunners() });
     } catch {
       return json({ pagination: {}, runners: [] });
     }
   }
+  if (pathname === "/api/gitpod.v1.RunnerService/GetRunner") {
+    try {
+      const runnerId = body.runnerId || body.runner_id || "local-microvm";
+      const runner = (await listProjectedRunners()).find((r) => r.runnerId === runnerId) || runnerFromProvider({ provider_ref: runnerId, reason: runnerId, status: "available" });
+      return json({ runner });
+    } catch {
+      return json({ runner: runnerFromProvider({ provider_ref: body.runnerId || body.runner_id || "local-microvm", reason: "local microVM node", status: "available" }) });
+    }
+  }
   if (pathname === "/api/gitpod.v1.RunnerService/CreateRunner") {
     try {
-      const r = await daemon("GET", "/v1/hypervisor/providers");
-      const p = (r.providers || []).find((x) => x.status === "available") || (r.providers || [])[0];
-      const id = p?.provider_ref || "local-microvm";
-      return json({ runner: { id, spec: { configuration: { region: "local" } }, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_REMOTE" } });
+      const runner = (await listProjectedRunners()).find((x) => x.status?.phase === "RUNNER_PHASE_ACTIVE") || runnerFromProvider();
+      return json({ runner });
     } catch {
-      return json({ runner: { id: "local-microvm", spec: {}, status: { phase: "RUNNER_PHASE_ACTIVE", message: "" }, kind: "RUNNER_KIND_REMOTE" } });
+      return json({ runner: runnerFromProvider() });
     }
+  }
+  if (pathname === "/api/gitpod.v1.RunnerService/ParseContextURL") {
+    const parsed = parseGitHubContextUrl(body.contextUrl || body.context_url || "");
+    if (!parsed) return jsonStatus(400, { code: "invalid_argument", message: "Only GitHub repository URLs are supported by the local Hypervisor Git auth bridge." });
+    return json(parsed);
   }
 
   // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
@@ -441,6 +526,9 @@ export async function handle(pathname, bodyText) {
   if (pathname === "/api/gitpod.v1.ProjectService/ListProjects") {
     return json({ pagination: {}, projects: [] });
   }
+  if (pathname === "/api/gitpod.v1.UserService/GetDotfilesConfiguration") {
+    return json({ dotfilesConfiguration: { repository: "" } });
+  }
   if (pathname === "/api/gitpod.v1.OrganizationService/ListMembers") {
     return json({ pagination: {}, members: [{ userId: IDENTITY.userId, role: "ORGANIZATION_ROLE_ADMIN", memberSince: IDENTITY.createdAt, avatarUrl: "", fullName: IDENTITY.name, email: IDENTITY.email, status: "USER_STATUS_ACTIVE", loginProvider: "local" }] });
   }
@@ -454,7 +542,29 @@ export async function handle(pathname, bodyText) {
     return json({ pagination: {}, assignments: [] });
   }
   if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListSCMIntegrations") {
-    return json({ pagination: {}, integrations: [] });
+    // Surface a github.com SCM integration so the native Git-authentications surface offers
+    // connecting GitHub (PAT). Backed by the daemon SCM connector model.
+    return json({ pagination: {}, integrations: [{
+      id: "scmint-github", runnerId: "local-microvm", scmId: "github", host: "github.com",
+      issuerUrl: "https://github.com", oauthClientId: "", pat: true,
+    }] });
+  }
+  if (pathname === "/api/gitpod.v1.RunnerConfigurationService/CreateHostAuthenticationToken") {
+    // The native "Connect GitHub" PAT submit. Validate + SEAL the token via the daemon connect
+    // (host-level), then reflect it as a host authentication token. Fail closed if GitHub rejects.
+    const t = body.token || body || {};
+    const pat = t.token || body.token || body.pat || "";
+    const host = t.host || body.host || "github.com";
+    if (!pat) return jsonStatus(400, { code: "invalid_argument", message: "a personal access token is required" });
+    // Raw fetch (not the throwing daemon() helper) so a 401 from GitHub validation surfaces as a
+    // fail-closed connect error instead of being swallowed into a proxy fallthrough.
+    let r = {};
+    try {
+      const resp = await fetch(`${DAEMON}/v1/hypervisor/scm-connect/github`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: pat }), signal: AbortSignal.timeout(25000) });
+      r = await resp.json().catch(() => ({}));
+    } catch (e) { return jsonStatus(502, { code: "unavailable", message: `github connect failed: ${e.message}` }); }
+    if (!r.ok) return jsonStatus(401, { code: "unauthenticated", message: r.reason || "github rejected the token" });
+    return json({ token: { id: r.connector_id || "scm_host_github", runnerId: "local-microvm", host, scmId: "github", userId: IDENTITY.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT", expiresAt: undefined } });
   }
   if (pathname === "/api/gitpod.v1.PrebuildService/ListPrebuilds") {
     return json({ pagination: {} });
@@ -493,9 +603,22 @@ export async function handle(pathname, bodyText) {
     return json({ pagination: {}, definitions: [] });
   }
   if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListHostAuthenticationTokens") {
-    // Local authority is unconditional (CheckAuthenticationForHost -> Authenticated); no stored
-    // host OAuth tokens to enumerate.
-    return json({ pagination: {}, tokens: [] });
+    // The user's connected git authentications — projected from the daemon's sealed host connectors
+    // (a bound github host credential = one git authentication). Tokens themselves never surface.
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/scm-connectors");
+      const tokens = (r.connectors || [])
+        .filter((c) => c.kind === "github" && c.host_level && c.auth_posture === "token-lease:bound")
+        .map((c) => ({ id: c.connector_id, runnerId: "local-microvm", host: c.host || "github.com", scmId: "github", userId: IDENTITY.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT" }));
+      return json({ pagination: {}, tokens });
+    } catch {
+      return json({ pagination: {}, tokens: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.RunnerConfigurationService/DeleteHostAuthenticationToken") {
+    // Disconnect a git authentication — best-effort (the daemon connector remains; a real
+    // disconnect endpoint is a follow-on). Honest ack so the UI reflects removal intent.
+    return json({});
   }
   if (pathname === "/api/gitpod.v1.AgentService/ListPrompts") {
     return json({ pagination: {} });

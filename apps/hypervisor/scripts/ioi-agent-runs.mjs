@@ -421,10 +421,13 @@ export async function publishRunViaConnector(runId, connectorId) {
   let cid = connectorId;
   if (!cid) {
     const list = await dj("GET", "/v1/hypervisor/scm-connectors");
-    const usable = (list.body?.connectors || [])
-      .filter((c) => c.auth_posture === "local-none")
-      .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
-    cid = usable[usable.length - 1]?.connector_id || null; // newest credential-free connector
+    const conns = list.body?.connectors || [];
+    const byAge = (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || ""));
+    // Prefer a CONNECTED github account (bound credential) — that's the operator's real publish
+    // target; fall back to the newest credential-free local connector for the local slice.
+    const boundGithub = conns.filter((c) => c.kind === "github" && c.auth_posture === "token-lease:bound").sort(byAge);
+    const localNone = conns.filter((c) => c.auth_posture === "local-none").sort(byAge);
+    cid = boundGithub[boundGithub.length - 1]?.connector_id || localNone[localNone.length - 1]?.connector_id || null;
   }
   if (!cid) return { ok: false, reason: "no usable SCM connector registered" };
   const path = `/v1/hypervisor/environments/${encodeURIComponent(run.envId)}/scm/publish`;

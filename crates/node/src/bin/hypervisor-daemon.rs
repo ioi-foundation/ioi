@@ -1076,6 +1076,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_scm_connector_bind_credential),
         )
         .route(
+            "/v1/hypervisor/scm-connect/github",
+            post(lifecycle_routes::handle_scm_connect_github),
+        )
+        .route(
             "/v1/hypervisor/environments/:id/scm/publish",
             post(lifecycle_routes::handle_scm_publish),
         )
