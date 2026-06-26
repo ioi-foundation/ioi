@@ -7950,6 +7950,20 @@ async fn resolve_sealed_credential(rec: &Value) -> (Option<String>, Option<Strin
         }
         return (None, None, key_source);
     }
+    if rec["kind"].as_str() == Some("oauth-refresh") {
+        let refresh = rec["sealed_refresh_token"].as_str().and_then(open_scm_token);
+        let token_url = rec["token_url"].as_str().unwrap_or("").to_string();
+        let client_id = rec["client_id"].as_str().unwrap_or("").to_string();
+        let client_secret = rec["sealed_client_secret"].as_str().and_then(open_scm_token).unwrap_or_default();
+        if let Some(refresh) = refresh {
+            if !token_url.is_empty() {
+                if let Ok(tok) = mint_oauth_access_token(&token_url, &client_id, &client_secret, &refresh).await {
+                    return (Some(tok), Some("oauth-refresh".to_string()), key_source);
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
     let token = if let Some(sealed) = rec["sealed_token"].as_str() { open_scm_token(sealed) } else { rec["token"].as_str().map(str::to_string) };
     let source = token.as_ref().map(|_| "connector".to_string());
     (token, source, key_source)
@@ -8102,22 +8116,40 @@ pub(crate) async fn handle_connector_bind_credential(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
-    let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
-    if token.is_empty() {
-        return Json(json!({ "ok": false, "reason": "token is required" }));
-    }
     let Some(mut connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
         return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
     };
-    let Some(sealed) = seal_scm_token(&token) else {
-        return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
-    };
     let key_source = scm_key_source();
-    let cred = json!({ "connector_id": id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    // Two credential KINDS: a static bearer token, or an OAuth2 refresh token (the daemon mints a
+    // fresh access token per use — the model the native Integrations surface uses). Both sealed.
+    let cred = if body.get("kind").and_then(Value::as_str) == Some("oauth-refresh") {
+        let refresh = body.get("refresh_token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let token_url = body.get("token_url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let client_id = body.get("client_id").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let client_secret = body.get("client_secret").and_then(Value::as_str).unwrap_or("").to_string();
+        if refresh.is_empty() || token_url.is_empty() {
+            return Json(json!({ "ok": false, "reason": "oauth-refresh needs refresh_token and token_url" }));
+        }
+        let (Some(sealed_refresh), Some(sealed_secret)) = (seal_scm_token(&refresh), seal_scm_token(&client_secret)) else {
+            return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+        };
+        json!({ "connector_id": id, "kind": "oauth-refresh", "sealed_refresh_token": sealed_refresh,
+            "token_url": token_url, "client_id": client_id, "sealed_client_secret": sealed_secret,
+            "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else {
+        let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        if token.is_empty() {
+            return Json(json!({ "ok": false, "reason": "token is required" }));
+        }
+        let Some(sealed) = seal_scm_token(&token) else {
+            return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+        };
+        json!({ "connector_id": id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    };
     let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
     connector["auth_posture"] = json!("token-lease:bound");
     let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
-    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound" }))
+    Json(json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "kind": cred["kind"] }))
 }
 
 /// DELETE /v1/hypervisor/connectors/:id/credential — revoke the sealed credential (fail-closed after).
@@ -8660,6 +8692,37 @@ async fn mint_github_installation_token(app_id: &str, pem: &str, installation_id
         body.get("token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no token in installation response".to_string())
     } else {
         Err(format!("installation token {}: {}", status.as_u16(), body.get("message").and_then(Value::as_str).unwrap_or("error")))
+    }
+}
+
+/// Mint a fresh OAuth2 access token from a sealed REFRESH token (the OAuth model the native
+/// Integrations surface uses — Gmail/Google/Atlassian/etc.). Standard refresh_token grant; the
+/// refresh token + client secret never leave the daemon, and the short-lived access token is minted
+/// per use. credential_source "oauth-refresh".
+async fn mint_oauth_access_token(token_url: &str, client_id: &str, client_secret: &str, refresh_token: &str) -> Result<String, String> {
+    let mut form = vec![
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+        ("client_id", client_id),
+    ];
+    if !client_secret.is_empty() {
+        form.push(("client_secret", client_secret));
+    }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("access_token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no access_token in refresh response".to_string())
+    } else {
+        Err(format!("oauth refresh {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
     }
 }
 

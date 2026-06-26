@@ -21,12 +21,16 @@ const j = async (m, p, b) => { const r = await fetch(DAEMON + p, { method: m, he
 if (!JSON_OUT) console.log("Connector estate e2e — any service as a use-only lease");
 try { const r = await fetch(`${DAEMON}/v1/hypervisor/providers`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 
-// local echo target — stands in for Slack/Databricks/etc.; reports the Authorization header it saw
+// local target — stands in for Slack/Databricks/etc. /echo reports the Authorization header it saw;
+// /token is a mock OAuth2 endpoint that mints an access token from a refresh grant.
 const SECRET = "echo-bearer-DONOTLEAK-9f3a2c";
+const OAUTH_REFRESH = "oauth-refresh-DONOTLEAK-c4d8";
+const OAUTH_ACCESS = "oauth-access-DONOTLEAK-7b21";
 const echo = http.createServer((req, res) => {
   let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => {
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, received_auth: req.headers["authorization"] || null, path: req.url }));
+    if ((req.url || "").startsWith("/token")) res.end(JSON.stringify({ access_token: OAUTH_ACCESS, token_type: "Bearer", expires_in: 3600 }));
+    else res.end(JSON.stringify({ ok: true, received_auth: req.headers["authorization"] || null, path: req.url }));
   });
 });
 await new Promise((r) => echo.listen(0, "127.0.0.1", r));
@@ -79,6 +83,22 @@ const postRevoke = await j("POST", `/v1/hypervisor/connectors/${cid}/invoke`, { 
 ok(postRevoke.status === 428, "invoke AFTER revoke FAILS CLOSED (428)", `status ${postRevoke.status}`);
 
 await j("DELETE", `/v1/hypervisor/connectors/${cid}`); // clean up the test connector
+
+// 9) OAuth-refresh credential kind (the native-Integrations / Gmail / Atlassian model): the daemon
+// MINTS a fresh access token from a sealed refresh token per use — refresh token never leaves.
+const oReg = await j("POST", "/v1/hypervisor/connectors", { service: "oauth-test", base_url: BASE, allowed_tools: [{ name: "echo", method: "POST", path: "/echo" }] });
+const ocid = oReg.body?.connector?.connector_id;
+const oBind = await j("POST", `/v1/hypervisor/connectors/${ocid}/credential`, { kind: "oauth-refresh", refresh_token: OAUTH_REFRESH, token_url: `${BASE}/token`, client_id: "cid", client_secret: "csecret" });
+ok(oBind.body?.kind === "oauth-refresh", "bind an oauth-refresh credential", oBind.body?.kind);
+const oCh = await j("POST", `/v1/hypervisor/connectors/${ocid}/invoke`, { tool: "echo", request: {} });
+ok(oCh.status === 403, "oauth-refresh invoke without grant FAILS CLOSED (403)", `status ${oCh.status}`);
+const oGrant = mintApprovalGrant({ policyHash: oCh.body.approval.policy_hash, requestHash: oCh.body.approval.request_hash });
+const oInv = await j("POST", `/v1/hypervisor/connectors/${ocid}/invoke`, { tool: "echo", request: {}, wallet_approval_grant: oGrant });
+ok(oInv.status === 200 && oInv.body?.receipt?.credential_source === "oauth-refresh", "invoke MINTS a fresh access token (credential_source oauth-refresh)", oInv.body?.receipt?.credential_source);
+ok(oInv.body?.response?.received_auth === "Bearer ***", "daemon minted+sent the access token AND redacted it", oInv.body?.response?.received_auth);
+ok(!JSON.stringify(oInv.body).includes(OAUTH_REFRESH) && !JSON.stringify(oInv.body).includes(OAUTH_ACCESS), "neither the refresh nor the access token leaks");
+await j("DELETE", `/v1/hypervisor/connectors/${ocid}`);
+
 echo.close();
 const verdict = failures > 0 ? "FAIL" : "PASS";
 if (JSON_OUT) console.log(JSON.stringify({ workstream: "connector-estate", verdict, failures, checks: checks.length }, null, 2));
