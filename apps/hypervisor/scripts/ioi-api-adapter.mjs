@@ -68,6 +68,37 @@ async function daemon(method, path, body) {
   return text ? JSON.parse(text) : {};
 }
 
+// Project the daemon's MCP connectors (kind: mcp) into the native IntegrationService shape so they
+// render on the org/user Integrations surfaces. Mirrors the captured ListIntegrations fixture
+// (capabilities.mcp.url + auth + categories). Bearer/oauth HTTP connectors are intentionally NOT
+// projected here — that surface is MCP-shaped; mixing models would blur it.
+async function mcpConnectorsAsIntegrations() {
+  try {
+    const r = await daemon("GET", "/v1/hypervisor/connectors");
+    return (r.connectors || [])
+      .filter((c) => c.kind === "mcp")
+      .map((c) => {
+        let host = ""; try { host = new URL(c.base_url).host; } catch { /* */ }
+        return {
+          id: c.connector_id,
+          organizationId: IDENTITY.orgId,
+          integrationDefinitionId: c.connector_id,
+          enabled: true,
+          capabilities: { mcp: { url: c.base_url } },
+          auth: { requiresAuth: c.requires_credential !== false },
+          host,
+          name: c.name || c.service || "MCP integration",
+          description: c.description || `MCP server · ${host}`,
+          iconUrl: c.icon_url || "",
+          categories: ["INTEGRATION_CATEGORY_MCP"],
+          connected: c.auth_posture === "token-lease:bound",
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 // ---- preferences (real IOI-persisted storage) ----
 function loadStore() {
   try {
@@ -595,12 +626,18 @@ export async function handle(pathname, bodyText) {
     return json({ banner: { organizationId: IDENTITY.orgId } });
   }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrations") {
-    // No integrations wired in the local deployment yet (honest empty state).
-    return json({ pagination: {}, integrations: [] });
+    // Project the daemon's MCP connectors (kind: mcp) onto the native Integrations surface. Only MCP
+    // connectors land here — this surface is MCP+OAuth-shaped; bearer connectors (Slack) stay in the
+    // estate to avoid conflating the two models. capabilities.mcp.url is the server the agent reaches.
+    return json({ pagination: {}, integrations: await mcpConnectorsAsIntegrations() });
   }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrationDefinitions") {
-    // No integration catalog provisioned in the local deployment yet (honest empty state).
-    return json({ pagination: {}, definitions: [] });
+    // The org catalog of available MCP integration definitions (same projection, definition shape).
+    const defs = (await mcpConnectorsAsIntegrations()).map((i) => ({
+      id: i.integrationDefinitionId, name: i.name, host: i.host, description: i.description,
+      iconUrl: i.iconUrl, categories: i.categories, capabilities: i.capabilities, auth: i.auth,
+    }));
+    return json({ pagination: {}, definitions: defs });
   }
   if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListHostAuthenticationTokens") {
     // The user's connected git authentications — projected from the daemon's sealed host connectors
