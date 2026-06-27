@@ -7964,6 +7964,33 @@ async fn resolve_sealed_credential(rec: &Value) -> (Option<String>, Option<Strin
         }
         return (None, None, key_source);
     }
+    if rec["kind"].as_str() == Some("oidc-workload") {
+        // The subject token is the workload's own identity — read fresh from a mounted file (rotating,
+        // e.g. a projected service-account token) or a sealed configured value, then exchange it.
+        let subject = match rec["subject_token_file"].as_str() {
+            Some(path) if !path.is_empty() => std::fs::read_to_string(path).ok().map(|s| s.trim().to_string()),
+            _ => rec["sealed_subject_token"].as_str().and_then(open_scm_token),
+        };
+        let token_url = rec["token_url"].as_str().unwrap_or("");
+        if let Some(subject) = subject {
+            if !token_url.is_empty() {
+                let stt = rec["subject_token_type"].as_str().unwrap_or("urn:ietf:params:oauth:token-type:jwt");
+                let audience = rec["audience"].as_str().unwrap_or("");
+                let scopes = rec["scopes"].as_str().unwrap_or("");
+                let client_id = rec["client_id"].as_str().unwrap_or("");
+                if let Ok(tok) = mint_token_exchange(token_url, &subject, stt, audience, scopes, client_id).await {
+                    return (Some(tok), Some("oidc-workload".to_string()), key_source);
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
+    if rec["kind"].as_str() == Some("aws-sigv4") {
+        // SigV4 signs each request at invoke time (not a bearer). Signal credential presence so the
+        // wallet gate passes; the invoke reads the sealed keys and signs. The marker is never sent.
+        let present = rec["sealed_secret_access_key"].as_str().is_some();
+        return (present.then(|| "aws-sigv4".to_string()), present.then(|| "aws-sigv4".to_string()), key_source);
+    }
     let token = if let Some(sealed) = rec["sealed_token"].as_str() { open_scm_token(sealed) } else { rec["token"].as_str().map(str::to_string) };
     let label = if rec["kind"].as_str() == Some("service-account") { "managed-service-account" } else { "connector" };
     let source = token.as_ref().map(|_| label.to_string());
@@ -8144,6 +8171,45 @@ pub(crate) async fn handle_connector_bind_credential(
         json!({ "connector_id": id, "kind": "oauth-refresh", "sealed_refresh_token": sealed_refresh,
             "token_url": token_url, "client_id": client_id, "sealed_client_secret": sealed_secret,
             "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else if body.get("kind").and_then(Value::as_str) == Some("oidc-workload") {
+        // Workload identity (RFC 8693): a sealed subject token, OR a path to a mounted (rotating)
+        // workload identity token that the daemon reads fresh each use.
+        let token_url = body.get("token_url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let subject_token_file = body.get("subject_token_file").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let subject_token = body.get("subject_token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        if token_url.is_empty() || (subject_token.is_empty() && subject_token_file.is_empty()) {
+            return Json(json!({ "ok": false, "reason": "oidc-workload needs token_url and a subject_token or subject_token_file" }));
+        }
+        let sealed_subject = if subject_token.is_empty() { Value::Null } else {
+            match seal_scm_token(&subject_token) { Some(s) => json!(s), None => return Json(json!({ "ok": false, "reason": "failed to seal subject token" })) }
+        };
+        json!({ "connector_id": id, "kind": "oidc-workload", "token_url": token_url,
+            "sealed_subject_token": sealed_subject, "subject_token_file": subject_token_file,
+            "subject_token_type": body.get("subject_token_type").and_then(Value::as_str).unwrap_or("urn:ietf:params:oauth:token-type:jwt"),
+            "audience": body.get("audience").and_then(Value::as_str).unwrap_or(""),
+            "scopes": body.get("scopes").and_then(Value::as_str).unwrap_or(""),
+            "client_id": body.get("client_id").and_then(Value::as_str).unwrap_or(""),
+            "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else if body.get("kind").and_then(Value::as_str) == Some("aws-sigv4") {
+        // AWS keys: seal the secret (+ optional session token); access_key_id/region/service are
+        // identifiers stored plainly. Each request is SigV4-signed at invoke time.
+        let access_key_id = body.get("access_key_id").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let secret = body.get("secret_access_key").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let region = body.get("region").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let service = body.get("service").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let session = body.get("session_token").and_then(Value::as_str).unwrap_or("").trim().to_string();
+        if access_key_id.is_empty() || secret.is_empty() || region.is_empty() || service.is_empty() {
+            return Json(json!({ "ok": false, "reason": "aws-sigv4 needs access_key_id, secret_access_key, region, service" }));
+        }
+        let Some(sealed_secret) = seal_scm_token(&secret) else {
+            return Json(json!({ "ok": false, "reason": "failed to seal secret" }));
+        };
+        let sealed_session = if session.is_empty() { Value::Null } else {
+            match seal_scm_token(&session) { Some(s) => json!(s), None => return Json(json!({ "ok": false, "reason": "failed to seal session token" })) }
+        };
+        json!({ "connector_id": id, "kind": "aws-sigv4", "access_key_id": access_key_id,
+            "sealed_secret_access_key": sealed_secret, "sealed_session_token": sealed_session,
+            "region": region, "service": service, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
     } else {
         let token = body.get("token").and_then(Value::as_str).unwrap_or("").trim().to_string();
         if token.is_empty() {
@@ -8520,8 +8586,29 @@ pub(crate) async fn handle_connector_invoke(
             other => return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": format!("unsupported method {other}") }))),
         };
         rb = rb.header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").timeout(std::time::Duration::from_secs(20));
-        if !token.is_empty() { rb = rb.bearer_auth(&token); }
-        if method != "GET" { rb = rb.json(&request_args); }
+        let body_bytes = if method != "GET" { serde_json::to_vec(&request_args).unwrap_or_default() } else { Vec::new() };
+        if lease.credential_source.as_deref() == Some("aws-sigv4") {
+            // AWS SigV4: sign this exact request with the sealed keys (never a bearer).
+            if let Some(cred) = read_record_dir(&st.data_dir, "connector-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) {
+                let access_key = cred["access_key_id"].as_str().unwrap_or("").to_string();
+                let secret = cred["sealed_secret_access_key"].as_str().and_then(open_scm_token).unwrap_or_default();
+                let session = cred["sealed_session_token"].as_str().and_then(open_scm_token);
+                let region = cred["region"].as_str().unwrap_or("us-east-1").to_string();
+                let service = cred["service"].as_str().unwrap_or("").to_string();
+                let parsed = reqwest::Url::parse(&url).ok();
+                let host = parsed.as_ref().map(|u| match u.port() { Some(p) => format!("{}:{}", u.host_str().unwrap_or(""), p), None => u.host_str().unwrap_or("").to_string() }).unwrap_or_default();
+                let canonical_uri = parsed.as_ref().map(|u| u.path().to_string()).unwrap_or_else(|| "/".to_string());
+                let canonical_query = parsed.as_ref().and_then(|u| u.query()).unwrap_or("").to_string();
+                let amz = amz_date_now();
+                let auth = sigv4_authorization(&method, &host, &canonical_uri, &canonical_query, &body_bytes, &access_key, &secret, session.as_deref(), &region, &service, &amz);
+                rb = rb.header("Authorization", auth).header("x-amz-date", amz);
+                if let Some(t) = &session { rb = rb.header("x-amz-security-token", t.clone()); }
+            }
+            if !body_bytes.is_empty() { rb = rb.header("Content-Type", "application/json").body(body_bytes); }
+        } else {
+            if !token.is_empty() { rb = rb.bearer_auth(&token); }
+            if !body_bytes.is_empty() { rb = rb.header("Content-Type", "application/json").body(body_bytes); }
+        }
         match rb.send().await {
             Ok(r) => {
                 let sc = r.status().as_u16();
@@ -9029,6 +9116,97 @@ async fn mint_oauth_access_token(token_url: &str, client_id: &str, client_secret
         body.get("access_token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no access_token in refresh response".to_string())
     } else {
         Err(format!("oauth refresh {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
+    }
+}
+
+// ---- AWS Signature Version 4 (provider-native signed auth) ---------------------------------------
+// AWS doesn't use bearer tokens — each request is SIGNED with SigV4 (HMAC-SHA256 chain over a
+// canonical request). The sealed secret key never leaves the daemon; we sign per request.
+
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> Vec<u8> {
+    use sha2::{Digest, Sha256};
+    const BLOCK: usize = 64;
+    let mut k = key.to_vec();
+    if k.len() > BLOCK {
+        k = Sha256::digest(&k).to_vec();
+    }
+    k.resize(BLOCK, 0);
+    let ipad: Vec<u8> = k.iter().map(|b| b ^  0x36).collect();
+    let opad: Vec<u8> = k.iter().map(|b| b ^ 0x5c).collect();
+    let mut inner = Sha256::new();
+    inner.update(&ipad);
+    inner.update(msg);
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(&opad);
+    outer.update(inner);
+    outer.finalize().to_vec()
+}
+fn sha256_hex_bytes(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(data))
+}
+
+/// Compute the AWS SigV4 `Authorization` header for a request. `signed_headers` always covers
+/// host + x-amz-date (+ x-amz-security-token when a session token is present).
+fn sigv4_authorization(
+    method: &str, host: &str, canonical_uri: &str, canonical_query: &str, payload: &[u8],
+    access_key: &str, secret_key: &str, session_token: Option<&str>, region: &str, service: &str, amz_date: &str,
+) -> String {
+    let date_stamp = &amz_date[..8.min(amz_date.len())];
+    let payload_hash = sha256_hex_bytes(payload);
+    let (canonical_headers, signed_headers) = match session_token {
+        Some(tok) => (format!("host:{host}\nx-amz-date:{amz_date}\nx-amz-security-token:{tok}\n"), "host;x-amz-date;x-amz-security-token"),
+        None => (format!("host:{host}\nx-amz-date:{amz_date}\n"), "host;x-amz-date"),
+    };
+    let canonical_request = format!("{method}\n{canonical_uri}\n{canonical_query}\n{canonical_headers}\n{signed_headers}\n{payload_hash}");
+    let scope = format!("{date_stamp}/{region}/{service}/aws4_request");
+    let string_to_sign = format!("AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}", sha256_hex_bytes(canonical_request.as_bytes()));
+    let k_date = hmac_sha256(format!("AWS4{secret_key}").as_bytes(), date_stamp.as_bytes());
+    let k_region = hmac_sha256(&k_date, region.as_bytes());
+    let k_service = hmac_sha256(&k_region, service.as_bytes());
+    let k_signing = hmac_sha256(&k_service, b"aws4_request");
+    let signature = hex::encode(hmac_sha256(&k_signing, string_to_sign.as_bytes()));
+    format!("AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed_headers}, Signature={signature}")
+}
+
+/// Current time as an AWS amz-date (YYYYMMDDTHHMMSSZ, UTC).
+fn amz_date_now() -> String {
+    let secs = (daemon_now_ms_fail_closed() / 1000) as i64;
+    match time::OffsetDateTime::from_unix_timestamp(secs) {
+        Ok(dt) => format!("{:04}{:02}{:02}T{:02}{:02}{:02}Z", dt.year(), dt.month() as u8, dt.day(), dt.hour(), dt.minute(), dt.second()),
+        Err(_) => "19700101T000000Z".to_string(),
+    }
+}
+
+/// OAuth 2.0 Token Exchange (RFC 8693) — workload/OIDC identity: present a subject token (the
+/// workload's own OIDC/JWT identity) and exchange it for a provider access token. No interactive
+/// auth; the workload's identity IS the credential. credential_source "oidc-workload".
+async fn mint_token_exchange(token_url: &str, subject_token: &str, subject_token_type: &str, audience: &str, scopes: &str, client_id: &str) -> Result<String, String> {
+    let mut form = vec![
+        ("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange"),
+        ("subject_token", subject_token),
+        ("subject_token_type", subject_token_type),
+        ("requested_token_type", "urn:ietf:params:oauth:token-type:access_token"),
+    ];
+    if !audience.is_empty() { form.push(("audience", audience)); }
+    if !scopes.is_empty() { form.push(("scope", scopes)); }
+    if !client_id.is_empty() { form.push(("client_id", client_id)); }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("access_token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no access_token in token-exchange response".to_string())
+    } else {
+        Err(format!("token-exchange {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
     }
 }
 
@@ -10906,5 +11084,25 @@ pub(crate) mod runtime_host {
                 },
             })),
         )
+    }
+}
+
+#[cfg(test)]
+mod sigv4_tests {
+    use super::sigv4_authorization;
+    // AWS SigV4 official test suite "get-vanilla" known-answer vector.
+    #[test]
+    fn sigv4_get_vanilla_matches_aws_vector() {
+        let auth = sigv4_authorization(
+            "GET", "example.amazonaws.com", "/", "", b"",
+            "AKIDEXAMPLE", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", None,
+            "us-east-1", "service", "20150830T123600Z",
+        );
+        assert_eq!(
+            auth,
+            "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, \
+             SignedHeaders=host;x-amz-date, \
+             Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31"
+        );
     }
 }
