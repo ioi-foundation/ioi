@@ -8180,6 +8180,44 @@ pub(crate) async fn handle_connector_delete(
     Json(json!({ "ok": true, "connector_id": id, "removed": conn, "credential_removed": cred }))
 }
 
+/// POST /v1/hypervisor/connectors/:id/oauth/discover — auto-configure the auth_profile for an MCP
+/// connector: discover the authorization server (RFC 9728 → 8414) and dynamically register a public
+/// PKCE client (RFC 7591). No per-service OAuth app needed; no vendor secret. Idempotent (keeps an
+/// existing client_id).
+pub(crate) async fn handle_connector_oauth_discover(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let redirect_uri = body.get("redirect_uri").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback").to_string();
+    let (auth_ep, token_ep, reg_ep, scopes) = match discover_oauth_for_mcp(&base_url).await {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "discovery_failed", "message": e }))),
+    };
+    let existing = connector["auth_profile"]["client_id"].as_str().unwrap_or("").to_string();
+    let client_id = if !existing.is_empty() {
+        existing
+    } else if !reg_ep.is_empty() {
+        match dynamic_client_register(&reg_ep, &redirect_uri, &scopes).await {
+            Ok(c) => c,
+            Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "dcr_failed", "message": e }))),
+        }
+    } else {
+        return (StatusCode::CONFLICT, Json(json!({ "ok": false, "reason": "no_registration_endpoint", "message": "Authorization server has no Dynamic Client Registration; provide a BYOA client_id in the auth_profile." })));
+    };
+    let auth_profile = json!({
+        "type": "oauth_authcode_pkce", "authorization_endpoint": auth_ep, "token_endpoint": token_ep,
+        "registration_endpoint": reg_ep, "client_id": client_id, "scopes": scopes, "discovered": true,
+    });
+    connector["auth_profile"] = auth_profile.clone();
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    (StatusCode::OK, Json(json!({ "ok": true, "discovered": true, "auth_profile": auth_profile })))
+}
+
 /// POST /v1/hypervisor/connectors/:id/oauth/start — begin the OAuth Authorization Code + PKCE
 /// Connect ("authorize this integration"). Returns the provider authorize URL the browser visits.
 /// Stores the PKCE verifier (sealed) keyed by state; no secret leaves the daemon.
@@ -8910,6 +8948,95 @@ async fn exchange_oauth_code(token_url: &str, client_id: &str, code: &str, redir
         Ok((access, refresh))
     } else {
         Err(format!("oauth code exchange {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
+    }
+}
+
+// ---- MCP OAuth auto-discovery (RFC 9728 → 8414) + Dynamic Client Registration (RFC 7591) ---------
+// The MCP 2025 auth flow: probe the server (401 → protected-resource-metadata) → authorization-server
+// metadata → dynamically register a public PKCE client. Result: register only an MCP URL and the
+// daemon self-configures the auth_profile — no per-service OAuth app, no vendor secret.
+
+fn url_origin(u: &str) -> String {
+    if let Some(idx) = u.find("://") {
+        let after = &u[idx + 3..];
+        let host_end = after.find('/').unwrap_or(after.len());
+        format!("{}{}", &u[..idx + 3], &after[..host_end])
+    } else {
+        u.to_string()
+    }
+}
+
+async fn http_get_json(client: &reqwest::Client, url: &str) -> Result<Value, String> {
+    let resp = client.get(url).header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").timeout(std::time::Duration::from_secs(15)).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("GET {url} -> {}", resp.status().as_u16()));
+    }
+    resp.json().await.map_err(|e| e.to_string())
+}
+
+/// Discover (authorization_endpoint, token_endpoint, registration_endpoint, scopes) for an MCP server.
+async fn discover_oauth_for_mcp(mcp_url: &str) -> Result<(String, String, String, Vec<String>), String> {
+    let client = reqwest::Client::new();
+    // 1) protected-resource-metadata URL: prefer the 401 WWW-Authenticate pointer, else well-known.
+    let mut prm_url: Option<String> = None;
+    if let Ok(resp) = client.post(mcp_url).header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream").json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":MCP_CLIENT_INIT()})).timeout(std::time::Duration::from_secs(15)).send().await {
+        if resp.status().as_u16() == 401 {
+            if let Some(h) = resp.headers().get("www-authenticate").and_then(|v| v.to_str().ok()) {
+                if let Some(idx) = h.find("resource_metadata=") {
+                    let rest = h[idx + "resource_metadata=".len()..].trim_start_matches('"');
+                    let end = rest.find('"').unwrap_or(rest.len());
+                    prm_url = Some(rest[..end].to_string());
+                }
+            }
+        }
+    }
+    let origin = url_origin(mcp_url);
+    let prm_url = prm_url.unwrap_or_else(|| format!("{origin}/.well-known/oauth-protected-resource"));
+    let prm = http_get_json(&client, &prm_url).await.map_err(|e| format!("protected-resource-metadata: {e}"))?;
+    let as_url = prm["authorization_servers"].as_array().and_then(|a| a.first()).and_then(|v| v.as_str()).ok_or("no authorization_servers in resource metadata")?.to_string();
+    let prm_scopes: Vec<String> = prm["scopes_supported"].as_array().map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default();
+    // 2) authorization-server metadata (oauth-authorization-server, else openid-configuration, else as_url).
+    let as_origin = url_origin(&as_url);
+    let candidates = [
+        format!("{}/.well-known/oauth-authorization-server", as_url.trim_end_matches('/')),
+        format!("{as_origin}/.well-known/oauth-authorization-server"),
+        format!("{as_origin}/.well-known/openid-configuration"),
+        as_url.clone(),
+    ];
+    let mut meta: Option<Value> = None;
+    for c in candidates.iter() {
+        if let Ok(m) = http_get_json(&client, c).await {
+            if m.get("token_endpoint").is_some() {
+                meta = Some(m);
+                break;
+            }
+        }
+    }
+    let meta = meta.ok_or("could not fetch authorization-server metadata")?;
+    let authorization_endpoint = meta["authorization_endpoint"].as_str().ok_or("no authorization_endpoint")?.to_string();
+    let token_endpoint = meta["token_endpoint"].as_str().ok_or("no token_endpoint")?.to_string();
+    let registration_endpoint = meta["registration_endpoint"].as_str().unwrap_or("").to_string();
+    let scopes = if !prm_scopes.is_empty() { prm_scopes } else { meta["scopes_supported"].as_array().map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default() };
+    Ok((authorization_endpoint, token_endpoint, registration_endpoint, scopes))
+}
+
+/// Dynamically register a PUBLIC (PKCE) client (RFC 7591) → client_id.
+async fn dynamic_client_register(registration_endpoint: &str, redirect_uri: &str, scopes: &[String]) -> Result<String, String> {
+    let body = json!({
+        "client_name": "IOI Hypervisor",
+        "redirect_uris": [redirect_uri],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+        "scope": scopes.join(" "),
+    });
+    let resp = reqwest::Client::new().post(registration_endpoint).header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").json(&body).timeout(std::time::Duration::from_secs(20)).send().await.map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let v: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        v["client_id"].as_str().map(String::from).ok_or_else(|| "no client_id in DCR response".to_string())
+    } else {
+        Err(format!("DCR {}: {}", status.as_u16(), v.get("error").and_then(Value::as_str).unwrap_or("error")))
     }
 }
 

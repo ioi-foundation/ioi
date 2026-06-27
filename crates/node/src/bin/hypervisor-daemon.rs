@@ -1109,6 +1109,10 @@ async fn async_main() -> anyhow::Result<()> {
         )
         // OAuth-native Connect (authorize this integration) — Authorization Code + PKCE.
         .route(
+            "/v1/hypervisor/connectors/:id/oauth/discover",
+            post(lifecycle_routes::handle_connector_oauth_discover),
+        )
+        .route(
             "/v1/hypervisor/connectors/:id/oauth/start",
             post(lifecycle_routes::handle_connector_oauth_start),
         )
