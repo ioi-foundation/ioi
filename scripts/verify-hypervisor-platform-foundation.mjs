@@ -89,7 +89,7 @@ for (const g of t6?.declared_gaps || []) declaredGaps.push({ gate: "remote_provi
 // ---- T7 reference-functional UX (the served :4173 reference made daemon-backed) ----
 // The product UX is the served live reference (apps/hypervisor/scripts/serve-live-reference.mjs)
 // made functional by ioi-api-adapter.mjs; the native React duplicate was removed. The done-bar
-// is verify-hypervisor-reference-functional.mjs: every gitpod.v1.* RPC daemon-owned (zero mock
+// is the (local-only) reference harness: every reference RPC daemon-owned (zero mock
 // fallthrough), real daemon effects, and a Playwright route-crawl with zero console errors.
 let uxStrategyStatus = "REFERENCE_UX_NOT_REQUESTED";
 let interactiveTerminal = "REQUEST_RESPONSE_ONLY";

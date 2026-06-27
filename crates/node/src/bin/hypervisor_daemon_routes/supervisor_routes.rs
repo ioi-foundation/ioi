@@ -160,7 +160,7 @@ fn git_lenient(ws: &str, args: &[&str]) -> String {
         .unwrap_or_default()
 }
 
-/// Map a git porcelain XY code to the gitpod.v1.FileChange.ChangeType JSON enum name.
+/// Map a git porcelain XY code to the FileChange.ChangeType JSON enum name (env-ops diff contract).
 fn change_type(code: &str) -> &'static str {
     match code.trim() {
         "??" => "CHANGE_TYPE_ADDED",
@@ -173,7 +173,7 @@ fn change_type(code: &str) -> &'static str {
     }
 }
 
-/// Changed files vs working tree (baseRef empty) or vs a ref, as gitpod.v1.FileChange[].
+/// Changed files vs working tree (baseRef empty) or vs a ref, as a FileChange[] list.
 fn changed_files(ws: &str, base_ref: &str) -> Vec<Value> {
     let mut out = Vec::new();
     if base_ref.is_empty() {

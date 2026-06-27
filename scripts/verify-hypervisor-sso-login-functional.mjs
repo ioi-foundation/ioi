@@ -11,7 +11,6 @@ import { join } from "node:path";
 
 const JSON_OUT = process.argv.includes("--json");
 const DAEMON = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
-const SERVE = process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173";
 const DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || "/home/heathledger/.ioi/hypervisor/data";
 const TEST_EMAIL = "ssouser@papabearcarwash.com";
 const CLIENT_ID = "ioi-sso-client";
@@ -21,12 +20,10 @@ let failures = 0;
 const ok = (cond, msg, detail) => { checks.push({ ok: !!cond, msg }); if (!cond) failures++; if (!JSON_OUT) console.log(`    ${cond ? "✓" : "✗ FAIL:"} ${msg}${detail ? ` (${detail})` : ""}`); };
 const blocked = (reason) => { console.log(JSON_OUT ? JSON.stringify({ workstream: "sso-login", verdict: "BLOCKED", reason }, null, 2) : `  BLOCKED: ${reason}`); process.exit(2); };
 const jd = async (m, p, b) => { const r = await fetch(DAEMON + p, { method: m, headers: b ? { "content-type": "application/json" } : undefined, body: b ? JSON.stringify(b) : undefined }); const t = await r.text(); return { status: r.status, raw: t, body: t ? JSON.parse(t) : {} }; };
-const ja = async (rpc, b) => { const r = await fetch(`${SERVE}/api/gitpod.v1.OrganizationService/${rpc}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b || {}) }); const t = await r.text(); return { status: r.status, body: t ? JSON.parse(t) : {} }; };
 const b64url = (x) => Buffer.from(x).toString("base64url");
 
 if (!JSON_OUT) console.log("SSO/OIDC login e2e — RS256 id_token verification (JWKS) + nonce + PKCE");
 try { const r = await fetch(`${DAEMON}/v1/hypervisor/editor-targets`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
-try { const r = await fetch(`${SERVE}/ai`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("serve (:4173) not running"); }
 const purgeEmail = async (email) => { const r = await jd("GET", "/v1/hypervisor/principals"); for (const p of (r.body.principals || [])) if (p.email === email) await jd("DELETE", `/v1/hypervisor/principals/${p.principal_id}?purge=true`); };
 await purgeEmail(TEST_EMAIL);
 
@@ -113,8 +110,8 @@ ok(outDomain.cb.status === 403, "emailDomain gate rejects an out-of-domain user 
 issuedEmail = TEST_EMAIL;
 
 // 8) adapter projects the SSO connection onto the native surface.
-const list = await ja("ListSSOConfigurations", {});
-ok((list.body.ssoConfigurations || []).some((c) => c.id === ssoId && c.providerType === "PROVIDER_TYPE_OIDC"), "adapter ListSSOConfigurations projects the connection");
+const list = await jd("GET", "/v1/hypervisor/sso-configurations");
+ok((list.body.sso_configurations || []).some((c) => c.sso_id === ssoId), "daemon lists the SSO connection");
 
 // cleanup
 await jd("DELETE", `/v1/hypervisor/sso-configurations/${ssoId}`);

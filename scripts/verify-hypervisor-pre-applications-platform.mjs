@@ -154,7 +154,7 @@ try {
 
 // ---- optional --browser tier: real Playwright render of the served reference UX ----
 // The product UX is the served live reference made daemon-backed (the native React duplicate was
-// removed); the done-bar is verify-hypervisor-reference-functional.mjs (zero gitpod.v1.* mock
+// removed); the done-bar is the (local-only) reference harness (zero reference-RPC mock
 // fallthrough + real daemon effects + route-crawl with zero console errors). It needs the served
 // stack up (serve:reference :4173 + daemon :8765); BLOCKED ⇒ named host gap, not a failure.
 if (WANT_BROWSER) {
