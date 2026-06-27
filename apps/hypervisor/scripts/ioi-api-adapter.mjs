@@ -525,6 +525,17 @@ export async function handle(pathname, bodyText) {
     if (!parsed) return jsonStatus(400, { code: "invalid_argument", message: "Only GitHub repository URLs are supported by the local Hypervisor Git auth bridge." });
     return json(parsed);
   }
+  if (pathname === "/api/gitpod.v1.RunnerManagerService/ListAvailableRunnerManagers") {
+    // A local deployment exposes ONE runner manager: the local node that hosts environments (the
+    // same provider ListRunners projects as a runner). Region "local" — no cloud regions to pick.
+    return json({ pagination: {}, runnerManagers: [{ runnerManagerId: "local-runner-manager", name: "IOI Local (microVM)", region: "local" }] });
+  }
+  if (pathname === "/api/gitpod.v1.RunnerService/CreateRunnerLogsToken") {
+    // Scoped access token for viewing a runner's logs. The local runner's logs are the daemon's;
+    // mint a local token (streaming the logs themselves is a follow-up, like EventService streaming).
+    const runnerId = body.runnerId || body.runner_id || "local-microvm";
+    return json({ accessToken: `ioi_runnerlogs_${Buffer.from(runnerId).toString("hex").slice(0, 24)}` });
+  }
 
   // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
   if (pathname === "/api/gitpod.v1.EditorService/ListEditors") {
@@ -556,6 +567,20 @@ export async function handle(pathname, bodyText) {
   // surfaces (members, org-members group) reflect the single local operator. ----
   if (pathname === "/api/gitpod.v1.ProjectService/ListProjects") {
     return json({ pagination: {}, projects: [] });
+  }
+  if (pathname === "/api/gitpod.v1.ServiceAccountService/ListServiceAccounts") {
+    // The org's service accounts (identities environments are created/operated under). A local
+    // single-operator deployment has one system-managed account = the Hypervisor automation identity.
+    return json({ pagination: {}, serviceAccounts: [{
+      id: "00000000-0000-4000-8000-0000000005a0",
+      organizationId: IDENTITY.orgId,
+      name: "IOI Hypervisor",
+      description: "System-managed Hypervisor service account for automated environment operations",
+      creator: { id: IDENTITY.userId, principal: "PRINCIPAL_USER" },
+      createdAt: IDENTITY.createdAt,
+      validUntil: "2099-12-31T23:59:59Z",
+      systemManaged: true,
+    }] });
   }
   if (pathname === "/api/gitpod.v1.UserService/GetDotfilesConfiguration") {
     return json({ dotfilesConfiguration: { repository: "" } });
@@ -668,6 +693,18 @@ export async function handle(pathname, bodyText) {
     }
     const integ = (await mcpConnectorsAsIntegrations()).find((i) => i.id === connector.connector_id) || { id: connector.connector_id, integrationDefinitionId: connector.connector_id, name, enabled: true, capabilities: { mcp: { url: mcpUrl } } };
     return json({ integration: integ });
+  }
+  if (pathname === "/api/gitpod.v1.IntegrationService/ValidateIntegration") {
+    // Validate an integration = confirm it resolves to a real registered connector (our MCP
+    // integrations ARE daemon connectors). Unknown id → invalid; daemon transient → lenient (valid).
+    const id = body.integrationId || body.integration_id || body.id;
+    if (!id) return json({ valid: false });
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/connectors");
+      return json({ valid: (r.connectors || []).some((c) => c.connector_id === id) });
+    } catch {
+      return json({ valid: true });
+    }
   }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrationDefinitions") {
     // The org catalog of available MCP integration definitions (same projection, definition shape).
