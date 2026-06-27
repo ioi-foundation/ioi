@@ -112,6 +112,27 @@
     });
   }
 
+  // ---- "Connections" top-level nav → the owned cockpit for the whole connector estate -----------
+  // Connections is the full-control surface (MCP + communication + OAuth + bearer + cloud + service
+  // accounts); Settings > Integrations are thin projections. Clone a sibling nav item so it matches.
+  function mountConnectionsNav() {
+    if (document.querySelector(".ioi-connections-nav")) return; // already in the nav (re-added if React drops it)
+    // The nav links + the sessions list share one container, so insert RIGHT AFTER the on-screen
+    // Automations link (not appendChild, which lands at the container's end below all sessions).
+    const sib = Array.prototype.find.call(
+      document.querySelectorAll('a[href="/automations"]'),
+      (s) => { const r = s.getBoundingClientRect(); return r.width > 0 && r.top > 0 && r.top < 1500; },
+    );
+    if (!sib) return;
+    const item = sib.cloneNode(true);
+    item.classList.add("ioi-connections-nav");
+    item.setAttribute("href", "/__ioi/connections");
+    item.removeAttribute("aria-current");
+    const label = Array.prototype.find.call(item.querySelectorAll("div"), (d) => d.children.length === 0 && d.textContent.trim());
+    if (label) label.textContent = "Connections";
+    sib.insertAdjacentElement("afterend", item);
+  }
+
   let activeEnvId = null;
   let lastExec = null;
 
@@ -318,6 +339,9 @@
     // Route native Integrations "Connect" clicks through the OAuth-native launcher.
     setInterval(wireIntegrationConnect, 700);
     wireIntegrationConnect();
+    // Surface the owned Connections cockpit as a top-level nav item.
+    setInterval(mountConnectionsNav, 700);
+    mountConnectionsNav();
   }
 
   if (document.body) mount();

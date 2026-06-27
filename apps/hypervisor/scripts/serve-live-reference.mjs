@@ -202,6 +202,106 @@ const PORT = Number(process.env.PORT || 4173);
 const MIRROR_PORT = Number(process.env.MIRROR_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
+// The browser-facing origin, honoring a reverse tunnel (localhost.run / cloudflared set
+// x-forwarded-proto/host). OAuth providers like Slack require an HTTPS redirect, so we must build
+// the redirect_uri from the PUBLIC scheme+host, not a hardcoded http://127.0.0.1.
+function publicBase(req) {
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "127.0.0.1:4173";
+  const proto = req.headers["x-forwarded-proto"] || (/\.(lhr\.life|trycloudflare\.com|ngrok[^/]*)$/.test(host) ? "https" : "http");
+  return `${proto}://${host}`;
+}
+
+// ---- Connections cockpit — the owned surface for ALL external capability bindings ----------------
+// Doctrine: Connections owns every binding (MCP, communication, OAuth apps, bearer/PAT, cloud roles,
+// service accounts); Org/User Settings > Integrations are thin projections; MCP is one type inside.
+// Agents consume only scoped leases — credentials are sealed in the daemon, never exposed.
+const CX_ESC = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function connectionCategory(c) {
+  if (c.kind === "mcp") return "MCP servers";
+  if (["slack", "discord", "teams", "email"].includes(c.service)) return "Communication channels";
+  if (c.kind === "aws-sigv4" || /aws|s3|sts/i.test(c.service || "")) return "Cloud roles";
+  if (c.kind === "service-account") return "Service accounts";
+  return "APIs & services";
+}
+function authDescriptor(c) {
+  const ap = c.auth_profile || null;
+  if (ap && ap.type) return ap.type === "oauth_authcode_pkce" ? (ap.discovered ? "OAuth (auto-discovered + DCR)" : (ap.sealed_client_secret ? "OAuth (confidential BYOA)" : "OAuth + PKCE")) : ap.type;
+  if (c.kind === "aws-sigv4") return "AWS SigV4";
+  if (c.kind === "service-account") return "Service account";
+  if (c.kind === "oidc-workload") return "OIDC workload";
+  return c.requires_credential === false ? "open" : "bearer / token";
+}
+function connectionsShell(inner) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connections · Hypervisor</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 80px}
+  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6f7280;margin-bottom:8px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:#9a9da6;margin:0 0 26px;max-width:680px}
+  .add{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 30px}
+  .add a{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:9px;border:1px solid #2a2c33;background:#15171c;color:#e6e7ea;text-decoration:none;font-weight:500}
+  .add a:hover{border-color:#3a82f6;background:#191b21}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:28px 0 10px;font-weight:600}
+  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin-bottom:8px}
+  .card .main{flex:1;min-width:0}
+  .card .name{font-weight:600;color:#fff}
+  .card .meta{color:#878a93;font-size:12.5px;margin-top:2px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap;margin-left:8px}
+  .ok{color:#46c277;border-color:#235c3b;background:#11281b}
+  .warn{color:#d6a13a;border-color:#5c4a23;background:#28220f}
+  .risk{color:#9a9da6;border-color:#2a2c33}
+  .act{padding:7px 14px;border-radius:8px;border:0;background:#fff;color:#111;font:inherit;font-weight:600;text-decoration:none;white-space:nowrap}
+  .act:hover{background:#eee}
+  .act.ghost{background:transparent;color:#9a9da6;border:1px solid #2a2c33}
+  .act.ghost:hover{color:#e6e7ea;border-color:#3a3d45}
+  code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
+  .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
+</style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div><h1>Connections</h1>
+<p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session.</p>
+${inner}</div></body></html>`;
+}
+function renderConnectionsCockpit(connectors, scmConnectors, leases) {
+  const leaseCount = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id)).length;
+  const groups = {};
+  const push = (cat, html) => { (groups[cat] = groups[cat] || []).push(html); };
+  for (const c of connectors || []) {
+    const bound = c.auth_posture === "token-lease:bound" || c.auth_posture === "open";
+    const risk = (c.org_policy && c.org_policy.risk_posture) || "standard";
+    const tools = c.kind === "mcp" ? "tools discovered on connect" : ((c.allowed_tools || []).map((t) => t.name).join(", ") || "—");
+    const lc = leaseCount(c.connector_id);
+    // Connect target: Slack w/o a client → its setup; OAuth-profile → launcher; else manage.
+    const slackNoClient = c.service === "slack" && !(c.auth_profile && c.auth_profile.client_id);
+    const connectHref = slackNoClient ? "/__ioi/slack/setup" : `/__ioi/integrations/connect/${encodeURIComponent(c.connector_id)}`;
+    const action = bound
+      ? `<span class="pill ok">connected</span>`
+      : `<a class="act" href="${connectHref}" target="_blank" rel="noopener">Connect ↗</a>`;
+    push(connectionCategory(c), `<div class="card"><div class="main">
+      <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span></div>
+      <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${lc ? ` · ${lc} lease${lc > 1 ? "s" : ""} issued` : ""}</div>
+      </div>${action}</div>`);
+  }
+  for (const c of scmConnectors || []) {
+    const bound = c.auth_posture === "token-lease:bound";
+    push("Code / SCM", `<div class="card"><div class="main">
+      <div class="name">${CX_ESC(c.name || c.kind)}${bound ? "" : '<span class="pill warn">needs auth</span>'}</div>
+      <div class="meta">${CX_ESC(c.kind)} · <code>${CX_ESC(c.host || c.remote_url || "")}</code>${c.connected_login ? ` · @${CX_ESC(c.connected_login)}` : ""}</div>
+      </div>${bound ? '<span class="pill ok">connected</span>' : '<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank">Git authentications ↗</a>'}</div>`);
+  }
+  const order = ["MCP servers", "Communication channels", "Cloud roles", "Service accounts", "APIs & services", "Code / SCM"];
+  const cats = Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const body = cats.length
+    ? cats.map((cat) => `<h2>${CX_ESC(cat)}</h2>${groups[cat].join("")}`).join("")
+    : `<div class="empty">No connections yet — add one above.</div>`;
+  const add = `<div class="add">
+    <a href="/__ioi/connections/add?type=mcp">+ MCP server</a>
+    <a href="/__ioi/slack/setup">+ Connect Slack</a>
+    <a href="/__ioi/connections/add?type=bearer">+ API key / service</a>
+  </div>`;
+  return connectionsShell(add + body);
+}
+
 // Minimal ona-dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hypervisor</title>
@@ -1088,7 +1188,7 @@ const server = http.createServer((req, res) => {
     // oauth/callback ← the provider redirects back, we hand the code to the daemon to seal tokens.
     if (pathname.startsWith("/__ioi/integrations/connect/")) {
       const cid = decodeURIComponent(pathname.slice("/__ioi/integrations/connect/".length).split("/")[0]);
-      const redirect_uri = `http://${req.headers.host || "127.0.0.1:4173"}/__ioi/integrations/oauth/callback`;
+      const redirect_uri = `${publicBase(req)}/__ioi/integrations/oauth/callback`;
       const start = () => fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).then((r) => r.json());
       try {
         let d = await start();
@@ -1122,6 +1222,107 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(page);
       return;
+    }
+    // ---- Slack BYOA OAuth setup (confidential client) — Slack has no DCR + needs an https redirect.
+    // The client_secret goes browser→daemon (sealed); it never touches the agent or chat. Then we
+    // hand off to the standard OAuth-native Connect launcher.
+    if (pathname === "/__ioi/slack/setup" && req.method !== "POST") {
+      const redirect = `${publicBase(req)}/__ioi/integrations/oauth/callback`;
+      const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const inp = 'style="width:100%;box-sizing:border-box;margin:4px 0 12px;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"';
+      const page = githubAppShell("Connect Slack (BYOA OAuth)", `
+        <p>Create a Slack app, then paste its <b>Client ID</b> + <b>Client Secret</b>. The secret is sealed in your daemon — it never touches the agent or this chat.</p>
+        <p class="muted">In your Slack app → <b>OAuth &amp; Permissions</b>, add this exact <b>Redirect URL</b>:</p>
+        <p><code style="user-select:all;word-break:break-all">${esc(redirect)}</code></p>
+        <p class="muted">…and Bot Token Scopes (e.g. <code>chat:write</code>, <code>channels:read</code>).</p>
+        <form method="post" action="/__ioi/slack/setup">
+          <input name="client_id" placeholder="Client ID" required ${inp}>
+          <input name="client_secret" type="password" placeholder="Client Secret" required ${inp}>
+          <input name="scopes" value="chat:write,channels:read" ${inp}>
+          <button class="btn" type="submit">Seal &amp; continue to authorize →</button>
+        </form>`);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(page);
+      return;
+    }
+    if (pathname === "/__ioi/slack/setup" && req.method === "POST") {
+      const p = new URLSearchParams(body.toString());
+      const client_id = (p.get("client_id") || "").trim();
+      const client_secret = (p.get("client_secret") || "").trim();
+      const scopes = (p.get("scopes") || "chat:write").trim();
+      try {
+        const reg = await fetch(`${DAEMON}/v1/hypervisor/connectors`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          service: "slack", kind: "http", name: "Slack", base_url: "https://slack.com/api",
+          allowed_tools: [{ name: "auth.test", method: "POST", path: "/auth.test" }, { name: "chat.postMessage", method: "POST", path: "/chat.postMessage" }],
+          auth_profile: { type: "oauth_authcode_pkce", authorization_endpoint: "https://slack.com/oauth/v2/authorize", token_endpoint: "https://slack.com/api/oauth.v2.access", client_id, client_secret, scopes: [scopes] },
+        }) }).then((r) => r.json());
+        const cid = reg.connector?.connector_id;
+        if (!cid) throw new Error(reg.reason || "register failed");
+        res.writeHead(302, { Location: `/__ioi/integrations/connect/${encodeURIComponent(cid)}`, "Cache-Control": "no-cache" });
+        return res.end();
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(githubAppShell("Couldn't set up Slack", `<p class="muted">${String(e?.message || e)}</p>`));
+        return;
+      }
+    }
+    // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
+    if (pathname === "/__ioi/connections") {
+      try {
+        const [c, s, l] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
+        ]);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || []));
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${String(e?.message || e)}</div>`));
+      }
+      return;
+    }
+    if (pathname === "/__ioi/connections/add" && req.method !== "POST") {
+      const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
+      const inp = 'style="width:100%;box-sizing:border-box;margin:4px 0 12px;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"';
+      const form = type === "mcp"
+        ? `<h2>Add MCP server</h2><p class="sub">Register an MCP server URL — the daemon auto-discovers its tools and OAuth (Dynamic Client Registration) when you connect. No vendor app needed.</p>
+           <form method="post" action="/__ioi/connections/add?type=mcp">
+             <input name="name" placeholder="Name (e.g. Linear)" required ${inp}>
+             <input name="mcp_url" placeholder="https://mcp.example.com/mcp" required ${inp}>
+             <button class="act" type="submit">Add &amp; discover</button></form>`
+        : `<h2>Add API key / service</h2><p class="sub">A bearer-token HTTP connector (advanced). The token is sealed in the daemon; the agent only ever gets a scoped lease.</p>
+           <form method="post" action="/__ioi/connections/add?type=bearer">
+             <input name="name" placeholder="Name (e.g. Linear API)" required ${inp}>
+             <input name="base_url" placeholder="https://api.example.com" required ${inp}>
+             <input name="tool_name" placeholder="tool name (e.g. create_issue)" required ${inp}>
+             <input name="tool_path" placeholder="/v1/issues" required ${inp}>
+             <input name="token" type="password" placeholder="API token (sealed)" required ${inp}>
+             <button class="act" type="submit">Add + seal token</button></form>`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(connectionsShell(`<p><a href="/__ioi/connections" style="color:#9a9da6;text-decoration:none">← Connections</a></p>${form}`));
+      return;
+    }
+    if (pathname === "/__ioi/connections/add" && req.method === "POST") {
+      const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
+      const p = new URLSearchParams(body.toString());
+      const post = (path, b) => fetch(`${DAEMON}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
+      try {
+        if (type === "mcp") {
+          const reg = await post("/v1/hypervisor/connectors", { service: "mcp", kind: "mcp", name: p.get("name"), base_url: p.get("mcp_url") });
+          if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/oauth/discover`, {}).catch(() => {});
+        } else {
+          const svc = (p.get("name") || "service").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const reg = await post("/v1/hypervisor/connectors", { service: svc, kind: "http", name: p.get("name"), base_url: p.get("base_url"), allowed_tools: [{ name: p.get("tool_name"), method: "POST", path: p.get("tool_path") }] });
+          if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/credential`, { token: p.get("token") });
+        }
+        res.writeHead(302, { Location: "/__ioi/connections", "Cache-Control": "no-cache" });
+        return res.end();
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(connectionsShell(`<div class="empty">Couldn't add: ${String(e?.message || e)}</div>`));
+        return;
+      }
     }
     // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned
     // Run Timeline for the env in view (Workbench/Sessions/Studio/Automations/IOI.ai all key by env).
