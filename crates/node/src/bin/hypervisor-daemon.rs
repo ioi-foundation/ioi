@@ -1100,6 +1100,10 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::delete(lifecycle_routes::handle_connector_delete),
         )
         .route(
+            "/v1/hypervisor/connectors/:id/policy",
+            post(lifecycle_routes::handle_connector_set_policy),
+        )
+        .route(
             "/v1/hypervisor/connectors/:id/invoke",
             post(lifecycle_routes::handle_connector_invoke),
         )

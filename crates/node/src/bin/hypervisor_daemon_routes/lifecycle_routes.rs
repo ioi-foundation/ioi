@@ -8097,12 +8097,15 @@ pub(crate) async fn handle_connector_register(
     // The auth profile declares HOW a member connects (OAuth authcode+PKCE / DCR / device / BYOA /
     // manual). Public-client OAuth carries no secret, so it is safe on the connector record.
     let auth_profile = body.get("auth_profile").cloned().unwrap_or(Value::Null);
+    // Org policy: the allow-list of tools members may invoke + the risk posture (set by the org).
+    // Default standard / no tool restriction; tightened via the set-policy endpoint or at create.
+    let org_policy = body.get("org_policy").cloned().unwrap_or_else(|| json!({ "allowed_tools": Value::Null, "risk_posture": "standard" }));
     let connector_id = format!("conn_{}", short_hash(&format!("{service}:{name}:{base_url}")));
     let connector = json!({
         "schema_version": "ioi.hypervisor.connector.v1",
         "connector_id": connector_id, "service": service, "kind": kind, "name": name,
         "base_url": base_url, "allowed_tools": allowed_tools, "requires_credential": requires_credential,
-        "auth_profile": auth_profile,
+        "auth_profile": auth_profile, "org_policy": org_policy,
         "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
     });
     let _ = persist_record(&st.data_dir, "connectors", &connector_id, &connector);
@@ -8168,6 +8171,25 @@ pub(crate) async fn handle_connector_revoke_credential(
         let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
     }
     Json(json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/policy — set the org policy (allowed-tools allow-list + risk
+/// posture) enforced on every invoke. `allowed_tools: null` = no restriction; an array = allow-list
+/// (empty = nothing permitted). risk_posture "locked" blocks all invokes (enabled but not usable).
+pub(crate) async fn handle_connector_set_policy(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    let allowed_tools = body.get("allowed_tools").cloned().unwrap_or(Value::Null);
+    let risk_posture = body.get("risk_posture").and_then(Value::as_str).unwrap_or("standard").to_string();
+    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "set_at": iso_now() });
+    connector["org_policy"] = org_policy.clone();
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
 }
 
 /// DELETE /v1/hypervisor/connectors/:id — remove a connector and its sealed credential entirely.
@@ -8337,6 +8359,19 @@ pub(crate) async fn handle_connector_invoke(
     };
     let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
 
+    // ORG POLICY gate (Phase C) — enforced before the wallet crossing. risk_posture "locked" blocks
+    // all use; an allowed_tools allow-list (when set) restricts which tools members may invoke.
+    let org_policy = connector["org_policy"].clone();
+    let risk_posture = org_policy["risk_posture"].as_str().unwrap_or("standard").to_string();
+    if risk_posture == "locked" {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "policy_locked", "message": "Org policy has locked this integration (enabled but not usable).", "risk_posture": risk_posture })));
+    }
+    if let Some(allow) = org_policy["allowed_tools"].as_array() {
+        if !allow.iter().any(|t| t.as_str() == Some(tool_name.as_str())) {
+            return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "tool_not_in_policy", "message": format!("Org policy does not permit the tool '{tool_name}' on this integration."), "allowed_tools": allow })));
+        }
+    }
+
     // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
     let lease_req = CapabilityLeaseRequest {
         authority_provider_ref: "wallet.network".to_string(),
@@ -8403,7 +8438,7 @@ pub(crate) async fn handle_connector_invoke(
         "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
         "method": method, "url": url, "status": status_code, "ok": ok,
         "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
-        "capability_lease": lease.descriptor, "host_mutation": true, "error": error,
+        "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
         "invoked_at": iso_now(),
     });
     let _ = persist_record(&st.data_dir, "connector-invoke-receipts", &receipt_id, &receipt);

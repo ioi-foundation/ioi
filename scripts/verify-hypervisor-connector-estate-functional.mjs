@@ -82,6 +82,26 @@ ok(rev.body?.revoked === true, "revoke deletes the sealed credential");
 const postRevoke = await j("POST", `/v1/hypervisor/connectors/${cid}/invoke`, { tool: "echo", request: { hi: 1 }, wallet_approval_grant: grant });
 ok(postRevoke.status === 428, "invoke AFTER revoke FAILS CLOSED (428)", `status ${postRevoke.status}`);
 
+// 8b) ORG POLICY (Phase C): allow-list + risk posture enforced at the lease (before the crossing)
+const pol = await j("POST", "/v1/hypervisor/connectors", { service: "policy-test", base_url: BASE, allowed_tools: [{ name: "echo", method: "POST", path: "/echo" }, { name: "other", method: "POST", path: "/echo" }] });
+const pcid = pol.body.connector.connector_id;
+await j("POST", `/v1/hypervisor/connectors/${pcid}/credential`, { token: "p-tok" });
+const mkGrant = async (tool) => { const c = await j("POST", `/v1/hypervisor/connectors/${pcid}/invoke`, { tool }); return c.status === 403 && c.body?.approval ? mintApprovalGrant({ policyHash: c.body.approval.policy_hash, requestHash: c.body.approval.request_hash }) : null; };
+// allow-list excludes "echo" → blocked by policy BEFORE the wallet crossing (no grant challenge)
+await j("POST", `/v1/hypervisor/connectors/${pcid}/policy`, { allowed_tools: ["other"], risk_posture: "standard" });
+const denied = await j("POST", `/v1/hypervisor/connectors/${pcid}/invoke`, { tool: "echo" });
+ok(denied.status === 403 && denied.body?.reason === "tool_not_in_policy", "org policy allow-list BLOCKS a non-permitted tool (403)", `status ${denied.status}`);
+// allow "echo" → passes policy, then the normal wallet crossing applies
+await j("POST", `/v1/hypervisor/connectors/${pcid}/policy`, { allowed_tools: ["echo"], risk_posture: "standard" });
+const g = await mkGrant("echo");
+const allowed = await j("POST", `/v1/hypervisor/connectors/${pcid}/invoke`, { tool: "echo", request: {}, wallet_approval_grant: g });
+ok(allowed.status === 200 && allowed.body?.receipt?.org_policy?.allowed_tools?.includes("echo"), "policy-permitted tool invokes; receipt records the org_policy", `status ${allowed.status}`);
+// risk_posture locked → blocks all use
+await j("POST", `/v1/hypervisor/connectors/${pcid}/policy`, { risk_posture: "locked" });
+const locked = await j("POST", `/v1/hypervisor/connectors/${pcid}/invoke`, { tool: "echo", request: {}, wallet_approval_grant: g });
+ok(locked.status === 403 && locked.body?.reason === "policy_locked", "risk_posture 'locked' blocks all use (403)", `status ${locked.status}`);
+await j("DELETE", `/v1/hypervisor/connectors/${pcid}`);
+
 await j("DELETE", `/v1/hypervisor/connectors/${cid}`); // clean up the test connector
 
 // 9) OAuth-refresh credential kind (the native-Integrations / Gmail / Atlassian model): the daemon
