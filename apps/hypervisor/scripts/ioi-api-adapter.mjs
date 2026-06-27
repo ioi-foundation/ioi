@@ -631,6 +631,41 @@ export async function handle(pathname, bodyText) {
     // estate to avoid conflating the two models. capabilities.mcp.url is the server the agent reaches.
     return json({ pagination: {}, integrations: await mcpConnectorsAsIntegrations() });
   }
+  if (pathname === "/api/gitpod.v1.IntegrationService/CreateIntegration") {
+    // Native "Add MCP integration" (name + MCP URL, auth "discovered if blank") OR enabling an
+    // existing definition. We register a REAL MCP connector; with no BYOA OAuth client we auto-
+    // discover + DCR (RFC 9728→8414→7591) so the daemon self-configures — no per-service app.
+    const mcpUrl = body.mcpUrl || body.integration?.mcpUrl || body.integration?.capabilities?.mcp?.url || "";
+    const defId = body.integrationDefinitionId || body.integration?.integrationDefinitionId;
+    if (!mcpUrl && defId) {
+      // Enable-an-existing-definition: the projection already lists it enabled → honest ack.
+      const existing = (await mcpConnectorsAsIntegrations()).find((i) => i.id === defId) || { id: defId, integrationDefinitionId: defId, enabled: true };
+      return json({ integration: { ...existing, enabled: true } });
+    }
+    if (!mcpUrl) return jsonStatus(400, { code: "invalid_argument", message: "mcpUrl is required" });
+    const name = body.name || body.integration?.name || "MCP integration";
+    const authUrl = body.authUrl || body.integration?.authUrl || "";
+    const tokenUrl = body.tokenUrl || body.integration?.tokenUrl || "";
+    const clientId = body.clientId || body.integration?.clientId || "";
+    const rawScopes = body.scopes || body.integration?.scopes || [];
+    const scopes = Array.isArray(rawScopes) ? rawScopes : String(rawScopes).split(/[\s,]+/).filter(Boolean);
+    const auth_profile = authUrl && tokenUrl && clientId
+      ? { type: "oauth_authcode_pkce", authorization_endpoint: authUrl, token_endpoint: tokenUrl, client_id: clientId, scopes }
+      : null;
+    let connector;
+    try {
+      const reg = await daemon("POST", "/v1/hypervisor/connectors", { service: "mcp", kind: "mcp", name, base_url: mcpUrl, ...(auth_profile ? { auth_profile } : {}) });
+      connector = reg.connector;
+      if (!auth_profile && connector?.connector_id) {
+        // best-effort auto-discovery + Dynamic Client Registration (no BYOA app supplied)
+        await daemon("POST", `/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/oauth/discover`, {}).catch(() => {});
+      }
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to register MCP integration: ${e.message}` });
+    }
+    const integ = (await mcpConnectorsAsIntegrations()).find((i) => i.id === connector.connector_id) || { id: connector.connector_id, integrationDefinitionId: connector.connector_id, name, enabled: true, capabilities: { mcp: { url: mcpUrl } } };
+    return json({ integration: integ });
+  }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrationDefinitions") {
     // The org catalog of available MCP integration definitions (same projection, definition shape).
     const defs = (await mcpConnectorsAsIntegrations()).map((i) => ({

@@ -1088,12 +1088,18 @@ const server = http.createServer((req, res) => {
     // oauth/callback ← the provider redirects back, we hand the code to the daemon to seal tokens.
     if (pathname.startsWith("/__ioi/integrations/connect/")) {
       const cid = decodeURIComponent(pathname.slice("/__ioi/integrations/connect/".length).split("/")[0]);
+      const redirect_uri = `http://${req.headers.host || "127.0.0.1:4173"}/__ioi/integrations/oauth/callback`;
+      const start = () => fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).then((r) => r.json());
       try {
-        const r = await fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri: `http://${req.headers.host || "127.0.0.1:4173"}/__ioi/integrations/oauth/callback` }) });
-        const d = await r.json();
+        let d = await start();
+        // No auth_profile yet → auto-discover + DCR (no per-service app), then retry.
+        if (!(d.ok && d.authorize_url)) {
+          await fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/discover`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri }) }).catch(() => {});
+          d = await start();
+        }
         if (d.ok && d.authorize_url) { res.writeHead(302, { Location: d.authorize_url, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(githubAppShell("Can't connect yet", `<p class="muted">${d.message || d.reason || "no OAuth profile on this integration"}</p>`));
+        res.end(githubAppShell("Can't connect yet", `<p class="muted">${d.message || d.reason || "could not resolve an OAuth profile for this integration (discovery/DCR unavailable)"}</p>`));
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(githubAppShell("Can't connect yet", `<p class="muted">${String(e?.message || e)}</p>`));

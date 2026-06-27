@@ -89,6 +89,29 @@
     panel.appendChild(btn);
   }
 
+  // ---- Native Integrations "Connect" → OAuth-native Connect (authorize, not paste) --------------
+  // Each integration row's Connect button carries data-testid="connect-<connectorId>". Override its
+  // click to open our launcher in a popup: discover+DCR if needed, then redirect to the provider
+  // authorize. The agent only ever gets scoped leases; the provider credential stays in the daemon.
+  function wireIntegrationConnect() {
+    document.querySelectorAll('button[data-testid^="connect-conn_"]').forEach((btn) => {
+      if (btn.dataset.ioiWired === "1") return;
+      btn.dataset.ioiWired = "1";
+      btn.addEventListener(
+        "click",
+        function (ev) {
+          const id = btn.getAttribute("data-testid").slice("connect-".length);
+          if (!id) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          window.open("/__ioi/integrations/connect/" + encodeURIComponent(id), "_blank", "noopener");
+        },
+        true, // capture — run before the SPA's own handler
+      );
+    });
+  }
+
   let activeEnvId = null;
   let lastExec = null;
 
@@ -324,6 +347,9 @@
     // Keep the BYOA GitHub App affordance present on the Git authentications surface.
     setInterval(mountGitAppButton, 700);
     mountGitAppButton();
+    // Route native Integrations "Connect" clicks through the OAuth-native launcher.
+    setInterval(wireIntegrationConnect, 700);
+    wireIntegrationConnect();
   }
 
   if (document.body) mount();
