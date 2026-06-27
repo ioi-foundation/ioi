@@ -980,7 +980,10 @@ async function handleSupervisorStream(route, req, res, body) {
 
 // Owned login surface (Identity & Auth plane). Posts to the daemon auth plane; the session token
 // comes back and is set as an HttpOnly cookie. SSO buttons are injected in Phase 2.
-function loginShell(error) {
+function loginShell(error, ssoConfigs = []) {
+  const ssoButtons = (ssoConfigs || []).map((c) =>
+    `<a class="sso" href="/__ioi/login/sso/${encodeURIComponent(c.sso_id || c.id)}">Sign in with ${String(c.display_name || c.issuer_url || "SSO").replace(/[<>]/g, "")}</a>`
+  ).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sign in · IOI Hypervisor</title><style>
 *{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:#0b0c0f;color:#e7e9ee;display:flex;min-height:100vh;align-items:center;justify-content:center}
@@ -990,12 +993,15 @@ h1{font-size:20px;margin:0 0 18px}label{display:block;font-size:13px;color:#aeb4
 input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
 button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .err{margin-top:14px;color:#ff9b9b;font-size:13px}.hint{margin-top:16px;color:#6a7080;font-size:12px;text-align:center}
+.sso{display:block;margin-top:10px;padding:11px;border:1px solid #2c313c;border-radius:9px;background:#1b1e25;color:#e7e9ee;font-size:14px;font-weight:600;text-align:center;text-decoration:none}
+.div{margin:18px 0 4px;border-top:1px solid #262a33;text-align:center}.div span{position:relative;top:-10px;background:#15171c;padding:0 10px;color:#6a7080;font-size:12px}
 </style></head><body><form class="card" method="POST" action="/__ioi/login">
 <div class="brand">IOI Hypervisor</div><h1>Sign in</h1>
 <label>Email</label><input name="email" type="email" autocomplete="username" autofocus placeholder="you@org.com">
 <label>Password</label><input name="password" type="password" autocomplete="current-password" placeholder="••••••••">
 <button type="submit">Sign in</button>
 ${error ? `<div class="err">${error}</div>` : ""}
+${ssoButtons ? `<div class="div"><span>or</span></div>${ssoButtons}` : ""}
 <div class="hint">Authenticated by the Hypervisor identity plane · sessions are sealed</div>
 </form></body></html>`;
 }
@@ -1139,8 +1145,46 @@ const server = http.createServer((req, res) => {
         }
         return;
       }
+      let cfgs = [];
+      try { const r = await fetch(`${DAEMON}/v1/hypervisor/sso-configurations`); const d = await r.json(); cfgs = d.sso_configurations || []; } catch { /* none */ }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(loginShell(""));
+      res.end(loginShell("", cfgs));
+      return;
+    }
+    // SSO login start — build the PKCE authorize URL via the daemon, redirect to the IdP.
+    if (pathname.startsWith("/__ioi/login/sso/") && pathname !== "/__ioi/login/sso/callback") {
+      const configId = decodeURIComponent(pathname.slice("/__ioi/login/sso/".length).split("/")[0]);
+      const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/auth/oidc/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config_id: configId, redirect_uri: redirectUri }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.ok && d.authorize_url) { res.writeHead(302, { Location: d.authorize_url }); res.end(); return; }
+        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(loginShell(`SSO start failed: ${d.reason || "unknown"}`));
+      } catch (e) {
+        res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(loginShell(`SSO unavailable: ${e.message}`));
+      }
+      return;
+    }
+    // SSO login callback — exchange the code for a session, set the cookie.
+    if (pathname === "/__ioi/login/sso/callback") {
+      const q = new URLSearchParams((req.url || "").split("?")[1] || "");
+      const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/auth/oidc/callback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q.get("code") || "", state: q.get("state") || "", redirect_uri: redirectUri }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.ok && d.session_token) {
+          res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
+          res.end();
+          return;
+        }
+        res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(loginShell(`SSO login failed: ${d.reason || "unknown"}`));
+      } catch (e) {
+        res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(loginShell(`SSO callback error: ${e.message}`));
+      }
       return;
     }
     if (pathname === "/__ioi/logout") {

@@ -9274,6 +9274,132 @@ pub(crate) async fn handle_principal_delete(State(st): State<Arc<DaemonState>>, 
     Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" }))
 }
 
+// ---- SSO / OIDC login (multi-user IdP, Phase 2) --------------------------------------------
+// An SSO configuration is a BYO OIDC IdP for org login. Login is Authorization Code + PKCE (reusing
+// the connector OAuth machinery); on callback the daemon reads userinfo, provisions/matches the
+// principal (emailDomain auto-join), and issues a session. The IdP client_secret is SEALED at rest.
+// This authenticates WHO; it grants no machine authority (crossings still require wallet/lease).
+fn sso_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() { o.remove("sealed_client_secret"); o.remove("key_source"); }
+    c
+}
+async fn oidc_discover(issuer: &str) -> Result<(String, String, String), String> {
+    let base = issuer.trim_end_matches('/');
+    let client = reqwest::Client::new();
+    let doc = http_get_json(&client, &format!("{base}/.well-known/openid-configuration")).await?;
+    let a = doc["authorization_endpoint"].as_str().ok_or("no authorization_endpoint")?.to_string();
+    let t = doc["token_endpoint"].as_str().ok_or("no token_endpoint")?.to_string();
+    let u = doc["userinfo_endpoint"].as_str().unwrap_or("").to_string();
+    Ok((a, t, u))
+}
+async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String> {
+    if userinfo_url.is_empty() { return Err("no userinfo_endpoint".into()); }
+    let client = reqwest::Client::new();
+    let resp = client.get(userinfo_url).header("Authorization", format!("Bearer {access}")).header("Accept", "application/json").timeout(std::time::Duration::from_secs(15)).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() { return Err(format!("userinfo -> {}", resp.status().as_u16())); }
+    resp.json().await.map_err(|e| e.to_string())
+}
+
+/// GET /v1/hypervisor/sso-configurations — list SSO/OIDC login connections (no secrets).
+pub(crate) async fn handle_sso_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cfgs: Vec<Value> = read_record_dir(&st.data_dir, "sso-configurations").into_iter().map(sso_public).collect();
+    Json(json!({ "ok": true, "sso_configurations": cfgs }))
+}
+/// POST /v1/hypervisor/sso-configurations — register a BYO OIDC IdP (client_secret sealed).
+pub(crate) async fn handle_sso_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let issuer = body.get("issuer_url").and_then(Value::as_str).unwrap_or("").trim().trim_end_matches('/').to_string();
+    let client_id = body.get("client_id").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if issuer.is_empty() || client_id.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "issuer_url and client_id are required" })));
+    }
+    let id = format!("sso_{}", short_hash(&format!("{issuer}:{client_id}")));
+    let now = iso_now();
+    let mut c = json!({
+        "schema_version": "ioi.hypervisor.sso-config.v1", "sso_id": id, "id": id,
+        "issuer_url": issuer, "client_id": client_id,
+        "email_domain": body.get("email_domain").and_then(Value::as_str).unwrap_or(""),
+        "display_name": body.get("display_name").and_then(Value::as_str).unwrap_or(issuer.as_str()),
+        "provider_type": "PROVIDER_TYPE_OIDC", "state": "active", "client_secret_set": false,
+        "created_at": now, "updated_at": now,
+    });
+    if let Some(sec) = body.get("client_secret").and_then(Value::as_str) {
+        if !sec.is_empty() { if let Some(s) = seal_value(sec) { c["sealed_client_secret"] = json!(s); c["client_secret_set"] = json!(true); c["key_source"] = json!(scm_key_source()); } }
+    }
+    let _ = persist_record(&st.data_dir, "sso-configurations", &id, &c);
+    (StatusCode::OK, Json(json!({ "ok": true, "sso_configuration": sso_public(c) })))
+}
+/// DELETE /v1/hypervisor/sso-configurations/:id
+pub(crate) async fn handle_sso_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "sso-configurations", &id);
+    Json(json!({ "ok": true, "sso_id": id, "removed": removed }))
+}
+
+/// POST /v1/hypervisor/auth/oidc/start — begin SSO login (build the PKCE authorize URL).
+pub(crate) async fn handle_auth_oidc_start(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let cfg_id = body.get("config_id").and_then(Value::as_str).unwrap_or("");
+    let Some(cfg) = read_record_dir(&st.data_dir, "sso-configurations").into_iter().find(|c| c["sso_id"].as_str() == Some(cfg_id)) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown sso config" })));
+    };
+    let issuer = cfg["issuer_url"].as_str().unwrap_or("");
+    let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
+    let (auth_ep, _t, _u) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("oidc discovery failed: {e}") }))) };
+    let redirect_uri = body.get("redirect_uri").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173/__ioi/login/sso/callback").to_string();
+    let verifier = random_token(64);
+    let challenge = pkce_challenge(&verifier);
+    let state = random_token(32);
+    let Some(sv) = seal_scm_token(&verifier) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" }))); };
+    let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    let url = format!(
+        "{auth_ep}?response_type=code&client_id={}&redirect_uri={}&state={state}&scope=openid%20email%20profile&code_challenge={challenge}&code_challenge_method=S256",
+        pct(&client_id), pct(&redirect_uri)
+    );
+    (StatusCode::OK, Json(json!({ "ok": true, "authorize_url": url, "state": state })))
+}
+
+/// POST /v1/hypervisor/auth/oidc/callback — finish SSO login: exchange code → userinfo → provision
+/// principal (emailDomain auto-join) → issue a session.
+pub(crate) async fn handle_auth_oidc_callback(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let state = body.get("state").and_then(Value::as_str).unwrap_or("");
+    let code = body.get("code").and_then(Value::as_str).unwrap_or("");
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending").into_iter().find(|p| p["state"].as_str() == Some(state) && p["flow"].as_str() == Some("login")) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown or expired state" })));
+    };
+    let sso_id = pending["sso_id"].as_str().unwrap_or("").to_string();
+    let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
+    let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "verifier unseal failed" })));
+    };
+    let Some(cfg) = read_record_dir(&st.data_dir, "sso-configurations").into_iter().find(|c| c["sso_id"].as_str() == Some(sso_id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown sso config" })));
+    };
+    let issuer = cfg["issuer_url"].as_str().unwrap_or("");
+    let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
+    let client_secret = cfg["sealed_client_secret"].as_str().and_then(open_scm_token).unwrap_or_default();
+    let (_a, token_ep, userinfo_ep) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("discovery failed: {e}") }))) };
+    let (access, _refresh) = match exchange_oauth_code(&token_ep, &client_id, &client_secret, code, &redirect_uri, &verifier).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("token exchange failed: {e}") }))) };
+    let info = match oidc_userinfo(&userinfo_ep, &access).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("userinfo failed: {e}") }))) };
+    let email = info["email"].as_str().unwrap_or("").trim().to_lowercase();
+    if email.is_empty() { return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "no email claim from IdP" }))); }
+    let domain = cfg["email_domain"].as_str().unwrap_or("");
+    if !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "email domain not allowed for this SSO connection" })));
+    }
+    let name = info["name"].as_str().or_else(|| info["preferred_username"].as_str()).unwrap_or(email.as_str()).to_string();
+    let principal = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) => p,
+        None => {
+            let pid = format!("usr_{}", short_hash(&format!("{email}:{}", iso_now())));
+            let p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email, "name": name, "role": "member", "status": "active", "source": format!("sso:{sso_id}"), "created_at": iso_now(), "updated_at": iso_now() });
+            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+            p
+        }
+    };
+    remove_record(&st.data_dir, "oauth-pending", state);
+    let (status, sess) = issue_session(&st.data_dir, principal["principal_id"].as_str().unwrap_or(""), &format!("sso:{sso_id}"));
+    (status, Json(sess))
+}
+
 // ============================================================================================
 // Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
 // is derived from actual agentgres records (the `receipts` the daemon already writes for every

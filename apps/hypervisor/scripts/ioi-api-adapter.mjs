@@ -751,7 +751,36 @@ async function handleImpl(pathname, bodyText) {
     }
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/ListSSOConfigurations") {
-    return json({ pagination: {}, ssoConfigurations: [] });
+    // Real SSO/OIDC login connections, projected from the daemon (no secrets surface here).
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/sso-configurations");
+      const cfgs = (r.sso_configurations || []).map((c) => ({
+        id: c.sso_id, organizationId: IDENTITY.orgId, issuerUrl: c.issuer_url,
+        state: c.state === "active" ? "SSO_CONFIGURATION_STATE_ACTIVE" : "SSO_CONFIGURATION_STATE_INACTIVE",
+        providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "",
+      }));
+      return json({ pagination: {}, ssoConfigurations: cfgs });
+    } catch {
+      return json({ pagination: {}, ssoConfigurations: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/CreateSSOConfiguration") {
+    const issuerUrl = body.issuerUrl || body.issuer_url || "";
+    const clientId = body.clientId || body.client_id || "";
+    if (!issuerUrl || !clientId) return jsonStatus(400, { code: "invalid_argument", message: "issuerUrl and clientId are required" });
+    try {
+      const r = await daemon("POST", "/v1/hypervisor/sso-configurations", { issuer_url: issuerUrl, client_id: clientId, client_secret: body.clientSecret || body.client_secret || "", email_domain: body.emailDomain || body.email_domain || "", display_name: body.displayName || body.display_name || issuerUrl });
+      const c = r.sso_configuration || {};
+      return json({ ssoConfiguration: { id: c.sso_id, organizationId: IDENTITY.orgId, issuerUrl: c.issuer_url, state: "SSO_CONFIGURATION_STATE_ACTIVE", providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "" } });
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to create SSO configuration: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/DeleteSSOConfiguration") {
+    const id = body.ssoConfigurationId || body.id;
+    if (!id) return jsonStatus(400, { code: "invalid_argument", message: "ssoConfigurationId is required" });
+    try { await daemon("DELETE", `/v1/hypervisor/sso-configurations/${encodeURIComponent(id)}`); } catch { /* idempotent */ }
+    return json({});
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/ListSCIMConfigurations") {
     return json({ pagination: {} });
