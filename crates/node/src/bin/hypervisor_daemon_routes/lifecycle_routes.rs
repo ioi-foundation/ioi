@@ -9400,6 +9400,216 @@ pub(crate) async fn handle_auth_oidc_callback(State(st): State<Arc<DaemonState>>
     (status, Json(sess))
 }
 
+// ---- SCIM 2.0 provisioning (multi-user IdP, Phase 3) ----------------------------------------
+// A SCIM 2.0 server an external IdP (Okta/Azure AD/etc.) calls to provision/deprovision users +
+// groups. Users map onto the `principals` plane (source: scim); groups are `scim-groups` records.
+// Auth is a SCIM bearer token (hash stored, plaintext returned ONCE on config create). Provisioned
+// principals still hold NO machine authority — crossings remain wallet/lease-gated.
+
+fn scim_config_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() { o.remove("token_hash"); }
+    c
+}
+/// True if the request carries a Bearer matching an active SCIM config token.
+fn scim_authed(data_dir: &str, headers: &HeaderMap) -> bool {
+    let Some(tok) = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).map(|s| s.trim().to_string()) else { return false; };
+    let h = sha256_hex_str(&tok);
+    read_record_dir(data_dir, "scim-configurations").iter().any(|c| c["token_hash"].as_str() == Some(h.as_str()))
+}
+fn scim_unauth() -> (StatusCode, Json<Value>) {
+    (StatusCode::UNAUTHORIZED, Json(json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "401", "detail": "invalid SCIM token" })))
+}
+fn principal_to_scim(p: &Value) -> Value {
+    let email = p["email"].as_str().unwrap_or("");
+    json!({
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": p["principal_id"], "userName": email,
+        "name": { "formatted": p["name"].as_str().unwrap_or(email) },
+        "displayName": p["name"], "emails": [{ "value": email, "primary": true }],
+        "active": p["status"].as_str() == Some("active"),
+        "externalId": p.get("scim_external_id").cloned().unwrap_or(Value::Null),
+        "meta": { "resourceType": "User" },
+    })
+}
+fn scim_list(resources: Vec<Value>) -> Value {
+    json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"], "totalResults": resources.len(), "startIndex": 1, "itemsPerPage": resources.len(), "Resources": resources })
+}
+
+/// GET /v1/hypervisor/scim-configurations — list SCIM provisioning connections (no token).
+pub(crate) async fn handle_scim_config_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cfgs: Vec<Value> = read_record_dir(&st.data_dir, "scim-configurations").into_iter().map(scim_config_public).collect();
+    Json(json!({ "ok": true, "scim_configurations": cfgs }))
+}
+/// POST /v1/hypervisor/scim-configurations — provision (or rotate) a SCIM token. Returns the token ONCE.
+pub(crate) async fn handle_scim_config_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let token = gen_opaque("scim");
+    let id = body.get("scim_id").and_then(Value::as_str).map(String::from).unwrap_or_else(|| "scim-config".to_string());
+    let base_url = body.get("base_url").and_then(Value::as_str).unwrap_or("/scim/v2").to_string();
+    let now = iso_now();
+    let rec = json!({
+        "schema_version": "ioi.hypervisor.scim-config.v1", "scim_id": id, "base_url": base_url,
+        "token_hash": sha256_hex_str(&token), "enabled": true, "created_at": now, "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "scim-configurations", &id, &rec);
+    (StatusCode::OK, Json(json!({ "ok": true, "scim_configuration": scim_config_public(rec), "token": token })))
+}
+/// DELETE /v1/hypervisor/scim-configurations/:id
+pub(crate) async fn handle_scim_config_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "scim-configurations", &id);
+    Json(json!({ "ok": true, "scim_id": id, "removed": removed }))
+}
+
+/// GET /scim/v2/ServiceProviderConfig — advertise SCIM capabilities.
+pub(crate) async fn handle_scim_spc(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    (StatusCode::OK, Json(json!({
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"],
+        "patch": { "supported": true }, "bulk": { "supported": false }, "filter": { "supported": true, "maxResults": 200 },
+        "changePassword": { "supported": false }, "sort": { "supported": false }, "etag": { "supported": false },
+        "authenticationSchemes": [{ "type": "oauthbearertoken", "name": "OAuth Bearer Token" }],
+    })))
+}
+
+fn scim_filter_value(q: &std::collections::HashMap<String, String>) -> Option<String> {
+    // parse `userName eq "x"` / `emails eq "x"` → x
+    q.get("filter").and_then(|f| f.split('"').nth(1).map(|s| s.to_string()))
+}
+
+/// GET /scim/v2/Users — list/filter provisioned users (principals).
+pub(crate) async fn handle_scim_users_list(State(st): State<Arc<DaemonState>>, headers: HeaderMap, Query(q): Query<std::collections::HashMap<String, String>>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    let want = scim_filter_value(&q).map(|s| s.to_lowercase());
+    let users: Vec<Value> = read_record_dir(&st.data_dir, "principals").into_iter()
+        .filter(|p| want.as_ref().map(|w| p["email"].as_str().map(|e| e.to_lowercase()) == Some(w.clone())).unwrap_or(true))
+        .map(|p| principal_to_scim(&p)).collect();
+    (StatusCode::OK, Json(scim_list(users)))
+}
+/// POST /scim/v2/Users — provision a user (creates a principal, source: scim).
+pub(crate) async fn handle_scim_user_create(State(st): State<Arc<DaemonState>>, headers: HeaderMap, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    let email = body["userName"].as_str().or_else(|| body["emails"][0]["value"].as_str()).unwrap_or("").trim().to_lowercase();
+    if email.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "400", "detail": "userName/email required" }))); }
+    if let Some(existing) = find_principal_by_email(&st.data_dir, &email) {
+        return (StatusCode::CONFLICT, Json(principal_to_scim(&existing)));
+    }
+    let name = body["name"]["formatted"].as_str()
+        .or_else(|| body["displayName"].as_str())
+        .map(String::from)
+        .unwrap_or_else(|| {
+            let g = body["name"]["givenName"].as_str().unwrap_or("");
+            let f = body["name"]["familyName"].as_str().unwrap_or("");
+            format!("{g} {f}").trim().to_string()
+        });
+    let active = body["active"].as_bool().unwrap_or(true);
+    let pid = format!("usr_{}", short_hash(&format!("scim:{email}")));
+    let now = iso_now();
+    let p = json!({
+        "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+        "name": if name.is_empty() { email.clone() } else { name }, "role": "member",
+        "status": if active { "active" } else { "deactivated" }, "source": "scim",
+        "scim_external_id": body.get("externalId").cloned().unwrap_or(Value::Null),
+        "created_at": now, "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+    (StatusCode::CREATED, Json(principal_to_scim(&p)))
+}
+/// GET /scim/v2/Users/:id
+pub(crate) async fn handle_scim_user_get(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    match find_principal(&st.data_dir, &id) {
+        Some(p) => (StatusCode::OK, Json(principal_to_scim(&p))),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "404" }))),
+    }
+}
+/// PATCH/PUT /scim/v2/Users/:id — the IdP toggles `active` (deprovision = active:false).
+pub(crate) async fn handle_scim_user_patch(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    if id == OPERATOR_ID { return (StatusCode::FORBIDDEN, Json(json!({ "status": "403", "detail": "operator is not SCIM-managed" }))); }
+    let Some(mut p) = find_principal(&st.data_dir, &id) else { return (StatusCode::NOT_FOUND, Json(json!({ "status": "404" }))); };
+    // PATCH Operations form
+    let mut active: Option<bool> = body["active"].as_bool();
+    if let Some(ops) = body["Operations"].as_array() {
+        for op in ops {
+            let path = op["path"].as_str().unwrap_or("");
+            if path == "active" || op["value"]["active"].is_boolean() {
+                active = op["value"].as_bool().or_else(|| op["value"]["active"].as_bool()).or(active);
+            }
+        }
+    }
+    if let Some(a) = active {
+        p["status"] = json!(if a { "active" } else { "deactivated" });
+        p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        if !a {
+            for s in read_record_dir(&st.data_dir, "sessions").into_iter().filter(|s| s["principal_id"].as_str() == Some(id.as_str())) {
+                if let Some(sid) = s["session_id"].as_str() { remove_record(&st.data_dir, "sessions", sid); }
+            }
+        }
+    }
+    (StatusCode::OK, Json(principal_to_scim(&p)))
+}
+/// DELETE /scim/v2/Users/:id — deprovision (soft deactivate; operator protected).
+pub(crate) async fn handle_scim_user_delete(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    if id == OPERATOR_ID { return (StatusCode::FORBIDDEN, Json(json!({ "status": "403" }))); }
+    if let Some(mut p) = find_principal(&st.data_dir, &id) {
+        p["status"] = json!("deactivated"); p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+    }
+    (StatusCode::NO_CONTENT, Json(Value::Null))
+}
+
+fn group_to_scim(g: &Value) -> Value {
+    json!({
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+        "id": g["group_id"], "displayName": g["display_name"], "externalId": g.get("external_id").cloned().unwrap_or(Value::Null),
+        "members": g["members"].as_array().cloned().unwrap_or_default().iter().map(|m| json!({ "value": m })).collect::<Vec<_>>(),
+        "meta": { "resourceType": "Group" },
+    })
+}
+/// GET /scim/v2/Groups
+pub(crate) async fn handle_scim_groups_list(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    let gs: Vec<Value> = read_record_dir(&st.data_dir, "scim-groups").iter().map(group_to_scim).collect();
+    (StatusCode::OK, Json(scim_list(gs)))
+}
+/// POST /scim/v2/Groups
+pub(crate) async fn handle_scim_group_create(State(st): State<Arc<DaemonState>>, headers: HeaderMap, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    let name = body["displayName"].as_str().unwrap_or("").trim().to_string();
+    if name.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "status": "400", "detail": "displayName required" }))); }
+    let gid = format!("grp_{}", short_hash(&format!("scim-group:{name}")));
+    let members: Vec<Value> = body["members"].as_array().map(|a| a.iter().filter_map(|m| m["value"].as_str().map(|s| json!(s))).collect()).unwrap_or_default();
+    let now = iso_now();
+    let g = json!({ "schema_version": "ioi.hypervisor.scim-group.v1", "group_id": gid, "display_name": name, "external_id": body.get("externalId").cloned().unwrap_or(Value::Null), "members": members, "created_at": now, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "scim-groups", &gid, &g);
+    (StatusCode::CREATED, Json(group_to_scim(&g)))
+}
+/// GET /scim/v2/Groups/:id
+pub(crate) async fn handle_scim_group_get(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    match read_record_dir(&st.data_dir, "scim-groups").into_iter().find(|g| g["group_id"].as_str() == Some(id.as_str())) {
+        Some(g) => (StatusCode::OK, Json(group_to_scim(&g))),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "status": "404" }))),
+    }
+}
+/// PATCH/PUT /scim/v2/Groups/:id — update membership / displayName.
+pub(crate) async fn handle_scim_group_patch(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    let Some(mut g) = read_record_dir(&st.data_dir, "scim-groups").into_iter().find(|g| g["group_id"].as_str() == Some(id.as_str())) else { return (StatusCode::NOT_FOUND, Json(json!({ "status": "404" }))); };
+    if let Some(n) = body["displayName"].as_str() { g["display_name"] = json!(n); }
+    if let Some(ms) = body["members"].as_array() { g["members"] = json!(ms.iter().filter_map(|m| m["value"].as_str().map(|s| json!(s))).collect::<Vec<_>>()); }
+    g["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "scim-groups", &id, &g);
+    (StatusCode::OK, Json(group_to_scim(&g)))
+}
+/// DELETE /scim/v2/Groups/:id
+pub(crate) async fn handle_scim_group_delete(State(st): State<Arc<DaemonState>>, headers: HeaderMap, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) { return scim_unauth(); }
+    remove_record(&st.data_dir, "scim-groups", &id);
+    (StatusCode::NO_CONTENT, Json(Value::Null))
+}
+
 // ============================================================================================
 // Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
 // is derived from actual agentgres records (the `receipts` the daemon already writes for every

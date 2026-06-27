@@ -1419,6 +1419,38 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route("/v1/hypervisor/auth/oidc/start", post(lifecycle_routes::handle_auth_oidc_start))
         .route("/v1/hypervisor/auth/oidc/callback", post(lifecycle_routes::handle_auth_oidc_callback))
+        // SCIM 2.0 provisioning — config plane + the server an external IdP calls (SCIM-token auth).
+        .route(
+            "/v1/hypervisor/scim-configurations",
+            get(lifecycle_routes::handle_scim_config_list).post(lifecycle_routes::handle_scim_config_create),
+        )
+        .route(
+            "/v1/hypervisor/scim-configurations/:id",
+            axum::routing::delete(lifecycle_routes::handle_scim_config_delete),
+        )
+        .route("/scim/v2/ServiceProviderConfig", get(lifecycle_routes::handle_scim_spc))
+        .route(
+            "/scim/v2/Users",
+            get(lifecycle_routes::handle_scim_users_list).post(lifecycle_routes::handle_scim_user_create),
+        )
+        .route(
+            "/scim/v2/Users/:id",
+            get(lifecycle_routes::handle_scim_user_get)
+                .patch(lifecycle_routes::handle_scim_user_patch)
+                .put(lifecycle_routes::handle_scim_user_patch)
+                .delete(lifecycle_routes::handle_scim_user_delete),
+        )
+        .route(
+            "/scim/v2/Groups",
+            get(lifecycle_routes::handle_scim_groups_list).post(lifecycle_routes::handle_scim_group_create),
+        )
+        .route(
+            "/scim/v2/Groups/:id",
+            get(lifecycle_routes::handle_scim_group_get)
+                .patch(lifecycle_routes::handle_scim_group_patch)
+                .put(lifecycle_routes::handle_scim_group_patch)
+                .delete(lifecycle_routes::handle_scim_group_delete),
+        )
         // Gated inbound auth ring — wraps every route above; enforces only when auth-policy says so.
         .layer(axum::middleware::from_fn_with_state(state.clone(), lifecycle_routes::auth_gate))
         .with_state(state);

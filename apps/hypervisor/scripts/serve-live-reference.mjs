@@ -1064,6 +1064,22 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+    // SCIM 2.0 provisioning — the external IdP calls /scim/v2/* via the public URL; forward to the
+    // daemon SCIM server, preserving the SCIM bearer token (the daemon validates it).
+    if (pathname.startsWith("/scim/")) {
+      try {
+        const headers = { "Content-Type": req.headers["content-type"] || "application/json" };
+        if (req.headers["authorization"]) headers["Authorization"] = req.headers["authorization"];
+        const upstream = await fetch(DAEMON + req.url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body });
+        const text = await upstream.text();
+        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+        res.end(text);
+      } catch (e) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: `daemon unreachable: ${e.message}` } }));
+      }
+      return;
+    }
     // Cut A — env-ops plane: forward the EnvironmentOpsService Connect surface (and any env gateway
     // path) to the daemon, preserving the capability-lease Authorization header. Contract + lease
     // logic live in the daemon (D1); this is a transparent route, not a shim.

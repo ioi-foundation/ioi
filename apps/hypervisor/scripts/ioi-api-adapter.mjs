@@ -783,7 +783,38 @@ async function handleImpl(pathname, bodyText) {
     return json({});
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/ListSCIMConfigurations") {
-    return json({ pagination: {} });
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/scim-configurations");
+      const cfgs = (r.scim_configurations || []).map((c) => ({ id: c.scim_id, organizationId: IDENTITY.orgId, name: c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: c.enabled !== false, ssoConfigurationId: c.sso_configuration_id || "" }));
+      return json({ pagination: {}, scimConfigurations: cfgs });
+    } catch {
+      return json({ pagination: {} });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/CreateSCIMConfiguration") {
+    // Provision a SCIM connection + mint the bearer token (returned ONCE for the admin to paste into
+    // their IdP). The IdP then calls <host>/scim/v2/* with it to manage users/groups.
+    try {
+      const r = await daemon("POST", "/v1/hypervisor/scim-configurations", { scim_id: "scim-config", name: body.name || "SCIM provisioning", sso_configuration_id: body.ssoConfigurationId || "" });
+      const c = r.scim_configuration || {};
+      return json({ scimConfiguration: { id: c.scim_id, organizationId: IDENTITY.orgId, name: c.name || body.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: true, ssoConfigurationId: body.ssoConfigurationId || "", bearerToken: r.token } });
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to create SCIM configuration: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/UpdateSCIMConfiguration") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/scim-configurations");
+      const c = (r.scim_configurations || [])[0] || {};
+      return json({ scimConfiguration: { id: c.scim_id || body.scimConfigurationId, organizationId: IDENTITY.orgId, name: body.name || c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: body.enabled !== false, ssoConfigurationId: body.ssoConfigurationId || "" } });
+    } catch {
+      return json({ scimConfiguration: { id: body.scimConfigurationId, enabled: body.enabled !== false } });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/DeleteSCIMConfiguration") {
+    const id = body.scimConfigurationId || body.id || "scim-config";
+    try { await daemon("DELETE", `/v1/hypervisor/scim-configurations/${encodeURIComponent(id)}`); } catch { /* idempotent */ }
+    return json({});
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/GetCustomDomain") {
     return json({});
