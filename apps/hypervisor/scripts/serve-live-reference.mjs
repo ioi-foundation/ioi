@@ -1083,6 +1083,40 @@ const server = http.createServer((req, res) => {
       res.end(page);
       return;
     }
+    // ---- OAuth-native MCP Connect ("authorize this integration") — browser plumbing --------------
+    // connect/:id → ask the daemon for the provider authorize URL (PKCE) and 302 the browser there;
+    // oauth/callback ← the provider redirects back, we hand the code to the daemon to seal tokens.
+    if (pathname.startsWith("/__ioi/integrations/connect/")) {
+      const cid = decodeURIComponent(pathname.slice("/__ioi/integrations/connect/".length).split("/")[0]);
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/connectors/${encodeURIComponent(cid)}/oauth/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uri: `http://${req.headers.host || "127.0.0.1:4173"}/__ioi/integrations/oauth/callback` }) });
+        const d = await r.json();
+        if (d.ok && d.authorize_url) { res.writeHead(302, { Location: d.authorize_url, "Cache-Control": "no-cache" }); return res.end(); }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(githubAppShell("Can't connect yet", `<p class="muted">${d.message || d.reason || "no OAuth profile on this integration"}</p>`));
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(githubAppShell("Can't connect yet", `<p class="muted">${String(e?.message || e)}</p>`));
+      }
+      return;
+    }
+    if (pathname === "/__ioi/integrations/oauth/callback") {
+      const qp = new URL(req.url, "http://x").searchParams;
+      const state = qp.get("state") || "", code = qp.get("code") || "";
+      let page;
+      try {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/connectors/oauth/callback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ state, code }) });
+        const d = await r.json();
+        page = d.ok
+          ? githubAppShell("Integration connected ✓", `<p>Authorized and sealed (<b>${d.credential_kind}</b>) on <b>${d.connector_id}</b>.</p><p class="muted">The agent receives only scoped capability leases minted from this — the provider credential never leaves your daemon. You can close this tab.</p>`)
+          : githubAppShell("Couldn't connect", `<p class="muted">${d.message || d.reason || "authorization failed"}</p>`);
+      } catch (e) {
+        page = githubAppShell("Couldn't connect", `<p class="muted">${String(e?.message || e)}</p>`);
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(page);
+      return;
+    }
     // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned
     // Run Timeline for the env in view (Workbench/Sessions/Studio/Automations/IOI.ai all key by env).
     if (pathname.startsWith("/__ioi/env-latest-run/")) {
