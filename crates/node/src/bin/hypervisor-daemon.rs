@@ -1108,6 +1108,26 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/api-tokens/:id",
             axum::routing::delete(lifecycle_routes::handle_api_token_delete),
         )
+        // Metering & Cost plane — OCU consumption from real receipts + wallet-backed budget.
+        .route(
+            "/v1/hypervisor/usage/consumption",
+            get(lifecycle_routes::handle_usage_consumption),
+        )
+        .route(
+            "/v1/hypervisor/budget",
+            get(lifecycle_routes::handle_budget_get)
+                .put(lifecycle_routes::handle_budget_set),
+        )
+        .route(
+            "/v1/hypervisor/budget/reconcile",
+            post(lifecycle_routes::handle_budget_reconcile),
+        )
+        // OIDC login config (BYO IdP) — management surface; client_secret sealed at rest.
+        .route(
+            "/v1/hypervisor/oidc-config",
+            get(lifecycle_routes::handle_oidc_get)
+                .put(lifecycle_routes::handle_oidc_set),
+        )
         // Generic connector estate — ANY service as a use-only lease through the same gateway.
         .route(
             "/v1/hypervisor/connectors",

@@ -9029,6 +9029,216 @@ pub(crate) async fn handle_api_token_delete(
     Json(json!({ "ok": true, "token_id": id, "removed": removed }))
 }
 
+// ============================================================================================
+// Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
+// is derived from actual agentgres records (the `receipts` the daemon already writes for every
+// session/agent execution), NOT fabricated. Transparent self-hosted OCU (Hypervisor Compute Unit)
+// derivation: KIND_ENVIRONMENT = compute-hours (receipt runtime started_at→finished_at);
+// KIND_LLM = 0.1 OCU per model-backed receipt. A wallet-backed budget plane sets a ceiling +
+// auto-funding policy ("auto top-up" reframed: replenish the budget from wallet.network when the
+// balance crosses a threshold). Boundary: agentgres RECORDS (receipts) → metered; wallet FUNDS.
+// ============================================================================================
+
+fn parse_ts(s: &str) -> Option<time::OffsetDateTime> {
+    time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).ok()
+}
+fn day_bucket(dt: &time::OffsetDateTime) -> String {
+    format!("{:04}-{:02}-{:02}T00:00:00Z", dt.year(), dt.month() as u8, dt.day())
+}
+fn round6(v: f64) -> f64 {
+    (v * 1e6).round() / 1e6
+}
+/// OCU contributed by one receipt: (compute-hours, llm-units).
+fn receipt_ocu(r: &Value) -> (f64, f64) {
+    let fin = r.get("finished_at").and_then(Value::as_str).and_then(parse_ts);
+    let start = r.get("started_at").and_then(Value::as_str).and_then(parse_ts);
+    let hours = match (start, fin) {
+        (Some(s), Some(f)) => ((f - s).as_seconds_f64() / 3600.0).max(0.0),
+        _ => 0.0,
+    };
+    let llm = if r.get("model").and_then(Value::as_str).map(|m| !m.is_empty()).unwrap_or(false) { 0.1 } else { 0.0 };
+    (hours, llm)
+}
+/// All-time consumption (compute-hours + llm-units) across every recorded receipt.
+fn all_time_consumption(data_dir: &str) -> f64 {
+    let mut total = 0.0;
+    for r in read_record_dir(data_dir, "receipts") {
+        let (h, l) = receipt_ocu(&r);
+        total += h + l;
+    }
+    round6(total)
+}
+
+/// GET /v1/hypervisor/usage/consumption?from=&to= — per-day OCU consumption by metric kind,
+/// aggregated from the real `receipts` records over [from,to] (default: last 7 days).
+pub(crate) async fn handle_usage_consumption(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
+    let to = q.get("to").and_then(|s| parse_ts(s)).unwrap_or_else(time::OffsetDateTime::now_utc);
+    let from = q.get("from").and_then(|s| parse_ts(s)).unwrap_or_else(|| to - time::Duration::days(7));
+    let mut env: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    let mut llm: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    for r in read_record_dir(&st.data_dir, "receipts") {
+        let Some(fin) = r.get("finished_at").and_then(Value::as_str).and_then(parse_ts) else { continue };
+        if fin < from || fin > to { continue; }
+        let day = day_bucket(&fin);
+        let (hours, llm_units) = receipt_ocu(&r);
+        *env.entry(day.clone()).or_default() += hours;
+        if llm_units > 0.0 { *llm.entry(day).or_default() += llm_units; }
+    }
+    let series = |m: &std::collections::BTreeMap<String, f64>| -> Vec<Value> {
+        let mut out = Vec::new();
+        let mut d = from.replace_time(time::Time::MIDNIGHT);
+        let end = to.replace_time(time::Time::MIDNIGHT);
+        while d <= end {
+            let key = day_bucket(&d);
+            let ocu = *m.get(&key).unwrap_or(&0.0);
+            let mut entry = json!({ "time": key });
+            if ocu > 0.0 { entry["ocu"] = json!(round6(ocu)); }
+            out.push(entry);
+            d += time::Duration::days(1);
+        }
+        out
+    };
+    // KIND_ALL = the per-day TOTAL across every kind. The native chart selects this aggregate metric
+    // (sf(metrics, KIND_ALL)); without it the usage chart reads empty even when kinds have data.
+    let mut all: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    for (k, v) in env.iter().chain(llm.iter()) {
+        *all.entry(k.clone()).or_default() += *v;
+    }
+    let total: f64 = all.values().sum::<f64>();
+    Json(json!({
+        "ok": true,
+        "metrics": [
+            { "kind": "KIND_ALL", "display_name": "Total", "series": series(&all) },
+            { "kind": "KIND_ENVIRONMENT", "display_name": "Environment Usage", "series": series(&env) },
+            { "kind": "KIND_LLM", "display_name": "LLM Usage", "series": series(&llm) },
+        ],
+        "total_ocu": round6(total),
+    }))
+}
+
+fn load_budget(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "budget")
+        .into_iter()
+        .find(|b| b["id"].as_str() == Some("policy"))
+        .unwrap_or_else(|| json!({
+            "id": "policy", "budget_ocu": 1000.0, "auto_fund_enabled": false,
+            "threshold_ocu": 20.0, "target_ocu": 1000.0, "wallet_ref": Value::Null
+        }))
+}
+fn budget_with_balance(data_dir: &str) -> Value {
+    let mut b = load_budget(data_dir);
+    let used = all_time_consumption(data_dir);
+    let budget = b.get("budget_ocu").and_then(Value::as_f64).unwrap_or(1000.0);
+    b["used_ocu"] = json!(used);
+    b["available_ocu"] = json!(round6((budget - used).max(0.0)));
+    b
+}
+
+/// GET /v1/hypervisor/budget — the budget policy + live balance (used/available from real usage).
+pub(crate) async fn handle_budget_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
+}
+
+/// PUT /v1/hypervisor/budget — set the budget ceiling + wallet auto-funding policy.
+pub(crate) async fn handle_budget_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut b = load_budget(&st.data_dir);
+    for k in ["budget_ocu", "threshold_ocu", "target_ocu"] {
+        if let Some(v) = body.get(k).and_then(Value::as_f64) { b[k] = json!(v); }
+    }
+    if let Some(v) = body.get("auto_fund_enabled").and_then(Value::as_bool) { b["auto_fund_enabled"] = json!(v); }
+    if let Some(v) = body.get("wallet_ref").and_then(Value::as_str) { b["wallet_ref"] = json!(v); }
+    b["id"] = json!("policy");
+    b["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "budget", "policy", &b);
+    Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
+}
+
+/// POST /v1/hypervisor/budget/reconcile — recompute used vs budget; if auto-funding is enabled and
+/// the balance is below threshold, replenish the budget to (used + target) and record a wallet
+/// funding ledger entry. This is the wallet-native reframe of SaaS "auto top-up".
+pub(crate) async fn handle_budget_reconcile(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut b = load_budget(&st.data_dir);
+    let used = all_time_consumption(&st.data_dir);
+    let mut budget = b.get("budget_ocu").and_then(Value::as_f64).unwrap_or(1000.0);
+    let threshold = b.get("threshold_ocu").and_then(Value::as_f64).unwrap_or(20.0);
+    let target = b.get("target_ocu").and_then(Value::as_f64).unwrap_or(1000.0);
+    let auto = b.get("auto_fund_enabled").and_then(Value::as_bool).unwrap_or(false);
+    let mut available = round6((budget - used).max(0.0));
+    let mut funded = false;
+    let mut funding_ref = Value::Null;
+    if auto && available < threshold {
+        let new_budget = used + target;
+        let amount = round6(new_budget - budget);
+        let ev_id = format!("fund_{}", short_hash(&format!("{used}:{}", iso_now())));
+        let ev = json!({
+            "id": ev_id, "kind": "budget-auto-fund", "credential_source": "wallet.network",
+            "amount_ocu": amount, "target_ocu": target, "used_ocu": round6(used), "at": iso_now()
+        });
+        let _ = persist_record(&st.data_dir, "ledgers", &ev_id, &ev);
+        budget = new_budget;
+        b["budget_ocu"] = json!(round6(budget));
+        b["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "budget", "policy", &b);
+        available = round6((budget - used).max(0.0));
+        funded = true;
+        funding_ref = json!(ev_id);
+    }
+    Json(json!({
+        "ok": true,
+        "reconciled": { "used_ocu": round6(used), "budget_ocu": round6(budget), "available_ocu": available, "threshold_ocu": threshold, "auto_fund_enabled": auto },
+        "funded": funded,
+        "funding_event_ref": funding_ref,
+    }))
+}
+
+// ---- OIDC login config (BYO OIDC IdP for org login) — management surface; client_secret SEALED,
+// never returned. Login enforcement is a separate concern (the daemon has no session layer yet);
+// this makes the config real (save/load/update) the same way API tokens store a hash today. ----
+fn load_oidc(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "oidc-config")
+        .into_iter()
+        .find(|c| c["id"].as_str() == Some("config"))
+        .unwrap_or_else(|| json!({ "id": "config", "enabled": false, "issuer_url": "", "client_id": "", "email_domain": "", "client_secret_set": false }))
+}
+fn oidc_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() { o.remove("sealed_client_secret"); o.remove("key_source"); }
+    c
+}
+/// GET /v1/hypervisor/oidc-config — the OIDC login config (never returns the sealed client secret).
+pub(crate) async fn handle_oidc_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "config": oidc_public(load_oidc(&st.data_dir)) }))
+}
+/// PUT /v1/hypervisor/oidc-config — upsert the OIDC IdP config; seals the client secret at rest.
+pub(crate) async fn handle_oidc_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut c = load_oidc(&st.data_dir);
+    for k in ["issuer_url", "client_id", "email_domain"] {
+        if let Some(v) = body.get(k).and_then(Value::as_str) { c[k] = json!(v); }
+    }
+    if let Some(v) = body.get("enabled").and_then(Value::as_bool) { c["enabled"] = json!(v); }
+    if let Some(sec) = body.get("client_secret").and_then(Value::as_str) {
+        if !sec.is_empty() {
+            if let Some(sealed) = seal_value(sec) {
+                c["sealed_client_secret"] = json!(sealed);
+                c["client_secret_set"] = json!(true);
+                c["key_source"] = json!(scm_key_source());
+            }
+        }
+    }
+    c["id"] = json!("config");
+    c["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "oidc-config", "config", &c);
+    Json(json!({ "ok": true, "config": oidc_public(c) }))
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
 pub(crate) async fn handle_scm_publish(
     State(st): State<Arc<DaemonState>>,

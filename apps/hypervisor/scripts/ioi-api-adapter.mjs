@@ -643,12 +643,96 @@ export async function handle(pathname, bodyText) {
   if (pathname === "/api/gitpod.v1.EnvironmentAutomationService/ListTaskExecutions") {
     return json({ pagination: {} });
   }
+  // ---- BillingService: REAL metering & cost plane (OCU = Hypervisor Compute Units derived from
+  // actual receipts in the daemon) + a wallet-backed budget. Not SaaS billing — the daemon's own
+  // economic plane: agentgres RECORDS → metered; wallet.network FUNDS the budget. ----
   if (pathname === "/api/gitpod.v1.BillingService/GetBillingInfo") {
-    // A local hypervisor has no billing plane: report an unmetered local posture (never gates).
-    return json({ totalCredits: 0, availableCredits: 0, usedCredits: 0, paymentMethodStatus: "PAYMENT_METHOD_STATUS_VERIFIED", creditStatus: "CREDIT_STATUS_HAS_CREDITS", autoTopupSettings: {}, monthlyCommitmentCents: "0" });
+    // Metered balance from the daemon budget (used/available from real OCU consumption). creditStatus
+    // never gates a self-hosted deployment.
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/budget");
+      const b = r.budget || {};
+      return json({ totalCredits: b.budget_ocu ?? 0, availableCredits: b.available_ocu ?? 0, usedCredits: b.used_ocu ?? 0, paymentMethodStatus: "PAYMENT_METHOD_STATUS_VERIFIED", creditStatus: "CREDIT_STATUS_HAS_CREDITS", autoTopupSettings: { enabled: !!b.auto_fund_enabled }, monthlyCommitmentCents: "0" });
+    } catch {
+      return json({ totalCredits: 0, availableCredits: 0, usedCredits: 0, paymentMethodStatus: "PAYMENT_METHOD_STATUS_VERIFIED", creditStatus: "CREDIT_STATUS_HAS_CREDITS", autoTopupSettings: {}, monthlyCommitmentCents: "0" });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.BillingService/GetCreditConsumptionTimeSeries") {
+    // Real per-day OCU consumption by metric kind, aggregated by the daemon from the receipts it
+    // already records for every execution. Empty/low is the honest truth for a fresh deployment.
+    const dr = body.dateRange || {};
+    const qs = new URLSearchParams();
+    if (dr.startTime) qs.set("from", dr.startTime);
+    if (dr.endTime) qs.set("to", dr.endTime);
+    try {
+      const r = await daemon("GET", `/v1/hypervisor/usage/consumption?${qs.toString()}`);
+      return json({ metrics: (r.metrics || []).map((m) => ({ displayName: m.display_name, kind: m.kind, series: m.series })) });
+    } catch {
+      return json({ metrics: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.BillingService/GetAutoTopupSettings") {
+    // Wallet auto-funding policy (the wallet-native reframe of SaaS auto top-up).
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/budget");
+      const b = r.budget || {};
+      return json({ settings: { enabled: !!b.auto_fund_enabled, ...(b.threshold_ocu != null ? { thresholdBalance: b.threshold_ocu } : {}), ...(b.target_ocu != null ? { targetBalance: b.target_ocu } : {}) } });
+    } catch {
+      return json({ settings: {} });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.BillingService/ReconcileBilling") {
+    // Reconcile real usage vs the budget; applies wallet auto-funding if below threshold.
+    try { await daemon("POST", "/v1/hypervisor/budget/reconcile"); } catch { /* best-effort */ }
+    return json({});
+  }
+  if (pathname === "/api/gitpod.v1.BillingService/ListSubscriptions") {
+    // Self-hosted entitlement posture — one active, non-expiring "sovereign" contract (no SaaS plan,
+    // no payment). Replaces the mock cancelled subscription.
+    return json({ subscriptions: [{ contractId: "ioi-self-hosted", subscriptionType: "SUBSCRIPTION_TYPE_CORE", status: "SUBSCRIPTION_STATUS_ACTIVE", startsAt: IDENTITY.createdAt, endsAt: "2099-12-31T23:59:59Z" }] });
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/GetAnnouncementBanner") {
     return json({ banner: { organizationId: IDENTITY.orgId } });
+  }
+  // ---- OrganizationService: OIDC login config (real CRUD, client_secret sealed in the daemon) +
+  // honest-local team-identity surfaces. SSO/SCIM/custom-domain/domain-verification/invite presuppose
+  // a multi-user federated-login layer the single-operator daemon doesn't run yet → honest empty
+  // posture (owned, not mock). OIDC config is management-real (login enforcement is a separate plane). ----
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetOIDCConfig") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/oidc-config");
+      const c = r.config || {};
+      return json({ oidcConfig: { v3: { issuerUrl: c.issuer_url || "", clientId: c.client_id || "", emailDomain: c.email_domain || "", active: !!c.enabled } } });
+    } catch {
+      return json({ oidcConfig: { v3: {} } });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/UpdateOIDCConfig") {
+    const cfg = body.oidcConfig?.v3 || body.oidcConfig || body.config || {};
+    try {
+      await daemon("PUT", "/v1/hypervisor/oidc-config", { issuer_url: cfg.issuerUrl, client_id: cfg.clientId, client_secret: cfg.clientSecret, email_domain: cfg.emailDomain, enabled: cfg.active ?? cfg.enabled ?? false });
+      const r = await daemon("GET", "/v1/hypervisor/oidc-config");
+      const c = r.config || {};
+      return json({ oidcConfig: { v3: { issuerUrl: c.issuer_url || "", clientId: c.client_id || "", emailDomain: c.email_domain || "", active: !!c.enabled } } });
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to update OIDC config: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/ListSSOConfigurations") {
+    return json({ pagination: {}, ssoConfigurations: [] });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/ListSCIMConfigurations") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetCustomDomain") {
+    return json({});
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/ListDomainVerifications") {
+    return json({ pagination: {} });
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/GetOrganizationInvite") {
+    // Single-operator: no standing org invite (inviting users needs the multi-user identity layer).
+    return json({});
   }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrations") {
     // Project the daemon's MCP connectors (kind: mcp) onto the native Integrations surface. Only MCP
