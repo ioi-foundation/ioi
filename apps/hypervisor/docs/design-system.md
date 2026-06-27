@@ -32,11 +32,11 @@ current UX*, not aspirational — every value here is extracted from the running
 
 ## 1. Theming
 
-The app sets `<html class="ona … light|dark">` from the system color scheme (and
+The app sets a theme class on `<html>` (`… light|dark`) from the system color scheme (and
 `--chat-color-scheme`). The token system has two layers:
 
-- **Primitive palette** — fixed hex, theme-independent (`--ona-gray-*`, `--ona-purple-*`,
-  …). Never reference these directly in product UI.
+- **Primitive palette** — fixed hex, theme-independent (the bundle's `--*-gray-*`/`--*-purple-*`
+  primitives). Never reference these directly in product UI.
 - **Semantic tokens** — themed aliases over the primitives (`--surface-*`, `--content-*`,
   `--border-*`). **Always use these.**
 
@@ -172,4 +172,4 @@ Subtle, fast (Radix + tailwindcss-animate). Driven by `data-state`:
 3. If it's genuinely new UI → build it with the tokens + component patterns above so it's
    indistinguishable from the reference; both themes; the §7 motion; §8 a11y.
 4. Verify on `:4173` in **dark and light**, screenshot-diff against the reference, confirm
-   no `Levi`/`Ona`/`Gitpod` or raw-hex regressions.
+   no operator-name or upstream-brand leakage, and no raw-hex regressions.

@@ -52,7 +52,7 @@ function conversationEntries(run) {
   const PHASE_COMPLETED = 2, TEXT_USER_FACING = 1;
   // Echo the userInput with the SAME id the SPA generated for its optimistic pending message
   // (body.userInput.id, captured as run.userInputBlockId). The SPA reconciles its pending turn
-  // against the streamed message by this id (exactly as the real Ona backend echoes the client id),
+  // against the streamed message by this id (exactly as the real upstream reference backend echoes the client id),
   // so there is no duplicate and the pending "Thinking…" resolves once the agent reply follows.
   if (run.prompt && run.userInputBlockId) {
     out.push({ id: run.userInputBlockId, phase: PHASE_COMPLETED, userInput: { id: run.userInputBlockId, inputs: [{ text: { content: run.prompt } }] } });
@@ -185,7 +185,7 @@ function selectConversationChunks(chunks, query) {
 }
 const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
-// WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits Ona's DOM).
+// WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the borrowed SPA's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true")}catch(e){}</script>';
 // Only inject into a real HTML document (one with a </body>). The mirror mislabels some JSON
@@ -302,7 +302,7 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases) {
   return connectionsShell(add + body);
 }
 
-// Minimal ona-dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
+// Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hypervisor</title>
 <style>
@@ -440,7 +440,7 @@ export const Terminal=React.forwardRef(function Terminal({environmentId,terminal
 `;
 
 // Hypervisor's OWN transcript primitive — the Run Timeline surface. A self-contained, owned page
-// (not the borrowed SPA chat pane) styled with the ona design tokens (linked from the bundle CSS so
+// (not the borrowed SPA chat pane) styled with the reference design tokens (linked from the bundle CSS so
 // the look is native). It polls /__ioi/agent-runs/:id/timeline and renders the 6-part governed-work
 // turn: request → activity → response → artifacts → proof → follow-ups. Any surface (Workbench,
 // Sessions, Agent Studio, Automations, IOI.ai handoffs) routes/embeds this by runId. Client JS avoids
@@ -721,7 +721,7 @@ function rewriteIdentity(text) {
 
 // Localize the asset base. The harvested index pins dynamic-chunk + font loads to the real CDN
 // via `globalThis.__toAssetUrl = (f) => \`https://app.gitpod.io/static/${f}\`` (plus absolute font
-// preloads). Left as-is, every lazy chunk (e.g. /ai's OnaAIPage-*.js) is fetched from app.gitpod.io
+// preloads). Left as-is, every lazy chunk (e.g. /ai's page chunk) is fetched from the upstream CDN
 // — and a single blip / rotated hash there makes the dynamic import reject → the SPA's "Something
 // went wrong" error boundary. The mirror already serves all assets locally, so point the base at
 // our own origin (root-relative /static/) for a self-contained, deterministic app.
@@ -1296,7 +1296,7 @@ const server = http.createServer((req, res) => {
     // No vendor-owned OAuth App: the user creates an App in their OWN account. start → renders an
     // auto-submitting form that POSTs the manifest to github.com; callback ← GitHub redirects with a
     // code we exchange (daemon seals the App key) → redirect to install; installed ← captures the
-    // installation_id. The page chrome is intentionally minimal + ona-dark.
+    // installation_id. The page chrome is intentionally minimal + dark.
     if (pathname === "/__ioi/github-app/start") {
       const qp = new URL(req.url, "http://x").searchParams;
       const owner = qp.get("owner") || ""; // omit for a USER account (e.g. teamioitest)

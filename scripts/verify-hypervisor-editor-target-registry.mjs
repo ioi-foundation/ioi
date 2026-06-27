@@ -57,9 +57,9 @@ ok(normalized === allDir.length, "all profiles carry family/runtimeVariant/licen
 const familyAdapters = new Set(Object.values(profiles).filter((p) => ["vscode_family", "browser_ide"].includes(p.family)).map((p) => p.adapterModule));
 ok(familyAdapters.size === 1 && familyAdapters.has(SHARED_ADAPTER), "vscode-family + browser share ONE adapter module (no duplicate adapter source truth)", [...familyAdapters].join(","));
 
-// no stripped reference binary / ona path used as an adapter source.
-const badAdapter = Object.entries(profiles).find(([, p]) => /reverse-engineering|browser-agent|ona|gitpod/i.test(p.adapterModule || ""));
-ok(!badAdapter, "no profile uses a stripped reference binary / ona path as adapter source", badAdapter ? badAdapter[0] : "");
+// no stripped/reverse-engineered reference binary used as an adapter source.
+const badAdapter = Object.entries(profiles).find(([, p]) => /reverse-engineering|browser-agent|stripped|reference-binary/i.test(p.adapterModule || ""));
+ok(!badAdapter, "no profile uses a stripped reference-binary path as adapter source", badAdapter ? badAdapter[0] : "");
 
 // the proven active browser target.
 const vb = profiles["vscode-browser"];

@@ -289,9 +289,10 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/gitpod.v1.UserService/ListPreferences") {
     const store = loadStore();
-    // App-local defaults that keep the harvested shell past the onboarding gate (config, not truth).
+    // App-local preference defaults (config, not truth). The borrowed shell's onboarding gate is
+    // already satisfied by our org/user identity state, so no upstream onboarding flag is seeded.
     const seedTime = { createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt };
-    const merged = { IS_ONA_ONBOARDED: "true" };
+    const merged = {};
     for (const [k, v] of Object.entries(store)) merged[k] = v.value;
     const preferences = Object.entries(merged).map(([key, value]) => makePreference(key, value, store[key] || seedTime));
     return json({ pagination: {}, preferences });

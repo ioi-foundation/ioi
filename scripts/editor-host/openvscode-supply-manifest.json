@@ -6,7 +6,7 @@
   "version": "1.96.4",
   "commit": "56bdd153e7c7f853189fd6965f73b2049f6d06c9",
   "source": "https://github.com/gitpod-io/openvscode-server/releases/tag/openvscode-server-v1.96.4",
-  "note": "Reproducible OSS browser-IDE runtime. Pinned version+commit+sha256, fetch-once cache, fail-closed on checksum mismatch (Phase 1 ~/.ioi/vm-toolchain pattern). The Ona stripped binary is reference-only and is NEVER vendored as product source.",
+  "note": "Reproducible OSS browser-IDE runtime. Pinned version+commit+sha256, fetch-once cache, fail-closed on checksum mismatch (Phase 1 ~/.ioi/vm-toolchain pattern). The upstream stripped reference binary is reference-only and is NEVER vendored as product source.",
   "linux_x64": {
     "url": "https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.96.4/openvscode-server-v1.96.4-linux-x64.tar.gz",
     "sha256": "688aab2616e57b55083a9264b0fa17c5f8cd3c79449972956cab9e13b884d4a9",

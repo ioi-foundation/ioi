@@ -155,6 +155,6 @@
     "oneTargetProvenFirst": "vscode-browser (oss_openvscode) is proven end-to-end before app breadth; others stay declared",
     "leasePrimitive": "capability_lease_ref (no parallel SessionAccessLease)",
     "browserRuntimeReproducible": "openvscode-server pinned commit/version/sha256, fetch-once, fail-closed",
-    "adapterOwnership": "source-controlled hypervisor-vscode-extension; the Ona binary is reference-only, never vendored"
+    "adapterOwnership": "source-controlled hypervisor-vscode-extension; the upstream reference binary is reference-only, never vendored"
   }
 }

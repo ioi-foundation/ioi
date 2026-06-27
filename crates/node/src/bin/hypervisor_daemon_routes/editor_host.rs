@@ -8,8 +8,8 @@
 //!
 //! `start_oss_runtime` launches openvscode-server bound to the env workspace on a private internal
 //! port (the public/proxy port is WS-4), injects the Session Execution Binding refs (WS-6a), and
-//! waits for real `/version` readiness before reporting the service ready. The Ona stripped binary
-//! is reference-only and is never vendored.
+//! waits for real `/version` readiness before reporting the service ready. The upstream stripped
+//! reference binary is reference-only and is never vendored.
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};

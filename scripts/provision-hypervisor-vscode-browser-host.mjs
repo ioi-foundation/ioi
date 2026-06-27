@@ -4,7 +4,7 @@
 // The Phase 1 (~/.ioi/vm-toolchain) supply-manifest pattern, applied to the editor host: a pinned
 // version + URL + sha256, a fetch-once cache, checksum verification, and FAIL-CLOSED behavior. The
 // OSS lane is reproducible — NOT a permitted host-gap (a vendor VS Code Server variant may be
-// license-gated, the OSS openvscode runtime is not). The Ona stripped binary is never vendored.
+// license-gated, the OSS openvscode runtime is not). The upstream stripped reference binary is never vendored.
 //
 // Installs into ~/.ioi/editor-toolchain/openvscode-server (override IOI_HYPERVISOR_EDITOR_TOOLCHAIN_DIR).
 // Idempotent: reuses an installed runtime whose checksum still matches the pin.
