@@ -20,6 +20,9 @@ if (!JSON_OUT) console.log("Org identity e2e — invites / domain verification /
 try { const r = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 try { const r = await fetch(`${SERVE}/ai`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("serve (:4173) not running"); }
 
+// self-heal any residue from a prior run
+{ const r = await jd("GET", "/v1/hypervisor/principals"); for (const p of (r.body.principals || [])) if (p.email === EMAIL) await jd("DELETE", `/v1/hypervisor/principals/${p.principal_id}?purge=true`); }
+
 // 1) Invite link — get (adapter) + rotate (daemon) changes the id.
 const inv1 = await ja("GetOrganizationInvite", {});
 const id1 = inv1.body?.invite?.inviteId;
@@ -63,7 +66,7 @@ const cdGet2 = await ja("GetCustomDomain", {});
 ok(!cdGet2.body?.customDomain, "DeleteCustomDomain clears it");
 
 // cleanup
-if (invitedId) await jd("DELETE", `/v1/hypervisor/principals/${invitedId}`);
+if (invitedId) await jd("DELETE", `/v1/hypervisor/principals/${invitedId}?purge=true`);
 
 const passed = checks.length - failures;
 if (JSON_OUT) console.log(JSON.stringify({ workstream: "org-identity", verdict: failures ? "FAIL" : "PASS", passed, total: checks.length }, null, 2));

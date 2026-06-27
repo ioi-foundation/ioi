@@ -25,6 +25,10 @@ if (!JSON_OUT) console.log("SSO/OIDC login e2e — full Authorization Code + PKC
 try { const r = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 try { const r = await fetch(`${SERVE}/ai`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("serve (:4173) not running"); }
 
+// self-heal any residue from a prior run (provisioning is idempotent)
+const purgeEmail = async (email) => { const r = await jd("GET", "/v1/hypervisor/principals"); for (const p of (r.body.principals || [])) if (p.email === email) await jd("DELETE", `/v1/hypervisor/principals/${p.principal_id}?purge=true`); };
+await purgeEmail(TEST_EMAIL);
+
 // Mock OIDC IdP: discovery + token + userinfo. /token mints an access token for any code; /userinfo
 // returns the test identity for that access token.
 let issuedEmail = TEST_EMAIL;
@@ -90,7 +94,7 @@ ok((list.body.ssoConfigurations || []).some((c) => c.id === ssoId && c.providerT
 
 // cleanup
 await jd("DELETE", `/v1/hypervisor/sso-configurations/${ssoId}`);
-if (provisionedId) await jd("DELETE", `/v1/hypervisor/principals/${provisionedId}`);
+if (provisionedId) await jd("DELETE", `/v1/hypervisor/principals/${provisionedId}?purge=true`);
 idp.close();
 
 const passed = checks.length - failures;

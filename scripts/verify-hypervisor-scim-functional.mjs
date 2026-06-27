@@ -24,6 +24,9 @@ if (!JSON_OUT) console.log("SCIM 2.0 e2e — provision/deprovision via the publi
 try { const r = await fetch(`${SERVE}/ai`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("serve (:4173) not running"); }
 try { const r = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 
+// self-heal any residue from a prior run (SCIM create is conflict-on-exists)
+{ const r = await fetch(`${DAEMON}/v1/hypervisor/principals`); const d = await r.json().catch(() => ({})); for (const p of (d.principals || [])) if (p.email === EMAIL) await fetch(`${DAEMON}/v1/hypervisor/principals/${p.principal_id}?purge=true`, { method: "DELETE" }); }
+
 // 1) Provision a SCIM connection → bearer token returned ONCE.
 const create = await ja("CreateSCIMConfiguration", { name: "Okta" });
 const token = create.body?.scimConfiguration?.bearerToken;
@@ -71,7 +74,7 @@ ok((await scim("DELETE", `/Groups/${gid}`, token)).status === 204, "DELETE /Grou
 ok((await scim("DELETE", "/Users/00000000-0000-4000-8000-000000000001", token)).status === 403, "the operator principal is not SCIM-deletable (403)");
 
 // cleanup
-await fetch(`${DAEMON}/v1/hypervisor/principals/${uid}`, { method: "DELETE" }).catch(() => {});
+await fetch(`${DAEMON}/v1/hypervisor/principals/${uid}?purge=true`, { method: "DELETE" }).catch(() => {});
 await ja("DeleteSCIMConfiguration", { scimConfigurationId: "scim-config" });
 
 const passed = checks.length - failures;

@@ -73,9 +73,10 @@ const apiTok = mint.body?.token?.value;
 const apiWho = await jd("GET", "/v1/hypervisor/auth/whoami", null, { Authorization: `Bearer ${apiTok}` });
 ok(apiWho.body?.authenticated === true && apiWho.body?.principal?.principal_id === OPERATOR, "an API access token authenticates its principal");
 
-// restore enforcement OFF + cleanup
+// restore enforcement OFF + cleanup (purge the demo member so the roster stays clean)
 await jd("PUT", "/v1/hypervisor/auth/policy", { require_authentication: false });
 if (mint.body?.token?.token_id) await jd("DELETE", `/v1/hypervisor/api-tokens/${mint.body.token.token_id}`);
+{ const r = await jd("GET", "/v1/hypervisor/principals"); for (const p of (r.body.principals || [])) if (p.email === "teammate@papabearcarwash.com") await jd("DELETE", `/v1/hypervisor/principals/${p.principal_id}?purge=true`); }
 
 // 8) logout revokes the session.
 await jd("POST", "/v1/hypervisor/auth/logout", null, { Authorization: `Bearer ${token}` });

@@ -9260,16 +9260,27 @@ pub(crate) async fn handle_principal_set_password(State(st): State<Arc<DaemonSta
     let _ = persist_record(&st.data_dir, "principals", &id, &p);
     (StatusCode::OK, Json(json!({ "ok": true })))
 }
-/// DELETE /v1/hypervisor/principals/:id — deactivate a principal (the operator cannot be removed).
-pub(crate) async fn handle_principal_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+/// DELETE /v1/hypervisor/principals/:id[?purge=true] — deactivate a principal (default; keeps the
+/// record for audit) or hard-purge it (compliance erasure). The operator cannot be removed. Sessions
+/// are always revoked.
+pub(crate) async fn handle_principal_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
     if id == OPERATOR_ID { return Json(json!({ "ok": false, "reason": "cannot_remove_operator" })); }
+    // revoke sessions regardless of mode
+    for s in read_record_dir(&st.data_dir, "sessions").into_iter().filter(|s| s["principal_id"].as_str() == Some(id.as_str())) {
+        if let Some(sid) = s["session_id"].as_str() { remove_record(&st.data_dir, "sessions", sid); }
+    }
+    let purge = q.get("purge").map(|v| v == "true" || v == "1").unwrap_or(false);
+    if purge {
+        let removed = remove_record(&st.data_dir, "principals", &id);
+        return Json(json!({ "ok": true, "principal_id": id, "purged": removed }));
+    }
     if let Some(mut p) = find_principal(&st.data_dir, &id) {
         p["status"] = json!("deactivated"); p["updated_at"] = json!(iso_now());
         let _ = persist_record(&st.data_dir, "principals", &id, &p);
-        // revoke their sessions
-        for s in read_record_dir(&st.data_dir, "sessions").into_iter().filter(|s| s["principal_id"].as_str() == Some(id.as_str())) {
-            if let Some(sid) = s["session_id"].as_str() { remove_record(&st.data_dir, "sessions", sid); }
-        }
     }
     Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" }))
 }
