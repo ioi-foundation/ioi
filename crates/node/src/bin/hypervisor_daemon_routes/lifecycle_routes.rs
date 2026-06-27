@@ -9400,14 +9400,15 @@ fn sso_public(mut c: Value) -> Value {
     if let Some(o) = c.as_object_mut() { o.remove("sealed_client_secret"); o.remove("key_source"); }
     c
 }
-async fn oidc_discover(issuer: &str) -> Result<(String, String, String), String> {
+async fn oidc_discover(issuer: &str) -> Result<(String, String, String, String), String> {
     let base = issuer.trim_end_matches('/');
     let client = reqwest::Client::new();
     let doc = http_get_json(&client, &format!("{base}/.well-known/openid-configuration")).await?;
     let a = doc["authorization_endpoint"].as_str().ok_or("no authorization_endpoint")?.to_string();
     let t = doc["token_endpoint"].as_str().ok_or("no token_endpoint")?.to_string();
     let u = doc["userinfo_endpoint"].as_str().unwrap_or("").to_string();
-    Ok((a, t, u))
+    let j = doc["jwks_uri"].as_str().unwrap_or("").to_string();
+    Ok((a, t, u, j))
 }
 async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String> {
     if userinfo_url.is_empty() { return Err("no userinfo_endpoint".into()); }
@@ -9415,6 +9416,42 @@ async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String
     let resp = client.get(userinfo_url).header("Authorization", format!("Bearer {access}")).header("Accept", "application/json").timeout(std::time::Duration::from_secs(15)).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() { return Err(format!("userinfo -> {}", resp.status().as_u16())); }
     resp.json().await.map_err(|e| e.to_string())
+}
+/// Exchange the authorization code and return the FULL token response (so we can read the id_token).
+async fn oidc_exchange(token_url: &str, client_id: &str, client_secret: &str, code: &str, redirect_uri: &str, code_verifier: &str) -> Result<Value, String> {
+    let mut form = vec![
+        ("grant_type", "authorization_code"), ("code", code), ("redirect_uri", redirect_uri),
+        ("client_id", client_id), ("code_verifier", code_verifier),
+    ];
+    if !client_secret.is_empty() { form.push(("client_secret", client_secret)); }
+    let resp = reqwest::Client::new().post(token_url).header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").form(&form).timeout(std::time::Duration::from_secs(20)).send().await.map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if !status.is_success() { return Err(format!("token endpoint -> {} {}", status.as_u16(), body)); }
+    Ok(body)
+}
+/// Verify an OIDC id_token: RS256 signature against the IdP JWKS (by kid) + iss/aud/exp + nonce.
+/// Returns the verified claims. This is the proof the identity was issued by the configured IdP.
+async fn verify_oidc_id_token(id_token: &str, jwks_uri: &str, issuer: &str, client_id: &str, expected_nonce: &str) -> Result<Value, String> {
+    use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+    if jwks_uri.is_empty() { return Err("IdP exposes no jwks_uri".into()); }
+    let header = decode_header(id_token).map_err(|e| format!("bad id_token header: {e}"))?;
+    let kid = header.kid.ok_or("id_token has no kid")?;
+    let client = reqwest::Client::new();
+    let jwks = http_get_json(&client, jwks_uri).await?;
+    let key = jwks["keys"].as_array().and_then(|ks| ks.iter().find(|k| k["kid"].as_str() == Some(kid.as_str()))).ok_or("no JWK matches the id_token kid")?;
+    let n = key["n"].as_str().ok_or("JWK missing n")?;
+    let e = key["e"].as_str().ok_or("JWK missing e")?;
+    let dk = DecodingKey::from_rsa_components(n, e).map_err(|e| format!("bad JWK: {e}"))?;
+    let mut val = Validation::new(Algorithm::RS256);
+    val.set_audience(&[client_id]);
+    val.set_issuer(&[issuer.trim_end_matches('/')]);
+    let data = decode::<Value>(id_token, &dk, &val).map_err(|e| format!("id_token signature/claims invalid: {e}"))?;
+    let claims = data.claims;
+    if !expected_nonce.is_empty() && claims["nonce"].as_str() != Some(expected_nonce) {
+        return Err("id_token nonce mismatch (possible replay)".into());
+    }
+    Ok(claims)
 }
 
 /// GET /v1/hypervisor/sso-configurations — list SSO/OIDC login connections (no secrets).
@@ -9459,16 +9496,17 @@ pub(crate) async fn handle_auth_oidc_start(State(st): State<Arc<DaemonState>>, J
     };
     let issuer = cfg["issuer_url"].as_str().unwrap_or("");
     let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
-    let (auth_ep, _t, _u) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("oidc discovery failed: {e}") }))) };
+    let (auth_ep, _t, _u, _j) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("oidc discovery failed: {e}") }))) };
     let redirect_uri = body.get("redirect_uri").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173/__ioi/login/sso/callback").to_string();
     let verifier = random_token(64);
     let challenge = pkce_challenge(&verifier);
     let state = random_token(32);
+    let nonce = random_token(32); // replay defense — bound into the id_token, checked on callback
     let Some(sv) = seal_scm_token(&verifier) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" }))); };
-    let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "nonce": nonce, "redirect_uri": redirect_uri, "created_at": iso_now() });
     let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
     let url = format!(
-        "{auth_ep}?response_type=code&client_id={}&redirect_uri={}&state={state}&scope=openid%20email%20profile&code_challenge={challenge}&code_challenge_method=S256",
+        "{auth_ep}?response_type=code&client_id={}&redirect_uri={}&state={state}&nonce={nonce}&scope=openid%20email%20profile&code_challenge={challenge}&code_challenge_method=S256",
         pct(&client_id), pct(&redirect_uri)
     );
     (StatusCode::OK, Json(json!({ "ok": true, "authorize_url": url, "state": state })))
@@ -9493,16 +9531,32 @@ pub(crate) async fn handle_auth_oidc_callback(State(st): State<Arc<DaemonState>>
     let issuer = cfg["issuer_url"].as_str().unwrap_or("");
     let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
     let client_secret = cfg["sealed_client_secret"].as_str().and_then(open_scm_token).unwrap_or_default();
-    let (_a, token_ep, userinfo_ep) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("discovery failed: {e}") }))) };
-    let (access, _refresh) = match exchange_oauth_code(&token_ep, &client_id, &client_secret, code, &redirect_uri, &verifier).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("token exchange failed: {e}") }))) };
-    let info = match oidc_userinfo(&userinfo_ep, &access).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("userinfo failed: {e}") }))) };
-    let email = info["email"].as_str().unwrap_or("").trim().to_lowercase();
+    let nonce = pending["nonce"].as_str().unwrap_or("").to_string();
+    let (_a, token_ep, userinfo_ep, jwks_uri) = match oidc_discover(issuer).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("discovery failed: {e}") }))) };
+    let tokens = match oidc_exchange(&token_ep, &client_id, &client_secret, code, &redirect_uri, &verifier).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("token exchange failed: {e}") }))) };
+    let access = tokens["access_token"].as_str().unwrap_or("").to_string();
+    // Identity comes from the cryptographically VERIFIED id_token (RS256 vs the IdP JWKS, iss/aud/exp
+    // + nonce). userinfo is only a fallback for non-conformant IdPs that omit an id_token.
+    let id_token = tokens["id_token"].as_str().unwrap_or("");
+    let (email, name) = if !id_token.is_empty() {
+        let claims = match verify_oidc_id_token(id_token, &jwks_uri, issuer, &client_id, &nonce).await {
+            Ok(c) => c,
+            Err(e) => return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": format!("id_token verification failed: {e}") }))),
+        };
+        let em = claims["email"].as_str().unwrap_or("").trim().to_lowercase();
+        let nm = claims["name"].as_str().or_else(|| claims["preferred_username"].as_str()).unwrap_or(em.as_str()).to_string();
+        (em, nm)
+    } else {
+        let info = match oidc_userinfo(&userinfo_ep, &access).await { Ok(x) => x, Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("no id_token and userinfo failed: {e}") }))) };
+        let em = info["email"].as_str().unwrap_or("").trim().to_lowercase();
+        let nm = info["name"].as_str().or_else(|| info["preferred_username"].as_str()).unwrap_or(em.as_str()).to_string();
+        (em, nm)
+    };
     if email.is_empty() { return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "no email claim from IdP" }))); }
     let domain = cfg["email_domain"].as_str().unwrap_or("");
     if !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
         return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "email domain not allowed for this SSO connection" })));
     }
-    let name = info["name"].as_str().or_else(|| info["preferred_username"].as_str()).unwrap_or(email.as_str()).to_string();
     let principal = match find_principal_by_email(&st.data_dir, &email) {
         Some(p) => p,
         None => {
