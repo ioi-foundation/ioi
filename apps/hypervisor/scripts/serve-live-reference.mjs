@@ -1006,6 +1006,28 @@ ${ssoButtons ? `<div class="div"><span>or</span></div>${ssoButtons}` : ""}
 </form></body></html>`;
 }
 
+// Owned invite-acceptance surface — provisions a member account from the org invite link.
+function inviteShell(inviteId, error) {
+  const safe = String(inviteId).replace(/[^A-Za-z0-9_-]/g, "");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Join · IOI Hypervisor</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:#0b0c0f;color:#e7e9ee;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.card{width:360px;background:#15171c;border:1px solid #262a33;border-radius:14px;padding:28px}
+.brand{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a90a0;margin-bottom:6px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:#8a90a0;font-size:13px;margin-bottom:14px}label{display:block;font-size:13px;color:#aeb4c2;margin:12px 0 5px}
+input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
+button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.err{margin-top:14px;color:#ff9b9b;font-size:13px}
+</style></head><body><form class="card" method="POST" action="/__ioi/invite/${safe}">
+<div class="brand">IOI Hypervisor</div><h1>Join the organization</h1><div class="sub">You've been invited. Create your account.</div>
+<label>Full name</label><input name="name" autocomplete="name" autofocus placeholder="Your name">
+<label>Email</label><input name="email" type="email" autocomplete="email" placeholder="you@org.com">
+<label>Password</label><input name="password" type="password" autocomplete="new-password" placeholder="Choose a password">
+<button type="submit">Create account &amp; join</button>
+${error ? `<div class="err">${error}</div>` : ""}
+</form></body></html>`;
+}
+
 // 2) Front server: IOI /api adapter first, proxy everything else to the mirror.
 const server = http.createServer((req, res) => {
   const chunks = [];
@@ -1201,6 +1223,31 @@ const server = http.createServer((req, res) => {
         res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
         res.end(loginShell(`SSO callback error: ${e.message}`));
       }
+      return;
+    }
+    // Invite acceptance — provision a member account from the org invite link, then sign in.
+    if (pathname.startsWith("/__ioi/invite/")) {
+      const inviteId = decodeURIComponent(pathname.slice("/__ioi/invite/".length).split("/")[0]);
+      if (req.method === "POST") {
+        const form = new URLSearchParams(body.toString("utf8"));
+        try {
+          const r = await fetch(`${DAEMON}/v1/hypervisor/org-invite/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invite_id: inviteId, email: form.get("email") || "", name: form.get("name") || "", password: form.get("password") || "" }) });
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d.ok && d.session_token) {
+            res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
+            res.end();
+            return;
+          }
+          res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(inviteShell(inviteId, "This invite link is invalid or expired."));
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(inviteShell(inviteId, `Invite service unavailable: ${e.message}`));
+        }
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(inviteShell(inviteId, ""));
       return;
     }
     if (pathname === "/__ioi/logout") {

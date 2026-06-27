@@ -817,14 +817,53 @@ async function handleImpl(pathname, bodyText) {
     return json({});
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/GetCustomDomain") {
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/custom-domain");
+      return json(r.custom_domain ? { customDomain: r.custom_domain } : {});
+    } catch { return json({}); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/SetCustomDomain" || pathname === "/api/gitpod.v1.OrganizationService/UpdateCustomDomain") {
+    const domain = body.domain || body.domainName || "";
+    try { const r = await daemon("PUT", "/v1/hypervisor/custom-domain", { domain }); return json(r.custom_domain ? { customDomain: r.custom_domain } : {}); }
+    catch (e) { return jsonStatus(502, { code: "unavailable", message: e.message }); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/DeleteCustomDomain") {
+    try { await daemon("PUT", "/v1/hypervisor/custom-domain", { domain: "" }); } catch { /* idempotent */ }
     return json({});
   }
+  const dvToGitpod = (d) => ({ id: d.id, organizationId: IDENTITY.orgId, domain: d.domain, verified: !!d.verified, state: d.verified ? "DOMAIN_VERIFICATION_STATE_VERIFIED" : "DOMAIN_VERIFICATION_STATE_PENDING", recordName: d.record_name || "@", recordType: d.record_type || "TXT", recordValue: d.verification_token, verificationToken: d.verification_token });
   if (pathname === "/api/gitpod.v1.OrganizationService/ListDomainVerifications") {
-    return json({ pagination: {} });
+    try { const r = await daemon("GET", "/v1/hypervisor/domain-verifications"); return json({ pagination: {}, domainVerifications: (r.domain_verifications || []).map(dvToGitpod) }); }
+    catch { return json({ pagination: {} }); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/CreateDomainVerification") {
+    const domain = body.domain || "";
+    if (!domain) return jsonStatus(400, { code: "invalid_argument", message: "domain is required" });
+    try { const r = await daemon("POST", "/v1/hypervisor/domain-verifications", { domain }); return json({ domainVerification: dvToGitpod(r.domain_verification || {}) }); }
+    catch (e) { return jsonStatus(502, { code: "unavailable", message: e.message }); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/VerifyDomainVerification") {
+    const id = body.domainVerificationId || body.id;
+    try { const r = await daemon("POST", `/v1/hypervisor/domain-verifications/${encodeURIComponent(id)}/verify`); return json({ domainVerification: dvToGitpod(r.domain_verification || {}), verified: !!r.verified }); }
+    catch (e) { return jsonStatus(502, { code: "unavailable", message: e.message }); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/DeleteDomainVerification") {
+    const id = body.domainVerificationId || body.id;
+    try { await daemon("DELETE", `/v1/hypervisor/domain-verifications/${encodeURIComponent(id)}`); } catch { /* idempotent */ }
+    return json({});
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/GetOrganizationInvite") {
-    // Single-operator: no standing org invite (inviting users needs the multi-user identity layer).
-    return json({});
+    // The org's standing invite link (real). Accepting it provisions a member (serve /__ioi/invite/:id).
+    try { const r = await daemon("GET", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: IDENTITY.orgId } }); }
+    catch { return json({}); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/CreateOrganizationInvite" || pathname === "/api/gitpod.v1.OrganizationService/ResetOrganizationInvite") {
+    try { const r = await daemon("POST", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: IDENTITY.orgId } }); }
+    catch (e) { return jsonStatus(502, { code: "unavailable", message: e.message }); }
+  }
+  if (pathname === "/api/gitpod.v1.OrganizationService/JoinOrganization") {
+    // An already-authenticated principal is already a member in this single-org deployment → ack.
+    return json({ member: { userId: IDENTITY.userId, organizationId: IDENTITY.orgId } });
   }
   if (pathname === "/api/gitpod.v1.IntegrationService/ListIntegrations") {
     // Project the daemon's MCP connectors (kind: mcp) onto the native Integrations surface. Only MCP

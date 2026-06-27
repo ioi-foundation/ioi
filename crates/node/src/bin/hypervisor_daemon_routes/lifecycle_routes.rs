@@ -9610,6 +9610,118 @@ pub(crate) async fn handle_scim_group_delete(State(st): State<Arc<DaemonState>>,
     (StatusCode::NO_CONTENT, Json(Value::Null))
 }
 
+// ---- Invites + domain verification + custom domain (multi-user IdP, Phase 4) ----------------
+// Org invite = a single standing link that provisions a new principal (member). Domain verification
+// proves email-domain ownership (DNS TXT via DoH) to enable SSO/invite auto-join. Custom domain is a
+// stored vanity config. All identity/policy — none of it grants machine authority.
+
+fn load_org_invite(data_dir: &str) -> Option<Value> {
+    read_record_dir(data_dir, "org-invite").into_iter().find(|i| i["id"].as_str() == Some("invite"))
+}
+/// GET /v1/hypervisor/org-invite — the org's standing invite (creates one on first read).
+pub(crate) async fn handle_org_invite_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let inv = load_org_invite(&st.data_dir).unwrap_or_else(|| {
+        let id = gen_opaque("inv");
+        let rec = json!({ "id": "invite", "invite_id": id, "created_at": iso_now() });
+        let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
+        rec
+    });
+    Json(json!({ "ok": true, "invite": inv }))
+}
+/// POST /v1/hypervisor/org-invite — rotate (regenerate) the invite link.
+pub(crate) async fn handle_org_invite_reset(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let rec = json!({ "id": "invite", "invite_id": gen_opaque("inv"), "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
+    Json(json!({ "ok": true, "invite": rec }))
+}
+/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
+/// issue a session. Fails closed if the invite id doesn't match the current link.
+pub(crate) async fn handle_org_invite_accept(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let invite_id = body.get("invite_id").and_then(Value::as_str).unwrap_or("");
+    let current = load_org_invite(&st.data_dir).and_then(|i| i["invite_id"].as_str().map(String::from)).unwrap_or_default();
+    if invite_id.is_empty() || invite_id != current {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })));
+    }
+    let email = body.get("email").and_then(Value::as_str).unwrap_or("").trim().to_lowercase();
+    if email.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "email is required" }))); }
+    let principal = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) => p,
+        None => {
+            let pid = format!("usr_{}", short_hash(&format!("invite:{email}")));
+            let mut p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+                "name": body.get("name").and_then(Value::as_str).unwrap_or(email.as_str()), "role": "member",
+                "status": "active", "source": "invite", "created_at": iso_now(), "updated_at": iso_now() });
+            if let Some(pw) = body.get("password").and_then(Value::as_str) { if !pw.is_empty() { if let Some(h) = hash_password(pw) { p["password_hash"] = json!(h); } } }
+            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+            p
+        }
+    };
+    let (status, sess) = issue_session(&st.data_dir, principal["principal_id"].as_str().unwrap_or(""), "invite");
+    (status, Json(sess))
+}
+
+async fn doh_txt(domain: &str) -> Vec<String> {
+    let client = reqwest::Client::new();
+    let url = format!("https://cloudflare-dns.com/dns-query?name={}&type=TXT", pct(domain));
+    match client.get(&url).header("Accept", "application/dns-json").timeout(std::time::Duration::from_secs(8)).send().await {
+        Ok(r) => match r.json::<Value>().await {
+            Ok(j) => j["Answer"].as_array().map(|a| a.iter().filter_map(|x| x["data"].as_str().map(|s| s.trim_matches('"').to_string())).collect()).unwrap_or_default(),
+            Err(_) => vec![],
+        },
+        Err(_) => vec![],
+    }
+}
+/// GET /v1/hypervisor/domain-verifications
+pub(crate) async fn handle_domain_verification_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "domain_verifications": read_record_dir(&st.data_dir, "domain-verifications") }))
+}
+/// POST /v1/hypervisor/domain-verifications {domain} — start verification (issues a TXT record value).
+pub(crate) async fn handle_domain_verification_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let domain = body.get("domain").and_then(Value::as_str).unwrap_or("").trim().to_lowercase();
+    if domain.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "domain is required" }))); }
+    let id = format!("dv_{}", short_hash(&domain));
+    let token = format!("ioi-domain-verification={}", gen_opaque("v"));
+    let rec = json!({ "id": id, "domain_verification_id": id, "domain": domain, "verification_token": token, "record_name": "@", "record_type": "TXT", "verified": false, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    (StatusCode::OK, Json(json!({ "ok": true, "domain_verification": rec })))
+}
+/// POST /v1/hypervisor/domain-verifications/:id/verify — check the DNS TXT (DoH); flip verified.
+pub(crate) async fn handle_domain_verification_verify(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+    let Some(mut rec) = read_record_dir(&st.data_dir, "domain-verifications").into_iter().find(|d| d["id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "unknown domain verification" })));
+    };
+    let domain = rec["domain"].as_str().unwrap_or("");
+    let token = rec["verification_token"].as_str().unwrap_or("");
+    let txts = doh_txt(domain).await;
+    let verified = txts.iter().any(|t| t.contains(token));
+    rec["verified"] = json!(verified);
+    rec["checked_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    (StatusCode::OK, Json(json!({ "ok": true, "verified": verified, "domain_verification": rec })))
+}
+/// DELETE /v1/hypervisor/domain-verifications/:id
+pub(crate) async fn handle_domain_verification_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "domain-verifications", &id);
+    Json(json!({ "ok": true, "domain_verification_id": id, "removed": removed }))
+}
+
+/// GET /v1/hypervisor/custom-domain
+pub(crate) async fn handle_custom_domain_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cd = read_record_dir(&st.data_dir, "custom-domain").into_iter().find(|c| c["id"].as_str() == Some("custom-domain"));
+    Json(json!({ "ok": true, "custom_domain": cd.and_then(|c| c["domain"].as_str().map(String::from)) }))
+}
+/// PUT /v1/hypervisor/custom-domain {domain} — set/clear the org vanity domain.
+pub(crate) async fn handle_custom_domain_set(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
+    let domain = body.get("domain").and_then(Value::as_str).unwrap_or("").trim().to_lowercase();
+    if domain.is_empty() {
+        remove_record(&st.data_dir, "custom-domain", "custom-domain");
+        return Json(json!({ "ok": true, "custom_domain": Value::Null }));
+    }
+    let rec = json!({ "id": "custom-domain", "domain": domain, "updated_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "custom-domain", "custom-domain", &rec);
+    Json(json!({ "ok": true, "custom_domain": domain }))
+}
+
 // ============================================================================================
 // Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
 // is derived from actual agentgres records (the `receipts` the daemon already writes for every

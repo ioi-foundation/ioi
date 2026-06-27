@@ -1428,6 +1428,25 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/scim-configurations/:id",
             axum::routing::delete(lifecycle_routes::handle_scim_config_delete),
         )
+        // Invites + domain verification + custom domain (multi-user IdP).
+        .route(
+            "/v1/hypervisor/org-invite",
+            get(lifecycle_routes::handle_org_invite_get).post(lifecycle_routes::handle_org_invite_reset),
+        )
+        .route("/v1/hypervisor/org-invite/accept", post(lifecycle_routes::handle_org_invite_accept))
+        .route(
+            "/v1/hypervisor/domain-verifications",
+            get(lifecycle_routes::handle_domain_verification_list).post(lifecycle_routes::handle_domain_verification_create),
+        )
+        .route("/v1/hypervisor/domain-verifications/:id/verify", post(lifecycle_routes::handle_domain_verification_verify))
+        .route(
+            "/v1/hypervisor/domain-verifications/:id",
+            axum::routing::delete(lifecycle_routes::handle_domain_verification_delete),
+        )
+        .route(
+            "/v1/hypervisor/custom-domain",
+            get(lifecycle_routes::handle_custom_domain_get).put(lifecycle_routes::handle_custom_domain_set),
+        )
         .route("/scim/v2/ServiceProviderConfig", get(lifecycle_routes::handle_scim_spc))
         .route(
             "/scim/v2/Users",
