@@ -304,41 +304,9 @@
 
   function mount() {
     style();
-    const btn = document.createElement("button");
-    btn.id = "ioi-aug-btn";
-    btn.textContent = "IOI";
-    const panel = document.createElement("div");
-    panel.id = "ioi-aug-panel";
-    document.body.appendChild(panel);
-    document.body.appendChild(btn);
-
-    btn.addEventListener("click", () => {
-      const open = panel.classList.toggle("open");
-      if (open) render(panel);
-    });
-    // Event delegation survives full re-renders (innerHTML is replaced each render).
-    panel.addEventListener("click", async (ev) => {
-      const b = ev.target.closest("[data-act]");
-      if (!b || b.disabled) return;
-      ev.preventDefault();
-      const act = b.dataset.act;
-      if (act === "exec") {
-        await runExec(panel);
-      } else if (act === "newwr") {
-        await post("/api/ioi/workruns", { environment_id: activeEnvId, objective: "Panel-created WorkRun" });
-        render(panel);
-      } else if (act === "turn") {
-        b.textContent = "…";
-        await post(`/api/ioi/workruns/${b.dataset.id}/execute`, {});
-        render(panel);
-      }
-    });
-    panel.addEventListener("keydown", (ev) => {
-      if (ev.target.id === "ioi-aug-cmd" && ev.key === "Enter") {
-        ev.preventDefault();
-        runExec(panel);
-      }
-    });
+    // (The bottom-right "IOI" cockpit launcher was removed — the Run Timeline mounts directly in the
+    // workbench, so the floating button was redundant. The augmentation now only injects in-surface
+    // affordances: the workbench timeline, the Git-auth GitHub-App button, and Integrations Connect.)
     matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", style);
     // Keep the owned Run Timeline mounted as the workbench transcript across SPA navigation + the
     // SPA's own re-renders (cheap idempotent re-apply; the SPA is a client-router, no full reloads).
