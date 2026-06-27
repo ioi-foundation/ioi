@@ -1107,6 +1107,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/connectors/:id/mcp/tools",
             get(lifecycle_routes::handle_connector_mcp_tools),
         )
+        // OAuth-native Connect (authorize this integration) — Authorization Code + PKCE.
+        .route(
+            "/v1/hypervisor/connectors/:id/oauth/start",
+            post(lifecycle_routes::handle_connector_oauth_start),
+        )
+        .route(
+            "/v1/hypervisor/connectors/oauth/callback",
+            post(lifecycle_routes::handle_connector_oauth_callback),
+        )
         .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),

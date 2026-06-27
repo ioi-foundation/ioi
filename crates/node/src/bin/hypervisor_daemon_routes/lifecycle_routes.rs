@@ -8094,11 +8094,15 @@ pub(crate) async fn handle_connector_register(
     let name = body.get("name").and_then(Value::as_str).unwrap_or(service.as_str()).to_string();
     let allowed_tools = body.get("allowed_tools").cloned().unwrap_or_else(|| json!([]));
     let requires_credential = body.get("requires_credential").and_then(Value::as_bool).unwrap_or(true);
+    // The auth profile declares HOW a member connects (OAuth authcode+PKCE / DCR / device / BYOA /
+    // manual). Public-client OAuth carries no secret, so it is safe on the connector record.
+    let auth_profile = body.get("auth_profile").cloned().unwrap_or(Value::Null);
     let connector_id = format!("conn_{}", short_hash(&format!("{service}:{name}:{base_url}")));
     let connector = json!({
         "schema_version": "ioi.hypervisor.connector.v1",
         "connector_id": connector_id, "service": service, "kind": kind, "name": name,
         "base_url": base_url, "allowed_tools": allowed_tools, "requires_credential": requires_credential,
+        "auth_profile": auth_profile,
         "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
     });
     let _ = persist_record(&st.data_dir, "connectors", &connector_id, &connector);
@@ -8174,6 +8178,92 @@ pub(crate) async fn handle_connector_delete(
     let cred = remove_record(&st.data_dir, "connector-credentials", &id);
     let conn = remove_record(&st.data_dir, "connectors", &id);
     Json(json!({ "ok": true, "connector_id": id, "removed": conn, "credential_removed": cred }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/start — begin the OAuth Authorization Code + PKCE
+/// Connect ("authorize this integration"). Returns the provider authorize URL the browser visits.
+/// Stores the PKCE verifier (sealed) keyed by state; no secret leaves the daemon.
+pub(crate) async fn handle_connector_oauth_start(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let ap = &connector["auth_profile"];
+    let authorization_endpoint = ap["authorization_endpoint"].as_str().unwrap_or("").to_string();
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    if authorization_endpoint.is_empty() || token_endpoint.is_empty() || client_id.is_empty() {
+        return (StatusCode::CONFLICT, Json(json!({ "ok": false, "reason": "no_oauth_profile", "message": "This integration has no OAuth auth_profile (authorization_endpoint/token_endpoint/client_id)." })));
+    }
+    let scopes = ap["scopes"].as_array().map(|a| a.iter().filter_map(|s| s.as_str()).collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    let redirect_uri = body.get("redirect_uri").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback").to_string();
+    let verifier = random_token(64);
+    let challenge = pkce_challenge(&verifier);
+    let state = random_token(32);
+    let Some(sealed_verifier) = seal_scm_token(&verifier) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" })));
+    };
+    let pending = json!({ "state": state, "connector_id": id, "sealed_verifier": sealed_verifier, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    let mut authorize_url = format!(
+        "{authorization_endpoint}?response_type=code&client_id={}&redirect_uri={}&state={state}&code_challenge={challenge}&code_challenge_method=S256",
+        pct(&client_id), pct(&redirect_uri)
+    );
+    if !scopes.is_empty() {
+        authorize_url.push_str(&format!("&scope={}", pct(&scopes)));
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "authorize_url": authorize_url, "state": state })))
+}
+
+/// POST /v1/hypervisor/connectors/oauth/callback — finish the Connect: exchange the authorization
+/// code (PKCE) for tokens and SEAL the refresh token as an oauth-refresh credential. The agent never
+/// sees any of it — it gets scoped capability leases minted from this backing material.
+pub(crate) async fn handle_connector_oauth_callback(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let state = body.get("state").and_then(Value::as_str).unwrap_or("").to_string();
+    let code = body.get("code").and_then(Value::as_str).unwrap_or("").to_string();
+    if state.is_empty() || code.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "state and code are required" })));
+    }
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending").into_iter().find(|p| p["state"].as_str() == Some(state.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown or expired state" })));
+    };
+    let connector_id = pending["connector_id"].as_str().unwrap_or("").to_string();
+    let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
+    let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "could not open pkce verifier" })));
+    };
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(connector_id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let ap = &connector["auth_profile"];
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    let (access, refresh) = match exchange_oauth_code(&token_endpoint, &client_id, &code, &redirect_uri, &verifier).await {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "oauth_exchange_failed", "message": e }))),
+    };
+    let key_source = scm_key_source();
+    // Prefer a refresh token (long-lived, daemon mints access per use); else seal the access token.
+    let cred = if let Some(refresh) = refresh {
+        let Some(sealed) = seal_scm_token(&refresh) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" }))); };
+        json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token("").unwrap_or_default(), "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else {
+        let Some(sealed) = seal_scm_token(&access) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" }))); };
+        json!({ "connector_id": connector_id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    };
+    let _ = persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred);
+    if let Some(mut c) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(connector_id.as_str())) {
+        c["auth_posture"] = json!("token-lease:bound");
+        let _ = persist_record(&st.data_dir, "connectors", &connector_id, &c);
+    }
+    let _ = remove_record(&st.data_dir, "oauth-pending", &state);
+    (StatusCode::OK, Json(json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"] })))
 }
 
 /// POST /v1/hypervisor/connectors/:id/invoke — the wallet-authorized USE crossing: invoke a declared
@@ -8766,6 +8856,60 @@ async fn mint_oauth_access_token(token_url: &str, client_id: &str, client_secret
         body.get("access_token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no access_token in refresh response".to_string())
     } else {
         Err(format!("oauth refresh {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
+    }
+}
+
+// ---- OAuth Authorization Code + PKCE (the canonical "authorize this integration" Connect) ---------
+// Provider-delegated authority: the user authorizes at the provider; the daemon exchanges the code
+// (PKCE, public client) for tokens and seals the refresh token. Agents only ever get scoped leases.
+
+fn random_token(n: usize) -> String {
+    use rand::Rng;
+    rand::thread_rng().sample_iter(&rand::distributions::Alphanumeric).take(n).map(char::from).collect()
+}
+/// PKCE S256 code challenge from a verifier (base64url-no-pad of SHA-256).
+fn pkce_challenge(verifier: &str) -> String {
+    use sha2::{Digest, Sha256};
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
+}
+/// Percent-encode a query value (unreserved set per RFC 3986).
+fn pct(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+/// Exchange an authorization code (PKCE, public client) for (access_token, optional refresh_token).
+async fn exchange_oauth_code(token_url: &str, client_id: &str, code: &str, redirect_uri: &str, code_verifier: &str) -> Result<(String, Option<String>), String> {
+    let form = vec![
+        ("grant_type", "authorization_code"),
+        ("code", code),
+        ("redirect_uri", redirect_uri),
+        ("client_id", client_id),
+        ("code_verifier", code_verifier),
+    ];
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        let access = body.get("access_token").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "no access_token in code exchange".to_string())?;
+        let refresh = body.get("refresh_token").and_then(Value::as_str).map(str::to_string);
+        Ok((access, refresh))
+    } else {
+        Err(format!("oauth code exchange {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
     }
 }
 
