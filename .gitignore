@@ -102,3 +102,21 @@ hypervisor-data
 # Local automation runtime state (workspace-scoped <workspace>/automation output).
 # Curated automation examples belong under scripts/fixtures/ or docs/conformance/.
 /automation/
+# ── Borrowed reference-SPA compatibility lane (source-neutral tracked tree) ──
+# These drive/served the harvested upstream SPA and speak its wire contract
+# (the upstream RPC namespace + its asset CDN). They are LOCAL-ONLY (kept on disk, runnable for
+# reference/dev) and deliberately NOT tracked, so the committed product tree is
+# the daemon + native contracts only. See the retirement note in apps/hypervisor/README.md.
+apps/hypervisor/scripts/serve-live-reference.mjs
+apps/hypervisor/scripts/ioi-api-adapter.mjs
+apps/hypervisor/scripts/ioi-augmentation.js
+apps/hypervisor/scripts/ioi-projection.mjs
+apps/hypervisor/scripts/ioi-agent-runs.mjs
+apps/hypervisor/scripts/ioi-run-timeline.mjs
+apps/hypervisor/docs/reference-api-integration.md
+scripts/verify-hypervisor-app-functional.mjs
+scripts/verify-hypervisor-reference-functional.mjs
+scripts/verify-hypervisor-workbench-functional.mjs
+scripts/verify-hypervisor-run-timeline-functional.mjs
+scripts/verify-hypervisor-git-auth-native-functional.mjs
+scripts/verify-hypervisor-settings-trio-functional.mjs
