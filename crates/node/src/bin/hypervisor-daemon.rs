@@ -1125,6 +1125,14 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_connector_oauth_callback),
         )
         .route(
+            "/v1/hypervisor/connectors/:id/oauth/device/start",
+            post(lifecycle_routes::handle_connector_device_start),
+        )
+        .route(
+            "/v1/hypervisor/connectors/:id/oauth/device/poll",
+            post(lifecycle_routes::handle_connector_device_poll),
+        )
+        .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),
         )

@@ -7965,7 +7965,8 @@ async fn resolve_sealed_credential(rec: &Value) -> (Option<String>, Option<Strin
         return (None, None, key_source);
     }
     let token = if let Some(sealed) = rec["sealed_token"].as_str() { open_scm_token(sealed) } else { rec["token"].as_str().map(str::to_string) };
-    let source = token.as_ref().map(|_| "connector".to_string());
+    let label = if rec["kind"].as_str() == Some("service-account") { "managed-service-account" } else { "connector" };
+    let source = token.as_ref().map(|_| label.to_string());
     (token, source, key_source)
 }
 
@@ -8151,7 +8152,9 @@ pub(crate) async fn handle_connector_bind_credential(
         let Some(sealed) = seal_scm_token(&token) else {
             return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
         };
-        json!({ "connector_id": id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+        // "service-account" = a managed long-lived service credential (advanced); else a static bearer.
+        let kind = if body.get("kind").and_then(Value::as_str) == Some("service-account") { "service-account" } else { "bearer" };
+        json!({ "connector_id": id, "kind": kind, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
     };
     let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
     connector["auth_posture"] = json!("token-lease:bound");
@@ -8216,7 +8219,7 @@ pub(crate) async fn handle_connector_oauth_discover(
     };
     let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
     let redirect_uri = body.get("redirect_uri").and_then(Value::as_str).unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback").to_string();
-    let (auth_ep, token_ep, reg_ep, scopes) = match discover_oauth_for_mcp(&base_url).await {
+    let (auth_ep, token_ep, reg_ep, device_ep, scopes) = match discover_oauth_for_mcp(&base_url).await {
         Ok(v) => v,
         Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "discovery_failed", "message": e }))),
     };
@@ -8233,7 +8236,8 @@ pub(crate) async fn handle_connector_oauth_discover(
     };
     let auth_profile = json!({
         "type": "oauth_authcode_pkce", "authorization_endpoint": auth_ep, "token_endpoint": token_ep,
-        "registration_endpoint": reg_ep, "client_id": client_id, "scopes": scopes, "discovered": true,
+        "registration_endpoint": reg_ep, "device_authorization_endpoint": device_ep,
+        "client_id": client_id, "scopes": scopes, "discovered": true,
     });
     connector["auth_profile"] = auth_profile.clone();
     let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
@@ -8324,6 +8328,102 @@ pub(crate) async fn handle_connector_oauth_callback(
     }
     let _ = remove_record(&st.data_dir, "oauth-pending", &state);
     (StatusCode::OK, Json(json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"] })))
+}
+
+// Seal an OAuth result (access + optional refresh) as a connector credential: oauth-refresh when a
+// refresh token is present (daemon mints access per use), else a static bearer access token.
+fn seal_oauth_result(connector_id: &str, token_endpoint: &str, client_id: &str, access: &str, refresh: Option<&str>) -> Option<Value> {
+    let key_source = scm_key_source();
+    if let Some(refresh) = refresh {
+        let sealed = seal_scm_token(refresh)?;
+        Some(json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token("")?, "key_source": key_source, "sealed": true, "bound_at": iso_now() }))
+    } else {
+        let sealed = seal_scm_token(access)?;
+        Some(json!({ "connector_id": connector_id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() }))
+    }
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/device/start — OAuth Device Authorization Grant (RFC
+/// 8628): headless / no-redirect connect. Returns the user_code + verification_uri to display; the
+/// user authorizes on another device, then the client polls. (Phase D auth profile.)
+pub(crate) async fn handle_connector_device_start(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let ap = &connector["auth_profile"];
+    let device_ep = ap["device_authorization_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    if device_ep.is_empty() || client_id.is_empty() {
+        return (StatusCode::CONFLICT, Json(json!({ "ok": false, "reason": "no_device_profile", "message": "This integration has no device_authorization_endpoint (run discovery, or the AS lacks device flow)." })));
+    }
+    let scopes = ap["scopes"].as_array().map(|a| a.iter().filter_map(|s| s.as_str()).collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    let resp = reqwest::Client::new().post(&device_ep).header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").form(&[("client_id", client_id.as_str()), ("scope", scopes.as_str())]).timeout(std::time::Duration::from_secs(20)).send().await;
+    let v: Value = match resp {
+        Ok(r) if r.status().is_success() => r.json().await.unwrap_or(Value::Null),
+        Ok(r) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "device_start_failed", "status": r.status().as_u16() }))),
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("device endpoint unreachable: {e}") }))),
+    };
+    let device_code = v["device_code"].as_str().unwrap_or("").to_string();
+    if device_code.is_empty() {
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "no device_code in response" })));
+    }
+    let Some(sealed) = seal_scm_token(&device_code) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal device_code" })));
+    };
+    let interval = v["interval"].as_u64().unwrap_or(5);
+    let _ = persist_record(&st.data_dir, "oauth-device-pending", &id, &json!({ "connector_id": id, "sealed_device_code": sealed, "interval": interval, "created_at": iso_now() }));
+    (StatusCode::OK, Json(json!({
+        "ok": true, "user_code": v["user_code"], "verification_uri": v["verification_uri"],
+        "verification_uri_complete": v["verification_uri_complete"], "interval": interval, "expires_in": v["expires_in"],
+    })))
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/device/poll — poll the token endpoint for the device
+/// grant; on success seals the tokens (oauth-refresh). Returns {pending:true} while the user hasn't
+/// authorized yet.
+pub(crate) async fn handle_connector_device_poll(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-device-pending").into_iter().find(|p| p["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "no pending device authorization" })));
+    };
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let ap = &connector["auth_profile"];
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    let Some(device_code) = pending["sealed_device_code"].as_str().and_then(open_scm_token) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "could not open device_code" })));
+    };
+    let resp = reqwest::Client::new().post(&token_endpoint).header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").form(&[("grant_type", "urn:ietf:params:oauth:grant-type:device_code"), ("device_code", device_code.as_str()), ("client_id", client_id.as_str())]).timeout(std::time::Duration::from_secs(20)).send().await;
+    let (status, v): (u16, Value) = match resp {
+        Ok(r) => { let s = r.status().as_u16(); (s, r.json().await.unwrap_or(Value::Null)) }
+        Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": format!("token endpoint unreachable: {e}") }))),
+    };
+    if (200..300).contains(&status) {
+        let access = v["access_token"].as_str().unwrap_or("").to_string();
+        let refresh = v["refresh_token"].as_str();
+        let Some(cred) = seal_oauth_result(&id, &token_endpoint, &client_id, &access, refresh) else {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" })));
+        };
+        let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+        if let Some(mut c) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) {
+            c["auth_posture"] = json!("token-lease:bound");
+            let _ = persist_record(&st.data_dir, "connectors", &id, &c);
+        }
+        let _ = remove_record(&st.data_dir, "oauth-device-pending", &id);
+        return (StatusCode::OK, Json(json!({ "ok": true, "connected": true, "connector_id": id, "credential_kind": cred["kind"] })));
+    }
+    let err = v["error"].as_str().unwrap_or("");
+    if err == "authorization_pending" || err == "slow_down" {
+        return (StatusCode::OK, Json(json!({ "ok": true, "pending": true, "error": err })));
+    }
+    (StatusCode::OK, Json(json!({ "ok": false, "reason": if err.is_empty() { "device_poll_failed" } else { err } })))
 }
 
 /// POST /v1/hypervisor/connectors/:id/invoke — the wallet-authorized USE crossing: invoke a declared
@@ -9009,8 +9109,8 @@ async fn http_get_json(client: &reqwest::Client, url: &str) -> Result<Value, Str
     resp.json().await.map_err(|e| e.to_string())
 }
 
-/// Discover (authorization_endpoint, token_endpoint, registration_endpoint, scopes) for an MCP server.
-async fn discover_oauth_for_mcp(mcp_url: &str) -> Result<(String, String, String, Vec<String>), String> {
+/// Discover (authorization_endpoint, token_endpoint, registration_endpoint, device_authorization_endpoint, scopes) for an MCP server.
+async fn discover_oauth_for_mcp(mcp_url: &str) -> Result<(String, String, String, String, Vec<String>), String> {
     let client = reqwest::Client::new();
     // 1) protected-resource-metadata URL: prefer the 401 WWW-Authenticate pointer, else well-known.
     let mut prm_url: Option<String> = None;
@@ -9051,8 +9151,9 @@ async fn discover_oauth_for_mcp(mcp_url: &str) -> Result<(String, String, String
     let authorization_endpoint = meta["authorization_endpoint"].as_str().ok_or("no authorization_endpoint")?.to_string();
     let token_endpoint = meta["token_endpoint"].as_str().ok_or("no token_endpoint")?.to_string();
     let registration_endpoint = meta["registration_endpoint"].as_str().unwrap_or("").to_string();
+    let device_authorization_endpoint = meta["device_authorization_endpoint"].as_str().unwrap_or("").to_string();
     let scopes = if !prm_scopes.is_empty() { prm_scopes } else { meta["scopes_supported"].as_array().map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect()).unwrap_or_default() };
-    Ok((authorization_endpoint, token_endpoint, registration_endpoint, scopes))
+    Ok((authorization_endpoint, token_endpoint, registration_endpoint, device_authorization_endpoint, scopes))
 }
 
 /// Dynamically register a PUBLIC (PKCE) client (RFC 7591) → client_id.
