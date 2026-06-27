@@ -8123,8 +8123,16 @@ pub(crate) async fn handle_connector_register(
     let allowed_tools = body.get("allowed_tools").cloned().unwrap_or_else(|| json!([]));
     let requires_credential = body.get("requires_credential").and_then(Value::as_bool).unwrap_or(true);
     // The auth profile declares HOW a member connects (OAuth authcode+PKCE / DCR / device / BYOA /
-    // manual). Public-client OAuth carries no secret, so it is safe on the connector record.
-    let auth_profile = body.get("auth_profile").cloned().unwrap_or(Value::Null);
+    // manual). A BYOA confidential client may carry a client_secret — SEAL it (never store plaintext).
+    let mut auth_profile = body.get("auth_profile").cloned().unwrap_or(Value::Null);
+    if let Some(secret) = auth_profile.get("client_secret").and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string) {
+        if let Some(obj) = auth_profile.as_object_mut() {
+            obj.remove("client_secret");
+            if let Some(sealed) = seal_scm_token(&secret) {
+                obj.insert("sealed_client_secret".to_string(), json!(sealed));
+            }
+        }
+    }
     // Org policy: the allow-list of tools members may invoke + the risk posture (set by the org).
     // Default standard / no tool restriction; tightened via the set-policy endpoint or at create.
     let org_policy = body.get("org_policy").cloned().unwrap_or_else(|| json!({ "allowed_tools": Value::Null, "risk_posture": "standard" }));
@@ -8374,18 +8382,15 @@ pub(crate) async fn handle_connector_oauth_callback(
     let ap = &connector["auth_profile"];
     let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
     let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
-    let (access, refresh) = match exchange_oauth_code(&token_endpoint, &client_id, &code, &redirect_uri, &verifier).await {
+    // Confidential BYOA client (e.g. Slack): the sealed client_secret is sent at the token exchange.
+    let client_secret = ap["sealed_client_secret"].as_str().and_then(open_scm_token).unwrap_or_default();
+    let (access, refresh) = match exchange_oauth_code(&token_endpoint, &client_id, &client_secret, &code, &redirect_uri, &verifier).await {
         Ok(v) => v,
         Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": "oauth_exchange_failed", "message": e }))),
     };
-    let key_source = scm_key_source();
-    // Prefer a refresh token (long-lived, daemon mints access per use); else seal the access token.
-    let cred = if let Some(refresh) = refresh {
-        let Some(sealed) = seal_scm_token(&refresh) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" }))); };
-        json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token("").unwrap_or_default(), "key_source": key_source, "sealed": true, "bound_at": iso_now() })
-    } else {
-        let Some(sealed) = seal_scm_token(&access) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" }))); };
-        json!({ "connector_id": connector_id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    // Prefer a refresh token (daemon mints access per use); else seal the access token as a bearer.
+    let Some(cred) = seal_oauth_result(&connector_id, &token_endpoint, &client_id, &client_secret, &access, refresh.as_deref()) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" })));
     };
     let _ = persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred);
     if let Some(mut c) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(connector_id.as_str())) {
@@ -8398,11 +8403,11 @@ pub(crate) async fn handle_connector_oauth_callback(
 
 // Seal an OAuth result (access + optional refresh) as a connector credential: oauth-refresh when a
 // refresh token is present (daemon mints access per use), else a static bearer access token.
-fn seal_oauth_result(connector_id: &str, token_endpoint: &str, client_id: &str, access: &str, refresh: Option<&str>) -> Option<Value> {
+fn seal_oauth_result(connector_id: &str, token_endpoint: &str, client_id: &str, client_secret: &str, access: &str, refresh: Option<&str>) -> Option<Value> {
     let key_source = scm_key_source();
     if let Some(refresh) = refresh {
         let sealed = seal_scm_token(refresh)?;
-        Some(json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token("")?, "key_source": key_source, "sealed": true, "bound_at": iso_now() }))
+        Some(json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token(client_secret)?, "key_source": key_source, "sealed": true, "bound_at": iso_now() }))
     } else {
         let sealed = seal_scm_token(access)?;
         Some(json!({ "connector_id": connector_id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() }))
@@ -8474,7 +8479,7 @@ pub(crate) async fn handle_connector_device_poll(
     if (200..300).contains(&status) {
         let access = v["access_token"].as_str().unwrap_or("").to_string();
         let refresh = v["refresh_token"].as_str();
-        let Some(cred) = seal_oauth_result(&id, &token_endpoint, &client_id, &access, refresh) else {
+        let Some(cred) = seal_oauth_result(&id, &token_endpoint, &client_id, "", &access, refresh) else {
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal token" })));
         };
         let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
@@ -9235,15 +9240,19 @@ fn pct(s: &str) -> String {
     }
     out
 }
-/// Exchange an authorization code (PKCE, public client) for (access_token, optional refresh_token).
-async fn exchange_oauth_code(token_url: &str, client_id: &str, code: &str, redirect_uri: &str, code_verifier: &str) -> Result<(String, Option<String>), String> {
-    let form = vec![
+/// Exchange an authorization code for (access_token, optional refresh_token). PKCE always; a
+/// non-empty client_secret makes it a CONFIDENTIAL client (BYOA OAuth app, e.g. Slack).
+async fn exchange_oauth_code(token_url: &str, client_id: &str, client_secret: &str, code: &str, redirect_uri: &str, code_verifier: &str) -> Result<(String, Option<String>), String> {
+    let mut form = vec![
         ("grant_type", "authorization_code"),
         ("code", code),
         ("redirect_uri", redirect_uri),
         ("client_id", client_id),
         ("code_verifier", code_verifier),
     ];
+    if !client_secret.is_empty() {
+        form.push(("client_secret", client_secret));
+    }
     let resp = reqwest::Client::new()
         .post(token_url)
         .header("User-Agent", "ioi-hypervisor")

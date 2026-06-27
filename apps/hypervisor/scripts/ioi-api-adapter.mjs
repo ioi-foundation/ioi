@@ -647,10 +647,13 @@ export async function handle(pathname, bodyText) {
     const authUrl = body.authUrl || body.integration?.authUrl || "";
     const tokenUrl = body.tokenUrl || body.integration?.tokenUrl || "";
     const clientId = body.clientId || body.integration?.clientId || "";
+    const clientSecret = body.clientSecret || body.integration?.clientSecret || "";
     const rawScopes = body.scopes || body.integration?.scopes || [];
     const scopes = Array.isArray(rawScopes) ? rawScopes : String(rawScopes).split(/[\s,]+/).filter(Boolean);
+    // A BYOA OAuth client (authUrl+tokenUrl+clientId); client_secret (if given) makes it confidential
+    // (e.g. Slack) — the daemon seals it. Blank auth → auto-discovery + DCR on Connect.
     const auth_profile = authUrl && tokenUrl && clientId
-      ? { type: "oauth_authcode_pkce", authorization_endpoint: authUrl, token_endpoint: tokenUrl, client_id: clientId, scopes }
+      ? { type: "oauth_authcode_pkce", authorization_endpoint: authUrl, token_endpoint: tokenUrl, client_id: clientId, ...(clientSecret ? { client_secret: clientSecret } : {}), scopes }
       : null;
     let connector;
     try {
