@@ -1098,6 +1098,16 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/secrets/:id",
             axum::routing::delete(lifecycle_routes::handle_secret_delete),
         )
+        // API access tokens — inbound tokens (hash + metadata stored; plaintext returned ONCE).
+        .route(
+            "/v1/hypervisor/api-tokens",
+            get(lifecycle_routes::handle_api_token_list)
+                .post(lifecycle_routes::handle_api_token_create),
+        )
+        .route(
+            "/v1/hypervisor/api-tokens/:id",
+            axum::routing::delete(lifecycle_routes::handle_api_token_delete),
+        )
         // Generic connector estate — ANY service as a use-only lease through the same gateway.
         .route(
             "/v1/hypervisor/connectors",

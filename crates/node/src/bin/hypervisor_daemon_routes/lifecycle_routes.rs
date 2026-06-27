@@ -8928,6 +8928,107 @@ pub(crate) async fn handle_secret_delete(
     Json(json!({ "ok": true, "secret_id": id, "removed": removed }))
 }
 
+// ============================================================================================
+// API access tokens plane — inbound tokens that authenticate calls TO the Hypervisor API (the
+// native "API access tokens" surface). Best practice for an inbound credential: store ONLY a
+// sha256 hash + metadata; return the plaintext exactly ONCE (in the create response). The token is
+// never recoverable after creation. (Inbound enforcement on the daemon is a separate concern; the
+// hash is stored ready for it — the management surface is real today: mint / list / revoke.)
+// ============================================================================================
+
+/// RFC 3339 timestamp `secs` seconds from now (token expiry).
+fn iso_in_seconds(secs: i64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    (time::OffsetDateTime::now_utc() + time::Duration::seconds(secs))
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| iso_now())
+}
+
+/// Parse a connect-JSON Duration ("2592000s") or {seconds} object into seconds (default 30 days).
+fn parse_valid_for(v: &Value) -> i64 {
+    if let Some(s) = v.as_str() {
+        return s.trim_end_matches('s').trim().parse::<i64>().unwrap_or(2_592_000);
+    }
+    if let Some(n) = v.get("seconds") {
+        return n.as_i64().or_else(|| n.as_str().and_then(|s| s.parse().ok())).unwrap_or(2_592_000);
+    }
+    2_592_000
+}
+
+/// POST /v1/hypervisor/api-tokens — mint a token. Returns the plaintext ONCE; stores only the hash.
+pub(crate) async fn handle_api_token_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let description = body.get("description").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if description.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "description is required" })));
+    }
+    let user_id = body.get("user_id").or_else(|| body.get("userId")).and_then(Value::as_str).unwrap_or("").to_string();
+    let read_only = body.get("read_only").or_else(|| body.get("readOnly")).and_then(Value::as_bool).unwrap_or(false);
+    let valid_for_secs = body.get("valid_for").or_else(|| body.get("validFor")).map(parse_valid_for).unwrap_or(2_592_000);
+    // Generate a high-entropy opaque token (never stored in plaintext).
+    let plaintext = format!(
+        "ioi_pat_{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let token_hash = sha256_hex_str(&plaintext);
+    let token_id = format!("pat_{}", short_hash(&token_hash));
+    let now = iso_now();
+    let expires_at = iso_in_seconds(valid_for_secs);
+    // Metadata record — NEVER contains the plaintext; the hash is for future inbound verification.
+    let record = json!({
+        "schema_version": "ioi.hypervisor.api-token.v1",
+        "token_id": token_id,
+        "user_id": user_id,
+        "description": description,
+        "read_only": read_only,
+        "token_hash": token_hash,
+        "created_at": now,
+        "expires_at": expires_at,
+        "last_used_at": Value::Null,
+    });
+    let _ = persist_record(&st.data_dir, "api-tokens", &token_id, &record);
+    // Return the plaintext ONCE (the only time it is ever surfaced).
+    (StatusCode::OK, Json(json!({
+        "ok": true,
+        "token": {
+            "token_id": token_id,
+            "user_id": user_id,
+            "description": description,
+            "read_only": read_only,
+            "value": plaintext,
+            "created_at": now,
+            "expires_at": expires_at,
+        }
+    })))
+}
+
+/// GET /v1/hypervisor/api-tokens — list token METADATA (never the value or the hash).
+pub(crate) async fn handle_api_token_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let tokens: Vec<Value> = read_record_dir(&st.data_dir, "api-tokens")
+        .into_iter()
+        .map(|mut t| {
+            // defense in depth: strip the hash from any list projection
+            if let Some(obj) = t.as_object_mut() {
+                obj.remove("token_hash");
+            }
+            t
+        })
+        .collect();
+    Json(json!({ "ok": true, "tokens": tokens }))
+}
+
+/// DELETE /v1/hypervisor/api-tokens/:id — revoke a token.
+pub(crate) async fn handle_api_token_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "api-tokens", &id);
+    Json(json!({ "ok": true, "token_id": id, "removed": removed }))
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
 pub(crate) async fn handle_scm_publish(
     State(st): State<Arc<DaemonState>>,

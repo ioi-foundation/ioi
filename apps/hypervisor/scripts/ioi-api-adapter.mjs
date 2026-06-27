@@ -777,6 +777,57 @@ export async function handle(pathname, bodyText) {
     }
     return json({});
   }
+  // ---- UserService: real API access tokens (inbound) — hash + metadata in the daemon, plaintext
+  // returned ONCE on create. The native "API access tokens" surface (renamed from "Personal access
+  // tokens"). The token value is never listed or recoverable after creation. ----
+  const daemonTokenToGitpod = (t) => ({
+    id: t.token_id,
+    userId: t.user_id || IDENTITY.userId,
+    description: t.description,
+    readOnly: !!t.read_only,
+    createdAt: t.created_at,
+    expiresAt: t.expires_at,
+    ...(t.last_used_at ? { lastUsedAt: t.last_used_at } : {}),
+  });
+  if (pathname === "/api/gitpod.v1.UserService/ListPersonalAccessTokens") {
+    const wantUsers = body.filter?.userIds || body.userIds || [];
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/api-tokens");
+      let tokens = (r.tokens || []);
+      if (wantUsers.length) tokens = tokens.filter((t) => wantUsers.includes(t.user_id || IDENTITY.userId));
+      return json({ pagination: {}, personalAccessTokens: tokens.map(daemonTokenToGitpod) });
+    } catch {
+      return json({ pagination: {}, personalAccessTokens: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.UserService/CreatePersonalAccessToken") {
+    const description = (body.description || "").trim();
+    if (!description) return jsonStatus(400, { code: "invalid_argument", message: "a description is required" });
+    try {
+      const r = await daemon("POST", "/v1/hypervisor/api-tokens", {
+        description,
+        user_id: body.userId || body.user_id || IDENTITY.userId,
+        read_only: body.readOnly ?? body.read_only ?? false,
+        valid_for: body.validFor ?? body.valid_for ?? "2592000s",
+      });
+      if (!r.ok) return jsonStatus(502, { code: "unavailable", message: r.reason || "failed to create token" });
+      // CreatePersonalAccessTokenResponse.token is the plaintext STRING (the SPA reveals it once,
+      // then refetches the list for the row metadata). Surfaced exactly once, here.
+      return json({ token: r.token.value });
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to create token: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.UserService/DeletePersonalAccessToken") {
+    const id = body.personalAccessTokenId || body.id || body.tokenId;
+    if (!id) return jsonStatus(400, { code: "invalid_argument", message: "personalAccessTokenId is required" });
+    try {
+      await daemon("DELETE", `/v1/hypervisor/api-tokens/${encodeURIComponent(id)}`);
+    } catch {
+      /* idempotent */
+    }
+    return json({});
+  }
   if (pathname === "/api/gitpod.v1.AgentService/ListPrompts") {
     return json({ pagination: {} });
   }
