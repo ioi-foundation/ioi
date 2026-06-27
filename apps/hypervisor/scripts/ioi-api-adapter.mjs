@@ -62,8 +62,9 @@ const IDENTITY = {
 
 async function daemon(method, path, body) {
   const headers = body ? { "Content-Type": "application/json" } : {};
-  const cookie = reqCtx.getStore()?.cookie;
-  if (cookie) headers.Cookie = cookie; // forward the caller's session so enforcement resolves the principal
+  const ctx = reqCtx.getStore();
+  if (ctx?.cookie) headers.Cookie = ctx.cookie; // forward the caller's session so enforcement resolves the principal
+  if (ctx?.forwardedHost) headers["X-Forwarded-Host"] = ctx.forwardedHost; // tell the loopback daemon it was reached via a tunnel
   const res = await fetch(DAEMON + path, {
     method,
     headers: Object.keys(headers).length ? headers : undefined,
@@ -211,7 +212,8 @@ export async function handle(pathname, bodyText, reqHeaders = {}) {
   // Establish the per-request context (session cookie) so owned handlers' daemon calls carry the
   // caller's identity under enforcement. Off → cookie undefined → no-op.
   const cookie = reqHeaders.cookie || reqHeaders.Cookie || "";
-  return reqCtx.run({ cookie }, () => handleImpl(pathname, bodyText));
+  const forwardedHost = reqHeaders["x-forwarded-host"] || reqHeaders["X-Forwarded-Host"] || "";
+  return reqCtx.run({ cookie, forwardedHost }, () => handleImpl(pathname, bodyText));
 }
 
 async function handleImpl(pathname, bodyText) {

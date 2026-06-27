@@ -259,6 +259,8 @@ async fn async_main() -> anyhow::Result<()> {
         .or_else(|| std::env::var("HOME").ok())
         .unwrap_or_default();
 
+    // Auth fail-safe: if exposed with no login configured, print the one-time bootstrap token.
+    lifecycle_routes::startup_auth_notice(&data_dir);
     let state = Arc::new(DaemonState {
         inference,
         model_name,
@@ -1396,6 +1398,8 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/auth/policy",
             get(lifecycle_routes::handle_auth_policy_get).put(lifecycle_routes::handle_auth_policy_set),
         )
+        .route("/v1/hypervisor/auth/bootstrap-status", get(lifecycle_routes::handle_auth_bootstrap_status))
+        .route("/v1/hypervisor/auth/bootstrap", post(lifecycle_routes::handle_auth_bootstrap))
         .route(
             "/v1/hypervisor/principals",
             get(lifecycle_routes::handle_principal_list).post(lifecycle_routes::handle_principal_create),

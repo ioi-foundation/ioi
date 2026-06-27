@@ -9080,7 +9080,67 @@ fn find_principal_by_email(data_dir: &str, email: &str) -> Option<Value> {
 }
 fn auth_policy(data_dir: &str) -> Value {
     read_record_dir(data_dir, "auth-policy").into_iter().find(|p| p["id"].as_str() == Some("policy"))
-        .unwrap_or_else(|| json!({ "id": "policy", "require_authentication": false, "allowed_methods": ["local", "oidc", "sso", "api-token"] }))
+        .unwrap_or_else(|| json!({ "id": "policy", "mode": "auto", "allowed_methods": ["local", "oidc", "sso", "api-token"] }))
+}
+/// A request is "exposed" if it arrived through a proxy/tunnel (forwarded headers) or a non-local
+/// Host — i.e., reachable beyond loopback. The serve layer forwards x-forwarded-host on tunneled
+/// requests so the daemon (which sits on loopback behind serve) can still tell.
+fn request_exposed(headers: &HeaderMap) -> bool {
+    if headers.get("x-forwarded-host").is_some() || headers.get("x-forwarded-for").is_some() || headers.get("x-ioi-forwarded").is_some() { return true; }
+    if let Some(host) = headers.get(header::HOST).and_then(|h| h.to_str().ok()) {
+        let h = host.split(':').next().unwrap_or("");
+        return !(h == "127.0.0.1" || h == "localhost" || h == "::1" || h.is_empty());
+    }
+    false
+}
+/// True if the daemon itself is bound to a non-loopback address (directly exposed).
+fn daemon_exposed() -> bool {
+    std::env::var("IOI_HYPERVISOR_DAEMON_ADDR").ok().map(|a| {
+        let host = a.rsplit_once(':').map(|(h, _)| h).unwrap_or(a.as_str()).to_string();
+        !(host == "127.0.0.1" || host == "localhost" || host == "::1" || host.is_empty())
+    }).unwrap_or(false)
+}
+/// At least one login method exists (a principal with a password, or an SSO connection). Used to
+/// decide whether enforcement would lock everyone out (→ bootstrap required instead).
+fn login_possible(data_dir: &str) -> bool {
+    read_record_dir(data_dir, "principals").iter().any(|p| p["password_hash"].as_str().map(|h| !h.is_empty()).unwrap_or(false))
+        || !read_record_dir(data_dir, "sso-configurations").is_empty()
+}
+/// Resolve the effective enforcement decision: mode "always"/"never", or "auto" → enforce when
+/// exposed. SAFE default: an exposed instance enforces. When enforcement is wanted but no login is
+/// possible, we still enforce (fail-safe) — the operator bootstraps via the exempt bootstrap endpoint.
+fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
+    let policy = auth_policy(data_dir);
+    let mode = policy["mode"].as_str().map(String::from)
+        .unwrap_or_else(|| if policy["require_authentication"].as_bool().unwrap_or(false) { "always".into() } else { "auto".into() });
+    match mode.as_str() {
+        "always" => true,
+        "never" => false,
+        _ => daemon_exposed() || request_exposed(headers),
+    }
+}
+/// Startup notice: if this instance is exposed (non-loopback bind) with no login configured,
+/// enforcement is ON (fail-safe) — print a one-time bootstrap token for the host operator (log access).
+pub(crate) fn startup_auth_notice(data_dir: &str) {
+    let policy = auth_policy(data_dir);
+    let mode = policy["mode"].as_str().unwrap_or("auto");
+    let would_enforce = mode == "always" || (mode != "never" && daemon_exposed());
+    if would_enforce && !login_possible(data_dir) {
+        let token = ensure_bootstrap_token(data_dir);
+        tracing::warn!(
+            "AUTH BOOTSTRAP REQUIRED — exposed instance, no login configured, authentication enforced. Set the first operator password: POST /v1/hypervisor/auth/bootstrap {{\"token\":\"{token}\",\"password\":\"<min 8 chars>\"}}"
+        );
+    }
+}
+/// The one-time bootstrap token (created lazily) used to set the first operator password on an
+/// exposed instance that has no login configured yet. Printed to the daemon log at startup.
+fn ensure_bootstrap_token(data_dir: &str) -> String {
+    if let Some(rec) = read_record_dir(data_dir, "auth-bootstrap").into_iter().find(|b| b["id"].as_str() == Some("bootstrap")) {
+        if let Some(t) = rec["token"].as_str() { return t.to_string(); }
+    }
+    let token = gen_opaque("ioi_bootstrap");
+    let _ = persist_record(data_dir, "auth-bootstrap", "bootstrap", &json!({ "id": "bootstrap", "token": token, "created_at": iso_now() }));
+    token
 }
 /// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
 /// token OR an API access token whose hash we stored). Returns the public principal record.
@@ -9126,12 +9186,24 @@ pub(crate) async fn auth_gate(
     next: axum::middleware::Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    let exempt = !path.starts_with("/v1/hypervisor/")
-        || path.starts_with("/v1/hypervisor/auth/")
-        || path == "/v1/hypervisor/editor-targets"; // readiness probe
-    if !exempt && auth_policy(&st.data_dir)["require_authentication"].as_bool().unwrap_or(false) {
+    // Exempt ONLY the login-flow endpoints (so a client can authenticate/bootstrap) + the readiness
+    // probe — NOT /auth/policy or /principals, which must require auth so an unauthenticated caller
+    // can't disable enforcement or manage users.
+    const EXEMPT: &[&str] = &[
+        "/v1/hypervisor/auth/login",
+        "/v1/hypervisor/auth/logout",
+        "/v1/hypervisor/auth/whoami",
+        "/v1/hypervisor/auth/bootstrap",
+        "/v1/hypervisor/auth/bootstrap-status",
+        "/v1/hypervisor/auth/oidc/start",
+        "/v1/hypervisor/auth/oidc/callback",
+        "/v1/hypervisor/editor-targets",
+    ];
+    let exempt = !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str());
+    if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
-            return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required" }))).into_response();
+            let needs_bootstrap = !login_possible(&st.data_dir);
+            return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": needs_bootstrap }))).into_response();
         }
     }
     next.run(req).await
@@ -9199,26 +9271,60 @@ pub(crate) async fn handle_auth_whoami(State(st): State<Arc<DaemonState>>, heade
     if let Some(p) = resolve_principal(&st.data_dir, &headers) {
         return (StatusCode::OK, Json(json!({ "ok": true, "principal": p, "authenticated": true })));
     }
-    if auth_policy(&st.data_dir)["require_authentication"].as_bool().unwrap_or(false) {
-        return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required" })));
+    if auth_enforced(&st.data_dir, &headers) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": !login_possible(&st.data_dir) })));
     }
     let op = find_principal(&st.data_dir, OPERATOR_ID).map(principal_public).unwrap_or(Value::Null);
     (StatusCode::OK, Json(json!({ "ok": true, "principal": op, "authenticated": false })))
 }
 
-/// GET /v1/hypervisor/auth/policy — the enforcement policy.
-pub(crate) async fn handle_auth_policy_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "ok": true, "policy": auth_policy(&st.data_dir) }))
+/// GET /v1/hypervisor/auth/policy — the enforcement policy + the resolved effective decision.
+pub(crate) async fn handle_auth_policy_get(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> Json<Value> {
+    Json(json!({ "ok": true, "policy": auth_policy(&st.data_dir), "effective_enforced": auth_enforced(&st.data_dir, &headers), "exposed": daemon_exposed() || request_exposed(&headers), "login_possible": login_possible(&st.data_dir) }))
 }
-/// PUT /v1/hypervisor/auth/policy — toggle enforcement / allowed methods.
+/// PUT /v1/hypervisor/auth/policy — set the enforcement mode (auto|always|never) / allowed methods.
 pub(crate) async fn handle_auth_policy_set(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
     let mut p = auth_policy(&st.data_dir);
-    if let Some(v) = body.get("require_authentication").and_then(Value::as_bool) { p["require_authentication"] = json!(v); }
+    if let Some(m) = body.get("mode").and_then(Value::as_str) {
+        if ["auto", "always", "never"].contains(&m) { p["mode"] = json!(m); }
+    }
+    // back-compat: require_authentication:true → "always", false → "auto" (exposure-driven)
+    if let Some(v) = body.get("require_authentication").and_then(Value::as_bool) { p["mode"] = json!(if v { "always" } else { "auto" }); }
     if let Some(v) = body.get("allowed_methods").cloned() { if v.is_array() { p["allowed_methods"] = v; } }
     p["id"] = json!("policy");
     p["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, "auth-policy", "policy", &p);
     Json(json!({ "ok": true, "policy": p }))
+}
+
+/// GET /v1/hypervisor/auth/bootstrap-status — is a first-login bootstrap required? (exempt route)
+pub(crate) async fn handle_auth_bootstrap_status(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> Json<Value> {
+    let needs = auth_enforced(&st.data_dir, &headers) && !login_possible(&st.data_dir);
+    if needs { ensure_bootstrap_token(&st.data_dir); } // materialize the token (printed to log; never returned here)
+    Json(json!({ "ok": true, "needs_bootstrap": needs, "login_possible": login_possible(&st.data_dir) }))
+}
+/// POST /v1/hypervisor/auth/bootstrap {token, password, email?} — one-time: set the first operator
+/// password using the token printed to the daemon log. Only works while no login is configured.
+pub(crate) async fn handle_auth_bootstrap(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    if login_possible(&st.data_dir) {
+        return (StatusCode::CONFLICT, Json(json!({ "ok": false, "reason": "already_bootstrapped" })));
+    }
+    let token = body.get("token").and_then(Value::as_str).unwrap_or("");
+    let expected = read_record_dir(&st.data_dir, "auth-bootstrap").into_iter().find(|b| b["id"].as_str() == Some("bootstrap")).and_then(|b| b["token"].as_str().map(String::from)).unwrap_or_default();
+    if token.is_empty() || expected.is_empty() || token != expected {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "invalid_bootstrap_token" })));
+    }
+    let password = body.get("password").and_then(Value::as_str).unwrap_or("");
+    if password.len() < 8 { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "password must be at least 8 characters" }))); }
+    let Some(mut op) = find_principal(&st.data_dir, OPERATOR_ID) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "no operator" }))); };
+    let Some(h) = hash_password(password) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "hash failed" }))); };
+    op["password_hash"] = json!(h);
+    op["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "principals", OPERATOR_ID, &op);
+    remove_record(&st.data_dir, "auth-bootstrap", "bootstrap");
+    let (status, sess) = issue_session(&st.data_dir, OPERATOR_ID, "bootstrap");
+    (status, Json(sess))
 }
 
 /// GET /v1/hypervisor/principals — list members (public records, no secrets).

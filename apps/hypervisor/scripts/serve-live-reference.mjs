@@ -1035,6 +1035,12 @@ const server = http.createServer((req, res) => {
   req.on("end", async () => {
     const body = Buffer.concat(chunks);
     const pathname = (req.url || "").split("?")[0];
+    // Exposure normalization: if reached via a non-local Host without a forwarded header, mark it
+    // forwarded so the loopback daemon (behind serve) can apply context-aware auth enforcement.
+    if (!req.headers["x-forwarded-host"]) {
+      const host = (req.headers.host || "").split(":")[0];
+      if (host && host !== "127.0.0.1" && host !== "localhost" && host !== "::1") req.headers["x-forwarded-host"] = req.headers.host;
+    }
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(TERMINAL_CHUNK);
@@ -1263,7 +1269,7 @@ const server = http.createServer((req, res) => {
       const isHtmlNav = req.method === "GET" && accept.includes("text/html") && !pathname.startsWith("/api/") && !pathname.startsWith("/__ioi/") && !pathname.startsWith("/static/") && !pathname.startsWith("/assets/") && !pathname.startsWith("/v1/") && pathname !== "/ioi-augmentation.js";
       if (isHtmlNav) {
         try {
-          const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "" } });
+          const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "", ...(req.headers["x-forwarded-host"] ? { "X-Forwarded-Host": req.headers["x-forwarded-host"] } : {}) } });
           if (w.status === 401) { res.writeHead(302, { Location: "/__ioi/login" }); res.end(); return; }
         } catch { /* daemon transient — fail open, never lock the operator out */ }
       }

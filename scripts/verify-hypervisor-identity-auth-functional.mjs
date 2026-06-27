@@ -19,7 +19,7 @@ const blocked = (reason) => { console.log(JSON_OUT ? JSON.stringify({ workstream
 const jd = async (m, p, b, hdr) => { const r = await fetch(DAEMON + p, { method: m, headers: { ...(b ? { "content-type": "application/json" } : {}), ...(hdr || {}) }, body: b ? JSON.stringify(b) : undefined }); const t = await r.text(); return { status: r.status, raw: t, body: t ? JSON.parse(t) : {} }; };
 
 if (!JSON_OUT) console.log("Identity & Auth e2e — principals/sessions/gate + Argon2id; auth ≠ crossing authority");
-try { const r = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
+try { const r = await fetch(`${DAEMON}/v1/hypervisor/editor-targets`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 
 // 0) ensure a known operator password (Argon2id).
 await jd("POST", `/v1/hypervisor/principals/${OPERATOR}/password`, { password: "operator-pass-123" });
@@ -47,8 +47,10 @@ await jd("POST", "/v1/hypervisor/principals", { email: "teammate@papabearcarwash
 const mlogin = await jd("POST", "/v1/hypervisor/auth/login", { email: "teammate@papabearcarwash.com", password: "member-pass-456" });
 ok(mlogin.status === 200 && mlogin.body?.principal?.role === "member", "provisioned member can log in (role member)");
 
-// 5) Enforcement gate: enable → unauth 401, session 200, readiness exempt.
-await jd("PUT", "/v1/hypervisor/auth/policy", { require_authentication: true });
+// 5) Enforcement gate: enable → unauth 401, session 200, readiness exempt. Policy changes are
+// AUTHENTICATED (the gate requires auth on /auth/policy once enforcing).
+const adminHdr = { Authorization: `Bearer ${token}` };
+await jd("PUT", "/v1/hypervisor/auth/policy", { require_authentication: true }, adminHdr);
 const unauth = await jd("GET", "/v1/hypervisor/secrets");
 ok(unauth.status === 401, "enforcement ON: unauthenticated hypervisor call → 401");
 const authed = await jd("GET", "/v1/hypervisor/secrets", null, { Authorization: `Bearer ${token}` });
@@ -74,7 +76,7 @@ const apiWho = await jd("GET", "/v1/hypervisor/auth/whoami", null, { Authorizati
 ok(apiWho.body?.authenticated === true && apiWho.body?.principal?.principal_id === OPERATOR, "an API access token authenticates its principal");
 
 // restore enforcement OFF + cleanup (purge the demo member so the roster stays clean)
-await jd("PUT", "/v1/hypervisor/auth/policy", { require_authentication: false });
+await jd("PUT", "/v1/hypervisor/auth/policy", { require_authentication: false }, adminHdr);
 if (mint.body?.token?.token_id) await jd("DELETE", `/v1/hypervisor/api-tokens/${mint.body.token.token_id}`);
 { const r = await jd("GET", "/v1/hypervisor/principals"); for (const p of (r.body.principals || [])) if (p.email === "teammate@papabearcarwash.com") await jd("DELETE", `/v1/hypervisor/principals/${p.principal_id}?purge=true`); }
 

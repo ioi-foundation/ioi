@@ -22,7 +22,7 @@ const scim = async (m, p, tok, b) => { const r = await fetch(`${SERVE}/scim/v2${
 
 if (!JSON_OUT) console.log("SCIM 2.0 e2e — provision/deprovision via the public /scim/v2 endpoint");
 try { const r = await fetch(`${SERVE}/ai`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("serve (:4173) not running"); }
-try { const r = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
+try { const r = await fetch(`${DAEMON}/v1/hypervisor/editor-targets`, { signal: AbortSignal.timeout(3000) }); if (!r.ok) throw 0; } catch { blocked("hypervisor-daemon (:8765) not running"); }
 
 // self-heal any residue from a prior run (SCIM create is conflict-on-exists)
 { const r = await fetch(`${DAEMON}/v1/hypervisor/principals`); const d = await r.json().catch(() => ({})); for (const p of (d.principals || [])) if (p.email === EMAIL) await fetch(`${DAEMON}/v1/hypervisor/principals/${p.principal_id}?purge=true`, { method: "DELETE" }); }
