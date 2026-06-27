@@ -1412,6 +1412,16 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/principals/:id/password",
             post(lifecycle_routes::handle_principal_set_password),
         )
+        // Principal-scoped capability leases (per-principal authority scope; NOT a role).
+        .route(
+            "/v1/hypervisor/principals/:id/lease-grants",
+            get(lifecycle_routes::handle_principal_lease_grant_list)
+                .post(lifecycle_routes::handle_principal_lease_grant),
+        )
+        .route(
+            "/v1/hypervisor/principals/:id/lease-grants/:connector_id",
+            axum::routing::delete(lifecycle_routes::handle_principal_lease_grant_revoke),
+        )
         // SSO / OIDC login (multi-user IdP) — BYO OIDC IdP connections + the login flow.
         .route(
             "/v1/hypervisor/sso-configurations",

@@ -8263,10 +8263,48 @@ pub(crate) async fn handle_connector_set_policy(
     };
     let allowed_tools = body.get("allowed_tools").cloned().unwrap_or(Value::Null);
     let risk_posture = body.get("risk_posture").and_then(Value::as_str).unwrap_or("standard").to_string();
-    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "set_at": iso_now() });
+    // principal_scoped: when true, only principals holding an explicit lease grant for (connector,tool)
+    // may invoke — preserve the prior value if not specified.
+    let principal_scoped = body.get("principal_scoped").and_then(Value::as_bool)
+        .unwrap_or_else(|| connector["org_policy"]["principal_scoped"].as_bool().unwrap_or(false));
+    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "set_at": iso_now() });
     connector["org_policy"] = org_policy.clone();
     let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
     Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
+}
+
+/// True if a principal holds a lease grant for (connector, tool) — "*" grants all tools.
+fn principal_has_lease_grant(data_dir: &str, principal_id: &str, connector_id: &str, tool: &str) -> bool {
+    read_record_dir(data_dir, "principal-lease-grants").iter().any(|g| {
+        g["principal_id"].as_str() == Some(principal_id)
+            && g["connector_id"].as_str() == Some(connector_id)
+            && g["tools"].as_array().map(|ts| ts.iter().any(|t| t.as_str() == Some(tool) || t.as_str() == Some("*"))).unwrap_or(false)
+    })
+}
+/// POST /v1/hypervisor/principals/:id/lease-grants {connector_id, tools:[...]} — grant a principal
+/// scoped access to specific connector tools. This is the per-principal authority scope (NOT a role).
+pub(crate) async fn handle_principal_lease_grant(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    if find_principal(&st.data_dir, &id).is_none() {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "unknown_principal" })));
+    }
+    let connector_id = body.get("connector_id").and_then(Value::as_str).unwrap_or("").to_string();
+    if connector_id.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "connector_id is required" }))); }
+    let tools = body.get("tools").cloned().unwrap_or_else(|| json!(["*"]));
+    let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
+    let rec = json!({ "id": gid, "grant_id": gid, "principal_id": id, "connector_id": connector_id, "tools": tools, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "principal-lease-grants", &gid, &rec);
+    (StatusCode::OK, Json(json!({ "ok": true, "lease_grant": rec })))
+}
+/// GET /v1/hypervisor/principals/:id/lease-grants
+pub(crate) async fn handle_principal_lease_grant_list(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    let grants: Vec<Value> = read_record_dir(&st.data_dir, "principal-lease-grants").into_iter().filter(|g| g["principal_id"].as_str() == Some(id.as_str())).collect();
+    Json(json!({ "ok": true, "lease_grants": grants }))
+}
+/// DELETE /v1/hypervisor/principals/:id/lease-grants/:connector_id — revoke a principal's scope.
+pub(crate) async fn handle_principal_lease_grant_revoke(State(st): State<Arc<DaemonState>>, AxumPath((id, connector_id)): AxumPath<(String, String)>) -> Json<Value> {
+    let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
+    let removed = remove_record(&st.data_dir, "principal-lease-grants", &gid);
+    Json(json!({ "ok": true, "principal_id": id, "connector_id": connector_id, "revoked": removed }))
 }
 
 /// DELETE /v1/hypervisor/connectors/:id — remove a connector and its sealed credential entirely.
@@ -8504,11 +8542,17 @@ pub(crate) async fn handle_connector_device_poll(
 pub(crate) async fn handle_connector_invoke(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
     };
+    // The calling PRINCIPAL (identity) — attributed on the receipt and, when the connector is
+    // principal-scoped, checked against a per-principal lease grant. Identity scopes WHO may request
+    // the crossing; it does NOT replace the wallet authority that authorizes the crossing itself.
+    let caller = resolve_principal(&st.data_dir, &headers);
+    let caller_id = caller.as_ref().and_then(|p| p["principal_id"].as_str()).unwrap_or("unattributed").to_string();
     let service = connector["service"].as_str().unwrap_or("service").to_string();
     let kind = connector["kind"].as_str().unwrap_or("bearer").to_string();
     let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
@@ -8540,6 +8584,19 @@ pub(crate) async fn handle_connector_invoke(
     if let Some(allow) = org_policy["allowed_tools"].as_array() {
         if !allow.iter().any(|t| t.as_str() == Some(tool_name.as_str())) {
             return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "tool_not_in_policy", "message": format!("Org policy does not permit the tool '{tool_name}' on this integration."), "allowed_tools": allow })));
+        }
+    }
+
+    // PRINCIPAL-SCOPE gate (hardening #3) — least-privilege per principal. When the connector is
+    // principal-scoped, the CALLING principal must hold a lease grant for (connector, tool); roles
+    // grant nothing here — only an explicit per-principal grant does. Off → any caller (still
+    // wallet-gated). This composes BEFORE the wallet crossing.
+    if org_policy["principal_scoped"].as_bool().unwrap_or(false) {
+        if caller.is_none() {
+            return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "principal_required", "message": "This integration is principal-scoped; the caller must be an authenticated principal." })));
+        }
+        if !principal_has_lease_grant(&st.data_dir, &caller_id, &id, &tool_name) {
+            return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "principal_not_authorized", "message": format!("Principal '{caller_id}' has no lease grant for tool '{tool_name}' on this integration."), "principal_id": caller_id })));
         }
     }
 
@@ -8629,6 +8686,7 @@ pub(crate) async fn handle_connector_invoke(
         "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
         "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
         "method": method, "url": url, "status": status_code, "ok": ok,
+        "principal_id": caller_id, "principal_scoped": org_policy["principal_scoped"].as_bool().unwrap_or(false),
         "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
         "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
         "invoked_at": iso_now(),
