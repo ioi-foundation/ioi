@@ -677,6 +677,81 @@ export async function handle(pathname, bodyText) {
     }));
     return json({ pagination: {}, definitions: defs });
   }
+  // ---- SecretService: real daemon-SEALED secrets (the value never leaves the daemon) ----
+  // Org/User/Project secrets are credentials → sealed at rest in the daemon; we project only the
+  // METADATA onto the native shape. scope is a connect-JSON oneof ({organizationId|userId|projectId});
+  // ListSecrets is filtered by the requested scope so the org page and the user page each show only
+  // their own secrets (single-operator local, but the scoping is honest and ready for multi-scope).
+  const secretScopeKey = (scope = {}) => {
+    if (!scope || typeof scope !== "object") return "global";
+    if (scope.organizationId) return `organizationId:${scope.organizationId}`;
+    if (scope.userId) return `userId:${scope.userId}`;
+    if (scope.projectId) return `projectId:${scope.projectId}`;
+    return "global";
+  };
+  // `scope` is a NESTED message ({userId|organizationId|projectId}); `mount` is a TOP-LEVEL oneof
+  // that connect-JSON flattens to `environmentVariable:{}` | `filePath:"..."`. We store the mount as a
+  // structured object and re-flatten it onto the Secret so the row's Type column renders on reload.
+  const mountFromBody = (b) =>
+    b.filePath !== undefined ? { filePath: b.filePath }
+      : b.environmentVariable !== undefined ? { environmentVariable: b.environmentVariable || {} }
+        : b.mount && typeof b.mount === "object" ? b.mount
+          : null;
+  const daemonSecretToGitpod = (s) => ({
+    id: s.secret_id,
+    name: s.name,
+    scope: s.scope || {},
+    ...(s.mount && typeof s.mount === "object" ? s.mount : {}),
+    ...(s.credential_proxy ? { credentialProxy: s.credential_proxy } : {}),
+    createdAt: s.created_at,
+  });
+  if (pathname === "/api/gitpod.v1.SecretService/ListSecrets") {
+    const wantKey = secretScopeKey(body.filter?.scope || body.scope || {});
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/secrets");
+      const secrets = (r.secrets || [])
+        .filter((s) => wantKey === "global" || s.scope_key === wantKey)
+        .map(daemonSecretToGitpod);
+      return json({ pagination: {}, secrets });
+    } catch {
+      return json({ pagination: {}, secrets: [] });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.SecretService/CreateSecret") {
+    const name = (body.name || "").trim();
+    if (!name) return jsonStatus(400, { code: "invalid_argument", message: "secret name is required" });
+    const value = body.value || "";
+    if (!value) return jsonStatus(400, { code: "invalid_argument", message: "secret value is required" });
+    try {
+      const r = await daemon("POST", "/v1/hypervisor/secrets", { name, value, scope: body.scope || {}, mount: mountFromBody(body), credentialProxy: body.credentialProxy || null });
+      if (!r.ok) return jsonStatus(502, { code: "unavailable", message: r.reason || "failed to create secret" });
+      return json({ secret: daemonSecretToGitpod(r.secret) });
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to create secret: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.SecretService/UpdateSecretValue") {
+    const id = body.secretId || body.id;
+    const value = body.value || "";
+    if (!id || !value) return jsonStatus(400, { code: "invalid_argument", message: "secretId and value are required" });
+    try {
+      const r = await daemon("POST", `/v1/hypervisor/secrets/${encodeURIComponent(id)}/value`, { value });
+      if (!r.ok) return jsonStatus(404, { code: "not_found", message: r.reason || "unknown secret" });
+      return json({});
+    } catch (e) {
+      return jsonStatus(502, { code: "unavailable", message: `failed to update secret: ${e.message}` });
+    }
+  }
+  if (pathname === "/api/gitpod.v1.SecretService/DeleteSecret") {
+    const id = body.secretId || body.id;
+    if (!id) return jsonStatus(400, { code: "invalid_argument", message: "secretId is required" });
+    try {
+      await daemon("DELETE", `/v1/hypervisor/secrets/${encodeURIComponent(id)}`);
+    } catch {
+      /* idempotent: already gone -> still report removed */
+    }
+    return json({});
+  }
   if (pathname === "/api/gitpod.v1.RunnerConfigurationService/ListHostAuthenticationTokens") {
     // The user's connected git authentications — projected from the daemon's sealed host connectors
     // (a bound github host credential = one git authentication). Tokens themselves never surface.

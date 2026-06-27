@@ -8787,6 +8787,147 @@ pub(crate) async fn handle_scm_connector_revoke_credential(
     Json(json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }))
 }
 
+// ============================================================================================
+// Secrets plane — org/user/project secrets, SEALED at rest in the daemon. The value is encrypted
+// with the same passphrase-derived key as SCM credentials and stored in a SEPARATE `secret-values`
+// record that is NEVER returned by any list/get. The `secrets` record holds METADATA ONLY (name,
+// scope, mount) so the surface can render without ever exposing the value. This backs the native
+// Org/User Settings → Secrets pages (previously mock-only). Boundary: daemon EXECUTES (holds the
+// sealed value), the agent/session/UI receive only metadata; injection into environments is the
+// downstream consumer (a secret is "available in new environments" per the native copy).
+// ============================================================================================
+
+/// Generic value sealing (delegates to the SCM token sealer — same Argon2id+AEAD key). Named for
+/// the secrets plane so call sites read honestly.
+fn seal_value(plain: &str) -> Option<String> {
+    seal_scm_token(plain)
+}
+
+/// Derive a stable scope key from a connect-JSON SecretScope ({organizationId|userId|projectId:..}).
+/// Used both to namespace the secret id (unique per scope+name) and to filter list-by-scope.
+fn secret_scope_key(scope: &Value) -> String {
+    for k in [
+        "organizationId",
+        "userId",
+        "projectId",
+        "organization_id",
+        "user_id",
+        "project_id",
+    ] {
+        if let Some(v) = scope.get(k).and_then(Value::as_str) {
+            if !v.is_empty() {
+                // normalize snake/camel to a single key form for stability
+                let norm = k.trim_end_matches("_id").replace("_id", "");
+                let norm = match norm.as_str() {
+                    "organization" | "organizationId" => "organizationId",
+                    "user" | "userId" => "userId",
+                    "project" | "projectId" => "projectId",
+                    other => other,
+                };
+                return format!("{norm}:{v}");
+            }
+        }
+    }
+    "global".to_string()
+}
+
+/// POST /v1/hypervisor/secrets — create (or overwrite) a secret. Seals the value; persists metadata.
+pub(crate) async fn handle_secret_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let name = body.get("name").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    if name.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "name is required" })));
+    }
+    let value = body.get("value").and_then(Value::as_str).unwrap_or("");
+    if value.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "value is required" })));
+    }
+    let scope = body.get("scope").cloned().unwrap_or(Value::Null);
+    let mount = body.get("mount").cloned().unwrap_or(Value::Null);
+    let credential_proxy = body
+        .get("credential_proxy")
+        .or_else(|| body.get("credentialProxy"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let scope_key = secret_scope_key(&scope);
+    let secret_id = format!("sec_{}", short_hash(&format!("{scope_key}:{name}")));
+    let Some(sealed) = seal_value(value) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal secret" })));
+    };
+    let key_source = scm_key_source();
+    let now = iso_now();
+    // Preserve created_at on overwrite (same scope+name => same id).
+    let created_at = read_record_dir(&st.data_dir, "secrets")
+        .into_iter()
+        .find(|s| s["secret_id"].as_str() == Some(secret_id.as_str()))
+        .and_then(|s| s["created_at"].as_str().map(String::from))
+        .unwrap_or_else(|| now.clone());
+    let record = json!({
+        "schema_version": "ioi.hypervisor.secret.v1",
+        "secret_id": secret_id,
+        "name": name,
+        "scope": scope,
+        "scope_key": scope_key,
+        "mount": mount,
+        "credential_proxy": credential_proxy,
+        "key_source": key_source,
+        "sealed": true,
+        "created_at": created_at,
+        "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "secrets", &secret_id, &record);
+    // Sealed value lives in a SEPARATE record, never surfaced by any read.
+    let cred = json!({ "secret_id": secret_id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "secret-values", &secret_id, &cred);
+    (StatusCode::OK, Json(json!({ "ok": true, "secret": record })))
+}
+
+/// GET /v1/hypervisor/secrets — list secret METADATA (never values).
+pub(crate) async fn handle_secret_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "secrets": read_record_dir(&st.data_dir, "secrets") }))
+}
+
+/// POST /v1/hypervisor/secrets/:id/value — rotate the sealed value (name/scope unchanged).
+pub(crate) async fn handle_secret_update_value(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let value = body.get("value").and_then(Value::as_str).unwrap_or("");
+    if value.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "value is required" })));
+    }
+    let Some(mut record) = read_record_dir(&st.data_dir, "secrets")
+        .into_iter()
+        .find(|s| s["secret_id"].as_str() == Some(id.as_str()))
+    else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "unknown secret_id" })));
+    };
+    let Some(sealed) = seal_value(value) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to seal secret" })));
+    };
+    let key_source = scm_key_source();
+    let now = iso_now();
+    let cred = json!({ "secret_id": id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "secret-values", &id, &cred);
+    record["updated_at"] = json!(now);
+    record["key_source"] = json!(key_source);
+    let _ = persist_record(&st.data_dir, "secrets", &id, &record);
+    (StatusCode::OK, Json(json!({ "ok": true, "secret": record })))
+}
+
+/// DELETE /v1/hypervisor/secrets/:id — remove the secret (metadata + sealed value).
+pub(crate) async fn handle_secret_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "secrets", &id);
+    let _ = remove_record(&st.data_dir, "secret-values", &id);
+    Json(json!({ "ok": true, "secret_id": id, "removed": removed }))
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
 pub(crate) async fn handle_scm_publish(
     State(st): State<Arc<DaemonState>>,

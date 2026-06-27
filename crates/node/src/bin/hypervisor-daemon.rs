@@ -1084,6 +1084,20 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/capability-leases",
             get(lifecycle_routes::handle_capability_lease_list),
         )
+        // Secrets plane — org/user/project secrets SEALED at rest (value never returned).
+        .route(
+            "/v1/hypervisor/secrets",
+            get(lifecycle_routes::handle_secret_list)
+                .post(lifecycle_routes::handle_secret_create),
+        )
+        .route(
+            "/v1/hypervisor/secrets/:id/value",
+            post(lifecycle_routes::handle_secret_update_value),
+        )
+        .route(
+            "/v1/hypervisor/secrets/:id",
+            axum::routing::delete(lifecycle_routes::handle_secret_delete),
+        )
         // Generic connector estate — ANY service as a use-only lease through the same gateway.
         .route(
             "/v1/hypervisor/connectors",
