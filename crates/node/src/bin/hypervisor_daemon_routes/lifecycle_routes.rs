@@ -8189,18 +8189,24 @@ pub(crate) async fn handle_connector_invoke(
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
     };
     let service = connector["service"].as_str().unwrap_or("service").to_string();
+    let kind = connector["kind"].as_str().unwrap_or("bearer").to_string();
     let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
     let requires_credential = connector["requires_credential"].as_bool().unwrap_or(true);
     let tool_name = body.get("tool").and_then(Value::as_str).unwrap_or("").trim().to_string();
     if tool_name.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "tool is required" })));
     }
-    // The lease only permits DECLARED tools — the agent cannot invoke anything off-manifest.
-    let Some(tool) = connector["allowed_tools"].as_array().and_then(|tools| tools.iter().find(|t| t["name"].as_str() == Some(tool_name.as_str())).cloned()) else {
-        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "tool_not_allowed", "message": format!("'{tool_name}' is not a declared tool on this connector") })));
+    // For HTTP connectors the lease only permits DECLARED tools (off-manifest → refused). MCP servers
+    // define their own tools dynamically, so we don't gate on a static manifest — but the wallet
+    // grant still scopes to THIS tool name, so authority stays per-tool either way.
+    let (method, path) = if kind == "mcp" {
+        ("POST".to_string(), "/".to_string())
+    } else {
+        let Some(tool) = connector["allowed_tools"].as_array().and_then(|tools| tools.iter().find(|t| t["name"].as_str() == Some(tool_name.as_str())).cloned()) else {
+            return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "tool_not_allowed", "message": format!("'{tool_name}' is not a declared tool on this connector") })));
+        };
+        (tool["method"].as_str().unwrap_or("POST").to_uppercase(), tool["path"].as_str().unwrap_or("/").to_string())
     };
-    let method = tool["method"].as_str().unwrap_or("POST").to_uppercase();
-    let path = tool["path"].as_str().unwrap_or("/").to_string();
     let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
 
     // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
@@ -8228,30 +8234,39 @@ pub(crate) async fn handle_connector_invoke(
     };
     let token = lease.token.unwrap_or_default();
 
-    // daemon EXECUTES the authenticated call (the agent never holds the token).
-    let url = format!("{}{}", base_url, if path.starts_with('/') { path.clone() } else { format!("/{path}") });
-    let client = reqwest::Client::new();
-    let mut rb = match method.as_str() {
-        "GET" => client.get(&url),
-        "POST" => client.post(&url),
-        "PUT" => client.put(&url),
-        "PATCH" => client.patch(&url),
-        "DELETE" => client.delete(&url),
-        other => return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": format!("unsupported method {other}") }))),
-    };
-    rb = rb.header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").timeout(std::time::Duration::from_secs(20));
-    if !token.is_empty() { rb = rb.bearer_auth(&token); }
-    if method != "GET" { rb = rb.json(&request_args); }
-    let (status_code, response_value, error) = match rb.send().await {
-        Ok(r) => {
-            let sc = r.status().as_u16();
-            let text = r.text().await.unwrap_or_default();
-            // REDACT the credential from any echoed response before returning/recording.
-            let red = if token.is_empty() { text } else { text.replace(token.as_str(), "***") };
-            let parsed: Value = serde_json::from_str(&red).unwrap_or(Value::String(red.chars().take(2000).collect()));
-            (sc, parsed, None)
+    // daemon EXECUTES the authenticated call (the agent never holds the token). An MCP connector
+    // performs a JSON-RPC tools/call; any other connector performs the declared HTTP request.
+    let redact = |s: String| if token.is_empty() { s } else { s.replace(token.as_str(), "***") };
+    let url = if kind == "mcp" { base_url.clone() } else { format!("{}{}", base_url, if path.starts_with('/') { path.clone() } else { format!("/{path}") }) };
+    let (status_code, response_value, error) = if kind == "mcp" {
+        match mcp_call_tool(&base_url, &token, &tool_name, &request_args).await {
+            Ok(result) => {
+                let red = redact(serde_json::to_string(&result).unwrap_or_default());
+                (200u16, serde_json::from_str(&red).unwrap_or(result), None)
+            }
+            Err(e) => (502u16, Value::Null, Some(redact(e))),
         }
-        Err(e) => (0, Value::Null, Some(e.to_string().replace(token.as_str(), "***"))),
+    } else {
+        let client = reqwest::Client::new();
+        let mut rb = match method.as_str() {
+            "GET" => client.get(&url),
+            "POST" => client.post(&url),
+            "PUT" => client.put(&url),
+            "PATCH" => client.patch(&url),
+            "DELETE" => client.delete(&url),
+            other => return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": format!("unsupported method {other}") }))),
+        };
+        rb = rb.header("User-Agent", "ioi-hypervisor").header("Accept", "application/json").timeout(std::time::Duration::from_secs(20));
+        if !token.is_empty() { rb = rb.bearer_auth(&token); }
+        if method != "GET" { rb = rb.json(&request_args); }
+        match rb.send().await {
+            Ok(r) => {
+                let sc = r.status().as_u16();
+                let red = redact(r.text().await.unwrap_or_default());
+                (sc, serde_json::from_str(&red).unwrap_or(Value::String(red.chars().take(2000).collect())), None)
+            }
+            Err(e) => (0, Value::Null, Some(redact(e.to_string()))),
+        }
     };
     let ok = (200..300).contains(&status_code);
     let receipt_id = format!("invk_{}", short_hash(&format!("{id}:{tool_name}:{status_code}")));
@@ -8265,6 +8280,34 @@ pub(crate) async fn handle_connector_invoke(
     });
     let _ = persist_record(&st.data_dir, "connector-invoke-receipts", &receipt_id, &receipt);
     (StatusCode::OK, Json(json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt })))
+}
+
+/// GET /v1/hypervisor/connectors/:id/mcp/tools — discover an MCP connector's tools (read-only). Uses
+/// the resolved credential (428 if required + unbound); discovery is grant-free, tools/call is leased.
+pub(crate) async fn handle_connector_mcp_tools(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) else {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "unknown connector_id" })));
+    };
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(true);
+    let token = if requires_credential {
+        match read_record_dir(&st.data_dir, "connector-credentials").into_iter().find(|c| c["connector_id"].as_str() == Some(id.as_str())) {
+            Some(rec) => resolve_sealed_credential(&rec).await.0,
+            None => None,
+        }
+    } else {
+        None
+    };
+    if requires_credential && token.is_none() {
+        return (StatusCode::PRECONDITION_REQUIRED, Json(json!({ "ok": false, "reason": "scm_credential_required", "message": "Bind a credential before discovering MCP tools." })));
+    }
+    match mcp_list_tools(&base_url, &token.unwrap_or_default()).await {
+        Ok(tools) => (StatusCode::OK, Json(json!({ "ok": true, "tools": tools }))),
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "reason": e }))),
+    }
 }
 
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
@@ -8724,6 +8767,109 @@ async fn mint_oauth_access_token(token_url: &str, client_id: &str, client_secret
     } else {
         Err(format!("oauth refresh {}: {}", status.as_u16(), body.get("error").and_then(Value::as_str).unwrap_or("error")))
     }
+}
+
+// ---- Minimal MCP (Model Context Protocol) client over Streamable HTTP ----------------------------
+// The native Integrations surface consumes MCP servers; this lets the daemon BE an MCP client so an
+// MCP integration's tools become available to the agent — each tool call governed by a wallet lease.
+// Does the initialize handshake (capturing Mcp-Session-Id), then tools/list or tools/call. Handles
+// both JSON and SSE responses. The token never leaves the daemon.
+
+fn parse_mcp_response(content_type: &str, text: &str) -> Result<Value, String> {
+    if content_type.contains("text/event-stream") {
+        for line in text.lines().rev() {
+            if let Some(rest) = line.strip_prefix("data:") {
+                let t = rest.trim();
+                if t.starts_with('{') {
+                    return serde_json::from_str(t).map_err(|e| e.to_string());
+                }
+            }
+        }
+        Err("no data frame in SSE response".to_string())
+    } else {
+        serde_json::from_str(text).map_err(|e| e.to_string())
+    }
+}
+
+async fn mcp_request(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    session: &Option<String>,
+    method: &str,
+    params: Value,
+    id: Option<i64>,
+) -> Result<(Value, Option<String>), String> {
+    let mut body = serde_json::Map::new();
+    body.insert("jsonrpc".to_string(), json!("2.0"));
+    body.insert("method".to_string(), json!(method));
+    if let Some(i) = id {
+        body.insert("id".to_string(), json!(i));
+    }
+    body.insert("params".to_string(), params);
+    let mut rb = client
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .header("MCP-Protocol-Version", "2025-06-18")
+        .timeout(std::time::Duration::from_secs(25))
+        .json(&Value::Object(body));
+    if !token.is_empty() {
+        rb = rb.bearer_auth(token);
+    }
+    if let Some(s) = session {
+        rb = rb.header("Mcp-Session-Id", s.as_str());
+    }
+    let resp = rb.send().await.map_err(|e| e.to_string())?;
+    let new_session = resp
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
+        .or_else(|| session.clone());
+    let status = resp.status();
+    let ct = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+    let text = resp.text().await.unwrap_or_default();
+    if id.is_none() {
+        return Ok((Value::Null, new_session)); // notification — no response body
+    }
+    if !status.is_success() {
+        return Err(format!("mcp {method} {}: {}", status.as_u16(), text.chars().take(200).collect::<String>()));
+    }
+    let parsed = parse_mcp_response(&ct, &text)?;
+    if let Some(err) = parsed.get("error") {
+        return Err(format!("mcp {method} error: {}", err.get("message").and_then(Value::as_str).unwrap_or("error")));
+    }
+    Ok((parsed.get("result").cloned().unwrap_or(Value::Null), new_session))
+}
+
+const MCP_CLIENT_INIT: fn() -> Value = || json!({
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": { "name": "ioi-hypervisor", "version": "1" },
+});
+
+/// MCP initialize handshake → returns the session id for the follow-on calls.
+async fn mcp_handshake(client: &reqwest::Client, url: &str, token: &str) -> Result<Option<String>, String> {
+    let (_init, session) = mcp_request(client, url, token, &None, "initialize", MCP_CLIENT_INIT(), Some(1)).await?;
+    let _ = mcp_request(client, url, token, &session, "notifications/initialized", json!({}), None).await;
+    Ok(session)
+}
+
+/// List an MCP server's tools (read-only discovery).
+async fn mcp_list_tools(url: &str, token: &str) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let session = mcp_handshake(&client, url, token).await?;
+    let (result, _) = mcp_request(&client, url, token, &session, "tools/list", json!({}), Some(2)).await?;
+    Ok(result.get("tools").cloned().unwrap_or_else(|| json!([])))
+}
+
+/// Call one MCP tool (the lease-governed crossing performs this).
+async fn mcp_call_tool(url: &str, token: &str, name: &str, args: &Value) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let session = mcp_handshake(&client, url, token).await?;
+    let (result, _) = mcp_request(&client, url, token, &session, "tools/call", json!({ "name": name, "arguments": args }), Some(2)).await?;
+    Ok(result)
 }
 
 /// POST /v1/hypervisor/scm-connectors/:id/abandon-pull-request — the wallet-authorized CLEANUP

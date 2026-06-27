@@ -1104,6 +1104,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(lifecycle_routes::handle_connector_invoke),
         )
         .route(
+            "/v1/hypervisor/connectors/:id/mcp/tools",
+            get(lifecycle_routes::handle_connector_mcp_tools),
+        )
+        .route(
             "/v1/hypervisor/scm-connect/github",
             post(lifecycle_routes::handle_scm_connect_github),
         )
