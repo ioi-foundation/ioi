@@ -9030,6 +9030,251 @@ pub(crate) async fn handle_api_token_delete(
 }
 
 // ============================================================================================
+// Identity & Auth plane (multi-user IdP) — principals, sessions, and a gated inbound auth ring.
+// This is the OUTER ring (who is calling); it COMPOSES with — does not replace — the wallet/lease
+// authority model (what a crossing is allowed to do). Enforcement is policy-gated (default OFF) so
+// the single-operator localhost runtime is untouched until an org turns authentication on.
+// Boundary: passwords + tokens are HASHED at rest (salted sha256); the plaintext is never stored.
+// ============================================================================================
+
+const OPERATOR_ID: &str = "00000000-0000-4000-8000-000000000001";
+
+// Password hashing is Argon2id via dcrypt (ioi_crypto::key_store). The stored field is the hex of
+// `salt(16) || hash(32)`; verification re-derives. Never reversible, never sha256.
+fn hash_password(pw: &str) -> Option<String> {
+    ioi_crypto::key_store::hash_password(pw).ok().map(hex::encode)
+}
+fn verify_password(pw: &str, stored_hex: &str) -> bool {
+    match hex::decode(stored_hex) {
+        Ok(bytes) => ioi_crypto::key_store::verify_password(pw, &bytes),
+        Err(_) => false,
+    }
+}
+fn gen_opaque(prefix: &str) -> String {
+    format!("{prefix}_{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple())
+}
+fn principal_public(mut p: Value) -> Value {
+    if let Some(o) = p.as_object_mut() { o.remove("salt"); o.remove("password_hash"); }
+    p
+}
+/// Lazily ensure the single bootstrap operator principal exists (admin, no password until set).
+fn ensure_operator(data_dir: &str) {
+    let exists = read_record_dir(data_dir, "principals").iter().any(|p| p["principal_id"].as_str() == Some(OPERATOR_ID));
+    if !exists {
+        let now = iso_now();
+        let p = json!({
+            "schema_version": "ioi.hypervisor.principal.v1",
+            "principal_id": OPERATOR_ID, "email": "johndoe@ioi.local", "name": "John Doe",
+            "role": "admin", "status": "active", "source": "local-operator",
+            "created_at": now, "updated_at": now,
+        });
+        let _ = persist_record(data_dir, "principals", OPERATOR_ID, &p);
+    }
+}
+fn find_principal(data_dir: &str, id: &str) -> Option<Value> {
+    read_record_dir(data_dir, "principals").into_iter().find(|p| p["principal_id"].as_str() == Some(id))
+}
+fn find_principal_by_email(data_dir: &str, email: &str) -> Option<Value> {
+    let e = email.trim().to_lowercase();
+    read_record_dir(data_dir, "principals").into_iter().find(|p| p["email"].as_str().map(|x| x.to_lowercase()) == Some(e.clone()))
+}
+fn auth_policy(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "auth-policy").into_iter().find(|p| p["id"].as_str() == Some("policy"))
+        .unwrap_or_else(|| json!({ "id": "policy", "require_authentication": false, "allowed_methods": ["local", "oidc", "sso", "api-token"] }))
+}
+/// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
+/// token OR an API access token whose hash we stored). Returns the public principal record.
+fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+    // 1) session cookie
+    let mut session_tok: Option<String> = None;
+    if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
+        for part in cookie.split(';') {
+            let kv = part.trim();
+            if let Some(v) = kv.strip_prefix("ioi_session=") { session_tok = Some(v.to_string()); }
+        }
+    }
+    // 2) bearer (session token or API token)
+    let bearer = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).map(|s| s.trim().to_string());
+    let try_session = |tok: &str| -> Option<Value> {
+        let h = sha256_hex_str(tok);
+        let now = iso_now();
+        read_record_dir(data_dir, "sessions").into_iter()
+            .find(|s| s["token_hash"].as_str() == Some(h.as_str()) && s["expires_at"].as_str().map(|e| e > now.as_str()).unwrap_or(false))
+            .and_then(|s| s["principal_id"].as_str().map(String::from))
+            .and_then(|pid| find_principal(data_dir, &pid))
+    };
+    if let Some(tok) = &session_tok { if let Some(p) = try_session(tok) { if p["status"].as_str() == Some("active") { return Some(principal_public(p)); } } }
+    if let Some(tok) = &bearer {
+        if let Some(p) = try_session(tok) { if p["status"].as_str() == Some("active") { return Some(principal_public(p)); } }
+        // API access token: match the stored hash → its user_id → principal
+        let h = sha256_hex_str(tok);
+        if let Some(rec) = read_record_dir(data_dir, "api-tokens").into_iter().find(|t| t["token_hash"].as_str() == Some(h.as_str())) {
+            if let Some(uid) = rec["user_id"].as_str() {
+                if let Some(p) = find_principal(data_dir, uid) { if p["status"].as_str() == Some("active") { return Some(principal_public(p)); } }
+            }
+        }
+    }
+    None
+}
+
+/// Axum middleware: when auth-policy.require_authentication is ON, reject unauthenticated requests to
+/// the hypervisor data plane (401). Auth endpoints + non-hypervisor paths are always exempt so a
+/// client can still log in. Default policy is OFF → pure passthrough (local runtime untouched).
+pub(crate) async fn auth_gate(
+    State(st): State<Arc<DaemonState>>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let path = req.uri().path().to_string();
+    let exempt = !path.starts_with("/v1/hypervisor/")
+        || path.starts_with("/v1/hypervisor/auth/")
+        || path == "/v1/hypervisor/editor-targets"; // readiness probe
+    if !exempt && auth_policy(&st.data_dir)["require_authentication"].as_bool().unwrap_or(false) {
+        if resolve_principal(&st.data_dir, req.headers()).is_none() {
+            return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required" }))).into_response();
+        }
+    }
+    next.run(req).await
+}
+
+/// POST /v1/hypervisor/auth/login — local credential login. Returns an opaque session token (the
+/// caller — the serve layer — sets it as an HttpOnly cookie). The token hash is stored, never the token.
+pub(crate) async fn handle_auth_login(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    let email = body.get("email").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let pw = body.get("password").and_then(Value::as_str).unwrap_or("");
+    let Some(p) = find_principal_by_email(&st.data_dir, &email) else {
+        return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "invalid_credentials" })));
+    };
+    if p["status"].as_str() != Some("active") {
+        return (StatusCode::FORBIDDEN, Json(json!({ "ok": false, "reason": "account_deactivated" })));
+    }
+    let stored = p["password_hash"].as_str().unwrap_or("");
+    if stored.is_empty() || !verify_password(pw, stored) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "invalid_credentials" })));
+    }
+    let (status, sess) = issue_session(&st.data_dir, p["principal_id"].as_str().unwrap_or(""), "local");
+    (status, Json(sess))
+}
+
+/// Issue a session for a principal (shared by local login + OIDC/SSO callback). Returns the plaintext
+/// session token ONCE.
+fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCode, Value) {
+    let Some(p) = find_principal(data_dir, principal_id) else {
+        return (StatusCode::NOT_FOUND, json!({ "ok": false, "reason": "unknown_principal" }));
+    };
+    let token = gen_opaque("ioi_sess");
+    let sid = format!("sess_{}", short_hash(&sha256_hex_str(&token)));
+    let rec = json!({
+        "session_id": sid, "token_hash": sha256_hex_str(&token), "principal_id": principal_id,
+        "source": source, "created_at": iso_now(), "expires_at": iso_in_seconds(7 * 24 * 3600),
+    });
+    let _ = persist_record(data_dir, "sessions", &sid, &rec);
+    (StatusCode::OK, json!({ "ok": true, "session_token": token, "expires_at": rec["expires_at"], "principal": principal_public(p) }))
+}
+
+/// POST /v1/hypervisor/auth/logout — revoke the current session.
+pub(crate) async fn handle_auth_logout(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> Json<Value> {
+    let mut tok: Option<String> = None;
+    if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
+        for part in cookie.split(';') { if let Some(v) = part.trim().strip_prefix("ioi_session=") { tok = Some(v.to_string()); } }
+    }
+    if tok.is_none() { tok = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).map(|s| s.trim().to_string()); }
+    if let Some(tok) = tok {
+        let h = sha256_hex_str(&tok);
+        if let Some(s) = read_record_dir(&st.data_dir, "sessions").into_iter().find(|s| s["token_hash"].as_str() == Some(h.as_str())) {
+            if let Some(sid) = s["session_id"].as_str() { remove_record(&st.data_dir, "sessions", sid); }
+        }
+    }
+    Json(json!({ "ok": true }))
+}
+
+/// GET /v1/hypervisor/auth/whoami — the authenticated principal (401 if none and auth required;
+/// otherwise falls back to the bootstrap operator so local-mode reads keep working).
+pub(crate) async fn handle_auth_whoami(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    if let Some(p) = resolve_principal(&st.data_dir, &headers) {
+        return (StatusCode::OK, Json(json!({ "ok": true, "principal": p, "authenticated": true })));
+    }
+    if auth_policy(&st.data_dir)["require_authentication"].as_bool().unwrap_or(false) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required" })));
+    }
+    let op = find_principal(&st.data_dir, OPERATOR_ID).map(principal_public).unwrap_or(Value::Null);
+    (StatusCode::OK, Json(json!({ "ok": true, "principal": op, "authenticated": false })))
+}
+
+/// GET /v1/hypervisor/auth/policy — the enforcement policy.
+pub(crate) async fn handle_auth_policy_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "policy": auth_policy(&st.data_dir) }))
+}
+/// PUT /v1/hypervisor/auth/policy — toggle enforcement / allowed methods.
+pub(crate) async fn handle_auth_policy_set(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
+    let mut p = auth_policy(&st.data_dir);
+    if let Some(v) = body.get("require_authentication").and_then(Value::as_bool) { p["require_authentication"] = json!(v); }
+    if let Some(v) = body.get("allowed_methods").cloned() { if v.is_array() { p["allowed_methods"] = v; } }
+    p["id"] = json!("policy");
+    p["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "auth-policy", "policy", &p);
+    Json(json!({ "ok": true, "policy": p }))
+}
+
+/// GET /v1/hypervisor/principals — list members (public records, no secrets).
+pub(crate) async fn handle_principal_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    ensure_operator(&st.data_dir);
+    let ps: Vec<Value> = read_record_dir(&st.data_dir, "principals").into_iter().map(principal_public).collect();
+    Json(json!({ "ok": true, "principals": ps }))
+}
+/// POST /v1/hypervisor/principals — create/provision a principal (optionally with a local password).
+pub(crate) async fn handle_principal_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let email = body.get("email").and_then(Value::as_str).unwrap_or("").trim().to_lowercase();
+    if email.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "email is required" }))); }
+    if let Some(existing) = find_principal_by_email(&st.data_dir, &email) {
+        return (StatusCode::OK, Json(json!({ "ok": true, "principal": principal_public(existing), "existed": true })));
+    }
+    let now = iso_now();
+    let pid = body.get("principal_id").and_then(Value::as_str).map(String::from).unwrap_or_else(|| format!("usr_{}", short_hash(&format!("{email}:{now}"))));
+    let mut p = json!({
+        "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+        "name": body.get("name").and_then(Value::as_str).unwrap_or(&email),
+        "role": body.get("role").and_then(Value::as_str).unwrap_or("member"),
+        "status": "active", "source": body.get("source").and_then(Value::as_str).unwrap_or("local"),
+        "created_at": now, "updated_at": now,
+    });
+    if let Some(pw) = body.get("password").and_then(Value::as_str) {
+        if !pw.is_empty() { if let Some(h) = hash_password(pw) { p["password_hash"] = json!(h); } }
+    }
+    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+    (StatusCode::OK, Json(json!({ "ok": true, "principal": principal_public(p) })))
+}
+/// POST /v1/hypervisor/principals/:id/password — set/rotate a local password.
+pub(crate) async fn handle_principal_set_password(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    let Some(mut p) = find_principal(&st.data_dir, &id) else { return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "unknown_principal" }))); };
+    let pw = body.get("password").and_then(Value::as_str).unwrap_or("");
+    if pw.is_empty() { return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "reason": "password is required" }))); }
+    let Some(h) = hash_password(pw) else { return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "reason": "failed to hash password" }))); };
+    p["password_hash"] = json!(h); p["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "principals", &id, &p);
+    (StatusCode::OK, Json(json!({ "ok": true })))
+}
+/// DELETE /v1/hypervisor/principals/:id — deactivate a principal (the operator cannot be removed).
+pub(crate) async fn handle_principal_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    if id == OPERATOR_ID { return Json(json!({ "ok": false, "reason": "cannot_remove_operator" })); }
+    if let Some(mut p) = find_principal(&st.data_dir, &id) {
+        p["status"] = json!("deactivated"); p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        // revoke their sessions
+        for s in read_record_dir(&st.data_dir, "sessions").into_iter().filter(|s| s["principal_id"].as_str() == Some(id.as_str())) {
+            if let Some(sid) = s["session_id"].as_str() { remove_record(&st.data_dir, "sessions", sid); }
+        }
+    }
+    Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" }))
+}
+
+// ============================================================================================
 // Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
 // is derived from actual agentgres records (the `receipts` the daemon already writes for every
 // session/agent execution), NOT fabricated. Transparent self-hosted OCU (Hypervisor Compute Unit)

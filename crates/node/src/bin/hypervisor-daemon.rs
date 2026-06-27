@@ -1388,6 +1388,28 @@ async fn async_main() -> anyhow::Result<()> {
         .route("/v1/runs/:id/scorecard", get(lifecycle_routes::handle_run_scorecard))
         .route("/v1/runs/:id/artifacts", get(lifecycle_routes::handle_run_artifacts))
         .route("/v1/runs/:id/artifacts/:ref", get(lifecycle_routes::handle_run_artifact))
+        // Identity & Auth plane (multi-user IdP) — principals, sessions, gated enforcement.
+        .route("/v1/hypervisor/auth/login", post(lifecycle_routes::handle_auth_login))
+        .route("/v1/hypervisor/auth/logout", post(lifecycle_routes::handle_auth_logout))
+        .route("/v1/hypervisor/auth/whoami", get(lifecycle_routes::handle_auth_whoami))
+        .route(
+            "/v1/hypervisor/auth/policy",
+            get(lifecycle_routes::handle_auth_policy_get).put(lifecycle_routes::handle_auth_policy_set),
+        )
+        .route(
+            "/v1/hypervisor/principals",
+            get(lifecycle_routes::handle_principal_list).post(lifecycle_routes::handle_principal_create),
+        )
+        .route(
+            "/v1/hypervisor/principals/:id",
+            axum::routing::delete(lifecycle_routes::handle_principal_delete),
+        )
+        .route(
+            "/v1/hypervisor/principals/:id/password",
+            post(lifecycle_routes::handle_principal_set_password),
+        )
+        // Gated inbound auth ring — wraps every route above; enforces only when auth-policy says so.
+        .layer(axum::middleware::from_fn_with_state(state.clone(), lifecycle_routes::auth_gate))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;

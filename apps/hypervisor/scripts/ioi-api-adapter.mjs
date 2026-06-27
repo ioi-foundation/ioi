@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { threadToAgentExecution, daemonEnvToGitpod } from "./ioi-projection.mjs";
 import {
   startAgentRun,
@@ -33,6 +34,9 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".."
 const APP_LOCAL = join(REPO_ROOT, ".ioi", "hypervisor-app-local");
 const PREF_STORE = join(APP_LOCAL, "app-preferences.json");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Per-request context: carries the caller's session cookie so daemon calls forward the principal
+// when auth enforcement is on (the daemon's auth_gate reads ioi_session= / Bearer). Off → no-op.
+const reqCtx = new AsyncLocalStorage();
 
 const json = (payload) => ({ contentType: "application/json", body: JSON.stringify(payload) });
 // Connect-protocol error: non-2xx HTTP + {code,message} so the SPA's client rejects (e.g. a
@@ -57,9 +61,12 @@ const IDENTITY = {
 };
 
 async function daemon(method, path, body) {
+  const headers = body ? { "Content-Type": "application/json" } : {};
+  const cookie = reqCtx.getStore()?.cookie;
+  if (cookie) headers.Cookie = cookie; // forward the caller's session so enforcement resolves the principal
   const res = await fetch(DAEMON + path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(8000),
   });
@@ -200,7 +207,14 @@ async function waitForRunTerminal(runId, timeoutMs = 45000) {
   return getRun(runId);
 }
 
-export async function handle(pathname, bodyText) {
+export async function handle(pathname, bodyText, reqHeaders = {}) {
+  // Establish the per-request context (session cookie) so owned handlers' daemon calls carry the
+  // caller's identity under enforcement. Off → cookie undefined → no-op.
+  const cookie = reqHeaders.cookie || reqHeaders.Cookie || "";
+  return reqCtx.run({ cookie }, () => handleImpl(pathname, bodyText));
+}
+
+async function handleImpl(pathname, bodyText) {
   let body = {};
   try {
     body = JSON.parse(bodyText || "{}");
@@ -283,6 +297,15 @@ export async function handle(pathname, bodyText) {
 
   // ---- Identity: UserService / AccountService / OrganizationService (local single operator) ----
   if (pathname === "/api/gitpod.v1.UserService/GetAuthenticatedUser") {
+    // Reflect the authenticated session principal (the logged-in user), falling back to the local
+    // operator when auth isn't enforced / no session.
+    try {
+      const w = await daemon("GET", "/v1/hypervisor/auth/whoami");
+      const p = w.principal;
+      if (p && p.principal_id) {
+        return json({ user: { id: p.principal_id, organizationId: IDENTITY.orgId, name: p.name || IDENTITY.name, avatarUrl: "", createdAt: p.created_at || IDENTITY.createdAt, status: p.status === "active" ? "USER_STATUS_ACTIVE" : "USER_STATUS_SUSPENDED", email: p.email || IDENTITY.email } });
+      }
+    } catch { /* fall through to operator identity */ }
     return json({ user: { id: IDENTITY.userId, organizationId: IDENTITY.orgId, name: IDENTITY.name, avatarUrl: "", createdAt: IDENTITY.createdAt, status: "USER_STATUS_ACTIVE", email: IDENTITY.email } });
   }
   if (pathname === "/api/gitpod.v1.AccountService/GetAccount") {
@@ -586,6 +609,15 @@ export async function handle(pathname, bodyText) {
     return json({ dotfilesConfiguration: { repository: "" } });
   }
   if (pathname === "/api/gitpod.v1.OrganizationService/ListMembers") {
+    // Real multi-user roster — projected from the daemon principals plane (active members only).
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/principals");
+      const members = (r.principals || []).filter((p) => p.status === "active").map((p) => ({
+        userId: p.principal_id, role: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER",
+        memberSince: p.created_at, avatarUrl: "", fullName: p.name, email: p.email, status: "USER_STATUS_ACTIVE", loginProvider: p.source || "local",
+      }));
+      if (members.length) return json({ pagination: {}, members });
+    } catch { /* fall through to the single operator */ }
     return json({ pagination: {}, members: [{ userId: IDENTITY.userId, role: "ORGANIZATION_ROLE_ADMIN", memberSince: IDENTITY.createdAt, avatarUrl: "", fullName: IDENTITY.name, email: IDENTITY.email, status: "USER_STATUS_ACTIVE", loginProvider: "local" }] });
   }
   if (pathname === "/api/gitpod.v1.GroupService/GetGroup") {

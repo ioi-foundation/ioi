@@ -978,6 +978,28 @@ async function handleSupervisorStream(route, req, res, body) {
   return true;
 }
 
+// Owned login surface (Identity & Auth plane). Posts to the daemon auth plane; the session token
+// comes back and is set as an HttpOnly cookie. SSO buttons are injected in Phase 2.
+function loginShell(error) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in · IOI Hypervisor</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:#0b0c0f;color:#e7e9ee;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.card{width:360px;background:#15171c;border:1px solid #262a33;border-radius:14px;padding:28px}
+.brand{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a90a0;margin-bottom:6px}
+h1{font-size:20px;margin:0 0 18px}label{display:block;font-size:13px;color:#aeb4c2;margin:12px 0 5px}
+input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
+button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.err{margin-top:14px;color:#ff9b9b;font-size:13px}.hint{margin-top:16px;color:#6a7080;font-size:12px;text-align:center}
+</style></head><body><form class="card" method="POST" action="/__ioi/login">
+<div class="brand">IOI Hypervisor</div><h1>Sign in</h1>
+<label>Email</label><input name="email" type="email" autocomplete="username" autofocus placeholder="you@org.com">
+<label>Password</label><input name="password" type="password" autocomplete="current-password" placeholder="••••••••">
+<button type="submit">Sign in</button>
+${error ? `<div class="err">${error}</div>` : ""}
+<div class="hint">Authenticated by the Hypervisor identity plane · sessions are sealed</div>
+</form></body></html>`;
+}
+
 // 2) Front server: IOI /api adapter first, proxy everything else to the mirror.
 const server = http.createServer((req, res) => {
   const chunks = [];
@@ -1096,6 +1118,48 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
       return;
+    }
+    // ---- Identity & Auth (multi-user IdP): login / logout + session cookie ----
+    if (pathname === "/__ioi/login") {
+      if (req.method === "POST") {
+        const form = new URLSearchParams(body.toString("utf8"));
+        try {
+          const r = await fetch(`${DAEMON}/v1/hypervisor/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email") || "", password: form.get("password") || "" }) });
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d.ok && d.session_token) {
+            res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
+            res.end();
+            return;
+          }
+          res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(loginShell("Invalid email or password."));
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(loginShell(`Login service unavailable: ${e.message}`));
+        }
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(loginShell(""));
+      return;
+    }
+    if (pathname === "/__ioi/logout") {
+      try { await fetch(`${DAEMON}/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* best-effort */ }
+      res.writeHead(302, { "Set-Cookie": "ioi_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0", Location: "/__ioi/login" });
+      res.end();
+      return;
+    }
+    // ---- Page gate: when auth enforcement is ON, redirect unauthenticated HTML navigations to login
+    // (the daemon's whoami returns 401 only when enforced + no valid session). Off → 200 → passthrough.
+    {
+      const accept = req.headers["accept"] || "";
+      const isHtmlNav = req.method === "GET" && accept.includes("text/html") && !pathname.startsWith("/api/") && !pathname.startsWith("/__ioi/") && !pathname.startsWith("/static/") && !pathname.startsWith("/assets/") && !pathname.startsWith("/v1/") && pathname !== "/ioi-augmentation.js";
+      if (isHtmlNav) {
+        try {
+          const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "" } });
+          if (w.status === 401) { res.writeHead(302, { Location: "/__ioi/login" }); res.end(); return; }
+        } catch { /* daemon transient — fail open, never lock the operator out */ }
+      }
     }
     // Agent-run conversation. The SPA's V1 conversation pane (`sr` in use-conversation-stream) opens
     // the bare `conversationUrl` as a LONG-LIVED newline-delimited-JSON STREAM and reads it with a
@@ -1459,7 +1523,7 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith("/api/")) {
       let handled = null;
       try {
-        handled = await adapter.handle(pathname, body.toString("utf8"));
+        handled = await adapter.handle(pathname, body.toString("utf8"), req.headers);
       } catch (e) {
         console.error("[ioi-api-adapter]", e);
       }
