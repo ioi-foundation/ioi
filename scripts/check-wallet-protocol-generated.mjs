@@ -246,7 +246,7 @@ assertIncludes(
   hypervisorAuthorityCenter,
   "hypervisor-authority-center",
 );
-if (hypervisorAuthorityCenter.includes("autopilot-authority-center")) {
+if (hypervisorAuthorityCenter.includes("hypervisor-authority-center")) {
   throw new Error("Hypervisor Authority Center must not emit retired Autopilot authority audience names");
 }
 

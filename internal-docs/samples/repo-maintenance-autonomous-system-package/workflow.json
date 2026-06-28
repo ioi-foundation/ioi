@@ -75,8 +75,8 @@
           "modelRef": "reasoning",
           "modelBinding": {
             "modelId": "mounted-local-coder",
-            "modelCapabilityRef": "model-capability:autopilot.mounted.local-coder",
-            "routeId": "route.autopilot.local-first",
+            "modelCapabilityRef": "model-capability:hypervisor.mounted.local-coder",
+            "routeId": "route.hypervisor.local-first",
             "mockBinding": false,
             "credentialReadiness": { "status": "ready" },
             "grantReadiness": { "status": "ready" },
@@ -321,8 +321,8 @@
     "modelBindings": {
       "reasoning": {
         "modelId": "mounted-local-coder",
-        "modelCapabilityRef": "model-capability:autopilot.mounted.local-coder",
-        "routeId": "route.autopilot.local-first",
+        "modelCapabilityRef": "model-capability:hypervisor.mounted.local-coder",
+        "routeId": "route.hypervisor.local-first",
         "mockBinding": false,
         "credentialReadiness": { "status": "ready" },
         "grantReadiness": { "status": "ready" },

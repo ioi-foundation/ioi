@@ -500,7 +500,7 @@ async fn execute_gmail_watch(
     } else {
         let project = option_string(command, "project")
             .ok_or_else(|| "Gmail watch requires either `topic` or `project`.".to_string())?;
-        let topic = format!("autopilot-gmail-watch-{}", short_timestamp_suffix());
+        let topic = format!("hypervisor-gmail-watch-{}", short_timestamp_suffix());
         let full = normalize_pubsub_topic_name(Some(project.clone()), topic)?;
         ensure_pubsub_topic(client, access_token, &full).await?;
         full
@@ -517,7 +517,7 @@ async fn execute_gmail_watch(
         })?;
         normalize_pubsub_subscription_name(
             Some(project),
-            format!("autopilot-gmail-watch-{}", short_timestamp_suffix()),
+            format!("hypervisor-gmail-watch-{}", short_timestamp_suffix()),
         )?
     };
     ensure_pubsub_subscription(client, access_token, &subscription_name, &topic_name).await?;
@@ -1011,12 +1011,12 @@ async fn execute_workspace_events_subscribe(
         })?;
     let topic_name = normalize_pubsub_topic_name(
         Some(project.clone()),
-        format!("autopilot-workspace-events-{}", short_timestamp_suffix()),
+        format!("hypervisor-workspace-events-{}", short_timestamp_suffix()),
     )?;
     let subscription_name = normalize_pubsub_subscription_name(
         Some(project.clone()),
         option_string(command, "subscription")
-            .unwrap_or_else(|| format!("autopilot-workspace-events-{}", short_timestamp_suffix())),
+            .unwrap_or_else(|| format!("hypervisor-workspace-events-{}", short_timestamp_suffix())),
     )?;
     ensure_pubsub_topic(client, access_token, &topic_name).await?;
     ensure_pubsub_subscription(client, access_token, &subscription_name, &topic_name).await?;

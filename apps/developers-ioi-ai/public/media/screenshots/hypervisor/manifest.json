@@ -1,0 +1,89 @@
+{
+  "schema_version": "ioi.developers.media-capture.v1",
+  "capture_set": "hypervisor-gui-harness-validation-2026-05-15T11-10-45-852Z",
+  "captured_at": "2026-05-15T11:10:45.852Z",
+  "source_evidence_dir": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z",
+  "source_evidence_manifest": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json",
+  "source_schema_version": "ioi.hypervisor.gui-harness-validation.v1",
+  "capture_method": "existing Hypervisor desktop GUI harness evidence",
+  "public_docs_review": {
+    "reviewed_for_public_docs": true,
+    "reviewed_for_private_local_data": true,
+    "redaction_status": "reviewed_no_redaction_required",
+    "notes": "Images were copied from existing repo evidence. Manifest uses repo-relative source paths and does not include local absolute paths or secrets."
+  },
+  "items": [
+    {
+      "id": "workflow-canvas",
+      "public_path": "/media/screenshots/hypervisor/workflow-canvas.png",
+      "repo_path": "apps/developers-ioi-ai/public/media/screenshots/hypervisor/workflow-canvas.png",
+      "source_path": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/promotion_transition_live_gui_interaction.png",
+      "sha256": "9ffdc2797ec27c50866c65e53e9e8ef4596149d28c74381bcd7a4273475c0867",
+      "dimensions": {
+        "width": 1280,
+        "height": 650
+      },
+      "alt": "Hypervisor workflow canvas with local GUI interaction evidence",
+      "caption": "Workflow canvas evidence from the 2026-05-15 Hypervisor GUI harness validation bundle.",
+      "expected_landmarks": [
+        "Hypervisor desktop shell",
+        "workflow canvas",
+        "local GUI interaction proof"
+      ]
+    },
+    {
+      "id": "chat-proof",
+      "public_path": "/media/screenshots/hypervisor/chat-proof.png",
+      "repo_path": "apps/developers-ioi-ai/public/media/screenshots/hypervisor/chat-proof.png",
+      "source_path": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/probe_behavior.png",
+      "sha256": "5c024f04a0b017c9fd2347a2a340a7d3148201b46204f9d29e07313eebdc2acf",
+      "dimensions": {
+        "width": 1280,
+        "height": 650
+      },
+      "alt": "Hypervisor chat proof with a source-grounded probe response",
+      "caption": "Chat proof evidence from the 2026-05-15 Hypervisor GUI harness validation bundle.",
+      "expected_landmarks": [
+        "Hypervisor chat surface",
+        "source-grounded probe response",
+        "runtime evidence"
+      ]
+    },
+    {
+      "id": "source-grounded-workflow",
+      "public_path": "/media/screenshots/hypervisor/source-grounded-workflow.png",
+      "repo_path": "apps/developers-ioi-ai/public/media/screenshots/hypervisor/source-grounded-workflow.png",
+      "source_path": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/source_heavy_synthesis.png",
+      "sha256": "3b31435e2e9d853f3d8994958c79e71c759802102abfc52ebd158277af9e31f4",
+      "dimensions": {
+        "width": 1280,
+        "height": 650
+      },
+      "alt": "Hypervisor source-grounded chat workflow with cited repo evidence",
+      "caption": "Source-grounded chat workflow: answer-first response with cited repo files and compact runtime steps.",
+      "expected_landmarks": [
+        "Hypervisor chat surface",
+        "source-grounded synthesis",
+        "cited repo evidence"
+      ]
+    },
+    {
+      "id": "safety-boundary",
+      "public_path": "/media/screenshots/hypervisor/safety-boundary.png",
+      "repo_path": "apps/developers-ioi-ai/public/media/screenshots/hypervisor/safety-boundary.png",
+      "source_path": "docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/safety_boundary.png",
+      "sha256": "178320f8dc0bf847ab9450cecabd5293e20ed038ff462471396a8faed326ebc0",
+      "dimensions": {
+        "width": 1280,
+        "height": 650
+      },
+      "alt": "Hypervisor safety boundary refusing destructive codebase deletion without governed approval",
+      "caption": "Safety-boundary workflow: destructive repository deletion is blocked without an explicit governed approval path.",
+      "expected_landmarks": [
+        "destructive user request",
+        "governed approval path refusal",
+        "no deletion performed"
+      ]
+    }
+  ]
+}

@@ -354,7 +354,7 @@ fn search_files_ranks_multi_term_source_matches_before_config_noise() {
     .expect("script should be written");
     fs::write(
         dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
-        "const provider = \"provider.autopilot.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
+        "const provider = \"provider.hypervisor.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
     )
     .expect("source file should be written");
 
@@ -362,7 +362,7 @@ fn search_files_ranks_multi_term_source_matches_before_config_noise() {
     let lines: Vec<&str> = output.lines().collect();
 
     assert!(lines[0].contains("model-mounting.mjs"), "{output}");
-    assert!(lines[0].contains("provider.autopilot.local"), "{output}");
+    assert!(lines[0].contains("provider.hypervisor.local"), "{output}");
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -381,7 +381,7 @@ fn search_files_ranks_source_matches_even_after_many_internal_hits() {
     fs::write(dir.join(".internal/exports/noise.md"), noisy).expect("noise file should be written");
     fs::write(
         dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
-        "const provider = \"provider.autopilot.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
+        "const provider = \"provider.hypervisor.local\";\nfunction defaultBackendForProvider(provider) { return provider; }\n",
     )
     .expect("source file should be written");
 
@@ -389,7 +389,7 @@ fn search_files_ranks_source_matches_even_after_many_internal_hits() {
     let lines: Vec<&str> = output.lines().collect();
 
     assert!(lines[0].contains("model-mounting.mjs"), "{output}");
-    assert!(lines[0].contains("provider.autopilot.local"), "{output}");
+    assert!(lines[0].contains("provider.hypervisor.local"), "{output}");
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -409,7 +409,7 @@ fn search_files_skips_generated_maps_and_prioritizes_registry_over_fixture_promp
     fs::write(
         dir.join("packages/runtime-daemon/src/model-mounting.mjs"),
         concat!(
-            "const provider = { id: \"provider.autopilot.local\", kind: \"ioi_native_local\" };\n",
+            "const provider = { id: \"provider.hypervisor.local\", kind: \"ioi_native_local\" };\n",
             "function defaultBackendForProvider(provider) { return provider.kind; }\n",
             "// registered local native model providers live in this registry surface\n"
         ),
@@ -419,13 +419,13 @@ fn search_files_skips_generated_maps_and_prioritizes_registry_over_fixture_promp
         dir.join("packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.mjs"),
         concat!(
             "export const prompt = \"Where are local/native model providers registered in this repo?\";\n",
-            "export const answer = \"provider.autopilot.local ioi_native_local defaultBackendForProvider\";\n"
+            "export const answer = \"provider.hypervisor.local ioi_native_local defaultBackendForProvider\";\n"
         ),
     )
     .expect("native fixture source should be written");
     fs::write(
         dir.join("packages/agent-sdk/dist/quickstart-local.js.map"),
-        "{\"sourcesContent\":[\"local native model providers registered provider.autopilot.local\"]}",
+        "{\"sourcesContent\":[\"local native model providers registered provider.hypervisor.local\"]}",
     )
     .expect("generated source map should be written");
     fs::write(

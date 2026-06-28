@@ -32,7 +32,7 @@ pub enum ModelsCommands {
     Get { id: String },
     /// Search the model catalog through deterministic fixtures or gated live adapters.
     CatalogSearch {
-        #[clap(long, default_value = "autopilot")]
+        #[clap(long, default_value = "hypervisor")]
         query: String,
         #[clap(long)]
         format: Option<String>,

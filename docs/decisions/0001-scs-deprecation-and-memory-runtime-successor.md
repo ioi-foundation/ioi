@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-03-25
-- Owners: Agentic runtime / Autopilot / Validator
+- Owners: Agentic runtime / Hypervisor / Validator
 
 ## Context
 
@@ -69,7 +69,7 @@ state; they are not consensus inputs.
 
 ### Immediate
 
-- all new desktop-agent, Autopilot, and local-runtime memory features target
+- all new desktop-agent, Hypervisor, and local-runtime memory features target
   `ioi-memory`
 - `SCS` is removed from live product-memory paths and from the Cargo workspace
 - docs, fixtures, and receipts should stop describing `SCS` as the live memory

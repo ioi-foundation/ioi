@@ -43,7 +43,7 @@ fn configured_direct_author_stream_timeout() -> Option<Duration> {
     }
 
     [
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
+        "HYPERVISOR_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
     ]
     .iter()
@@ -84,7 +84,7 @@ fn configured_direct_author_follow_up_timeout() -> Option<Duration> {
     }
 
     [
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
+        "HYPERVISOR_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
     ]
     .iter()
@@ -103,7 +103,7 @@ fn configured_direct_author_idle_settle_timeout() -> Option<Duration> {
     }
 
     [
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS",
+        "HYPERVISOR_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS",
     ]
     .iter()
@@ -187,7 +187,7 @@ fn direct_author_terminal_idle_settle_timeout_for_request(
 
 fn configured_materialization_timeout() -> Option<Duration> {
     [
-        "AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_TIMEOUT_MS",
+        "HYPERVISOR_CHAT_ARTIFACT_MATERIALIZATION_TIMEOUT_MS",
         "IOI_CHAT_MATERIALIZATION_TIMEOUT_MS",
     ]
     .iter()
@@ -202,7 +202,7 @@ fn configured_materialization_timeout() -> Option<Duration> {
 
 fn configured_materialization_follow_up_timeout() -> Option<Duration> {
     [
-        "AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS",
+        "HYPERVISOR_CHAT_ARTIFACT_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS",
         "IOI_CHAT_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS",
     ]
     .iter()

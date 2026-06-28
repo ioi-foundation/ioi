@@ -19,7 +19,7 @@ semantics.
 - `evals/propose-safe-doc-fix.json` defines the fixture eval.
 - `expected-receipts.json` defines receipt expectations.
 - `fixture-repo/README.md` is the bounded repo fixture.
-- `gui-run-checklist.md` defines the Autopilot clickthrough checklist.
+- `gui-run-checklist.md` defines the Hypervisor clickthrough checklist.
 
 ## Canonical Behavior
 
@@ -43,7 +43,7 @@ runtime contracts; React Flow does not own package truth.
 For automated GUI validation, launch the composer with:
 
 ```bash
-VITE_AUTOPILOT_WORKFLOW_DOGFOOD_SCRIPT=repo-maintenance-package
+VITE_HYPERVISOR_WORKFLOW_DOGFOOD_SCRIPT=repo-maintenance-package
 ```
 
 The probe should confirm the lifecycle readiness rail shows an Autonomous System

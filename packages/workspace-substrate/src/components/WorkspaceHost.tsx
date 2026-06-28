@@ -243,7 +243,7 @@ export function WorkspaceHost({
   terminalLaunchRequest = 0,
 }: WorkspaceHostProps) {
   const footerDebugEnabled =
-    import.meta.env.VITE_AUTOPILOT_WORKSPACE_DEBUG_FOOTER === "1";
+    import.meta.env.VITE_HYPERVISOR_WORKSPACE_DEBUG_FOOTER === "1";
   const [, setTerminalVersion] = useState(0);
   const ownedTerminalController = useWorkspaceTerminalSession({
     adapter,

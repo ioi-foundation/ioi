@@ -34,7 +34,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PROFILE = "desktop-localgpu"
 DEFAULT_DB_PATH = (
     Path.home()
-    / ".local/share/ai.ioi.autopilot/profiles"
+    / ".local/share/ai.ioi.hypervisor/profiles"
     / DEFAULT_PROFILE
     / "chat-memory.db"
 )
@@ -307,7 +307,7 @@ def load_checkpoint_from_candidates(
 
 
 def local_sessions(db_paths: list[Path]) -> list[dict[str, Any]]:
-    payload = load_checkpoint_from_candidates(db_paths, "autopilot.local_sessions.v1")
+    payload = load_checkpoint_from_candidates(db_paths, "hypervisor.local_sessions.v1")
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     if isinstance(payload, dict):
@@ -324,7 +324,7 @@ def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
     for path in db_paths:
         exists = path.exists()
         names = checkpoint_names(path)
-        has_task = "autopilot.local_task.v1" in names
+        has_task = "hypervisor.local_task.v1" in names
         if selected is None and has_task:
             selected = str(path)
         candidates.append({
@@ -357,7 +357,7 @@ def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
 
 
 def latest_task(db_paths: list[Path]) -> dict[str, Any] | None:
-    return load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1")
+    return load_checkpoint_from_candidates(db_paths, "hypervisor.local_task.v1")
 
 
 def compact_task_summary(task: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -400,7 +400,7 @@ def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
 
 
 def thread_key_for_session_id(session_id: str) -> bytes:
-    return hashlib.sha256(f"autopilot::thread::{session_id}".encode("utf-8")).digest()
+    return hashlib.sha256(f"hypervisor::thread::{session_id}".encode("utf-8")).digest()
 
 
 def transcript_messages_for_session(
@@ -630,7 +630,7 @@ def latest_task_for_prompt(
 
 
 def has_local_task_checkpoint(db_paths: list[Path]) -> bool:
-    return load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1") is not None
+    return load_checkpoint_from_candidates(db_paths, "hypervisor.local_task.v1") is not None
 
 
 def latest_agent_message(task: dict[str, Any] | None) -> str | None:

@@ -18,7 +18,7 @@ Several useful analogies were circulating:
 
 Those analogies point at a coherent architecture, but they can also overclaim.
 They risk implying that every agent is a standalone public blockchain, that the
-Autopilot UI owns settlement, or that IOI L1 records every internal step of
+Hypervisor UI owns settlement, or that IOI L1 records every internal step of
 every autonomous system.
 
 ## Decision

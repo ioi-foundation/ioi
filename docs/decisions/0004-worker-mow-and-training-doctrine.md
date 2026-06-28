@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-05-14
-- Owners: IOI protocol / aiagent.xyz / sas.xyz / Autopilot Foundry
+- Owners: IOI protocol / aiagent.xyz / sas.xyz / Hypervisor Foundry
 
 ## Context
 
@@ -30,7 +30,7 @@ and settlement.
 Worker Training is broader than fine-tuning and narrower than the whole IOI
 stack. It creates or improves capability; it does not grant authority.
 
-Autopilot Foundry is the product lens for Worker Training. It uses the shared
+Hypervisor Foundry is the product lens for Worker Training. It uses the shared
 builder substrate rather than defining a separate canvas environment. Training,
 evaluation, benchmark, deployment, data, and outcome recipes may project into
 the standard workflow compositor with lens-specific palettes, inspectors, run

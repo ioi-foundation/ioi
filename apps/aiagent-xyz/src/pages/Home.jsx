@@ -138,7 +138,7 @@ export default function Home() {
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-900">
             <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-0" defaultChecked />
-            <span>Autopilot (Desktop)</span>
+            <span>Hypervisor (Desktop)</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer hover:text-slate-900">
             <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-0" />

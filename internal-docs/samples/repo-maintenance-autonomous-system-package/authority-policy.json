@@ -4,7 +4,7 @@
   "defaultDecision": "fail_closed",
   "capabilityGrants": [
     {
-      "capabilityRef": "model-capability:autopilot.mounted.local-coder",
+      "capabilityRef": "model-capability:hypervisor.mounted.local-coder",
       "scopes": ["scope:model.invoke.local"],
       "grantReadiness": "ready",
       "receiptRequired": true

@@ -8,7 +8,7 @@ if [[ $# -gt 0 ]]; then
 fi
 EXTRA_ARGS=("$@")
 
-BASIC_QUERY="${AUTOPILOT_BASIC_QUERY:-Summarize what you can help me do in this repository in one short paragraph.}"
+BASIC_QUERY="${HYPERVISOR_BASIC_QUERY:-Summarize what you can help me do in this repository in one short paragraph.}"
 
 echo "Launching Hypervisor Code editor adapter host with real inference."
 echo "Use this basic dry-run query once the shell is ready:"

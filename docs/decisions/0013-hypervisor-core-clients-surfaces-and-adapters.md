@@ -127,7 +127,7 @@ Agentgres = admitted truth
 
 ## Supersedes
 
-- ADR 0007's "IDE-first Autopilot" product framing.
+- ADR 0007's "IDE-first Hypervisor" product framing.
 - ADR 0009's "Electron/VS Code fork as canonical app shell" framing.
 
 Those ADRs remain useful implementation history for why Tauri was retired and

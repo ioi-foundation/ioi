@@ -1167,7 +1167,7 @@ fn wait_for_google_callback(
                     let _ = send_google_callback_response(
                         &mut stream,
                         "Google sign-in failed",
-                        "You can close this window and return to Autopilot.",
+                        "You can close this window and return to Hypervisor.",
                     );
                     return Err(format!("Google OAuth authorization failed: {}", error));
                 }
@@ -1195,7 +1195,7 @@ fn wait_for_google_callback(
                 let _ = send_google_callback_response(
                     &mut stream,
                     "Google authorization received",
-                    "Google returned an authorization code. You can close this window and return to Autopilot while sign-in finishes locally.",
+                    "Google returned an authorization code. You can close this window and return to Hypervisor while sign-in finishes locally.",
                 );
                 return Ok(code);
             }

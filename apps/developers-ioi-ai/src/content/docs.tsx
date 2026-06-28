@@ -103,8 +103,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'run',
     label: 'Run',
-    description: 'Operate Autopilot, daemon-backed runtime APIs, model mounts, MCP tools, and benchmarks.',
-    pageIds: ['autopilot', 'runtime-daemon', 'model-mounting', 'mcp-tools', 'benchmarks'],
+    description: 'Operate Hypervisor, daemon-backed runtime APIs, model mounts, MCP tools, and benchmarks.',
+    pageIds: ['hypervisor', 'runtime-daemon', 'model-mounting', 'mcp-tools', 'benchmarks'],
   },
   {
     id: 'ship',
@@ -151,7 +151,7 @@ export const DOC_PAGES: DocPage[] = [
     nextSteps: [
       { label: 'Run the Quickstart', href: '#quickstart', description: 'Connect the SDK to the local daemon first.' },
       { label: 'Browse API Reference', href: '#api-reference', description: 'Product-facing route families and SDK entrypoints.' },
-      { label: 'Run Autopilot', href: '#autopilot', description: 'See what exists today in the local desktop surface.' },
+      { label: 'Run Hypervisor', href: '#hypervisor', description: 'See what exists today in the local desktop surface.' },
     ],
     sections: [
       {
@@ -170,7 +170,7 @@ export const DOC_PAGES: DocPage[] = [
               rows={[
                 ['Get Started', 'Quickstart, API map, local setup, and route selection.', 'Link out when the question becomes protocol semantics.'],
                 ['Build', 'SDK usage, examples, tutorials, and CLI families.', 'Link out for formal object/envelope definitions.'],
-                ['Run', 'Autopilot, runtime daemon, model mounting, MCP, memory, traces, and benchmarks.', 'Link out for kernel/runtime internals.'],
+                ['Run', 'Hypervisor, runtime daemon, model mounting, MCP, memory, traces, and benchmarks.', 'Link out for kernel/runtime internals.'],
                 ['Ship', 'Service candidate packaging, sas.xyz, aiagent.xyz, sovereign-domain, and worker-training/MoW previews.', 'Link out for marketplace, domain, and governance architecture.'],
               ]}
             />
@@ -256,7 +256,7 @@ export const DOC_PAGES: DocPage[] = [
           <div className={bodyClass(isDark)}>
             <p>
               This is the path most builders should take. It uses the same daemon-backed substrate
-              that Autopilot, probes, and product-facing runtime APIs use locally.
+              that Hypervisor, probes, and product-facing runtime APIs use locally.
             </p>
             <p>
               Start the daemon in one terminal, then copy the printed
@@ -310,7 +310,7 @@ await run.wait();`}
               headers={['You want to', 'Start here', 'Why']}
               rows={[
                 ['Build against the real local runtime', 'Daemon-backed SDK quickstart', 'Uses IOI_DAEMON_ENDPOINT and fails closed when runtime config is missing.'],
-                ['Use the product GUI', 'Autopilot desktop', 'Local workbench over chat, artifacts, workflow canvas, model mounts, MCP, and governed execution.'],
+                ['Use the product GUI', 'Hypervisor desktop', 'Local workbench over chat, artifacts, workflow canvas, model mounts, MCP, and governed execution.'],
                 ['Write tests without booting a daemon', 'Offline SDK fixture', 'Fast deterministic fixture for tests and examples; not the canonical live runtime.'],
               ]}
             />
@@ -451,7 +451,7 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              Model mounting is current in the repo as a local/admin surface used by Autopilot and
+              Model mounting is current in the repo as a local/admin surface used by Hypervisor and
               daemon probes. The OpenAI-compatible route is a compatibility lane, not the whole
               worker API.
             </p>
@@ -482,7 +482,7 @@ for await (const event of run.stream()) {
                 ['Memory', <code>GET /v1/memory, GET /v1/memory/records, POST /v1/memory/validate</code>],
                 ['Events', <code>GET /v1/runs/{'{run_id}'}/events</code>],
                 ['Traces', <code>GET /v1/runs/{'{run_id}'}/trace, GET /v1/runs/{'{run_id}'}/inspect</code>],
-                ['CLI families', 'Daemon/runtime probes, benchmark harnesses, computer-use suites, model mount probes, and Autopilot desktop harness commands in the repo.'],
+                ['CLI families', 'Daemon/runtime probes, benchmark harnesses, computer-use suites, model mount probes, and Hypervisor desktop harness commands in the repo.'],
               ]}
             />
           </div>
@@ -495,7 +495,7 @@ for await (const event of run.stream()) {
     title: 'Local Setup',
     eyebrow: 'Get Started',
     summary:
-      'Prepare a local workspace for SDK, daemon, and Autopilot flows while keeping endpoint and authority configuration explicit.',
+      'Prepare a local workspace for SDK, daemon, and Hypervisor flows while keeping endpoint and authority configuration explicit.',
     section: 'get-started',
     status: 'Current',
     maturity: 'repo_current',
@@ -511,7 +511,7 @@ for await (const event of run.stream()) {
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Quickstart', href: '#quickstart', description: 'Connect to the daemon-backed local runtime.' },
-      { label: 'Autopilot', href: '#autopilot', description: 'Understand the GUI surface before running it.' },
+      { label: 'Hypervisor', href: '#hypervisor', description: 'Understand the GUI surface before running it.' },
     ],
     sections: [
       {
@@ -659,7 +659,7 @@ for await (const event of run.stream()) {
           <div className={bodyClass(isDark)}>
             <p>
               The repo includes SDK examples, tests, daemon probes, model-mount probes, benchmark
-              fixtures, and Autopilot desktop harness scripts. The public examples gallery is not
+              fixtures, and Hypervisor desktop harness scripts. The public examples gallery is not
               yet a polished marketplace of templates.
             </p>
             <Table
@@ -668,7 +668,7 @@ for await (const event of run.stream()) {
               rows={[
                 ['SDK test fixture', <code>packages/agent-sdk/examples/quickstart-local.ts</code>, 'Offline fixture for no-daemon examples and tests.'],
                 ['Daemon-backed tests', <code>packages/agent-sdk/test/sdk.test.mjs</code>, 'Evidence for route coverage and SDK behavior.'],
-                ['Autopilot probes', <code>apps/hypervisor/scripts/*probe*</code>, 'Local GUI/runtime evidence, not a hosted examples product.'],
+                ['Hypervisor probes', <code>apps/hypervisor/scripts/*probe*</code>, 'Local GUI/runtime evidence, not a hosted examples product.'],
                 ['Benchmark fixtures', <code>apps/benchmarks</code>, 'Current evidence surface for evaluation routes.'],
               ]}
             />
@@ -772,7 +772,7 @@ for await (const event of run.stream()) {
           <div className={bodyClass(isDark)}>
             <p>
               The repo contains Rust CLI code, benchmark targets, computer-use suite outputs,
-              runtime daemon scripts, and Autopilot desktop probes. This page is a command-family
+              runtime daemon scripts, and Hypervisor desktop probes. This page is a command-family
               map until public command names are frozen.
             </p>
             <Table
@@ -782,7 +782,7 @@ for await (const event of run.stream()) {
                 ['Runtime/daemon', 'Start or probe the local daemon and inspect route families.'],
                 ['Benchmark/computer-use', 'Run browser/computer-use suites and collect trace bundles.'],
                 ['Model mounts', 'Exercise catalog, download, import, load, unload, and local compatibility routes.'],
-                ['Autopilot desktop probes', 'Launch and validate local GUI behavior with screenshots and runtime artifacts.'],
+                ['Hypervisor desktop probes', 'Launch and validate local GUI behavior with screenshots and runtime artifacts.'],
               ]}
             />
           </div>
@@ -791,11 +791,11 @@ for await (const event of run.stream()) {
     ],
   },
   {
-    id: 'autopilot',
-    title: 'Autopilot',
+    id: 'hypervisor',
+    title: 'Hypervisor',
     eyebrow: 'Run',
     summary:
-      'Autopilot is the current local desktop workbench over chat, artifacts, workflow canvas, model mounting, MCP, policy, and harness evidence.',
+      'Hypervisor is the current local desktop workbench over chat, artifacts, workflow canvas, model mounting, MCP, policy, and harness evidence.',
     section: 'run',
     status: 'Current',
     maturity: 'local_current',
@@ -812,14 +812,14 @@ for await (const event of run.stream()) {
       'apps/hypervisor/src/main.tsx',
       'apps/hypervisor/src/surfaces/Home/HypervisorReferenceShell.tsx',
       'apps/hypervisor/src/surfaces/Home/HypervisorReferenceHome.tsx',
-      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
-      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-terminal-coding-loop-run-button-proof.json',
-      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-telemetry-budget-chain-run-inspector-proof.json',
-      'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/promotion-transition-gui-behavior-proof.json',
+      'docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
+      'docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-terminal-coding-loop-run-button-proof.json',
+      'docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-telemetry-budget-chain-run-inspector-proof.json',
+      'docs/evidence/hypervisor-gui-harness-validation/2026-05-15T11-10-45-852Z/promotion-transition-gui-behavior-proof.json',
     ],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon route families Autopilot projects.' },
+      { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon route families Hypervisor projects.' },
       { label: 'Model Mounting', href: '#model-mounting', description: 'Manage local model catalog and compatibility routes.' },
       { label: 'MCP Tools', href: '#mcp-tools', description: 'Import, validate, discover, and invoke tools.' },
     ],
@@ -855,28 +855,28 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              These snapshots are not decorative harness artifacts. They show useful Autopilot
+              These snapshots are not decorative harness artifacts. They show useful Hypervisor
               workflows with the proof files that back the UI behavior. The manifest under
-              <code> public/media/screenshots/autopilot/manifest.json</code> records source paths,
+              <code> public/media/screenshots/hypervisor/manifest.json</code> records source paths,
               capture time, review notes, and redaction status.
             </p>
             <div className="grid gap-5 lg:grid-cols-2">
               <ScreenshotFigure
                 isDark={isDark}
-                src="/media/screenshots/autopilot/workflow-canvas.png"
-                alt="Autopilot workflow canvas with local GUI interaction evidence"
+                src="/media/screenshots/hypervisor/workflow-canvas.png"
+                alt="Hypervisor workflow canvas with local GUI interaction evidence"
                 caption="Workflow compositor: default agent harness topology with fork/use-template controls and promotion gates."
               />
               <ScreenshotFigure
                 isDark={isDark}
-                src="/media/screenshots/autopilot/source-grounded-workflow.png"
-                alt="Autopilot source-grounded chat workflow with cited repo evidence"
+                src="/media/screenshots/hypervisor/source-grounded-workflow.png"
+                alt="Hypervisor source-grounded chat workflow with cited repo evidence"
                 caption="Source-grounded chat workflow: answer-first response with cited repo files and compact runtime steps."
               />
               <ScreenshotFigure
                 isDark={isDark}
-                src="/media/screenshots/autopilot/safety-boundary.png"
-                alt="Autopilot safety boundary refusing destructive codebase deletion without governed approval"
+                src="/media/screenshots/hypervisor/safety-boundary.png"
+                alt="Hypervisor safety boundary refusing destructive codebase deletion without governed approval"
                 caption="Safety-boundary workflow: destructive repository deletion is blocked without an explicit governed approval path."
               />
             </div>
@@ -889,7 +889,7 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              The workflow compositor is the most mature Autopilot workflow surface today. The
+              The workflow compositor is the most mature Hypervisor workflow surface today. The
               public docs should show the workflows builders can reason about, then point to proof
               files instead of asking readers to trust screenshots alone.
             </p>
@@ -1012,7 +1012,7 @@ for await (const event of run.stream()) {
     title: 'Model Mounting',
     eyebrow: 'Run',
     summary:
-      'Local model mounting is a current daemon/admin and Autopilot surface for catalog search, download, import, mount, load, unload, and OpenAI-compatible chat.',
+      'Local model mounting is a current daemon/admin and Hypervisor surface for catalog search, download, import, mount, load, unload, and OpenAI-compatible chat.',
     section: 'run',
     status: 'Current',
     maturity: 'repo_current',
@@ -1090,7 +1090,7 @@ for await (const event of run.stream()) {
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'API Reference', href: '#api-reference', description: 'See MCP in the product-facing API map.' },
-      { label: 'Autopilot', href: '#autopilot', description: 'See how the desktop surface uses tool discovery.' },
+      { label: 'Hypervisor', href: '#hypervisor', description: 'See how the desktop surface uses tool discovery.' },
     ],
     sections: [
       {
@@ -1147,7 +1147,7 @@ for await (const event of run.stream()) {
     sources: ['apps/benchmarks', 'apps/hypervisor/scripts', 'docs/evidence', 'apps/developers-ioi-ai/scripts/smoke-routes.mjs'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
-      { label: 'Autopilot', href: '#autopilot', description: 'Use current GUI evidence and public screenshot manifests.' },
+      { label: 'Hypervisor', href: '#hypervisor', description: 'Use current GUI evidence and public screenshot manifests.' },
       { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Validate route families behind benchmark runs.' },
     ],
     sections: [
@@ -1160,7 +1160,7 @@ for await (const event of run.stream()) {
               isDark={isDark}
               headers={['Lane', 'What it proves']}
               rows={[
-                ['Autopilot GUI harness', 'Desktop chat, workflow, safety, sources, and runtime evidence.'],
+                ['Hypervisor GUI harness', 'Desktop chat, workflow, safety, sources, and runtime evidence.'],
                 ['Computer-use suites', 'Browser/control traces, receipts, diagnostics, and replay assets.'],
                 ['Model mount probes', 'Catalog, download, load/unload, and compatibility-route behavior.'],
                 ['Developers route smoke', 'Public docs routes render and key text is visible in browser automation.'],
@@ -1217,7 +1217,7 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              The repo has architecture, package/evidence concepts, Autopilot packaging UI code,
+              The repo has architecture, package/evidence concepts, Hypervisor packaging UI code,
               and GUI proof assets. Treat service candidates as preview until packaging manifests,
               validation gates, import review, and release workflows are public-current.
             </p>
@@ -1343,7 +1343,7 @@ for await (const event of run.stream()) {
               headers={['Concern', 'Preview framing']}
               rows={[
                 ['Discovery', 'Find workers by capability, evidence, compatibility, and deployment mode.'],
-                ['Install/procure', 'Bind a worker to local Autopilot, daemon, hosted runtime, or sovereign domain.'],
+                ['Install/procure', 'Bind a worker to local Hypervisor, daemon, hosted runtime, or sovereign domain.'],
                 ['Compatibility', 'Worker value lives above /v1/chat/completions in agent, worker, and interagent routes.'],
               ]}
             />
@@ -1395,7 +1395,7 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <ul className={listClass(isDark)}>
-              <li>Local Autopilot or daemon domain for individual/private work.</li>
+              <li>Local Hypervisor or daemon domain for individual/private work.</li>
               <li>Provider-hosted service domain for packaged service candidates.</li>
               <li>Enterprise-private sovereign domain with customer-controlled kernel and Agentgres state.</li>
             </ul>
@@ -1420,7 +1420,7 @@ for await (const event of run.stream()) {
     routePath: '/ship/worker-training-mow',
     legacyHashes: ['worker-training', 'mow', 'worker-training-mow', 'autopilot-foundry'],
     lastVerified: LAST_VERIFIED,
-    keywords: ['worker training', 'MoW', 'Autopilot Foundry', 'data recipes', 'evaluation'],
+    keywords: ['worker training', 'MoW', 'Hypervisor Foundry', 'data recipes', 'evaluation'],
     sources: ['docs/decisions/0004-worker-mow-and-training-doctrine.md', 'docs/architecture/foundations/domain-ontologies-and-data-recipes.md', 'docs/architecture/foundations/worker-training-lifecycle.md'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
@@ -1435,7 +1435,7 @@ for await (const event of run.stream()) {
           <div className={bodyClass(isDark)}>
             <Callout isDark={isDark} tone="concept" title="Concept, not a live training marketplace">
               <p>
-                Worker Training, MoW, and Autopilot Foundry describe a future improvement loop:
+                Worker Training, MoW, and Hypervisor Foundry describe a future improvement loop:
                 retain governed evidence, define recipes, evaluate workers, and promote better
                 versions. Public docs should not present this as a live marketplace or production
                 training product yet.
@@ -1453,7 +1453,7 @@ for await (const event of run.stream()) {
               isDark={isDark}
               headers={['Building block', 'Current maturity']}
               rows={[
-                ['Autopilot evidence and artifacts', 'Current local GUI/runtime evidence.'],
+                ['Hypervisor evidence and artifacts', 'Current local GUI/runtime evidence.'],
                 ['Benchmarks and traces', 'Current repo-backed evaluation assets.'],
                 ['Domain ontologies and data recipes', 'Architecture/current docs, not fully productized.'],
                 ['Worker promotion and marketplace packaging', 'Preview/concept depending on target surface.'],

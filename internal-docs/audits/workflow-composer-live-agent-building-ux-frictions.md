@@ -10,7 +10,7 @@ This document is intentionally practical. It should preserve observations, exact
 
 ## Audit Method
 
-- Use the running Autopilot desktop/web dev surface at `http://127.0.0.1:1428/chat`.
+- Use the running Hypervisor desktop/web dev surface at `http://127.0.0.1:1428/chat`.
 - Navigate as a user through the real activity bar and Workflow Composer controls.
 - Try multiple workflow shapes:
   - simple prompt-to-agent-to-output workflow;
@@ -46,7 +46,7 @@ Evidence was captured as local Playwright JSON logs outside git:
 
 Path:
 
-1. Open Autopilot at `http://127.0.0.1:1428/chat`.
+1. Open Hypervisor at `http://127.0.0.1:1428/chat`.
 2. Click `Workflows`.
 3. Click the `Manual input` starter.
 4. Click `Add next node`.

@@ -809,7 +809,7 @@ struct OllamaNativeChatMessage {
 
 fn local_ollama_native_chat_opt_in() -> bool {
     [
-        "AUTOPILOT_OLLAMA_NATIVE_CHAT",
+        "HYPERVISOR_OLLAMA_NATIVE_CHAT",
         "IOI_OLLAMA_NATIVE_CHAT",
         "OLLAMA_NATIVE_CHAT",
     ]
@@ -1270,7 +1270,7 @@ where
     F: Fn(&str) -> Option<String>,
 {
     [
-        "AUTOPILOT_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
+        "HYPERVISOR_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
         "IOI_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
     ]
     .iter()
@@ -1376,7 +1376,7 @@ fn local_openai_reasoning_effort_override_with_lookup<F>(lookup: F) -> Option<Op
 where
     F: Fn(&str) -> Option<String>,
 {
-    let configured = lookup("AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT")
+    let configured = lookup("HYPERVISOR_LOCAL_OPENAI_REASONING_EFFORT")
         .or_else(|| lookup("IOI_LOCAL_OPENAI_REASONING_EFFORT"));
 
     match configured.as_deref().map(str::trim) {
@@ -1507,7 +1507,7 @@ where
     F: Fn(&str) -> Option<String>,
 {
     [
-        "AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS",
+        "HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS",
         "IOI_INFERENCE_HTTP_TIMEOUT_SECS",
     ]
     .iter()
@@ -1589,7 +1589,7 @@ where
             .unwrap_or_else(|| "text-embedding-3-small".to_string());
     }
 
-    normalize_embedding_env(lookup("AUTOPILOT_LOCAL_EMBEDDING_MODEL"))
+    normalize_embedding_env(lookup("HYPERVISOR_LOCAL_EMBEDDING_MODEL"))
         .or_else(|| normalize_embedding_env(lookup("LOCAL_LLM_EMBEDDING_MODEL")))
         .or_else(|| normalize_embedding_env(lookup("OPENAI_EMBEDDING_MODEL")))
         .unwrap_or_else(|| "nomic-embed-text".to_string())

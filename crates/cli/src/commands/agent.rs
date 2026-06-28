@@ -21,7 +21,7 @@ use ioi_services::agentic::runtime::{
 };
 use ioi_types::app::agentic::LlmToolDefinition;
 use ioi_types::app::{
-    AutopilotGuiHarnessValidationContract, EffectiveAgentConfig, RuntimeSubstratePortContract,
+    EffectiveAgentConfig, HypervisorGuiHarnessValidationContract, RuntimeSubstratePortContract,
     SystemPayload,
 };
 use reqwest::Method;
@@ -1417,11 +1417,11 @@ async fn submit_deny(
 
 fn print_agent_contract(json: bool) -> Result<()> {
     let substrate = RuntimeSubstratePortContract::default();
-    let gui = AutopilotGuiHarnessValidationContract::default();
+    let gui = HypervisorGuiHarnessValidationContract::default();
     if json {
         return print_json(&serde_json::json!({
             "runtimeSubstratePortContract": substrate,
-            "autopilotGuiHarnessValidationContract": gui,
+            "hypervisorGuiHarnessValidationContract": gui,
         }));
     }
 
@@ -3526,7 +3526,7 @@ async fn print_runtime_list(json: bool, route: &str, label: &str) -> Result<()> 
 
 fn local_doctor_fallback(error: Option<String>) -> serde_json::Value {
     let substrate = RuntimeSubstratePortContract::default();
-    let gui = AutopilotGuiHarnessValidationContract::default();
+    let gui = HypervisorGuiHarnessValidationContract::default();
     let provider_keys = [
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",

@@ -2,7 +2,7 @@
 
 **Package:** `ioi.public.v1`
 
-This directory defines the user-facing API exposed by the **Orchestrator**. It serves as the gateway for CLI tools, Wallets, and the Autopilot UI. It proxies relevant read requests to the Workload and submits writes to the P2P network.
+This directory defines the user-facing API exposed by the **Orchestrator**. It serves as the gateway for CLI tools, Wallets, and the Hypervisor UI. It proxies relevant read requests to the Workload and submits writes to the P2P network.
 
 ## Services
 

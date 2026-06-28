@@ -106,7 +106,7 @@ def _capture_with_firefox(browser_url: str, output_path: Path, *, timeout_secs: 
     if firefox is None:
         return "Firefox is not installed for browser fallback captures"
 
-    profile_dir = Path(tempfile.mkdtemp(prefix="autopilot-capture-firefox-"))
+    profile_dir = Path(tempfile.mkdtemp(prefix="hypervisor-capture-firefox-"))
     try:
         try:
             completed = _run(

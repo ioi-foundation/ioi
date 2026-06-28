@@ -234,7 +234,7 @@ impl HarnessComponentKind {
             Self::HandoffBridge => "crates/types/src/app/runtime_contracts.rs::HandoffQuality",
             Self::CompletionGate => "crates/services/src/agentic/runtime/service/visual_loop/browser_completion.rs",
             Self::GuiHarnessValidator => {
-                "crates/types/src/app/runtime_contracts.rs::AutopilotGuiHarnessValidationContract"
+                "crates/types/src/app/runtime_contracts.rs::HypervisorGuiHarnessValidationContract"
             }
         }
     }
@@ -688,7 +688,7 @@ fn component_events(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::HandoffBridge => strings(&["HandoffQuality", "AgentRuntimeEvent"]),
         HarnessComponentKind::CompletionGate => strings(&["CompletionGateReceipt", "PlanReceipt"]),
         HarnessComponentKind::GuiHarnessValidator => {
-            strings(&["AutopilotGuiHarnessValidationContract", "Scorecard"])
+            strings(&["HypervisorGuiHarnessValidationContract", "Scorecard"])
         }
         _ => strings(&["AgentRuntimeEvent", "ExecutionContractReceipt"]),
     }

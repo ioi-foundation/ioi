@@ -4,7 +4,7 @@
 //!
 //! This module defines the primitives required to track the "Biology" of software:
 //! Lineage (Genealogy), Mutation (Changes), and Fitness (Scoring).
-//! These types are used by the `OptimizerService`, `GovernanceModule`, and `Autopilot`
+//! These types are used by the `OptimizerService`, `GovernanceModule`, and `Hypervisor`
 //! to visualize and enforce the evolutionary cycle.
 
 use crate::app::AccountId;
@@ -59,7 +59,7 @@ pub struct MutationReceipt {
 }
 
 /// Represents a node in the agent's genealogical tree.
-/// Used by the UI (Autopilot) to visualize the "DNA" tab.
+/// Used by the UI (Hypervisor) to visualize the "DNA" tab.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct LineageNode {
     /// The hash of this agent version.

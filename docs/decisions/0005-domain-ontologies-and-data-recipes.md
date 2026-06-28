@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-05-14
-- Owners: Autopilot Foundry / Agentgres / connectors / Worker Training
+- Owners: Hypervisor Foundry / Agentgres / connectors / Worker Training
 
 ## Context
 
@@ -48,7 +48,7 @@ truth until it is mapped, transformed, authorized, receipted, and projected.
   boundaries bind them into canonical domain objects.
 - Evaluation datasets bind ontology refs, rubric refs, benchmark refs, source
   commitments, policy, distilled dataset refs when used, and receipt roots.
-- Autopilot Foundry should expose ontology, recipe, mapping, data-view,
+- Hypervisor Foundry should expose ontology, recipe, mapping, data-view,
   transformation, evaluation dataset, and projection controls.
 - Agentgres owns ontology and recipe lifecycle state; Filecoin/CAS stores large
   payload bytes; wallet.network controls data-use authority.

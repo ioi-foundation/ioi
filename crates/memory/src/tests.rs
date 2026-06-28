@@ -76,7 +76,7 @@ fn sqlite_runtime_roundtrips_semantic_archival_search() {
     let runtime = MemoryRuntime::open_sqlite_in_memory().expect("runtime");
     let record_id = runtime
         .insert_archival_record(&NewArchivalMemoryRecord {
-            scope: "autopilot.retrieval".to_string(),
+            scope: "hypervisor.retrieval".to_string(),
             thread_id: None,
             kind: "file_chunk".to_string(),
             content: "checkout flow instructions".to_string(),
@@ -90,7 +90,7 @@ fn sqlite_runtime_roundtrips_semantic_archival_search() {
 
     let other_id = runtime
         .insert_archival_record(&NewArchivalMemoryRecord {
-            scope: "autopilot.retrieval".to_string(),
+            scope: "hypervisor.retrieval".to_string(),
             thread_id: None,
             kind: "file_chunk".to_string(),
             content: "calendar renewal notes".to_string(),
@@ -104,7 +104,7 @@ fn sqlite_runtime_roundtrips_semantic_archival_search() {
 
     let hits = runtime
         .semantic_search_archival_memory(&SemanticArchivalMemoryQuery {
-            scope: "autopilot.retrieval".to_string(),
+            scope: "hypervisor.retrieval".to_string(),
             thread_id: None,
             text_filter: None,
             embedding: vec![1.0, 0.0],

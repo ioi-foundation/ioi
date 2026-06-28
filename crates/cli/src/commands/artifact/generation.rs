@@ -209,7 +209,7 @@ fn refinement_context_from_loaded_evidence(
 
 fn configured_runtime_profile() -> ChatArtifactRuntimePolicyProfile {
     [
-        "AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
+        "HYPERVISOR_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
         "IOI_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
     ]
     .iter()
