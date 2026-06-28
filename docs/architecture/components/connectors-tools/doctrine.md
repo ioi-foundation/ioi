@@ -62,6 +62,15 @@ APIs directly, or invent an ioi.ai-only connector runtime. Actual invocation
 still flows through `RuntimeToolContract` or MCP contracts, daemon admission,
 wallet.network authority, Agentgres refs, and receipts.
 
+The registry is also the brokered capability substrate for harness/model choice.
+Whether a run is platform-selected, MoW-routed, or user-directed toward a
+specific harness, model route, worker, or managed agent, the selected participant
+receives only a scoped tool/MCP capability manifest. It does not receive raw
+connector credentials, provider tokens, unbounded tool discovery, or direct
+provider API access. The manifest binds allowed tools, MCP gateway profiles,
+connector refs, risk ceilings, authority requirements, policy posture, receipt
+obligations, and revocation paths.
+
 ## Hypervisor MCP Gateway
 
 The **Hypervisor MCP Gateway** is the authority-scoped compatibility gateway

@@ -174,19 +174,24 @@ execution belongs to Hypervisor Daemon admission plus Physical Action Safety.
    marketplace handoff.
 5. Hypervisor opens governed sessions, WorkRuns, or Automations when execution
    is needed.
-6. Connectors / Tools / MCP registry and surface contracts expose readiness,
+6. Auto/MoW routing or explicit user selection chooses the participating
+   workers, harnesses, model routes, verifier paths, and managed agents.
+7. Hypervisor supplies the selected participants a scoped brokered tool/MCP
+   capability manifest for the goal, session, project, privacy posture, and
+   authority posture.
+8. Connectors / Tools / MCP registry and surface contracts expose readiness,
    risk, scopes, policy, previews, and receipt obligations.
-7. wallet.network grants scoped capability, spend, connector, credential,
+9. wallet.network grants scoped capability, spend, connector, credential,
    declassification, or training-data leases when required.
-8. Agents, models, harnesses, workers, tools, services, or connectors propose
+10. Agents, models, harnesses, workers, tools, services, or connectors propose
    and execute through daemon gates.
-9. Agentgres records admitted operations, artifacts, receipts, traces, and
+11. Agentgres records admitted operations, artifacts, receipts, traces, and
    replay refs.
-10. Foundry/eval lanes score, verify, mine failures, or draft improvement
+12. Foundry/eval lanes score, verify, mine failures, or draft improvement
     proposals when applicable.
-11. aiagent.xyz and MoW contribution paths receive routing/contribution refs
+13. aiagent.xyz and MoW contribution paths receive routing/contribution refs
     when marketplace workers materially contribute.
-12. ioi.ai performs the final ownership synthesis for the user-facing answer,
+14. ioi.ai performs the final ownership synthesis for the user-facing answer,
     report, delivery, or next approval request.
 ```
 
@@ -263,6 +268,8 @@ IoiAiGoal:
 IoiAiOutcomePlan:
   plan_id: outcome_plan:...
   goal_ref: goal:...
+  coordination_mode:
+    auto_mow | user_directed | hybrid
   materialization:
     single_path | multi_model_answer | multi_harness_attempt |
     software_search | computer_use | automation_handoff |
@@ -272,6 +279,12 @@ IoiAiOutcomePlan:
     - model_route:...
   selected_harnesses:
     - harness_profile:... | agent_harness_adapter:...
+  selected_workers:
+    - worker://... | managed_worker://...
+  brokered_capability_manifest_refs:
+    - ai://... | mcp_gateway://...
+  connector_refs:
+    - connector://...
   hypervisor_refs:
     - automation:... | session:... | mission:...
   foundry_job_refs:
@@ -365,6 +378,10 @@ IoiAiConnectorAuthEscalation:
 
 - ioi.ai may coordinate multiple models and strategies, but it must not execute
   consequential actions outside Hypervisor/daemon gates.
+- ioi.ai may offer Auto/MoW selection or user-directed agent/harness/model
+  selection, but both modes must consume Hypervisor-brokered connector/tool/MCP
+  capability manifests instead of granting raw connector credentials or ambient
+  tool access to the selected participant.
 - ioi.ai must not be conflated with the Hypervisor Operator Plane. ioi.ai can
   ask, coordinate, inspect, summarize, and draft operator-plane requests, but
   effectful host/platform changes still flow through declared Hypervisor
@@ -415,6 +432,8 @@ collaborative outcome = benchmark only
 collaborative outcome = public leaderboard by default
 collaborative outcome = child sessions with host admin power
 connector/auth escalation = direct provider API call
+selected harness/model = direct connector credential holder
+Auto/MoW conductor = secret or tool authority owner
 learned conductor = hidden authority
 multi-model answer = authority
 connector access = credential ownership
