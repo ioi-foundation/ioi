@@ -14,6 +14,9 @@
     "assets",
     "bin"
   ],
+  "scripts": {
+    "import-export": "node scripts/import-upstream-export.mjs"
+  },
   "exports": {
     ".": "./bundle/_ds_bundle.js",
     "./styles.css": "./styles.css",

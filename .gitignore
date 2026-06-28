@@ -5,6 +5,10 @@ codebase_snapshot.md
 # @ioi/design-system owns the canonical assets; consumers regenerate public/assets via
 # `ioi-ds-sync-assets` (predev/prebuild). The synced copy is build output, not source.
 apps/hypervisor-web/public/assets/
+
+# Upstream design-system dist exports are external, upstream-branded inputs to the
+# @ioi/design-system import pipeline — never tracked. Drop them here and run import-export.
+apps/hypervisor-web/design-system/
 keypair.seed
 state_node1.json
 state_node2.json
