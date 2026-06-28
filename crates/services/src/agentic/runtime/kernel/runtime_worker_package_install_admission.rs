@@ -62,7 +62,12 @@ pub struct RuntimeWorkerPackageInstallAdmissionError {
 
 impl RuntimeWorkerPackageInstallAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -76,36 +81,53 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
         assert_no_retired_aliases(request)?;
 
         let install_id = required_string(request.get("install_id"), "install_id")?;
-        let worker_package_ref = required_string(request.get("worker_package_ref"), "worker_package_ref")?;
-        let worker_manifest_ref = required_string(request.get("worker_manifest_ref"), "worker_manifest_ref")?;
+        let worker_package_ref =
+            required_string(request.get("worker_package_ref"), "worker_package_ref")?;
+        let worker_manifest_ref =
+            required_string(request.get("worker_manifest_ref"), "worker_manifest_ref")?;
         let owner_ref = required_string(request.get("owner_ref"), "owner_ref")?;
         let install_mode = enum_value(request.get("install_mode"), "install_mode", INSTALL_MODES)?;
-        let base_ontology_ref = required_string(request.get("base_ontology_ref"), "base_ontology_ref")?;
+        let base_ontology_ref =
+            required_string(request.get("base_ontology_ref"), "base_ontology_ref")?;
         let vertical_pack_refs = unique_strings_raw(request.get("vertical_pack_refs"));
         let integration_surface_refs = unique_strings_raw(request.get("integration_surface_refs"));
-        let primitive_capability_requirements = unique_strings_raw(request.get("primitive_capability_requirements"));
-        let authority_scope_requirements = unique_strings_raw(request.get("authority_scope_requirements"));
+        let primitive_capability_requirements =
+            unique_strings_raw(request.get("primitive_capability_requirements"));
+        let authority_scope_requirements =
+            unique_strings_raw(request.get("authority_scope_requirements"));
         let risk_classes = unique_strings_raw(request.get("risk_classes"));
         let policy_profile_refs = unique_strings_raw(request.get("policy_profile_refs"));
-        let receipt_policy_ref = required_string(request.get("receipt_policy_ref"), "receipt_policy_ref")?;
-        let evidence_requirement_refs = unique_strings_raw(request.get("evidence_requirement_refs"));
+        let receipt_policy_ref =
+            required_string(request.get("receipt_policy_ref"), "receipt_policy_ref")?;
+        let evidence_requirement_refs =
+            unique_strings_raw(request.get("evidence_requirement_refs"));
         let benchmark_profile_refs = unique_strings_raw(request.get("benchmark_profile_refs"));
-        let runtime_profile = enum_value(request.get("runtime_profile"), "runtime_profile", RUNTIME_PROFILES)?;
-        let persistence_profile =
-            enum_value(request.get("persistence_profile"), "persistence_profile", PERSISTENCE_PROFILES)?;
+        let runtime_profile = enum_value(
+            request.get("runtime_profile"),
+            "runtime_profile",
+            RUNTIME_PROFILES,
+        )?;
+        let persistence_profile = enum_value(
+            request.get("persistence_profile"),
+            "persistence_profile",
+            PERSISTENCE_PROFILES,
+        )?;
         let memory_policy_ref = optional_value(request.get("memory_policy_ref"));
         let archive_policy_ref = optional_value(request.get("archive_policy_ref"));
         let package_artifact_refs = unique_strings_raw(request.get("package_artifact_refs"));
         let wallet_approval_ref = optional_value(request.get("wallet_approval_ref"));
         let install_right_ref = optional_value(request.get("install_right_ref"));
         let managed_instance_ref = optional_value(request.get("managed_instance_ref"));
-        let physical_action_policy_refs = unique_strings_raw(request.get("physical_action_policy_refs"));
+        let physical_action_policy_refs =
+            unique_strings_raw(request.get("physical_action_policy_refs"));
         let safety_envelope_refs = unique_strings_raw(request.get("safety_envelope_refs"));
-        let emergency_stop_authority_refs = unique_strings_raw(request.get("emergency_stop_authority_refs"));
+        let emergency_stop_authority_refs =
+            unique_strings_raw(request.get("emergency_stop_authority_refs"));
         let agentgres_operation_refs = unique_strings_raw(request.get("agentgres_operation_refs"));
         let receipt_refs = unique_strings_raw(request.get("receipt_refs"));
         let state_root = optional_value(request.get("state_root"));
-        let hardcoded_vertical_runtime = boolean_value(request.get("hardcoded_vertical_runtime")).unwrap_or(false);
+        let hardcoded_vertical_runtime =
+            boolean_value(request.get("hardcoded_vertical_runtime")).unwrap_or(false);
 
         // assertWorkerPackageInstall — prefixes (400) interleaved with policy assertions (403).
         require_prefix(&install_id, "install://", "install_id")?;
@@ -115,14 +137,27 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
         require_prefix(&base_ontology_ref, "ontology:", "base_ontology_ref")?;
         require_refs(&integration_surface_refs, "integration_surface_refs")?;
         for reference in &integration_surface_refs {
-            require_prefix(reference, "integration_surface:", "integration_surface_refs")?;
+            require_prefix(
+                reference,
+                "integration_surface:",
+                "integration_surface_refs",
+            )?;
         }
-        require_refs(&primitive_capability_requirements, "primitive_capability_requirements")?;
+        require_refs(
+            &primitive_capability_requirements,
+            "primitive_capability_requirements",
+        )?;
         for reference in &primitive_capability_requirements {
             require_prefix(reference, "prim:", "primitive_capability_requirements")?;
         }
-        require_refs(&authority_scope_requirements, "authority_scope_requirements")?;
-        if authority_scope_requirements.iter().any(|reference| reference.starts_with("prim:")) {
+        require_refs(
+            &authority_scope_requirements,
+            "authority_scope_requirements",
+        )?;
+        if authority_scope_requirements
+            .iter()
+            .any(|reference| reference.starts_with("prim:"))
+        {
             return Err(authority_error(
                 "worker_package_install_primitive_scope_masquerade_blocked",
                 "Worker package installs must not treat prim:* execution capabilities as wallet authority scopes.",
@@ -143,10 +178,18 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
         for reference in &policy_profile_refs {
             require_prefix(reference, "policy://", "policy_profile_refs")?;
         }
-        require_prefix(&receipt_policy_ref, "receipt_policy://", "receipt_policy_ref")?;
+        require_prefix(
+            &receipt_policy_ref,
+            "receipt_policy://",
+            "receipt_policy_ref",
+        )?;
         require_refs(&evidence_requirement_refs, "evidence_requirement_refs")?;
         for reference in &evidence_requirement_refs {
-            require_prefix(reference, "evidence_requirement:", "evidence_requirement_refs")?;
+            require_prefix(
+                reference,
+                "evidence_requirement:",
+                "evidence_requirement_refs",
+            )?;
         }
         require_refs(&package_artifact_refs, "package_artifact_refs")?;
         for reference in &package_artifact_refs {
@@ -200,7 +243,10 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
             require_refs(&vertical_pack_refs, "vertical_pack_refs")?;
             require_refs(&physical_action_policy_refs, "physical_action_policy_refs")?;
             require_refs(&safety_envelope_refs, "safety_envelope_refs")?;
-            require_refs(&emergency_stop_authority_refs, "emergency_stop_authority_refs")?;
+            require_refs(
+                &emergency_stop_authority_refs,
+                "emergency_stop_authority_refs",
+            )?;
         }
         for reference in &vertical_pack_refs {
             require_prefix(reference, "vertical_pack:", "vertical_pack_refs")?;
@@ -215,7 +261,9 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
             require_prefix(reference, "estop://", "emergency_stop_authority_refs")?;
         }
         if runtime_profile == "private_workspace_ctee"
-            && !policy_profile_refs.iter().any(|reference| reference.contains("ctee"))
+            && !policy_profile_refs
+                .iter()
+                .any(|reference| reference.contains("ctee"))
         {
             return Err(authority_error(
                 "worker_package_install_ctee_policy_required",
@@ -225,7 +273,11 @@ impl RuntimeWorkerPackageInstallAdmissionCore {
         }
 
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
-            format!("worker-package-install:{}:{}", safe_id(&install_id), safe_id(&install_mode))
+            format!(
+                "worker-package-install:{}:{}",
+                safe_id(&install_id),
+                safe_id(&install_mode)
+            )
         });
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
@@ -284,7 +336,8 @@ fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
     Err(RuntimeWorkerPackageInstallAdmissionError::new(
         400,
         "worker_package_install_request_aliases_retired".to_string(),
-        "Worker package install admission accepts only canonical snake_case request fields.".to_string(),
+        "Worker package install admission accepts only canonical snake_case request fields."
+            .to_string(),
         json!({ "retired_aliases": retired }),
     ))
 }
@@ -295,7 +348,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimeWorkerPackageInstallAdmissionError::new(
                 400,
@@ -339,19 +395,24 @@ fn require_manifest_ref(value: &str) -> AdmitResult<()> {
     Err(RuntimeWorkerPackageInstallAdmissionError::new(
         400,
         "worker_package_install_worker_manifest_ref_invalid".to_string(),
-        "Worker package install worker_manifest_ref must identify a manifest or artifact ref.".to_string(),
+        "Worker package install worker_manifest_ref must identify a manifest or artifact ref."
+            .to_string(),
         json!({ "worker_manifest_ref": value }),
     ))
 }
 
 fn require_owner_ref(value: &str) -> AdmitResult<()> {
-    if OWNER_PREFIXES.iter().any(|prefix| value.starts_with(prefix)) {
+    if OWNER_PREFIXES
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+    {
         return Ok(());
     }
     Err(RuntimeWorkerPackageInstallAdmissionError::new(
         400,
         "worker_package_install_owner_ref_invalid".to_string(),
-        "Worker package install owner_ref must identify a wallet, organization, or project.".to_string(),
+        "Worker package install owner_ref must identify a wallet, organization, or project."
+            .to_string(),
         json!({ "owner_ref": value, "allowed_prefixes": OWNER_PREFIXES }),
     ))
 }
@@ -367,8 +428,17 @@ fn require_refs(refs: &[String], field: &str) -> AdmitResult<()> {
     ))
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimeWorkerPackageInstallAdmissionError {
-    RuntimeWorkerPackageInstallAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeWorkerPackageInstallAdmissionError {
+    RuntimeWorkerPackageInstallAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 /// Mirror JS `optionalString`: String(value).trim() (ECMAScript trim set), None when null/blank.
@@ -457,7 +527,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -524,13 +598,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -592,7 +667,10 @@ mod tests {
         let admission = RuntimeWorkerPackageInstallAdmissionCore
             .admit(&base_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], WORKER_PACKAGE_INSTALL_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            WORKER_PACKAGE_INSTALL_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(
             admission["admission_id"],
@@ -605,8 +683,13 @@ mod tests {
     fn blocks_primitive_scope_masquerade() {
         let mut request = base_request();
         request["authority_scope_requirements"] = json!(["prim:physical.actuate"]);
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "worker_package_install_primitive_scope_masquerade_blocked");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "worker_package_install_primitive_scope_masquerade_blocked"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -614,17 +697,30 @@ mod tests {
     fn blocks_vertical_runtime_fork() {
         let mut request = base_request();
         request["hardcoded_vertical_runtime"] = json!(true);
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "worker_package_install_vertical_runtime_fork_blocked");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "worker_package_install_vertical_runtime_fork_blocked"
+        );
         assert_eq!(error.status, 403);
     }
 
     #[test]
     fn requires_wallet_approval() {
         let mut request = base_request();
-        request.as_object_mut().unwrap().remove("wallet_approval_ref");
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "worker_package_install_wallet_approval_required");
+        request
+            .as_object_mut()
+            .unwrap()
+            .remove("wallet_approval_ref");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "worker_package_install_wallet_approval_required"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -632,8 +728,13 @@ mod tests {
     fn physical_action_requires_safety_envelope() {
         let mut request = base_request();
         request["safety_envelope_refs"] = json!([]);
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "worker_package_install_safety_envelope_refs_required");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "worker_package_install_safety_envelope_refs_required"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -641,7 +742,9 @@ mod tests {
     fn bad_install_prefix_is_400() {
         let mut request = base_request();
         request["install_id"] = json!("nope://x");
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "worker_package_install_install_id_invalid");
     }
@@ -650,7 +753,9 @@ mod tests {
     fn ctee_runtime_requires_ctee_policy() {
         let mut request = base_request();
         request["runtime_profile"] = json!("private_workspace_ctee");
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "worker_package_install_ctee_policy_required");
         assert_eq!(error.status, 403);
     }
@@ -659,7 +764,9 @@ mod tests {
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["installId"] = json!("legacy");
-        let error = RuntimeWorkerPackageInstallAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeWorkerPackageInstallAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "worker_package_install_request_aliases_retired");
     }

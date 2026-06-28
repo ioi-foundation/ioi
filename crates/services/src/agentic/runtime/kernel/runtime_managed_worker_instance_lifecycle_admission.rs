@@ -34,8 +34,13 @@ const LIFECYCLE_STATES: &[&str] = &[
 
 const PERSISTENCE_PROFILES: &[&str] = &["ephemeral", "session", "zero_to_idle", "persistent"];
 
-const PAYMENT_STATUSES: &[&str] =
-    &["current", "past_due", "canceled", "settled", "not_applicable"];
+const PAYMENT_STATUSES: &[&str] = &[
+    "current",
+    "past_due",
+    "canceled",
+    "settled",
+    "not_applicable",
+];
 
 /// The canonical lifecycle state machine: the set of states each from-state may transition to.
 fn allowed_transitions(from_state: &str) -> Option<&'static [&'static str]> {
@@ -43,11 +48,49 @@ fn allowed_transitions(from_state: &str) -> Option<&'static [&'static str]> {
         "discover" => &["installed"],
         "installed" => &["initializing", "deleted"],
         "initializing" => &["active", "suspended", "deleted"],
-        "active" => &["idle", "suspended", "payment_past_due", "archived", "migrated", "exported", "deleted"],
-        "idle" => &["active", "zero_to_idle", "suspended", "payment_past_due", "archived", "migrated", "exported", "deleted"],
-        "zero_to_idle" => &["active", "suspended", "payment_past_due", "archived", "migrated", "exported", "deleted"],
-        "suspended" => &["active", "payment_past_due", "archived", "exported", "deleted"],
-        "payment_past_due" => &["active", "suspended", "zero_to_idle", "archived", "exported", "deleted"],
+        "active" => &[
+            "idle",
+            "suspended",
+            "payment_past_due",
+            "archived",
+            "migrated",
+            "exported",
+            "deleted",
+        ],
+        "idle" => &[
+            "active",
+            "zero_to_idle",
+            "suspended",
+            "payment_past_due",
+            "archived",
+            "migrated",
+            "exported",
+            "deleted",
+        ],
+        "zero_to_idle" => &[
+            "active",
+            "suspended",
+            "payment_past_due",
+            "archived",
+            "migrated",
+            "exported",
+            "deleted",
+        ],
+        "suspended" => &[
+            "active",
+            "payment_past_due",
+            "archived",
+            "exported",
+            "deleted",
+        ],
+        "payment_past_due" => &[
+            "active",
+            "suspended",
+            "zero_to_idle",
+            "archived",
+            "exported",
+            "deleted",
+        ],
         "archived" => &["restoring", "exported", "deleted", "forgotten"],
         "restoring" => &["active", "archived"],
         "migrated" => &["active", "archived", "exported", "deleted"],
@@ -79,7 +122,12 @@ pub struct RuntimeManagedWorkerInstanceLifecycleAdmissionError {
 
 impl RuntimeManagedWorkerInstanceLifecycleAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -93,20 +141,27 @@ impl RuntimeManagedWorkerInstanceLifecycleAdmissionCore {
         assert_no_retired_aliases(request)?;
 
         let lifecycle_id = required_string(request.get("lifecycle_id"), "lifecycle_id")?;
-        let worker_instance_id = required_string(request.get("worker_instance_id"), "worker_instance_id")?;
+        let worker_instance_id =
+            required_string(request.get("worker_instance_id"), "worker_instance_id")?;
         let worker_package_ref = optional_value(request.get("worker_package_ref"));
         let owner_ref = required_string(request.get("owner_ref"), "owner_ref")?;
         let from_state = enum_value(request.get("from_state"), "from_state", LIFECYCLE_STATES)?;
         let to_state = enum_value(request.get("to_state"), "to_state", LIFECYCLE_STATES)?;
-        let persistence_profile =
-            enum_value(request.get("persistence_profile"), "persistence_profile", PERSISTENCE_PROFILES)?;
+        let persistence_profile = enum_value(
+            request.get("persistence_profile"),
+            "persistence_profile",
+            PERSISTENCE_PROFILES,
+        )?;
         let payment_status = enum_value(
-            Some(&default_value(request.get("payment_status"), "not_applicable")),
+            Some(&default_value(
+                request.get("payment_status"),
+                "not_applicable",
+            )),
             "payment_status",
             PAYMENT_STATUSES,
         )?;
-        let transition_reason =
-            optional_value(request.get("transition_reason")).unwrap_or_else(|| "operator_request".to_string());
+        let transition_reason = optional_value(request.get("transition_reason"))
+            .unwrap_or_else(|| "operator_request".to_string());
         let authority_scope_refs = unique_scope_refs(request.get("authority_scope_refs"))?;
         let authority_grant_refs = unique_strings_trim(request.get("authority_grant_refs"));
         let policy_refs = unique_strings_trim(request.get("policy_refs"));
@@ -123,12 +178,17 @@ impl RuntimeManagedWorkerInstanceLifecycleAdmissionCore {
         let restore_policy = object_record(request.get("restore_policy"));
         let export_policy = object_record(request.get("export_policy"));
         let deletion_policy = object_record(request.get("deletion_policy"));
-        let high_risk_orders_paused = boolean_value(request.get("high_risk_orders_paused")).unwrap_or(false);
-        let new_billable_work_blocked = boolean_value(request.get("new_billable_work_blocked")).unwrap_or(false);
+        let high_risk_orders_paused =
+            boolean_value(request.get("high_risk_orders_paused")).unwrap_or(false);
+        let new_billable_work_blocked =
+            boolean_value(request.get("new_billable_work_blocked")).unwrap_or(false);
 
         // assertLifecycleTransition.
         let allowed = allowed_transitions(&from_state);
-        if !allowed.map(|states| states.contains(&to_state.as_str())).unwrap_or(false) {
+        if !allowed
+            .map(|states| states.contains(&to_state.as_str()))
+            .unwrap_or(false)
+        {
             return Err(authority_error(
                 "managed_worker_lifecycle_transition_invalid",
                 "Managed worker lifecycle transition is not permitted by the canonical state machine.",
@@ -149,7 +209,11 @@ impl RuntimeManagedWorkerInstanceLifecycleAdmissionCore {
                 ));
             }
             require_control(&required_controls, "freeze_new_billable_work", &to_state)?;
-            require_control(&required_controls, "pause_high_risk_standing_orders", &to_state)?;
+            require_control(
+                &required_controls,
+                "pause_high_risk_standing_orders",
+                &to_state,
+            )?;
             if !new_billable_work_blocked || !high_risk_orders_paused {
                 return Err(authority_error(
                     "managed_worker_lifecycle_lapse_freeze_required",
@@ -162,7 +226,9 @@ impl RuntimeManagedWorkerInstanceLifecycleAdmissionCore {
             }
         }
 
-        if transition_reason == "payment_lapse" && matches!(to_state.as_str(), "deleted" | "forgotten") {
+        if transition_reason == "payment_lapse"
+            && matches!(to_state.as_str(), "deleted" | "forgotten")
+        {
             return Err(authority_error(
                 "managed_worker_lifecycle_lapse_delete_blocked",
                 "Payment lapse cannot silently delete or forget user-owned worker context.",
@@ -436,7 +502,8 @@ fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
     Err(RuntimeManagedWorkerInstanceLifecycleAdmissionError::new(
         400,
         "managed_worker_lifecycle_request_aliases_retired".to_string(),
-        "Managed worker lifecycle admission accepts only canonical snake_case request fields.".to_string(),
+        "Managed worker lifecycle admission accepts only canonical snake_case request fields."
+            .to_string(),
         json!({ "retired_aliases": retired }),
     ))
 }
@@ -447,7 +514,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimeManagedWorkerInstanceLifecycleAdmissionError::new(
                 400,
@@ -475,7 +545,12 @@ fn authority_error(
     message: &str,
     details: Value,
 ) -> RuntimeManagedWorkerInstanceLifecycleAdmissionError {
-    RuntimeManagedWorkerInstanceLifecycleAdmissionError::new(403, code.to_string(), message.to_string(), details)
+    RuntimeManagedWorkerInstanceLifecycleAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 fn default_value(value: Option<&Value>, fallback: &str) -> Value {
@@ -500,7 +575,10 @@ fn policy_or_null(policy: Option<&Value>) -> Value {
 
 /// `!policy?.field` requires the policy be an object AND its field be JS-truthy.
 fn policy_field_truthy(policy: Option<&Value>, field: &str) -> bool {
-    policy.and_then(|object| object.get(field)).map(is_truthy).unwrap_or(false)
+    policy
+        .and_then(|object| object.get(field))
+        .map(is_truthy)
+        .unwrap_or(false)
 }
 
 /// `policy?.field !== true` requires the policy be an object AND its field be the boolean true.
@@ -594,7 +672,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -660,13 +742,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -711,7 +794,10 @@ mod tests {
         let admission = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
             .admit(&base_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], MANAGED_WORKER_INSTANCE_LIFECYCLE_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            MANAGED_WORKER_INSTANCE_LIFECYCLE_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["to_state"], "idle");
         assert_eq!(admission["state"], "idle");
         assert_eq!(
@@ -726,7 +812,9 @@ mod tests {
         let mut request = base_request();
         request["from_state"] = json!("active");
         request["to_state"] = json!("discover");
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "managed_worker_lifecycle_transition_invalid");
         assert_eq!(error.status, 403);
     }
@@ -736,9 +824,14 @@ mod tests {
         let mut request = base_request();
         request["to_state"] = json!("payment_past_due");
         request["payment_status"] = json!("past_due");
-        request["required_controls"] = json!(["freeze_new_billable_work", "pause_high_risk_standing_orders"]);
+        request["required_controls"] = json!([
+            "freeze_new_billable_work",
+            "pause_high_risk_standing_orders"
+        ]);
         // missing the freeze booleans
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "managed_worker_lifecycle_lapse_freeze_required");
         assert_eq!(error.status, 403);
     }
@@ -751,8 +844,13 @@ mod tests {
         request["authority_scope_refs"] = json!(["scope:worker.forget"]);
         request["wallet_approval_ref"] = json!("approval://wallet/x");
         request["deletion_policy"] = json!({ "forget_semantic_memory": false });
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "managed_worker_lifecycle_forget_policy_required");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "managed_worker_lifecycle_forget_policy_required"
+        );
     }
 
     #[test]
@@ -763,7 +861,9 @@ mod tests {
         request["authority_scope_refs"] = json!(["scope:worker.forget"]);
         request["wallet_approval_ref"] = json!("approval://wallet/x");
         request["deletion_policy"] = json!({ "forget_semantic_memory": true });
-        let admission = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect("admitted");
+        let admission = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert_eq!(admission["to_state"], "forgotten");
     }
 
@@ -771,7 +871,9 @@ mod tests {
     fn scope_refs_must_use_scope_prefix() {
         let mut request = base_request();
         request["authority_scope_refs"] = json!(["worker.restore"]);
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("bad scope");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("bad scope");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "managed_worker_lifecycle_scope_invalid");
     }
@@ -780,7 +882,9 @@ mod tests {
     fn bad_lifecycle_prefix_is_400() {
         let mut request = base_request();
         request["lifecycle_id"] = json!("nope:x");
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "managed_worker_lifecycle_lifecycle_id_invalid");
     }
@@ -797,8 +901,13 @@ mod tests {
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["lifecycleId"] = json!("legacy");
-        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeManagedWorkerInstanceLifecycleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "managed_worker_lifecycle_request_aliases_retired");
+        assert_eq!(
+            error.code,
+            "managed_worker_lifecycle_request_aliases_retired"
+        );
     }
 }

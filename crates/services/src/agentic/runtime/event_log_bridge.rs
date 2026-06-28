@@ -145,7 +145,9 @@ pub fn managed_session_projected_event(
     // event only when the operator-visible state actually changes (admission dedupes
     // identical states), instead of appending a duplicate line per action.
     let state_digest = managed_session_state_digest(&sessions);
-    let event_hash = short_hash(&format!("{session_hex}:managed_session.projected:{state_digest}"));
+    let event_hash = short_hash(&format!(
+        "{session_hex}:managed_session.projected:{state_digest}"
+    ));
     let receipt_ref = format!("receipt_managed_session_projected_{event_hash}");
     json!({
         "event_id": format!("event_managed_session_projected_{event_hash}"),
@@ -242,7 +244,10 @@ fn existing_event_by_idempotency_key(
 /// session-keyed runtime thread event built by a turn-execution producer.
 fn finalize_thread_routing(event: &mut Value, thread_id: &str) {
     if let Some(object) = event.as_object_mut() {
-        object.insert("thread_id".to_string(), Value::String(thread_id.to_string()));
+        object.insert(
+            "thread_id".to_string(),
+            Value::String(thread_id.to_string()),
+        );
         object.insert(
             "event_stream_id".to_string(),
             Value::String(format!("{thread_id}:events")),
@@ -395,15 +400,15 @@ pub async fn run_event_log_bridge(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::managed_session_snapshot::{
-        RuntimeManagedSessionCard, RuntimeManagedSessionReplaySnapshot,
-        RuntimeScreenshotPersistenceSnapshot, RUNTIME_MANAGED_SESSION_SCHEMA_VERSION,
-    };
     use crate::agentic::runtime::kernel::runtime_managed_session_control::{
         RuntimeManagedSessionControlCore, RuntimeManagedSessionControlRequest,
         RuntimeManagedSessionProjectionCore, RuntimeManagedSessionProjectionRequest,
         RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
         RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    };
+    use crate::agentic::runtime::managed_session_snapshot::{
+        RuntimeManagedSessionCard, RuntimeManagedSessionReplaySnapshot,
+        RuntimeScreenshotPersistenceSnapshot, RUNTIME_MANAGED_SESSION_SCHEMA_VERSION,
     };
 
     fn card(id: &str) -> RuntimeManagedSessionCard {
@@ -442,7 +447,10 @@ mod tests {
         }
     }
 
-    fn snapshot(session_id: [u8; 32], cards: Vec<RuntimeManagedSessionCard>) -> RuntimeManagedSessionSnapshot {
+    fn snapshot(
+        session_id: [u8; 32],
+        cards: Vec<RuntimeManagedSessionCard>,
+    ) -> RuntimeManagedSessionSnapshot {
         let replayable_session_ids = cards
             .iter()
             .filter(|c| c.replay_ready)
@@ -483,7 +491,10 @@ mod tests {
         .expect("write agent record");
     }
 
-    fn projection_request(state_dir: &Path, thread_id: &str) -> RuntimeManagedSessionProjectionRequest {
+    fn projection_request(
+        state_dir: &Path,
+        thread_id: &str,
+    ) -> RuntimeManagedSessionProjectionRequest {
         RuntimeManagedSessionProjectionRequest {
             schema_version: Some(
                 RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
@@ -511,13 +522,10 @@ mod tests {
         let snap = snapshot(session_id, vec![card("sandbox_browser:1")]);
 
         // Bridge it onto the daemon log.
-        let admitted = persist_managed_session_snapshot(
-            &state_dir.to_string_lossy(),
-            &session_id,
-            &snap,
-        )
-        .expect("bridge persists")
-        .expect("an event was admitted");
+        let admitted =
+            persist_managed_session_snapshot(&state_dir.to_string_lossy(), &session_id, &snap)
+                .expect("bridge persists")
+                .expect("an event was admitted");
         assert_eq!(admitted["event_kind"], "managed_session.projected");
         assert_eq!(admitted["thread_id"], "thread_alpha");
         assert!(admitted.get("seq").and_then(Value::as_u64).is_some());
@@ -540,12 +548,9 @@ mod tests {
         let session_id = [0x77u8; 32];
         // No agent record -> no session->thread linkage -> no fabricated event.
         let snap = snapshot(session_id, vec![card("sandbox_browser:1")]);
-        let result = persist_managed_session_snapshot(
-            &state_dir.to_string_lossy(),
-            &session_id,
-            &snap,
-        )
-        .expect("bridge ok");
+        let result =
+            persist_managed_session_snapshot(&state_dir.to_string_lossy(), &session_id, &snap)
+                .expect("bridge ok");
         assert!(result.is_none());
         assert!(!state_dir.join("events").exists());
     }
@@ -560,8 +565,9 @@ mod tests {
         // Producer side: build the session-keyed event and serialize it as the
         // KernelEvent::RuntimeThreadEvent carrier would.
         let snap = snapshot(session_id, vec![card("sandbox_browser:7")]);
-        let event_json = serde_json::to_string(&managed_session_projected_event(&session_id, &snap))
-            .expect("serialize carrier");
+        let event_json =
+            serde_json::to_string(&managed_session_projected_event(&session_id, &snap))
+                .expect("serialize carrier");
 
         let admitted = persist_runtime_thread_event_json(
             &state_dir.to_string_lossy(),

@@ -20,9 +20,15 @@ use super::{iso_now, DaemonState};
 
 /// Is a real microVM monitor present on this host? (honest enablement for the microVM+ rungs.)
 fn microvm_monitor_present() -> bool {
-    ["cloud-hypervisor", "qemu-system-x86_64", "firecracker"].iter().any(|bin| {
-        std::process::Command::new("which").arg(bin).output().map(|o| o.status.success()).unwrap_or(false)
-    })
+    ["cloud-hypervisor", "qemu-system-x86_64", "firecracker"]
+        .iter()
+        .any(|bin| {
+            std::process::Command::new("which")
+                .arg(bin)
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        })
 }
 
 /// The provider ladder with honest isolation claims. `cross_tenant` is the TRUTH of whether the rung
@@ -63,7 +69,9 @@ fn provider_ladder() -> Value {
 
 /// GET /v1/hypervisor/provider-ladder — the ladder catalog with honest claims.
 pub(crate) async fn handle_provider_ladder(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "schema_version": "ioi.hypervisor.provider-ladder.v1", "ladder": provider_ladder() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.provider-ladder.v1", "ladder": provider_ladder() }),
+    )
 }
 
 /// POST /v1/hypervisor/provider-ladder/resolve — resolve ONE recipe across the ladder.
@@ -73,14 +81,32 @@ pub(crate) async fn handle_provider_ladder_resolve(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
-    let trust = body.get("trust").and_then(|v| v.as_str()).unwrap_or("trusted");
-    let residency = body.get("residency").and_then(|v| v.as_str()).unwrap_or("any");
-    let confidential = body.get("confidential").and_then(|v| v.as_bool()).unwrap_or(false);
-    let deterministic = body.get("deterministic").and_then(|v| v.as_bool()).unwrap_or(false);
-    let recipe_ref = body.get("recipe_ref").and_then(|v| v.as_str()).unwrap_or("");
+    let trust = body
+        .get("trust")
+        .and_then(|v| v.as_str())
+        .unwrap_or("trusted");
+    let residency = body
+        .get("residency")
+        .and_then(|v| v.as_str())
+        .unwrap_or("any");
+    let confidential = body
+        .get("confidential")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let deterministic = body
+        .get("deterministic")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let recipe_ref = body
+        .get("recipe_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     // honest recipe binding: if a recipe_ref is given it must exist (the SAME recipe resolves across rungs).
-    let recipe = if recipe_ref.is_empty() { json!({ "synthetic": true }) }
-        else { super::recipe_routes::load_recipe(&st.data_dir, recipe_ref).unwrap_or(Value::Null) };
+    let recipe = if recipe_ref.is_empty() {
+        json!({ "synthetic": true })
+    } else {
+        super::recipe_routes::load_recipe(&st.data_dir, recipe_ref).unwrap_or(Value::Null)
+    };
     if recipe.is_null() {
         return Json(json!({ "ok": false, "reason": format!("recipe '{recipe_ref}' not found") }));
     }
@@ -90,26 +116,44 @@ pub(crate) async fn handle_provider_ladder_resolve(
     let mut rejected: Vec<Value> = Vec::new();
     for rung in ladder.as_array().unwrap() {
         let p = rung["provider"].as_str().unwrap_or("");
-        let reject = |reason: &str| json!({ "provider": p, "rung": rung["rung"], "reason": reason });
+        let reject =
+            |reason: &str| json!({ "provider": p, "rung": rung["rung"], "reason": reason });
         if rung["enabled"].as_bool() != Some(true) {
-            rejected.push(reject(&format!("not enabled: {}", rung["reason"].as_str().unwrap_or("")))); continue;
+            rejected.push(reject(&format!(
+                "not enabled: {}",
+                rung["reason"].as_str().unwrap_or("")
+            )));
+            continue;
         }
         if trust == "cross_tenant" && rung["cross_tenant"].as_bool() != Some(true) {
-            rejected.push(reject("isolation is not a cross-tenant boundary for an untrusted/cross-tenant workload")); continue;
+            rejected.push(reject(
+                "isolation is not a cross-tenant boundary for an untrusted/cross-tenant workload",
+            ));
+            continue;
         }
         if residency == "local" && rung["locality"].as_str() != Some("local") {
-            rejected.push(reject("violates local data residency (non-local locality)")); continue;
+            rejected.push(reject("violates local data residency (non-local locality)"));
+            continue;
         }
         if confidential && rung["confidential"].as_bool() != Some(true) {
-            rejected.push(reject("no confidential-compute attestation (workload requires no-provider-trust)")); continue;
+            rejected.push(reject(
+                "no confidential-compute attestation (workload requires no-provider-trust)",
+            ));
+            continue;
         }
         if deterministic && rung["deterministic"].as_bool() != Some(true) {
-            rejected.push(reject("not a bounded-deterministic substrate")); continue;
+            rejected.push(reject("not a bounded-deterministic substrate"));
+            continue;
         }
         eligible.push(rung.clone());
     }
     // lowest rung that satisfies the requirement = cheapest sufficient isolation.
-    eligible.sort_by(|a, b| a["rung"].as_i64().unwrap_or(99).cmp(&b["rung"].as_i64().unwrap_or(99)));
+    eligible.sort_by(|a, b| {
+        a["rung"]
+            .as_i64()
+            .unwrap_or(99)
+            .cmp(&b["rung"].as_i64().unwrap_or(99))
+    });
     let chosen = eligible.first().cloned();
     let decision = json!({
         "schema_version": "ioi.hypervisor.provider-ladder-resolution.v1",
@@ -118,7 +162,9 @@ pub(crate) async fn handle_provider_ladder_resolve(
         "chosen": chosen, "eligible": eligible, "rejected": rejected, "at": iso_now()
     });
     if decision["chosen"].is_null() {
-        return Json(json!({ "ok": false, "reason": "no rung satisfies the requirement (all rejected with honest reasons)", "resolution": decision }));
+        return Json(
+            json!({ "ok": false, "reason": "no rung satisfies the requirement (all rejected with honest reasons)", "resolution": decision }),
+        );
     }
     Json(json!({ "ok": true, "resolution": decision }))
 }

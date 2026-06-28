@@ -7,15 +7,15 @@ use super::file_policy_observation::{
 };
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
+use crate::agentic::runtime::event_log_bridge::managed_session_projected_event;
+use crate::agentic::runtime::managed_session_snapshot::{
+    managed_session_snapshot_for_state, record_managed_browser_session_result,
+};
 use crate::agentic::runtime::service::decision_loop::cognition::build_browser_snapshot_pending_state_context_with_history;
 use crate::agentic::runtime::service::lifecycle::{
     browser_subagent_request_from_dynamic, run_browser_subagent,
 };
 use crate::agentic::runtime::service::tool_execution::tool_success_evidence_name;
-use crate::agentic::runtime::event_log_bridge::managed_session_projected_event;
-use crate::agentic::runtime::managed_session_snapshot::{
-    managed_session_snapshot_for_state, record_managed_browser_session_result,
-};
 use serde_json::json;
 
 mod chat_context;
@@ -88,7 +88,11 @@ fn emit_managed_browser_session(
     error_class: Option<&str>,
     block_timestamp_ns: u64,
 ) {
-    if !tool_name.trim().to_ascii_lowercase().starts_with("browser__") {
+    if !tool_name
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("browser__")
+    {
         return;
     }
     let updated_at_ms = block_timestamp_ns / 1_000_000;

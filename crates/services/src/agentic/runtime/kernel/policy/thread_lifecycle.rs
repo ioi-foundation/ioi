@@ -5232,7 +5232,9 @@ mod tests {
             .expect("run create state update");
         let events = record.run["events"].as_array().expect("events");
         assert!(
-            events.iter().any(|event| event["type"] == "computer_use_observation"),
+            events
+                .iter()
+                .any(|event| event["type"] == "computer_use_observation"),
             "computer-use events must be materialized",
         );
         assert_eq!(

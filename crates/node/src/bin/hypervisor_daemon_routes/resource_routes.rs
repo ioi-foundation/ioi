@@ -20,12 +20,28 @@ use serde_json::{json, Value};
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
-fn i(v: &Value, k: &str) -> i64 { v.get(k).and_then(|x| x.as_i64()).unwrap_or(0) }
-fn s(v: &Value, k: &str, default: &str) -> String { v.get(k).and_then(|x| x.as_str()).unwrap_or(default).to_string() }
+fn i(v: &Value, k: &str) -> i64 {
+    v.get(k).and_then(|x| x.as_i64()).unwrap_or(0)
+}
+fn s(v: &Value, k: &str, default: &str) -> String {
+    v.get(k)
+        .and_then(|x| x.as_str())
+        .unwrap_or(default)
+        .to_string()
+}
 
-fn emit_receipt(data_dir: &str, event: &str, subject: &str, decision: &str, reason: &str) -> String {
+fn emit_receipt(
+    data_dir: &str,
+    event: &str,
+    subject: &str,
+    decision: &str,
+    reason: &str,
+) -> String {
     let id = format!("rrc_{:x}", nanos());
     let receipt_ref = format!("agentgres://resource-receipt/{id}");
     let rec = json!({
@@ -43,8 +59,12 @@ fn pool_usage(data_dir: &str, pool_id: &str) -> (i64, i64, i64) {
     let mut mem = 0;
     let mut count = 0;
     for d in read_record_dir(data_dir, "allocation-decisions") {
-        if d.get("pool_id").and_then(|v| v.as_str()) != Some(pool_id) { continue; }
-        if d.get("state").and_then(|v| v.as_str()) != Some("admitted") { continue; }
+        if d.get("pool_id").and_then(|v| v.as_str()) != Some(pool_id) {
+            continue;
+        }
+        if d.get("state").and_then(|v| v.as_str()) != Some("admitted") {
+            continue;
+        }
         let needs = d.get("granted_needs").cloned().unwrap_or_else(|| json!({}));
         cpu += i(&needs, "cpu");
         mem += i(&needs, "memory_mb");
@@ -56,8 +76,15 @@ fn pool_usage(data_dir: &str, pool_id: &str) -> (i64, i64, i64) {
 // ---- pools ----
 
 /// POST /v1/hypervisor/resource/pools — create/update a ResourcePool.
-pub(crate) async fn handle_pool_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
-    let id = body.get("pool_id").and_then(|v| v.as_str()).map(str::to_string).unwrap_or_else(|| format!("pool_{:x}", nanos()));
+pub(crate) async fn handle_pool_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let id = body
+        .get("pool_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("pool_{:x}", nanos()));
     let record = json!({
         "schema_version": "ioi.hypervisor.resource-pool.v1",
         "pool_id": id,
@@ -78,20 +105,34 @@ pub(crate) async fn handle_pool_create(State(st): State<Arc<DaemonState>>, Json(
 pub(crate) async fn handle_pools_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut pools = read_record_dir(&st.data_dir, "resource-pools");
     for p in pools.iter_mut() {
-        let pid = p.get("pool_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let pid = p
+            .get("pool_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let (cpu, mem, count) = pool_usage(&st.data_dir, &pid);
         let cap = p.get("capacity").cloned().unwrap_or_else(|| json!({}));
         p["used"] = json!({ "cpu": cpu, "memory_mb": mem, "concurrent": count });
-        p["available"] = json!({ "cpu": i(&cap, "cpu") - cpu, "memory_mb": i(&cap, "memory_mb") - mem });
+        p["available"] =
+            json!({ "cpu": i(&cap, "cpu") - cpu, "memory_mb": i(&cap, "memory_mb") - mem });
     }
-    Json(json!({ "schema_version": "ioi.hypervisor.resource-pools.v1", "pools": pools, "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.resource-pools.v1", "pools": pools, "at": iso_now() }),
+    )
 }
 
 // ---- budgets ----
 
 /// POST /v1/hypervisor/resource/budgets — create/update a ResourceBudget.
-pub(crate) async fn handle_budget_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
-    let id = body.get("budget_id").and_then(|v| v.as_str()).map(str::to_string).unwrap_or_else(|| format!("budget_{:x}", nanos()));
+pub(crate) async fn handle_budget_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let id = body
+        .get("budget_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("budget_{:x}", nanos()));
     let record = json!({
         "schema_version": "ioi.hypervisor.resource-budget.v1",
         "budget_id": id,
@@ -113,11 +154,15 @@ pub(crate) async fn handle_budgets_list(State(st): State<Arc<DaemonState>>) -> J
     for b in budgets.iter_mut() {
         b["remaining"] = json!((i(b, "limit") - i(b, "spent")).max(0));
     }
-    Json(json!({ "schema_version": "ioi.hypervisor.resource-budgets.v1", "budgets": budgets, "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.resource-budgets.v1", "budgets": budgets, "at": iso_now() }),
+    )
 }
 
 fn load(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
-    read_record_dir(data_dir, dir).into_iter().find(|r| r.get(id_key).and_then(|v| v.as_str()) == Some(id))
+    read_record_dir(data_dir, dir)
+        .into_iter()
+        .find(|r| r.get(id_key).and_then(|v| v.as_str()) == Some(id))
 }
 
 // ---- allocation engine ----
@@ -125,21 +170,46 @@ fn load(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
 /// POST /v1/hypervisor/resource/allocate — evaluate a ResourceAllocationRequest and return a typed
 /// ResourceAllocationDecision (admit|queue|degrade|pause|preempt|shift_provider|request_budget|
 /// fail_closed) with a visible reason + receipt. Persists the request and the decision.
-pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_allocate(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let data_dir = &st.data_dir;
     let req_id = format!("areq_{:x}", nanos());
-    let needs = body.get("needs").cloned().unwrap_or_else(|| json!({ "cpu": 1, "memory_mb": 512 }));
+    let needs = body
+        .get("needs")
+        .cloned()
+        .unwrap_or_else(|| json!({ "cpu": 1, "memory_mb": 512 }));
     let priority = i(&body, "priority");
-    let degradable = body.get("degradable").and_then(|v| v.as_bool()).unwrap_or(false);
-    let estimated_cost = if body.get("estimated_cost").is_some() { i(&body, "estimated_cost") } else { i(&needs, "cpu") * 10 };
+    let degradable = body
+        .get("degradable")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let estimated_cost = if body.get("estimated_cost").is_some() {
+        i(&body, "estimated_cost")
+    } else {
+        i(&needs, "cpu") * 10
+    };
     let privacy = s(&body, "privacy", "local");
     let pool_id = s(&body, "pool_ref", "");
-    let candidates: Vec<String> = body.get("provider_candidates").and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let candidates: Vec<String> = body
+        .get("provider_candidates")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
     let budget_ref = s(&body, "budget_ref", "");
-    let grant_ref = body.get("grant_ref").and_then(|v| v.as_str()).map(str::to_string);
+    let grant_ref = body
+        .get("grant_ref")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let external = s(&body, "spend_scope", "local_free") == "external_spend"
-        || load(data_dir, "resource-budgets", "budget_id", &budget_ref).map(|b| s(&b, "scope", "") == "external_spend").unwrap_or(false);
+        || load(data_dir, "resource-budgets", "budget_id", &budget_ref)
+            .map(|b| s(&b, "scope", "") == "external_spend")
+            .unwrap_or(false);
 
     let request = json!({
         "schema_version": "ioi.hypervisor.resource-allocation-request.v1",
@@ -163,30 +233,49 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
     'eval: {
         // 1) provider/pool health.
         let Some(pool) = pool.clone() else {
-            decision = "fail_closed"; reason = "capacity_exhausted"; detail = json!({ "note": format!("pool '{pool_id}' not found") }); break 'eval;
+            decision = "fail_closed";
+            reason = "capacity_exhausted";
+            detail = json!({ "note": format!("pool '{pool_id}' not found") });
+            break 'eval;
         };
         match s(&pool, "health", "healthy").as_str() {
-            "maintenance" => { decision = "pause"; reason = "maintenance_window"; break 'eval; }
+            "maintenance" => {
+                decision = "pause";
+                reason = "maintenance_window";
+                break 'eval;
+            }
             "unhealthy" => {
                 // shift to a healthy candidate pool if one exists.
                 let healthy = candidates.iter().find_map(|c| {
-                    load(data_dir, "resource-pools", "pool_id", c).filter(|p| s(p, "health", "") == "healthy").map(|_| c.clone())
+                    load(data_dir, "resource-pools", "pool_id", c)
+                        .filter(|p| s(p, "health", "") == "healthy")
+                        .map(|_| c.clone())
                 });
-                if let Some(c) = healthy { decision = "shift_provider"; reason = "provider_unhealthy"; detail = json!({ "shift_to": c }); }
-                else { decision = "fail_closed"; reason = "provider_unhealthy"; }
+                if let Some(c) = healthy {
+                    decision = "shift_provider";
+                    reason = "provider_unhealthy";
+                    detail = json!({ "shift_to": c });
+                } else {
+                    decision = "fail_closed";
+                    reason = "provider_unhealthy";
+                }
                 break 'eval;
             }
             _ => {}
         }
         // 2) privacy / data locality.
         if privacy != s(&pool, "locality", "local") && privacy != "any" {
-            decision = "fail_closed"; reason = "privacy_or_data_locality_block";
-            detail = json!({ "request_privacy": privacy, "pool_locality": s(&pool, "locality", "local") }); break 'eval;
+            decision = "fail_closed";
+            reason = "privacy_or_data_locality_block";
+            detail = json!({ "request_privacy": privacy, "pool_locality": s(&pool, "locality", "local") });
+            break 'eval;
         }
         // 3) authority for external spend.
         if external && grant_ref.is_none() {
-            decision = "fail_closed"; reason = "authority_missing";
-            detail = json!({ "required_authority": { "effect": "spend", "provider": "enterprise_authority|wallet_network_live" } }); break 'eval;
+            decision = "fail_closed";
+            reason = "authority_missing";
+            detail = json!({ "required_authority": { "effect": "spend", "provider": "enterprise_authority|wallet_network_live" } });
+            break 'eval;
         }
         // 4) budget.
         if !budget_ref.is_empty() {
@@ -194,10 +283,12 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
                 let remaining = i(&budget, "limit") - i(&budget, "spent");
                 if estimated_cost > remaining {
                     if external {
-                        decision = "request_budget"; reason = "budget_exhausted";
+                        decision = "request_budget";
+                        reason = "budget_exhausted";
                         detail = json!({ "needed": estimated_cost, "remaining": remaining, "authority_crossing": { "effect": "spend", "kind": "budget_increase", "provider": "enterprise_authority|wallet_network_live" } });
                     } else {
-                        decision = "fail_closed"; reason = "budget_exhausted";
+                        decision = "fail_closed";
+                        reason = "budget_exhausted";
                         detail = json!({ "needed": estimated_cost, "remaining": remaining, "note": "local budget hard cap" });
                     }
                     break 'eval;
@@ -208,30 +299,52 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
         let quota = pool.get("quota").cloned().unwrap_or_else(|| json!({}));
         let (used_cpu, used_mem, count) = pool_usage(data_dir, &pool_id);
         if i(&quota, "max_concurrent") > 0 && count >= i(&quota, "max_concurrent") {
-            decision = "queue"; reason = "quota_exhausted"; detail = json!({ "concurrent": count, "max": i(&quota, "max_concurrent") }); break 'eval;
+            decision = "queue";
+            reason = "quota_exhausted";
+            detail = json!({ "concurrent": count, "max": i(&quota, "max_concurrent") });
+            break 'eval;
         }
         // explicit rate-limit signal (the verifier can assert it).
-        if body.get("rate_limited").and_then(|v| v.as_bool()).unwrap_or(false) {
-            decision = "queue"; reason = "rate_limited"; break 'eval;
+        if body
+            .get("rate_limited")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            decision = "queue";
+            reason = "rate_limited";
+            break 'eval;
         }
         // 6) capacity.
         let cap = pool.get("capacity").cloned().unwrap_or_else(|| json!({}));
-        let fits = used_cpu + i(&needs, "cpu") <= i(&cap, "cpu") && used_mem + i(&needs, "memory_mb") <= i(&cap, "memory_mb");
+        let fits = used_cpu + i(&needs, "cpu") <= i(&cap, "cpu")
+            && used_mem + i(&needs, "memory_mb") <= i(&cap, "memory_mb");
         if !fits {
             // preempt a strictly lower-priority admitted allocation if that frees enough.
-            let mut admitted: Vec<Value> = read_record_dir(data_dir, "allocation-decisions").into_iter()
-                .filter(|d| d.get("pool_id").and_then(|v| v.as_str()) == Some(pool_id.as_str())
-                    && d.get("state").and_then(|v| v.as_str()) == Some("admitted")
-                    && i(d, "priority") < priority)
+            let mut admitted: Vec<Value> = read_record_dir(data_dir, "allocation-decisions")
+                .into_iter()
+                .filter(|d| {
+                    d.get("pool_id").and_then(|v| v.as_str()) == Some(pool_id.as_str())
+                        && d.get("state").and_then(|v| v.as_str()) == Some("admitted")
+                        && i(d, "priority") < priority
+                })
                 .collect();
             admitted.sort_by_key(|d| i(d, "priority"));
             if let Some(victim) = admitted.first() {
-                let vneeds = victim.get("granted_needs").cloned().unwrap_or_else(|| json!({}));
+                let vneeds = victim
+                    .get("granted_needs")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
                 let freed_cpu = used_cpu - i(&vneeds, "cpu");
                 let freed_mem = used_mem - i(&vneeds, "memory_mb");
-                if freed_cpu + i(&needs, "cpu") <= i(&cap, "cpu") && freed_mem + i(&needs, "memory_mb") <= i(&cap, "memory_mb") {
-                    decision = "preempt"; reason = "lower_priority_preempted";
-                    victim_decision_id = victim.get("decision_id").and_then(|v| v.as_str()).map(str::to_string);
+                if freed_cpu + i(&needs, "cpu") <= i(&cap, "cpu")
+                    && freed_mem + i(&needs, "memory_mb") <= i(&cap, "memory_mb")
+                {
+                    decision = "preempt";
+                    reason = "lower_priority_preempted";
+                    victim_decision_id = victim
+                        .get("decision_id")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string);
                     detail = json!({ "preempted_decision": victim_decision_id, "preempted_priority": i(victim, "priority") });
                     break 'eval;
                 }
@@ -241,12 +354,14 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
                 let avail_cpu = (i(&cap, "cpu") - used_cpu).max(0);
                 let avail_mem = (i(&cap, "memory_mb") - used_mem).max(0);
                 if avail_cpu > 0 && avail_mem > 0 {
-                    decision = "degrade"; reason = "capacity_exhausted";
+                    decision = "degrade";
+                    reason = "capacity_exhausted";
                     granted_needs = json!({ "cpu": avail_cpu.min(i(&needs, "cpu")), "memory_mb": avail_mem.min(i(&needs, "memory_mb")) });
                     break 'eval;
                 }
             }
-            decision = "queue"; reason = "capacity_exhausted";
+            decision = "queue";
+            reason = "capacity_exhausted";
             detail = json!({ "used": { "cpu": used_cpu, "memory_mb": used_mem }, "capacity": cap });
             break 'eval;
         }
@@ -267,7 +382,13 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
                 victim["state"] = json!("preempted");
                 victim["preempted_at"] = json!(iso_now());
                 let _ = persist_record(data_dir, "allocation-decisions", vid, &victim);
-                emit_receipt(data_dir, "preempted", vid, "preempt", "lower_priority_preempted");
+                emit_receipt(
+                    data_dir,
+                    "preempted",
+                    vid,
+                    "preempt",
+                    "lower_priority_preempted",
+                );
             }
         }
     }
@@ -298,7 +419,10 @@ pub(crate) async fn handle_allocate(State(st): State<Arc<DaemonState>>, Json(bod
 }
 
 /// POST /v1/hypervisor/resource/release — free an admitted allocation (capacity returns to pool).
-pub(crate) async fn handle_release(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_release(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let dec_id = s(&body, "decision_id", "");
     let Some(mut d) = load(&st.data_dir, "allocation-decisions", "decision_id", &dec_id) else {
         return Json(json!({ "ok": false, "reason": format!("decision '{dec_id}' not found") }));
@@ -306,23 +430,36 @@ pub(crate) async fn handle_release(State(st): State<Arc<DaemonState>>, Json(body
     d["state"] = json!("released");
     d["released_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, "allocation-decisions", &dec_id, &d);
-    emit_receipt(&st.data_dir, "released", &dec_id, "release", "operator_release");
+    emit_receipt(
+        &st.data_dir,
+        "released",
+        &dec_id,
+        "release",
+        "operator_release",
+    );
     Json(json!({ "ok": true, "decision_id": dec_id, "state": "released" }))
 }
 
 /// GET /v1/hypervisor/resource/work-queue — the WorkQueue: queued allocation decisions in priority
 /// order (highest priority first), each with its blocking reason.
 pub(crate) async fn handle_work_queue(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let mut queued: Vec<Value> = read_record_dir(&st.data_dir, "allocation-decisions").into_iter()
-        .filter(|d| d.get("state").and_then(|v| v.as_str()) == Some("queued")).collect();
+    let mut queued: Vec<Value> = read_record_dir(&st.data_dir, "allocation-decisions")
+        .into_iter()
+        .filter(|d| d.get("state").and_then(|v| v.as_str()) == Some("queued"))
+        .collect();
     queued.sort_by(|a, b| i(b, "priority").cmp(&i(a, "priority")));
-    Json(json!({ "schema_version": "ioi.hypervisor.work-queue.v1", "queue": queued, "depth": queued.len(), "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.work-queue.v1", "queue": queued, "depth": queued.len(), "at": iso_now() }),
+    )
 }
 
 /// POST /v1/hypervisor/resource/catchup — a SchedulerCatchupPolicy decision for a missed window.
 /// Body: `{missed_schedule_ref, work_ref, policy?}` where policy ∈ skip|catch_up|reduce_scope|
 /// shift_provider|request_budget. Returns the decision + expected verified-work impact + receipt.
-pub(crate) async fn handle_catchup(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_catchup(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let data_dir = &st.data_dir;
     let id = format!("cat_{:x}", nanos());
     let missed = s(&body, "missed_schedule_ref", "");
@@ -330,12 +467,24 @@ pub(crate) async fn handle_catchup(State(st): State<Arc<DaemonState>>, Json(body
     let policy = s(&body, "policy", "catch_up");
     let impact = match policy.as_str() {
         "skip" => json!({ "verified_work_delta": 0, "note": "window skipped; no catch-up work" }),
-        "reduce_scope" => json!({ "verified_work_delta": "partial", "note": "reduced-scope catch-up" }),
-        "shift_provider" => json!({ "verified_work_delta": "full", "note": "catch up on an alternate provider" }),
-        "request_budget" => json!({ "verified_work_delta": "pending_authority", "note": "catch-up needs a budget increase (authority crossing)" }),
+        "reduce_scope" => {
+            json!({ "verified_work_delta": "partial", "note": "reduced-scope catch-up" })
+        }
+        "shift_provider" => {
+            json!({ "verified_work_delta": "full", "note": "catch up on an alternate provider" })
+        }
+        "request_budget" => {
+            json!({ "verified_work_delta": "pending_authority", "note": "catch-up needs a budget increase (authority crossing)" })
+        }
         _ => json!({ "verified_work_delta": "full", "note": "full catch-up scheduled" }),
     };
-    let receipt = emit_receipt(data_dir, "catchup_decision", &missed, &policy, "scheduler_catchup");
+    let receipt = emit_receipt(
+        data_dir,
+        "catchup_decision",
+        &missed,
+        &policy,
+        "scheduler_catchup",
+    );
     let record = json!({
         "schema_version": "ioi.hypervisor.scheduler-catchup-decision.v1",
         "catchup_id": id, "missed_schedule_ref": missed, "work_ref": work_ref,
@@ -349,5 +498,7 @@ pub(crate) async fn handle_catchup(State(st): State<Arc<DaemonState>>, Json(body
 pub(crate) async fn handle_receipts(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut receipts = read_record_dir(&st.data_dir, "resource-receipts");
     receipts.sort_by(|a, b| s(b, "receipt_id", "").cmp(&s(a, "receipt_id", "")));
-    Json(json!({ "schema_version": "ioi.hypervisor.resource-receipts.v1", "receipts": receipts, "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.resource-receipts.v1", "receipts": receipts, "at": iso_now() }),
+    )
 }

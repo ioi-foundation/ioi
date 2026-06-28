@@ -48,7 +48,12 @@ pub struct RuntimeServiceCompositionReceiptBundleAdmissionError {
 
 impl RuntimeServiceCompositionReceiptBundleAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -63,10 +68,15 @@ impl RuntimeServiceCompositionReceiptBundleAdmissionCore {
 
         let service_ref = required_string(request.get("service_ref"), "service_ref")?;
         let delivery_ref = required_string(request.get("delivery_ref"), "delivery_ref")?;
-        let composition_graph_ref =
-            required_string(request.get("composition_graph_ref"), "composition_graph_ref")?;
-        let private_data_posture =
-            enum_value(request.get("private_data_posture"), "private_data_posture", PRIVATE_DATA_POSTURES)?;
+        let composition_graph_ref = required_string(
+            request.get("composition_graph_ref"),
+            "composition_graph_ref",
+        )?;
+        let private_data_posture = enum_value(
+            request.get("private_data_posture"),
+            "private_data_posture",
+            PRIVATE_DATA_POSTURES,
+        )?;
         let delivery_status = enum_value(
             Some(&default_value(request.get("delivery_status"), "delivered")),
             "delivery_status",
@@ -84,7 +94,8 @@ impl RuntimeServiceCompositionReceiptBundleAdmissionCore {
         let provider_log_refs = unique_refs(request.get("provider_log_refs"));
         let state_root = required_string(request.get("state_root"), "state_root")?;
         let wallet_approval_ref = optional_value(request.get("wallet_approval_ref"));
-        let unsafe_plaintext_exception_ref = optional_value(request.get("unsafe_plaintext_exception_ref"));
+        let unsafe_plaintext_exception_ref =
+            optional_value(request.get("unsafe_plaintext_exception_ref"));
         let settlement_requested = boolean_value(request.get("settlement_requested"))
             .unwrap_or(delivery_status == "delivered");
 
@@ -138,7 +149,11 @@ impl RuntimeServiceCompositionReceiptBundleAdmissionCore {
         }
 
         let bundle_ref = optional_value(request.get("bundle_ref")).unwrap_or_else(|| {
-            format!("service-composition-bundle:{}:{}", safe_id(&delivery_ref), safe_id(&state_root))
+            format!(
+                "service-composition-bundle:{}:{}",
+                safe_id(&delivery_ref),
+                safe_id(&state_root)
+            )
         });
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
@@ -225,7 +240,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimeServiceCompositionReceiptBundleAdmissionError::new(
                 400,
@@ -248,8 +266,17 @@ fn required_string(value: Option<&Value>, field: &str) -> AdmitResult<String> {
     })
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimeServiceCompositionReceiptBundleAdmissionError {
-    RuntimeServiceCompositionReceiptBundleAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeServiceCompositionReceiptBundleAdmissionError {
+    RuntimeServiceCompositionReceiptBundleAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 fn default_value(value: Option<&Value>, fallback: &str) -> Value {
@@ -343,7 +370,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -409,13 +440,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -466,7 +498,10 @@ mod tests {
         let admission = RuntimeServiceCompositionReceiptBundleAdmissionCore
             .admit(&base_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], SERVICE_COMPOSITION_RECEIPT_BUNDLE_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            SERVICE_COMPOSITION_RECEIPT_BUNDLE_SCHEMA_VERSION
+        );
         assert_eq!(admission["settlement_ready"], true);
         assert_eq!(
             admission["bundle_ref"],
@@ -479,8 +514,13 @@ mod tests {
         let mut request = base_request();
         request["artifact_refs"] = json!([]);
         // payload_refs absent
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "service_composition_delivery_payload_or_artifact_required");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "service_composition_delivery_payload_or_artifact_required"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -489,7 +529,9 @@ mod tests {
         let mut request = base_request();
         request["artifact_refs"] = json!([]);
         request["payload_refs"] = json!(["payload://delivery/a"]);
-        let admission = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect("admitted");
+        let admission = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert_eq!(admission["settlement_ready"], true);
     }
 
@@ -497,8 +539,13 @@ mod tests {
     fn unsafe_plaintext_requires_approval() {
         let mut request = base_request();
         request["private_data_posture"] = json!("unsafe_plaintext_exception");
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "service_composition_unsafe_plaintext_exception_unapproved");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "service_composition_unsafe_plaintext_exception_unapproved"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -508,15 +555,22 @@ mod tests {
         request["private_data_posture"] = json!("unsafe_plaintext_exception");
         request["wallet_approval_ref"] = json!("approval://wallet/x");
         request["unsafe_plaintext_exception_ref"] = json!("receipt://exception/x");
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "service_composition_unsafe_plaintext_settlement_blocked");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "service_composition_unsafe_plaintext_settlement_blocked"
+        );
     }
 
     #[test]
     fn bad_state_root_prefix_is_400() {
         let mut request = base_request();
         request["state_root"] = json!("nope:x");
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "service_composition_state_root_invalid");
     }
@@ -525,16 +579,23 @@ mod tests {
     fn requires_contribution_receipts() {
         let mut request = base_request();
         request["contribution_receipt_refs"] = json!([]);
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "service_composition_contribution_receipt_refs_required");
+        assert_eq!(
+            error.code,
+            "service_composition_contribution_receipt_refs_required"
+        );
     }
 
     #[test]
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["compositionGraphRef"] = json!("legacy");
-        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeServiceCompositionReceiptBundleAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "service_composition_request_aliases_retired");
     }

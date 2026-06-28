@@ -597,7 +597,10 @@ fn merge_array_strings(value: &mut Value, key: &str, values: &[String]) {
         }
     }
     if let Value::Object(record) = value {
-        record.insert(key.to_string(), Value::Array(merged.into_iter().map(Value::String).collect()));
+        record.insert(
+            key.to_string(),
+            Value::Array(merged.into_iter().map(Value::String).collect()),
+        );
     }
 }
 
@@ -800,11 +803,25 @@ mod tests {
             .iter()
             .filter_map(|v| v.as_str())
             .collect();
-        assert!(receipts.contains(&"receipt://create/prov"), "create receipt provenance survives the action: {receipts:?}");
-        assert!(action.artifact["policy_refs"].as_array().unwrap().iter().any(|v| v == "policy://create/prov"));
-        assert!(action.artifact["evidence_refs"].as_array().unwrap().iter().any(|v| v == "evidence://create/prov"));
+        assert!(
+            receipts.contains(&"receipt://create/prov"),
+            "create receipt provenance survives the action: {receipts:?}"
+        );
+        assert!(action.artifact["policy_refs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "policy://create/prov"));
+        assert!(action.artifact["evidence_refs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "evidence://create/prov"));
         // The action's own receipt is also present (the merge unions, not replaces).
-        assert!(receipts.len() >= 2, "the action contributes its own receipt alongside the prior one");
+        assert!(
+            receipts.len() >= 2,
+            "the action contributes its own receipt alongside the prior one"
+        );
     }
 
     #[test]

@@ -39,7 +39,11 @@ pub(crate) async fn handle_env_ops_lease(
         json!([format!("environment:{env_id}")]),
         3600,
     );
-    let id = lease.get("grant_id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let id = lease
+        .get("grant_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     Json(json!({
         "accessToken": id,
         "lease_id": id,
@@ -49,27 +53,42 @@ pub(crate) async fn handle_env_ops_lease(
     }))
 }
 
-const B64: base64::engine::general_purpose::GeneralPurpose = base64::engine::general_purpose::STANDARD;
+const B64: base64::engine::general_purpose::GeneralPurpose =
+    base64::engine::general_purpose::STANDARD;
 
 fn safe(seg: &str) -> String {
-    seg.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+    seg.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    )
 }
 
 // ---- Connect response helpers -------------------------------------------------------------------
 
 fn ok_json(v: Value) -> Response {
-    ([(axum::http::header::CONTENT_TYPE, "application/json")], v.to_string()).into_response()
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        v.to_string(),
+    )
+        .into_response()
 }
 
 /// Connect error envelope: HTTP status + `{code,message}` — never HTML (which would hang the SPA).
 fn connect_err(status: StatusCode, code: &str, message: &str) -> Response {
-    (status, [(axum::http::header::CONTENT_TYPE, "application/json")], json!({ "code": code, "message": message }).to_string()).into_response()
+    (
+        status,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        json!({ "code": code, "message": message }).to_string(),
+    )
+        .into_response()
 }
 
 // ---- workspace resolution + path fence ----------------------------------------------------------
 
 fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
-    let path = Path::new(data_dir).join("environments").join(format!("{}.json", safe(env_id)));
+    let path = Path::new(data_dir)
+        .join("environments")
+        .join(format!("{}.json", safe(env_id)));
     let v: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
     v.get("status")
         .and_then(|s| s.get("workspace_root"))
@@ -81,12 +100,20 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
 /// Resolve `rel` under the workspace, fenced: no `..` escape, result must stay within `ws`.
 fn scoped(ws: &str, rel: &str) -> Result<PathBuf, String> {
     let rel = rel.trim_start_matches('/');
-    let rel = if rel.is_empty() || rel == "." { "" } else { rel };
+    let rel = if rel.is_empty() || rel == "." {
+        ""
+    } else {
+        rel
+    };
     if rel.split('/').any(|seg| seg == "..") {
         return Err("path escapes workspace".to_string());
     }
     let root = Path::new(ws);
-    let joined = if rel.is_empty() { root.to_path_buf() } else { root.join(rel) };
+    let joined = if rel.is_empty() {
+        root.to_path_buf()
+    } else {
+        root.join(rel)
+    };
     Ok(joined)
 }
 
@@ -102,21 +129,36 @@ fn bearer(headers: &HeaderMap) -> Option<String> {
 }
 
 fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
-    let path = Path::new(data_dir).join("authority-grants").join(format!("{}.json", safe(lease_id)));
-    let Ok(bytes) = std::fs::read(path) else { return false };
-    let Ok(v): Result<Value, _> = serde_json::from_slice(&bytes) else { return false };
+    let path = Path::new(data_dir)
+        .join("authority-grants")
+        .join(format!("{}.json", safe(lease_id)));
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    let Ok(v): Result<Value, _> = serde_json::from_slice(&bytes) else {
+        return false;
+    };
     let needle = format!("environment:{env_id}");
     v.get("resources")
         .and_then(|r| r.as_array())
-        .map(|arr| arr.iter().any(|x| x.as_str() == Some(needle.as_str()) || x.as_str() == Some(env_id)))
+        .map(|arr| {
+            arr.iter()
+                .any(|x| x.as_str() == Some(needle.as_str()) || x.as_str() == Some(env_id))
+        })
         .unwrap_or(false)
 }
 
 /// The environment a lease is bound to (from its `resources: ["environment:<env>"]`).
 fn lease_env(data_dir: &str, lease_id: &str) -> Option<String> {
-    let path = Path::new(data_dir).join("authority-grants").join(format!("{}.json", safe(lease_id)));
+    let path = Path::new(data_dir)
+        .join("authority-grants")
+        .join(format!("{}.json", safe(lease_id)));
     let v: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    v.get("resources")?.as_array()?.iter().find_map(|x| x.as_str().and_then(|s| s.strip_prefix("environment:")).map(str::to_string))
+    v.get("resources")?.as_array()?.iter().find_map(|x| {
+        x.as_str()
+            .and_then(|s| s.strip_prefix("environment:"))
+            .map(str::to_string)
+    })
 }
 
 /// `GET /v1/hypervisor/ops-lease/:token` — resolve a lease to its environment + live status. The
@@ -133,14 +175,22 @@ pub(crate) async fn handle_ops_lease_resolve(
 
 /// True iff the request carries an active capability lease bound to this environment.
 fn authed(data_dir: &str, env_id: &str, headers: &HeaderMap) -> bool {
-    let Some(token) = bearer(headers) else { return false };
-    capability_lease_status(data_dir, &token) == "active" && lease_binds_env(data_dir, &token, env_id)
+    let Some(token) = bearer(headers) else {
+        return false;
+    };
+    capability_lease_status(data_dir, &token) == "active"
+        && lease_binds_env(data_dir, &token, env_id)
 }
 
 // ---- git helpers --------------------------------------------------------------------------------
 
 fn git(ws: &str, args: &[&str]) -> Result<String, String> {
-    let out = Command::new("git").arg("-C").arg(ws).args(args).output().map_err(|e| e.to_string())?;
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(ws)
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
@@ -217,7 +267,8 @@ fn changed_files(ws: &str, base_ref: &str) -> Vec<Value> {
 fn parse_hunks(diff: &str) -> Vec<Value> {
     let mut hunks: Vec<Value> = Vec::new();
     let mut cur: Option<(i64, i64, i64, i64, String, Vec<String>)> = None;
-    let flush = |cur: &mut Option<(i64, i64, i64, i64, String, Vec<String>)>, hunks: &mut Vec<Value>| {
+    let flush = |cur: &mut Option<(i64, i64, i64, i64, String, Vec<String>)>,
+                 hunks: &mut Vec<Value>| {
         if let Some((os, ol, ns, nl, section, body)) = cur.take() {
             hunks.push(json!({
                 "originalStartLine": os, "originalLines": ol,
@@ -258,14 +309,39 @@ pub(crate) async fn handle_environment_ops(
     body: Bytes,
 ) -> Response {
     if !authed(&st.data_dir, &env_id, &headers) {
-        return connect_err(StatusCode::UNAUTHORIZED, "unauthenticated", "a valid env-scoped capability lease is required");
+        return connect_err(
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+            "a valid env-scoped capability lease is required",
+        );
     }
     let Some(ws) = env_workspace(&st.data_dir, &env_id) else {
-        return connect_err(StatusCode::NOT_FOUND, "not_found", "environment not started (no scoped workspace)");
+        return connect_err(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "environment not started (no scoped workspace)",
+        );
     };
-    let req: Value = if body.is_empty() { json!({}) } else { serde_json::from_slice(&body).unwrap_or_else(|_| json!({})) };
-    let s = |k: &str| req.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let i64s = |k: &str| req.get(k).and_then(|v| v.as_str().and_then(|x| x.parse::<i64>().ok()).or_else(|| v.as_i64())).unwrap_or(0);
+    let req: Value = if body.is_empty() {
+        json!({})
+    } else {
+        serde_json::from_slice(&body).unwrap_or_else(|_| json!({}))
+    };
+    let s = |k: &str| {
+        req.get(k)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    };
+    let i64s = |k: &str| {
+        req.get(k)
+            .and_then(|v| {
+                v.as_str()
+                    .and_then(|x| x.parse::<i64>().ok())
+                    .or_else(|| v.as_i64())
+            })
+            .unwrap_or(0)
+    };
 
     match method.as_str() {
         "ListCapabilities" => ok_json(json!({ "capabilities": [] })), // WATCH served by the WS transport (fs watcher)
@@ -286,13 +362,28 @@ pub(crate) async fn handle_environment_ops(
                                 Err(_) => continue,
                             };
                             let name = e.file_name().to_string_lossy().into_owned();
-                            let child = if rel.is_empty() || rel == "." { name.clone() } else { format!("{}/{}", rel.trim_end_matches('/'), name) };
+                            let child = if rel.is_empty() || rel == "." {
+                                name.clone()
+                            } else {
+                                format!("{}/{}", rel.trim_end_matches('/'), name)
+                            };
                             entries.push(json!({ "path": child, "isDirectory": md.is_dir(), "size": md.len().to_string() }));
                         }
                     }
-                    Err(e) => return connect_err(StatusCode::INTERNAL_SERVER_ERROR, "internal", &e.to_string()),
+                    Err(e) => {
+                        return connect_err(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "internal",
+                            &e.to_string(),
+                        )
+                    }
                 }
-                entries.sort_by(|a, b| a["path"].as_str().unwrap_or("").cmp(b["path"].as_str().unwrap_or("")));
+                entries.sort_by(|a, b| {
+                    a["path"]
+                        .as_str()
+                        .unwrap_or("")
+                        .cmp(b["path"].as_str().unwrap_or(""))
+                });
                 ok_json(json!({ "directory": { "entries": entries } }))
             } else {
                 match std::fs::read(&p) {
@@ -307,7 +398,9 @@ pub(crate) async fn handle_environment_ops(
                         } else {
                             &bytes[offset..(offset + length).min(bytes.len())]
                         };
-                        ok_json(json!({ "content": { "data": B64.encode(slice), "totalSize": total.to_string(), "contentHash": "" } }))
+                        ok_json(
+                            json!({ "content": { "data": B64.encode(slice), "totalSize": total.to_string(), "contentHash": "" } }),
+                        )
                     }
                     Err(e) => connect_err(StatusCode::NOT_FOUND, "not_found", &e.to_string()),
                 }
@@ -326,7 +419,11 @@ pub(crate) async fn handle_environment_ops(
             }
             match std::fs::write(&p, &data) {
                 Ok(_) => ok_json(json!({ "bytesWritten": (data.len() as i64).to_string() })),
-                Err(e) => connect_err(StatusCode::INTERNAL_SERVER_ERROR, "internal", &e.to_string()),
+                Err(e) => connect_err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal",
+                    &e.to_string(),
+                ),
             }
         }
 
@@ -341,7 +438,9 @@ pub(crate) async fn handle_environment_ops(
             let mut truncated = false;
             let mut stack = vec![start];
             while let Some(dir) = stack.pop() {
-                let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+                let Ok(rd) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
                 for e in rd.flatten() {
                     if files.len() >= 2000 {
                         truncated = true;
@@ -356,7 +455,11 @@ pub(crate) async fn handle_environment_ops(
                         Err(_) => continue,
                     };
                     let abs = e.path();
-                    let relp = abs.strip_prefix(&ws).unwrap_or(&abs).to_string_lossy().into_owned();
+                    let relp = abs
+                        .strip_prefix(&ws)
+                        .unwrap_or(&abs)
+                        .to_string_lossy()
+                        .into_owned();
                     if pattern.is_empty() || name.to_lowercase().contains(&pattern.to_lowercase()) {
                         files.push(json!({ "path": relp, "isDirectory": md.is_dir(), "size": md.len().to_string() }));
                     }
@@ -369,13 +472,17 @@ pub(crate) async fn handle_environment_ops(
         }
 
         "GetDefaultBranch" => {
-            let branch = git(&ws, &["rev-parse", "--abbrev-ref", "HEAD"]).map(|b| b.trim().to_string()).unwrap_or_else(|_| "main".into());
+            let branch = git(&ws, &["rev-parse", "--abbrev-ref", "HEAD"])
+                .map(|b| b.trim().to_string())
+                .unwrap_or_else(|_| "main".into());
             ok_json(json!({ "branch": if branch.is_empty() { "main".into() } else { branch } }))
         }
 
         "GetGitStatus" => {
             let files = changed_files(&ws, "");
-            let branch = git(&ws, &["rev-parse", "--abbrev-ref", "HEAD"]).map(|b| b.trim().to_string()).unwrap_or_default();
+            let branch = git(&ws, &["rev-parse", "--abbrev-ref", "HEAD"])
+                .map(|b| b.trim().to_string())
+                .unwrap_or_default();
             ok_json(json!({ "status": {
                 "branch": branch,
                 "changedFiles": files.clone(),
@@ -387,7 +494,9 @@ pub(crate) async fn handle_environment_ops(
 
         "GetGitDiffFiles" => {
             let files = changed_files(&ws, &s("baseRef"));
-            ok_json(json!({ "changedFiles": files.clone(), "totalChangedFiles": files.len() as i64 }))
+            ok_json(
+                json!({ "changedFiles": files.clone(), "totalChangedFiles": files.len() as i64 }),
+            )
         }
 
         "GetGitDiff" => {
@@ -421,7 +530,10 @@ pub(crate) async fn handle_environment_ops(
             } else {
                 git(&ws, &["show", &format!("{base}:{rel}")]).unwrap_or_default()
             };
-            let new_content = scoped(&ws, &rel).ok().and_then(|p| std::fs::read(p).ok()).unwrap_or_default();
+            let new_content = scoped(&ws, &rel)
+                .ok()
+                .and_then(|p| std::fs::read(p).ok())
+                .unwrap_or_default();
             ok_json(json!({
                 "fileChange": { "path": rel, "changeType": "CHANGE_TYPE_MODIFIED" },
                 "originalContent": B64.encode(original.as_bytes()),
@@ -431,23 +543,44 @@ pub(crate) async fn handle_environment_ops(
         }
 
         "ListTerminalProfiles" => {
-            let bash = if Path::new("/usr/bin/bash").exists() { "/usr/bin/bash" } else { "/bin/bash" };
-            ok_json(json!({ "profiles": [{ "profileName": "bash", "path": bash, "isAutoDetected": true }] }))
+            let bash = if Path::new("/usr/bin/bash").exists() {
+                "/usr/bin/bash"
+            } else {
+                "/bin/bash"
+            };
+            ok_json(
+                json!({ "profiles": [{ "profileName": "bash", "path": bash, "isAutoDetected": true }] }),
+            )
         }
 
         "Exec" => {
             let command = s("command");
             let cwd = {
                 let wd = s("workingDirectory");
-                if wd.is_empty() { ws.clone() } else { scoped(&ws, &wd).map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| ws.clone()) }
+                if wd.is_empty() {
+                    ws.clone()
+                } else {
+                    scoped(&ws, &wd)
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .unwrap_or_else(|_| ws.clone())
+                }
             };
-            match Command::new("bash").arg("-lc").arg(&command).current_dir(&cwd).output() {
+            match Command::new("bash")
+                .arg("-lc")
+                .arg(&command)
+                .current_dir(&cwd)
+                .output()
+            {
                 Ok(out) => ok_json(json!({
                     "exitCode": out.status.code().unwrap_or(-1),
                     "stdout": String::from_utf8_lossy(&out.stdout),
                     "stderr": String::from_utf8_lossy(&out.stderr),
                 })),
-                Err(e) => connect_err(StatusCode::INTERNAL_SERVER_ERROR, "internal", &e.to_string()),
+                Err(e) => connect_err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal",
+                    &e.to_string(),
+                ),
             }
         }
 
@@ -457,11 +590,19 @@ pub(crate) async fn handle_environment_ops(
         // ResizeTerminal/CloseTerminal/Watch) are served over the WebSocket transport (serve layer
         // bridges the daemon's real openpty terminals + an fs watcher); the SPA never calls them over
         // HTTP. StartBrowser is a declared follow-on. Honest Connect `unimplemented` over HTTP.
-        "CreateTerminal" | "ReadTerminal" | "AttachTerminal" | "WriteTerminal" | "ResizeTerminal"
-        | "CloseTerminal" | "ListTerminals" | "Watch" | "StartBrowser" => {
-            connect_err(StatusCode::NOT_IMPLEMENTED, "unimplemented", &format!("{method} is served over the env-ops WebSocket transport"))
+        "CreateTerminal" | "ReadTerminal" | "AttachTerminal" | "WriteTerminal"
+        | "ResizeTerminal" | "CloseTerminal" | "ListTerminals" | "Watch" | "StartBrowser" => {
+            connect_err(
+                StatusCode::NOT_IMPLEMENTED,
+                "unimplemented",
+                &format!("{method} is served over the env-ops WebSocket transport"),
+            )
         }
 
-        other => connect_err(StatusCode::NOT_IMPLEMENTED, "unimplemented", &format!("unknown method {other}")),
+        other => connect_err(
+            StatusCode::NOT_IMPLEMENTED,
+            "unimplemented",
+            &format!("unknown method {other}"),
+        ),
     }
 }

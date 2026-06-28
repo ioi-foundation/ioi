@@ -1160,7 +1160,10 @@ impl ApprovalRequestStateUpdateCore {
             // Persist the request-time approval (with its lease + policy_hash) onto the
             // agent so the decision authority can later derive the canonical
             // expected_policy_hash from Rust-authored state (mirrors the run target).
-            let mut trace = agent.get("trace").and_then(object_value).unwrap_or_default();
+            let mut trace = agent
+                .get("trace")
+                .and_then(object_value)
+                .unwrap_or_default();
             trace.insert(
                 "operatorControls".to_string(),
                 append_operator_control(trace.get("operatorControls"), &operator_control),
@@ -2695,7 +2698,9 @@ impl ApprovalDecisionAuthorityRequest {
             return Err(ApprovalDecisionAuthorityError::MissingField("decision"));
         }
         if !self.authority_grant.is_object() && !self.wallet_approval_grant.is_object() {
-            return Err(ApprovalDecisionAuthorityError::MissingField("authority_grant"));
+            return Err(ApprovalDecisionAuthorityError::MissingField(
+                "authority_grant",
+            ));
         }
         if unique_trimmed(&self.authority_receipt_refs).is_empty() {
             return Err(ApprovalDecisionAuthorityError::MissingAuthorityReceipt);
@@ -4829,7 +4834,11 @@ mod tests {
             approver_suite: SignatureSuite::ED25519,
         };
         let signing_bytes = grant.signing_bytes().expect("signing bytes");
-        grant.approver_sig = keypair.sign(&signing_bytes).expect("sign").to_bytes().to_vec();
+        grant.approver_sig = keypair
+            .sign(&signing_bytes)
+            .expect("sign")
+            .to_bytes()
+            .to_vec();
         grant
     }
 
@@ -5688,10 +5697,16 @@ mod tests {
             record.authority_grant_ref.as_deref(),
             Some(grant_ref.as_str())
         );
-        assert_eq!(record.authority_provider_ref.as_deref(), Some("wallet.network"));
+        assert_eq!(
+            record.authority_provider_ref.as_deref(),
+            Some("wallet.network")
+        );
         assert_eq!(record.authority_grant_refs, vec![grant_ref.clone()]);
         assert_eq!(record.authority_provider_refs, vec!["wallet.network"]);
-        assert_eq!(record.governance_owner_ref.as_deref(), Some("project://ioi"));
+        assert_eq!(
+            record.governance_owner_ref.as_deref(),
+            Some("project://ioi")
+        );
         assert_eq!(
             record.local_policy_refs,
             vec!["policy://approval/local-review"]
@@ -5720,9 +5735,18 @@ mod tests {
             .authorize(&request)
             .expect("neutral authority grant authorizes approval decision");
 
-        assert_eq!(record.authority_grant_hash.as_deref(), Some(grant_hash.as_str()));
-        assert_eq!(record.authority_grant_ref.as_deref(), Some(grant_ref.as_str()));
-        assert_eq!(record.authority_provider_ref.as_deref(), Some("wallet.network"));
+        assert_eq!(
+            record.authority_grant_hash.as_deref(),
+            Some(grant_hash.as_str())
+        );
+        assert_eq!(
+            record.authority_grant_ref.as_deref(),
+            Some(grant_ref.as_str())
+        );
+        assert_eq!(
+            record.authority_provider_ref.as_deref(),
+            Some("wallet.network")
+        );
         assert_eq!(
             record.wallet_approval_grant_ref.as_deref(),
             Some(grant_ref.as_str())

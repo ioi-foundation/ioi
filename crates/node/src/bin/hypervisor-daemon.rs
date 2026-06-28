@@ -26,38 +26,38 @@
 
 // Runtime lifecycle route family (thread/agent/run/turn/control/events/MCP) lives in a
 // subdirectory submodule so cargo autobin does not treat it as its own binary target.
-#[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
-mod lifecycle_routes;
-#[path = "hypervisor_daemon_routes/environment_routes.rs"]
-mod environment_routes;
-#[path = "hypervisor_daemon_routes/recipe_routes.rs"]
-mod recipe_routes;
-#[path = "hypervisor_daemon_routes/microvm.rs"]
-mod microvm;
+#[path = "hypervisor_daemon_routes/agentops_routes.rs"]
+mod agentops_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
-#[path = "hypervisor_daemon_routes/resource_routes.rs"]
-mod resource_routes;
-#[path = "hypervisor_daemon_routes/provider_routes.rs"]
-mod provider_routes;
 #[path = "hypervisor_daemon_routes/binding_routes.rs"]
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
-#[path = "hypervisor_daemon_routes/editor_routes.rs"]
-mod editor_routes;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
 mod editor_proxy;
-#[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
-mod supervisor_routes;
-#[path = "hypervisor_daemon_routes/agentops_routes.rs"]
-mod agentops_routes;
-#[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
-mod orchestration_routes;
-#[path = "hypervisor_daemon_routes/operability_routes.rs"]
-mod operability_routes;
+#[path = "hypervisor_daemon_routes/editor_routes.rs"]
+mod editor_routes;
 #[path = "hypervisor_daemon_routes/endgame_routes.rs"]
 mod endgame_routes;
+#[path = "hypervisor_daemon_routes/environment_routes.rs"]
+mod environment_routes;
+#[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
+mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/microvm.rs"]
+mod microvm;
+#[path = "hypervisor_daemon_routes/operability_routes.rs"]
+mod operability_routes;
+#[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
+mod orchestration_routes;
+#[path = "hypervisor_daemon_routes/provider_routes.rs"]
+mod provider_routes;
+#[path = "hypervisor_daemon_routes/recipe_routes.rs"]
+mod recipe_routes;
+#[path = "hypervisor_daemon_routes/resource_routes.rs"]
+mod resource_routes;
+#[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
+mod supervisor_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -82,16 +82,16 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCapabilityTokenControlRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountReadProjectionRequest, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyRequest,
-    ModelMountServerControlRequest, MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
-    MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
+    ModelMountReadProjectionRequest, ModelMountRuntimeEngineRequest,
+    ModelMountRuntimeSurveyRequest, ModelMountServerControlRequest,
+    MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION, MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
-    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
-    MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION,
-    MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION, MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION,
 };
 use ioi_types::app::agentic::InferenceOptions;
 
@@ -177,7 +177,11 @@ fn seed_default_state(data_dir: &str) {
     let has_route = std::fs::read_dir(&routes_dir)
         .map(|entries| {
             entries.flatten().any(|entry| {
-                entry.path().extension().map(|ext| ext == "json").unwrap_or(false)
+                entry
+                    .path()
+                    .extension()
+                    .map(|ext| ext == "json")
+                    .unwrap_or(false)
             })
         })
         .unwrap_or(false);
@@ -199,7 +203,10 @@ fn seed_default_state(data_dir: &str) {
             }
         });
         let body = serde_json::to_string_pretty(&route).unwrap_or_default();
-        let _ = std::fs::write(routes_dir.join("route.local-first.json"), format!("{body}\n"));
+        let _ = std::fs::write(
+            routes_dir.join("route.local-first.json"),
+            format!("{body}\n"),
+        );
     }
 }
 
@@ -232,8 +239,11 @@ async fn async_main() -> anyhow::Result<()> {
 
     let (api_url, api_key, model_name) = resolve_inference();
     tracing::info!(%api_url, %model_name, "hypervisor-daemon inference route");
-    let inference: Arc<dyn InferenceRuntime> =
-        Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name.clone()));
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        api_url,
+        api_key,
+        model_name.clone(),
+    ));
 
     let data_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
         .unwrap_or_else(|_| ".ioi/hypervisor/data".to_string());
@@ -251,7 +261,11 @@ async fn async_main() -> anyhow::Result<()> {
     let workspace_root = std::env::var("IOI_HYPERVISOR_WORKSPACE_ROOT")
         .ok()
         .filter(|value| !value.is_empty())
-        .or_else(|| std::env::current_dir().ok().map(|path| path.to_string_lossy().into_owned()))
+        .or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .map(|path| path.to_string_lossy().into_owned())
+        })
         .unwrap_or_else(|| ".".to_string());
     let home_dir = std::env::var("IOI_HYPERVISOR_HOME_DIR")
         .ok()
@@ -296,31 +310,34 @@ async fn async_main() -> anyhow::Result<()> {
         .route("/v1/runtime/nodes", get(handle_runtime_nodes))
         .route("/v1/doctor", get(lifecycle_routes::handle_doctor))
         .route("/v1/usage", get(lifecycle_routes::handle_usage_list))
-        .route("/v1/authority-evidence", get(lifecycle_routes::handle_authority_evidence))
+        .route(
+            "/v1/authority-evidence",
+            get(lifecycle_routes::handle_authority_evidence),
+        )
         .route(
             "/v1/workflow-capability-preflights",
             get(lifecycle_routes::handle_authority_evidence),
         )
-        .route("/v1/studio/intent-frame", post(lifecycle_routes::handle_studio_intent_frame))
+        .route(
+            "/v1/studio/intent-frame",
+            post(lifecycle_routes::handle_studio_intent_frame),
+        )
         .route("/v1/model-mount/server/status", get(handle_server_status))
         .route("/v1/model-mount/server/stop", post(handle_server_stop))
-        .route("/v1/model-mount/server/restart", post(handle_server_restart))
+        .route(
+            "/v1/model-mount/server/restart",
+            post(handle_server_restart),
+        )
         .route("/v1/model-mount/server/logs", get(handle_server_logs))
         .route("/v1/model-mount/server/events", get(handle_server_events))
         .route(
             "/v1/model-mount/tokens",
             get(handle_tokens_list).post(handle_token_create),
         )
-        .route(
-            "/v1/model-mount/tokens/tokenize",
-            post(handle_tokenize),
-        )
+        .route("/v1/model-mount/tokens/tokenize", post(handle_tokenize))
         .route("/v1/model-mount/tokens/count", post(handle_token_count))
         .route("/v1/model-mount/context/fit", post(handle_context_fit))
-        .route(
-            "/v1/model-mount/tokens/:id",
-            delete(handle_token_revoke),
-        )
+        .route("/v1/model-mount/tokens/:id", delete(handle_token_revoke))
         .route("/v1/model-mount/snapshot", get(handle_snapshot))
         .route(
             "/v1/model-mount/providers",
@@ -343,41 +360,71 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/model-mount/endpoints",
             get(handle_endpoints).post(handle_endpoints_mount),
         )
-        .route("/v1/model-mount/artifacts/import", post(handle_artifacts_import))
+        .route(
+            "/v1/model-mount/artifacts/import",
+            post(handle_artifacts_import),
+        )
         .route(
             "/v1/model-mount/artifacts/:id",
             delete(handle_artifact_delete),
         )
         .route("/v1/models/catalog/search", get(handle_catalog_search))
-        .route("/v1/model-mount/catalog/import-url", post(handle_catalog_import_url))
+        .route(
+            "/v1/model-mount/catalog/import-url",
+            post(handle_catalog_import_url),
+        )
         .route("/v1/model-mount/downloads", post(handle_downloads))
-        .route("/v1/model-mount/downloads/:id/cancel", post(handle_download_cancel))
-        .route("/v1/model-mount/storage/cleanup", post(handle_storage_cleanup))
+        .route(
+            "/v1/model-mount/downloads/:id/cancel",
+            post(handle_download_cancel),
+        )
+        .route(
+            "/v1/model-mount/storage/cleanup",
+            post(handle_storage_cleanup),
+        )
         .route("/v1/model-mount/instances", get(handle_instances))
-        .route("/v1/model-mount/instances/loaded", get(handle_instances_loaded))
-        .route("/v1/model-mount/instances/load", post(handle_instances_load))
-        .route("/v1/model-mount/runtime/engines", get(handle_runtime_engines))
+        .route(
+            "/v1/model-mount/instances/loaded",
+            get(handle_instances_loaded),
+        )
+        .route(
+            "/v1/model-mount/instances/load",
+            post(handle_instances_load),
+        )
+        .route(
+            "/v1/model-mount/runtime/engines",
+            get(handle_runtime_engines),
+        )
         .route(
             "/v1/model-mount/runtime/engines/:id",
             get(handle_runtime_engine_detail)
                 .patch(handle_runtime_engine_patch)
                 .delete(handle_runtime_engine_remove),
         )
-        .route("/v1/model-mount/runtime/select", post(handle_runtime_select))
+        .route(
+            "/v1/model-mount/runtime/select",
+            post(handle_runtime_select),
+        )
         .route(
             "/v1/model-mount/vault/refs",
             get(handle_vault_list)
                 .post(handle_vault_set)
                 .delete(handle_vault_rm),
         )
-        .route("/v1/model-mount/vault/refs/meta", post(handle_vault_get_meta))
+        .route(
+            "/v1/model-mount/vault/refs/meta",
+            post(handle_vault_get_meta),
+        )
         .route("/v1/model-mount/vault/status", get(handle_vault_status))
         .route("/v1/model-mount/vault/health", post(handle_vault_health))
         .route(
             "/v1/model-mount/vault/health/latest",
             get(handle_vault_health_latest),
         )
-        .route("/v1/model-mount/runtime/survey", post(handle_runtime_survey))
+        .route(
+            "/v1/model-mount/runtime/survey",
+            post(handle_runtime_survey),
+        )
         .route("/v1/model-mount/receipts", get(handle_receipts_list))
         .route("/v1/model-mount/receipts/:id", get(handle_receipt_by_id))
         .route(
@@ -385,16 +432,16 @@ async fn async_main() -> anyhow::Result<()> {
             get(handle_receipt_replay),
         )
         .route("/v1/model-mount/projection", get(handle_projection))
-        .route("/v1/model-mount/read-projection", post(handle_read_projection))
+        .route(
+            "/v1/model-mount/read-projection",
+            post(handle_read_projection),
+        )
         .route("/v1/model-mount/native-local", post(handle_native_local))
         .route("/v1/chat/completions", post(handle_chat_completions))
         .route("/v1/responses", post(handle_responses))
         .route("/v1/messages", post(handle_messages))
         .route("/v1/embeddings", post(handle_embeddings))
-        .route(
-            "/v1/model-mount/mcp",
-            get(handle_mcp_list),
-        )
+        .route("/v1/model-mount/mcp", get(handle_mcp_list))
         .route("/v1/model-mount/mcp/import", post(handle_mcp_import))
         .route("/v1/model-mount/mcp/invoke", post(handle_mcp_invoke))
         .route(
@@ -418,7 +465,10 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/agents",
             get(lifecycle_routes::handle_agents_list).post(lifecycle_routes::handle_agent_create),
         )
-        .route("/v1/agents/:id/runs", post(lifecycle_routes::handle_agent_run_create))
+        .route(
+            "/v1/agents/:id/runs",
+            post(lifecycle_routes::handle_agent_run_create),
+        )
         .route(
             "/v1/threads",
             get(lifecycle_routes::handle_threads_list).post(lifecycle_routes::handle_thread_create),
@@ -427,7 +477,10 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id",
             get(lifecycle_routes::handle_thread_get).delete(lifecycle_routes::handle_thread_delete),
         )
-        .route("/v1/threads/:id/cancel", post(lifecycle_routes::handle_thread_cancel))
+        .route(
+            "/v1/threads/:id/cancel",
+            post(lifecycle_routes::handle_thread_cancel),
+        )
         .route(
             "/v1/threads/:id/turns",
             post(lifecycle_routes::handle_turn_create),
@@ -440,15 +493,22 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id/turns/:turn_id/steer",
             post(lifecycle_routes::handle_turn_steer),
         )
-        .route("/v1/threads/:id/mode", post(lifecycle_routes::handle_thread_mode))
-        .route("/v1/threads/:id/model", post(lifecycle_routes::handle_thread_model))
+        .route(
+            "/v1/threads/:id/mode",
+            post(lifecycle_routes::handle_thread_mode),
+        )
+        .route(
+            "/v1/threads/:id/model",
+            post(lifecycle_routes::handle_thread_model),
+        )
         .route(
             "/v1/threads/:id/thinking",
             post(lifecycle_routes::handle_thread_thinking),
         )
         .route(
             "/v1/threads/:id/subagents",
-            get(lifecycle_routes::handle_subagents_list).post(lifecycle_routes::handle_subagent_spawn),
+            get(lifecycle_routes::handle_subagents_list)
+                .post(lifecycle_routes::handle_subagent_spawn),
         )
         .route(
             "/v1/threads/:id/subagents/cancel",
@@ -482,13 +542,31 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/tools/search",
             get(lifecycle_routes::handle_mcp_tool_search),
         )
-        .route("/v1/mcp/servers", get(lifecycle_routes::handle_mcp_discover_servers))
-        .route("/v1/mcp/tools", get(lifecycle_routes::handle_mcp_discover_tools))
-        .route("/v1/mcp/resources", get(lifecycle_routes::handle_mcp_discover_resources))
-        .route("/v1/mcp/prompts", get(lifecycle_routes::handle_mcp_discover_prompts))
+        .route(
+            "/v1/mcp/servers",
+            get(lifecycle_routes::handle_mcp_discover_servers),
+        )
+        .route(
+            "/v1/mcp/tools",
+            get(lifecycle_routes::handle_mcp_discover_tools),
+        )
+        .route(
+            "/v1/mcp/resources",
+            get(lifecycle_routes::handle_mcp_discover_resources),
+        )
+        .route(
+            "/v1/mcp/prompts",
+            get(lifecycle_routes::handle_mcp_discover_prompts),
+        )
         .route("/v1/mcp", get(lifecycle_routes::handle_mcp_discover_status))
-        .route("/v1/threads/:id/mcp/import", post(lifecycle_routes::handle_mcp_import))
-        .route("/v1/threads/:id/mcp/servers", post(lifecycle_routes::handle_mcp_add))
+        .route(
+            "/v1/threads/:id/mcp/import",
+            post(lifecycle_routes::handle_mcp_import),
+        )
+        .route(
+            "/v1/threads/:id/mcp/servers",
+            post(lifecycle_routes::handle_mcp_add),
+        )
         .route(
             "/v1/threads/:id/tools/:name/invoke",
             post(lifecycle_routes::handle_coding_tool_invoke),
@@ -513,7 +591,10 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/servers/:server_id/disable",
             post(lifecycle_routes::handle_mcp_disable),
         )
-        .route("/v1/threads/:id/mcp", post(lifecycle_routes::handle_mcp_status))
+        .route(
+            "/v1/threads/:id/mcp",
+            post(lifecycle_routes::handle_mcp_status),
+        )
         .route(
             "/v1/threads/:id/mcp/status",
             post(lifecycle_routes::handle_mcp_status),
@@ -634,12 +715,18 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route("/v1/skills", get(lifecycle_routes::handle_skills))
         .route("/v1/hooks", get(lifecycle_routes::handle_hooks))
-        .route("/v1/repositories", get(lifecycle_routes::handle_repositories))
+        .route(
+            "/v1/repositories",
+            get(lifecycle_routes::handle_repositories),
+        )
         .route(
             "/v1/repository-context",
             get(lifecycle_routes::handle_repository_context),
         )
-        .route("/v1/branch-policy", get(lifecycle_routes::handle_branch_policy))
+        .route(
+            "/v1/branch-policy",
+            get(lifecycle_routes::handle_branch_policy),
+        )
         .route(
             "/v1/github-context",
             get(lifecycle_routes::handle_github_context),
@@ -766,8 +853,14 @@ async fn async_main() -> anyhow::Result<()> {
             get(environment_routes::handle_env_events),
         )
         // WS-9/12: recovery incidents + attempts (projected by the IOI panel).
-        .route("/v1/hypervisor/incidents", get(environment_routes::handle_incidents_list))
-        .route("/v1/hypervisor/recovery-attempts", get(environment_routes::handle_recovery_attempts_list))
+        .route(
+            "/v1/hypervisor/incidents",
+            get(environment_routes::handle_incidents_list),
+        )
+        .route(
+            "/v1/hypervisor/recovery-attempts",
+            get(environment_routes::handle_recovery_attempts_list),
+        )
         // WS-7: idle/lifetime sweep — stop running envs past their stop policy.
         .route(
             "/v1/hypervisor/maintenance/idle-sweep",
@@ -776,7 +869,8 @@ async fn async_main() -> anyhow::Result<()> {
         // WS-8: snapshot / backup / restore (operation-backed restore validity).
         .route(
             "/v1/hypervisor/snapshots",
-            get(environment_routes::handle_snapshots_list).post(environment_routes::handle_snapshot_create),
+            get(environment_routes::handle_snapshots_list)
+                .post(environment_routes::handle_snapshot_create),
         )
         .route(
             "/v1/hypervisor/snapshots/:id/restore",
@@ -808,7 +902,8 @@ async fn async_main() -> anyhow::Result<()> {
         // Cut D — AgentOps conversation service: real event-block turns + waiting/resume + interrupt.
         .route(
             "/v1/hypervisor/agentops/conversations",
-            get(agentops_routes::handle_conversation_list).post(agentops_routes::handle_conversation_create),
+            get(agentops_routes::handle_conversation_list)
+                .post(agentops_routes::handle_conversation_create),
         )
         .route(
             "/v1/hypervisor/agentops/conversations/:id",
@@ -833,7 +928,8 @@ async fn async_main() -> anyhow::Result<()> {
         // Cut E — orchestration/scale: automation workflows, runner placement, warm pools.
         .route(
             "/v1/hypervisor/automations",
-            get(orchestration_routes::handle_automation_list).post(orchestration_routes::handle_automation_create),
+            get(orchestration_routes::handle_automation_list)
+                .post(orchestration_routes::handle_automation_create),
         )
         .route(
             "/v1/hypervisor/automations/:id",
@@ -861,7 +957,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/warm-pools",
-            get(orchestration_routes::handle_warm_pool_list).post(orchestration_routes::handle_warm_pool_create),
+            get(orchestration_routes::handle_warm_pool_list)
+                .post(orchestration_routes::handle_warm_pool_create),
         )
         .route(
             "/v1/hypervisor/warm-pools/:id/claim",
@@ -870,7 +967,8 @@ async fn async_main() -> anyhow::Result<()> {
         // Cut F — trust/operability: guardrails, logs, metrics, incident reconstruction, MCP gateway.
         .route(
             "/v1/hypervisor/guardrails",
-            get(operability_routes::handle_guardrails_get).post(operability_routes::handle_guardrails_set),
+            get(operability_routes::handle_guardrails_get)
+                .post(operability_routes::handle_guardrails_set),
         )
         .route(
             "/v1/hypervisor/environments/:id/logs",
@@ -1089,8 +1187,7 @@ async fn async_main() -> anyhow::Result<()> {
         // Secrets plane — org/user/project secrets SEALED at rest (value never returned).
         .route(
             "/v1/hypervisor/secrets",
-            get(lifecycle_routes::handle_secret_list)
-                .post(lifecycle_routes::handle_secret_create),
+            get(lifecycle_routes::handle_secret_list).post(lifecycle_routes::handle_secret_create),
         )
         .route(
             "/v1/hypervisor/secrets/:id/value",
@@ -1117,8 +1214,7 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/budget",
-            get(lifecycle_routes::handle_budget_get)
-                .put(lifecycle_routes::handle_budget_set),
+            get(lifecycle_routes::handle_budget_get).put(lifecycle_routes::handle_budget_set),
         )
         .route(
             "/v1/hypervisor/budget/reconcile",
@@ -1127,8 +1223,7 @@ async fn async_main() -> anyhow::Result<()> {
         // OIDC login config (BYO IdP) — management surface; client_secret sealed at rest.
         .route(
             "/v1/hypervisor/oidc-config",
-            get(lifecycle_routes::handle_oidc_get)
-                .put(lifecycle_routes::handle_oidc_set),
+            get(lifecycle_routes::handle_oidc_get).put(lifecycle_routes::handle_oidc_set),
         )
         // Generic connector estate — ANY service as a use-only lease through the same gateway.
         .route(
@@ -1240,7 +1335,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/editor-services",
-            get(editor_routes::handle_editor_services_list).post(editor_routes::handle_editor_service_create),
+            get(editor_routes::handle_editor_services_list)
+                .post(editor_routes::handle_editor_service_create),
         )
         .route(
             "/v1/hypervisor/editor-services/:service_id/start",
@@ -1369,40 +1465,99 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route("/v1/tasks", get(lifecycle_routes::handle_tasks_list))
         .route("/v1/tasks/:id", get(lifecycle_routes::handle_task_get))
-        .route("/v1/tasks/:id/cancel", post(lifecycle_routes::handle_task_cancel))
+        .route(
+            "/v1/tasks/:id/cancel",
+            post(lifecycle_routes::handle_task_cancel),
+        )
         .route("/v1/jobs", get(lifecycle_routes::handle_jobs_list))
         .route("/v1/jobs/:id", get(lifecycle_routes::handle_job_get))
-        .route("/v1/jobs/:id/cancel", post(lifecycle_routes::handle_job_cancel))
+        .route(
+            "/v1/jobs/:id/cancel",
+            post(lifecycle_routes::handle_job_cancel),
+        )
         .route("/v1/runs", get(lifecycle_routes::handle_runs_list))
         .route("/v1/runs/:id", get(lifecycle_routes::handle_run_get))
-        .route("/v1/runs/:id/cancel", post(lifecycle_routes::handle_run_cancel))
-        .route("/v1/runs/:id/events", get(lifecycle_routes::handle_run_events))
+        .route(
+            "/v1/runs/:id/cancel",
+            post(lifecycle_routes::handle_run_cancel),
+        )
+        .route(
+            "/v1/runs/:id/events",
+            get(lifecycle_routes::handle_run_events),
+        )
         // run replay == the run's one-shot event SSE (same kernel projection as events).
-        .route("/v1/runs/:id/replay", get(lifecycle_routes::handle_run_events))
+        .route(
+            "/v1/runs/:id/replay",
+            get(lifecycle_routes::handle_run_events),
+        )
         // Read-only run sub-projections (pure kernel runtime-lifecycle replays).
-        .route("/v1/runs/:id/usage", get(lifecycle_routes::handle_run_usage))
+        .route(
+            "/v1/runs/:id/usage",
+            get(lifecycle_routes::handle_run_usage),
+        )
         .route("/v1/runs/:id/wait", get(lifecycle_routes::handle_run_wait))
-        .route("/v1/runs/:id/conversation", get(lifecycle_routes::handle_run_conversation))
-        .route("/v1/runs/:id/trace", get(lifecycle_routes::handle_run_trace))
-        .route("/v1/runs/:id/inspect", get(lifecycle_routes::handle_run_trace))
-        .route("/v1/runs/:id/computer-use/trace", get(lifecycle_routes::handle_run_computer_use_trace))
-        .route("/v1/runs/:id/computer-use/trajectory", get(lifecycle_routes::handle_run_computer_use_trajectory))
-        .route("/v1/runs/:id/scorecard", get(lifecycle_routes::handle_run_scorecard))
-        .route("/v1/runs/:id/artifacts", get(lifecycle_routes::handle_run_artifacts))
-        .route("/v1/runs/:id/artifacts/:ref", get(lifecycle_routes::handle_run_artifact))
+        .route(
+            "/v1/runs/:id/conversation",
+            get(lifecycle_routes::handle_run_conversation),
+        )
+        .route(
+            "/v1/runs/:id/trace",
+            get(lifecycle_routes::handle_run_trace),
+        )
+        .route(
+            "/v1/runs/:id/inspect",
+            get(lifecycle_routes::handle_run_trace),
+        )
+        .route(
+            "/v1/runs/:id/computer-use/trace",
+            get(lifecycle_routes::handle_run_computer_use_trace),
+        )
+        .route(
+            "/v1/runs/:id/computer-use/trajectory",
+            get(lifecycle_routes::handle_run_computer_use_trajectory),
+        )
+        .route(
+            "/v1/runs/:id/scorecard",
+            get(lifecycle_routes::handle_run_scorecard),
+        )
+        .route(
+            "/v1/runs/:id/artifacts",
+            get(lifecycle_routes::handle_run_artifacts),
+        )
+        .route(
+            "/v1/runs/:id/artifacts/:ref",
+            get(lifecycle_routes::handle_run_artifact),
+        )
         // Identity & Auth plane (multi-user IdP) — principals, sessions, gated enforcement.
-        .route("/v1/hypervisor/auth/login", post(lifecycle_routes::handle_auth_login))
-        .route("/v1/hypervisor/auth/logout", post(lifecycle_routes::handle_auth_logout))
-        .route("/v1/hypervisor/auth/whoami", get(lifecycle_routes::handle_auth_whoami))
+        .route(
+            "/v1/hypervisor/auth/login",
+            post(lifecycle_routes::handle_auth_login),
+        )
+        .route(
+            "/v1/hypervisor/auth/logout",
+            post(lifecycle_routes::handle_auth_logout),
+        )
+        .route(
+            "/v1/hypervisor/auth/whoami",
+            get(lifecycle_routes::handle_auth_whoami),
+        )
         .route(
             "/v1/hypervisor/auth/policy",
-            get(lifecycle_routes::handle_auth_policy_get).put(lifecycle_routes::handle_auth_policy_set),
+            get(lifecycle_routes::handle_auth_policy_get)
+                .put(lifecycle_routes::handle_auth_policy_set),
         )
-        .route("/v1/hypervisor/auth/bootstrap-status", get(lifecycle_routes::handle_auth_bootstrap_status))
-        .route("/v1/hypervisor/auth/bootstrap", post(lifecycle_routes::handle_auth_bootstrap))
+        .route(
+            "/v1/hypervisor/auth/bootstrap-status",
+            get(lifecycle_routes::handle_auth_bootstrap_status),
+        )
+        .route(
+            "/v1/hypervisor/auth/bootstrap",
+            post(lifecycle_routes::handle_auth_bootstrap),
+        )
         .route(
             "/v1/hypervisor/principals",
-            get(lifecycle_routes::handle_principal_list).post(lifecycle_routes::handle_principal_create),
+            get(lifecycle_routes::handle_principal_list)
+                .post(lifecycle_routes::handle_principal_create),
         )
         .route(
             "/v1/hypervisor/principals/:id",
@@ -1431,12 +1586,19 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/sso-configurations/:id",
             axum::routing::delete(lifecycle_routes::handle_sso_delete),
         )
-        .route("/v1/hypervisor/auth/oidc/start", post(lifecycle_routes::handle_auth_oidc_start))
-        .route("/v1/hypervisor/auth/oidc/callback", post(lifecycle_routes::handle_auth_oidc_callback))
+        .route(
+            "/v1/hypervisor/auth/oidc/start",
+            post(lifecycle_routes::handle_auth_oidc_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/oidc/callback",
+            post(lifecycle_routes::handle_auth_oidc_callback),
+        )
         // SCIM 2.0 provisioning — config plane + the server an external IdP calls (SCIM-token auth).
         .route(
             "/v1/hypervisor/scim-configurations",
-            get(lifecycle_routes::handle_scim_config_list).post(lifecycle_routes::handle_scim_config_create),
+            get(lifecycle_routes::handle_scim_config_list)
+                .post(lifecycle_routes::handle_scim_config_create),
         )
         .route(
             "/v1/hypervisor/scim-configurations/:id",
@@ -1445,26 +1607,39 @@ async fn async_main() -> anyhow::Result<()> {
         // Invites + domain verification + custom domain (multi-user IdP).
         .route(
             "/v1/hypervisor/org-invite",
-            get(lifecycle_routes::handle_org_invite_get).post(lifecycle_routes::handle_org_invite_reset),
+            get(lifecycle_routes::handle_org_invite_get)
+                .post(lifecycle_routes::handle_org_invite_reset),
         )
-        .route("/v1/hypervisor/org-invite/accept", post(lifecycle_routes::handle_org_invite_accept))
+        .route(
+            "/v1/hypervisor/org-invite/accept",
+            post(lifecycle_routes::handle_org_invite_accept),
+        )
         .route(
             "/v1/hypervisor/domain-verifications",
-            get(lifecycle_routes::handle_domain_verification_list).post(lifecycle_routes::handle_domain_verification_create),
+            get(lifecycle_routes::handle_domain_verification_list)
+                .post(lifecycle_routes::handle_domain_verification_create),
         )
-        .route("/v1/hypervisor/domain-verifications/:id/verify", post(lifecycle_routes::handle_domain_verification_verify))
+        .route(
+            "/v1/hypervisor/domain-verifications/:id/verify",
+            post(lifecycle_routes::handle_domain_verification_verify),
+        )
         .route(
             "/v1/hypervisor/domain-verifications/:id",
             axum::routing::delete(lifecycle_routes::handle_domain_verification_delete),
         )
         .route(
             "/v1/hypervisor/custom-domain",
-            get(lifecycle_routes::handle_custom_domain_get).put(lifecycle_routes::handle_custom_domain_set),
+            get(lifecycle_routes::handle_custom_domain_get)
+                .put(lifecycle_routes::handle_custom_domain_set),
         )
-        .route("/scim/v2/ServiceProviderConfig", get(lifecycle_routes::handle_scim_spc))
+        .route(
+            "/scim/v2/ServiceProviderConfig",
+            get(lifecycle_routes::handle_scim_spc),
+        )
         .route(
             "/scim/v2/Users",
-            get(lifecycle_routes::handle_scim_users_list).post(lifecycle_routes::handle_scim_user_create),
+            get(lifecycle_routes::handle_scim_users_list)
+                .post(lifecycle_routes::handle_scim_user_create),
         )
         .route(
             "/scim/v2/Users/:id",
@@ -1475,7 +1650,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/scim/v2/Groups",
-            get(lifecycle_routes::handle_scim_groups_list).post(lifecycle_routes::handle_scim_group_create),
+            get(lifecycle_routes::handle_scim_groups_list)
+                .post(lifecycle_routes::handle_scim_group_create),
         )
         .route(
             "/scim/v2/Groups/:id",
@@ -1485,7 +1661,10 @@ async fn async_main() -> anyhow::Result<()> {
                 .delete(lifecycle_routes::handle_scim_group_delete),
         )
         // Gated inbound auth ring — wraps every route above; enforces only when auth-policy says so.
-        .layer(axum::middleware::from_fn_with_state(state.clone(), lifecycle_routes::auth_gate))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            lifecycle_routes::auth_gate,
+        ))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -1543,7 +1722,10 @@ fn flatten_messages(body: &Value) -> String {
     if let Some(messages) = body.get("messages").and_then(|m| m.as_array()) {
         let mut out = String::new();
         for message in messages {
-            let role = message.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+            let role = message
+                .get("role")
+                .and_then(|r| r.as_str())
+                .unwrap_or("user");
             let content = message
                 .get("content")
                 .and_then(|c| c.as_str())
@@ -1555,24 +1737,23 @@ fn flatten_messages(body: &Value) -> String {
         }
         return out;
     }
-    if let Some(content) = body
-        .get("input")
-        .and_then(|input| match input {
-            Value::String(text) => Some(text.clone()),
-            Value::Array(parts) => Some(
-                parts
-                    .iter()
-                    .filter_map(|part| {
-                        part.as_str()
+    if let Some(content) = body.get("input").and_then(|input| match input {
+        Value::String(text) => Some(text.clone()),
+        Value::Array(parts) => Some(
+            parts
+                .iter()
+                .filter_map(|part| {
+                    part.as_str().map(str::to_string).or_else(|| {
+                        part.get("text")
+                            .and_then(|t| t.as_str())
                             .map(str::to_string)
-                            .or_else(|| part.get("text").and_then(|t| t.as_str()).map(str::to_string))
                     })
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            ),
-            _ => None,
-        })
-    {
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        ),
+        _ => None,
+    }) {
         return content;
     }
     body.get("prompt")
@@ -1611,8 +1792,12 @@ async fn handle_models(State(st): State<Arc<DaemonState>>, headers: HeaderMap) -
         // The runtime model-catalog projection (the array Cursor.models.list reads).
         return project_kind(&st, "runtime_model_catalog").unwrap_or_else(|_| Json(json!([])));
     }
-    let endpoints = project_kind(&st, "endpoints").map(|j| j.0).unwrap_or(json!([]));
-    let providers = project_kind(&st, "providers").map(|j| j.0).unwrap_or(json!([]));
+    let endpoints = project_kind(&st, "endpoints")
+        .map(|j| j.0)
+        .unwrap_or(json!([]));
+    let providers = project_kind(&st, "providers")
+        .map(|j| j.0)
+        .unwrap_or(json!([]));
     let routes = json!(read_record_dir(&st.data_dir, "model-routes"));
     let instances: Vec<Value> = project_kind(&st, "instances")
         .map(|j| j.0)
@@ -1684,9 +1869,7 @@ async fn handle_runtime_nodes() -> Json<Value> {
 /// Server status, projected by the kernel from Agentgres-admitted server-control
 /// records under `state_dir` (controlStatus is "running"; schemaVersion is the
 /// runtime envelope version the e2e asserts). Phase 5c.1.
-async fn handle_server_status(
-    State(st): State<Arc<DaemonState>>,
-) -> Result<Json<Value>, AppError> {
+async fn handle_server_status(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": "server_status",
         "schema_version": "ioi.model-mounting.runtime.v1",
@@ -1736,8 +1919,10 @@ pub(crate) fn persist_record(
 ) -> std::io::Result<()> {
     let dir = std::path::Path::new(data_dir).join(record_dir);
     std::fs::create_dir_all(&dir)?;
-    let safe = record_id
-        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let safe = record_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
     std::fs::write(
         dir.join(format!("{safe}.json")),
         serde_json::to_vec_pretty(record).unwrap_or_default(),
@@ -1747,8 +1932,10 @@ pub(crate) fn persist_record(
 /// Delete a persisted record (used by credential revoke). Returns true if a file was removed.
 pub(crate) fn remove_record(data_dir: &str, record_dir: &str, record_id: &str) -> bool {
     let dir = std::path::Path::new(data_dir).join(record_dir);
-    let safe = record_id
-        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let safe = record_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
     std::fs::remove_file(dir.join(format!("{safe}.json"))).is_ok()
 }
 
@@ -1764,11 +1951,7 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
 /// Wallet-rooted capability gate. 401 if no bearer; 403 if the scope is
 /// denied/expired/revoked. The kernel authorizes the scope against the admitted
 /// grant; the daemon additionally enforces expiry (execution semantics).
-fn authorize(
-    st: &DaemonState,
-    headers: &HeaderMap,
-    required_scope: &str,
-) -> Result<(), AppError> {
+fn authorize(st: &DaemonState, headers: &HeaderMap, required_scope: &str) -> Result<(), AppError> {
     let Some(token) = bearer_token(headers) else {
         return Err(AppError(
             StatusCode::UNAUTHORIZED,
@@ -1783,7 +1966,10 @@ fn authorize(
         .and_then(|map| map.get(&token_hash).copied())
     {
         if expiry != 0 && expiry <= now_unix_secs() {
-            return Err(AppError(StatusCode::FORBIDDEN, "capability token expired".to_string()));
+            return Err(AppError(
+                StatusCode::FORBIDDEN,
+                "capability token expired".to_string(),
+            ));
         }
     }
     let req: ModelMountCapabilityTokenControlRequest = serde_json::from_value(json!({
@@ -1818,9 +2004,18 @@ async fn handle_token_create(
     let plan = ModelMountCore
         .plan_capability_token_control(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    if let Some(token_hash) = plan.public_response.get("token_hash").and_then(|v| v.as_str()) {
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(token_hash) = plan
+        .public_response
+        .get("token_hash")
+        .and_then(|v| v.as_str())
+    {
         let expiry = body
             .get("expiresAt")
             .and_then(|v| v.as_str())
@@ -1857,8 +2052,13 @@ async fn handle_token_revoke(
     let plan = ModelMountCore
         .plan_capability_token_control(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(plan.public_response))
 }
 
@@ -1880,9 +2080,18 @@ async fn run_server_control(
     let plan = ModelMountCore
         .plan_server_control(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    let control_status = if operation == "stop" { "stopped" } else { "running" };
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let control_status = if operation == "stop" {
+        "stopped"
+    } else {
+        "running"
+    };
     let receipt_id = plan
         .receipt_refs
         .first()
@@ -1910,10 +2119,7 @@ async fn handle_server_restart(
     run_server_control(st, headers, "restart").await
 }
 
-fn server_control_projection(
-    st: &DaemonState,
-    kind: &str,
-) -> Result<Json<Value>, AppError> {
+fn server_control_projection(st: &DaemonState, kind: &str) -> Result<Json<Value>, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": kind,
         "schema_version": "ioi.model-mounting.runtime.v1",
@@ -1960,7 +2166,10 @@ const PROVIDER_KINDS: &[&str] = &[
 
 const BACKEND_CATALOG: &[(&str, &str)] = &[
     ("backend.fixture", "fixture"),
-    ("backend.hypervisor.native-local.fixture", "ioi_native_local"),
+    (
+        "backend.hypervisor.native-local.fixture",
+        "ioi_native_local",
+    ),
     ("backend.llama-cpp", "llama_cpp"),
     ("backend.ollama", "ollama"),
     ("backend.vllm", "vllm"),
@@ -2009,9 +2218,12 @@ fn seed_catalog(st: &DaemonState) {
         };
         match ModelMountCore.plan_provider_control(&req) {
             Ok(plan) => {
-                if let Err(error) =
-                    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-                {
+                if let Err(error) = persist_record(
+                    &st.data_dir,
+                    &plan.record_dir,
+                    &plan.record_id,
+                    &plan.record,
+                ) {
                     tracing::warn!(%kind, "seed provider persist failed: {error}");
                 }
             }
@@ -2039,7 +2251,12 @@ fn seed_catalog(st: &DaemonState) {
         "authority_grant_refs": ["wallet-network://capability-grant/model-mount"],
     })) {
         if let Ok(plan) = ModelMountCore.plan_provider_control(&req) {
-            let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+            let _ = persist_record(
+                &st.data_dir,
+                &plan.record_dir,
+                &plan.record_id,
+                &plan.record,
+            );
         }
     }
     // Hand-author the native provider's model inventory (the kernel inventory
@@ -2077,7 +2294,12 @@ fn seed_catalog(st: &DaemonState) {
                 "agentgres_provider_inventory_truth_required"
             ],
         });
-        let _ = persist_record(&st.data_dir, "model-provider-inventory", inventory_id, &inventory);
+        let _ = persist_record(
+            &st.data_dir,
+            "model-provider-inventory",
+            inventory_id,
+            &inventory,
+        );
     }
     for (backend_id, backend_kind) in BACKEND_CATALOG {
         let req: ModelMountBackendLifecycleRequest = match serde_json::from_value(json!({
@@ -2096,9 +2318,12 @@ fn seed_catalog(st: &DaemonState) {
         };
         match ModelMountCore.plan_backend_lifecycle(&req) {
             Ok(plan) => {
-                if let Err(error) =
-                    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-                {
+                if let Err(error) = persist_record(
+                    &st.data_dir,
+                    &plan.record_dir,
+                    &plan.record_id,
+                    &plan.record,
+                ) {
                     tracing::warn!(%backend_id, "seed backend persist failed: {error}");
                 }
             }
@@ -2118,7 +2343,12 @@ fn seed_catalog(st: &DaemonState) {
         "generated_at": generated_at,
     })) {
         if let Ok(plan) = ModelMountCore.plan_runtime_engine(&req) {
-            let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+            let _ = persist_record(
+                &st.data_dir,
+                &plan.record_dir,
+                &plan.record_id,
+                &plan.record,
+            );
         }
     }
 }
@@ -2172,7 +2402,10 @@ async fn handle_artifacts_import(
         .to_string();
     // Dry-run validates + receipts without authoring a durable artifact record.
     if import_mode == "dry_run" {
-        let model_id = body.get("model_id").and_then(|v| v.as_str()).unwrap_or_default();
+        let model_id = body
+            .get("model_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
         let receipt_id = format!("receipt_model_import_dry_run_{}", short_hash(&checksum));
         let receipt = json!({
             "id": receipt_id,
@@ -2207,8 +2440,13 @@ async fn handle_artifacts_import(
     let plan = ModelMountCore
         .plan_artifact_endpoint(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let mut response = plan.public_response.clone();
     if let Some(object) = response.as_object_mut() {
         object.insert("checksum".to_string(), json!(checksum));
@@ -2266,18 +2504,19 @@ async fn handle_endpoints_mount(
     let plan = ModelMountCore
         .plan_artifact_endpoint(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(plan.public_response))
 }
 
 // ---- Phase 5c.3: runtime engines + survey + select + PATCH + receipts ----
 
-fn project_kind_engine(
-    st: &DaemonState,
-    kind: &str,
-    engine_id: &str,
-) -> Result<Value, AppError> {
+fn project_kind_engine(st: &DaemonState, kind: &str, engine_id: &str) -> Result<Value, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": kind,
         "schema_version": "ioi.model-mounting.runtime.v1",
@@ -2333,8 +2572,13 @@ async fn handle_runtime_select(
     let plan = ModelMountCore
         .plan_runtime_engine(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
     let selected = plan
         .public_response
         .get("selected_engine_id")
@@ -2368,8 +2612,13 @@ async fn handle_runtime_engine_patch(
     let plan = ModelMountCore
         .plan_runtime_engine(&req)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, debug_string(error)))?;
-    persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record)
-        .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+    persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    )
+    .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
     let load_options = plan
         .public_response
         .get("default_load_options")
@@ -2412,7 +2661,10 @@ async fn handle_runtime_survey(
     if let Some(details) = receipt.get_mut("details").and_then(|d| d.as_object_mut()) {
         details.insert("engineCount".to_string(), engine_count);
     } else if let Some(object) = receipt.as_object_mut() {
-        object.insert("details".to_string(), json!({ "engineCount": engine_count }));
+        object.insert(
+            "details".to_string(),
+            json!({ "engineCount": engine_count }),
+        );
     }
     if let Some(receipt_id) = receipt.get("id").and_then(|v| v.as_str()) {
         let _ = persist_record(&st.data_dir, "receipts", receipt_id, &receipt);
@@ -2420,9 +2672,7 @@ async fn handle_runtime_survey(
     Ok(Json(plan.public_response))
 }
 
-async fn handle_receipts_list(
-    State(st): State<Arc<DaemonState>>,
-) -> Result<Json<Value>, AppError> {
+async fn handle_receipts_list(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
     Ok(Json(json!(read_receipts(&st.data_dir))))
 }
 
@@ -2440,7 +2690,12 @@ async fn handle_receipt_by_id(
         .into_iter()
         .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id.as_str()))
         .map(Json)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("receipt not found: {receipt_id}"),
+            )
+        })
 }
 
 /// Generic read-projection route (providers/backends/endpoints/instances/...).
@@ -2534,7 +2789,12 @@ async fn handle_receipt_replay(
     let receipt = read_receipts(&st.data_dir)
         .into_iter()
         .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id.as_str()))
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))?;
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("receipt not found: {receipt_id}"),
+            )
+        })?;
     let detail = |key: &str, default: &str| {
         receipt
             .get("details")
@@ -2582,7 +2842,8 @@ fn backend_processes(st: &DaemonState) -> Vec<Value> {
     latest
         .into_values()
         .map(|mut process| {
-            let same_boot = process.get("bootId").and_then(|v| v.as_str()) == Some(st.boot_id.as_str());
+            let same_boot =
+                process.get("bootId").and_then(|v| v.as_str()) == Some(st.boot_id.as_str());
             if let Some(object) = process.as_object_mut() {
                 if same_boot {
                     object.insert("status".to_string(), json!("started"));
@@ -2641,8 +2902,14 @@ async fn handle_projection(State(st): State<Arc<DaemonState>>) -> Result<Json<Va
     let mut projection = project_kind(&st, "projection")?.0;
     if let Some(object) = projection.as_object_mut() {
         object.insert("artifacts".to_string(), json!(artifact_summaries(&st)));
-        object.insert("backendProcesses".to_string(), json!(backend_processes(&st)));
-        object.insert("conversationStates".to_string(), json!(conversation_states(&st)));
+        object.insert(
+            "backendProcesses".to_string(),
+            json!(backend_processes(&st)),
+        );
+        object.insert(
+            "conversationStates".to_string(),
+            json!(conversation_states(&st)),
+        );
     }
     Ok(Json(projection))
 }
@@ -2652,11 +2919,22 @@ async fn handle_projection(State(st): State<Arc<DaemonState>>) -> Result<Json<Va
 /// Find a record in a projection array by any common identity field.
 fn read_projection_record(st: &DaemonState, kind: &str, id: &str) -> Option<Value> {
     let projection = project_kind(st, kind).ok()?.0;
-    projection.as_array()?.iter().find(|record| {
-        ["id", "endpoint_id", "provider_id", "backend_id", "endpoint_ref", "provider_ref"]
+    projection
+        .as_array()?
+        .iter()
+        .find(|record| {
+            [
+                "id",
+                "endpoint_id",
+                "provider_id",
+                "backend_id",
+                "endpoint_ref",
+                "provider_ref",
+            ]
             .iter()
             .any(|field| record.get(field).and_then(|v| v.as_str()) == Some(id))
-    }).cloned()
+        })
+        .cloned()
 }
 
 /// Resolve a provider's kind from the providers projection. Inventory-derived
@@ -2694,7 +2972,8 @@ fn endpoint_binding_for_kind(kind: &str) -> Option<(&'static str, &'static str, 
 }
 
 fn lo_u64(value: &Value, keys: &[&str]) -> Option<u64> {
-    keys.iter().find_map(|key| value.get(key).and_then(Value::as_u64))
+    keys.iter()
+        .find_map(|key| value.get(key).and_then(Value::as_u64))
 }
 
 fn lo_str(value: &Value, keys: &[&str]) -> Option<String> {
@@ -2767,9 +3046,17 @@ async fn handle_instances_load(
                         .map(str::to_string)
                 })
         })
-        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "endpoint_id or model_id required".to_string()))?;
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                "endpoint_id or model_id required".to_string(),
+            )
+        })?;
     let endpoint = read_projection_record(&st, "endpoints", &endpoint_id).ok_or_else(|| {
-        AppError(StatusCode::NOT_FOUND, format!("endpoint not found: {endpoint_id}"))
+        AppError(
+            StatusCode::NOT_FOUND,
+            format!("endpoint not found: {endpoint_id}"),
+        )
     })?;
     let model_ref = endpoint
         .get("model_id")
@@ -2787,7 +3074,10 @@ async fn handle_instances_load(
         .unwrap_or("backend.hypervisor.native-local.fixture")
         .to_string();
 
-    let top_estimate = body.get("estimate_only").and_then(Value::as_bool).unwrap_or(false);
+    let top_estimate = body
+        .get("estimate_only")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let load_options_in = body.get("load_options").cloned();
     let lo_estimate = load_options_in
         .as_ref()
@@ -2807,9 +3097,23 @@ async fn handle_instances_load(
     let (snake_lo, camel_lo) = normalize_load_options(&effective_lo);
 
     if top_estimate || lo_estimate {
-        return instance_estimate(&st, &endpoint_id, &model_ref, &engine_id, &snake_lo, &camel_lo);
+        return instance_estimate(
+            &st,
+            &endpoint_id,
+            &model_ref,
+            &engine_id,
+            &snake_lo,
+            &camel_lo,
+        );
     }
-    instance_real_load(&st, &endpoint_id, &model_ref, &provider_id, &engine_id, &snake_lo)
+    instance_real_load(
+        &st,
+        &endpoint_id,
+        &model_ref,
+        &provider_id,
+        &engine_id,
+        &snake_lo,
+    )
 }
 
 fn instance_estimate(
@@ -2920,7 +3224,12 @@ fn instance_real_load(
     let supervision_ref = mat.backend_supervision_ref.clone();
     let supervision_hash = mat.backend_supervision_hash.clone();
     let supervision_status = mat.backend_supervision_status.clone();
-    let public_args: Vec<Value> = mat.process_plan.public_args.iter().map(|a| json!(a)).collect();
+    let public_args: Vec<Value> = mat
+        .process_plan
+        .public_args
+        .iter()
+        .map(|a| json!(a))
+        .collect();
 
     // 3) Supervision start (native_local binds a fixture process, no real pid).
     let sup_req: ModelMountBackendProcessSupervisionRequest = serde_json::from_value(json!({
@@ -3003,8 +3312,13 @@ fn instance_real_load(
     {
         response.insert("process".to_string(), process_snapshot.clone());
     }
-    persist_record(&st.data_dir, &start.record_dir, &start.record_id, &start.record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        &st.data_dir,
+        &start.record_dir,
+        &start.record_id,
+        &start.record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
     // 5) Instance load — the kernel authors the loaded instance from state_dir.
     let load_req: ModelMountInstanceLifecycleRequest = serde_json::from_value(json!({
@@ -3048,9 +3362,7 @@ fn instance_real_load(
 
 /// Real model-mount kernel projection over HTTP. The truth is Agentgres; this
 /// is the daemon-projected snapshot.
-async fn handle_snapshot(
-    State(st): State<Arc<DaemonState>>,
-) -> Result<Json<Value>, AppError> {
+async fn handle_snapshot(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
     let req: ModelMountReadProjectionRequest = serde_json::from_value(json!({
         "projection_kind": "snapshot",
         "state_dir": st.data_dir,
@@ -3093,8 +3405,8 @@ fn invoke_native_local(prompt: &str, model: &str) -> Result<Value, String> {
     let record = ModelMountCore
         .admit_provider_execution(&exec_req)
         .map_err(|error| format!("admit_provider_execution: {}", debug_string(error)))?;
-    let admitted = serde_json::to_value(&record)
-        .map_err(|error| format!("record serialize: {error}"))?;
+    let admitted =
+        serde_json::to_value(&record).map_err(|error| format!("record serialize: {error}"))?;
 
     let invocation: ModelMountProviderInvocationRequest = serde_json::from_value(json!({
         "schema_version": MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
@@ -3160,8 +3472,8 @@ fn invoke_native_local_stream(
     let record = ModelMountCore
         .admit_provider_execution(&exec_req)
         .map_err(|error| format!("admit_provider_execution(stream): {}", debug_string(error)))?;
-    let admitted = serde_json::to_value(&record)
-        .map_err(|error| format!("record serialize: {error}"))?;
+    let admitted =
+        serde_json::to_value(&record).map_err(|error| format!("record serialize: {error}"))?;
 
     let invocation: ModelMountProviderInvocationRequest = serde_json::from_value(json!({
         "schema_version": MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
@@ -3325,7 +3637,10 @@ fn persist_invocation_receipt(
 }
 
 fn sanitize_segment(input: &str) -> String {
-    input.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+    input.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    )
 }
 
 fn store_conversation(st: &DaemonState, response_id: &str, state: &Value) {
@@ -3343,7 +3658,11 @@ fn load_conversation(st: &DaemonState, response_id: &str) -> Option<Value> {
 
 /// Continuation safety: matched iff previous_response_id resolves to a stored
 /// conversation state with the same route/endpoint/model (ported JS rule).
-fn continuation_for(st: &DaemonState, body: &Value, route: &RouteResolution) -> (Option<String>, Value) {
+fn continuation_for(
+    st: &DaemonState,
+    body: &Value,
+    route: &RouteResolution,
+) -> (Option<String>, Value) {
     let Some(prev_id) = body.get("previous_response_id").and_then(|v| v.as_str()) else {
         return (
             None,
@@ -3538,7 +3857,11 @@ async fn handle_responses(
 
 /// Author an `mcp_tool_invocation` receipt per ephemeral MCP integration on a
 /// /v1/responses call. Vault refs (integration headers) are NEVER persisted.
-fn process_mcp_integrations(st: &DaemonState, route: &RouteResolution, body: &Value) -> Vec<String> {
+fn process_mcp_integrations(
+    st: &DaemonState,
+    route: &RouteResolution,
+    body: &Value,
+) -> Vec<String> {
     let mut ids = Vec::new();
     let Some(integrations) = body.get("integrations").and_then(|v| v.as_array()) else {
         return ids;
@@ -3547,9 +3870,19 @@ fn process_mcp_integrations(st: &DaemonState, route: &RouteResolution, body: &Va
         if integration.get("type").and_then(|v| v.as_str()) != Some("ephemeral_mcp") {
             continue;
         }
-        let server_label = integration.get("server_label").and_then(|v| v.as_str()).unwrap_or("mcp");
-        let allowed = integration.get("allowed_tools").cloned().unwrap_or(json!([]));
-        let tool = allowed.as_array().and_then(|a| a.first()).and_then(|v| v.as_str()).unwrap_or("tool");
+        let server_label = integration
+            .get("server_label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("mcp");
+        let allowed = integration
+            .get("allowed_tools")
+            .cloned()
+            .unwrap_or(json!([]));
+        let tool = allowed
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.as_str())
+            .unwrap_or("tool");
         let receipt_id = format!(
             "receipt_mcp_tool_invocation_{}",
             short_hash(&format!("{}:{server_label}:{tool}:{index}", route.route_id))
@@ -3586,7 +3919,10 @@ async fn handle_mcp_import(
     let mut count = 0u64;
     let mut imported = Vec::new();
     for (label, config) in &servers {
-        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or_default();
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
         let allowed = config.get("allowed_tools").cloned().unwrap_or(json!([]));
         let auth_ref_hash = config
             .get("headers")
@@ -3611,8 +3947,16 @@ async fn handle_mcp_invoke(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let server_label = body.get("server_label").and_then(|v| v.as_str()).unwrap_or("mcp").to_string();
-    let tool = body.get("tool").and_then(|v| v.as_str()).unwrap_or("tool").to_string();
+    let server_label = body
+        .get("server_label")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mcp")
+        .to_string();
+    let tool = body
+        .get("tool")
+        .and_then(|v| v.as_str())
+        .unwrap_or("tool")
+        .to_string();
     authorize(&st, &headers, &format!("mcp.call:{server_label}.{tool}"))?;
     let receipt_id = format!(
         "receipt_mcp_tool_invocation_{}",
@@ -3661,7 +4005,9 @@ fn load_route(st: &DaemonState, route_id: &str) -> Option<Value> {
     let path = std::path::Path::new(&st.data_dir)
         .join("model-routes")
         .join(format!("{}.json", sanitize_segment(route_id)));
-    std::fs::read(path).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok())
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
 }
 
 /// Resolve a route's selection target: its first fallback endpoint, else the
@@ -3721,7 +4067,10 @@ async fn handle_routes_create(
     if let Some(object) = record.as_object_mut() {
         object.insert("object".to_string(), json!("ioi.model_mount_route"));
         object.insert("status".to_string(), json!("configured"));
-        object.insert("rust_core_boundary".to_string(), json!("model_mount.route_control"));
+        object.insert(
+            "rust_core_boundary".to_string(),
+            json!("model_mount.route_control"),
+        );
     }
     persist_record(&st.data_dir, "model-routes", &route_id, &record)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
@@ -3823,31 +4172,119 @@ pub(crate) fn build_route_decision(route_id: &str, body: &Value, selection: &Val
     );
 
     let mut map = serde_json::Map::new();
-    put_dual(&mut map, "schema_version", "schemaVersion", json!("ioi.model-route-decision.v1"));
+    put_dual(
+        &mut map,
+        "schema_version",
+        "schemaVersion",
+        json!("ioi.model-route-decision.v1"),
+    );
     map.insert("object".to_string(), json!("ioi.model_route_decision"));
-    put_dual(&mut map, "event_kind", "eventKind", json!("ModelRouteDecision"));
+    put_dual(
+        &mut map,
+        "event_kind",
+        "eventKind",
+        json!("ModelRouteDecision"),
+    );
     put_dual(&mut map, "decision_id", "decisionId", json!(decision_id));
     put_dual(&mut map, "route_id", "routeId", json!(route_id));
     put_dual(&mut map, "capability", "capability", json!(capability));
-    put_dual(&mut map, "requested_model", "requestedModel", json!(requested_model));
-    put_dual(&mut map, "requested_model_mode", "requestedModelMode", json!(requested_model_mode));
-    put_dual(&mut map, "auto_resolved", "autoResolved", json!(auto_resolved));
-    put_dual(&mut map, "selected_model", "selectedModel", json!(selected_model.clone()));
-    put_dual(&mut map, "upstream_model", "upstreamModel", json!(selected_model));
-    put_dual(&mut map, "never_send_auto_upstream", "neverSendAutoUpstream", json!(true));
+    put_dual(
+        &mut map,
+        "requested_model",
+        "requestedModel",
+        json!(requested_model),
+    );
+    put_dual(
+        &mut map,
+        "requested_model_mode",
+        "requestedModelMode",
+        json!(requested_model_mode),
+    );
+    put_dual(
+        &mut map,
+        "auto_resolved",
+        "autoResolved",
+        json!(auto_resolved),
+    );
+    put_dual(
+        &mut map,
+        "selected_model",
+        "selectedModel",
+        json!(selected_model.clone()),
+    );
+    put_dual(
+        &mut map,
+        "upstream_model",
+        "upstreamModel",
+        json!(selected_model),
+    );
+    put_dual(
+        &mut map,
+        "never_send_auto_upstream",
+        "neverSendAutoUpstream",
+        json!(true),
+    );
     put_dual(&mut map, "endpoint_id", "endpointId", json!(endpoint_id));
     put_dual(&mut map, "provider_id", "providerId", json!(provider_id));
-    put_dual(&mut map, "provider_kind", "providerKind", json!(provider_kind));
-    put_dual(&mut map, "reasoning_effort", "reasoningEffort", json!(reasoning_effort));
-    put_dual(&mut map, "local_remote_placement", "localRemotePlacement", json!("local"));
-    put_dual(&mut map, "privacy_posture", "privacyPosture", json!(privacy));
+    put_dual(
+        &mut map,
+        "provider_kind",
+        "providerKind",
+        json!(provider_kind),
+    );
+    put_dual(
+        &mut map,
+        "reasoning_effort",
+        "reasoningEffort",
+        json!(reasoning_effort),
+    );
+    put_dual(
+        &mut map,
+        "local_remote_placement",
+        "localRemotePlacement",
+        json!("local"),
+    );
+    put_dual(
+        &mut map,
+        "privacy_posture",
+        "privacyPosture",
+        json!(privacy),
+    );
     put_dual(&mut map, "policy_hash", "policyHash", json!(policy_hash));
-    put_dual(&mut map, "workflow_graph_id", "workflowGraphId", json!(workflow_graph_id));
-    put_dual(&mut map, "workflow_node_id", "workflowNodeId", json!(workflow_node_id));
-    put_dual(&mut map, "workflow_node_type", "workflowNodeType", json!(workflow_node_type));
-    put_dual(&mut map, "fallback_triggered", "fallbackTriggered", json!(false));
-    put_dual(&mut map, "rejected_candidates", "rejectedCandidates", json!([]));
-    map.insert("rust_core_boundary".to_string(), json!("model_mount.route_control"));
+    put_dual(
+        &mut map,
+        "workflow_graph_id",
+        "workflowGraphId",
+        json!(workflow_graph_id),
+    );
+    put_dual(
+        &mut map,
+        "workflow_node_id",
+        "workflowNodeId",
+        json!(workflow_node_id),
+    );
+    put_dual(
+        &mut map,
+        "workflow_node_type",
+        "workflowNodeType",
+        json!(workflow_node_type),
+    );
+    put_dual(
+        &mut map,
+        "fallback_triggered",
+        "fallbackTriggered",
+        json!(false),
+    );
+    put_dual(
+        &mut map,
+        "rejected_candidates",
+        "rejectedCandidates",
+        json!([]),
+    );
+    map.insert(
+        "rust_core_boundary".to_string(),
+        json!("model_mount.route_control"),
+    );
     Value::Object(map)
 }
 
@@ -3891,8 +4328,16 @@ async fn handle_workflow_node(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "route.use:*")?;
-    let node = body.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-    let route_id = body.get("route_id").and_then(|v| v.as_str()).unwrap_or("route.native-local").to_string();
+    let node = body
+        .get("node")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let route_id = body
+        .get("route_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("route.native-local")
+        .to_string();
     let receipt_id = format!(
         "receipt_workflow_node_{}",
         short_hash(&format!("{node}:{route_id}:{}", iso_now()))
@@ -3931,11 +4376,19 @@ async fn handle_receipt_gate(
         .get("receipt_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "receipt_id required".to_string()))?;
-    let gate_route = body.get("route_id").and_then(|v| v.as_str()).unwrap_or_default();
+    let gate_route = body
+        .get("route_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
     let receipt = read_receipts(&st.data_dir)
         .into_iter()
         .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(receipt_id))
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("receipt not found: {receipt_id}")))?;
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("receipt not found: {receipt_id}"),
+            )
+        })?;
     let receipt_route = receipt
         .get("details")
         .and_then(|d| d.get("routeId"))
@@ -3947,7 +4400,10 @@ async fn handle_receipt_gate(
             format!("route mismatch: receipt {receipt_route} != gate {gate_route}"),
         ));
     }
-    let gate_receipt_id = format!("receipt_workflow_gate_{}", short_hash(&format!("{receipt_id}:{gate_route}")));
+    let gate_receipt_id = format!(
+        "receipt_workflow_gate_{}",
+        short_hash(&format!("{receipt_id}:{gate_route}"))
+    );
     let gate_receipt = json!({
         "id": gate_receipt_id,
         "kind": "model_workflow_receipt_gate",
@@ -3956,7 +4412,9 @@ async fn handle_receipt_gate(
         "details": { "gatedReceiptId": receipt_id, "routeId": gate_route, "status": "passed" },
     });
     let _ = persist_record(&st.data_dir, "receipts", &gate_receipt_id, &gate_receipt);
-    Ok(Json(json!({ "status": "passed", "gateReceipt": gate_receipt })))
+    Ok(Json(
+        json!({ "status": "passed", "gateReceipt": gate_receipt }),
+    ))
 }
 
 // ---- Phase 5c.5: provider models / health / set, engine-remove, vault ----
@@ -4022,27 +4480,46 @@ async fn handle_provider_health_latest(
     State(st): State<Arc<DaemonState>>,
     AxumPath(provider_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
-    let receipt = latest_receipt_of_kind(&st, "provider_health", Some(("providerId", &provider_id)))
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "no provider health receipt".to_string()))?;
-    Ok(Json(json!({ "receipt": receipt, "replay": { "receipt": receipt } })))
+    let receipt =
+        latest_receipt_of_kind(&st, "provider_health", Some(("providerId", &provider_id)))
+            .ok_or_else(|| {
+                AppError(
+                    StatusCode::NOT_FOUND,
+                    "no provider health receipt".to_string(),
+                )
+            })?;
+    Ok(Json(
+        json!({ "receipt": receipt, "replay": { "receipt": receipt } }),
+    ))
 }
 
 /// Most-recent receipt of a kind (optionally filtered by a details field).
-fn latest_receipt_of_kind(st: &DaemonState, kind: &str, detail: Option<(&str, &str)>) -> Option<Value> {
+fn latest_receipt_of_kind(
+    st: &DaemonState,
+    kind: &str,
+    detail: Option<(&str, &str)>,
+) -> Option<Value> {
     let mut matches: Vec<Value> = read_receipts(&st.data_dir)
         .into_iter()
         .filter(|r| {
             r.get("kind").and_then(|v| v.as_str()) == Some(kind)
                 && detail.map_or(true, |(key, value)| {
-                    r.get("details").and_then(|d| d.get(key)).and_then(|v| v.as_str()) == Some(value)
+                    r.get("details")
+                        .and_then(|d| d.get(key))
+                        .and_then(|v| v.as_str())
+                        == Some(value)
                 })
         })
         .collect();
     matches.sort_by(|a, b| {
-        a.get("createdAt").and_then(|v| v.as_str()).unwrap_or("")
+        a.get("createdAt")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(b.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""))
             .then_with(|| {
-                a.get("id").and_then(|v| v.as_str()).unwrap_or("")
+                a.get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
                     .cmp(b.get("id").and_then(|v| v.as_str()).unwrap_or(""))
             })
     });
@@ -4062,8 +4539,15 @@ async fn handle_provider_set(
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "id required".to_string()))?
         .to_string();
-    let kind = body.get("kind").and_then(|v| v.as_str()).unwrap_or("openai_compatible").to_string();
-    let secret_ref = body.get("secret_ref").and_then(|v| v.as_str()).map(str::to_string);
+    let kind = body
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or("openai_compatible")
+        .to_string();
+    let secret_ref = body
+        .get("secret_ref")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let auth_scheme = body.get("auth_scheme").cloned().unwrap_or(Value::Null);
     let auth_header_name = body.get("auth_header_name").cloned().unwrap_or(Value::Null);
     let vault_ref_hash = secret_ref
@@ -4121,7 +4605,11 @@ async fn handle_runtime_engine_remove(
             let references = std::fs::read(entry.path())
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-                .map(|record| serde_json::to_string(&record).unwrap_or_default().contains(&engine_id))
+                .map(|record| {
+                    serde_json::to_string(&record)
+                        .unwrap_or_default()
+                        .contains(&engine_id)
+                })
                 .unwrap_or(false);
             if references {
                 let _ = std::fs::remove_file(entry.path());
@@ -4206,7 +4694,9 @@ async fn handle_vault_rm(
     if let Ok(mut bound) = st.vault_bound.lock() {
         bound.remove(&vault_ref_hash);
     }
-    Ok(Json(json!({ "removed": true, "vaultRefHash": vault_ref_hash })))
+    Ok(Json(
+        json!({ "removed": true, "vaultRefHash": vault_ref_hash }),
+    ))
 }
 
 /// POST /v1/model-mount/vault/refs/meta — metadata for a bound vault ref. After a
@@ -4287,7 +4777,9 @@ async fn handle_vault_health_latest(
     authorize(&st, &headers, "vault.read:*")?;
     let receipt = latest_receipt_of_kind(&st, "vault_health", None)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "no vault health receipt".to_string()))?;
-    Ok(Json(json!({ "receipt": receipt, "replay": { "receipt": receipt } })))
+    Ok(Json(
+        json!({ "receipt": receipt, "replay": { "receipt": receipt } }),
+    ))
 }
 
 /// Anthropic-compatible Messages API over the native-local kernel.
@@ -4361,7 +4853,11 @@ async fn handle_embeddings(
         &st,
         &route,
         &json!({ "provider_response_kind": "native_local.embeddings" }),
-        &format!("embeddings:{}:{}", route.route_id, short_hash(&inputs.join("|"))),
+        &format!(
+            "embeddings:{}:{}",
+            route.route_id,
+            short_hash(&inputs.join("|"))
+        ),
         json!({ "capability": "embeddings", "invocationKind": "embeddings" }),
     );
     Ok(Json(json!({
@@ -4480,7 +4976,10 @@ fn build_stream_frames(
                 ));
             }
             let closing = vec![
-                sse_frame("content_block_stop", &json!({ "type": "content_block_stop", "index": 0 })),
+                sse_frame(
+                    "content_block_stop",
+                    &json!({ "type": "content_block_stop", "index": 0 }),
+                ),
                 sse_frame(
                     "message_delta",
                     &json!({ "type": "message_delta", "delta": { "stop_reason": "end_turn", "stop_sequence": Value::Null }, "usage": { "output_tokens": completion_tokens } }),
@@ -4506,7 +5005,10 @@ fn build_stream_frames(
                 "previous_response_id": Value::Null, "provider_stream": "native",
             });
             let mut content = vec![
-                sse_frame("response.created", &json!({ "type": "response.created", "response": base_response })),
+                sse_frame(
+                    "response.created",
+                    &json!({ "type": "response.created", "response": base_response }),
+                ),
                 sse_frame(
                     "response.output_item.added",
                     &json!({
@@ -4545,7 +5047,10 @@ fn build_stream_frames(
                     "response.output_item.done",
                     &json!({ "type": "response.output_item.done", "output_index": 0, "item": { "id": item_id, "type": "message", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": full_text }] } }),
                 ),
-                sse_frame("response.completed", &json!({ "type": "response.completed", "response": completed_response })),
+                sse_frame(
+                    "response.completed",
+                    &json!({ "type": "response.completed", "response": completed_response }),
+                ),
             ];
             (content, closing)
         }
@@ -4583,10 +5088,22 @@ async fn run_native_stream(
     if let Some(chunks) = result.get("stream_chunks").and_then(|v| v.as_array()) {
         for chunk in chunks {
             let Some(line) = chunk.as_str() else { continue };
-            let Ok(payload) = serde_json::from_str::<Value>(line) else { continue };
-            if payload.get("done").and_then(Value::as_bool).unwrap_or(false) {
-                prompt_tokens = payload.get("prompt_eval_count").and_then(Value::as_u64).unwrap_or(prompt_tokens);
-                completion_tokens = payload.get("eval_count").and_then(Value::as_u64).unwrap_or(completion_tokens);
+            let Ok(payload) = serde_json::from_str::<Value>(line) else {
+                continue;
+            };
+            if payload
+                .get("done")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                prompt_tokens = payload
+                    .get("prompt_eval_count")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(prompt_tokens);
+                completion_tokens = payload
+                    .get("eval_count")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(completion_tokens);
             } else if let Some(delta) = payload.get("delta").and_then(|v| v.as_str()) {
                 if !delta.is_empty() {
                     deltas.push(delta.to_string());
@@ -4595,8 +5112,14 @@ async fn run_native_stream(
         }
     }
     if let Some(token_count) = result.get("token_count") {
-        prompt_tokens = token_count.get("prompt_tokens").and_then(Value::as_u64).unwrap_or(prompt_tokens);
-        completion_tokens = token_count.get("completion_tokens").and_then(Value::as_u64).unwrap_or(completion_tokens);
+        prompt_tokens = token_count
+            .get("prompt_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(prompt_tokens);
+        completion_tokens = token_count
+            .get("completion_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(completion_tokens);
     }
     let full_text: String = deltas.concat();
     let output_hash = sha256_hex_str(&full_text);
@@ -4615,7 +5138,11 @@ async fn run_native_stream(
 
     // Invocation (started) receipt — persisted before the first byte so it
     // survives an abort and its id anchors every metadata frame.
-    let invocation_seed = format!("stream:{stream_kind}:{}:{}", route.route_id, short_hash(&prompt));
+    let invocation_seed = format!(
+        "stream:{stream_kind}:{}:{}",
+        route.route_id,
+        short_hash(&prompt)
+    );
     let receipt_id = format!("receipt_model_invocation_{}", short_hash(&invocation_seed));
     let invocation_receipt = json!({
         "id": receipt_id,
@@ -4673,7 +5200,11 @@ async fn run_native_stream(
         let delay = std::time::Duration::from_millis(delay_ms);
         let mut aborted = false;
         for frame in &content_frames {
-            if tx.send(Ok(axum::body::Bytes::from(frame.clone()))).await.is_err() {
+            if tx
+                .send(Ok(axum::body::Bytes::from(frame.clone())))
+                .await
+                .is_err()
+            {
                 aborted = true;
                 break;
             }
@@ -4701,7 +5232,11 @@ async fn run_native_stream(
         });
         let _ = persist_record(&data_dir, "receipts", &stream_receipt_id, &completion);
         for frame in &closing_frames {
-            if tx.send(Ok(axum::body::Bytes::from(frame.clone()))).await.is_err() {
+            if tx
+                .send(Ok(axum::body::Bytes::from(frame.clone())))
+                .await
+                .is_err()
+            {
                 break;
             }
             if delay_ms > 0 {
@@ -4805,8 +5340,14 @@ async fn handle_context_fit(
     let route = resolve_route(&st, &body);
     let input = flatten_messages(&body);
     let prompt_tokens = input.split_whitespace().count() as u64;
-    let context_window = body.get("context_length").and_then(Value::as_u64).unwrap_or(0);
-    let max_output_tokens = body.get("max_output_tokens").and_then(Value::as_u64).unwrap_or(0);
+    let context_window = body
+        .get("context_length")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let max_output_tokens = body
+        .get("max_output_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
     let available = context_window.saturating_sub(max_output_tokens);
     let fits = prompt_tokens.saturating_add(max_output_tokens) <= context_window;
     let truncation_applied = prompt_tokens > available;
@@ -4856,10 +5397,12 @@ fn catalog_entry(source_url: &str, model_id: &str, family: &str, quantization: &
 }
 
 /// GET /v1/models/catalog/search?query=... — filter the fixture catalog.
-async fn handle_catalog_search(
-    Query(params): Query<HashMap<String, String>>,
-) -> Json<Value> {
-    let query = params.get("query").cloned().unwrap_or_default().to_lowercase();
+async fn handle_catalog_search(Query(params): Query<HashMap<String, String>>) -> Json<Value> {
+    let query = params
+        .get("query")
+        .cloned()
+        .unwrap_or_default()
+        .to_lowercase();
     let results: Vec<Value> = CATALOG_FIXTURES
         .iter()
         .filter(|(source_url, model_id, family, quant)| {
@@ -4868,13 +5411,20 @@ async fn handle_catalog_search(
                     .to_lowercase()
                     .contains(&query)
         })
-        .map(|(source_url, model_id, family, quant)| catalog_entry(source_url, model_id, family, quant))
+        .map(|(source_url, model_id, family, quant)| {
+            catalog_entry(source_url, model_id, family, quant)
+        })
         .collect();
     Json(json!({ "object": "list", "query": query, "results": results }))
 }
 
 /// Author an imported artifact record (so models ls/projection surface it).
-fn author_artifact(st: &DaemonState, model_id: &str, provider_id: &str, source_path: &str) -> Option<Value> {
+fn author_artifact(
+    st: &DaemonState,
+    model_id: &str,
+    provider_id: &str,
+    source_path: &str,
+) -> Option<Value> {
     let req: ModelMountArtifactEndpointRequest = serde_json::from_value(json!({
         "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
         "operation_kind": "model_mount.artifact.import",
@@ -4883,7 +5433,12 @@ fn author_artifact(st: &DaemonState, model_id: &str, provider_id: &str, source_p
     }))
     .ok()?;
     let plan = ModelMountCore.plan_artifact_endpoint(&req).ok()?;
-    let _ = persist_record(&st.data_dir, &plan.record_dir, &plan.record_id, &plan.record);
+    let _ = persist_record(
+        &st.data_dir,
+        &plan.record_dir,
+        &plan.record_id,
+        &plan.record,
+    );
     Some(plan.public_response)
 }
 
@@ -4901,7 +5456,12 @@ async fn handle_catalog_import_url(
     let entry = CATALOG_FIXTURES
         .iter()
         .find(|(url, ..)| *url == source_url)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("catalog entry not found: {source_url}")))?;
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("catalog entry not found: {source_url}"),
+            )
+        })?;
     let (url, default_model, family, quant) = *entry;
     let model_id = body
         .get("model_id")
@@ -4916,7 +5476,12 @@ async fn handle_catalog_import_url(
         &artifact_path,
         format!("family={family}\nquantization={quant}\nsource={url}\nfixture bytes\n"),
     );
-    let artifact = author_artifact(&st, &model_id, "provider.hypervisor.local", &artifact_path.to_string_lossy());
+    let artifact = author_artifact(
+        &st,
+        &model_id,
+        "provider.hypervisor.local",
+        &artifact_path.to_string_lossy(),
+    );
     let download_id = format!("download_{}", short_hash(&format!("{url}:{model_id}")));
     let download = json!({
         "id": download_id,
@@ -4942,11 +5507,29 @@ async fn handle_downloads(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     authorize(&st, &headers, "model.download:*")?;
-    let model_id = body.get("model_id").and_then(|v| v.as_str()).unwrap_or("native:download").to_string();
-    let provider_id = body.get("provider_id").and_then(|v| v.as_str()).unwrap_or("provider.hypervisor.local").to_string();
-    let source_url = body.get("source_url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-    let download_id = format!("download_{}", short_hash(&format!("{source_url}:{model_id}")));
-    let queued_only = body.get("queued_only").and_then(Value::as_bool).unwrap_or(false);
+    let model_id = body
+        .get("model_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("native:download")
+        .to_string();
+    let provider_id = body
+        .get("provider_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("provider.hypervisor.local")
+        .to_string();
+    let source_url = body
+        .get("source_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let download_id = format!(
+        "download_{}",
+        short_hash(&format!("{source_url}:{model_id}"))
+    );
+    let queued_only = body
+        .get("queued_only")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     if queued_only {
         let download = json!({
             "id": download_id, "status": "queued", "progress": 0,
@@ -4964,7 +5547,12 @@ async fn handle_downloads(
         .and_then(|v| v.as_str())
         .unwrap_or("family=download\ncontext=2048\nquantization=Q4_K_M\n");
     let _ = std::fs::write(&artifact_path, content);
-    let artifact = author_artifact(&st, &model_id, &provider_id, &artifact_path.to_string_lossy());
+    let artifact = author_artifact(
+        &st,
+        &model_id,
+        &provider_id,
+        &artifact_path.to_string_lossy(),
+    );
     let receipt_id = format!("receipt_model_download_{}", short_hash(&download_id));
     let receipt = json!({
         "id": receipt_id, "kind": "model_download", "redaction": "redacted", "createdAt": iso_now(),
@@ -5008,7 +5596,9 @@ async fn handle_storage_cleanup(
         "details": { "operation": "cleanup", "status": "scanned", "scannedArtifacts": scanned },
     });
     let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
-    Ok(Json(json!({ "status": "scanned", "scannedArtifacts": scanned, "receiptId": receipt_id })))
+    Ok(Json(
+        json!({ "status": "scanned", "scannedArtifacts": scanned, "receiptId": receipt_id }),
+    ))
 }
 
 /// DELETE /v1/model-mount/artifacts/:id — remove a managed artifact record.
@@ -5028,7 +5618,9 @@ async fn handle_artifact_delete(
         "details": { "operation": "delete", "artifactId": artifact_id, "status": "deleted" },
     });
     let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
-    Ok(Json(json!({ "status": "deleted", "artifactId": artifact_id, "receiptId": receipt_id })))
+    Ok(Json(
+        json!({ "status": "deleted", "artifactId": artifact_id, "receiptId": receipt_id }),
+    ))
 }
 
 /// The cockpit session turn, in the app's SSE contract shape

@@ -251,7 +251,12 @@ pub fn verify_password(password: &str, stored: &[u8]) -> bool {
     }
     let (salt, expected) = stored.split_at(SALT_LEN);
     match derive_password_hash(password, salt) {
-        Ok(got) => got.iter().zip(expected).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0,
+        Ok(got) => {
+            got.iter()
+                .zip(expected)
+                .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+                == 0
+        }
         Err(_) => false,
     }
 }

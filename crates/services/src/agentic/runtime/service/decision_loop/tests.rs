@@ -721,8 +721,10 @@ fn typed_runtime_file_write_frame_dispatches_file_write_before_shell() {
 #[test]
 fn typed_runtime_file_write_frame_survives_scale_round_trip_and_dispatches() {
     let mut state = test_agent_state();
-    state.runtime_route_frame =
-        Some(typed_file_write_frame("phase5c.txt", "hello from phase 5c\n"));
+    state.runtime_route_frame = Some(typed_file_write_frame(
+        "phase5c.txt",
+        "hello from phase 5c\n",
+    ));
 
     let bytes = codec::to_bytes_canonical(&state).expect("agent state encodes");
     let mut rehydrated: AgentState =
@@ -790,7 +792,10 @@ fn typed_runtime_shell_frame_survives_scale_round_trip_and_dispatches() {
 #[test]
 fn typed_runtime_browser_frame_survives_scale_round_trip_and_dispatches() {
     let mut state = test_agent_state();
-    state.runtime_route_frame = Some(typed_runtime_action_frame("browser.interact", "browser_target"));
+    state.runtime_route_frame = Some(typed_runtime_action_frame(
+        "browser.interact",
+        "browser_target",
+    ));
 
     let bytes = codec::to_bytes_canonical(&state).expect("agent state encodes");
     let mut rehydrated: AgentState =

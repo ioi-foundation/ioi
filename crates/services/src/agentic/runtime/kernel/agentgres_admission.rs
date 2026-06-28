@@ -2753,7 +2753,8 @@ fn runtime_state_projection_watermark(
 }
 
 /// Per-process monotonic token making each temp record filename unique across concurrent writers.
-static RUNTIME_STATE_TEMP_TOKEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static RUNTIME_STATE_TEMP_TOKEN: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
 
 /// Write `contents` to `target` atomically: stream into a sibling temp file, fsync it, then rename
 /// over the target (atomic on the same filesystem) and best-effort fsync the parent directory so
@@ -2792,11 +2793,15 @@ fn write_runtime_state_record_atomically(
     })();
     if let Err(error) = write_result {
         let _ = fs::remove_file(&temp_path);
-        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string()));
+        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(
+            error.to_string(),
+        ));
     }
     if let Err(error) = fs::rename(&temp_path, target) {
         let _ = fs::remove_file(&temp_path);
-        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string()));
+        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(
+            error.to_string(),
+        ));
     }
     // Best-effort durability of the rename in the directory entry (ignored on platforms that
     // disallow directory fsync).
@@ -4533,14 +4538,20 @@ mod tests {
         std::fs::write(&target, b"{\"old\":true}\n").expect("seed prior content");
         super::write_runtime_state_record_atomically(&target, b"{\"new\":true}\n")
             .expect("atomic write");
-        assert_eq!(std::fs::read_to_string(&target).unwrap(), "{\"new\":true}\n");
+        assert_eq!(
+            std::fs::read_to_string(&target).unwrap(),
+            "{\"new\":true}\n"
+        );
         // No leftover temp sibling files remain after the rename.
         let leftovers: Vec<_> = std::fs::read_dir(target.parent().unwrap())
             .unwrap()
             .filter_map(Result::ok)
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
-        assert!(leftovers.is_empty(), "no temp files should linger: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "no temp files should linger: {leftovers:?}"
+        );
     }
 
     #[test]

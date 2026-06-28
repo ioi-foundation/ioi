@@ -25,10 +25,18 @@ const BINDING_SCHEMA_VERSION: &str = "ioi.hypervisor.harness_session_binding.v1"
 
 const SELECTION_KINDS: &[&str] = &["harness_profile", "agent_harness_adapter"];
 const TRUTH_BOUNDARIES: &[&str] = &["daemon-owned", "proposal_source_only"];
-const MODEL_ROUTE_POLICIES: &[&str] =
-    &["hypervisor_model_mount", "adapter_builtin", "provider_trust", "forbidden"];
-const MODEL_ROUTE_STATES: &[&str] =
-    &["daemon_verified", "fixture_available", "missing", "unavailable"];
+const MODEL_ROUTE_POLICIES: &[&str] = &[
+    "hypervisor_model_mount",
+    "adapter_builtin",
+    "provider_trust",
+    "forbidden",
+];
+const MODEL_ROUTE_STATES: &[&str] = &[
+    "daemon_verified",
+    "fixture_available",
+    "missing",
+    "unavailable",
+];
 const WORKSPACE_MOUNT_POLICIES: &[&str] = &[
     "public_trunk",
     "redacted_projection",
@@ -64,7 +72,12 @@ pub struct RuntimeHarnessSessionBindingAdmissionError {
 
 impl RuntimeHarnessSessionBindingAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -84,14 +97,25 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
             "session_binding_ref",
             "harness-session-binding:",
         )?;
-        let session_route_ref =
-            prefixed_string(request.get("session_route_ref"), "session_route_ref", "session-route:")?;
-        let harness_selection_ref =
-            required_string(request.get("harness_selection_ref"), "harness_selection_ref")?;
-        let harness_selection_kind =
-            enum_value(request.get("harness_selection_kind"), "harness_selection_kind", SELECTION_KINDS)?;
-        let harness_truth_boundary =
-            enum_value(request.get("harness_truth_boundary"), "harness_truth_boundary", TRUTH_BOUNDARIES)?;
+        let session_route_ref = prefixed_string(
+            request.get("session_route_ref"),
+            "session_route_ref",
+            "session-route:",
+        )?;
+        let harness_selection_ref = required_string(
+            request.get("harness_selection_ref"),
+            "harness_selection_ref",
+        )?;
+        let harness_selection_kind = enum_value(
+            request.get("harness_selection_kind"),
+            "harness_selection_kind",
+            SELECTION_KINDS,
+        )?;
+        let harness_truth_boundary = enum_value(
+            request.get("harness_truth_boundary"),
+            "harness_truth_boundary",
+            TRUTH_BOUNDARIES,
+        )?;
         let harness_launch_route_ref = prefixed_string(
             request.get("harness_launch_route_ref"),
             "harness_launch_route_ref",
@@ -104,10 +128,16 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
             "model_configuration_ref",
             "model-config:",
         )?;
-        let model_route_ref =
-            prefixed_string(request.get("model_route_ref"), "model_route_ref", "model-route:")?;
-        let model_route_policy =
-            enum_value(request.get("model_route_policy"), "model_route_policy", MODEL_ROUTE_POLICIES)?;
+        let model_route_ref = prefixed_string(
+            request.get("model_route_ref"),
+            "model_route_ref",
+            "model-route:",
+        )?;
+        let model_route_policy = enum_value(
+            request.get("model_route_policy"),
+            "model_route_policy",
+            MODEL_ROUTE_POLICIES,
+        )?;
         let model_route_availability_state = enum_value(
             request.get("model_route_availability_state"),
             "model_route_availability_state",
@@ -125,18 +155,38 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
             "model-instance:",
             true,
         )?;
-        let workspace_mount_policy =
-            enum_value(request.get("workspace_mount_policy"), "workspace_mount_policy", WORKSPACE_MOUNT_POLICIES)?;
-        let privacy_posture_ref =
-            prefixed_string(request.get("privacy_posture_ref"), "privacy_posture_ref", "privacy:")?;
-        let authority_scope_refs =
-            prefixed_refs(request.get("authority_scope_refs"), "authority_scope_refs", "scope:", false)?;
-        let receipt_policy_ref =
-            prefixed_string(request.get("receipt_policy_ref"), "receipt_policy_ref", "receipt-policy:")?;
-        let receipt_preview_ref =
-            prefixed_string(request.get("receipt_preview_ref"), "receipt_preview_ref", "receipt-preview:")?;
-        let expected_receipt_refs =
-            prefixed_refs(request.get("expected_receipt_refs"), "expected_receipt_refs", "receipt", false)?;
+        let workspace_mount_policy = enum_value(
+            request.get("workspace_mount_policy"),
+            "workspace_mount_policy",
+            WORKSPACE_MOUNT_POLICIES,
+        )?;
+        let privacy_posture_ref = prefixed_string(
+            request.get("privacy_posture_ref"),
+            "privacy_posture_ref",
+            "privacy:",
+        )?;
+        let authority_scope_refs = prefixed_refs(
+            request.get("authority_scope_refs"),
+            "authority_scope_refs",
+            "scope:",
+            false,
+        )?;
+        let receipt_policy_ref = prefixed_string(
+            request.get("receipt_policy_ref"),
+            "receipt_policy_ref",
+            "receipt-policy:",
+        )?;
+        let receipt_preview_ref = prefixed_string(
+            request.get("receipt_preview_ref"),
+            "receipt_preview_ref",
+            "receipt-preview:",
+        )?;
+        let expected_receipt_refs = prefixed_refs(
+            request.get("expected_receipt_refs"),
+            "expected_receipt_refs",
+            "receipt",
+            false,
+        )?;
         let requires_daemon_gate =
             boolean_value(request.get("requires_daemon_gate")).unwrap_or(false);
         let runtime_truth_source = optional_value(request.get("runtimeTruthSource"));
@@ -146,8 +196,12 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
             "agentgres://operation/",
             true,
         )?;
-        let receipt_refs =
-            prefixed_refs(request.get("receipt_refs"), "receipt_refs", "receipt://", true)?;
+        let receipt_refs = prefixed_refs(
+            request.get("receipt_refs"),
+            "receipt_refs",
+            "receipt://",
+            true,
+        )?;
         let state_root = optional_value(request.get("state_root"));
         let harness_runtime_truth_claimed =
             boolean_value(request.get("harness_runtime_truth_claimed")).unwrap_or(false);
@@ -198,7 +252,11 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
         }
 
         if harness_selection_kind == "harness_profile" {
-            require_prefix(&harness_selection_ref, "harness-profile:", "harness_selection_ref")?;
+            require_prefix(
+                &harness_selection_ref,
+                "harness-profile:",
+                "harness_selection_ref",
+            )?;
             if harness_profile_ref.is_none() {
                 return Err(authority_error(
                     "harness_session_binding_profile_ref_required",
@@ -221,7 +279,11 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
                 ));
             }
         } else {
-            require_prefix(&harness_selection_ref, "agent-harness-adapter:", "harness_selection_ref")?;
+            require_prefix(
+                &harness_selection_ref,
+                "agent-harness-adapter:",
+                "harness_selection_ref",
+            )?;
             if agent_harness_adapter_id.is_none() {
                 return Err(authority_error(
                     "harness_session_binding_adapter_id_required",
@@ -255,7 +317,10 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
         }
 
         if model_route_policy == "hypervisor_model_mount" {
-            if !matches!(model_route_availability_state.as_str(), "daemon_verified" | "fixture_available") {
+            if !matches!(
+                model_route_availability_state.as_str(),
+                "daemon_verified" | "fixture_available"
+            ) {
                 return Err(authority_error(
                     "harness_session_binding_model_route_unavailable",
                     "Hypervisor model mount bindings require a verified or fixture-available local model route.",
@@ -263,7 +328,10 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
                 ));
             }
             require_non_empty(&model_route_endpoint_refs, "model_route_endpoint_refs")?;
-            require_non_empty(&model_route_loaded_instance_refs, "model_route_loaded_instance_refs")?;
+            require_non_empty(
+                &model_route_loaded_instance_refs,
+                "model_route_loaded_instance_refs",
+            )?;
             if !model_configuration_ref.starts_with("model-config:local/") {
                 return Err(authority_error(
                     "harness_session_binding_local_model_config_required",
@@ -293,7 +361,9 @@ impl RuntimeHarnessSessionBindingAdmissionCore {
         let admission_id = optional_value(request.get("admission_id"))
             .unwrap_or_else(|| format!("harness-session-binding-admission:{binding_safe}"));
         let admission_receipt_ref = optional_value(request.get("admission_receipt_ref"))
-            .unwrap_or_else(|| format!("receipt://harness-session-binding/{binding_safe}/admitted"));
+            .unwrap_or_else(|| {
+                format!("receipt://harness-session-binding/{binding_safe}/admitted")
+            });
 
         let mut receipt_out = receipt_refs;
         receipt_out.push(admission_receipt_ref);
@@ -453,8 +523,17 @@ fn require_scope(scope_refs: &[String], scope: &str) -> AdmitResult<()> {
     ))
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimeHarnessSessionBindingAdmissionError {
-    RuntimeHarnessSessionBindingAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeHarnessSessionBindingAdmissionError {
+    RuntimeHarnessSessionBindingAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 /// Mirror JS `optionalString`: String(value).trim(), None when null/absent/blank.
@@ -562,7 +641,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -701,10 +784,16 @@ mod tests {
         let admission = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&base_binding(), "2026-06-18T12:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], HARNESS_SESSION_BINDING_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            HARNESS_SESSION_BINDING_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(admission["admission_state"], "admitted_for_harness_launch");
-        assert_eq!(admission["model_configuration_ref"], "model-config:local/codex-oss-qwen");
+        assert_eq!(
+            admission["model_configuration_ref"],
+            "model-config:local/codex-oss-qwen"
+        );
         assert_eq!(admission["requiresDaemonGate"], true);
         assert_eq!(admission["harness_runtime_truth_claimed"], false);
         assert_eq!(admission["admitted_at"], "2026-06-18T12:00:00.000Z");
@@ -719,7 +808,10 @@ mod tests {
         binding["harness_truth_boundary"] = json!("proposal_source_only");
         binding["harness_launch_route_ref"] = json!("harness-route:codex-cli/local-model");
         binding["agent_harness_adapter_id"] = json!("codex_cli");
-        binding.as_object_mut().unwrap().remove("harness_profile_ref");
+        binding
+            .as_object_mut()
+            .unwrap()
+            .remove("harness_profile_ref");
         binding["workspace_mount_policy"] = json!("redacted_projection");
         binding["privacy_posture_ref"] = json!("privacy:redacted-projection");
         binding["receipt_policy_ref"] = json!("receipt-policy:harness-adapter/default");
@@ -730,7 +822,10 @@ mod tests {
         let admission = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect("admitted");
-        assert_eq!(admission["harness_selection_ref"], "agent-harness-adapter:codex_cli");
+        assert_eq!(
+            admission["harness_selection_ref"],
+            "agent-harness-adapter:codex_cli"
+        );
         assert_eq!(admission["agent_harness_adapter_id"], "codex_cli");
     }
 
@@ -742,11 +837,17 @@ mod tests {
         binding["harness_selection_kind"] = json!("agent_harness_adapter");
         binding["harness_truth_boundary"] = json!("proposal_source_only");
         binding["agent_harness_adapter_id"] = json!("codex_cli");
-        binding.as_object_mut().unwrap().remove("harness_profile_ref");
+        binding
+            .as_object_mut()
+            .unwrap()
+            .remove("harness_profile_ref");
         let error = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect_err("blocked");
-        assert_eq!(error.code, "harness_session_binding_external_ctee_custody_blocked");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_external_ctee_custody_blocked"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -758,7 +859,10 @@ mod tests {
         let error = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect_err("blocked");
-        assert_eq!(error.code, "harness_session_binding_provider_trust_requires_future_lease");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_provider_trust_requires_future_lease"
+        );
     }
 
     #[test]
@@ -769,7 +873,10 @@ mod tests {
         let error = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect_err("blocked");
-        assert_eq!(error.code, "harness_session_binding_model_route_unavailable");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_model_route_unavailable"
+        );
     }
 
     #[test]
@@ -779,7 +886,10 @@ mod tests {
         let error = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect_err("blocked");
-        assert_eq!(error.code, "harness_session_binding_runtime_truth_claim_blocked");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_runtime_truth_claim_blocked"
+        );
     }
 
     #[test]
@@ -790,7 +900,10 @@ mod tests {
             .admit(&binding, "now")
             .expect_err("retired alias");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "harness_session_binding_request_aliases_retired");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_request_aliases_retired"
+        );
     }
 
     #[test]
@@ -800,7 +913,10 @@ mod tests {
         let error = RuntimeHarnessSessionBindingAdmissionCore
             .admit(&binding, "now")
             .expect_err("bad scope");
-        assert_eq!(error.code, "harness_session_binding_authority_scope_refs_prefix_invalid");
+        assert_eq!(
+            error.code,
+            "harness_session_binding_authority_scope_refs_prefix_invalid"
+        );
         assert_eq!(error.status, 400);
     }
 }
