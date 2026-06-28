@@ -1,7 +1,7 @@
 # SSH adapter target (declared, not yet built)
 
 Declared editor-target in
-[`code-editor-adapters/editor-targets.manifest.json`](../../../code-editor-adapters/editor-targets.manifest.json)
+[`editor-targets.manifest.json`](../editor-targets.manifest.json)
 (`ssh`, `launchKind: "ssh"`, `status: "declared"`).
 
 The Hypervisor App's per-environment editor picker offers **SSH** as a raw

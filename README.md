@@ -208,9 +208,8 @@ Stop renting tools. Hire workers.
 | [`crates/node`](crates/node) | Rust hypervisor-daemon: the runtime API surface (threads/agents/runs/tools/MCP/model-mount) the app and SDK run against. |
 | [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
-| [`packages/hypervisor-adapter-targets`](packages/hypervisor-adapter-targets) | Adapter target modules and host profiles (current: VS Code-family `code-editors/vscode-extension`); reusable integration source, not product identity. |
+| [`packages/hypervisor-adapter-targets`](packages/hypervisor-adapter-targets) | Adapter target modules and host profiles (current: VS Code-family `code-editors/vscode-extension`), the editor-target registry (`editor-targets.manifest.json`), and ignored local host/build artifacts; reusable integration source, not product identity or runtime authority. |
 | [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
-| [`code-editor-adapters`](code-editor-adapters) | Code editor adapter-host metadata and ignored local host/build artifacts; adapter source modules live in `packages/hypervisor-adapter-targets`. Not product identity or runtime authority. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |

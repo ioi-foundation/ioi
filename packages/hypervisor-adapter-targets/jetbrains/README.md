@@ -1,7 +1,7 @@
 # JetBrains adapter target (declared, not yet built)
 
 Declared editor-target family in
-[`code-editor-adapters/editor-targets.manifest.json`](../../../code-editor-adapters/editor-targets.manifest.json)
+[`editor-targets.manifest.json`](../editor-targets.manifest.json)
 (`jetbrains-gateway`, `launchKind: "jetbrains-gateway"`, `status: "declared"`).
 
 The Hypervisor App's per-environment editor picker offers the JetBrains IDEs —

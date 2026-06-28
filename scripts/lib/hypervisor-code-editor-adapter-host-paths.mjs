@@ -25,9 +25,9 @@ function envFlag(name) {
 
 const targetPackagedRoot = resolve(
   repoRoot,
-  "code-editor-adapters/builds/VSCode-linux-x64",
+  "packages/hypervisor-adapter-targets/builds/VSCode-linux-x64",
 );
-const targetForkRoot = resolve(repoRoot, "code-editor-adapters/vscode");
+const targetForkRoot = resolve(repoRoot, "packages/hypervisor-adapter-targets/vscode");
 
 const packagedRoot = resolveEnvPath(
   "HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT",

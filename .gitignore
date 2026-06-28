@@ -88,9 +88,9 @@ scripts/internal/
 # Local code editor adapter artifacts. The VS Code fork checkout and packaged
 # Electron build are large local artifacts; keep only adapter boundary docs and
 # patch metadata in git.
-code-editor-adapters/vscode/
-code-editor-adapters/builds/
-code-editor-adapters/.cache/
+packages/hypervisor-adapter-targets/vscode/
+packages/hypervisor-adapter-targets/builds/
+packages/hypervisor-adapter-targets/.cache/
 
 # Python cache/build artifacts
 __pycache__/

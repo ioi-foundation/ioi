@@ -1,6 +1,6 @@
 {
   "schemaVersion": "ioi.hypervisor.editor_targets.manifest.v1",
-  "targetRoot": "code-editor-adapters",
+  "targetRoot": "packages/hypervisor-adapter-targets",
   "runtimeAuthority": "crates/node/src/bin/hypervisor-daemon.rs",
   "defaultEditorId": "vscode",
   "doctrine": [
@@ -9,7 +9,7 @@
     "The customized VS Code is the flagship VS Code-family target — one entry in this registry, not the host.",
     "IOI daemon is the runtime authority and durable execution boundary.",
     "Legacy native embedding paths are extraction inventory and must not be revived.",
-    "Tracked editor-target metadata and ignored local host artifacts live under code-editor-adapters/; the root ide/ artifact path is retired.",
+    "Tracked editor-target metadata, adapter source, and ignored local host artifacts live under packages/hypervisor-adapter-targets/; the root ide/ and root code-editor-adapters/ artifact paths are retired.",
     "The default editor is an org/user preference, not the adapter contract."
   ],
   "families": [
@@ -21,14 +21,14 @@
       "adapterModule": "packages/hypervisor-adapter-targets/code-editors/vscode-extension",
       "installedExtensionDirName": "hypervisor-vscode-extension",
       "sourceFork": {
-        "defaultPath": "code-editor-adapters/vscode",
+        "defaultPath": "packages/hypervisor-adapter-targets/vscode",
         "optionalForRuntimeLaunch": true,
         "upstream": "https://github.com/microsoft/vscode.git",
         "localBranchHint": "antigravity/main"
       },
       "packagedApp": {
-        "defaultPath": "code-editor-adapters/builds/VSCode-linux-x64",
-        "binary": "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor",
+        "defaultPath": "packages/hypervisor-adapter-targets/builds/VSCode-linux-x64",
+        "binary": "packages/hypervisor-adapter-targets/builds/VSCode-linux-x64/bin/hypervisor",
         "requiredForRuntimeLaunch": true
       },
       "editors": [

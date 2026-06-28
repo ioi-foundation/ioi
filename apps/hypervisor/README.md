@@ -62,10 +62,10 @@ product path should not present any editor host as the parent product.
 
 - [Node.js](https://nodejs.org/) (v20+ LTS recommended)
 - Packaged Electron/VS Code app at
-  `code-editor-adapters/builds/VSCode-linux-x64`, or set
+  `packages/hypervisor-adapter-targets/builds/VSCode-linux-x64`, or set
   `HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT`.
-- Optional VS Code source checkout at `code-editor-adapters/vscode` for adapter
-  development.
+- Optional VS Code source checkout at `packages/hypervisor-adapter-targets/vscode`
+  for adapter development.
 
 ### Setup
 
@@ -91,9 +91,9 @@ launcher syncs only the current `hypervisor-vscode-extension` adapter into the
 packaged host; it is not the Hypervisor product shell, does not start daemon
 sidecars, does not mount models, and does not pass daemon tokens to the
 extension. Set `HYPERVISOR_SKIP_EXTENSION_SYNC=1` to skip extension sync. The
-`code-editor-adapters/vscode` source checkout is optional for this launch path;
-the required editor-host artifact is the packaged Electron app at
-`code-editor-adapters/builds/VSCode-linux-x64` or
+`packages/hypervisor-adapter-targets/vscode` source checkout is optional for this
+launch path; the required editor-host artifact is the packaged Electron app at
+`packages/hypervisor-adapter-targets/builds/VSCode-linux-x64` or
 `HYPERVISOR_CODE_EDITOR_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path
 is retired.
 
@@ -105,17 +105,15 @@ apps/hypervisor/
 ├── package.json                         # Hypervisor App scripts
 └── README.md
 
-code-editor-adapters/
-├── README.md                            # editor-target registry ownership notes
-├── editor-targets.manifest.json         # editor-target registry (families -> editors, default)
-├── builds/VSCode-linux-x64/             # ignored packaged runnable VS Code-family host
-└── vscode/                              # ignored optional (customized) VS Code source checkout
-
 packages/
-├── hypervisor-adapter-targets/         # editor-target modules + host profiles
-│   ├── code-editors/vscode-extension/  # shared VS Code-family adapter (VS Code, Cursor, Windsurf, …)
-│   ├── jetbrains/                       # JetBrains Gateway target (declared)
-│   └── ssh/                             # SSH target (declared)
+├── hypervisor-adapter-targets/          # editor-target registry + adapter source + host artifacts
+│   ├── README.md                        # editor-target registry ownership notes
+│   ├── editor-targets.manifest.json     # editor-target registry (families -> editors, default)
+│   ├── code-editors/vscode-extension/   # shared VS Code-family adapter (VS Code, Cursor, Windsurf, …)
+│   ├── jetbrains/                        # JetBrains Gateway target (declared)
+│   ├── ssh/                              # SSH target (declared)
+│   ├── builds/VSCode-linux-x64/          # ignored packaged runnable VS Code-family host
+│   └── vscode/                           # ignored optional (customized) VS Code source checkout
 └── hypervisor-workbench/                # Workbench and workflow-composer package
 ```
 

@@ -119,7 +119,7 @@ try {
   else { lines["Editor restart reconcile + negatives"] = "FAIL"; failures.push("WS-3r reconcile verifier not PASS"); }
 
   // ---- packaged VS Code adapter host (external Electron binary) ----
-  const packaged = existsSync(join(REPO, "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor"));
+  const packaged = existsSync(join(REPO, "packages/hypervisor-adapter-targets/builds/VSCode-linux-x64/bin/hypervisor"));
   lines["Packaged VS Code adapter host"] = packaged ? "PASS" : "HOST_GATED";
   if (!packaged) declaredGaps.push({ gate: "packaged_vscode", prerequisite: "PACKAGED_VSCODE_BINARY_ABSENT", reason: "the packaged VS Code adapter host (Electron build) is not present on this host; external binary — host-gated" });
 

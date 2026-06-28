@@ -13,7 +13,7 @@ import { join } from "node:path";
 
 const REPO = new URL("..", import.meta.url).pathname;
 const JSON_OUT = process.argv.includes("--json");
-const MANIFEST = join(REPO, "code-editor-adapters/editor-targets.manifest.json");
+const MANIFEST = join(REPO, "packages/hypervisor-adapter-targets/editor-targets.manifest.json");
 const PROFILE_DIR = join(REPO, "packages/hypervisor-adapter-targets/code-editors/profiles");
 const SHARED_ADAPTER = "packages/hypervisor-adapter-targets/code-editors/vscode-extension";
 

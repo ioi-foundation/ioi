@@ -32,7 +32,7 @@ fn s(v: &Value, k: &str, d: &str) -> String { v.get(k).and_then(|x| x.as_str()).
 fn manifest_path() -> PathBuf {
     std::env::var("IOI_HYPERVISOR_EDITOR_TARGETS_MANIFEST")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join("code-editor-adapters/editor-targets.manifest.json"))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join("packages/hypervisor-adapter-targets/editor-targets.manifest.json"))
 }
 fn profiles_dir() -> PathBuf {
     std::env::current_dir().unwrap_or_default().join("packages/hypervisor-adapter-targets/code-editors/profiles")
