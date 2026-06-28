@@ -23,7 +23,7 @@ const routes = [
   ["/quickstart", "Quickstart"],
   ["/api", "API Reference"],
   ["/sdks", "SDKs & Libraries"],
-  ["/autopilot", "Autopilot"],
+  ["/hypervisor", "Hypervisor"],
   ["/runtime", "Runtime Daemon"],
   ["/model-mounting", "Model Mounting"],
   ["/mcp-tools", "MCP Tools"],

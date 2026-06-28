@@ -1073,7 +1073,7 @@ async fn source_citation_question_requires_workspace_grounding_even_without_repo
 
     let planning = plan_chat_outcome_with_runtime(
         runtime,
-        "Where is Autopilot chat task state defined? Cite the files you used.",
+        "Where is Hypervisor chat task state defined? Cite the files you used.",
         None,
         None,
     )

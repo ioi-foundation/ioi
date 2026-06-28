@@ -862,18 +862,18 @@ fn typed_runtime_workspace_search_with_explicit_path_dispatches_read_not_search(
 fn typed_runtime_workspace_search_with_explicit_dotfile_path_dispatches_read_not_search() {
     let mut state = test_agent_state();
     state.goal =
-        "Try to read `.autopilot-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks it."
+        "Try to read `.hypervisor-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks it."
             .to_string();
     state.runtime_route_frame = Some(typed_workspace_frame_with_evidence(
         "workspace_search",
-        "Try to read `.autopilot-stage73-outside-link` through the governed file tool",
+        "Try to read `.hypervisor-stage73-outside-link` through the governed file tool",
     ));
 
     let tool_call = maybe_typed_runtime_workspace_context_tool_call(&mut state).expect(
         "explicit dotfile path read should dispatch file__read before workspace search fallback",
     );
     assert!(tool_call.contains("\"name\":\"file__read\""));
-    assert!(tool_call.contains(".autopilot-stage73-outside-link"));
+    assert!(tool_call.contains(".hypervisor-stage73-outside-link"));
     assert!(!tool_call.contains("\"name\":\"file__search\""));
 }
 

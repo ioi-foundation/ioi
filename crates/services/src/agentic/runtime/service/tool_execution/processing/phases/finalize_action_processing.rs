@@ -1760,7 +1760,7 @@ fn select_manifest_script_recovery_candidate(
             }
             if goal_lc.contains("app")
                 && (name_lc.contains("app")
-                    || command_lc.contains("autopilot")
+                    || command_lc.contains("hypervisor")
                     || command_lc.contains("desktop"))
             {
                 score += 2;

@@ -108,7 +108,7 @@ fn build_executor(gui: Arc<FallbackGuiDriver>) -> ToolExecutor {
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0x65; 32],
-        goal: "type into autopilot".to_string(),
+        goal: "type into hypervisor".to_string(),
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 11,
@@ -140,7 +140,7 @@ fn test_agent_state() -> AgentState {
         runtime_route_frame: None,
         work_graph_context: None,
         target: Some(InteractionTarget {
-            app_hint: Some("autopilot".to_string()),
+            app_hint: Some("hypervisor".to_string()),
             title_pattern: None,
         }),
         resolved_intent: None,
@@ -286,7 +286,7 @@ fn routing_receipt_contract_for_gui_type_fallback_includes_pre_state_and_binding
     assert_eq!(receipt.pre_state.agent_status, "Running");
     assert_eq!(receipt.pre_state.tier, "VisualLast");
     assert_eq!(receipt.pre_state.step_index, 11);
-    assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("autopilot"));
+    assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("hypervisor"));
     assert_eq!(receipt.post_state.verification_checks, verification_checks);
     assert_eq!(receipt.policy_binding_hash, binding_hash);
 }

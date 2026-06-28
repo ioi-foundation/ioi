@@ -18,7 +18,7 @@
   },
   "capabilities": {
     "modelCapabilityRefs": [
-      "model-capability:autopilot.mounted.local-coder"
+      "model-capability:hypervisor.mounted.local-coder"
     ],
     "toolCapabilityRefs": [
       "tool-capability:file.apply_patch",

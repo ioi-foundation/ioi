@@ -449,7 +449,7 @@ pub(super) fn chat_work_graph_worker_timeout(
 
 pub(super) fn configured_local_html_work_graph_parallelism_cap() -> Option<usize> {
     [
-        "AUTOPILOT_CHAT_ARTIFACT_SWARM_LOCAL_PARALLELISM_CAP",
+        "HYPERVISOR_CHAT_ARTIFACT_SWARM_LOCAL_PARALLELISM_CAP",
         "IOI_CHAT_SWARM_LOCAL_PARALLELISM_CAP",
         "OLLAMA_NUM_PARALLEL",
     ]

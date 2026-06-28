@@ -5,5 +5,5 @@ retry = 3
 [env]
 CMAKE = "cmake"
 WHISPER_DONT_GENERATE_BINDINGS = "1"
-TS_RS_EXPORT_DIR = { value = "apps/autopilot/src/generated/autopilot-contracts", relative = true }
+TS_RS_EXPORT_DIR = { value = "apps/hypervisor/src/generated/hypervisor-contracts", relative = true }
 TS_RS_LARGE_INT = "number"

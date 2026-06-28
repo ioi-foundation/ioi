@@ -6,7 +6,7 @@
 //! non-artifact execution policy.
 //!
 //! UI-specific presentation, session lifecycle mutation, and shell-only render
-//! surfaces should remain in the Autopilot Chat kernel.
+//! surfaces should remain in the Hypervisor Chat kernel.
 
 use super::intent_signals::ChatIntentContext;
 use super::runtime_locality::runtime_locality_scope_hint;

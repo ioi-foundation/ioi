@@ -1484,7 +1484,7 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
             let raw_tree = AccessibilityNode {
                 id: "win-1".to_string(),
                 role: "window".to_string(),
-                name: Some("IOI Autopilot".to_string()),
+                name: Some("IOI Hypervisor".to_string()),
                 value: None,
                 rect: Rect {
                     x: 0,

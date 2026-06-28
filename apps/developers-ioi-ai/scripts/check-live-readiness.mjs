@@ -28,7 +28,7 @@ for (const routePath of [
   "/quickstart",
   "/api",
   "/sdks",
-  "/autopilot",
+  "/hypervisor",
   "/runtime",
   "/model-mounting",
   "/mcp-tools",
@@ -42,7 +42,7 @@ for (const routePath of [
 for (const legacyHash of [
   "choose-the-right-surface",
   "build-your-first-agent-with-ioi-agent-sdk",
-  "run-autopilot-locally",
+  "run-hypervisor-locally",
   "package-a-service-candidate",
   "sas-xyz-provider-path",
   "aiagent-xyz-distribution-path",
@@ -107,7 +107,7 @@ for (const futureShape of [
   assert(docs.includes(futureShape), `Future shape was dropped instead of status-framed: ${futureShape}`);
 }
 
-for (const autopilotWorkflowNeedle of [
+for (const hypervisorWorkflowNeedle of [
   "Workflow Snapshots",
   "Compositor Workflows",
   "safety-boundary.png",
@@ -116,8 +116,8 @@ for (const autopilotWorkflowNeedle of [
   "promotion-transition-gui-behavior-proof.json",
 ]) {
   assert(
-    docs.includes(autopilotWorkflowNeedle),
-    `Autopilot docs missing workflow evidence: ${autopilotWorkflowNeedle}`,
+    docs.includes(hypervisorWorkflowNeedle),
+    `Hypervisor docs missing workflow evidence: ${hypervisorWorkflowNeedle}`,
   );
 }
 
@@ -150,9 +150,9 @@ for (const obtuseCopy of [
 
 const manifestPath = path.join(
   appRoot,
-  "public/media/screenshots/autopilot/manifest.json",
+  "public/media/screenshots/hypervisor/manifest.json",
 );
-assert(fs.existsSync(manifestPath), "Autopilot screenshot manifest is missing.");
+assert(fs.existsSync(manifestPath), "Hypervisor screenshot manifest is missing.");
 
 if (fs.existsSync(manifestPath)) {
   const manifestText = fs.readFileSync(manifestPath, "utf8");
@@ -180,11 +180,11 @@ if (fs.existsSync(manifestPath)) {
     manifestPublicPaths.add(item.public_path);
   }
 
-  const screenshotDir = path.join(appRoot, "public/media/screenshots/autopilot");
+  const screenshotDir = path.join(appRoot, "public/media/screenshots/hypervisor");
   const publicPngs = fs
     .readdirSync(screenshotDir)
     .filter((file) => file.endsWith(".png"))
-    .map((file) => `/media/screenshots/autopilot/${file}`);
+    .map((file) => `/media/screenshots/hypervisor/${file}`);
 
   for (const publicPng of publicPngs) {
     assert(

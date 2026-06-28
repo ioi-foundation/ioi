@@ -3,11 +3,11 @@
   "expectedReceipts": [
     {
       "type": "model_route_selection",
-      "capabilityRef": "model-capability:autopilot.mounted.local-coder"
+      "capabilityRef": "model-capability:hypervisor.mounted.local-coder"
     },
     {
       "type": "model_invocation",
-      "capabilityRef": "model-capability:autopilot.mounted.local-coder"
+      "capabilityRef": "model-capability:hypervisor.mounted.local-coder"
     },
     {
       "type": "tool_invocation",

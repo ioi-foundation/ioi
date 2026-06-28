@@ -21,7 +21,7 @@ use tokio::sync::mpsc::Sender;
 
 /// Decorates an existing inference runtime with first-party kernel media support.
 ///
-/// This lets Autopilot and other kernel surfaces keep their current text inference backends
+/// This lets Hypervisor and other kernel surfaces keep their current text inference backends
 /// while absorbing audio transcription and speech synthesis into the shared substrate.
 pub struct KernelMediaRuntime {
     inner: Arc<dyn InferenceRuntime>,

@@ -101,7 +101,7 @@ pub enum ArtifactCommands {
         /// Local inference API key when the local endpoint requires authentication.
         #[clap(long, requires = "local")]
         api_key: Option<String>,
-        /// Local inference model name (defaults to LOCAL_LLM_MODEL or AUTOPILOT_LOCAL_RUNTIME_MODEL).
+        /// Local inference model name (defaults to LOCAL_LLM_MODEL or HYPERVISOR_LOCAL_RUNTIME_MODEL).
         #[clap(long, requires = "local")]
         model_name: Option<String>,
         /// Emit machine-readable JSON instead of human text.
@@ -142,7 +142,7 @@ pub enum ArtifactCommands {
         /// Local inference API key when the local endpoint requires authentication.
         #[clap(long, requires = "local")]
         api_key: Option<String>,
-        /// Local inference model name (defaults to LOCAL_LLM_MODEL or AUTOPILOT_LOCAL_RUNTIME_MODEL).
+        /// Local inference model name (defaults to LOCAL_LLM_MODEL or HYPERVISOR_LOCAL_RUNTIME_MODEL).
         #[clap(long, requires = "local")]
         model_name: Option<String>,
         /// Acceptance validation API URL for local generation proof.
@@ -151,7 +151,7 @@ pub enum ArtifactCommands {
         /// Acceptance validation API key when the acceptance endpoint requires authentication.
         #[clap(long, requires = "local")]
         acceptance_api_key: Option<String>,
-        /// Acceptance validation model name (defaults to AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL or OPENAI_MODEL).
+        /// Acceptance validation model name (defaults to HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL or OPENAI_MODEL).
         #[clap(long, requires = "local")]
         acceptance_model_name: Option<String>,
         /// Emit machine-readable JSON instead of human text.

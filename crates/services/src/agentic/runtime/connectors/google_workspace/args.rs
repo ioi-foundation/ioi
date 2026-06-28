@@ -766,7 +766,7 @@ async fn resolve_google_mail_recipient(raw: &str) -> Result<String, String> {
         &["google", "gmail", "google workspace"],
     )
     .ok_or_else(|| {
-            "Autopilot could not determine the connected Google account email. Use an explicit recipient address or reconnect the Google connector.".to_string()
+            "Hypervisor could not determine the connected Google account email. Use an explicit recipient address or reconnect the Google connector.".to_string()
         })
 }
 

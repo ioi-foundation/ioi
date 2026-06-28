@@ -373,7 +373,7 @@ pub struct PlanReceiptEvent {
 
 /// Structured workload activity event for glass-box orchestration.
 ///
-/// This is a higher-level, typed stream intended to back Autopilot rendering and replayable
+/// This is a higher-level, typed stream intended to back Hypervisor rendering and replayable
 /// receipts.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadActivityEvent {
@@ -896,7 +896,7 @@ pub struct WorkloadParentPlaybookReceipt {
 }
 
 /// A unified event type representing observable state changes within the Kernel.
-/// These events are streamed to the UI (Autopilot) to provide visual feedback
+/// These events are streamed to the UI (Hypervisor) to provide visual feedback
 /// and "Visual Sovereignty".
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[allow(clippy::large_enum_variant)]

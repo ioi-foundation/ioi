@@ -35,7 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PROFILE = "desktop-localgpu"
 DEFAULT_DB_PATH = (
     Path.home()
-    / ".local/share/ai.ioi.autopilot/profiles"
+    / ".local/share/ai.ioi.hypervisor/profiles"
     / DEFAULT_PROFILE
     / "chat-runtime-memory.db"
 )
@@ -221,7 +221,7 @@ def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
             ORDER BY updated_at_ms DESC
             LIMIT 1
             """,
-            ("autopilot.local_task.v1",),
+            ("hypervisor.local_task.v1",),
         ).fetchone()
     except sqlite3.OperationalError:
         return None
@@ -743,7 +743,7 @@ def resolve_db_path(args: argparse.Namespace) -> Path:
         return Path(args.db_path).expanduser()
     return (
         Path.home()
-        / ".local/share/ai.ioi.autopilot/profiles"
+        / ".local/share/ai.ioi.hypervisor/profiles"
         / args.profile
         / "chat-runtime-memory.db"
     )

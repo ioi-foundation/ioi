@@ -452,7 +452,7 @@ fn local_reasoning_effort_policy_can_be_explicitly_omitted() {
     let effort = local_openai_reasoning_effort_for_request_with_lookup(
         "http://127.0.0.1:11434/v1/chat/completions",
         |key| match key {
-            "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("omit".to_string()),
+            "HYPERVISOR_LOCAL_OPENAI_REASONING_EFFORT" => Some("omit".to_string()),
             _ => None,
         },
     );
@@ -504,7 +504,7 @@ fn local_qwen_no_think_prompt_is_not_added_when_reasoning_policy_is_explicit() {
         "qwen3.5:9b",
         &mut messages,
         |key| match key {
-            "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("low".to_string()),
+            "HYPERVISOR_LOCAL_OPENAI_REASONING_EFFORT" => Some("low".to_string()),
             _ => None,
         },
     );
@@ -675,7 +675,7 @@ async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
         String::new(),
         "qwen3.5:9b".to_string(),
     );
-    std::env::set_var("AUTOPILOT_OLLAMA_NATIVE_CHAT", "1");
+    std::env::set_var("HYPERVISOR_OLLAMA_NATIVE_CHAT", "1");
     let expected_url = format!("http://{address}/api/chat");
     assert_eq!(
         local_ollama_native_chat_url(&format!("http://{address}/v1/chat/completions")).as_deref(),
@@ -694,7 +694,7 @@ async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
         )
         .await
         .expect("inference result");
-    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
+    std::env::remove_var("HYPERVISOR_OLLAMA_NATIVE_CHAT");
 
     assert_eq!(
         String::from_utf8(output).unwrap(),
@@ -746,7 +746,7 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
         stream_idle_timeout: Duration::from_millis(250),
     };
 
-    std::env::set_var("AUTOPILOT_OLLAMA_NATIVE_CHAT", "1");
+    std::env::set_var("HYPERVISOR_OLLAMA_NATIVE_CHAT", "1");
     let error = runtime
         .execute_inference(
             [0u8; 32],
@@ -759,7 +759,7 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
         )
         .await
         .expect_err("stalled stream should fail");
-    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
+    std::env::remove_var("HYPERVISOR_OLLAMA_NATIVE_CHAT");
 
     assert!(
         error
@@ -772,7 +772,7 @@ async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
 #[test]
 fn daemon_openai_compatible_route_is_not_rewritten_to_ollama_native_chat() {
     let _guard = ollama_context_env_lock();
-    std::env::remove_var("AUTOPILOT_OLLAMA_NATIVE_CHAT");
+    std::env::remove_var("HYPERVISOR_OLLAMA_NATIVE_CHAT");
     std::env::remove_var("IOI_OLLAMA_NATIVE_CHAT");
     std::env::remove_var("OLLAMA_NATIVE_CHAT");
 
@@ -782,7 +782,7 @@ fn daemon_openai_compatible_route_is_not_rewritten_to_ollama_native_chat() {
 #[test]
 fn local_embedding_routes_use_local_model_defaults() {
     let env = HashMap::from([(
-        "AUTOPILOT_LOCAL_EMBEDDING_MODEL",
+        "HYPERVISOR_LOCAL_EMBEDDING_MODEL",
         "nomic-embed-text".to_string(),
     )]);
 
@@ -843,7 +843,7 @@ fn local_runtime_defaults_to_shorter_stream_idle_timeout() {
 
 #[test]
 fn explicit_http_timeout_override_takes_precedence() {
-    let env = HashMap::from([("AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS", "300".to_string())]);
+    let env = HashMap::from([("HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS", "300".to_string())]);
 
     let timeout = inference_http_timeout_seconds_for_api_url_with_lookup(
         "http://127.0.0.1:11434/v1/chat/completions",
@@ -856,7 +856,7 @@ fn explicit_http_timeout_override_takes_precedence() {
 #[test]
 fn explicit_stream_idle_timeout_override_takes_precedence() {
     let env = HashMap::from([(
-        "AUTOPILOT_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
+        "HYPERVISOR_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
         "45".to_string(),
     )]);
 

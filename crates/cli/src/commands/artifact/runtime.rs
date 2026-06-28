@@ -154,15 +154,15 @@ pub(super) fn build_acceptance_inference_runtime(
     let production_provenance = production_runtime.chat_runtime_provenance();
     let explicit_url = acceptance_api_url
         .map(str::to_string)
-        .or_else(|| env::var("AUTOPILOT_ACCEPTANCE_RUNTIME_URL").ok());
+        .or_else(|| env::var("HYPERVISOR_ACCEPTANCE_RUNTIME_URL").ok());
     let explicit_api_key = acceptance_api_key
         .map(str::to_string)
-        .or_else(|| env::var("AUTOPILOT_ACCEPTANCE_RUNTIME_API_KEY").ok());
+        .or_else(|| env::var("HYPERVISOR_ACCEPTANCE_RUNTIME_API_KEY").ok());
     let explicit_model = acceptance_model_name
         .map(str::to_string)
-        .or_else(|| env::var("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL").ok())
-        .or_else(|| env::var("AUTOPILOT_ACCEPTANCE_OPENAI_MODEL").ok());
-    let openai_key = env::var("AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY")
+        .or_else(|| env::var("HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL").ok())
+        .or_else(|| env::var("HYPERVISOR_ACCEPTANCE_OPENAI_MODEL").ok());
+    let openai_key = env::var("HYPERVISOR_ACCEPTANCE_OPENAI_API_KEY")
         .ok()
         .or_else(|| env::var("OPENAI_API_KEY").ok());
 
@@ -188,12 +188,12 @@ pub(super) fn build_acceptance_inference_runtime(
             ))
         } else {
             Arc::new(UnavailableInferenceRuntime::new(
-                "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+                "Acceptance validation requires a distinct configured runtime. Set HYPERVISOR_ACCEPTANCE_RUNTIME_URL or HYPERVISOR_ACCEPTANCE_OPENAI_API_KEY/HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL.",
             ))
         }
     } else {
         Arc::new(UnavailableInferenceRuntime::new(
-            "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+            "Acceptance validation requires a distinct configured runtime. Set HYPERVISOR_ACCEPTANCE_RUNTIME_URL or HYPERVISOR_ACCEPTANCE_OPENAI_API_KEY/HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL.",
         ))
     };
 
@@ -246,17 +246,17 @@ pub(super) fn resolve_local_runtime_config(
         api_url: api_url
             .map(str::to_string)
             .or_else(|| env::var("LOCAL_LLM_URL").ok())
-            .or_else(|| env::var("AUTOPILOT_LOCAL_RUNTIME_URL").ok())
+            .or_else(|| env::var("HYPERVISOR_LOCAL_RUNTIME_URL").ok())
             .unwrap_or_else(|| "http://localhost:11434/v1/chat/completions".to_string()),
         api_key: api_key
             .map(str::to_string)
             .or_else(|| env::var("LOCAL_LLM_API_KEY").ok())
-            .or_else(|| env::var("AUTOPILOT_LOCAL_RUNTIME_API_KEY").ok())
+            .or_else(|| env::var("HYPERVISOR_LOCAL_RUNTIME_API_KEY").ok())
             .unwrap_or_default(),
         model_name: model_name
             .map(str::to_string)
             .or_else(|| env::var("LOCAL_LLM_MODEL").ok())
-            .or_else(|| env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL").ok())
+            .or_else(|| env::var("HYPERVISOR_LOCAL_RUNTIME_MODEL").ok())
             .unwrap_or_else(|| "llama3".to_string()),
     }
 }

@@ -118,10 +118,10 @@ where
     let mut candidates = Vec::new();
 
     if let Some(local_url) = env_text(lookup, "LOCAL_LLM_URL")
-        .or_else(|| env_text(lookup, "AUTOPILOT_LOCAL_RUNTIME_URL"))
+        .or_else(|| env_text(lookup, "HYPERVISOR_LOCAL_RUNTIME_URL"))
     {
         let model = env_text(lookup, "LOCAL_LLM_MODEL")
-            .or_else(|| env_text(lookup, "AUTOPILOT_LOCAL_RUNTIME_MODEL"))
+            .or_else(|| env_text(lookup, "HYPERVISOR_LOCAL_RUNTIME_MODEL"))
             .or_else(|| {
                 requested
                     .filter(|model| !looks_remote_family(model))

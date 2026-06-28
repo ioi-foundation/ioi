@@ -69,7 +69,7 @@ protocol boundary.
 - AIIP requires its own canonical foundation doc and later low-level protocol
   references for packets, profiles, conformance, channels, relay/router
   markets, and privacy modes.
-- Autopilot becomes the reference meta-harness and local governance surface for
+- Hypervisor becomes the reference meta-harness and local governance surface for
   AIIP-powered work, not the entire protocol.
 - First-party marketplaces should be described as applications of the protocol,
   not as the protocol itself.
@@ -83,7 +83,7 @@ protocol boundary.
 
 - Do not require every autonomous action to settle on IOI mainnet.
 - Do not turn IOI mainnet into a model-inference or workflow-execution chain.
-- Do not create separate bespoke interop APIs for Autopilot, aiagent.xyz,
+- Do not create separate bespoke interop APIs for Hypervisor, aiagent.xyz,
   sas.xyz, and external systems when AIIP semantics apply.
 - Do not let each appchain invent isolated authority, receipt, reputation, or
   dispute standards.

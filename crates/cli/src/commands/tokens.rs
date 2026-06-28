@@ -28,7 +28,7 @@ pub enum TokensCommands {
     Ls,
     /// Create a scoped capability token.
     Create {
-        #[clap(long, default_value = "autopilot-local-server")]
+        #[clap(long, default_value = "hypervisor-local-server")]
         audience: String,
         #[clap(long = "allow")]
         allowed: Vec<String>,

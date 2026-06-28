@@ -245,32 +245,32 @@ export function artifactCommandEnv(): NodeJS.ProcessEnv {
 
   const env: NodeJS.ProcessEnv = { ...process.env };
   const runtimeConfigured =
-    Boolean(env.AUTOPILOT_LOCAL_RUNTIME_URL) || Boolean(env.LOCAL_LLM_URL);
+    Boolean(env.HYPERVISOR_LOCAL_RUNTIME_URL) || Boolean(env.LOCAL_LLM_URL);
 
   if (!runtimeConfigured) {
     cachedAutoConfiguredRuntime = detectLocalOllamaRuntime();
     if (cachedAutoConfiguredRuntime) {
-      env.AUTOPILOT_LOCAL_RUNTIME_URL = cachedAutoConfiguredRuntime.endpoint;
+      env.HYPERVISOR_LOCAL_RUNTIME_URL = cachedAutoConfiguredRuntime.endpoint;
       env.LOCAL_LLM_URL = cachedAutoConfiguredRuntime.endpoint;
-      env.AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL =
+      env.HYPERVISOR_LOCAL_RUNTIME_HEALTH_URL =
         cachedAutoConfiguredRuntime.healthEndpoint;
-      env.AUTOPILOT_LOCAL_RUNTIME_MODEL =
-        env.AUTOPILOT_LOCAL_RUNTIME_MODEL ??
+      env.HYPERVISOR_LOCAL_RUNTIME_MODEL =
+        env.HYPERVISOR_LOCAL_RUNTIME_MODEL ??
         cachedAutoConfiguredRuntime.productionModel;
       env.LOCAL_LLM_MODEL =
-        env.LOCAL_LLM_MODEL ?? env.AUTOPILOT_LOCAL_RUNTIME_MODEL;
-      env.OPENAI_MODEL = env.OPENAI_MODEL ?? env.AUTOPILOT_LOCAL_RUNTIME_MODEL;
-      env.AUTOPILOT_ACCEPTANCE_RUNTIME_URL =
-        env.AUTOPILOT_ACCEPTANCE_RUNTIME_URL ??
+        env.LOCAL_LLM_MODEL ?? env.HYPERVISOR_LOCAL_RUNTIME_MODEL;
+      env.OPENAI_MODEL = env.OPENAI_MODEL ?? env.HYPERVISOR_LOCAL_RUNTIME_MODEL;
+      env.HYPERVISOR_ACCEPTANCE_RUNTIME_URL =
+        env.HYPERVISOR_ACCEPTANCE_RUNTIME_URL ??
         cachedAutoConfiguredRuntime.acceptanceEndpoint;
-      env.AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL =
-        env.AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL ??
+      env.HYPERVISOR_ACCEPTANCE_RUNTIME_HEALTH_URL =
+        env.HYPERVISOR_ACCEPTANCE_RUNTIME_HEALTH_URL ??
         cachedAutoConfiguredRuntime.acceptanceHealthEndpoint;
-      env.AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL =
-        env.AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL ??
+      env.HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL =
+        env.HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL ??
         cachedAutoConfiguredRuntime.acceptanceModel;
-      env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS =
-        env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS ?? "600";
+      env.HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS =
+        env.HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS ?? "600";
       env.OLLAMA_CONTEXT_LENGTH =
         env.OLLAMA_CONTEXT_LENGTH ?? DEFAULT_OLLAMA_CONTEXT_LENGTH;
     }
@@ -285,7 +285,7 @@ export function runtimeEnvOverridesForRenderer(
   lane: ProofLane = "live",
 ): CommandEnvOverrides | undefined {
   const explicitRuntimeConfigured =
-    Boolean(process.env.AUTOPILOT_LOCAL_RUNTIME_URL) ||
+    Boolean(process.env.HYPERVISOR_LOCAL_RUNTIME_URL) ||
     Boolean(process.env.LOCAL_LLM_URL);
   if (explicitRuntimeConfigured) {
     return undefined;
@@ -307,17 +307,17 @@ export function runtimeEnvOverridesForRenderer(
 
   const env = artifactCommandEnv();
   return {
-    AUTOPILOT_LOCAL_RUNTIME_URL: runtime.endpoint,
+    HYPERVISOR_LOCAL_RUNTIME_URL: runtime.endpoint,
     LOCAL_LLM_URL: runtime.endpoint,
-    AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL: runtime.healthEndpoint,
-    AUTOPILOT_LOCAL_RUNTIME_MODEL: runtime.productionModel,
+    HYPERVISOR_LOCAL_RUNTIME_HEALTH_URL: runtime.healthEndpoint,
+    HYPERVISOR_LOCAL_RUNTIME_MODEL: runtime.productionModel,
     LOCAL_LLM_MODEL: runtime.productionModel,
     OPENAI_MODEL: runtime.productionModel,
-    AUTOPILOT_ACCEPTANCE_RUNTIME_URL: runtime.acceptanceEndpoint,
-    AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL: runtime.acceptanceHealthEndpoint,
-    AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL: runtime.acceptanceModel,
-    AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS:
-      env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS ?? "600",
+    HYPERVISOR_ACCEPTANCE_RUNTIME_URL: runtime.acceptanceEndpoint,
+    HYPERVISOR_ACCEPTANCE_RUNTIME_HEALTH_URL: runtime.acceptanceHealthEndpoint,
+    HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL: runtime.acceptanceModel,
+    HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS:
+      env.HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS ?? "600",
     OLLAMA_CONTEXT_LENGTH: ollamaContextLengthForRenderer(renderer, lane, env),
   };
 }
@@ -393,7 +393,7 @@ export function ensureChatRuntimeProofBinary() {
   runCommand("cargo", [
     "build",
     "-p",
-    "autopilot",
+    "hypervisor",
     "--bin",
     "chat_artifact_proof",
     "--quiet",
@@ -416,7 +416,7 @@ export function runChatRuntimeProofJson(
 
 export function configuredLiveRuntimeEndpoint(): string | null {
   return (
-    artifactCommandEnv().AUTOPILOT_LOCAL_RUNTIME_URL ??
+    artifactCommandEnv().HYPERVISOR_LOCAL_RUNTIME_URL ??
     artifactCommandEnv().LOCAL_LLM_URL ??
     null
   );

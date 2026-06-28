@@ -1667,10 +1667,10 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
       ...process.env,
       LOCAL_LLM_URL: preset.runtimeUrl,
       LOCAL_LLM_MODEL: preset.runtimeModel,
-      AUTOPILOT_LOCAL_RUNTIME_URL: preset.runtimeUrl,
-      AUTOPILOT_LOCAL_RUNTIME_MODEL: preset.runtimeModel,
-      AUTOPILOT_ACCEPTANCE_RUNTIME_URL: preset.runtimeUrl,
-      AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL: artifactAcceptanceModelForPreset(preset),
+      HYPERVISOR_LOCAL_RUNTIME_URL: preset.runtimeUrl,
+      HYPERVISOR_LOCAL_RUNTIME_MODEL: preset.runtimeModel,
+      HYPERVISOR_ACCEPTANCE_RUNTIME_URL: preset.runtimeUrl,
+      HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL: artifactAcceptanceModelForPreset(preset),
       OLLAMA_CONTEXT_LENGTH:
         process.env.OLLAMA_CONTEXT_LENGTH ||
         ollamaContextLengthForArtifactBenchmark(benchmark),

@@ -968,9 +968,9 @@ fn model_routing_for_state(
             .ok()
             .filter(|value| !value.trim().is_empty()),
         policy_allows_egress: env_truthy("IOI_AGENT_ALLOW_MODEL_EGRESS")
-            || env_truthy("AUTOPILOT_ALLOW_MODEL_EGRESS"),
+            || env_truthy("HYPERVISOR_ALLOW_MODEL_EGRESS"),
         allow_sensitive_remote: env_truthy("IOI_AGENT_ALLOW_SENSITIVE_MODEL_EGRESS")
-            || env_truthy("AUTOPILOT_ALLOW_SENSITIVE_MODEL_EGRESS"),
+            || env_truthy("HYPERVISOR_ALLOW_SENSITIVE_MODEL_EGRESS"),
         latency_budget_ms: 30_000,
         token_estimate: state.tokens_used,
     });

@@ -203,8 +203,8 @@ mod tests {
     #[test]
     fn start_agent_initial_working_directory_uses_service_workspace_path() {
         assert_eq!(
-            initial_working_directory_path("/tmp/autopilot-user-workspace"),
-            "/tmp/autopilot-user-workspace"
+            initial_working_directory_path("/tmp/hypervisor-user-workspace"),
+            "/tmp/hypervisor-user-workspace"
         );
         assert_eq!(initial_working_directory_path("   "), ".");
     }

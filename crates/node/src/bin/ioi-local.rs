@@ -403,7 +403,7 @@ async fn async_main() -> Result<()> {
             .ok()
             .filter(|value| !value.trim().is_empty())
             .or_else(|| {
-                std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                std::env::var("HYPERVISOR_LOCAL_RUNTIME_MODEL")
                     .ok()
                     .filter(|value| !value.trim().is_empty())
             })
@@ -420,7 +420,7 @@ async fn async_main() -> Result<()> {
             .ok()
             .filter(|value| !value.trim().is_empty())
             .or_else(|| {
-                std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                std::env::var("HYPERVISOR_LOCAL_RUNTIME_MODEL")
                     .ok()
                     .filter(|value| !value.trim().is_empty())
             })

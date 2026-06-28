@@ -1578,7 +1578,7 @@ mod tests {
     #[test]
     fn inline_run_command_literal_maps_to_shell_runtime_action() {
         let context = ChatIntentContext::new(
-            "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+            "Run `node --check scripts/lib/hypervisor-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
         );
 
         let intent = context
@@ -1588,7 +1588,7 @@ mod tests {
         assert_eq!(intent.target_kind, "shell_command");
         assert_eq!(
             intent.target_command.as_deref(),
-            Some("node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs")
+            Some("node --check scripts/lib/hypervisor-agent-studio-chat-scenarios.mjs")
         );
     }
 

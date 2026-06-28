@@ -56,16 +56,16 @@ import type {
 } from "./types";
 
 const INFERENCE_RUNTIME_ENV_KEYS = [
-  "AUTOPILOT_LOCAL_RUNTIME_URL",
+  "HYPERVISOR_LOCAL_RUNTIME_URL",
   "LOCAL_LLM_URL",
-  "AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL",
-  "AUTOPILOT_LOCAL_RUNTIME_MODEL",
+  "HYPERVISOR_LOCAL_RUNTIME_HEALTH_URL",
+  "HYPERVISOR_LOCAL_RUNTIME_MODEL",
   "LOCAL_LLM_MODEL",
   "OPENAI_MODEL",
-  "AUTOPILOT_ACCEPTANCE_RUNTIME_URL",
-  "AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL",
-  "AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL",
-  "AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS",
+  "HYPERVISOR_ACCEPTANCE_RUNTIME_URL",
+  "HYPERVISOR_ACCEPTANCE_RUNTIME_HEALTH_URL",
+  "HYPERVISOR_ACCEPTANCE_RUNTIME_MODEL",
+  "HYPERVISOR_INFERENCE_HTTP_TIMEOUT_SECS",
   "OLLAMA_CONTEXT_LENGTH",
 ] as const;
 
@@ -1132,7 +1132,7 @@ export async function runLiveChatRuntimeLane(options?: {
       runtimeEndpoint: null,
       totals: summarizeCaseTotals(Array.from(liveCases.values())),
       strongestContradiction:
-        "No LOCAL_LLM_URL or AUTOPILOT_LOCAL_RUNTIME_URL is configured for the live Chat runtime parity lane.",
+        "No LOCAL_LLM_URL or HYPERVISOR_LOCAL_RUNTIME_URL is configured for the live Chat runtime parity lane.",
       notes: [
         "The contract lane still ran and produced evidence, but it cannot certify desktop parity.",
         "The live Chat runtime lane exercised the kernel-owned failure path and surfaced a blocked artifact instead of substituting mock output.",

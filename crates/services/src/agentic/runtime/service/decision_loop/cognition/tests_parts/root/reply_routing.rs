@@ -368,7 +368,7 @@ fn explicit_dotfile_path_read_forces_direct_read_before_search() {
         tool("file__search"),
     ];
     let agent_state = agent_state_for_routing_goal(
-        "Try to read `.autopilot-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks the symlink escape.",
+        "Try to read `.hypervisor-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks the symlink escape.",
         IntentScopeProfile::WorkspaceOps,
     );
 
@@ -391,13 +391,13 @@ fn explicit_dotfile_path_read_switches_to_reply_after_symlink_policy_observation
         tool("file__info"),
     ];
     let mut agent_state = agent_state_for_routing_goal(
-        "Try to read `.autopilot-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks the symlink escape.",
+        "Try to read `.hypervisor-stage73-outside-link` through the governed file tool and summarize whether the daemon blocks the symlink escape.",
         IntentScopeProfile::WorkspaceOps,
     );
     crate::agentic::runtime::service::tool_execution::record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
-        "step=1;tool=file__read;path=.autopilot-stage73-outside-link;status=blocked;policy=workspace_symlink_boundary".to_string(),
+        "step=1;tool=file__read;path=.hypervisor-stage73-outside-link;status=blocked;policy=workspace_symlink_boundary".to_string(),
     );
 
     let filtered = direct_file_read_action_phase_tools(&agent_state, &tools)

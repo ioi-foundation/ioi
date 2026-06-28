@@ -5,9 +5,9 @@ use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{CapabilityId, ProviderRouteCandidate};
 use std::collections::BTreeSet;
 
-const AUTOMATION_CONNECTOR_ID: &str = "autopilot.workflow_manager";
+const AUTOMATION_CONNECTOR_ID: &str = "hypervisor.workflow_manager";
 const AUTOMATION_PROVIDER_FAMILY: &str = "automation.local_kernel";
-const AUTOMATION_ROUTE_LABEL: &str = "autopilot_workflow_kernel";
+const AUTOMATION_ROUTE_LABEL: &str = "hypervisor_workflow_kernel";
 
 const AUTOMATION_TOOL_ROUTE_BINDINGS: &[ConnectorToolRouteBinding] = &[ConnectorToolRouteBinding {
     tool_name: "monitor__create",

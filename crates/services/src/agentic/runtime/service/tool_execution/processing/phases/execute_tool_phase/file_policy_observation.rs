@@ -117,7 +117,7 @@ mod tests {
     fn classifies_workspace_read_policy_denials() {
         assert_eq!(
             policy_blocked_workspace_read_policy(
-                "ERROR_CLASS=PolicyBlocked Refusing to read .autopilot-stage73-outside-link: symlink paths must be resolved by an explicit, governed workflow."
+                "ERROR_CLASS=PolicyBlocked Refusing to read .hypervisor-stage73-outside-link: symlink paths must be resolved by an explicit, governed workflow."
             ),
             Some("workspace_symlink_boundary")
         );
@@ -133,11 +133,11 @@ mod tests {
     #[test]
     fn file_policy_observation_is_product_safe() {
         let tool = AgentTool::FsRead {
-            path: ".autopilot-stage73-outside-link".to_string(),
+            path: ".hypervisor-stage73-outside-link".to_string(),
         };
         let observation = governed_file_policy_failure_observation(
             &tool,
-            "ERROR_CLASS=PolicyBlocked Refusing to read .autopilot-stage73-outside-link: symlink paths must be resolved by an explicit, governed workflow. stage73-symlink-canary-should-not-leak",
+            "ERROR_CLASS=PolicyBlocked Refusing to read .hypervisor-stage73-outside-link: symlink paths must be resolved by an explicit, governed workflow. stage73-symlink-canary-should-not-leak",
         )
         .expect("symlink boundary denial should be observable");
 
@@ -146,7 +146,10 @@ mod tests {
         assert!(observation.contains("symlink"), "{observation}");
         assert!(observation.contains("outside workspace"), "{observation}");
         assert!(!observation.contains("file__read"), "{observation}");
-        assert!(!observation.contains(".autopilot-stage73"), "{observation}");
+        assert!(
+            !observation.contains(".hypervisor-stage73"),
+            "{observation}"
+        );
         assert!(
             !observation.contains("stage73-symlink-canary"),
             "{observation}"
