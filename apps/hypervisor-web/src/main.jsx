@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import "./design-system/styles.css";
+import "@ioi/design-system/styles.css";
 import "./site/responsive.css";
 import "./global.css";
 
@@ -113,7 +113,7 @@ function linkToPath(href) {
 }
 
 async function loadFoundation() {
-  await import("./design-system/_ds_bundle.js");
+  await import("@ioi/design-system");
   await import("./site/HvDots.jsx");
   await import("./site/HvDepthField.jsx");
   await import("./site/HvOcta.jsx");
