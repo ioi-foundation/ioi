@@ -70,6 +70,13 @@ A worker may use any cognition backend:
 IOI treats those as worker internals. The model supplies cognition; the worker
 supplies bounded agency.
 
+For benchmark, routing, and marketplace purposes, the tested unit should usually
+be a **Worker Composition**: worker manifest, model route or model requirements,
+harness adapter, tools/connectors/MCP contracts, runtime placement, privacy
+posture, verifier path, and receipt obligations. Naked model scores may inform
+model routing, but they are not sufficient evidence for autonomous-labor
+routing eligibility.
+
 ## Routed Labor Graph
 
 A MoW flow turns intent into a receipt-backed labor graph:

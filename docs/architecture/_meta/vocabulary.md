@@ -689,7 +689,25 @@ product pitch or routine onboarding flow.
 - `IoiAiOutcomePlan`: ioi.ai coordination plan for a goal. It selects the
   materialization shape, such as single path, multi-model answer, multi-harness
   attempt, software search, computer-use task, automation handoff, Foundry job,
-  wallet action, or marketplace handoff.
+  wallet action, or marketplace handoff. Material plans should bind an
+  orchestration policy, constraint envelope, verifier path, and decision
+  receipt refs when the choice affects privacy, authority, cost, latency,
+  quality, or attribution.
+- `OrchestrationPolicy`: versioned outcome-conductor plan-selection policy. It
+  may use rules, benchmark priors, online quality evidence, user/org
+  preferences, contextual bandit updates, or Foundry conductor advisors, but it
+  is not authority and does not execute work.
+- `OrchestrationConstraintEnvelope`: explicit plan-selection envelope for goal
+  class, privacy posture, provider-trust posture, authority posture, budget,
+  latency, verification strength, data-use eligibility, and user/org
+  preferences. It is not a wallet grant.
+- `VerifierPath`: configured verification shape for a plan, run, worker, route,
+  or package. It may include deterministic checks, tests, verifier workers,
+  model judges, human review, benchmark gates, or regulated review.
+- `OrchestrationDecisionReceipt`: receipt recording the candidate plans,
+  constraint envelope, orchestration policy, selected plan, selected model
+  routes, harnesses, workers, verifier paths, evidence basis, and reason codes.
+  It is distinct from a MoW `RoutingDecisionReceipt`.
 - `IoiAiAttemptSummary`: comparable evidence projection for one model, worker,
   harness, connector, service, or session attempt. It binds observations,
   artifacts, receipts, verifier refs, summary text, and terminal status.

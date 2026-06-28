@@ -45,6 +45,9 @@ Embodied Runtime owns runtime representation and control-plane contracts for:
 
 - robot/fleet identity and controller binding;
 - sensor and actuator registries;
+- embodied capability package binding to a physical domain;
+- embodiment adapters, calibration registries, and time-synchronization
+  contracts;
 - local control bridge and heartbeat/failsafe protocol;
 - world model, maps, zones, calibration, and environment state;
 - latency, degraded-network, offline, and emergency-stop runtime guarantees;
@@ -79,6 +82,8 @@ Embodied domain
   -> Controller bindings
   -> Sensor registry
   -> Actuator registry
+  -> Embodied capability package binding
+  -> Embodiment adapter / calibration / time-sync contract
   -> World model / maps / zones / calibration
   -> Local control bridge
   -> Heartbeat and failsafe protocol
@@ -94,8 +99,10 @@ but actuator-affecting execution must route through:
 ```text
 proposal
   -> PhysicalActionIntent
+  -> EmbodiedCapabilityPackage / runtime candidate lookup
   -> EmbodiedRuntimeDomain and RobotFleetRecord lookup
-  -> controller, sensor, actuator, world-state, and latency readiness
+  -> embodiment adapter, controller, sensor, actuator, world-state,
+     calibration, time-sync, and latency readiness
   -> Physical Action Safety gate
   -> wallet.network authority
   -> physical command queue admission
@@ -281,6 +288,50 @@ ActuatorRegistryEntry:
 An actuator must not be admitted for command execution if its required sensor
 evidence is stale, missing, untrusted, or blocked by policy.
 
+## Embodied Capability Package Binding
+
+Foundry produces embodied capability packages, but a package is not runnable on
+a physical domain until Embodied Runtime binds it to a specific fleet, robot,
+controller set, sensor set, calibration set, world contract, supervision policy,
+and safety envelope.
+
+```yaml
+EmbodiedCapabilityBinding:
+  binding_id: package_binding://...
+  embodied_capability_package_ref: package://...
+  embodied_runtime_candidate_ref: embodied_candidate://... | null
+  capability_spec_ref: capability_spec://...
+  domain_ref: embodied_domain://...
+  fleet_ref: robot_fleet://...
+  unit_refs:
+    - robot://...
+  embodiment_adapter_refs:
+    - embodiment_adapter://...
+  controller_binding_refs:
+    - controller_binding://...
+  sensor_contract_ref: sensor_contract://...
+  action_schema_ref: action_schema://...
+  world_contract_ref: world_contract://...
+  calibration_refs:
+    - calibration://...
+  time_sync_contract_ref: time_sync://...
+  safety_envelope_ref: safety://...
+  supervision_policy_ref: supervision://...
+  required_success_detector_refs:
+    - success_detector://...
+  allowed_runtime_mode:
+    observe_only | shadow | supervised_low_risk | human_in_loop |
+    canary | production
+  status:
+    proposed | validating | bound | shadowing | canary | active |
+    paused | rolled_back | recalled | revoked
+```
+
+Binding must prove that the package's declared observation/action assumptions
+match the actual robot, controller, calibration, sensor freshness, world model,
+and safety envelope. If any required contract is stale or incompatible, the
+package may run only in simulation or shadow mode, or not at all.
+
 ## World Model, Maps, Zones, Calibration, and Environment State
 
 Embodied runtime needs an explicit physical-state plane. It cannot rely on a
@@ -300,6 +351,19 @@ WorldModel:
   environment_state_ref: environment_state://...
   object_model_refs:
     - object_model://...
+  world_representation_refs:
+    - world_representation://... | artifact://...
+  semantic_scene_graph_refs:
+    - artifact://...
+  affordance_map_refs:
+    - artifact://...
+  collision_proxy_refs:
+    - artifact://...
+  physics_proxy_refs:
+    - artifact://...
+  task_state_ref: task://... | null
+  action_history_refs:
+    - physical_command://...
   dynamic_obstacle_policy_ref: policy://...
   human_presence_policy_ref: policy://...
   freshness_status:
@@ -313,7 +377,8 @@ PhysicalMap:
     - artifact://... | telemetry_stream://... | simulator://...
   map_kind:
     floorplan | occupancy_grid | point_cloud | semantic_map |
-    route_graph | facility_model | geofence | other
+    route_graph | facility_model | geofence | mesh | gaussian_splat |
+    neural_scene | collision_proxy | physics_proxy | other
   coordinate_frame_ref: frame://...
   version: string
   valid_zone_refs:
@@ -378,6 +443,46 @@ EnvironmentState:
   status:
     current | stale | partial | degraded | unknown
 ```
+
+### Embodied Context And State Binding
+
+The runtime bottleneck is embodied state binding, not raw prompt or model context
+length. Embodied Runtime should bind the compact state required for safe action:
+
+```text
+world representation
+  maps, splats, meshes, occupancy, point clouds, semantic scene graphs,
+  object identity, affordances, collision proxies, and physics proxies
+
+robot state
+  joint state, gripper/tool state, controller mode, battery, health,
+  force/torque, calibration, latency, and local bridge posture
+
+task state
+  goal, subgoal, preconditions, progress, blocked conditions, undo or
+  compensation posture, and prior action history
+
+evidence memory
+  demonstrations, failures, receipts, eval traces, human labels, sensor
+  evidence, actuator receipts, and physical replay refs
+
+policy-bound retrieval
+  only eligible, relevant, authority-permitted context enters a model route,
+  worker, verifier, or action-policy call
+
+runtime action context
+  short-horizon observation/action window for VLA, visuomotor policy,
+  action expert, controller adapter, or deterministic controller
+
+safety context
+  independent constraints for zone, collision, speed, force, human proximity,
+  emergency stop, supervision, authority, and receipts
+```
+
+The live runtime should not stuff unbounded frames, logs, or hidden controller
+state into a model and call that context. It should use explicit refs, freshness
+requirements, policy-bound views, and receipts so perception, planning, action,
+and safety can be audited and replayed independently.
 
 ## Local Control Bridge, Heartbeat, and Failsafe
 
@@ -518,6 +623,79 @@ domain-specific safe-parallel policy explicitly permits it.
 Physical replay is the work-first inspection path for embodied runs. It is not a
 raw video folder, raw controller log, or chain explorer.
 
+Embodied runtime must preserve two related but distinct data forms:
+
+```text
+raw synchronized robot log
+  robotics-native multimodal capture for replay, audit, incident review,
+  calibration checks, and future dataset reconstruction
+
+normalized episode dataset
+  training/eval-ready sequential decision records with episode and step
+  semantics, modality schemas, labels, rewards, success/failure annotations,
+  and split manifests
+```
+
+The raw log is evidence. The normalized episode dataset is a derived training or
+eval object and must pass training evidence eligibility before reuse.
+
+```yaml
+TimeSyncContract:
+  time_sync_ref: time_sync://...
+  domain_ref: embodied_domain://...
+  clock_sources:
+    - controller://... | sensor://... | bridge://...
+  max_skew_ms: integer
+  required_frame_refs:
+    - frame://...
+  sequence_policy:
+    strict | allow_dropped_frames | event_time_with_watermark
+  synchronization_status:
+    valid | degraded | failed | unknown
+  receipt_refs:
+    - receipt://...
+```
+
+```yaml
+RawRobotLog:
+  robot_log_ref: robot_log://...
+  domain_ref: embodied_domain://...
+  run_ref: run://...
+  time_sync_contract_ref: time_sync://...
+  telemetry_stream_refs:
+    - telemetry_stream://...
+  command_refs:
+    - physical_command://...
+  operator_event_refs:
+    - artifact://... | receipt://...
+  log_container_ref: artifact://...
+  normalized_episode_dataset_refs:
+    - episode_dataset://... | dataset_snapshot://...
+  retention_policy_ref: policy://...
+  receipt_root: hash
+  status:
+    capturing | sealed | redacted | retained | deprecated | revoked
+```
+
+```yaml
+NormalizedEpisodeDataset:
+  episode_dataset_ref: episode_dataset://...
+  source_robot_log_refs:
+    - robot_log://...
+  capability_spec_ref: capability_spec://...
+  sensor_contract_refs:
+    - sensor_contract://...
+  action_schema_ref: action_schema://...
+  episode_manifest_ref: artifact://...
+  step_schema_ref: schema://...
+  label_refs:
+    - teacher_label_set://... | artifact://...
+  split_manifest_ref: artifact://...
+  training_evidence_eligibility_ref: eligibility://... | null
+  status:
+    draft | materialized | eligible | retained | deprecated | revoked
+```
+
 ```yaml
 PhysicalTelemetryStream:
   stream_id: telemetry_stream://...
@@ -596,11 +774,17 @@ but live physical deployment needs a promotion gate before any actuator command.
 SimToRealPromotionGate:
   gate_id: sim_to_real_gate://...
   foundry_job_ref: foundry_job://...
+  embodied_capability_package_ref: package://... | null
+  embodied_runtime_candidate_ref: embodied_candidate://... | null
   worker_or_model_ref: worker://... | model://...
   target_domain_ref: embodied_domain://...
   target_fleet_ref: robot_fleet://...
+  sensor_contract_ref: sensor_contract://...
+  action_schema_ref: action_schema://...
   simulator_world_refs:
     - simulator://...
+  world_representation_refs:
+    - world_representation://... | artifact://...
   eval_suite_refs:
     - eval_suite://...
   safety_case_ref: safety_case://...
@@ -792,6 +976,11 @@ A conforming embodied runtime implementation must ensure:
 - every embodied domain has an `EmbodiedRuntimeDomain` and explicit fleet,
   controller, sensor, actuator, world-state, telemetry, and policy refs before
   actuator-affecting work is admitted;
+- embodied capability packages require a package binding before they can affect
+  a physical domain;
+- package binding must validate capability spec, embodiment adapter,
+  sensor/action/world contracts, calibration refs, time-sync contract,
+  supervision policy, safety envelope, and success-detector refs;
 - robot and controller identities do not authorize actuation by themselves;
 - controller bindings declare heartbeat, failsafe, command queue, telemetry, and
   authority requirements;
@@ -803,10 +992,20 @@ A conforming embodied runtime implementation must ensure:
   semantics rather than generic tool calls;
 - telemetry streams emit refs, hashes, and replay projections rather than only
   raw provider logs;
+- raw synchronized robot logs and normalized episode datasets remain distinct:
+  logs support replay/audit; episode datasets support training/eval only after
+  eligibility gates;
 - physical replay can reconstruct the command, sensor, actuator, supervision,
   e-stop, incident, and receipt timeline for a run;
-- sim-to-real promotion gates separate simulation success, shadow mode, limited
-  live operation, and full promotion;
+- sim-to-real promotion gates separate offline eval, software-in-the-loop,
+  hardware-in-the-loop, shadow mode, canary task batteries, limited live
+  operation, and full promotion;
+- Foundry embodied packages and runtime candidates remain build/eval artifacts
+  until Governance release controls, daemon admission, Embodied Runtime
+  readiness, Physical Action Safety, authority, and receipts admit them for a
+  target physical domain;
+- embodied context is bound through world, robot, task, evidence, action, and
+  safety refs rather than hidden prompt context or raw model memory;
 - incidents, liability hooks, recovery plans, and operator handoffs are admitted
   state, not ad hoc chat messages;
 - fleet policy can block a locally valid command when the broader physical

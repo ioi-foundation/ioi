@@ -71,6 +71,13 @@ the evidence and attempts stay comparable
 the final answer or delivery owns what was learned
 ```
 
+Canon should avoid turning this into a separate "meta-harness" runtime. The
+product-facing term remains **outcome conductor**. The lower-level contracts are
+`OrchestrationPolicy`, `OrchestrationConstraintEnvelope`, `VerifierPath`, and
+`OrchestrationDecisionReceipt`: they describe how a coordinator chooses,
+explains, verifies, and later improves a multi-harness plan. They do not execute
+work, own authority, or become a hidden swarm.
+
 ## Owns
 
 ioi.ai owns the user-facing coordination of:
@@ -78,6 +85,12 @@ ioi.ai owns the user-facing coordination of:
 - goal intake, constraints, preferences, and account context;
 - deciding whether the goal is single-path or multi-path;
 - selecting a goal-appropriate coordination shape;
+- selecting or applying an `OrchestrationPolicy` subject to an explicit
+  `OrchestrationConstraintEnvelope`;
+- selecting verifier paths that match the goal's risk, evidence, and
+  acceptance posture;
+- emitting orchestration decision refs when a material plan, model route,
+  harness, worker set, verifier path, or session topology is selected;
 - creating cross-session outcome graph projections when several sessions,
   workers, verifier paths, or attempts are useful;
 - requesting Hypervisor sessions, automations, workers, services, harnesses, or
@@ -170,28 +183,34 @@ execution belongs to Hypervisor Daemon admission plus Physical Action Safety.
 3. ioi.ai creates a plan or cross-session outcome graph projection when several
    sessions, workers, attempts, verifier paths, connectors, or strategies are
    useful.
-4. ioi.ai drafts the required Hypervisor, Foundry, wallet, connector, or
+4. The plan carries an orchestration constraint envelope and selected verifier
+   paths when privacy, authority, budget, latency, quality, or safety posture
+   matters.
+5. ioi.ai drafts the required Hypervisor, Foundry, wallet, connector, or
    marketplace handoff.
-5. Hypervisor opens governed sessions, WorkRuns, or Automations when execution
+6. Hypervisor opens governed sessions, WorkRuns, or Automations when execution
    is needed.
-6. Auto/MoW routing or explicit user selection chooses the participating
+7. Auto/MoW routing or explicit user selection chooses the participating
    workers, harnesses, model routes, verifier paths, and managed agents.
-7. Hypervisor supplies the selected participants a scoped brokered tool/MCP
+8. Hypervisor supplies the selected participants a scoped brokered tool/MCP
    capability manifest for the goal, session, project, privacy posture, and
    authority posture.
-8. Connectors / Tools / MCP registry and surface contracts expose readiness,
+9. Connectors / Tools / MCP registry and surface contracts expose readiness,
    risk, scopes, policy, previews, and receipt obligations.
-9. wallet.network grants scoped capability, spend, connector, credential,
+10. wallet.network grants scoped capability, spend, connector, credential,
    declassification, or training-data leases when required.
-10. Agents, models, harnesses, workers, tools, services, or connectors propose
+11. Agents, models, harnesses, workers, tools, services, or connectors propose
    and execute through daemon gates.
-11. Agentgres records admitted operations, artifacts, receipts, traces, and
+12. Agentgres records admitted operations, artifacts, receipts, traces, and
    replay refs.
-12. Foundry/eval lanes score, verify, mine failures, or draft improvement
+13. Foundry/eval lanes score, verify, mine failures, or draft improvement
     proposals when applicable.
-13. aiagent.xyz and MoW contribution paths receive routing/contribution refs
+14. aiagent.xyz and MoW contribution paths receive routing/contribution refs
     when marketplace workers materially contribute.
-14. ioi.ai performs the final ownership synthesis for the user-facing answer,
+15. ioi.ai emits an `OrchestrationDecisionReceipt` for material plan choices,
+    including candidate-set, constraint, policy, selected plan, verifier-path,
+    and evidence refs.
+16. ioi.ai performs the final ownership synthesis for the user-facing answer,
     report, delivery, or next approval request.
 ```
 
@@ -221,6 +240,63 @@ over these contracts. A backend ioi.ai conductor may run headlessly, but only as
 a Hypervisor client over declared application-surface and daemon/Core contracts.
 It cannot hold connector secrets, bypass wallet.network, mutate host/platform
 state directly, or admit its own truth.
+
+## Orchestration Policy And Verification
+
+The outcome conductor should make orchestration decisions explicit enough to
+audit and improve. This applies when ioi.ai materially chooses among single-path
+execution, multi-model synthesis, multi-harness attempts, marketplace workers,
+private/local routes, verifier branches, or cross-session graphs.
+
+`OrchestrationPolicy` is a versioned decision policy over candidate plans. It
+may use deterministic rules, benchmark priors, online quality evidence,
+contextual bandit updates, user/org preferences, or Foundry-produced conductor
+advisors. It is not authority, runtime truth, or a substitute for daemon gates.
+
+`OrchestrationConstraintEnvelope` is the plan-selection input that captures:
+
+```text
+goal class
+privacy posture
+authority posture
+provider-trust posture
+budget and quota limits
+latency tolerance
+quality target
+verification strength
+data-use and trace eligibility
+user/org preferences
+```
+
+The envelope constrains plan selection before a model, harness, or worker sees
+raw tools, private context, connector payloads, or sensitive data. It is not a
+wallet grant and not a replacement for local/domain governance.
+
+`VerifierPath` is the selected verification shape for a plan. It may include
+deterministic checks, tests, static analysis, browser/computer-use evidence,
+LLM-as-judge steps, trained verifier workers, human review, benchmark gates, or
+Foundry eval jobs. Model judges are permitted as evidence, but they are not
+truth by themselves.
+
+`OrchestrationDecisionReceipt` records why the conductor chose the plan it
+chose. It should preserve candidate-set commitment, orchestration policy hash,
+constraint envelope ref, selected plan, selected model routes, selected
+harnesses, selected workers, selected verifier paths, expected cost/latency,
+evidence refs, and fallback policy.
+
+This separates four decisions that must not be collapsed:
+
+```text
+orchestration decision: which plan shape should pursue the goal?
+model-routing decision: which cognition backend should a leg use?
+worker-routing decision: which accountable worker should perform work?
+authority decision: which effects, data, spend, or credentials are allowed?
+```
+
+Learned conductor advisors may score, rank, or propose orchestration plans, but
+production decisions remain challengeable, policy-bound, and receipt-backed.
+They cannot widen privacy, authority, budget, connector, tool, or session scope
+without the normal governance and daemon gates.
 
 ## Learned Conductor Boundary
 
@@ -268,6 +344,8 @@ IoiAiGoal:
 IoiAiOutcomePlan:
   plan_id: outcome_plan:...
   goal_ref: goal:...
+  orchestration_policy_ref: orchestration_policy://...
+  constraint_envelope_ref: constraint://...
   coordination_mode:
     auto_mow | user_directed | hybrid
   materialization:
@@ -281,6 +359,12 @@ IoiAiOutcomePlan:
     - harness_profile:... | agent_harness_adapter:...
   selected_workers:
     - worker://... | managed_worker://...
+  selected_verifier_paths:
+    - verifier_path://...
+  candidate_plan_refs:
+    - orchestration_plan://...
+  orchestration_decision_receipt_refs:
+    - receipt://...
   brokered_capability_manifest_refs:
     - ai://... | mcp_gateway://...
   connector_refs:
@@ -307,7 +391,7 @@ IoiAiAttemptSummary:
   receipt_refs:
     - receipt://...
   verifier_refs:
-    - eval_gate:...
+    - verifier_path://... | eval_gate:... | gate://...
   summary: string
   status:
     proposed | running | blocked | rejected | selected | archived
@@ -411,6 +495,14 @@ IoiAiConnectorAuthEscalation:
   external systems, or policy-sensitive resources.
 - Learned conductors are Foundry-produced planning/routing advisors, not
   ioi.ai-owned runtime authority or automatic self-modification paths.
+- Material orchestration decisions should carry an orchestration constraint
+  envelope, selected verifier path refs, and an orchestration decision receipt.
+- Orchestration policy, model routing, worker routing, and authority decisions
+  must remain distinct. A good model score, benchmark result, or learned
+  conductor recommendation is not an authority grant.
+- Multi-model or multi-agent patterns such as aggregation, debate, critique, or
+  branch-and-merge should be selected only when the expected value justifies the
+  extra latency, cost, privacy exposure, and verification burden.
 - Marketplace workers used by ioi.ai outcomes must preserve explainable routing
   and contribution refs; ioi.ai must not silently clone worker internals into a
   default harness.
@@ -434,6 +526,10 @@ collaborative outcome = child sessions with host admin power
 connector/auth escalation = direct provider API call
 selected harness/model = direct connector credential holder
 Auto/MoW conductor = secret or tool authority owner
+outcome conductor = hidden meta-harness runtime
+orchestration policy = authority grant
+verifier path = one model judge
+benchmark receipt = universal worker truth
 learned conductor = hidden authority
 multi-model answer = authority
 connector access = credential ownership
