@@ -40,7 +40,7 @@ function tagsUrl() {
 }
 
 async function detectEquipment() {
-  const shim = path.resolve(repoRoot, "harness-shims/generic-cli-local.mjs");
+  const shim = path.resolve(repoRoot, "packages/hypervisor-harness-shims/generic-cli-local.mjs");
   if (!fs.existsSync(shim)) return { ok: false, reason: "generic-cli-local shim missing" };
   try {
     const response = await fetch(tagsUrl(), { signal: AbortSignal.timeout(3000) });
