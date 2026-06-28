@@ -26,12 +26,20 @@ pub(crate) struct EditorProxy {
 }
 
 fn proxy_event(data_dir: &str, service_id: &str, event: &str, lease_id: &str) {
-    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let id = format!("epx_{nanos:x}");
-    let _ = persist_record(data_dir, "editor-proxy-events", &id, &json!({
-        "schema_version": "ioi.hypervisor.editor-proxy-event.v1",
-        "event_id": id, "service_id": service_id, "lease_id": lease_id, "event": event, "at": iso_now()
-    }));
+    let _ = persist_record(
+        data_dir,
+        "editor-proxy-events",
+        &id,
+        &json!({
+            "schema_version": "ioi.hypervisor.editor-proxy-event.v1",
+            "event_id": id, "service_id": service_id, "lease_id": lease_id, "event": event, "at": iso_now()
+        }),
+    );
 }
 
 fn headers_end(buf: &[u8]) -> Option<usize> {
@@ -49,7 +57,9 @@ fn extract_lease_token(buf: &[u8]) -> Option<String> {
                 for kv in q.split('&') {
                     let mut it = kv.splitn(2, '=');
                     if it.next() == Some("lease") {
-                        if let Some(v) = it.next() { return Some(v.trim().to_string()); }
+                        if let Some(v) = it.next() {
+                            return Some(v.trim().to_string());
+                        }
                     }
                 }
             }
@@ -63,20 +73,41 @@ fn extract_lease_token(buf: &[u8]) -> Option<String> {
     None
 }
 
-async fn handle_conn(mut inbound: TcpStream, internal_port: u16, bound_lease: &str, service_id: &str, data_dir: &str) {
+async fn handle_conn(
+    mut inbound: TcpStream,
+    internal_port: u16,
+    bound_lease: &str,
+    service_id: &str,
+    data_dir: &str,
+) {
     // Read the opening request up to the end of headers (or a cap).
     let mut buf: Vec<u8> = Vec::with_capacity(2048);
     let mut tmp = [0u8; 1024];
     loop {
         match inbound.read(&mut tmp).await {
             Ok(0) => break,
-            Ok(n) => { buf.extend_from_slice(&tmp[..n]); if headers_end(&buf).is_some() || buf.len() > 16384 { break; } }
+            Ok(n) => {
+                buf.extend_from_slice(&tmp[..n]);
+                if headers_end(&buf).is_some() || buf.len() > 16384 {
+                    break;
+                }
+            }
             Err(_) => return,
         }
     }
     proxy_event(data_dir, service_id, "websocket_intercepted", bound_lease);
+    // Auth model for this loopback, per-service public port: the bound capability lease must be
+    // active (fail-closed on revoke/expire). The opening navigation carries ?lease=<id> and MUST
+    // match; the workbench's subsequent asset/WS requests are same-origin and tokenless, so a
+    // request WITHOUT a token is allowed while the lease is active (otherwise the IDE renders blank
+    // — every /stable-<commit>/static/* asset would 403). A request bearing a WRONG token is denied.
     let token = extract_lease_token(&buf);
-    let authed = token.as_deref() == Some(bound_lease) && capability_lease_status(data_dir, bound_lease) == "active";
+    let lease_active = capability_lease_status(data_dir, bound_lease) == "active";
+    let token_ok = match token.as_deref() {
+        Some(t) => t == bound_lease,
+        None => true,
+    };
+    let authed = lease_active && token_ok;
     if !authed {
         proxy_event(data_dir, service_id, "authentication_denied", bound_lease);
         let body = "Hypervisor editor access denied: a valid, unexpired, non-revoked editor capability lease is required. Open through Sessions/Environments, not the raw endpoint.";
@@ -84,21 +115,47 @@ async fn handle_conn(mut inbound: TcpStream, internal_port: u16, bound_lease: &s
         let _ = inbound.write_all(resp.as_bytes()).await;
         return;
     }
-    proxy_event(data_dir, service_id, "authentication_succeeded", bound_lease);
+    proxy_event(
+        data_dir,
+        service_id,
+        "authentication_succeeded",
+        bound_lease,
+    );
     let Ok(mut outbound) = TcpStream::connect(("127.0.0.1", internal_port)).await else {
-        proxy_event(data_dir, service_id, "target_version_unreachable", bound_lease);
-        let _ = inbound.write_all(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n").await;
+        proxy_event(
+            data_dir,
+            service_id,
+            "target_version_unreachable",
+            bound_lease,
+        );
+        let _ = inbound
+            .write_all(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
+            .await;
         return;
     };
-    if outbound.write_all(&buf).await.is_err() { return; }
-    proxy_event(data_dir, service_id, "raw_connection_established", bound_lease);
+    if outbound.write_all(&buf).await.is_err() {
+        return;
+    }
+    proxy_event(
+        data_dir,
+        service_id,
+        "raw_connection_established",
+        bound_lease,
+    );
     let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await;
     proxy_event(data_dir, service_id, "client_disconnected", bound_lease);
 }
 
 /// Bind a lease-authenticated proxy in front of `internal_port`. Returns the public port + handle.
-pub(crate) async fn bind_editor_proxy(data_dir: &str, service_id: &str, internal_port: u16, lease_id: &str) -> Result<(u16, EditorProxy), String> {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).await.map_err(|e| e.to_string())?;
+pub(crate) async fn bind_editor_proxy(
+    data_dir: &str,
+    service_id: &str,
+    internal_port: u16,
+    lease_id: &str,
+) -> Result<(u16, EditorProxy), String> {
+    let listener = TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .map_err(|e| e.to_string())?;
     let public_port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
     proxy_event(data_dir, service_id, "proxy_started", lease_id);
@@ -117,7 +174,17 @@ pub(crate) async fn bind_editor_proxy(data_dir: &str, service_id: &str, internal
             }
         }
     });
-    Ok((public_port, EditorProxy { public_port, internal_port, lease_id: lease_id.to_string(), service_id: service_id.to_string(), shutdown: tx, join }))
+    Ok((
+        public_port,
+        EditorProxy {
+            public_port,
+            internal_port,
+            lease_id: lease_id.to_string(),
+            service_id: service_id.to_string(),
+            shutdown: tx,
+            join,
+        },
+    ))
 }
 
 /// Tear down a service's proxy if present (deterministic socket close).

@@ -84,7 +84,12 @@ pub struct RuntimeHypervisorSessionLaunchRecipeAdmissionError {
 
 impl RuntimeHypervisorSessionLaunchRecipeAdmissionError {
     fn new(code: &str, message: String, details: Value) -> Self {
-        Self { status: 400, code: code.to_string(), message, details }
+        Self {
+            status: 400,
+            code: code.to_string(),
+            message,
+            details,
+        }
     }
 }
 
@@ -118,15 +123,22 @@ impl RuntimeHypervisorSessionLaunchRecipeAdmissionCore {
         // 2. Field extraction (JS order); prefixed_string / prefixed_refs throw inline so a
         // missing/badly-prefixed top-level ref wins over the later schema/gate checks.
         let schema_version = required_string(request.get("schema_version"), "schema_version")?;
-        let model_route_ref =
-            prefixed_string(request.get("model_route_ref"), "model_route_ref", "model-route:")?;
+        let model_route_ref = prefixed_string(
+            request.get("model_route_ref"),
+            "model_route_ref",
+            "model-route:",
+        )?;
         let privacy_posture_ref = prefixed_string(
             request.get("privacy_posture_ref"),
             "privacy_posture_ref",
             "privacy:",
         )?;
-        let authority_scope_refs =
-            prefixed_refs(request.get("authority_scope_refs"), "authority_scope_refs", "scope:", false)?;
+        let authority_scope_refs = prefixed_refs(
+            request.get("authority_scope_refs"),
+            "authority_scope_refs",
+            "scope:",
+            false,
+        )?;
         let receipt_preview_ref = prefixed_string(
             request.get("receipt_preview_ref"),
             "receipt_preview_ref",
@@ -147,15 +159,20 @@ impl RuntimeHypervisorSessionLaunchRecipeAdmissionCore {
             "agentgres://operation/",
             true,
         )?;
-        let receipt_refs =
-            prefixed_refs(request.get("receipt_refs"), "receipt_refs", "receipt://", true)?;
+        let receipt_refs = prefixed_refs(
+            request.get("receipt_refs"),
+            "receipt_refs",
+            "receipt://",
+            true,
+        )?;
         let state_root = optional_value(request.get("state_root"));
 
         // 3. Schema / daemon-gate / receipt-preview-binding checks.
         if schema_version != HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_REQUEST_SCHEMA_VERSION {
             return Err(admission_error(
                 "hypervisor_session_launch_recipe_request_schema_invalid",
-                "Hypervisor session launch recipe admission requires the canonical request schema.".to_string(),
+                "Hypervisor session launch recipe admission requires the canonical request schema."
+                    .to_string(),
                 json!({ "schema_version": schema_version }),
             ));
         }
@@ -190,9 +207,12 @@ impl RuntimeHypervisorSessionLaunchRecipeAdmissionCore {
             .unwrap_or_else(|| {
                 format!("receipt://hypervisor/session-launch-recipe/{binding_safe}/admitted")
             });
-        let operation_ref = agentgres_operation_refs.first().cloned().unwrap_or_else(|| {
-            format!("agentgres://operation/hypervisor/session-launch-recipe/{binding_safe}")
-        });
+        let operation_ref = agentgres_operation_refs
+            .first()
+            .cloned()
+            .unwrap_or_else(|| {
+                format!("agentgres://operation/hypervisor/session-launch-recipe/{binding_safe}")
+            });
 
         let mut agentgres_out = agentgres_operation_refs.clone();
         agentgres_out.push(operation_ref);
@@ -246,7 +266,8 @@ fn normalize_recipe(value: Option<&Value>) -> AdmitResult<NormalizedRecipe> {
     let Some(recipe) = recipe.filter(|_| schema_ok) else {
         return Err(admission_error(
             "hypervisor_session_launch_recipe_schema_invalid",
-            "Hypervisor session launch recipe admission requires a canonical recipe object.".to_string(),
+            "Hypervisor session launch recipe admission requires a canonical recipe object."
+                .to_string(),
             json!({ "expected_schema_version": HYPERVISOR_SESSION_LAUNCH_RECIPE_SCHEMA_VERSION }),
         ));
     };
@@ -254,7 +275,11 @@ fn normalize_recipe(value: Option<&Value>) -> AdmitResult<NormalizedRecipe> {
     let kind = enum_value(recipe.get("kind"), "recipe.kind", RECIPE_KINDS)?;
     let surface_id = required_string(recipe.get("surface_id"), "recipe.surface_id")?;
     // Validate (for side-effect throws) the remaining recipe fields; not echoed in the output.
-    enum_value(recipe.get("model_mount_policy"), "recipe.model_mount_policy", MODEL_MOUNT_POLICIES)?;
+    enum_value(
+        recipe.get("model_mount_policy"),
+        "recipe.model_mount_policy",
+        MODEL_MOUNT_POLICIES,
+    )?;
     enum_value(
         recipe.get("harness_profile_policy"),
         "recipe.harness_profile_policy",
@@ -267,7 +292,10 @@ fn normalize_recipe(value: Option<&Value>) -> AdmitResult<NormalizedRecipe> {
         "scope:",
         false,
     )?;
-    string_list(recipe.get("privacy_posture_templates"), "recipe.privacy_posture_templates")?;
+    string_list(
+        recipe.get("privacy_posture_templates"),
+        "recipe.privacy_posture_templates",
+    )?;
     if surface_for_kind(&kind) != Some(surface_id.as_str()) {
         return Err(admission_error(
             "hypervisor_session_launch_recipe_surface_mismatch",
@@ -275,7 +303,11 @@ fn normalize_recipe(value: Option<&Value>) -> AdmitResult<NormalizedRecipe> {
             json!({ "kind": kind, "surface_id": surface_id }),
         ));
     }
-    Ok(NormalizedRecipe { recipe_id, kind, surface_id })
+    Ok(NormalizedRecipe {
+        recipe_id,
+        kind,
+        surface_id,
+    })
 }
 
 fn normalize_target_binding(value: Option<&Value>) -> AdmitResult<NormalizedTargetBinding> {
@@ -287,7 +319,8 @@ fn normalize_target_binding(value: Option<&Value>) -> AdmitResult<NormalizedTarg
     let Some(binding) = binding.filter(|_| schema_ok) else {
         return Err(admission_error(
             "hypervisor_session_launch_recipe_target_binding_invalid",
-            "Hypervisor session launch recipe admission requires the canonical target binding.".to_string(),
+            "Hypervisor session launch recipe admission requires the canonical target binding."
+                .to_string(),
             json!({ "expected_schema_version": TARGET_BINDING_SCHEMA_VERSION }),
         ));
     };
@@ -298,7 +331,11 @@ fn normalize_target_binding(value: Option<&Value>) -> AdmitResult<NormalizedTarg
             "target-binding:",
         )?,
         recipe_ref: required_string(binding.get("recipe_ref"), "target_binding.recipe_ref")?,
-        target_kind: enum_value(binding.get("target_kind"), "target_binding.target_kind", RECIPE_KINDS)?,
+        target_kind: enum_value(
+            binding.get("target_kind"),
+            "target_binding.target_kind",
+            RECIPE_KINDS,
+        )?,
         surface_id: required_string(binding.get("surface_id"), "target_binding.surface_id")?,
         project_ref: required_string(binding.get("project_ref"), "target_binding.project_ref")?,
         operator_intent_ref: optional_value(binding.get("operator_intent_ref")),
@@ -307,7 +344,9 @@ fn normalize_target_binding(value: Option<&Value>) -> AdmitResult<NormalizedTarg
             "target_binding.session_route_ref",
             "session-route:",
         )?,
-        code_editor_adapter_target_ref: optional_value(binding.get("code_editor_adapter_target_ref")),
+        code_editor_adapter_target_ref: optional_value(
+            binding.get("code_editor_adapter_target_ref"),
+        ),
     })
 }
 
@@ -566,7 +605,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -741,13 +784,25 @@ mod tests {
         let admission = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request(), "2026-06-19T12:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            HYPERVISOR_SESSION_LAUNCH_RECIPE_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(admission["admission_state"], "admitted_for_session_binding");
         assert_eq!(admission["recipe_ref"], "workbench.default");
-        assert_eq!(admission["target_binding_ref"], "target-binding:new-session/workbench-default/ioi");
-        assert_eq!(admission["session_route_ref"], "session-route:workbench/workbench-default/ioi");
-        assert_eq!(admission["model_route_ref"], "model-route:hypervisor/default-local");
+        assert_eq!(
+            admission["target_binding_ref"],
+            "target-binding:new-session/workbench-default/ioi"
+        );
+        assert_eq!(
+            admission["session_route_ref"],
+            "session-route:workbench/workbench-default/ioi"
+        );
+        assert_eq!(
+            admission["model_route_ref"],
+            "model-route:hypervisor/default-local"
+        );
         assert_eq!(
             admission["authority_scope_refs"],
             json!(["scope:workspace.read", "scope:workspace.patch"])
@@ -766,7 +821,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("mismatch");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_target_mismatch");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_target_mismatch"
+        );
         assert_eq!(error.status, 400);
     }
 
@@ -777,7 +835,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("missing adapter");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_workbench_adapter_required");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_workbench_adapter_required"
+        );
     }
 
     #[test]
@@ -787,7 +848,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("retired alias");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_retired_aliases");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_retired_aliases"
+        );
     }
 
     #[test]
@@ -797,7 +861,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("bad prefix");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_ref_prefix_invalid");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_ref_prefix_invalid"
+        );
     }
 
     #[test]
@@ -807,7 +874,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("no gate");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_daemon_gate_required");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_daemon_gate_required"
+        );
     }
 
     #[test]
@@ -817,7 +887,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("unbound preview");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_receipt_preview_unbound");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_receipt_preview_unbound"
+        );
     }
 
     #[test]
@@ -828,7 +901,10 @@ mod tests {
         let error = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(&request, "now")
             .expect_err("surface mismatch");
-        assert_eq!(error.code, "hypervisor_session_launch_recipe_surface_mismatch");
+        assert_eq!(
+            error.code,
+            "hypervisor_session_launch_recipe_surface_mismatch"
+        );
     }
 
     #[test]
@@ -862,7 +938,10 @@ mod tests {
     fn derives_operation_and_receipt_refs_when_absent() {
         let mut request = request();
         // Drop optional refs so the generated ones surface.
-        request.as_object_mut().unwrap().remove("agentgres_operation_refs");
+        request
+            .as_object_mut()
+            .unwrap()
+            .remove("agentgres_operation_refs");
         request.as_object_mut().unwrap().remove("receipt_refs");
         request.as_object_mut().unwrap().remove("state_root");
         let admission = RuntimeHypervisorSessionLaunchRecipeAdmissionCore
@@ -871,15 +950,21 @@ mod tests {
         let safe = "target-binding_new-session_workbench-default_ioi";
         assert_eq!(
             admission["agentgres_operation_refs"],
-            json!([format!("agentgres://operation/hypervisor/session-launch-recipe/{safe}")])
+            json!([format!(
+                "agentgres://operation/hypervisor/session-launch-recipe/{safe}"
+            )])
         );
         assert_eq!(
             admission["receipt_refs"],
-            json!([format!("receipt://hypervisor/session-launch-recipe/{safe}/admitted")])
+            json!([format!(
+                "receipt://hypervisor/session-launch-recipe/{safe}/admitted"
+            )])
         );
         assert_eq!(
             admission["state_root"],
-            json!(format!("agentgres://state-root/hypervisor/session-launch-recipe/{safe}"))
+            json!(format!(
+                "agentgres://state-root/hypervisor/session-launch-recipe/{safe}"
+            ))
         );
     }
 }

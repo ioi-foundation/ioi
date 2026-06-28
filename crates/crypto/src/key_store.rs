@@ -213,6 +213,54 @@ pub fn load_api_key(path: &Path, passphrase: &str) -> Result<String, CryptoError
         .map_err(|_| CryptoError::Deserialization("API Key is not valid UTF-8".into()))
 }
 
+// ---- Password hashing (Argon2id via dcrypt) -------------------------------------------------
+// One-way password verifier for the Hypervisor identity plane. Returns `salt(16) || hash(32)`
+// bytes; the caller persists them (hex). NOT reversible — verify by re-deriving. Distinct `info`
+// domain-separates it from key-wrapping (encrypt_key) so the two uses can never collide.
+const PW_HASH_LEN: usize = 32;
+const PW_HASH_INFO: &[u8] = b"ioi-hypervisor-password-v1";
+
+fn derive_password_hash(password: &str, salt: &[u8]) -> Result<[u8; PW_HASH_LEN], CryptoError> {
+    let kdf = Argon2::<SALT_LEN>::new();
+    let out: [u8; PW_HASH_LEN] = kdf
+        .builder()
+        .with_ikm(password.as_bytes())
+        .with_salt(salt)
+        .with_info(PW_HASH_INFO)
+        .with_output_length(PW_HASH_LEN)
+        .derive_array()
+        .map_err(|e| CryptoError::OperationFailed(format!("Argon2 password hash failed: {}", e)))?;
+    Ok(out)
+}
+
+/// Hash a password with Argon2id. Returns `salt(16) || hash(32)` (48 bytes) — persist these bytes.
+pub fn hash_password(password: &str) -> Result<Vec<u8>, CryptoError> {
+    let mut salt = [0u8; SALT_LEN];
+    OsRng.fill_bytes(&mut salt);
+    let hash = derive_password_hash(password, &salt)?;
+    let mut out = Vec::with_capacity(SALT_LEN + PW_HASH_LEN);
+    out.extend_from_slice(&salt);
+    out.extend_from_slice(&hash);
+    Ok(out)
+}
+
+/// Verify a password against stored `salt(16) || hash(32)` bytes (constant-time hash compare).
+pub fn verify_password(password: &str, stored: &[u8]) -> bool {
+    if stored.len() != SALT_LEN + PW_HASH_LEN {
+        return false;
+    }
+    let (salt, expected) = stored.split_at(SALT_LEN);
+    match derive_password_hash(password, salt) {
+        Ok(got) => {
+            got.iter()
+                .zip(expected)
+                .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+                == 0
+        }
+        Err(_) => false,
+    }
+}
+
 #[cfg(test)]
 #[path = "key_store/tests.rs"]
 mod tests;

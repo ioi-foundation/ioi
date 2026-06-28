@@ -302,8 +302,8 @@ impl RuntimeWorkspaceChangeControlCore {
         } else {
             request.evidence_refs.clone()
         };
-        let source =
-            string_field(&request.request, "source").unwrap_or_else(|| "hypervisor_session".to_string());
+        let source = string_field(&request.request, "source")
+            .unwrap_or_else(|| "hypervisor_session".to_string());
         let turn_id = string_field(&request.request, "turn_id");
         let turn_or_thread = turn_id.clone().unwrap_or_else(|| thread_id.clone());
         let next_lifecycle = lifecycle_after_control(&control_state);

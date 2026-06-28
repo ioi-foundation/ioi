@@ -1429,6 +1429,13 @@ admission binds recipe, target binding, project, session route, model route,
 privacy posture, authority scopes, receipt refs, Agentgres operation refs, and
 state root before any harness binding can be requested.
 
+Session composition may run in an Auto/MoW-selected mode or a user-directed mode.
+In both modes the selected harness, model route, worker, or managed agent must
+consume a brokered capability manifest rather than connector credentials. The
+manifest is derived from Hypervisor Connectors / Tools / MCP registry state,
+session/project policy, privacy posture, authority posture, receipt policy, and
+revocation state.
+
 External harnesses must not silently fall back from a local/private model route
 to a provider-trust model route; provider-trust or adapter-native routes are
 explicit privacy posture states.
@@ -1444,6 +1451,9 @@ HarnessSessionBinding
   model_route_ref
   model_route_policy
   model_route_availability_state
+  brokered_capability_manifest_ref
+  mcp_gateway_profile_refs
+  connector_refs
   workspace_mount_policy
   privacy_posture_ref
   authority_scope_refs
@@ -2450,6 +2460,7 @@ Agentgres = admitted truth
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md)
 - [`../daemon-runtime/api.md`](../daemon-runtime/api.md)
 - [`providers-and-environments.md`](./providers-and-environments.md)
+- [`identity-access-and-metering.md`](./identity-access-and-metering.md)
 - [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
 - [`foundry.md`](./foundry.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)

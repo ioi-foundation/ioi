@@ -1,0 +1,33 @@
+{
+  "name": "@ioi/design-system",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "IOI shared design system — CSS token layers, brand assets, and the prebuilt component bundle (populates window.IoiDesignSystem).",
+  "sideEffects": [
+    "*.css",
+    "./bundle/_ds_bundle.js"
+  ],
+  "files": [
+    "bundle",
+    "tokens",
+    "styles.css",
+    "assets",
+    "bin"
+  ],
+  "scripts": {
+    "import-export": "node scripts/import-upstream-export.mjs"
+  },
+  "exports": {
+    ".": "./bundle/_ds_bundle.js",
+    "./styles.css": "./styles.css",
+    "./tokens/*": "./tokens/*",
+    "./assets/*": "./assets/*"
+  },
+  "bin": {
+    "ioi-ds-sync-assets": "./bin/sync-assets.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

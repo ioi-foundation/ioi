@@ -1,6 +1,14 @@
 target/
 /tools/
 codebase_snapshot.md
+
+# @ioi/design-system owns the canonical assets; consumers regenerate public/assets via
+# `ioi-ds-sync-assets` (predev/prebuild). The synced copy is build output, not source.
+apps/hypervisor-web/public/assets/
+
+# Upstream design-system dist exports are external, upstream-branded inputs to the
+# @ioi/design-system import pipeline — never tracked. Drop them here and run import-export.
+apps/hypervisor-web/design-system/
 keypair.seed
 state_node1.json
 state_node2.json
@@ -80,9 +88,9 @@ scripts/internal/
 # Local code editor adapter artifacts. The VS Code fork checkout and packaged
 # Electron build are large local artifacts; keep only adapter boundary docs and
 # patch metadata in git.
-code-editor-adapters/vscode/
-code-editor-adapters/builds/
-code-editor-adapters/.cache/
+packages/hypervisor-adapter-targets/vscode/
+packages/hypervisor-adapter-targets/builds/
+packages/hypervisor-adapter-targets/.cache/
 
 # Python cache/build artifacts
 __pycache__/
@@ -95,10 +103,27 @@ internal-docs/reverse-engineering
 /internal-docs/implementation/
 
 
-hypervisor-data
 .chrome-flatpak-profile
 .playwright-debug-profile
 
 # Local automation runtime state (workspace-scoped <workspace>/automation output).
 # Curated automation examples belong under scripts/fixtures/ or docs/conformance/.
 /automation/
+# ── Borrowed reference-SPA compatibility lane (source-neutral tracked tree) ──
+# These drive/served the harvested upstream SPA and speak its wire contract
+# (the upstream RPC namespace + its asset CDN). They are LOCAL-ONLY (kept on disk, runnable for
+# reference/dev) and deliberately NOT tracked, so the committed product tree is
+# the daemon + native contracts only. See the retirement note in apps/hypervisor/README.md.
+apps/hypervisor/scripts/serve-live-reference.mjs
+apps/hypervisor/scripts/ioi-api-adapter.mjs
+apps/hypervisor/scripts/ioi-augmentation.js
+apps/hypervisor/scripts/ioi-projection.mjs
+apps/hypervisor/scripts/ioi-agent-runs.mjs
+apps/hypervisor/scripts/ioi-run-timeline.mjs
+apps/hypervisor/docs/reference-api-integration.md
+scripts/verify-hypervisor-app-functional.mjs
+scripts/verify-hypervisor-reference-functional.mjs
+scripts/verify-hypervisor-workbench-functional.mjs
+scripts/verify-hypervisor-run-timeline-functional.mjs
+scripts/verify-hypervisor-git-auth-native-functional.mjs
+scripts/verify-hypervisor-settings-trio-functional.mjs

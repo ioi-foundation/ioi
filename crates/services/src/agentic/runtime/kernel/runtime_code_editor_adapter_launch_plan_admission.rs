@@ -17,10 +17,16 @@ pub const CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION: &str =
 
 const LAUNCH_MODES: &[&str] = &["embedded", "external", "remote_url"];
 const CONNECTION_KINDS: &[&str] = &["embedded_host", "desktop_editor", "browser_editor_url"];
-const EXECUTOR_LANES: &[&str] =
-    &["embedded_code_editor_host", "desktop_editor", "browser_code_editor"];
-const CONTROL_ACTIONS: &[&str] =
-    &["open_embedded_code_editor", "open_desktop_editor", "open_browser_editor"];
+const EXECUTOR_LANES: &[&str] = &[
+    "embedded_code_editor_host",
+    "desktop_editor",
+    "browser_code_editor",
+];
+const CONTROL_ACTIONS: &[&str] = &[
+    "open_embedded_code_editor",
+    "open_desktop_editor",
+    "open_browser_editor",
+];
 const CUSTODY_POSTURES: &[&str] = &["local_projection", "redacted_projection"];
 
 const RETIRED_ALIASES: &[&str] = &[
@@ -52,7 +58,12 @@ pub struct RuntimeCodeEditorAdapterLaunchPlanAdmissionError {
 
 impl RuntimeCodeEditorAdapterLaunchPlanAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -69,23 +80,50 @@ impl RuntimeCodeEditorAdapterLaunchPlanAdmissionCore {
         let adapter_ref = required_string(request.get("adapter_ref"), "adapter_ref")?;
         let target_ref = required_string(request.get("target_ref"), "target_ref")?;
         let launch_mode = enum_value(request.get("launch_mode"), "launch_mode", LAUNCH_MODES)?;
-        let connection_kind = enum_value(request.get("connection_kind"), "connection_kind", CONNECTION_KINDS)?;
-        let connection_contract_ref =
-            required_string(request.get("connection_contract_ref"), "connection_contract_ref")?;
-        let executor_lane = enum_value(request.get("executor_lane"), "executor_lane", EXECUTOR_LANES)?;
-        let control_action = enum_value(request.get("control_action"), "control_action", CONTROL_ACTIONS)?;
-        let control_channel_ref = required_string(request.get("control_channel_ref"), "control_channel_ref")?;
-        let required_access_lease_refs =
-            prefixed_refs(request.get("required_access_lease_refs"), "required_access_lease_refs", "lease:", false)?;
+        let connection_kind = enum_value(
+            request.get("connection_kind"),
+            "connection_kind",
+            CONNECTION_KINDS,
+        )?;
+        let connection_contract_ref = required_string(
+            request.get("connection_contract_ref"),
+            "connection_contract_ref",
+        )?;
+        let executor_lane = enum_value(
+            request.get("executor_lane"),
+            "executor_lane",
+            EXECUTOR_LANES,
+        )?;
+        let control_action = enum_value(
+            request.get("control_action"),
+            "control_action",
+            CONTROL_ACTIONS,
+        )?;
+        let control_channel_ref =
+            required_string(request.get("control_channel_ref"), "control_channel_ref")?;
+        let required_access_lease_refs = prefixed_refs(
+            request.get("required_access_lease_refs"),
+            "required_access_lease_refs",
+            "lease:",
+            false,
+        )?;
         let required_authority_scope_refs = prefixed_refs(
             request.get("required_authority_scope_refs"),
             "required_authority_scope_refs",
             "scope:",
             false,
         )?;
-        let required_receipt_refs =
-            prefixed_refs(request.get("required_receipt_refs"), "required_receipt_refs", "receipt-policy:", false)?;
-        let custody_posture = enum_value(request.get("custody_posture"), "custody_posture", CUSTODY_POSTURES)?;
+        let required_receipt_refs = prefixed_refs(
+            request.get("required_receipt_refs"),
+            "required_receipt_refs",
+            "receipt-policy:",
+            false,
+        )?;
+        let custody_posture = enum_value(
+            request.get("custody_posture"),
+            "custody_posture",
+            CUSTODY_POSTURES,
+        )?;
         let secret_release_policy = optional_value(request.get("secret_release_policy"))
             .unwrap_or_else(|| "no_durable_secret_release".to_string());
         let wallet_approval_ref = optional_value(request.get("wallet_approval_ref"));
@@ -95,7 +133,12 @@ impl RuntimeCodeEditorAdapterLaunchPlanAdmissionCore {
             "agentgres://operation/",
             true,
         )?;
-        let receipt_refs = prefixed_refs(request.get("receipt_refs"), "receipt_refs", "receipt://", true)?;
+        let receipt_refs = prefixed_refs(
+            request.get("receipt_refs"),
+            "receipt_refs",
+            "receipt://",
+            true,
+        )?;
         let state_root = optional_value(request.get("state_root"));
         let adapter_runtime_truth_claimed =
             boolean_value(request.get("adapter_runtime_truth_claimed")).unwrap_or(false);
@@ -104,10 +147,21 @@ impl RuntimeCodeEditorAdapterLaunchPlanAdmissionCore {
         require_prefix(&launch_plan_ref, "code-editor-adapter:", "launch_plan_ref")?;
         require_prefix(&adapter_ref, "code-editor-adapter:", "adapter_ref")?;
         require_prefix(&target_ref, "adapter-target:", "target_ref")?;
-        require_prefix(&connection_contract_ref, "connection-contract:code-editor-adapter/", "connection_contract_ref")?;
-        require_prefix(&control_channel_ref, "control-channel:code-editor-adapter/", "control_channel_ref")?;
+        require_prefix(
+            &connection_contract_ref,
+            "connection-contract:code-editor-adapter/",
+            "connection_contract_ref",
+        )?;
+        require_prefix(
+            &control_channel_ref,
+            "control-channel:code-editor-adapter/",
+            "control_channel_ref",
+        )?;
         require_non_empty(&required_access_lease_refs, "required_access_lease_refs")?;
-        require_non_empty(&required_authority_scope_refs, "required_authority_scope_refs")?;
+        require_non_empty(
+            &required_authority_scope_refs,
+            "required_authority_scope_refs",
+        )?;
         require_non_empty(&required_receipt_refs, "required_receipt_refs")?;
 
         assert_connection_control_pair(&connection_kind, &executor_lane, &control_action)?;
@@ -128,7 +182,11 @@ impl RuntimeCodeEditorAdapterLaunchPlanAdmissionCore {
         }
 
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
-            format!("code-editor-adapter-launch:{}:{}", safe_id(&launch_plan_ref), safe_id(&connection_kind))
+            format!(
+                "code-editor-adapter-launch:{}:{}",
+                safe_id(&launch_plan_ref),
+                safe_id(&connection_kind)
+            )
         });
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
@@ -212,7 +270,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimeCodeEditorAdapterLaunchPlanAdmissionError::new(
                 400,
@@ -259,8 +320,17 @@ fn require_prefix(value: &str, prefix: &str, field: &str) -> AdmitResult<()> {
     ))
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimeCodeEditorAdapterLaunchPlanAdmissionError {
-    RuntimeCodeEditorAdapterLaunchPlanAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeCodeEditorAdapterLaunchPlanAdmissionError {
+    RuntimeCodeEditorAdapterLaunchPlanAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
@@ -277,7 +347,8 @@ fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
     Err(RuntimeCodeEditorAdapterLaunchPlanAdmissionError::new(
         400,
         "code_editor_adapter_launch_request_aliases_retired".to_string(),
-        "code editor adapter launch admission uses canonical snake_case request fields.".to_string(),
+        "code editor adapter launch admission uses canonical snake_case request fields."
+            .to_string(),
         json!({ "retired_aliases": present }),
     ))
 }
@@ -367,7 +438,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -433,13 +508,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -489,13 +565,19 @@ mod tests {
         let admission = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
             .admit(&base_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            CODE_EDITOR_ADAPTER_LAUNCH_PLAN_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(
             admission["admission_id"],
             "code-editor-adapter-launch:code-editor-adapter_vscode_launch:embedded_host"
         );
-        assert_eq!(admission["secret_release_policy"], "no_durable_secret_release");
+        assert_eq!(
+            admission["secret_release_policy"],
+            "no_durable_secret_release"
+        );
         assert_eq!(admission["adapter_runtime_truth_claimed"], false);
     }
 
@@ -503,7 +585,9 @@ mod tests {
     fn blocks_control_contract_mismatch() {
         let mut request = base_request();
         request["control_action"] = json!("open_desktop_editor");
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "code_editor_adapter_control_contract_mismatch");
         assert_eq!(error.status, 403);
     }
@@ -512,8 +596,13 @@ mod tests {
     fn blocks_durable_secret_release() {
         let mut request = base_request();
         request["secret_release_policy"] = json!("release_durable");
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "code_editor_adapter_launch_durable_secret_release_blocked");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "code_editor_adapter_launch_durable_secret_release_blocked"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -521,34 +610,54 @@ mod tests {
     fn blocks_runtime_truth_claim() {
         let mut request = base_request();
         request["adapter_runtime_truth_claimed"] = json!(true);
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "code_editor_adapter_runtime_truth_claim_blocked");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "code_editor_adapter_runtime_truth_claim_blocked"
+        );
     }
 
     #[test]
     fn bad_launch_plan_prefix_is_400() {
         let mut request = base_request();
         request["launch_plan_ref"] = json!("nope:x");
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "code_editor_adapter_launch_launch_plan_ref_prefix_invalid");
+        assert_eq!(
+            error.code,
+            "code_editor_adapter_launch_launch_plan_ref_prefix_invalid"
+        );
     }
 
     #[test]
     fn requires_access_lease_refs() {
         let mut request = base_request();
         request["required_access_lease_refs"] = json!([]);
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "code_editor_adapter_launch_required_access_lease_refs_required");
+        assert_eq!(
+            error.code,
+            "code_editor_adapter_launch_required_access_lease_refs_required"
+        );
     }
 
     #[test]
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["launchPlanRef"] = json!("legacy");
-        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "code_editor_adapter_launch_request_aliases_retired");
+        assert_eq!(
+            error.code,
+            "code_editor_adapter_launch_request_aliases_retired"
+        );
     }
 }

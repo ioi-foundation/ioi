@@ -1082,13 +1082,25 @@ mod tests {
     fn memory_policy_id_matches_projection_reader_formula() {
         // The projection reads policies by `memory_policy_{target_type}_{safe_file_id(target_id)}`.
         // Normal ids are byte-identical to the old safe_id form.
-        assert_eq!(memory_policy_id("thread", "thread_1"), "memory_policy_thread_thread_1");
-        assert_eq!(memory_policy_id("agent", "agent_42"), "memory_policy_agent_agent_42");
+        assert_eq!(
+            memory_policy_id("thread", "thread_1"),
+            "memory_policy_thread_thread_1"
+        );
+        assert_eq!(
+            memory_policy_id("agent", "agent_42"),
+            "memory_policy_agent_agent_42"
+        );
         // A leading special char: safe_file_id keeps the underscore (no trim) so the written id
         // matches the projection's lookup id — the previous safe_id form trimmed it and lost the
         // policy on read.
-        assert_eq!(memory_policy_id("thread", "@weird"), "memory_policy_thread__weird");
-        assert_eq!(memory_policy_id("agent", "a/b c"), "memory_policy_agent_a_b_c");
+        assert_eq!(
+            memory_policy_id("thread", "@weird"),
+            "memory_policy_thread__weird"
+        );
+        assert_eq!(
+            memory_policy_id("agent", "a/b c"),
+            "memory_policy_agent_a_b_c"
+        );
     }
 
     #[test]
@@ -1252,8 +1264,14 @@ mod tests {
             .plan(&request)
             .expect("memory edit planned");
         assert_eq!(record.payload["status"], "active");
-        assert!(record.payload.get("deleted_at").is_none(), "deleted_at tombstone cleared");
-        assert!(record.payload.get("deletion_reason").is_none(), "deletion_reason cleared");
+        assert!(
+            record.payload.get("deleted_at").is_none(),
+            "deleted_at tombstone cleared"
+        );
+        assert!(
+            record.payload.get("deletion_reason").is_none(),
+            "deletion_reason cleared"
+        );
         assert_eq!(record.payload["fact"], "Resurrected fact");
     }
 

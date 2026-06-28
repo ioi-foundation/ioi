@@ -1,0 +1,52 @@
+/* IOI typography
+   Three families:
+   - Martina Plantijn (serif, light 300) → display / hero headings, set tight & airy
+   - ABC Diatype (sans, 400/700)         → UI, body, most headings
+   - ABC Diatype Mono (400/500)          → eyebrows, labels, code, metadata
+*/
+
+:root {
+  /* ---- Families ---- */
+  --font-serif: "Martina Plantijn", Georgia, "Times New Roman", serif;
+  --font-sans: "ABC Diatype", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "ABC Diatype Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-brand: "IOI Display", "ABC Diatype", sans-serif;
+
+  /* ---- Weights ---- */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* ---- Type scale (rem) ---- */
+  --text-micro: 0.75rem;   /* 12 — pills, captions */
+  --text-xs: 0.8125rem;    /* 13 — fine print, eyebrows */
+  --text-sm: 0.875rem;     /* 14 — dense UI */
+  --text-base: 1rem;       /* 16 — body */
+  --text-md: 1.125rem;     /* 18 — lead paragraph */
+  --text-lg: 1.25rem;      /* 20 — card titles */
+  --text-xl: 1.9375rem;    /* 31 — section heads */
+  --text-2xl: 2.75rem;     /* 44 — display M */
+  --text-3xl: 3.5rem;      /* 56 — display L */
+  --text-4xl: 4rem;        /* 64 — hero */
+
+  /* ---- Line heights ---- */
+  --leading-display: 1.05;
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.35;
+  --leading-relaxed: 1.5;
+
+  /* ---- Letter spacing ---- */
+  --tracking-display: -0.02em; /* serif display & big sans heads */
+  --tracking-tight: -0.012em;  /* body at larger sizes */
+  --tracking-normal: 0em;
+  --tracking-mono: 0.02em;     /* mono eyebrows breathe a touch */
+  --tracking-wide: 0.08em;     /* uppercase labels */
+
+  /* ---- Semantic roles ---- */
+  --font-display: var(--font-serif);
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-label: var(--font-mono);
+}

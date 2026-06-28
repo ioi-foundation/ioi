@@ -50,7 +50,12 @@ pub struct RuntimeHarnessSessionTerminalAttachAdmissionError {
 
 impl RuntimeHarnessSessionTerminalAttachAdmissionError {
     fn new(status: u16, code: &str, message: &str, details: Value) -> Self {
-        Self { status, code: code.to_string(), message: message.to_string(), details }
+        Self {
+            status,
+            code: code.to_string(),
+            message: message.to_string(),
+            details,
+        }
     }
 }
 
@@ -65,16 +70,26 @@ impl RuntimeHarnessSessionTerminalAttachAdmissionCore {
         let readiness = require_readiness(request.get("session_readiness"), spawn)?;
 
         let attach_id = optional_value(request.get("attach_id")).unwrap_or_else(|| {
-            format!("harness-session-terminal-attach:{}", safe_id_value(readiness.get("readiness_id")))
+            format!(
+                "harness-session-terminal-attach:{}",
+                safe_id_value(readiness.get("readiness_id"))
+            )
         });
         let receipt_ref = optional_value(request.get("attach_receipt_ref")).unwrap_or_else(|| {
-            format!("receipt://harness-session-terminal-attach/{}", safe_id(&attach_id))
+            format!(
+                "receipt://harness-session-terminal-attach/{}",
+                safe_id(&attach_id)
+            )
         });
         let transcript_id = optional_value(request.get("transcript_id"))
             .unwrap_or_else(|| format!("harness-terminal-transcript:{}", safe_id(&attach_id)));
-        let transcript_stream_ref = optional_value(request.get("transcript_stream_ref")).unwrap_or_else(|| {
-            format!("agentgres://trace/harness-terminal-transcript/{}", safe_id(&transcript_id))
-        });
+        let transcript_stream_ref = optional_value(request.get("transcript_stream_ref"))
+            .unwrap_or_else(|| {
+                format!(
+                    "agentgres://trace/harness-terminal-transcript/{}",
+                    safe_id(&transcript_id)
+                )
+            });
 
         // command_line = optionalString(spawn.terminal_attach_contract?.command_line)
         let terminal_attach_contract = spawn.get("terminal_attach_contract");
@@ -104,10 +119,18 @@ impl RuntimeHarnessSessionTerminalAttachAdmissionCore {
             _ => Map::new(),
         };
         client_attach_contract.insert("command_line".to_string(), json!(command_line));
-        client_attach_contract.insert("initial_write".to_string(), json!(format!("{command_line}\n")));
-        client_attach_contract.insert("transcript_stream_ref".to_string(), json!(transcript_stream_ref));
-        client_attach_contract
-            .insert("pty_transport".to_string(), json!("hypervisor_client_terminal_adapter"));
+        client_attach_contract.insert(
+            "initial_write".to_string(),
+            json!(format!("{command_line}\n")),
+        );
+        client_attach_contract.insert(
+            "transcript_stream_ref".to_string(),
+            json!(transcript_stream_ref),
+        );
+        client_attach_contract.insert(
+            "pty_transport".to_string(),
+            json!("hypervisor_client_terminal_adapter"),
+        );
         client_attach_contract.insert(
             "process_custody".to_string(),
             json!("client_host_pty_after_daemon_attach_admission"),
@@ -141,11 +164,20 @@ impl RuntimeHarnessSessionTerminalAttachAdmissionCore {
         ]);
 
         let mut out = Map::new();
-        out.insert("schema_version".to_string(), json!(HARNESS_SESSION_TERMINAL_ATTACH_SCHEMA_VERSION));
+        out.insert(
+            "schema_version".to_string(),
+            json!(HARNESS_SESSION_TERMINAL_ATTACH_SCHEMA_VERSION),
+        );
         out.insert("attach_id".to_string(), json!(attach_id));
         out.insert("decision".to_string(), json!("admitted"));
-        out.insert("attach_state".to_string(), json!("client_pty_attach_admitted"));
-        out.insert("attach_lane".to_string(), json!("hypervisor_client_terminal_adapter"));
+        out.insert(
+            "attach_state".to_string(),
+            json!("client_pty_attach_admitted"),
+        );
+        out.insert(
+            "attach_lane".to_string(),
+            json!("hypervisor_client_terminal_adapter"),
+        );
         insert_if_present(&mut out, "spawn_id", spawn.get("spawn_id"));
         insert_if_present(&mut out, "readiness_id", readiness.get("readiness_id"));
         for field in SPAWN_PASSTHROUGH_FIELDS {
@@ -154,18 +186,33 @@ impl RuntimeHarnessSessionTerminalAttachAdmissionCore {
             }
             insert_if_present(&mut out, field, spawn.get(field));
         }
-        out.insert("agent_harness_adapter_id".to_string(), nullish(spawn.get("agent_harness_adapter_id")));
-        out.insert("client_attach_contract".to_string(), Value::Object(client_attach_contract));
-        out.insert("terminal_transcript_projection".to_string(), terminal_transcript_projection);
+        out.insert(
+            "agent_harness_adapter_id".to_string(),
+            nullish(spawn.get("agent_harness_adapter_id")),
+        );
+        out.insert(
+            "client_attach_contract".to_string(),
+            Value::Object(client_attach_contract),
+        );
+        out.insert(
+            "terminal_transcript_projection".to_string(),
+            terminal_transcript_projection,
+        );
         out.insert(
             "authority_scope_refs".to_string(),
             Value::Array(normalize_array_raw(spawn.get("authority_scope_refs"))),
         );
         out.insert("receipt_refs".to_string(), json!(receipt_refs));
-        out.insert("agentgres_operation_refs".to_string(), json!(agentgres_operation_refs));
+        out.insert(
+            "agentgres_operation_refs".to_string(),
+            json!(agentgres_operation_refs),
+        );
         out.insert(
             "state_root".to_string(),
-            json!(format!("agentgres://state-root/harness-session-terminal-attach/{}", safe_id(&attach_id))),
+            json!(format!(
+                "agentgres://state-root/harness-session-terminal-attach/{}",
+                safe_id(&attach_id)
+            )),
         );
         out.insert("attached_at".to_string(), json!(attached_at));
         out.insert("requiresDaemonGate".to_string(), json!(true));
@@ -185,7 +232,10 @@ fn require_spawn(value: Option<&Value>) -> AdmitResult<&Value> {
         .and_then(|spawn| spawn.get("schema_version"))
         .and_then(Value::as_str)
         == Some(SPAWN_SCHEMA_VERSION);
-    let Some(spawn) = value.filter(|value| value.is_object()).filter(|_| schema_ok) else {
+    let Some(spawn) = value
+        .filter(|value| value.is_object())
+        .filter(|_| schema_ok)
+    else {
         return Err(RuntimeHarnessSessionTerminalAttachAdmissionError::new(
             400,
             "harness_session_terminal_attach_spawn_required",
@@ -225,7 +275,10 @@ fn require_readiness<'a>(value: Option<&'a Value>, spawn: &Value) -> AdmitResult
         .and_then(|readiness| readiness.get("schema_version"))
         .and_then(Value::as_str)
         == Some(READINESS_SCHEMA_VERSION);
-    let Some(readiness) = value.filter(|value| value.is_object()).filter(|_| schema_ok) else {
+    let Some(readiness) = value
+        .filter(|value| value.is_object())
+        .filter(|_| schema_ok)
+    else {
         return Err(RuntimeHarnessSessionTerminalAttachAdmissionError::new(
             400,
             "harness_session_terminal_attach_readiness_required",
@@ -237,7 +290,10 @@ fn require_readiness<'a>(value: Option<&'a Value>, spawn: &Value) -> AdmitResult
         && readiness.get("readiness_state") == Some(&json!("ready_for_harness_pty_attach"))
         && js_strict_eq(readiness.get("spawn_id"), spawn.get("spawn_id"))
         && js_strict_eq(readiness.get("launch_id"), spawn.get("launch_id"))
-        && js_strict_eq(readiness.get("session_binding_ref"), spawn.get("session_binding_ref"))
+        && js_strict_eq(
+            readiness.get("session_binding_ref"),
+            spawn.get("session_binding_ref"),
+        )
         && readiness.get("requiresDaemonGate") == Some(&Value::Bool(true))
         && readiness.get("runtimeTruthSource") == Some(&json!("daemon-runtime"));
     if !boundary_ok {
@@ -290,7 +346,11 @@ fn js_strict_eq(a: Option<&Value>, b: Option<&Value>) -> bool {
 /// Mirror JS `normalizeArray`: Array.isArray ? value.filter(Boolean) : [] — keep truthy RAW items.
 fn normalize_array_raw(value: Option<&Value>) -> Vec<Value> {
     match value {
-        Some(Value::Array(items)) => items.iter().filter(|item| is_truthy(item)).cloned().collect(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter(|item| is_truthy(item))
+            .cloned()
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -368,7 +428,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -434,13 +498,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -537,12 +602,24 @@ mod tests {
         let admission = RuntimeHarnessSessionTerminalAttachAdmissionCore
             .admit(&request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], HARNESS_SESSION_TERMINAL_ATTACH_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            HARNESS_SESSION_TERMINAL_ATTACH_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
-        assert_eq!(admission["attach_id"], "harness-session-terminal-attach:readiness_1");
+        assert_eq!(
+            admission["attach_id"],
+            "harness-session-terminal-attach:readiness_1"
+        );
         assert_eq!(admission["spawn_id"], "spawn:1");
-        assert_eq!(admission["client_attach_contract"]["command_line"], "codex --foo");
-        assert_eq!(admission["client_attach_contract"]["initial_write"], "codex --foo\n");
+        assert_eq!(
+            admission["client_attach_contract"]["command_line"],
+            "codex --foo"
+        );
+        assert_eq!(
+            admission["client_attach_contract"]["initial_write"],
+            "codex --foo\n"
+        );
         assert_eq!(admission["client_attach_contract"]["rows"], 40); // spread preserved
         assert_eq!(
             admission["terminal_transcript_projection"]["lines"][1]["text"],
@@ -572,27 +649,42 @@ mod tests {
     fn rejects_spawn_boundary() {
         let mut request = request();
         request["session_spawn"]["spawn_state"] = json!("provisioning");
-        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "harness_session_terminal_attach_spawn_boundary_invalid");
+        assert_eq!(
+            error.code,
+            "harness_session_terminal_attach_spawn_boundary_invalid"
+        );
     }
 
     #[test]
     fn rejects_readiness_spawn_id_mismatch() {
         let mut request = request();
         request["session_readiness"]["spawn_id"] = json!("spawn:OTHER");
-        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "harness_session_terminal_attach_readiness_boundary_invalid");
+        assert_eq!(
+            error.code,
+            "harness_session_terminal_attach_readiness_boundary_invalid"
+        );
     }
 
     #[test]
     fn rejects_missing_command_line() {
         let mut request = request();
         request["session_spawn"]["terminal_attach_contract"] = json!({ "rows": 40 });
-        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "harness_session_terminal_attach_command_required");
+        assert_eq!(
+            error.code,
+            "harness_session_terminal_attach_command_required"
+        );
     }
 
     #[test]
@@ -600,19 +692,35 @@ mod tests {
         // spawn passes boundary but lacks spawn_id + command_line; readiness lacks spawn_id too
         // (so undefined===undefined passes the cross-check). JS uses RAW spawn.spawn_id → omitted.
         let mut request = request();
-        request["session_spawn"].as_object_mut().unwrap().remove("spawn_id");
+        request["session_spawn"]
+            .as_object_mut()
+            .unwrap()
+            .remove("spawn_id");
         request["session_spawn"]["terminal_attach_contract"] = json!({ "rows": 40 });
-        request["session_readiness"].as_object_mut().unwrap().remove("spawn_id");
-        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "harness_session_terminal_attach_command_required");
+        request["session_readiness"]
+            .as_object_mut()
+            .unwrap()
+            .remove("spawn_id");
+        let error = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "harness_session_terminal_attach_command_required"
+        );
         assert_eq!(error.details, json!({})); // spawn_id key omitted, not null
     }
 
     #[test]
     fn omits_undefined_passthrough_fields() {
         let mut request = request();
-        request["session_spawn"].as_object_mut().unwrap().remove("model_name");
-        let admission = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect("admitted");
+        request["session_spawn"]
+            .as_object_mut()
+            .unwrap()
+            .remove("model_name");
+        let admission = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert!(admission.as_object().unwrap().get("model_name").is_none());
         // agent_harness_adapter_id is always present (?? null).
         assert_eq!(admission["agent_harness_adapter_id"], "codex_cli");
@@ -622,8 +730,13 @@ mod tests {
     fn authority_scope_refs_keep_raw_truthy() {
         let mut request = request();
         request["session_spawn"]["authority_scope_refs"] = json!(["scope:a", 0, { "p": 1 }]);
-        let admission = RuntimeHarnessSessionTerminalAttachAdmissionCore.admit(&request, "now").expect("admitted");
+        let admission = RuntimeHarnessSessionTerminalAttachAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         // normalizeArray drops falsy 0 but keeps the raw object.
-        assert_eq!(admission["authority_scope_refs"], json!(["scope:a", { "p": 1 }]));
+        assert_eq!(
+            admission["authority_scope_refs"],
+            json!(["scope:a", { "p": 1 }])
+        );
     }
 }

@@ -57,7 +57,12 @@ pub struct RuntimeModelWeightCustodyAdmissionError {
 
 impl RuntimeModelWeightCustodyAdmissionError {
     fn new(status: u16, code: &str, message: &str, details: Value) -> Self {
-        Self { status, code: code.to_string(), message: message.to_string(), details }
+        Self {
+            status,
+            code: code.to_string(),
+            message: message.to_string(),
+            details,
+        }
     }
 }
 
@@ -72,18 +77,22 @@ impl RuntimeModelWeightCustodyAdmissionCore {
         // assertion — so a malformed field error wins over a retired-alias error.
         let route_ref = required_string(request, "route_ref")?;
         let model_ref = required_string(request, "model_ref")?;
-        let provider_ref =
-            optional_field(request, "provider_ref").unwrap_or_else(|| "provider:unspecified".to_string());
+        let provider_ref = optional_field(request, "provider_ref")
+            .unwrap_or_else(|| "provider:unspecified".to_string());
         let weight_class = enum_value(request, "weight_class", WEIGHT_CLASSES)?;
         let mount_target = enum_value(request, "mount_target", MOUNT_TARGETS)?;
-        let execution_privacy_posture =
-            enum_value(request, "execution_privacy_posture", EXECUTION_PRIVACY_POSTURES)?;
+        let execution_privacy_posture = enum_value(
+            request,
+            "execution_privacy_posture",
+            EXECUTION_PRIVACY_POSTURES,
+        )?;
         let remote_provider_can_read_weights =
             boolean_field(request, "remote_provider_can_read_weights").unwrap_or(false);
         let authority_scope_refs = unique_scope_refs(request.get("authority_scope_refs"))?;
         let required_controls = unique_strings(&normalize_array(request.get("required_controls")));
         let disclosure_ref = optional_field(request, "user_disclosure_ref");
-        let provider_trust_acceptance_ref = optional_field(request, "provider_trust_acceptance_ref");
+        let provider_trust_acceptance_ref =
+            optional_field(request, "provider_trust_acceptance_ref");
         let tee_attestation_ref = optional_field(request, "tee_attestation_ref");
         let customer_boundary_ref = optional_field(request, "customer_boundary_ref");
 
@@ -209,8 +218,16 @@ fn assert_weight_lane_admission(
                 json!({ "mount_target": mount_target }),
             ));
         }
-        require_control(required_controls, "wallet_authorized_api_capability", weight_class)?;
-        require_scope(authority_scope_refs, "scope:model.invoke_remote", weight_class)?;
+        require_control(
+            required_controls,
+            "wallet_authorized_api_capability",
+            weight_class,
+        )?;
+        require_scope(
+            authority_scope_refs,
+            "scope:model.invoke_remote",
+            weight_class,
+        )?;
     }
     if weight_class == "tee_or_customer_cloud_mount" {
         if mount_target != "tee_session"
@@ -252,8 +269,16 @@ fn assert_weight_lane_admission(
                 json!({ "required": ["user_disclosure_ref", "provider_trust_acceptance_ref"] }),
             ));
         }
-        require_control(required_controls, "explicit_provider_trust_acceptance", weight_class)?;
-        require_scope(authority_scope_refs, "scope:provider.trust_override", weight_class)?;
+        require_control(
+            required_controls,
+            "explicit_provider_trust_acceptance",
+            weight_class,
+        )?;
+        require_scope(
+            authority_scope_refs,
+            "scope:provider.trust_override",
+            weight_class,
+        )?;
     }
     Ok(())
 }
@@ -269,7 +294,10 @@ fn protects_model_weights_from_provider_root(weight_class: &str) -> bool {
 }
 
 fn protects_workspace_state(posture: &str) -> bool {
-    matches!(posture, "private_native" | "ctee_split" | "confidential_compute")
+    matches!(
+        posture,
+        "private_native" | "ctee_split" | "confidential_compute"
+    )
 }
 
 fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
@@ -331,7 +359,11 @@ fn required_string(request: &Value, field: &str) -> AdmitResult<String> {
     })
 }
 
-fn require_control(required_controls: &[String], control: &str, weight_class: &str) -> AdmitResult<()> {
+fn require_control(
+    required_controls: &[String],
+    control: &str,
+    weight_class: &str,
+) -> AdmitResult<()> {
     if required_controls.iter().any(|value| value == control) {
         return Ok(());
     }
@@ -342,7 +374,11 @@ fn require_control(required_controls: &[String], control: &str, weight_class: &s
     ))
 }
 
-fn require_scope(authority_scope_refs: &[String], scope: &str, weight_class: &str) -> AdmitResult<()> {
+fn require_scope(
+    authority_scope_refs: &[String],
+    scope: &str,
+    weight_class: &str,
+) -> AdmitResult<()> {
     if authority_scope_refs.iter().any(|value| value == scope) {
         return Ok(());
     }
@@ -353,7 +389,11 @@ fn require_scope(authority_scope_refs: &[String], scope: &str, weight_class: &st
     ))
 }
 
-fn admission_error(code: &str, message: &str, details: Value) -> RuntimeModelWeightCustodyAdmissionError {
+fn admission_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeModelWeightCustodyAdmissionError {
     RuntimeModelWeightCustodyAdmissionError::new(403, code, message, details)
 }
 
@@ -391,7 +431,11 @@ fn boolean_field(request: &Value, field: &str) -> Option<bool> {
 /// RAW items (objects/arrays survive, as in JS).
 fn normalize_array(value: Option<&Value>) -> Vec<Value> {
     match value {
-        Some(Value::Array(items)) => items.iter().filter(|item| is_truthy(item)).cloned().collect(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter(|item| is_truthy(item))
+            .cloned()
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -437,7 +481,10 @@ fn js_string_coerce(value: &Value) -> String {
             } else if let Some(uint) = number.as_u64() {
                 uint.to_string()
             } else {
-                number.as_f64().map(|float| float.to_string()).unwrap_or_default()
+                number
+                    .as_f64()
+                    .map(|float| float.to_string())
+                    .unwrap_or_default()
             }
         }
         Value::String(string) => string.clone(),
@@ -511,7 +558,10 @@ mod tests {
             .admit(&request, "now")
             .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "model_weight_custody_forbidden_plaintext_mount_blocked");
+        assert_eq!(
+            error.code,
+            "model_weight_custody_forbidden_plaintext_mount_blocked"
+        );
     }
 
     #[test]
@@ -526,7 +576,10 @@ mod tests {
         let error = RuntimeModelWeightCustodyAdmissionCore
             .admit(&request, "now")
             .expect_err("blocked");
-        assert_eq!(error.code, "model_weight_custody_plaintext_private_weight_blocked");
+        assert_eq!(
+            error.code,
+            "model_weight_custody_plaintext_private_weight_blocked"
+        );
     }
 
     #[test]

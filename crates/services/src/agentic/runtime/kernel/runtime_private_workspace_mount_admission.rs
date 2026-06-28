@@ -62,7 +62,12 @@ pub struct RuntimePrivateWorkspaceMountAdmissionError {
 
 impl RuntimePrivateWorkspaceMountAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -75,13 +80,20 @@ impl RuntimePrivateWorkspaceMountAdmissionCore {
     pub fn admit(&self, request: &Value, now_iso: &str) -> AdmitResult<Value> {
         assert_no_retired_aliases(request)?;
 
-        let workspace_ref =
-            prefixed_string(request.get("workspace_ref"), "workspace_ref", "workspace://")?;
+        let workspace_ref = prefixed_string(
+            request.get("workspace_ref"),
+            "workspace_ref",
+            "workspace://",
+        )?;
         let mount_ref = required_string(request.get("mount_ref"), "mount_ref")?;
         let segment_ref = required_string(request.get("segment_ref"), "segment_ref")?;
-        let provider_ref =
-            optional_value(request.get("provider_ref")).unwrap_or_else(|| "provider:unspecified".to_string());
-        let custody_class = enum_value(request.get("custody_class"), "custody_class", CUSTODY_CLASSES)?;
+        let provider_ref = optional_value(request.get("provider_ref"))
+            .unwrap_or_else(|| "provider:unspecified".to_string());
+        let custody_class = enum_value(
+            request.get("custody_class"),
+            "custody_class",
+            CUSTODY_CLASSES,
+        )?;
         let mount_target = enum_value(request.get("mount_target"), "mount_target", MOUNT_TARGETS)?;
         let execution_privacy_posture = enum_value(
             request.get("execution_privacy_posture"),
@@ -93,12 +105,17 @@ impl RuntimePrivateWorkspaceMountAdmissionCore {
         let protected_plaintext_requested =
             boolean_value(request.get("protected_plaintext_requested")).unwrap_or(false);
         let required_controls = unique_strings_raw(request.get("required_controls"));
-        let authority_scope_refs =
-            prefixed_refs(request.get("authority_scope_refs"), "authority_scope_refs", "scope:", true)?;
+        let authority_scope_refs = prefixed_refs(
+            request.get("authority_scope_refs"),
+            "authority_scope_refs",
+            "scope:",
+            true,
+        )?;
         let wallet_approval_ref = optional_value(request.get("wallet_approval_ref"));
         let wallet_lease_ref = optional_value(request.get("wallet_lease_ref"));
         let user_disclosure_ref = optional_value(request.get("user_disclosure_ref"));
-        let provider_trust_acceptance_ref = optional_value(request.get("provider_trust_acceptance_ref"));
+        let provider_trust_acceptance_ref =
+            optional_value(request.get("provider_trust_acceptance_ref"));
         let tee_attestation_ref = optional_value(request.get("tee_attestation_ref"));
         let customer_boundary_ref = optional_value(request.get("customer_boundary_ref"));
         let declassification_receipt_refs = prefixed_refs(
@@ -119,8 +136,11 @@ impl RuntimePrivateWorkspaceMountAdmissionCore {
             "artifact://",
             custody_class == "capability_exit",
         )?;
-        let state_root_ref =
-            prefixed_string(request.get("state_root_ref"), "state_root_ref", "agentgres://state-root/")?;
+        let state_root_ref = prefixed_string(
+            request.get("state_root_ref"),
+            "state_root_ref",
+            "agentgres://state-root/",
+        )?;
 
         assert_mount_admission(
             &custody_class,
@@ -139,8 +159,11 @@ impl RuntimePrivateWorkspaceMountAdmissionCore {
             &declassification_receipt_refs,
         )?;
 
-        let decision =
-            decision_for(&custody_class, provider_root_can_read_plaintext, protected_plaintext_requested);
+        let decision = decision_for(
+            &custody_class,
+            provider_root_can_read_plaintext,
+            protected_plaintext_requested,
+        );
 
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
             format!(
@@ -270,7 +293,11 @@ fn assert_mount_admission(
             require_control(required_controls, "tee_attestation", custody_class)?;
         }
         if customer_boundary_ref.is_some() {
-            require_control(required_controls, "customer_account_boundary", custody_class)?;
+            require_control(
+                required_controls,
+                "customer_account_boundary",
+                custody_class,
+            )?;
         }
         if tee_attestation_ref.is_none() && customer_boundary_ref.is_none() {
             return Err(authority_error(
@@ -290,10 +317,17 @@ fn assert_mount_admission(
     }
 
     if custody_class == "private_head"
-        && matches!(mount_target, "local_device" | "user_owned_node" | "browser_client")
+        && matches!(
+            mount_target,
+            "local_device" | "user_owned_node" | "browser_client"
+        )
     {
         require_control(required_controls, "wallet_decryption_lease", custody_class)?;
-        require_scope(authority_scope_refs, "scope:artifact.decrypt", custody_class)?;
+        require_scope(
+            authority_scope_refs,
+            "scope:artifact.decrypt",
+            custody_class,
+        )?;
         if provider_root_can_read_plaintext {
             return Err(authority_error(
                 "private_workspace_mount_local_provider_root_plaintext_invalid",
@@ -310,7 +344,11 @@ fn assert_mount_admission(
         && !protected_plaintext_requested
     {
         require_control(required_controls, "ctee_private_head_handle", custody_class)?;
-        require_scope(authority_scope_refs, "scope:ctee.private-head.evaluate", custody_class)?;
+        require_scope(
+            authority_scope_refs,
+            "scope:ctee.private-head.evaluate",
+            custody_class,
+        )?;
         if execution_privacy_posture != "ctee_split" {
             return Err(authority_error(
                 "private_workspace_mount_ctee_posture_required",
@@ -368,11 +406,34 @@ fn require_unsafe_plaintext_exception(
             }),
         ));
     }
-    require_control(required_controls, "explicit_unsafe_plaintext_acceptance", "unsafe_plaintext_mount")?;
-    require_scope(authority_scope_refs, "scope:privacy.unsafe_plaintext_mount", "unsafe_plaintext_mount")?;
-    require_prefixed(wallet_approval_ref, "wallet_approval_ref", "approval://wallet/", "unsafe_plaintext_mount")?;
-    require_prefixed(wallet_lease_ref, "wallet_lease_ref", "lease:", "unsafe_plaintext_mount")?;
-    require_prefixed(user_disclosure_ref, "user_disclosure_ref", "disclosure://", "unsafe_plaintext_mount")?;
+    require_control(
+        required_controls,
+        "explicit_unsafe_plaintext_acceptance",
+        "unsafe_plaintext_mount",
+    )?;
+    require_scope(
+        authority_scope_refs,
+        "scope:privacy.unsafe_plaintext_mount",
+        "unsafe_plaintext_mount",
+    )?;
+    require_prefixed(
+        wallet_approval_ref,
+        "wallet_approval_ref",
+        "approval://wallet/",
+        "unsafe_plaintext_mount",
+    )?;
+    require_prefixed(
+        wallet_lease_ref,
+        "wallet_lease_ref",
+        "lease:",
+        "unsafe_plaintext_mount",
+    )?;
+    require_prefixed(
+        user_disclosure_ref,
+        "user_disclosure_ref",
+        "disclosure://",
+        "unsafe_plaintext_mount",
+    )?;
     require_prefixed(
         provider_trust_acceptance_ref,
         "provider_trust_acceptance_ref",
@@ -417,7 +478,8 @@ fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
     Err(RuntimePrivateWorkspaceMountAdmissionError::new(
         400,
         "private_workspace_mount_request_aliases_retired".to_string(),
-        "Private workspace mount admission accepts only canonical snake_case request fields.".to_string(),
+        "Private workspace mount admission accepts only canonical snake_case request fields."
+            .to_string(),
         json!({ "retired_aliases": retired }),
     ))
 }
@@ -429,7 +491,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimePrivateWorkspaceMountAdmissionError::new(
                 400,
@@ -475,7 +540,11 @@ fn prefixed_refs(
     Ok(refs)
 }
 
-fn ref_prefix_error(field: &str, reference: &str, prefix: &str) -> RuntimePrivateWorkspaceMountAdmissionError {
+fn ref_prefix_error(
+    field: &str,
+    reference: &str,
+    prefix: &str,
+) -> RuntimePrivateWorkspaceMountAdmissionError {
     RuntimePrivateWorkspaceMountAdmissionError::new(
         400,
         "private_workspace_mount_ref_prefix_invalid".to_string(),
@@ -496,7 +565,11 @@ fn required_string(value: Option<&Value>, field: &str) -> AdmitResult<String> {
     })
 }
 
-fn require_control(required_controls: &[String], control: &str, custody_class: &str) -> AdmitResult<()> {
+fn require_control(
+    required_controls: &[String],
+    control: &str,
+    custody_class: &str,
+) -> AdmitResult<()> {
     if required_controls.iter().any(|value| value == control) {
         return Ok(());
     }
@@ -507,7 +580,11 @@ fn require_control(required_controls: &[String], control: &str, custody_class: &
     ))
 }
 
-fn require_scope(authority_scope_refs: &[String], scope: &str, custody_class: &str) -> AdmitResult<()> {
+fn require_scope(
+    authority_scope_refs: &[String],
+    scope: &str,
+    custody_class: &str,
+) -> AdmitResult<()> {
     if authority_scope_refs.iter().any(|value| value == scope) {
         return Ok(());
     }
@@ -525,7 +602,10 @@ fn require_prefixed(
     prefix: &str,
     custody_class: &str,
 ) -> AdmitResult<()> {
-    if value.map(|inner| inner.starts_with(prefix)).unwrap_or(false) {
+    if value
+        .map(|inner| inner.starts_with(prefix))
+        .unwrap_or(false)
+    {
         return Ok(());
     }
     Err(authority_error(
@@ -535,8 +615,17 @@ fn require_prefixed(
     ))
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimePrivateWorkspaceMountAdmissionError {
-    RuntimePrivateWorkspaceMountAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimePrivateWorkspaceMountAdmissionError {
+    RuntimePrivateWorkspaceMountAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 /// Mirror JS `optionalString`: String(value).trim(), None when null/absent/blank.
@@ -629,7 +718,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -728,11 +821,20 @@ mod tests {
         let admission = RuntimePrivateWorkspaceMountAdmissionCore
             .admit(&base_request(), "2026-06-18T12:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], PRIVATE_WORKSPACE_MOUNT_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            PRIVATE_WORKSPACE_MOUNT_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(admission["custody_class"], "public_trunk");
-        assert_eq!(admission["protected_plaintext_exposed_to_provider_root"], false);
-        assert_eq!(admission["protects_workspace_plaintext_from_provider_root"], true);
+        assert_eq!(
+            admission["protected_plaintext_exposed_to_provider_root"],
+            false
+        );
+        assert_eq!(
+            admission["protects_workspace_plaintext_from_provider_root"],
+            true
+        );
         assert_eq!(admission["runtimeTruthSource"], "daemon-runtime");
         assert_eq!(admission["admitted_at"], "2026-06-18T12:00:00.000Z");
     }
@@ -746,7 +848,9 @@ mod tests {
         request["provider_root_can_read_plaintext"] = json!(false);
         request["required_controls"] = json!(["ctee_private_head_handle"]);
         request["authority_scope_refs"] = json!(["scope:ctee.private-head.evaluate"]);
-        let admission = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect("admitted");
+        let admission = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert_eq!(admission["decision"], "admitted_declassification");
     }
 
@@ -763,11 +867,20 @@ mod tests {
         request["wallet_lease_ref"] = json!("lease:wallet/privacy/unsafe-mount");
         request["user_disclosure_ref"] = json!("disclosure://privacy/unsafe-mount");
         request["provider_trust_acceptance_ref"] = json!("approval://provider-trust/unsafe-mount");
-        request["declassification_receipt_refs"] = json!(["receipt://privacy/declassification/unsafe-mount"]);
-        let admission = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect("admitted");
+        request["declassification_receipt_refs"] =
+            json!(["receipt://privacy/declassification/unsafe-mount"]);
+        let admission = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert_eq!(admission["decision"], "admitted_unsafe_exception");
-        assert_eq!(admission["protected_plaintext_exposed_to_provider_root"], true);
-        assert_eq!(admission["protects_workspace_plaintext_from_provider_root"], false);
+        assert_eq!(
+            admission["protected_plaintext_exposed_to_provider_root"],
+            true
+        );
+        assert_eq!(
+            admission["protects_workspace_plaintext_from_provider_root"],
+            false
+        );
     }
 
     #[test]
@@ -781,7 +894,9 @@ mod tests {
         request["authority_scope_refs"] = json!(["scope:privacy.unsafe_plaintext_mount"]);
         request["user_disclosure_ref"] = json!("disclosure://privacy/unsafe-mount");
         request["provider_trust_acceptance_ref"] = json!("approval://provider-trust/unsafe-mount");
-        let error = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "private_workspace_mount_required_ref_missing");
         assert_eq!(error.status, 403);
     }
@@ -791,8 +906,13 @@ mod tests {
         let mut request = base_request();
         request["custody_class"] = json!("redacted_projection");
         request["required_controls"] = json!([]);
-        let error = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "private_workspace_mount_required_control_missing");
+        let error = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "private_workspace_mount_required_control_missing"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -800,7 +920,9 @@ mod tests {
     fn bad_workspace_prefix_is_400() {
         let mut request = base_request();
         request["workspace_ref"] = json!("nope://x");
-        let error = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "private_workspace_mount_ref_prefix_invalid");
         assert_eq!(error.status, 400);
     }
@@ -813,7 +935,9 @@ mod tests {
         request["required_controls"] = json!(["capability_exit_only"]);
         request["authority_scope_refs"] = json!(["scope:capability.use"]);
         request["artifact_refs"] = json!([]);
-        let admission = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect("admitted");
+        let admission = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(admission["custody_class"], "capability_exit");
     }
@@ -824,12 +948,21 @@ mod tests {
         request["workspaceMountProfile"] = json!("legacy");
         request["providerRootCanReadPlaintext"] = json!(true);
         request["protectedPlaintextRequested"] = json!(true);
-        let error = RuntimePrivateWorkspaceMountAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimePrivateWorkspaceMountAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "private_workspace_mount_request_aliases_retired");
+        assert_eq!(
+            error.code,
+            "private_workspace_mount_request_aliases_retired"
+        );
         assert_eq!(
             error.details["retired_aliases"],
-            json!(["workspaceMountProfile", "providerRootCanReadPlaintext", "protectedPlaintextRequested"])
+            json!([
+                "workspaceMountProfile",
+                "providerRootCanReadPlaintext",
+                "protectedPlaintextRequested"
+            ])
         );
     }
 }

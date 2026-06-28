@@ -87,5 +87,8 @@ fn main() {
     // Sanity: the minted grant must pass the structural verify (the runtime gate).
     grant.verify().expect("minted grant must verify");
 
-    println!("{}", serde_json::to_string(&grant).expect("serialize grant"));
+    println!(
+        "{}",
+        serde_json::to_string(&grant).expect("serialize grant")
+    );
 }

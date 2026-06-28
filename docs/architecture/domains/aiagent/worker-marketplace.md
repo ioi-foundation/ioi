@@ -241,6 +241,7 @@ A benchmarkable worker composition binds:
 - authority scopes and approval policy;
 - memory and persistence policy;
 - runtime placement and privacy posture;
+- verifier path and acceptance posture;
 - benchmark profile and evaluation rubric;
 - package, artifact, receipt, and contribution policy.
 
@@ -248,9 +249,9 @@ Open-source models may be listed as components or as trivial inference workers,
 but autonomous-labor ranking is based on model-plus-harness-plus-runtime
 compositions. Benchmark results attach to the exact composition that was
 tested. A material change to model route, harness adapter, tool set, runtime
-profile, privacy posture, prompt/policy bundle, or package version should
-produce a new composition version or require rebenchmarking before the old
-score can be used for routing eligibility.
+profile, privacy posture, verifier path, prompt/policy bundle, or package
+version should produce a new composition version or require rebenchmarking
+before the old score can be used for routing eligibility.
 
 Managed open-worker instances may let the user choose among package-supported
 model routes, including local, BYOK, hosted, provider, DePIN, TEE, customer VPC,

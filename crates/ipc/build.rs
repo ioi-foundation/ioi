@@ -14,10 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Model-mount IPC contract (ioi.model_mount.v1) — the Rust true-north
     // hypervisor-daemon model-mount surface.
-    tonic_build::configure().compile(
-        &["proto/model_mount/v1/model_mount.proto"],
-        &["proto"],
-    )?;
+    tonic_build::configure().compile(&["proto/model_mount/v1/model_mount.proto"], &["proto"])?;
 
     Ok(())
 }

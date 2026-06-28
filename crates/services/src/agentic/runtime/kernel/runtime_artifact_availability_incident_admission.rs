@@ -29,8 +29,14 @@ const INCIDENT_KINDS: &[&str] = &[
     "stale_replica",
 ];
 
-const LIFECYCLE_STATES: &[&str] =
-    &["opened", "fallback_attempted", "repaired", "quarantined", "unrecoverable", "closed"];
+const LIFECYCLE_STATES: &[&str] = &[
+    "opened",
+    "fallback_attempted",
+    "repaired",
+    "quarantined",
+    "unrecoverable",
+    "closed",
+];
 
 const RETIRED_ALIASES: &[&str] = &[
     "artifactRef",
@@ -53,7 +59,12 @@ pub struct RuntimeArtifactAvailabilityIncidentAdmissionError {
 
 impl RuntimeArtifactAvailabilityIncidentAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -69,7 +80,11 @@ impl RuntimeArtifactAvailabilityIncidentAdmissionCore {
         let artifact_ref = required_string(request.get("artifact_ref"), "artifact_ref")?;
         let payload_ref = required_string(request.get("payload_ref"), "payload_ref")?;
         let backend_ref = required_string(request.get("backend_ref"), "backend_ref")?;
-        let incident_kind = enum_value(request.get("incident_kind"), "incident_kind", INCIDENT_KINDS)?;
+        let incident_kind = enum_value(
+            request.get("incident_kind"),
+            "incident_kind",
+            INCIDENT_KINDS,
+        )?;
         let lifecycle_state = enum_value(
             Some(&default_value(request.get("lifecycle_state"), "opened")),
             "lifecycle_state",
@@ -87,7 +102,8 @@ impl RuntimeArtifactAvailabilityIncidentAdmissionCore {
         let affected_object_refs = unique_refs(request.get("affected_object_refs"));
         let verification_refs = unique_refs(request.get("verification_refs"));
         let restore_import_refs = unique_refs(request.get("restore_import_refs"));
-        let payload_bytes_mutated = boolean_value(request.get("payload_bytes_mutated")).unwrap_or(false);
+        let payload_bytes_mutated =
+            boolean_value(request.get("payload_bytes_mutated")).unwrap_or(false);
 
         // assertIncidentAdmission.
         require_prefix(&artifact_ref, "artifact://", "artifact_ref")?;
@@ -142,7 +158,11 @@ impl RuntimeArtifactAvailabilityIncidentAdmissionCore {
         }
 
         let incident_id = optional_value(request.get("incident_id")).unwrap_or_else(|| {
-            format!("artifact-availability-incident:{}:{}", safe_id(&artifact_ref), safe_id(&incident_kind))
+            format!(
+                "artifact-availability-incident:{}:{}",
+                safe_id(&artifact_ref),
+                safe_id(&incident_kind)
+            )
         });
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
@@ -152,7 +172,10 @@ impl RuntimeArtifactAvailabilityIncidentAdmissionCore {
         } else {
             "restore_import_refs_bound"
         };
-        let operation_ref = agentgres_operation_refs.first().cloned().unwrap_or_default();
+        let operation_ref = agentgres_operation_refs
+            .first()
+            .cloned()
+            .unwrap_or_default();
         let mut operation_receipt_refs = incident_receipt_refs.clone();
         operation_receipt_refs.extend(repair_receipt_refs.iter().cloned());
         let operation_receipt_refs = dedupe_strings(operation_receipt_refs);
@@ -260,7 +283,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimeArtifactAvailabilityIncidentAdmissionError::new(
                 400,
@@ -283,8 +309,17 @@ fn required_string(value: Option<&Value>, field: &str) -> AdmitResult<String> {
     })
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimeArtifactAvailabilityIncidentAdmissionError {
-    RuntimeArtifactAvailabilityIncidentAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeArtifactAvailabilityIncidentAdmissionError {
+    RuntimeArtifactAvailabilityIncidentAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 fn default_value(value: Option<&Value>, fallback: &str) -> Value {
@@ -392,7 +427,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -458,13 +497,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -509,13 +549,19 @@ mod tests {
         let admission = RuntimeArtifactAvailabilityIncidentAdmissionCore
             .admit(&base_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            ARTIFACT_AVAILABILITY_INCIDENT_SCHEMA_VERSION
+        );
         assert_eq!(
             admission["incident_id"],
             "artifact-availability-incident:artifact_a_1:missing"
         );
         let op = &admission["agentgres_operation"];
-        assert_eq!(op["schema_version"], ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION);
+        assert_eq!(
+            op["schema_version"],
+            ARTIFACT_AVAILABILITY_AGENTGRES_OPERATION_SCHEMA_VERSION
+        );
         assert_eq!(op["operation_ref"], "agentgres://operation/a");
         assert_eq!(op["operation_kind"], "artifact_availability_incident");
         assert_eq!(op["restore_validity"], "no_restore_import");
@@ -527,7 +573,9 @@ mod tests {
     fn invalid_hash_requires_evidence() {
         let mut request = base_request();
         request["incident_kind"] = json!("invalid_hash");
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "artifact_availability_hash_evidence_required");
         assert_eq!(error.status, 403);
     }
@@ -539,8 +587,13 @@ mod tests {
         request["verification_refs"] = json!(["verify://a"]);
         request["repair_receipt_refs"] = json!(["receipt://repair/a"]);
         // missing restore_import_refs
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "artifact_availability_restore_import_ref_required");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "artifact_availability_restore_import_ref_required"
+        );
     }
 
     #[test]
@@ -550,8 +603,13 @@ mod tests {
         request["verification_refs"] = json!(["verify://a"]);
         request["repair_receipt_refs"] = json!(["receipt://repair/a"]);
         request["restore_import_refs"] = json!(["import://a"]);
-        let admission = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect("admitted");
-        assert_eq!(admission["agentgres_operation"]["restore_validity"], "restore_import_refs_bound");
+        let admission = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect("admitted");
+        assert_eq!(
+            admission["agentgres_operation"]["restore_validity"],
+            "restore_import_refs_bound"
+        );
         assert_eq!(
             admission["agentgres_operation"]["receipt_refs"],
             json!(["receipt://incident/a", "receipt://repair/a"])
@@ -562,8 +620,13 @@ mod tests {
     fn silent_payload_mutation_blocked() {
         let mut request = base_request();
         request["payload_bytes_mutated"] = json!(true);
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "artifact_availability_silent_payload_mutation_blocked");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "artifact_availability_silent_payload_mutation_blocked"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -571,7 +634,9 @@ mod tests {
     fn bad_artifact_prefix_is_400() {
         let mut request = base_request();
         request["artifact_ref"] = json!("nope://x");
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "artifact_availability_artifact_ref_invalid");
     }
@@ -580,16 +645,23 @@ mod tests {
     fn requires_affected_object_refs() {
         let mut request = base_request();
         request["affected_object_refs"] = json!([]);
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "artifact_availability_affected_object_refs_required");
+        assert_eq!(
+            error.code,
+            "artifact_availability_affected_object_refs_required"
+        );
     }
 
     #[test]
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["artifactRef"] = json!("legacy");
-        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeArtifactAvailabilityIncidentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "artifact_availability_request_aliases_retired");
     }

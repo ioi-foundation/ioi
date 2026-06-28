@@ -99,6 +99,26 @@ for readiness, scopes, risk, preview, policy, and receipt obligations; it should
 use wallet.network for authority, leases, approvals, and secret brokerage; and
 it should use daemon admission plus Agentgres receipts for execution truth.
 
+Harness, model, and worker choice is a routing decision over the same substrate,
+not a separate connector plane.
+
+```text
+ioi.ai Auto / MoW conductor
+  or user-selected harness, model route, worker, or managed agent
+  -> Hypervisor brokered tool/MCP capability manifest
+  -> daemon/Core admission
+  -> authority provider, local/domain governance, and wallet.network gates
+  -> Agentgres receipts, traces, artifacts, and replay refs
+```
+
+ioi.ai may expose a simple default path that lets the platform choose an
+appropriate worker, model route, harness, verifier path, and connector strategy.
+It may also expose an advanced path where the user selects a specific
+agent/harness, model route, marketplace worker, or managed agent. Both paths must
+consume Hypervisor's brokered connector/tool/MCP registry and must not give the
+selected harness raw provider credentials, ambient connector access, or a private
+ioi.ai execution channel.
+
 ## Hypervisor Dogfood Boundary
 
 ioi.ai should be implemented as a first-party coordinator over Hypervisor's

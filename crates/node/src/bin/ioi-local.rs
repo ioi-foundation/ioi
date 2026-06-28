@@ -626,15 +626,14 @@ async fn async_main() -> Result<()> {
     // lags and drops a managed-session/turn-execution event. Fed by the service's
     // runtime_thread_event_sender (set below); the producer falls back to event_tx only
     // when this is unset.
-    let (runtime_thread_event_tx, _runtime_thread_event_rx) =
-        tokio::sync::broadcast::channel(4096);
+    let (runtime_thread_event_tx, _runtime_thread_event_rx) = tokio::sync::broadcast::channel(4096);
     // Runtime -> daemon event-log bridge: drain RuntimeThreadEvent carriers (e.g.
     // managed_session.projected) and persist them onto the hypervisor daemon's event log
     // so its HTTP projections see runtime output. Targets the daemon's state_dir (shared
     // IOI_HYPERVISOR_DATA_DIR), falling back to this runtime's data_dir when co-located.
     {
-        let bridge_state_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
-            .unwrap_or_else(|_| abs_data_dir_str.clone());
+        let bridge_state_dir =
+            std::env::var("IOI_HYPERVISOR_DATA_DIR").unwrap_or_else(|_| abs_data_dir_str.clone());
         tokio::spawn(
             ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge(
                 bridge_state_dir,

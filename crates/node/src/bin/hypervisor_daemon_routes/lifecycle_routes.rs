@@ -25,6 +25,21 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use ioi_services::agentic::runtime::kernel::agentgres_admission::{
+    RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRequest,
+    RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+};
+use ioi_services::agentic::runtime::kernel::approval::{
+    verify_wallet_approval_grant_binding, ApprovalDecisionAuthorityRequest,
+    ApprovalDecisionStateUpdateRequest, ApprovalRequestAuthorityRequest,
+    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
+    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateRequest, CompactionPolicyRequest, ContextBudgetPolicyRequest,
     ContextCompactionPlanRequest, ContextCompactionStateUpdateRequest,
@@ -42,61 +57,30 @@ use ioi_services::agentic::runtime::kernel::policy::{
     MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION, RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION, RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::approval::{
-    verify_wallet_approval_grant_binding, ApprovalDecisionAuthorityRequest,
-    ApprovalDecisionStateUpdateRequest, ApprovalRequestAuthorityRequest,
-    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
-    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
-    APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
-    APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-};
+use ioi_services::agentic::runtime::kernel::repository_workflow::RepositoryWorkflowProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_control::{
     RuntimeConversationArtifactControlRecord, RuntimeConversationArtifactControlRequest,
     RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_conversation_artifact_projection::RuntimeConversationArtifactProjectionRequest;
-use ioi_services::agentic::runtime::kernel::repository_workflow::RepositoryWorkflowProjectionRequest;
-use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
-use ioi_services::agentic::runtime::kernel::skill_hook_registry::SkillHookRegistryProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_diagnostics_repair_control::{
-    RuntimeDiagnosticsRepairControlRequest, RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
-};
-use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRequest,
-    RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+    RuntimeDiagnosticsRepairControlRequest,
+    RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::runtime_doctor_report::RuntimeDoctorReportProjectionRequest;
-use ioi_services::agentic::runtime::kernel::studio_intent_frame::StudioIntentFrameProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_lifecycle::RuntimeLifecycleProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_managed_session_control::{
     RuntimeManagedSessionControlRequest, RuntimeManagedSessionProjectionRequest,
     RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
     RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
-    RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
-    RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
-    RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
-};
-use ioi_services::agentic::runtime::kernel::workspace_restore::{
-    capture_workspace_snapshot_files_protocol_response, WorkspaceRestoreApplyPolicyRequest,
-    WorkspaceRestoreOperationsRequest, WorkspaceSnapshotCaptureProtocolRequest,
-    WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
-    WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
-    WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
-    WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
-    WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
-};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_services::agentic::runtime::kernel::runtime_memory_control::{
     RuntimeMemoryControlApiRequest, RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
 };
@@ -111,11 +95,32 @@ use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
     RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
     RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
+use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
+    RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
+    RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+    RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+};
+use ioi_services::agentic::runtime::kernel::skill_hook_registry::SkillHookRegistryProjectionRequest;
+use ioi_services::agentic::runtime::kernel::studio_intent_frame::StudioIntentFrameProjectionRequest;
+use ioi_services::agentic::runtime::kernel::workspace_restore::{
+    capture_workspace_snapshot_files_protocol_response, WorkspaceRestoreApplyPolicyRequest,
+    WorkspaceRestoreOperationsRequest, WorkspaceSnapshotCaptureProtocolRequest,
+    WorkspaceSnapshotListProtocolRequest, WorkspaceSnapshotListRequest,
+    WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+    WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use jsonwebtoken::{
+    encode as jwt_encode, Algorithm as JwtAlgorithm, EncodingKey, Header as JwtHeader,
+};
 
 use super::{
-    build_route_decision, debug_string, iso_now, persist_record, read_record_dir, route_selection,
-    sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
+    build_route_decision, debug_string, iso_now, persist_record, read_record_dir, remove_record,
+    route_selection, sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
 };
 
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
@@ -196,10 +201,15 @@ fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
     let route_id = coalesce_str(&model, &["routeId", "route_id", "route"])
         .unwrap_or("route.local-first")
         .to_string();
-    let requested_model = coalesce_str(&model, &["id", "model"]).unwrap_or("auto").to_string();
-    let capability = coalesce_str(&model, &["capability"]).unwrap_or("chat").to_string();
+    let requested_model = coalesce_str(&model, &["id", "model"])
+        .unwrap_or("auto")
+        .to_string();
+    let capability = coalesce_str(&model, &["capability"])
+        .unwrap_or("chat")
+        .to_string();
     let mut model_policy = serde_json::Map::new();
-    if let Some(effort) = coalesce_str(&model, &["reasoningEffort", "reasoning_effort", "thinking"]) {
+    if let Some(effort) = coalesce_str(&model, &["reasoningEffort", "reasoning_effort", "thinking"])
+    {
         model_policy.insert("reasoning_effort".to_string(), json!(effort));
     }
     if let Some(privacy) = coalesce_str(&model, &["privacy"]) {
@@ -231,14 +241,24 @@ fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
         .to_string();
     let endpoint_id = decision.get("endpoint_id").cloned().unwrap_or(Value::Null);
     let provider_id = decision.get("provider_id").cloned().unwrap_or(Value::Null);
-    let reasoning_effort = decision.get("reasoning_effort").cloned().unwrap_or(Value::Null);
-    let workflow_graph_id = decision.get("workflow_graph_id").cloned().unwrap_or(Value::Null);
+    let reasoning_effort = decision
+        .get("reasoning_effort")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let workflow_graph_id = decision
+        .get("workflow_graph_id")
+        .cloned()
+        .unwrap_or(Value::Null);
     let workflow_node_id = decision
         .get("workflow_node_id")
         .and_then(|v| v.as_str())
         .unwrap_or("runtime.model-router")
         .to_string();
-    let decision_id = decision.get("decision_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let decision_id = decision
+        .get("decision_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let receipt_id = format!("receipt_{decision_id}_model_route");
 
     // --- identity ---
@@ -256,7 +276,10 @@ fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
     } else if options.get("selfHosted").is_some() {
         "selfHosted"
     } else {
-        options.get("runtime").and_then(|v| v.as_str()).unwrap_or("local")
+        options
+            .get("runtime")
+            .and_then(|v| v.as_str())
+            .unwrap_or("local")
     }
     .to_string();
 
@@ -372,6 +395,65 @@ pub(crate) async fn handle_thread_create(
     Ok(Json(record))
 }
 
+/// POST /v1/threads/:id/cancel — cancel a thread/agent execution. Real, no fake: marks the persisted
+/// agent record cancelled (so the thread projection + list reflect it). Backs AgentService/Stop.
+pub(crate) async fn handle_thread_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let Some(mut agent) = read_agent_for_thread(&st, &thread_id) else {
+        return Err(AppError(StatusCode::NOT_FOUND, "thread not found".into()));
+    };
+    let agent_id = agent
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    agent["status"] = json!("cancelled");
+    agent["cancelled_at"] = json!(iso_now());
+    persist_record(&st.data_dir, "agents", &agent_id, &agent)
+        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(
+        json!({ "ok": true, "thread_id": thread_id, "status": "cancelled", "at": iso_now() }),
+    ))
+}
+
+/// DELETE /v1/threads/:id — delete a thread/agent execution. Real, no fake: removes the persisted
+/// agent record (so /v1/threads no longer lists it) + best-effort drops its event log. Backs
+/// AgentService/DeleteAgentExecution.
+pub(crate) async fn handle_thread_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    let agent_id = agent_id_for_thread(&thread_id);
+    let safe = |s: &str| {
+        s.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+            "_",
+        )
+    };
+    let agent_path = std::path::Path::new(&st.data_dir)
+        .join("agents")
+        .join(format!("{}.json", safe(&agent_id)));
+    let existed = agent_path.exists();
+    let _ = std::fs::remove_file(&agent_path);
+    let suffix = thread_id
+        .strip_prefix("thread_")
+        .unwrap_or(&thread_id)
+        .to_string();
+    let ev_dir = std::path::Path::new(&st.data_dir).join("events");
+    if let Ok(entries) = std::fs::read_dir(&ev_dir) {
+        for e in entries.flatten() {
+            if e.file_name().to_string_lossy().contains(&suffix) {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    Ok(Json(
+        json!({ "ok": true, "deleted": thread_id, "existed": existed, "at": iso_now() }),
+    ))
+}
+
 /// POST /v1/agents — create an agent (no thread) via plan_agent_create_state_update.
 pub(crate) async fn handle_agent_create(
     State(st): State<Arc<DaemonState>>,
@@ -414,7 +496,10 @@ fn operator_turn_control(
     let run_id = format!("run_{}", turn_id.strip_prefix("turn_").unwrap_or(turn_id));
     let now = iso_now();
     let event_id = format!("operator_{kind}_{thread_id}_{turn_id}_{}", short_hash(&now));
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("hypervisor_daemon");
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("hypervisor_daemon");
     let event_stream_id = format!("{thread_id}:events");
 
     let record_value = if kind == "interrupt" {
@@ -543,8 +628,15 @@ fn project_turn_record(st: &DaemonState, thread_id: &str, run_id: &str) -> Resul
 /// turn.completed); run_thread_event reads event.data + requires receipt_refs.
 /// Shared by turn-create and subagent runs.
 fn build_run_candidate(agent: &Value, run_id: &str, mode: &str, prompt: &str, now: &str) -> Value {
-    let agent_id = agent.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-    let decision = agent.get("model_route_decision").cloned().unwrap_or(Value::Null);
+    let agent_id = agent
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let decision = agent
+        .get("model_route_decision")
+        .cloned()
+        .unwrap_or(Value::Null);
     let decision_id = decision
         .get("decision_id")
         .and_then(|v| v.as_str())
@@ -731,7 +823,11 @@ pub(crate) async fn handle_turn_create(
     let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send");
     let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
     let run = create_agent_run(&st, &agent, &thread_id, mode, prompt)?;
-    let run_id = run.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let run_id = run
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
 
     let record = project_turn_record(&st, &thread_id, &run_id)?;
     Ok(Json(record))
@@ -750,7 +846,10 @@ pub(crate) async fn handle_agent_run_create(
         .into_iter()
         .find(|record| record.get("id").and_then(|v| v.as_str()) == Some(agent_id.as_str()))
     else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("agent not found: {agent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("agent not found: {agent_id}"),
+        ));
     };
     let thread_id = thread_id_for_agent(&agent_id);
     let mode = body.get("mode").and_then(|v| v.as_str()).unwrap_or("send");
@@ -954,7 +1053,11 @@ fn event_seq(event: &Value) -> u64 {
 
 /// Resolve the cursor seq from `?since_seq=` or the `Last-Event-ID` header. The header
 /// may be a bare seq, a `<stream>:<seq>` cursor, or an `<stream>:seq:<padded>` event id.
-fn cursor_seq(params: &HashMap<String, String>, headers: &HeaderMap, events: &[Value]) -> Option<u64> {
+fn cursor_seq(
+    params: &HashMap<String, String>,
+    headers: &HeaderMap,
+    events: &[Value],
+) -> Option<u64> {
     if let Some(raw) = params.get("since_seq") {
         return raw.trim().parse::<u64>().ok();
     }
@@ -1000,7 +1103,10 @@ fn sse_events_response(
         }
     }
     let mut body = String::new();
-    for event in events.iter().filter(|event| event_seq(event) > since.unwrap_or(0)) {
+    for event in events
+        .iter()
+        .filter(|event| event_seq(event) > since.unwrap_or(0))
+    {
         let id = event
             .get("event_id")
             .and_then(|v| v.as_str())
@@ -1041,7 +1147,10 @@ pub(crate) async fn handle_run_events(
         .into_iter()
         .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
     else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("run not found: {run_id}"),
+        ));
     };
     let agent_id = run
         .get("agentId")
@@ -1070,7 +1179,9 @@ pub(crate) async fn handle_tasks_list(
             None => true,
         })
         .filter(|task| match params.get("agent_id") {
-            Some(agent_id) => task.get("agentId").and_then(|v| v.as_str()) == Some(agent_id.as_str()),
+            Some(agent_id) => {
+                task.get("agentId").and_then(|v| v.as_str()) == Some(agent_id.as_str())
+            }
             None => true,
         })
         .collect();
@@ -1221,7 +1332,9 @@ pub(crate) async fn handle_run_artifact(
 /// with hashed/redacted values, runtime nodes, workflow activation) from the daemon-derived
 /// inputs; nothing is read from the request body. Returns the report (the JS daemon's
 /// /v1/doctor `.report`), so the canonical doctor contract holds against the Rust daemon.
-pub(crate) async fn handle_doctor(State(st): State<Arc<DaemonState>>) -> Result<Json<Value>, AppError> {
+pub(crate) async fn handle_doctor(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
     let request: RuntimeDoctorReportProjectionRequest = serde_json::from_value(json!({
         "operation": "runtime_doctor_report_projection",
         "operation_kind": "runtime.doctor_report.projection",
@@ -1317,11 +1430,17 @@ fn apply_mcp_control(
     payload: Value,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(st, thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let agent_id = agent_id_for_thread(thread_id);
     let now = iso_now();
-    let event_id = format!("mcp_control_{thread_id}_{control_kind}_{}", short_hash(&now));
+    let event_id = format!(
+        "mcp_control_{thread_id}_{control_kind}_{}",
+        short_hash(&now)
+    );
     // The MCP planner reads the agent from state_dir via agent_id; the inline `agent`
     // transport is retired (passing an object errors AgentCandidateTransportRetired).
     let request: McpControlAgentStateUpdateRequest = serde_json::from_value(json!({
@@ -1393,9 +1512,13 @@ fn handle_computer_use_projection_tool(
     body: &Value,
 ) -> Result<Json<Value>, AppError> {
     let input = body.get("input").cloned().unwrap_or_else(|| json!({}));
-    let workflow_graph_id = coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
-    let workflow_node_id = coalesce_str(body, &["workflow_node_id", "workflowNodeId"]).map(str::to_string);
-    let source = coalesce_str(body, &["source"]).unwrap_or("react_flow").to_string();
+    let workflow_graph_id =
+        coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
+    let workflow_node_id =
+        coalesce_str(body, &["workflow_node_id", "workflowNodeId"]).map(str::to_string);
+    let source = coalesce_str(body, &["source"])
+        .unwrap_or("react_flow")
+        .to_string();
 
     // Build the projection request from the tool input (deterministic process rows by default).
     let mut request_json = json!({
@@ -1403,7 +1526,15 @@ fn handle_computer_use_projection_tool(
         "source": source,
     });
     if let (Some(map), Some(input_map)) = (request_json.as_object_mut(), input.as_object()) {
-        for key in ["platform", "discovered_at", "process_rows", "include_cdp_probe", "include_tab_metadata", "reveal_tab_titles", "probe_timeout_ms"] {
+        for key in [
+            "platform",
+            "discovered_at",
+            "process_rows",
+            "include_cdp_probe",
+            "include_tab_metadata",
+            "reveal_tab_titles",
+            "probe_timeout_ms",
+        ] {
             if let Some(value) = input_map.get(key) {
                 map.insert(key.to_string(), value.clone());
             }
@@ -1421,12 +1552,18 @@ fn handle_computer_use_projection_tool(
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
     let (report, payload_key, result_object) = match projection_kind {
         "browser_discovery" => (
-            record.browser_discovery.clone().unwrap_or_else(|| json!({})),
+            record
+                .browser_discovery
+                .clone()
+                .unwrap_or_else(|| json!({})),
             "browser_discovery_report",
             "ioi.runtime_computer_use_browser_discovery_result",
         ),
         _ => (
-            record.provider_registry.clone().unwrap_or_else(|| json!({})),
+            record
+                .provider_registry
+                .clone()
+                .unwrap_or_else(|| json!({})),
             "provider_registry",
             "ioi.runtime_computer_use_provider_registry_result",
         ),
@@ -1481,10 +1618,7 @@ fn normalize_visual_target(target: &Value) -> Value {
     if let Some(target_ref) = coalesce_str(target, &["target_ref", "targetRef"]) {
         normalized.insert("target_ref".to_string(), json!(target_ref));
     }
-    for (canonical, keys) in [
-        ("label", &["label"][..]),
-        ("role", &["role"][..]),
-    ] {
+    for (canonical, keys) in [("label", &["label"][..]), ("role", &["role"][..])] {
         if let Some(value) = coalesce_str(target, keys) {
             normalized.insert(canonical.to_string(), json!(value));
         }
@@ -1535,7 +1669,9 @@ fn handle_computer_use_loop_tool(
 ) -> Result<Json<Value>, AppError> {
     let input = body.get("input").cloned().unwrap_or_else(|| json!({}));
     let workspace_root = memory_agent_cwd(agent).unwrap_or_default();
-    let source = coalesce_str(body, &["source"]).unwrap_or("react_flow").to_string();
+    let source = coalesce_str(body, &["source"])
+        .unwrap_or("react_flow")
+        .to_string();
     let workflow_graph_id =
         coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]).map(str::to_string);
     let workflow_node_id =
@@ -1578,12 +1714,19 @@ fn handle_computer_use_loop_tool(
         coalesce_str(&input, &["screenshot_ref", "screenshotRef"]).map(str::to_string);
     let som_ref = coalesce_str(&input, &["som_ref", "somRef"]).map(str::to_string);
     let mut ax_ref = coalesce_str(&input, &["ax_ref", "axRef"]).map(str::to_string);
-    let app_name =
-        coalesce_str(&input, &["app_name", "appName", "capture_app_name", "captureAppName"])
-            .map(str::to_string);
+    let app_name = coalesce_str(
+        &input,
+        &["app_name", "appName", "capture_app_name", "captureAppName"],
+    )
+    .map(str::to_string);
     let window_title = coalesce_str(
         &input,
-        &["window_title", "windowTitle", "capture_window_title", "captureWindowTitle"],
+        &[
+            "window_title",
+            "windowTitle",
+            "capture_window_title",
+            "captureWindowTitle",
+        ],
     )
     .map(str::to_string);
     let mut coordinate_space_id =
@@ -1616,7 +1759,10 @@ fn handle_computer_use_loop_tool(
     )
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, format!("{}: {}", error.code(), error.message())))?;
 
-    let lease_request = lease.get("lease_request").cloned().unwrap_or_else(|| json!({}));
+    let lease_request = lease
+        .get("lease_request")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let authority_scope = lease_request
         .get("authority_scope")
         .and_then(Value::as_str)
@@ -1627,7 +1773,10 @@ fn handle_computer_use_loop_tool(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let provider_id = lease_request.get("provider_id").cloned().unwrap_or(Value::Null);
+    let provider_id = lease_request
+        .get("provider_id")
+        .cloned()
+        .unwrap_or(Value::Null);
     let provider_kind = lease_request
         .get("provider_kind")
         .cloned()
@@ -1637,8 +1786,14 @@ fn handle_computer_use_loop_tool(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let lease_receipt_refs = lease.get("receipt_refs").cloned().unwrap_or_else(|| json!([]));
-    let lease_evidence_refs = lease.get("evidence_refs").cloned().unwrap_or_else(|| json!([]));
+    let lease_receipt_refs = lease
+        .get("receipt_refs")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let lease_evidence_refs = lease
+        .get("evidence_refs")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
 
     let now = iso_now();
     let run_hash = short_hash(&format!("{thread_id}:{tool_name}:{now}"));
@@ -1687,7 +1842,10 @@ fn handle_computer_use_loop_tool(
         None
     };
 
-    let read_only = matches!(action_kind.as_str(), "inspect" | "hover" | "wait" | "scroll");
+    let read_only = matches!(
+        action_kind.as_str(),
+        "inspect" | "hover" | "wait" | "scroll"
+    );
     let (policy_outcome, fail_closed, gate_status, receipt_status) = if read_only {
         (
             "approved_for_read_only_probe",
@@ -1704,7 +1862,10 @@ fn handle_computer_use_loop_tool(
         )
     };
     let (contract_ingest, adapter_id) = if lane == "visual_gui" {
-        ("local_visual_observation", "ioi.visual_gui.local_observation")
+        (
+            "local_visual_observation",
+            "ioi.visual_gui.local_observation",
+        )
     } else {
         ("native_browser_cdp", "ioi.native_browser.cdp_probe")
     };
@@ -1718,7 +1879,10 @@ fn handle_computer_use_loop_tool(
     let target_ref = first_visual_target_ref.clone().unwrap_or_else(|| {
         format!(
             "target_computer_use_{lane}_{}",
-            short_hash(&format!("{request_ref}:{}", url.as_deref().unwrap_or(&prompt)))
+            short_hash(&format!(
+                "{request_ref}:{}",
+                url.as_deref().unwrap_or(&prompt)
+            ))
         )
     });
     let policy_decision_ref = format!("policy_decision_computer_use_{run_hash}");
@@ -1757,8 +1921,9 @@ fn handle_computer_use_loop_tool(
         "summary": "Read-only inspection of the requested surface; no external side effects.",
         "dom_digest_ref": format!("observation_digest_{run_hash}"),
     });
-    let coordinate_space =
-        coordinate_space_id.clone().unwrap_or_else(|| format!("{lane}-{run_hash}"));
+    let coordinate_space = coordinate_space_id
+        .clone()
+        .unwrap_or_else(|| format!("{lane}-{run_hash}"));
     let target_index = if let Some(targets) = visual_targets.clone() {
         let normalized: Vec<Value> = targets.iter().map(normalize_visual_target).collect();
         json!({ "coordinate_space_id": coordinate_space, "targets": normalized })
@@ -1894,9 +2059,15 @@ fn handle_computer_use_loop_tool(
             "action_executed",
             json!({ "action_receipt": action_receipt.clone() }),
         ),
-        ("verification", json!({ "verification": verification.clone() })),
+        (
+            "verification",
+            json!({ "verification": verification.clone() }),
+        ),
         ("commit_gate", json!({ "commit_gate": commit_gate.clone() })),
-        ("trajectory_written", json!({ "trajectory": trajectory.clone() })),
+        (
+            "trajectory_written",
+            json!({ "trajectory": trajectory.clone() }),
+        ),
         ("cleanup", json!({ "cleanup": cleanup.clone() })),
     ];
 
@@ -1978,7 +2149,10 @@ pub(crate) async fn handle_coding_tool_invoke(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let agent = read_agent_for_thread(&st, &thread_id).ok_or_else(|| {
-        AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}"))
+        AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        )
     })?;
 
     // Computer-use projection tools dispatch through the kernel computer-use projection
@@ -1987,16 +2161,46 @@ pub(crate) async fn handle_coding_tool_invoke(
     if let Some(projection_kind) = tool_name.strip_prefix("ioi.computer_use.") {
         match projection_kind {
             "browser_discovery" | "provider_registry" => {
-                return handle_computer_use_projection_tool(&st, &thread_id, &tool_name, projection_kind, &body);
+                return handle_computer_use_projection_tool(
+                    &st,
+                    &thread_id,
+                    &tool_name,
+                    projection_kind,
+                    &body,
+                );
             }
             "native_browser" => {
-                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "native_browser", false, &body);
+                return handle_computer_use_loop_tool(
+                    &st,
+                    &agent,
+                    &thread_id,
+                    &tool_name,
+                    "native_browser",
+                    false,
+                    &body,
+                );
             }
             "visual_gui" => {
-                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "visual_gui", false, &body);
+                return handle_computer_use_loop_tool(
+                    &st,
+                    &agent,
+                    &thread_id,
+                    &tool_name,
+                    "visual_gui",
+                    false,
+                    &body,
+                );
             }
             "visual_gui.observe" => {
-                return handle_computer_use_loop_tool(&st, &agent, &thread_id, &tool_name, "visual_gui", true, &body);
+                return handle_computer_use_loop_tool(
+                    &st,
+                    &agent,
+                    &thread_id,
+                    &tool_name,
+                    "visual_gui",
+                    true,
+                    &body,
+                );
             }
             _ => {}
         }
@@ -2066,7 +2270,11 @@ fn plan_and_admit_workflow_edit_event(
 
 /// Read a persisted workflow-edit proposal-approval record (decision-gating state) by its
 /// proposal id (`state_dir/workflow_edit_proposals/<proposal_id>.json`).
-fn read_workflow_edit_proposal(st: &DaemonState, thread_id: &str, proposal_id: &str) -> Option<Value> {
+fn read_workflow_edit_proposal(
+    st: &DaemonState,
+    thread_id: &str,
+    proposal_id: &str,
+) -> Option<Value> {
     read_record_dir(&st.data_dir, "workflow_edit_proposals")
         .into_iter()
         .find(|record| {
@@ -2130,7 +2338,12 @@ fn workflow_edit_proposal_decision(
         .unwrap_or_default()
         .to_string();
     record["decision"] = json!(decision);
-    let _ = persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &record);
+    let _ = persist_record(
+        &st.data_dir,
+        "workflow_edit_proposals",
+        &proposal_id,
+        &record,
+    );
     Some(Json(json!({
         "decision": decision,
         "approval_id": approval_id,
@@ -2148,8 +2361,12 @@ pub(crate) async fn handle_workflow_edit_propose(
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let agent = read_agent_for_thread(&st, &thread_id)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")))?;
+    let agent = read_agent_for_thread(&st, &thread_id).ok_or_else(|| {
+        AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        )
+    })?;
     let workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
     let proposal_id = coalesce_str(&body, &["proposal_id", "proposalId"])
         .unwrap_or("proposal")
@@ -2170,9 +2387,20 @@ pub(crate) async fn handle_workflow_edit_propose(
         "workflow_graph_id": coalesce_str(&body, &["workflow_graph_id", "workflowGraphId"]),
         "workflow_node_id": coalesce_str(&body, &["workflow_node_id", "workflowNodeId"]),
     });
-    persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &proposal_record)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    let event = plan_and_admit_workflow_edit_event(&st, &thread_id, "workflow.edit_proposed", Some(&proposal_id), &body)?;
+    persist_record(
+        &st.data_dir,
+        "workflow_edit_proposals",
+        &proposal_id,
+        &proposal_record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let event = plan_and_admit_workflow_edit_event(
+        &st,
+        &thread_id,
+        "workflow.edit_proposed",
+        Some(&proposal_id),
+        &body,
+    )?;
     Ok(Json(json!({
         "status": "waiting_for_approval",
         "approval_required": true,
@@ -2194,7 +2422,10 @@ pub(crate) async fn handle_workflow_edit_apply(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let Some(mut record) = read_workflow_edit_proposal(&st, &thread_id, &proposal_id) else {
         return Ok(Json(json!({
@@ -2205,7 +2436,10 @@ pub(crate) async fn handle_workflow_edit_apply(
             "proposal_id": proposal_id,
         })));
     };
-    let decision = record.get("decision").and_then(Value::as_str).unwrap_or("pending");
+    let decision = record
+        .get("decision")
+        .and_then(Value::as_str)
+        .unwrap_or("pending");
     let approval_id = record.get("approval_id").cloned().unwrap_or(Value::Null);
     match decision {
         "approve" => {
@@ -2213,7 +2447,13 @@ pub(crate) async fn handle_workflow_edit_apply(
                 .get("applied_event_id")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            let event = plan_and_admit_workflow_edit_event(&st, &thread_id, "workflow.edit.apply", Some(&proposal_id), &body)?;
+            let event = plan_and_admit_workflow_edit_event(
+                &st,
+                &thread_id,
+                "workflow.edit.apply",
+                Some(&proposal_id),
+                &body,
+            )?;
             let event_id = event
                 .get("event_id")
                 .and_then(Value::as_str)
@@ -2232,8 +2472,13 @@ pub(crate) async fn handle_workflow_edit_apply(
             }
             mutate_workflow_edit_file(&record)?;
             record["applied_event_id"] = json!(event_id);
-            persist_record(&st.data_dir, "workflow_edit_proposals", &proposal_id, &record)
-                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+            persist_record(
+                &st.data_dir,
+                "workflow_edit_proposals",
+                &proposal_id,
+                &record,
+            )
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
             Ok(Json(json!({
                 "status": "completed",
                 "mutation_executed": true,
@@ -2266,7 +2511,12 @@ pub(crate) async fn handle_mcp_remove(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(&st, &thread_id, "mcp_remove", json!({ "server_id": server_id }))
+    apply_mcp_control(
+        &st,
+        &thread_id,
+        "mcp_remove",
+        json!({ "server_id": server_id }),
+    )
 }
 
 /// POST /v1/threads/:id/mcp/servers/:server_id/enable — enable an MCP server.
@@ -2346,7 +2596,10 @@ pub(crate) async fn handle_compaction_policy(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let obj = body.as_object().cloned().unwrap_or_default();
     let policy_obj = obj
@@ -2419,7 +2672,13 @@ pub(crate) async fn handle_compaction_policy(
     ]);
     let admitted = admit_and_persist_event(
         &st,
-        build_context_policy_event(&st, &thread_id, "compaction_policy", &policy, &evidence_refs),
+        build_context_policy_event(
+            &st,
+            &thread_id,
+            "compaction_policy",
+            &policy,
+            &evidence_refs,
+        ),
     )?;
 
     // contextPolicyResultEnvelope + the execute_compaction cascade (deferred -> null).
@@ -2438,7 +2697,10 @@ pub(crate) async fn handle_context_budget(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let obj = body.as_object().cloned().unwrap_or_default();
     let thresholds_src = obj
@@ -2454,7 +2716,12 @@ pub(crate) async fn handle_context_budget(
             .map(Value::from)
             .unwrap_or(Value::Null)
     };
-    let mode = match obj.get("mode").and_then(|v| v.as_str()).map(str::to_ascii_lowercase).as_deref() {
+    let mode = match obj
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
         Some("warn") => "warn",
         Some("block") => "block",
         _ => "simulate",
@@ -2495,7 +2762,11 @@ pub(crate) async fn handle_context_budget(
         &st,
         build_context_policy_event(&st, &thread_id, "context_budget", &policy, &evidence_refs),
     )?;
-    Ok(Json(context_policy_envelope(policy, admitted, evidence_refs)))
+    Ok(Json(context_policy_envelope(
+        policy,
+        admitted,
+        evidence_refs,
+    )))
 }
 
 /// POST /v1/threads/:id/compact — execute a context compaction. Plans the
@@ -2511,7 +2782,10 @@ pub(crate) async fn handle_compact(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let agent_id = agent
         .get("id")
@@ -2520,7 +2794,10 @@ pub(crate) async fn handle_compact(
         .map(str::to_string)
         .unwrap_or_else(|| agent_id_for_thread(&thread_id));
 
-    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let requested_run_id = body
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let run = requested_run_id.as_ref().and_then(|rid| {
         read_record_dir(&st.data_dir, "runs")
             .into_iter()
@@ -2532,13 +2809,17 @@ pub(crate) async fn handle_compact(
             format!("run not found: {}", requested_run_id.unwrap_or_default()),
         ));
     }
-    let target_kind = if body.get("target_kind").and_then(|v| v.as_str()) == Some("agent") || run.is_none() {
-        "agent"
-    } else {
-        "run"
-    };
+    let target_kind =
+        if body.get("target_kind").and_then(|v| v.as_str()) == Some("agent") || run.is_none() {
+            "agent"
+        } else {
+            "run"
+        };
     let run_id = if target_kind == "run" {
-        run.as_ref().and_then(|r| r.get("id")).and_then(|v| v.as_str()).map(str::to_string)
+        run.as_ref()
+            .and_then(|r| r.get("id"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
     } else {
         None
     };
@@ -2554,8 +2835,18 @@ pub(crate) async fn handle_compact(
         .get("scope")
         .and_then(|v| v.as_str())
         .map(str::to_string)
-        .unwrap_or_else(|| if target_kind == "run" { "run".into() } else { "thread".into() });
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
+        .unwrap_or_else(|| {
+            if target_kind == "run" {
+                "run".into()
+            } else {
+                "thread".into()
+            }
+        });
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sdk_client")
+        .to_string();
     let workspace_root = body
         .get("workspace_root")
         .or_else(|| agent.get("cwd"))
@@ -2625,7 +2916,11 @@ pub(crate) async fn handle_compact(
         "evidence_refs": evidence_refs,
     });
     let admitted = admit_and_persist_event(&st, planned_event)?;
-    let admitted_event_id = admitted.get("event_id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let admitted_event_id = admitted
+        .get("event_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     let admitted_seq = admitted.get("seq").and_then(|v| v.as_u64()).unwrap_or(0);
 
     // --- plan the state update (operator control + updated agent/run) ---
@@ -2700,7 +2995,10 @@ pub(crate) async fn handle_diagnostics_repair_execute(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let event_stream_id = format!("{thread_id}:events");
     let request: RuntimeDiagnosticsRepairControlRequest = serde_json::from_value(json!({
@@ -2746,10 +3044,20 @@ pub(crate) async fn handle_approval_request(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
-    let Some(approval_id) = body.get("approval_id").and_then(|v| v.as_str()).map(str::to_string) else {
-        return Err(AppError(StatusCode::BAD_REQUEST, "approval_id is required".to_string()));
+    let Some(approval_id) = body
+        .get("approval_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+    else {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "approval_id is required".to_string(),
+        ));
     };
     let agent_id = agent
         .get("id")
@@ -2758,7 +3066,10 @@ pub(crate) async fn handle_approval_request(
         .map(str::to_string)
         .unwrap_or_else(|| agent_id_for_thread(&thread_id));
 
-    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let requested_run_id = body
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let run = requested_run_id.as_ref().and_then(|rid| {
         read_record_dir(&st.data_dir, "runs")
             .into_iter()
@@ -2773,8 +3084,16 @@ pub(crate) async fn handle_approval_request(
     let target_kind = if run.is_some() { "run" } else { "agent" };
     let now = iso_now();
     let event_id = format!("event_{approval_id}_request");
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
-    let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sdk_client")
+        .to_string();
+    let reason = body
+        .get("reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let scope_reqs = body
         .get("authority_scope_requirements")
         .and_then(|v| v.as_array())
@@ -2846,9 +3165,10 @@ pub(crate) async fn handle_approval_request(
 
     // --- commit the embedded approval onto the agent (or run) record ---
     if target_kind == "run" {
-        if let (Some(run_id), Some(run_value)) =
-            (requested_run_id.as_ref(), response.get("run").filter(|v| v.is_object()))
-        {
+        if let (Some(run_id), Some(run_value)) = (
+            requested_run_id.as_ref(),
+            response.get("run").filter(|v| v.is_object()),
+        ) {
             persist_run_with_bundle(&*st, run_id, "run.approval_request", run_value)?;
         }
     } else if let Some(agent_value) = response.get("agent").filter(|v| v.is_object()).cloned() {
@@ -2881,7 +3201,10 @@ fn admit_memory_control_event(
     payload_schema_version: &str,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(st, thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let agent_id = agent_id_for_thread(thread_id);
     let event_stream_id = format!("{thread_id}:events");
@@ -2901,7 +3224,9 @@ fn admit_memory_control_event(
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let payload = projection_record.projection.clone();
     // validate drives the event status from the projection's ok flag; status is always ok.
-    let status = if projection_kind == "validation" && payload.get("ok").and_then(|v| v.as_bool()) == Some(false) {
+    let status = if projection_kind == "validation"
+        && payload.get("ok").and_then(|v| v.as_bool()) == Some(false)
+    {
         "failed"
     } else {
         "completed"
@@ -2999,7 +3324,10 @@ fn resolve_memory_identity(
 ) -> Result<(Option<String>, Option<String>, Option<String>), AppError> {
     if scope == "thread" {
         let Some(agent) = read_agent_for_thread(st, id) else {
-            return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {id}")));
+            return Err(AppError(
+                StatusCode::NOT_FOUND,
+                format!("thread not found: {id}"),
+            ));
         };
         let agent_id = agent
             .get("id")
@@ -3013,7 +3341,10 @@ fn resolve_memory_identity(
             .into_iter()
             .find(|record| record.get("id").and_then(|v| v.as_str()) == Some(id))
         else {
-            return Err(AppError(StatusCode::NOT_FOUND, format!("agent not found: {id}")));
+            return Err(AppError(
+                StatusCode::NOT_FOUND,
+                format!("agent not found: {id}"),
+            ));
         };
         let thread_id = body
             .get("thread_id")
@@ -3270,7 +3601,15 @@ pub(crate) async fn handle_thread_memory_create(
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    handle_memory_control_route(&st, "thread", &thread_id, "write", "memory.write", None, body)
+    handle_memory_control_route(
+        &st,
+        "thread",
+        &thread_id,
+        "write",
+        "memory.write",
+        None,
+        body,
+    )
 }
 
 /// GET /v1/threads/:id/memory/policy — project the thread's effective memory policy.
@@ -3288,7 +3627,15 @@ pub(crate) async fn handle_thread_memory_policy_set(
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    handle_memory_control_route(&st, "thread", &thread_id, "policy", "memory.policy", None, body)
+    handle_memory_control_route(
+        &st,
+        "thread",
+        &thread_id,
+        "policy",
+        "memory.policy",
+        None,
+        body,
+    )
 }
 
 /// GET /v1/threads/:id/memory/path — project the thread's memory path locations.
@@ -3368,7 +3715,15 @@ pub(crate) async fn handle_agent_memory_policy_set(
     AxumPath(agent_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    handle_memory_control_route(&st, "agent", &agent_id, "policy", "memory.policy", None, body)
+    handle_memory_control_route(
+        &st,
+        "agent",
+        &agent_id,
+        "policy",
+        "memory.policy",
+        None,
+        body,
+    )
 }
 
 /// GET /v1/agents/:id/memory/path — project the agent's memory path locations.
@@ -3423,7 +3778,10 @@ pub(crate) async fn handle_thread_usage(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let request: RuntimeLifecycleProjectionRequest = serde_json::from_value(json!({
         "operation": "runtime_lifecycle_projection",
@@ -3500,7 +3858,10 @@ fn apply_approval_decision(
     body: &Value,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(st, thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let agent_id = agent
         .get("id")
@@ -3508,7 +3869,10 @@ fn apply_approval_decision(
         .and_then(|v| v.as_str())
         .map(str::to_string)
         .unwrap_or_else(|| agent_id_for_thread(thread_id));
-    let requested_run_id = body.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let requested_run_id = body
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let run = requested_run_id.as_ref().and_then(|rid| {
         read_record_dir(&st.data_dir, "runs")
             .into_iter()
@@ -3517,8 +3881,16 @@ fn apply_approval_decision(
     let target_kind = if run.is_some() { "run" } else { "agent" };
     let now = iso_now();
     let event_id = format!("event_{approval_id}_{decision}");
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("sdk_client").to_string();
-    let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("sdk_client")
+        .to_string();
+    let reason = body
+        .get("reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     // Daemon-derived authority binding inputs — NEVER the POST body. now_ms is the
     // daemon wall-clock (rejects an expired grant, fail-closed on a clock fault);
@@ -3526,7 +3898,11 @@ fn apply_approval_decision(
     // minted for one approval/lease cannot authorize another). Both are derived from
     // Rust-authored state here, not the caller.
     let now_ms = daemon_now_ms_fail_closed();
-    let policy_binding_source = if target_kind == "run" { run.as_ref() } else { Some(&agent) };
+    let policy_binding_source = if target_kind == "run" {
+        run.as_ref()
+    } else {
+        Some(&agent)
+    };
     let expected_policy_hash = policy_binding_source
         .and_then(|record| approval_lease_field_for(record, approval_id, "policy_hash"));
     let expected_request_hash = policy_binding_source
@@ -3600,8 +3976,15 @@ fn apply_approval_decision(
         let mut value = common;
         value["schema_version"] = json!(APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
         value["decision"] = json!(decision);
-        value["lease_status"] = authority.get("lease_status").cloned().unwrap_or_else(|| json!("granted"));
-        value["status"] = json!(if decision == "approve" { "approved" } else { "rejected" });
+        value["lease_status"] = authority
+            .get("lease_status")
+            .cloned()
+            .unwrap_or_else(|| json!("granted"));
+        value["status"] = json!(if decision == "approve" {
+            "approved"
+        } else {
+            "rejected"
+        });
         let request: ApprovalDecisionStateUpdateRequest = serde_json::from_value(value)
             .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
         let record = RuntimeKernelService::new()
@@ -3611,7 +3994,13 @@ fn apply_approval_decision(
             .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
     };
 
-    commit_approval_record(st, target_kind, &agent_id, requested_run_id.as_deref(), &response)?;
+    commit_approval_record(
+        st,
+        target_kind,
+        &agent_id,
+        requested_run_id.as_deref(),
+        &response,
+    )?;
     if let Some(map) = response.as_object_mut() {
         map.insert("commit".to_string(), json!({ "persisted": true }));
     }
@@ -3624,9 +4013,15 @@ pub(crate) async fn handle_approval_decision(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let decision = body.get("decision").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let decision = body
+        .get("decision")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if matches!(decision.as_str(), "approve" | "reject") {
-        if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, &decision) {
+        if let Some(response) =
+            workflow_edit_proposal_decision(&st, &thread_id, &approval_id, &decision)
+        {
             return Ok(response);
         }
     }
@@ -3641,7 +4036,9 @@ pub(crate) async fn handle_approval_approve(
 ) -> Result<Json<Value>, AppError> {
     // A workflow-edit proposal approval is a lighter, proposal-scoped decision (recorded here);
     // a run/agent approval falls through to the wallet-signed decision authority.
-    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "approve") {
+    if let Some(response) =
+        workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "approve")
+    {
         return Ok(response);
     }
     apply_approval_decision(&st, &thread_id, &approval_id, "approve", &body)
@@ -3653,7 +4050,8 @@ pub(crate) async fn handle_approval_reject(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "reject") {
+    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "reject")
+    {
         return Ok(response);
     }
     apply_approval_decision(&st, &thread_id, &approval_id, "reject", &body)
@@ -3676,7 +4074,10 @@ pub(crate) async fn handle_managed_sessions(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -3726,10 +4127,16 @@ pub(crate) async fn handle_managed_session_control(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let Some(managed_session_id) = body.get("managed_session_id").and_then(|v| v.as_str()) else {
-        return Err(AppError(StatusCode::BAD_REQUEST, "managed_session_id is required".to_string()));
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "managed_session_id is required".to_string(),
+        ));
     };
     let request: RuntimeManagedSessionControlRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -3766,7 +4173,10 @@ pub(crate) async fn handle_workspace_change_reviews(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let request: RuntimeWorkspaceChangeProjectionRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -3809,7 +4219,9 @@ fn git_changed_files(workspace_root: &str) -> Vec<(String, String)> {
     let output = std::process::Command::new("git")
         .args(["-C", workspace_root, "status", "--porcelain"])
         .output();
-    let Ok(output) = output else { return Vec::new() };
+    let Ok(output) = output else {
+        return Vec::new();
+    };
     if !output.status.success() {
         return Vec::new();
     }
@@ -3821,7 +4233,11 @@ fn git_changed_files(workspace_root: &str) -> Vec<(String, String)> {
         let code = line[..2].trim().to_string();
         // Porcelain v1: "XY <path>" (or "XY <old> -> <new>" for renames).
         let raw_path = line[3..].trim();
-        let path = raw_path.rsplit(" -> ").next().unwrap_or(raw_path).trim_matches('"');
+        let path = raw_path
+            .rsplit(" -> ")
+            .next()
+            .unwrap_or(raw_path)
+            .trim_matches('"');
         let label = if code.contains('D') {
             "deleted"
         } else if code.contains('A') || code == "??" {
@@ -3847,7 +4263,10 @@ pub(crate) async fn handle_workspace_change_detect(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let workspace_root = agent
         .get("cwd")
@@ -3860,8 +4279,10 @@ pub(crate) async fn handle_workspace_change_detect(
     let changes: Vec<Value> = changed
         .iter()
         .map(|(status, path)| {
-            let workspace_change_id =
-                format!("workspace_change:{}", short_hash(&format!("{thread_id}:{path}")));
+            let workspace_change_id = format!(
+                "workspace_change:{}",
+                short_hash(&format!("{thread_id}:{path}"))
+            );
             json!({
                 "workspace_change_id": workspace_change_id,
                 "path": path,
@@ -3923,10 +4344,16 @@ pub(crate) async fn handle_workspace_change_control(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let Some(workspace_change_id) = body.get("workspace_change_id").and_then(|v| v.as_str()) else {
-        return Err(AppError(StatusCode::BAD_REQUEST, "workspace_change_id is required".to_string()));
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "workspace_change_id is required".to_string(),
+        ));
     };
     let request: RuntimeWorkspaceChangeControlRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -3965,7 +4392,10 @@ pub(crate) async fn handle_snapshots(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     // Consumer: replay the workspace_snapshot.captured events the capture producer
     // admitted (each carries the full snapshot_record) and feed them to the kernel
@@ -3999,7 +4429,8 @@ fn read_captured_snapshots(st: &DaemonState, thread_id: &str) -> Vec<Value> {
         return Vec::new();
     };
     let mut snapshots: Vec<Value> = Vec::new();
-    let mut index_by_id: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut index_by_id: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
     for line in contents.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -4113,7 +4544,11 @@ fn git_snapshot_changes(repo_root: &str) -> Vec<SnapshotChange> {
                 .get(index + 1)
                 .map(|value| value.to_string())
                 .filter(|value| !value.is_empty());
-            changes.push(SnapshotChange { label: "renamed".to_string(), path, old_path });
+            changes.push(SnapshotChange {
+                label: "renamed".to_string(),
+                path,
+                old_path,
+            });
             index += 2;
         } else {
             let label = if code.contains('D') {
@@ -4123,7 +4558,11 @@ fn git_snapshot_changes(repo_root: &str) -> Vec<SnapshotChange> {
             } else {
                 "modified"
             };
-            changes.push(SnapshotChange { label: label.to_string(), path, old_path: None });
+            changes.push(SnapshotChange {
+                label: label.to_string(),
+                path,
+                old_path: None,
+            });
             index += 1;
         }
     }
@@ -4208,7 +4647,10 @@ pub(crate) async fn handle_snapshot_capture(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let agent_cwd = agent
         .get("cwd")
@@ -4217,7 +4659,10 @@ pub(crate) async fn handle_snapshot_capture(
         .unwrap_or_default()
         .to_string();
     if agent_cwd.trim().is_empty() {
-        return Err(AppError(StatusCode::BAD_REQUEST, "thread has no workspace cwd to snapshot".to_string()));
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "thread has no workspace cwd to snapshot".to_string(),
+        ));
     }
     // git status paths are repo-root-relative; root content reads + the restore target
     // at the repo root, not at a (possibly subdirectory) agent cwd.
@@ -4235,14 +4680,44 @@ pub(crate) async fn handle_snapshot_capture(
             "renamed" => {
                 let mut entries = Vec::new();
                 if let Some(old) = &change.old_path {
-                    entries.push(snapshot_file_entry(&workspace_root, old, true, false, false));
+                    entries.push(snapshot_file_entry(
+                        &workspace_root,
+                        old,
+                        true,
+                        false,
+                        false,
+                    ));
                 }
-                entries.push(snapshot_file_entry(&workspace_root, &change.path, false, true, true));
+                entries.push(snapshot_file_entry(
+                    &workspace_root,
+                    &change.path,
+                    false,
+                    true,
+                    true,
+                ));
                 entries
             }
-            "added" => vec![snapshot_file_entry(&workspace_root, &change.path, false, true, true)],
-            "deleted" => vec![snapshot_file_entry(&workspace_root, &change.path, true, false, false)],
-            _ => vec![snapshot_file_entry(&workspace_root, &change.path, true, true, false)],
+            "added" => vec![snapshot_file_entry(
+                &workspace_root,
+                &change.path,
+                false,
+                true,
+                true,
+            )],
+            "deleted" => vec![snapshot_file_entry(
+                &workspace_root,
+                &change.path,
+                true,
+                false,
+                false,
+            )],
+            _ => vec![snapshot_file_entry(
+                &workspace_root,
+                &change.path,
+                true,
+                true,
+                false,
+            )],
         };
         for (changed_file, content_draft) in entries {
             changed_files.push(changed_file);
@@ -4261,14 +4736,23 @@ pub(crate) async fn handle_snapshot_capture(
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let capture = capture_workspace_snapshot_files_protocol_response(protocol)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    let mut snapshot_record = capture.get("snapshot_record").cloned().unwrap_or(Value::Null);
+    let mut snapshot_record = capture
+        .get("snapshot_record")
+        .cloned()
+        .unwrap_or(Value::Null);
     if !snapshot_record.is_object() {
-        return Err(AppError(StatusCode::BAD_GATEWAY, "snapshot capture produced no record".to_string()));
+        return Err(AppError(
+            StatusCode::BAD_GATEWAY,
+            "snapshot capture produced no record".to_string(),
+        ));
     }
     // Pin the captured repo root so restore targets the SAME root the paths are
     // relative to, regardless of the agent cwd at restore time.
     if let Some(record) = snapshot_record.as_object_mut() {
-        record.insert("captured_workspace_root".to_string(), Value::String(workspace_root.clone()));
+        record.insert(
+            "captured_workspace_root".to_string(),
+            Value::String(workspace_root.clone()),
+        );
     }
     let snapshot_id = snapshot_record
         .get("snapshot_id")
@@ -4298,8 +4782,13 @@ pub(crate) async fn handle_snapshot_capture(
         "captured_workspace_root": workspace_root,
         "content_files": content_files,
     });
-    persist_record(&st.data_dir, "snapshot-content", &snapshot_id, &content_artifact)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        &st.data_dir,
+        "snapshot-content",
+        &snapshot_id,
+        &content_artifact,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}"));
     let event = json!({
         "event_id": format!("event_workspace_snapshot_{event_hash}"),
@@ -4354,8 +4843,10 @@ fn read_snapshot_content_files(st: &DaemonState, record: &Value) -> Vec<Value> {
     let Some(snapshot_id) = record.get("snapshot_id").and_then(|v| v.as_str()) else {
         return Vec::new();
     };
-    let safe = snapshot_id
-        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let safe = snapshot_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
     let path = Path::new(st.data_dir.as_str())
         .join("snapshot-content")
         .join(format!("{safe}.json"));
@@ -4413,7 +4904,10 @@ fn daemon_now_ms_fail_closed() -> u64 {
 /// Canonical `sha256:<hex>` over the JSON bytes of `value` (matches the kernel's
 /// approval_lease_policy_hash format, so a grant minted against these hashes verifies).
 fn sha256_json_ref(value: &Value) -> String {
-    format!("sha256:{}", sha256_hex_str(&serde_json::to_string(value).unwrap_or_default()))
+    format!(
+        "sha256:{}",
+        sha256_hex_str(&serde_json::to_string(value).unwrap_or_default())
+    )
 }
 
 /// Daemon-derived POLICY hash a restore-apply approval grant must carry: binds the grant
@@ -4453,14 +4947,19 @@ async fn run_snapshot_restore(
     apply: bool,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let snapshots = read_captured_snapshots(&st, &thread_id);
-    let Some(record) = snapshots
-        .into_iter()
-        .find(|record| record.get("snapshot_id").and_then(|v| v.as_str()) == Some(snapshot_id.as_str()))
-    else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("snapshot not found: {snapshot_id}")));
+    let Some(record) = snapshots.into_iter().find(|record| {
+        record.get("snapshot_id").and_then(|v| v.as_str()) == Some(snapshot_id.as_str())
+    }) else {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("snapshot not found: {snapshot_id}"),
+        ));
     };
     // Target the SAME repo root the snapshot paths are relative to (pinned at capture),
     // not the agent cwd at restore time (which may have moved or be a subdirectory).
@@ -4479,7 +4978,10 @@ async fn run_snapshot_restore(
         })
         .unwrap_or_default();
     if workspace_root.trim().is_empty() {
-        return Err(AppError(StatusCode::BAD_REQUEST, "snapshot has no workspace root to restore into".to_string()));
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "snapshot has no workspace root to restore into".to_string(),
+        ));
     }
     let files = restore_files_from_snapshot(&st, &record);
     let kernel = RuntimeKernelService::new();
@@ -4528,7 +5030,10 @@ async fn run_snapshot_restore(
     // THIS restore. A boolean body flag is NOT accepted. now_ms is the daemon wall clock
     // (never the body, fail-closed on a clock fault); the grant is the only untrusted input.
     let now_ms = daemon_now_ms_fail_closed();
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let grant_value = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
     let grant_present = grant_value
         .as_object()
         .map(|object| !object.is_empty())
@@ -4617,13 +5122,18 @@ async fn run_snapshot_restore(
     {
         let applied_count = operations
             .iter()
-            .filter(|op| op.apply_status.as_deref() == Some("applied")
-                || op.apply_status.as_deref() == Some("applied_with_override"))
+            .filter(|op| {
+                op.apply_status.as_deref() == Some("applied")
+                    || op.apply_status.as_deref() == Some("applied_with_override")
+            })
             .count();
         let blocked_count = operations
             .iter()
-            .filter(|op| op.status == "blocked" || op.status == "conflict"
-                || op.apply_status.as_deref() == Some("blocked"))
+            .filter(|op| {
+                op.status == "blocked"
+                    || op.status == "conflict"
+                    || op.apply_status.as_deref() == Some("blocked")
+            })
             .count();
         // Distinguish an apply that actually wrote files from one where every op was
         // blocked/conflict (so GET /events does not show "applied" for a no-op). The
@@ -4632,7 +5142,11 @@ async fn run_snapshot_restore(
         let applied = applied_count > 0;
         let outcome_hash = short_hash(&operations_value.to_string());
         let event_hash = short_hash(&format!("{thread_id}:{snapshot_id}:restore:{outcome_hash}"));
-        let event_kind = if applied { "workspace_restore.applied" } else { "workspace_restore.blocked" };
+        let event_kind = if applied {
+            "workspace_restore.applied"
+        } else {
+            "workspace_restore.blocked"
+        };
         let status = if applied { "completed" } else { "blocked" };
         let event = json!({
             "event_id": format!("event_workspace_restore_{event_hash}"),
@@ -4667,7 +5181,10 @@ async fn run_snapshot_restore(
         if let Some(object) = response.as_object_mut() {
             object.insert("applied_file_count".to_string(), json!(applied_count));
             object.insert("blocked_file_count".to_string(), json!(blocked_count));
-            object.insert("approval_grant_ref".to_string(), json!(grant_binding.grant_ref));
+            object.insert(
+                "approval_grant_ref".to_string(),
+                json!(grant_binding.grant_ref),
+            );
             object.insert("event".to_string(), admitted);
         }
     }
@@ -4703,7 +5220,10 @@ pub(crate) async fn handle_artifacts_list(
     AxumPath(thread_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(json!({
         "operation": "conversation_artifact_inspection",
@@ -4734,7 +5254,10 @@ pub(crate) async fn handle_artifact_create(
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     }
     let request: RuntimeConversationArtifactControlRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -4798,11 +5321,13 @@ pub(crate) async fn handle_conversation_artifacts_list(
         "state_dir": st.data_dir,
         "source": "runtime.conversation_artifact_state",
     });
-    if let (Some(object), Some(thread_id)) = (request_json.as_object_mut(), params.get("thread_id")) {
+    if let (Some(object), Some(thread_id)) = (request_json.as_object_mut(), params.get("thread_id"))
+    {
         object.insert("thread_id".to_string(), json!(thread_id));
     }
-    let request: RuntimeConversationArtifactProjectionRequest = serde_json::from_value(request_json)
-        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let request: RuntimeConversationArtifactProjectionRequest =
+        serde_json::from_value(request_json)
+            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let record = RuntimeKernelService::new()
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
@@ -5141,8 +5666,9 @@ pub(crate) async fn handle_tools(
 /// verbatim from the retired JS `buildHypervisorCoreTaxonomy`; only `generated_at` is
 /// stamped at request time.
 pub(crate) async fn handle_core_taxonomy() -> Result<Json<Value>, AppError> {
-    let mut taxonomy: Value = serde_json::from_str(include_str!("hypervisor_core_taxonomy.json"))
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let mut taxonomy: Value =
+        serde_json::from_str(include_str!("hypervisor_core_taxonomy.json"))
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     if let Some(object) = taxonomy.as_object_mut() {
         object.insert("generated_at".to_string(), json!(iso_now()));
     }
@@ -5309,7 +5835,9 @@ pub(crate) async fn handle_worker_package_install_admission(
 pub(crate) async fn handle_managed_worker_lifecycle_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_managed_worker_instance_lifecycle_transition(&body, &iso_now()) {
+    match RuntimeKernelService::new()
+        .admit_managed_worker_instance_lifecycle_transition(&body, &iso_now())
+    {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5422,7 +5950,8 @@ pub(crate) async fn handle_project_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let record = match RuntimeKernelService::new().plan_hypervisor_project_create(&body, &iso_now()) {
+    let record = match RuntimeKernelService::new().plan_hypervisor_project_create(&body, &iso_now())
+    {
         Ok(record) => record,
         Err(error) => {
             return (
@@ -5442,15 +5971,20 @@ pub(crate) async fn handle_project_create(
     // that includes the just-created record so the app reflects the create).
     let _ = persist_record(&st.data_dir, "projects", &project_id, &record);
     let mut records = read_record_dir(&st.data_dir, "projects");
-    if !records
-        .iter()
-        .any(|item| item.get("project_id").and_then(|value| value.as_str()) == Some(project_id.as_str()))
-    {
+    if !records.iter().any(|item| {
+        item.get("project_id").and_then(|value| value.as_str()) == Some(project_id.as_str())
+    }) {
         records.push(record.clone());
     }
     records.sort_by(|a, b| {
-        let a_id = a.get("project_id").and_then(|value| value.as_str()).unwrap_or("");
-        let b_id = b.get("project_id").and_then(|value| value.as_str()).unwrap_or("");
+        let a_id = a
+            .get("project_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let b_id = b
+            .get("project_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
         a_id.cmp(b_id)
     });
     let projection_slug = project_id.strip_prefix("project:").unwrap_or(&project_id);
@@ -5494,14 +6028,20 @@ fn context_policy_envelope(mut policy: Value, admitted: Value, evidence_refs: Va
     if let Some(map) = policy.as_object_mut() {
         let event_id = admitted.get("event_id").cloned().unwrap_or(Value::Null);
         let seq = admitted.get("seq").cloned().unwrap_or(Value::Null);
-        let receipt_refs = merge_string_refs(&[map.get("receipt_refs"), admitted.get("receipt_refs")]);
-        let policy_decision_refs =
-            merge_string_refs(&[map.get("policy_decision_refs"), admitted.get("policy_decision_refs")]);
+        let receipt_refs =
+            merge_string_refs(&[map.get("receipt_refs"), admitted.get("receipt_refs")]);
+        let policy_decision_refs = merge_string_refs(&[
+            map.get("policy_decision_refs"),
+            admitted.get("policy_decision_refs"),
+        ]);
         map.insert("event".to_string(), admitted);
         map.insert("event_id".to_string(), event_id);
         map.insert("seq".to_string(), seq);
         map.insert("receipt_refs".to_string(), Value::Array(receipt_refs));
-        map.insert("policy_decision_refs".to_string(), Value::Array(policy_decision_refs));
+        map.insert(
+            "policy_decision_refs".to_string(),
+            Value::Array(policy_decision_refs),
+        );
         map.insert("evidence_refs".to_string(), evidence_refs);
     }
     policy
@@ -5533,7 +6073,9 @@ fn build_context_policy_event(
         .cloned()
         .unwrap_or_default();
     if receipt_refs.is_empty() {
-        receipt_refs.push(Value::from(format!("{component_kind}_decision:{policy_decision_id}")));
+        receipt_refs.push(Value::from(format!(
+            "{component_kind}_decision:{policy_decision_id}"
+        )));
     }
     let payload = if component_kind == "context_budget" {
         json!({
@@ -5634,14 +6176,25 @@ pub(crate) async fn handle_subagent_spawn(
         ));
     }
     let Some(parent_agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
-    let role = body.get("role").and_then(|v| v.as_str()).unwrap_or("worker").to_string();
+    let role = body
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("worker")
+        .to_string();
     let model_route_id = body
         .get("model_route_id")
         .and_then(|v| v.as_str())
         .map(str::to_string)
-        .or_else(|| coalesce_value(&parent_agent, &["model_route_id", "modelRouteId"]).as_str().map(str::to_string))
+        .or_else(|| {
+            coalesce_value(&parent_agent, &["model_route_id", "modelRouteId"])
+                .as_str()
+                .map(str::to_string)
+        })
         .unwrap_or_else(|| "route.local-first".to_string());
     let cwd = coalesce_value(&parent_agent, &["cwd"]);
 
@@ -5661,8 +6214,13 @@ pub(crate) async fn handle_subagent_spawn(
     let planned_agent = RuntimeKernelService::new()
         .plan_agent_create_state_update(&plan_agent)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "agents", &child_agent_id, &planned_agent.agent)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        st.data_dir.as_str(),
+        "agents",
+        &child_agent_id,
+        &planned_agent.agent,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
     // --- child run ---
     let now = iso_now();
@@ -5713,8 +6271,13 @@ pub(crate) async fn handle_subagent_spawn(
     let planned_subagent = RuntimeKernelService::new()
         .plan_subagent_record_state_update(&plan_subagent)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "subagents", &child_agent_id, &planned_subagent.subagent)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        st.data_dir.as_str(),
+        "subagents",
+        &child_agent_id,
+        &planned_subagent.subagent,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
     Ok((StatusCode::CREATED, Json(planned_subagent.subagent)))
 }
@@ -5727,7 +6290,9 @@ pub(crate) async fn handle_subagents_list(
 ) -> Json<Value> {
     let subagents: Vec<Value> = read_record_dir(&st.data_dir, "subagents")
         .into_iter()
-        .filter(|sub| sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str()))
+        .filter(|sub| {
+            sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str())
+        })
         .filter(|sub| match params.get("role") {
             Some(role) => sub.get("role").and_then(|v| v.as_str()) == Some(role.as_str()),
             None => true,
@@ -5745,7 +6310,12 @@ pub(crate) async fn handle_subagent_result(
         .into_iter()
         .find(|sub| sub.get("subagent_id").and_then(|v| v.as_str()) == Some(subagent_id.as_str()))
         .map(Json)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")))
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("subagent not found: {subagent_id}"),
+            )
+        })
 }
 
 /// Load a subagent record by subagent_id.
@@ -5777,8 +6347,13 @@ fn plan_and_persist_subagent(
     let record = RuntimeKernelService::new()
         .plan_subagent_record_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "subagents", &subagent_id, &record.subagent)
-        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    persist_record(
+        st.data_dir.as_str(),
+        "subagents",
+        &subagent_id,
+        &record.subagent,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(record.subagent)
 }
 
@@ -5788,14 +6363,22 @@ pub(crate) async fn handle_subagent_wait(
     AxumPath((thread_id, subagent_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
     let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("subagent not found: {subagent_id}"),
+        ));
     };
     let now = iso_now();
     if let Some(map) = subagent.as_object_mut() {
         map.insert("waited_at".to_string(), json!(now));
         map.insert("updated_at".to_string(), json!(now));
     }
-    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.wait", subagent)?))
+    Ok(Json(plan_and_persist_subagent(
+        &st,
+        &thread_id,
+        "subagent.wait",
+        subagent,
+    )?))
 }
 
 /// POST /v1/threads/:id/subagents/:subId/assign — reassign a subagent.
@@ -5805,7 +6388,10 @@ pub(crate) async fn handle_subagent_assign(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("subagent not found: {subagent_id}"),
+        ));
     };
     let now = iso_now();
     if let Some(map) = subagent.as_object_mut() {
@@ -5817,7 +6403,12 @@ pub(crate) async fn handle_subagent_assign(
         }
         map.insert("updated_at".to_string(), json!(now));
     }
-    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.assign", subagent)?))
+    Ok(Json(plan_and_persist_subagent(
+        &st,
+        &thread_id,
+        "subagent.assign",
+        subagent,
+    )?))
 }
 
 /// POST /v1/threads/:id/subagents/:subId/cancel — cancel a subagent (and its run).
@@ -5827,10 +6418,17 @@ pub(crate) async fn handle_subagent_cancel(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let Some(mut subagent) = read_subagent(&st, &subagent_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("subagent not found: {subagent_id}"),
+        ));
     };
     let now = iso_now();
-    if let Some(run_id) = subagent.get("run_id").and_then(|v| v.as_str()).map(str::to_string) {
+    if let Some(run_id) = subagent
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+    {
         if let Some(run) = read_record_dir(&st.data_dir, "runs")
             .into_iter()
             .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
@@ -5841,7 +6439,9 @@ pub(crate) async fn handle_subagent_cancel(
                 "run": run,
                 "canceled_at": now,
             })) {
-                if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
+                if let Ok(record) =
+                    RuntimeKernelService::new().plan_run_cancel_state_update(&request)
+                {
                     let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
             }
@@ -5859,7 +6459,12 @@ pub(crate) async fn handle_subagent_cancel(
         }
         map.insert("updated_at".to_string(), json!(now));
     }
-    Ok(Json(plan_and_persist_subagent(&st, &thread_id, "subagent.cancel", subagent)?))
+    Ok(Json(plan_and_persist_subagent(
+        &st,
+        &thread_id,
+        "subagent.cancel",
+        subagent,
+    )?))
 }
 
 /// POST /v1/threads/:id/subagents/cancel — propagate cancellation to the thread's
@@ -5876,11 +6481,17 @@ pub(crate) async fn handle_subagents_propagate_cancel(
         .and_then(|v| v.as_str())
         .unwrap_or("parent_cancel")
         .to_string();
-    let source = body.get("source").and_then(|v| v.as_str()).unwrap_or("agent_studio").to_string();
+    let source = body
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("agent_studio")
+        .to_string();
     let now = iso_now();
     let candidates: Vec<Value> = read_record_dir(&st.data_dir, "subagents")
         .into_iter()
-        .filter(|sub| sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str()))
+        .filter(|sub| {
+            sub.get("parent_thread_id").and_then(|v| v.as_str()) == Some(thread_id.as_str())
+        })
         .collect();
     let mut canceled = Vec::new();
     let mut skipped = Vec::new();
@@ -5890,8 +6501,14 @@ pub(crate) async fn handle_subagents_propagate_cancel(
             .or_else(|| candidate.get("lifecycle_status"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        let run_id = candidate.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
-        if candidate.get("subagent_id").and_then(|v| v.as_str()).is_none()
+        let run_id = candidate
+            .get("run_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        if candidate
+            .get("subagent_id")
+            .and_then(|v| v.as_str())
+            .is_none()
             || status == "canceled"
             || run_id.is_none()
         {
@@ -5909,7 +6526,9 @@ pub(crate) async fn handle_subagents_propagate_cancel(
                 "run": run,
                 "canceled_at": now,
             })) {
-                if let Ok(record) = RuntimeKernelService::new().plan_run_cancel_state_update(&request) {
+                if let Ok(record) =
+                    RuntimeKernelService::new().plan_run_cancel_state_update(&request)
+                {
                     let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
             }
@@ -5923,10 +6542,15 @@ pub(crate) async fn handle_subagents_propagate_cancel(
             map.insert("propagated_from_thread_id".to_string(), json!(thread_id));
             map.insert("updated_at".to_string(), json!(now));
         }
-        let saved = plan_and_persist_subagent(&st, &thread_id, "subagent.cancel.propagate", updated)?;
+        let saved =
+            plan_and_persist_subagent(&st, &thread_id, "subagent.cancel.propagate", updated)?;
         canceled.push(saved);
     }
-    let status = if canceled.is_empty() { "noop" } else { "propagated" };
+    let status = if canceled.is_empty() {
+        "noop"
+    } else {
+        "propagated"
+    };
     Ok(Json(json!({
         "schema_version": "ioi.runtime.subagent-cancellation-propagation.v1",
         "object": "ioi.runtime_subagent_cancellation_propagation",
@@ -5952,7 +6576,10 @@ fn subagent_run_control(
     operation_kind: &str,
 ) -> Result<Json<Value>, AppError> {
     let Some(mut subagent) = read_subagent(st, subagent_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("subagent not found: {subagent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("subagent not found: {subagent_id}"),
+        ));
     };
     let child_agent_id = subagent
         .get("agent_id")
@@ -5963,7 +6590,10 @@ fn subagent_run_control(
         .into_iter()
         .find(|agent| agent.get("id").and_then(|v| v.as_str()) == Some(child_agent_id.as_str()))
     else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("child agent not found: {child_agent_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("child agent not found: {child_agent_id}"),
+        ));
     };
     let now = iso_now();
     let run_id = format!("run_{}", uuid::Uuid::new_v4());
@@ -5988,7 +6618,12 @@ fn subagent_run_control(
         map.insert("lifecycle_status".to_string(), json!("completed"));
         map.insert("updated_at".to_string(), json!(now));
     }
-    Ok(Json(plan_and_persist_subagent(st, thread_id, operation_kind, subagent)?))
+    Ok(Json(plan_and_persist_subagent(
+        st,
+        thread_id,
+        operation_kind,
+        subagent,
+    )?))
 }
 
 /// POST /v1/threads/:id/subagents/:subId/input — send input (creates a new run).
@@ -6076,13 +6711,17 @@ fn read_mcp_config_servers(
         Ok(request) => request,
         Err(_) => return Vec::new(),
     };
-    let Ok(record) = RuntimeKernelService::new().project_mcp_server_validation_input(&request) else {
+    let Ok(record) = RuntimeKernelService::new().project_mcp_server_validation_input(&request)
+    else {
         return Vec::new();
     };
     let mut servers = record.servers;
     for server in &mut servers {
         if let Some(map) = server.as_object_mut() {
-            map.insert("config_compatibility".to_string(), json!(config_compatibility));
+            map.insert(
+                "config_compatibility".to_string(),
+                json!(config_compatibility),
+            );
         }
     }
     servers
@@ -6100,8 +6739,12 @@ fn discover_mcp_catalog(
     thread_id: &str,
     source_mode: Option<&str>,
 ) -> Result<Value, AppError> {
-    let agent = read_agent_for_thread(st, thread_id)
-        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")))?;
+    let agent = read_agent_for_thread(st, thread_id).ok_or_else(|| {
+        AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        )
+    })?;
     let workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
     let want_workspace = source_mode.is_none_or(|mode| mode == "workspace");
     let want_global = source_mode.is_none_or(|mode| mode == "global");
@@ -6153,7 +6796,11 @@ pub(crate) async fn handle_mcp_discover_servers(
     let thread_id = params
         .get("thread_id")
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?;
-    let catalog = discover_mcp_catalog(&st, thread_id, params.get("mcp_config_source_mode").map(String::as_str))?;
+    let catalog = discover_mcp_catalog(
+        &st,
+        thread_id,
+        params.get("mcp_config_source_mode").map(String::as_str),
+    )?;
     Ok(Json(json!(catalog_slice(&catalog, "servers"))))
 }
 
@@ -6255,7 +6902,11 @@ pub(crate) async fn handle_mcp_tool_search(
 /// checklists reflect the cancel). Returns the canceled run record. Shared by run cancel
 /// and the job/task cancel routes (a job/task is canceled by canceling its owning run).
 fn cancel_run_record(st: &DaemonState, run: Value) -> Result<Value, AppError> {
-    let run_id = run.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let run_id = run
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     let request: RunCancelStateUpdateRequest = serde_json::from_value(json!({
         "schema_version": RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
         "run_id": run_id,
@@ -6302,7 +6953,10 @@ pub(crate) async fn handle_run_cancel(
         .into_iter()
         .find(|run| run.get("id").and_then(|v| v.as_str()) == Some(run_id.as_str()))
     else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("run not found: {run_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("run not found: {run_id}"),
+        ));
     };
     Ok(Json(cancel_run_record(&st, run)?))
 }
@@ -6313,13 +6967,24 @@ pub(crate) async fn handle_job_cancel(
     State(st): State<Arc<DaemonState>>,
     AxumPath(job_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
-    let Some(run) = read_record_dir(&st.data_dir, "runs").into_iter().find(|run| {
-        run.get("runtimeJob").and_then(|j| j.get("jobId")).and_then(|v| v.as_str()) == Some(job_id.as_str())
-    }) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("job not found: {job_id}")));
+    let Some(run) = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .find(|run| {
+            run.get("runtimeJob")
+                .and_then(|j| j.get("jobId"))
+                .and_then(|v| v.as_str())
+                == Some(job_id.as_str())
+        })
+    else {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("job not found: {job_id}"),
+        ));
     };
     let canceled = cancel_run_record(&st, run)?;
-    Ok(Json(canceled.get("runtimeJob").cloned().unwrap_or(Value::Null)))
+    Ok(Json(
+        canceled.get("runtimeJob").cloned().unwrap_or(Value::Null),
+    ))
 }
 
 /// POST /v1/tasks/:id/cancel — cancel a runtime task by canceling its owning run; returns
@@ -6328,13 +6993,24 @@ pub(crate) async fn handle_task_cancel(
     State(st): State<Arc<DaemonState>>,
     AxumPath(task_id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
-    let Some(run) = read_record_dir(&st.data_dir, "runs").into_iter().find(|run| {
-        run.get("runtimeTask").and_then(|t| t.get("taskId")).and_then(|v| v.as_str()) == Some(task_id.as_str())
-    }) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("task not found: {task_id}")));
+    let Some(run) = read_record_dir(&st.data_dir, "runs")
+        .into_iter()
+        .find(|run| {
+            run.get("runtimeTask")
+                .and_then(|t| t.get("taskId"))
+                .and_then(|v| v.as_str())
+                == Some(task_id.as_str())
+        })
+    else {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("task not found: {task_id}"),
+        ));
     };
     let canceled = cancel_run_record(&st, run)?;
-    Ok(Json(canceled.get("runtimeTask").cloned().unwrap_or(Value::Null)))
+    Ok(Json(
+        canceled.get("runtimeTask").cloned().unwrap_or(Value::Null),
+    ))
 }
 
 /// GET /v1/runs — list persisted run records (optionally filtered by ?agent_id=).
@@ -6347,7 +7023,9 @@ pub(crate) async fn handle_runs_list(
         .into_iter()
         .filter(|run| match agent_filter {
             Some(agent_id) => {
-                run.get("agentId").or_else(|| run.get("agent_id")).and_then(|v| v.as_str())
+                run.get("agentId")
+                    .or_else(|| run.get("agent_id"))
+                    .and_then(|v| v.as_str())
                     == Some(agent_id)
             }
             None => true,
@@ -6422,7 +7100,10 @@ fn apply_thread_control(
     body: &Value,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(st, thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let now = body
         .get("updated_at")
@@ -6443,7 +7124,12 @@ fn apply_thread_control(
             .get("mode")
             .or_else(|| body.get("interaction_mode"))
             .and_then(|v| v.as_str())
-            .unwrap_or_else(|| current.get("mode").and_then(|v| v.as_str()).unwrap_or("agent"))
+            .unwrap_or_else(|| {
+                current
+                    .get("mode")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("agent")
+            })
             .to_string();
         let approval_mode = body
             .get("approval_mode")
@@ -6465,7 +7151,10 @@ fn apply_thread_control(
             model_map.insert("reasoning_effort".to_string(), effort);
             model_map.insert("updated_at".to_string(), json!(now));
             let mut controls = current.clone();
-            controls.as_object_mut().unwrap().insert("model".to_string(), model);
+            controls
+                .as_object_mut()
+                .unwrap()
+                .insert("model".to_string(), model);
             (controls, model_route_from_agent(&agent))
         } else {
             // model control: re-resolve the route from the request model.
@@ -6474,23 +7163,36 @@ fn apply_thread_control(
             let route_id = route_id
                 .as_str()
                 .map(str::to_string)
-                .or_else(|| coalesce_value(&agent, &["model_route_id"]).as_str().map(str::to_string))
+                .or_else(|| {
+                    coalesce_value(&agent, &["model_route_id"])
+                        .as_str()
+                        .map(str::to_string)
+                })
                 .unwrap_or_else(|| "route.local-first".to_string());
             let requested = coalesce_value(&req_model, &["id", "model"]);
             let requested = requested.as_str().unwrap_or("auto").to_string();
             let selection = route_selection(st, &route_id);
-            let route_body = json!({ "model": requested, "route_id": route_id, "capability": "chat" });
+            let route_body =
+                json!({ "model": requested, "route_id": route_id, "capability": "chat" });
             let decision = build_route_decision(&route_id, &route_body, &selection);
-            let selected_model = decision.get("selected_model").cloned().unwrap_or(Value::Null);
+            let selected_model = decision
+                .get("selected_model")
+                .cloned()
+                .unwrap_or(Value::Null);
             model_map.insert("id".to_string(), json!(requested));
             model_map.insert("route_id".to_string(), json!(route_id));
             model_map.insert("selected_model".to_string(), selected_model.clone());
             model_map.insert("updated_at".to_string(), json!(now));
-            if let Some(effort) = coalesce_value(&req_model, &["reasoning_effort", "reasoningEffort"]).as_str() {
+            if let Some(effort) =
+                coalesce_value(&req_model, &["reasoning_effort", "reasoningEffort"]).as_str()
+            {
                 model_map.insert("reasoning_effort".to_string(), json!(effort));
             }
             let mut controls = current.clone();
-            controls.as_object_mut().unwrap().insert("model".to_string(), model);
+            controls
+                .as_object_mut()
+                .unwrap()
+                .insert("model".to_string(), model);
             let route = json!({
                 "requested_model_id": requested,
                 "selected_model": selected_model,
@@ -6504,7 +7206,10 @@ fn apply_thread_control(
         }
     };
 
-    let event_id = format!("thread_control_{thread_id}_{control_kind}_{}", short_hash(&now));
+    let event_id = format!(
+        "thread_control_{thread_id}_{control_kind}_{}",
+        short_hash(&now)
+    );
     let request: ThreadControlAgentStateUpdateRequest = serde_json::from_value(json!({
         "schema_version": THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
         "thread_id": thread_id,
@@ -6554,17 +7259,35 @@ fn apply_thread_control(
         map.insert("backend".to_string(), json!("rust_policy"));
         map.insert("control_kind".to_string(), json!(control_kind));
         map.insert("runtime_controls".to_string(), controls.clone());
-        map.insert("mode".to_string(), controls.get("mode").cloned().unwrap_or(Value::Null));
+        map.insert(
+            "mode".to_string(),
+            controls.get("mode").cloned().unwrap_or(Value::Null),
+        );
         map.insert(
             "approval_mode".to_string(),
-            controls.get("approval_mode").cloned().unwrap_or(Value::Null),
+            controls
+                .get("approval_mode")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
         map.insert(
             "reasoning_effort".to_string(),
-            model_controls.get("reasoning_effort").cloned().unwrap_or(Value::Null),
+            model_controls
+                .get("reasoning_effort")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
-        map.insert("requested_model".to_string(), model_controls.get("id").cloned().unwrap_or(Value::Null));
-        map.insert("model_route_id".to_string(), model_controls.get("route_id").cloned().unwrap_or(Value::Null));
+        map.insert(
+            "requested_model".to_string(),
+            model_controls.get("id").cloned().unwrap_or(Value::Null),
+        );
+        map.insert(
+            "model_route_id".to_string(),
+            model_controls
+                .get("route_id")
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
         map.insert(
             "event".to_string(),
             json!({
@@ -6635,7 +7358,10 @@ fn emit_workspace_trust_warning(
         return Ok(None);
     };
     let admitted = admit_and_persist_event(st, event)?;
-    let warning = record.get("workspace_trust_warning").cloned().unwrap_or(Value::Null);
+    let warning = record
+        .get("workspace_trust_warning")
+        .cloned()
+        .unwrap_or(Value::Null);
     Ok(Some((warning, admitted)))
 }
 
@@ -6649,7 +7375,10 @@ pub(crate) async fn handle_workspace_trust_acknowledge(
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, format!("thread not found: {thread_id}")));
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
     };
     let now = iso_now();
     let request: WorkspaceTrustControlStateUpdateRequest = serde_json::from_value(json!({
@@ -6683,7 +7412,10 @@ pub(crate) async fn handle_workspace_trust_acknowledge(
     let admitted = admit_and_persist_event(&st, event)?;
     if let Some(map) = response.as_object_mut() {
         map.insert("event".to_string(), admitted.clone());
-        map.insert("workspace_trust_acknowledgement_event".to_string(), admitted);
+        map.insert(
+            "workspace_trust_acknowledgement_event".to_string(),
+            admitted,
+        );
     }
     Ok(Json(response))
 }
@@ -6751,11 +7483,17 @@ pub(crate) async fn handle_threads_list(State(st): State<Arc<DaemonState>>) -> J
 // ===========================================================================
 
 const SESSION_RECORD_SCHEMA_VERSION: &str = "ioi.hypervisor.session_record.v1";
-const SESSION_CREATE_PROJECTION_SCHEMA_VERSION: &str = "ioi.hypervisor.session_create_projection.v1";
+const SESSION_CREATE_PROJECTION_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.session_create_projection.v1";
 const SESSION_EXECUTE_DECISION_SCHEMA_VERSION: &str = "ioi.hypervisor.session_execute_decision.v1";
 
 /// Harness binaries the Lane A adapter can drive (host-PTY lane). Probed on PATH.
-const HARNESS_BINARIES: &[&str] = &["codex", "generic-cli-local", "deepseek", "claude-code-example"];
+const HARNESS_BINARIES: &[&str] = &[
+    "codex",
+    "generic-cli-local",
+    "deepseek",
+    "claude-code-example",
+];
 /// Container runtimes the container lane can use. Probed on PATH.
 const CONTAINER_RUNTIMES: &[&str] = &["docker", "podman"];
 
@@ -6774,15 +7512,15 @@ impl ExecutionSubstrate {
         // Host-spawn Lane A: the primary harness is the repo's `generic-cli-local`
         // node shim (driven against Ollama), resolved when `node` + the shim file
         // are present. Fall back to a PATH harness binary (e.g. codex) for display.
-        let harness_binary = if generic_cli_local_shim_path().is_some() && binary_on_path("node").is_some()
-        {
-            Some("generic-cli-local".to_string())
-        } else {
-            HARNESS_BINARIES
-                .iter()
-                .find(|name| binary_on_path(name).is_some())
-                .map(|name| (*name).to_string())
-        };
+        let harness_binary =
+            if generic_cli_local_shim_path().is_some() && binary_on_path("node").is_some() {
+                Some("generic-cli-local".to_string())
+            } else {
+                HARNESS_BINARIES
+                    .iter()
+                    .find(|name| binary_on_path(name).is_some())
+                    .map(|name| (*name).to_string())
+            };
         Self {
             model_route: model_route_reachable(),
             harness_binary,
@@ -6814,7 +7552,9 @@ fn model_route_reachable() -> bool {
     let Ok(mut addrs) = format!("{host}:{port}").to_socket_addrs() else {
         return false;
     };
-    let Some(addr) = addrs.next() else { return false };
+    let Some(addr) = addrs.next() else {
+        return false;
+    };
     TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(300)).is_ok()
 }
 
@@ -6824,13 +7564,14 @@ fn parse_host_port(upstream: &str) -> (String, u16) {
         .split_once("://")
         .map(|(_, rest)| rest)
         .unwrap_or(upstream);
-    let authority = without_scheme.split(['/', '?', '#']).next().unwrap_or(without_scheme);
+    let authority = without_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(without_scheme);
     // Strip any userinfo.
     let authority = authority.rsplit('@').next().unwrap_or(authority);
     match authority.rsplit_once(':') {
-        Some((host, port)) if !host.is_empty() => {
-            (host.to_string(), port.parse().unwrap_or(11434))
-        }
+        Some((host, port)) if !host.is_empty() => (host.to_string(), port.parse().unwrap_or(11434)),
         _ => (authority.to_string(), 11434),
     }
 }
@@ -6840,7 +7581,9 @@ fn binary_on_path(name: &str) -> Option<String> {
     let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         let candidate = dir.join(name);
-        let Ok(meta) = std::fs::metadata(&candidate) else { continue };
+        let Ok(meta) = std::fs::metadata(&candidate) else {
+            continue;
+        };
         if !meta.is_file() {
             continue;
         }
@@ -6864,11 +7607,15 @@ fn generic_cli_local_shim_path() -> Option<String> {
         .ok()
         .filter(|value| !value.trim().is_empty())
     {
-        return std::path::Path::new(&explicit).is_file().then_some(explicit);
+        return std::path::Path::new(&explicit)
+            .is_file()
+            .then_some(explicit);
     }
     let cwd = std::env::current_dir().ok()?;
-    let candidate = cwd.join("harness-shims/generic-cli-local.mjs");
-    candidate.is_file().then(|| candidate.to_string_lossy().into_owned())
+    let candidate = cwd.join("packages/hypervisor-harness-shims/generic-cli-local.mjs");
+    candidate
+        .is_file()
+        .then(|| candidate.to_string_lossy().into_owned())
 }
 
 /// The model name the host harness mounts (mirrors the daemon's `resolve_inference`).
@@ -7028,7 +7775,12 @@ async fn run_host_spawn_lane(
         .as_ref()
         .and_then(|value| value.get("files_written"))
         .and_then(Value::as_array)
-        .map(|items| items.iter().filter_map(|item| item.as_str().map(str::to_string)).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
     let summary = result_json
         .as_ref()
@@ -7073,7 +7825,11 @@ async fn run_host_spawn_lane(
 /// called after the execution authority gate admits `port_exposure`.
 async fn start_preview_server(
     workspace_root: String,
-) -> std::io::Result<(u16, tokio::sync::oneshot::Sender<()>, tokio::task::JoinHandle<()>)> {
+) -> std::io::Result<(
+    u16,
+    tokio::sync::oneshot::Sender<()>,
+    tokio::task::JoinHandle<()>,
+)> {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
     let port = listener.local_addr()?.port();
     let app = axum::Router::new()
@@ -7097,7 +7853,10 @@ async fn serve_preview_root(State(root): State<String>) -> Response {
     serve_preview_file(&root, "index.html")
 }
 
-async fn serve_preview_path(State(root): State<String>, AxumPath(rel): AxumPath<String>) -> Response {
+async fn serve_preview_path(
+    State(root): State<String>,
+    AxumPath(rel): AxumPath<String>,
+) -> Response {
     serve_preview_file(&root, &rel)
 }
 
@@ -7124,7 +7883,12 @@ fn serve_preview_file(root: &str, rel: &str) -> Response {
 }
 
 fn preview_content_type(path: &std::path::Path) -> &'static str {
-    match path.extension().and_then(|ext| ext.to_str()).map(str::to_ascii_lowercase).as_deref() {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
         Some("html") | Some("htm") => "text/html; charset=utf-8",
         Some("css") => "text/css; charset=utf-8",
         Some("js") | Some("mjs") => "text/javascript; charset=utf-8",
@@ -7148,7 +7912,9 @@ async fn open_session_preview_port(
     workspace_root: &str,
     capability_lease_ref: &str,
 ) -> Option<Value> {
-    let (port, shutdown, join) = start_preview_server(workspace_root.to_string()).await.ok()?;
+    let (port, shutdown, join) = start_preview_server(workspace_root.to_string())
+        .await
+        .ok()?;
     let url = format!("http://127.0.0.1:{port}/");
     // Replace any prior listener for this session (signal the old one to shut down;
     // the new listener binds a fresh port, so we don't need to await the old close).
@@ -7229,7 +7995,10 @@ struct ProvisionOutcome {
 /// an isolated dir, then realize git specs by shallow-cloning when a remote is
 /// given and the clone succeeds; otherwise record the spec deferred (no fake
 /// clone). Mirrors `runtime-workspace-provisioner.mjs`.
-fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result<ProvisionOutcome, AppError> {
+fn provision_session_workspace(
+    session_ref: &str,
+    initializer: &Value,
+) -> Result<ProvisionOutcome, AppError> {
     let custody_posture = initializer
         .get("custody_posture")
         .and_then(Value::as_str)
@@ -7237,7 +8006,10 @@ fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result
         .to_string();
     let session_tag: String = safe_session_tag(session_ref);
     let workspace_path = mkdtemp_session(&session_tag).map_err(|error| {
-        AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("workspace mkdtemp failed: {error}"))
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("workspace mkdtemp failed: {error}"),
+        )
     })?;
 
     // Never operate on a filesystem root.
@@ -7258,11 +8030,17 @@ fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result
                 if remote_uri.is_empty() {
                     continue;
                 }
-                let clone_target = git.get("clone_target").and_then(Value::as_str).unwrap_or(".");
+                let clone_target = git
+                    .get("clone_target")
+                    .and_then(Value::as_str)
+                    .unwrap_or(".");
                 let clone_into = if clone_target == "." {
                     workspace_root.clone()
                 } else {
-                    workspace_path.join(clone_target).to_string_lossy().into_owned()
+                    workspace_path
+                        .join(clone_target)
+                        .to_string_lossy()
+                        .into_owned()
                 };
                 let cloned = std::process::Command::new("git")
                     .args(["clone", "--depth", "1", remote_uri, clone_into.as_str()])
@@ -7287,7 +8065,10 @@ fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result
     }
 
     let artifact_digest = {
-        let payload = format!("{workspace_root}\n{}", serde_json::to_string(initializer).unwrap_or_default());
+        let payload = format!(
+            "{workspace_root}\n{}",
+            serde_json::to_string(initializer).unwrap_or_default()
+        );
         let hex = sha256_hex_str(&payload);
         hex.chars().take(24).collect::<String>()
     };
@@ -7301,6 +8082,47 @@ fn provision_session_workspace(session_ref: &str, initializer: &Value) -> Result
         }),
         realized_specs,
         custody_posture,
+        initializer: initializer.clone(),
+    })
+}
+
+/// Bind a session to an EXISTING started environment's workspace (the env's `status.workspace_root`)
+/// instead of provisioning a fresh temp dir, so agent execution and the editor host operate on the
+/// SAME files. Returns None when the env is unknown or not started (caller falls back to a fresh
+/// session workspace) — never fabricates a path.
+fn bind_env_workspace(
+    data_dir: &str,
+    env_id: &str,
+    initializer: &Value,
+) -> Option<ProvisionOutcome> {
+    let safe = env_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
+    let path = std::path::Path::new(data_dir)
+        .join("environments")
+        .join(format!("{safe}.json"));
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).ok()?).ok()?;
+    let workspace_root = v
+        .get("status")
+        .and_then(|status| status.get("workspace_root"))
+        .and_then(Value::as_str)
+        .filter(|root| !root.trim().is_empty())?
+        .to_string();
+    let artifact_digest = sha256_hex_str(&workspace_root)
+        .chars()
+        .take(24)
+        .collect::<String>();
+    Some(ProvisionOutcome {
+        workspace_root,
+        workspace_artifact_ref: format!("agentgres://artifact/workspace/{artifact_digest}"),
+        component_phases: json!({ "provisioner": "ready", "workspace_content": "ready" }),
+        realized_specs: vec![json!({ "environment_id": env_id, "bound": true })],
+        custody_posture: initializer
+            .get("custody_posture")
+            .and_then(Value::as_str)
+            .unwrap_or("public_trunk")
+            .to_string(),
         initializer: initializer.clone(),
     })
 }
@@ -7362,12 +8184,17 @@ fn project_session_workspace_diff(workspace_root: &str) -> Value {
         .map(|stdout| stdout.trim() == "true")
         .unwrap_or(false);
     if inside_work_tree {
-        let numstat = git_capture(workspace_root, &["diff", "--numstat", "HEAD"]).unwrap_or_default();
+        let numstat =
+            git_capture(workspace_root, &["diff", "--numstat", "HEAD"]).unwrap_or_default();
         let status = git_capture(workspace_root, &["status", "--porcelain"]).unwrap_or_default();
         service.project_hypervisor_workspace_diff_from_git(workspace_root, &numstat, &status)
     } else {
         let records = walk_workspace_records(workspace_root);
-        service.project_hypervisor_workspace_diff_from_records(workspace_root, "filesystem", &records)
+        service.project_hypervisor_workspace_diff_from_records(
+            workspace_root,
+            "filesystem",
+            &records,
+        )
     }
 }
 
@@ -7390,7 +8217,9 @@ fn walk_workspace_records(root: &str) -> Vec<Value> {
         if out.len() >= MAX_WALK_FILES {
             return;
         }
-        let Ok(read) = std::fs::read_dir(dir) else { return };
+        let Ok(read) = std::fs::read_dir(dir) else {
+            return;
+        };
         let mut entries: Vec<_> = read.flatten().collect();
         entries.sort_by_key(std::fs::DirEntry::file_name);
         for entry in entries {
@@ -7398,8 +8227,14 @@ fn walk_workspace_records(root: &str) -> Vec<Value> {
                 return;
             }
             let name = entry.file_name().to_string_lossy().into_owned();
-            let Ok(file_type) = entry.file_type() else { continue };
-            let child_rel = if rel.is_empty() { name.clone() } else { format!("{rel}/{name}") };
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            let child_rel = if rel.is_empty() {
+                name.clone()
+            } else {
+                format!("{rel}/{name}")
+            };
             if file_type.is_dir() {
                 if WALK_IGNORED_DIRS.contains(&name.as_str()) {
                     continue;
@@ -7407,7 +8242,13 @@ fn walk_workspace_records(root: &str) -> Vec<Value> {
                 walk(&entry.path(), &child_rel, out);
             } else if file_type.is_file() {
                 let lines = std::fs::read_to_string(entry.path())
-                    .map(|content| if content.is_empty() { 0 } else { content.split('\n').count() })
+                    .map(|content| {
+                        if content.is_empty() {
+                            0
+                        } else {
+                            content.split('\n').count()
+                        }
+                    })
                     .unwrap_or(0);
                 out.push(json!({ "relPath": child_rel, "delta": format!("+{lines}"), "status": "added" }));
             }
@@ -7452,7 +8293,10 @@ pub(crate) async fn handle_session_create(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let now = iso_now();
-    let project_ref = body.get("project_ref").and_then(Value::as_str).map(str::to_string);
+    let project_ref = body
+        .get("project_ref")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let session_ref = body
         .get("session_ref")
         .and_then(Value::as_str)
@@ -7462,7 +8306,17 @@ pub(crate) async fn handle_session_create(
             let seed = format!("{}:{now}", project_ref.as_deref().unwrap_or("session"));
             format!("session:hyp-{}", short_hash(&seed))
         });
-    let environment_ref = format!("environment:{}", safe_session_tag(&session_ref));
+    // A session may bind to an EXISTING started environment's workspace so agent execution and
+    // the editor host operate on the SAME files (the app's compose→run→open-editor loop).
+    let bound_env_id = body
+        .get("environment_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    let environment_ref = match &bound_env_id {
+        Some(env_id) => format!("environment:{env_id}"),
+        None => format!("environment:{}", safe_session_tag(&session_ref)),
+    };
 
     // Typed workspace initializer (camelCase input mirrors the JS builder args).
     let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
@@ -7477,14 +8331,22 @@ pub(crate) async fn handle_session_create(
         .unwrap_or("workspace-initializer:session")
         .to_string();
 
-    let provision = match provision_session_workspace(&session_ref, &initializer) {
-        Ok(outcome) => outcome,
-        Err(error) => {
-            return (
-                error.0,
-                Json(json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } })),
-            );
-        }
+    let provision = match bound_env_id
+        .as_deref()
+        .and_then(|env_id| bind_env_workspace(&st.data_dir, env_id, &initializer))
+    {
+        Some(outcome) => outcome,
+        None => match provision_session_workspace(&session_ref, &initializer) {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                return (
+                    error.0,
+                    Json(
+                        json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } }),
+                    ),
+                );
+            }
+        },
     };
 
     let substrate = ExecutionSubstrate::probe();
@@ -7501,7 +8363,10 @@ pub(crate) async fn handle_session_create(
     );
 
     // Real provisioning receipt (id + kind so it passes the receipt reader).
-    let receipt_ref = format!("receipt://hypervisor/session-provision/{}", safe_session_tag(&session_ref));
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-provision/{}",
+        safe_session_tag(&session_ref)
+    );
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.provision",
@@ -7568,15 +8433,39 @@ pub(crate) async fn handle_session_events(
         )
             .into_response();
     };
-    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("");
-    let environment_ref = record.get("environment_ref").and_then(Value::as_str).unwrap_or("environment:hypervisor-session");
-    let custody_posture = record.get("custody_posture").and_then(Value::as_str).unwrap_or("public_trunk");
-    let initializer_ref = record.get("initializer_ref").and_then(Value::as_str).unwrap_or("workspace-initializer:session");
-    let workspace_artifact_ref = record.get("workspace_artifact_ref").and_then(Value::as_str).unwrap_or("");
-    let component_phases = record.get("component_phases").cloned().unwrap_or_else(|| json!({}));
-    let receipt_refs = record.get("latest_receipt_refs").cloned().unwrap_or_else(|| json!([]));
+    let workspace_root = record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let environment_ref = record
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("environment:hypervisor-session");
+    let custody_posture = record
+        .get("custody_posture")
+        .and_then(Value::as_str)
+        .unwrap_or("public_trunk");
+    let initializer_ref = record
+        .get("initializer_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("workspace-initializer:session");
+    let workspace_artifact_ref = record
+        .get("workspace_artifact_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let component_phases = record
+        .get("component_phases")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let receipt_refs = record
+        .get("latest_receipt_refs")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     // Real preview ports opened by a prior execution (with capability_lease_ref).
-    let environment_ports = record.get("environment_ports").cloned().unwrap_or_else(|| json!([]));
+    let environment_ports = record
+        .get("environment_ports")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
 
     let substrate = ExecutionSubstrate::probe();
     let environment_status = project_session_environment_status(
@@ -7599,7 +8488,10 @@ pub(crate) async fn handle_session_events(
             json!({ "changed_file_groups": workspace_diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([])) }),
         ),
         ("readiness", gate),
-        ("receipt_projection", json!({ "latest_receipt_refs": receipt_refs })),
+        (
+            "receipt_projection",
+            json!({ "latest_receipt_refs": receipt_refs }),
+        ),
     ];
     // Real terminal transcript from a prior execution (Cut #2). Emitted ONLY when a
     // real run persisted `terminal_events` — never fabricated. Bounded to the tail.
@@ -7724,13 +8616,21 @@ fn execute_authority_gate(
 ) -> Result<String, Value> {
     let policy_hash = execution_policy_hash(session_id, workspace_root, EXECUTION_AUTHORITY_SCOPES);
     let request_hash = execution_request_hash(session_id, intent, EXECUTION_AUTHORITY_SCOPES);
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let grant_value = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
     let now_ms = daemon_now_ms_fail_closed();
     let result = if grant_value.is_null() {
         Err("a wallet_approval_grant is required".to_string())
     } else {
-        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
-            .map(|binding| binding.grant_ref)
+        verify_wallet_approval_grant_binding(
+            &grant_value,
+            Some(now_ms),
+            Some(&policy_hash),
+            Some(&request_hash),
+        )
+        .map(|binding| binding.grant_ref)
     };
     result.map_err(|reason| {
         json!({
@@ -7752,6 +8652,5218 @@ fn execute_authority_gate(
     })
 }
 
+// ---- SCM connector registry + wallet-authorized publish crossing -------------------------------
+// Publishing the env's work to a remote LEAVES the scoped workspace for an external SCM, so — unlike
+// local exec — it is a CROSSING and REQUIRES a wallet capability grant. A connector is the named
+// remote target. The publish gate mirrors `execute_authority_gate` (daemon-derived policy + request
+// hashes, verified bound grant), then the daemon performs a REAL `git push` and records a durable
+// receipt. Boundary: daemon EXECUTES the push · wallet AUTHORIZES the crossing · agentgres RECORDS
+// the receipt (host_mutation:true — it touches an external remote). The local-none (file://)
+// connector is the verifiable slice; hosted (github/gitlab) connectors fail closed until a scoped
+// credential lease is bound.
+
+// SCM crossing scopes — the wallet capability scopes each lease class requires. Distinct so a
+// publish grant can never authorize an abandon (and vice versa). The per-crossing policy/request
+// HASHES are now derived generically by the CapabilityLease gateway below (no hand-rolled gates).
+const SCM_PUBLISH_SCOPES: &[&str] = &["scm_push", "remote_publish"];
+const SCM_ABANDON_SCOPES: &[&str] = &["scm_pr_close", "remote_publish"];
+
+// ================================================================================================
+// Generic CapabilityLease — the single authority-crossing primitive (master-guide #3).
+//
+// Every host-touching crossing (SCM publish, SCM abandon, and every future connector) flows through
+// ONE gateway instead of hand-rolling its own gate. A caller DECLARES a lease (what tools, what
+// resources, what backs it, how to revoke it); the gateway derives the canonical policy/request
+// hashes, resolves the SEALED backing credential (never exported), verifies a bound wallet grant,
+// and issues a durable lease descriptor. The agent receives USE-ONLY authority (scoped tools +
+// resources + receipt + revocation) — NEVER the underlying credential. wallet.network sits ABOVE
+// the credential: it authorizes the crossing; the daemon uses the sealed secret; agentgres records
+// the lease + receipt. Adding a connector becomes "declare a lease", not "write a new gate".
+// ================================================================================================
+
+/// What a caller declares to request a capability lease for one crossing.
+struct CapabilityLeaseRequest {
+    /// Who authorizes the crossing (the grant authority). Default "wallet.network".
+    authority_provider_ref: String,
+    /// What credential backs the lease: "scm:host:github" | "scm:connector:<id>" | "none".
+    backing_provider: String,
+    /// The operations this lease permits, e.g. ["scm.publish"], ["scm.pr.close"].
+    allowed_tools: Vec<String>,
+    /// The scoped resources the lease is bound to (remote_url, environment_id, pr_url, …).
+    resource_refs: Vec<String>,
+    /// The wallet capability scopes the grant must carry.
+    scopes: Vec<String>,
+    /// Stable domain tags so a grant can never be replayed across operation kinds.
+    policy_domain: String,
+    request_domain: String,
+    /// Request-specific binding params folded into the request hash (branch, pr#, intent, …).
+    request_facets: Value,
+    /// Connector whose sealed credential to resolve (None = authority-only crossing, no secret).
+    credential_connector_id: Option<String>,
+    /// Which sealed-credential vault to resolve from ("scm-credentials" for SCM, "connector-
+    /// credentials" for the generic estate). The same gateway serves every connector family.
+    credential_store: String,
+    /// Fail closed (428) if the credential is required but unresolved.
+    credential_required: bool,
+    /// Allow the github host git-auth fallback (a repo lease borrows the connected host token).
+    github_host_fallback: bool,
+    /// Whether a receipt must be emitted for this crossing.
+    receipt_required: bool,
+    /// How the backing authority is revoked (the revocation surface).
+    revocation_ref: String,
+    /// Reason string surfaced on the 403 challenge (per-crossing for API clarity).
+    authority_reason: String,
+    /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
+    grant_value: Value,
+}
+
+/// The authorized lease. `token` is for the daemon to USE; it is NEVER serialized or returned.
+struct AuthorizedCapabilityLease {
+    /// The 9-field lease descriptor (persisted + embeddable in receipts; carries NO secret).
+    descriptor: Value,
+    token: Option<String>,
+    grant_ref: String,
+    credential_source: Option<String>,
+    credential_key_source: Option<String>,
+}
+
+fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
+    sha256_json_ref(&json!({
+        "domain": req.policy_domain,
+        "authority_provider_ref": req.authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+    }))
+}
+fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
+    sha256_json_ref(&json!({
+        "domain": req.request_domain,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+        "facets": req.request_facets,
+    }))
+}
+
+/// Resolve a sealed credential record into a usable token + (source, key_source). Two kinds:
+/// a github-app record MINTS a fresh installation token (RS256 JWT → exchange); any other record
+/// opens its sealed PAT. The secret material (pem / sealed token) never leaves the daemon.
+async fn resolve_sealed_credential(
+    rec: &Value,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let key_source = rec["key_source"].as_str().map(str::to_string);
+    if rec["kind"].as_str() == Some("github-app") {
+        let pem = rec["sealed_pem"].as_str().and_then(open_scm_token);
+        let app_id = rec["app_id"].as_str().unwrap_or("").to_string();
+        let installation_id = rec["installation_id"].as_str().unwrap_or("").to_string();
+        if let Some(pem) = pem {
+            if !app_id.is_empty() && !installation_id.is_empty() {
+                if let Ok(tok) =
+                    mint_github_installation_token(&app_id, &pem, &installation_id).await
+                {
+                    return (
+                        Some(tok),
+                        Some("github-app-installation".to_string()),
+                        key_source,
+                    );
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
+    if rec["kind"].as_str() == Some("oauth-refresh") {
+        let refresh = rec["sealed_refresh_token"]
+            .as_str()
+            .and_then(open_scm_token);
+        let token_url = rec["token_url"].as_str().unwrap_or("").to_string();
+        let client_id = rec["client_id"].as_str().unwrap_or("").to_string();
+        let client_secret = rec["sealed_client_secret"]
+            .as_str()
+            .and_then(open_scm_token)
+            .unwrap_or_default();
+        if let Some(refresh) = refresh {
+            if !token_url.is_empty() {
+                if let Ok(tok) =
+                    mint_oauth_access_token(&token_url, &client_id, &client_secret, &refresh).await
+                {
+                    return (Some(tok), Some("oauth-refresh".to_string()), key_source);
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
+    if rec["kind"].as_str() == Some("oidc-workload") {
+        // The subject token is the workload's own identity — read fresh from a mounted file (rotating,
+        // e.g. a projected service-account token) or a sealed configured value, then exchange it.
+        let subject = match rec["subject_token_file"].as_str() {
+            Some(path) if !path.is_empty() => std::fs::read_to_string(path)
+                .ok()
+                .map(|s| s.trim().to_string()),
+            _ => rec["sealed_subject_token"]
+                .as_str()
+                .and_then(open_scm_token),
+        };
+        let token_url = rec["token_url"].as_str().unwrap_or("");
+        if let Some(subject) = subject {
+            if !token_url.is_empty() {
+                let stt = rec["subject_token_type"]
+                    .as_str()
+                    .unwrap_or("urn:ietf:params:oauth:token-type:jwt");
+                let audience = rec["audience"].as_str().unwrap_or("");
+                let scopes = rec["scopes"].as_str().unwrap_or("");
+                let client_id = rec["client_id"].as_str().unwrap_or("");
+                if let Ok(tok) =
+                    mint_token_exchange(token_url, &subject, stt, audience, scopes, client_id).await
+                {
+                    return (Some(tok), Some("oidc-workload".to_string()), key_source);
+                }
+            }
+        }
+        return (None, None, key_source);
+    }
+    if rec["kind"].as_str() == Some("aws-sigv4") {
+        // SigV4 signs each request at invoke time (not a bearer). Signal credential presence so the
+        // wallet gate passes; the invoke reads the sealed keys and signs. The marker is never sent.
+        let present = rec["sealed_secret_access_key"].as_str().is_some();
+        return (
+            present.then(|| "aws-sigv4".to_string()),
+            present.then(|| "aws-sigv4".to_string()),
+            key_source,
+        );
+    }
+    let token = if let Some(sealed) = rec["sealed_token"].as_str() {
+        open_scm_token(sealed)
+    } else {
+        rec["token"].as_str().map(str::to_string)
+    };
+    let label = if rec["kind"].as_str() == Some("service-account") {
+        "managed-service-account"
+    } else {
+        "connector"
+    };
+    let source = token.as_ref().map(|_| label.to_string());
+    (token, source, key_source)
+}
+
+/// The single authority gateway. Order: resolve sealed credential (428) → verify wallet grant (403)
+/// → issue + persist the lease. Returns the authorized lease, or a (StatusCode, body) the caller
+/// returns verbatim. This is THE crossing — publish/abandon/future-connectors all route through it.
+/// Async because some credential kinds (github-app) MINT a fresh token (network) at resolution time.
+async fn authorize_capability_lease(
+    st: &Arc<DaemonState>,
+    req: &CapabilityLeaseRequest,
+) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
+    let policy_hash = capability_lease_policy_hash(req);
+    let request_hash = capability_lease_request_hash(req);
+
+    // 1) Resolve the SEALED backing credential (decrypt/mint failure → None → fail closed). Connector's
+    //    own credential first, then the github host git-auth fallback. Never exported. Two credential
+    //    KINDS resolve here: a sealed PAT (open the sealed token) and a github-app (mint a fresh
+    //    installation token from the sealed pem + app_id + installation_id).
+    let mut token: Option<String> = None;
+    let mut credential_source: Option<String> = None;
+    let mut credential_key_source: Option<String> = None;
+    if let Some(cid) = req.credential_connector_id.as_deref() {
+        if let Some(rec) = read_record_dir(&st.data_dir, &req.credential_store)
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(cid))
+        {
+            let (t, src, ks) = resolve_sealed_credential(&rec).await;
+            token = t;
+            credential_source = src;
+            credential_key_source = ks;
+        }
+        if token.is_none() && req.github_host_fallback {
+            if let Some(host) = read_record_dir(&st.data_dir, "scm-credentials")
+                .into_iter()
+                .find(|c| c["connector_id"].as_str() == Some("scm_host_github"))
+            {
+                let (t, _src, ks) = resolve_sealed_credential(&host).await;
+                if t.is_some() {
+                    token = t;
+                    credential_source = Some("host-authentication".to_string());
+                    credential_key_source = ks;
+                }
+            }
+        }
+        if req.credential_required && token.is_none() {
+            return Err((
+                StatusCode::PRECONDITION_REQUIRED,
+                json!({
+                    "ok": false, "decision": "blocked", "reason": "scm_credential_required",
+                    "message": "This lease needs a resolvable backing credential before the crossing.",
+                    "backing_provider": req.backing_provider, "host_mutation": false,
+                }),
+            ));
+        }
+    }
+
+    // 2) Wallet authority gate — daemon-derived hashes, verified bound grant. 403 challenge otherwise.
+    let now_ms = daemon_now_ms_fail_closed();
+    let binding = if req.grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(
+            &req.grant_value,
+            Some(now_ms),
+            Some(&policy_hash),
+            Some(&request_hash),
+        )
+    };
+    let binding = match binding {
+        Ok(b) => b,
+        Err(reason) => {
+            return Err((
+                StatusCode::FORBIDDEN,
+                json!({
+                    "ok": false, "decision": "blocked", "reason": req.authority_reason,
+                    "message": format!(
+                        "This crossing requires a wallet grant ({reason}) bound to policy_hash {policy_hash} + request_hash {request_hash}."
+                    ),
+                    "required_scopes": req.scopes,
+                    "allowed_tools": req.allowed_tools,
+                    "resource_refs": req.resource_refs,
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "host_mutation": false,
+                }),
+            ));
+        }
+    };
+
+    // 3) Issue + persist the lease (the 9-field shape). No secret in the descriptor.
+    let expires_at = req
+        .grant_value
+        .get("expires_at")
+        .or_else(|| req.grant_value.get("expiresAt"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let lease_id = format!(
+        "lease_{}",
+        short_hash(&format!("{policy_hash}:{request_hash}"))
+    );
+    let authority_provider_ref = if binding.provider_ref.trim().is_empty() {
+        req.authority_provider_ref.clone()
+    } else {
+        binding.provider_ref.clone()
+    };
+    let descriptor = json!({
+        "schema_version": "ioi.hypervisor.capability-lease.v1",
+        "lease_id": lease_id,
+        "authority_provider_ref": authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
+        "expires_at": expires_at,
+        "receipt_required": req.receipt_required,
+        "revocation_ref": req.revocation_ref,
+        "grant_ref": binding.grant_ref,
+        "credential_source": credential_source,
+        "issued_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "capability-leases", &lease_id, &descriptor);
+
+    Ok(AuthorizedCapabilityLease {
+        descriptor,
+        token,
+        grant_ref: binding.grant_ref,
+        credential_source,
+        credential_key_source,
+    })
+}
+
+/// GET /v1/hypervisor/capability-leases — the authority audit trail: every issued use-only lease
+/// (the 9-field shape). NEVER includes a credential/secret — leases are use-only by construction.
+pub(crate) async fn handle_capability_lease_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
+    Json(json!({ "ok": true, "leases": read_record_dir(&st.data_dir, "capability-leases") }))
+}
+
+// ================================================================================================
+// Generic connector estate (master-guide #5) — ANY external service as a USE-ONLY lease.
+//
+// The SCM connectors proved the CapabilityLease gateway; this generalizes it: a connector declares a
+// `service`, a `base_url`, and a set of named `allowed_tools` (each {name, method, path}). The agent
+// invokes a tool by NAME; the daemon authorizes the crossing through the SAME gateway, resolves the
+// connector's sealed bearer credential, performs the authenticated HTTP call, and records a receipt.
+// The agent receives a use-only lease scoped to declared tools — it NEVER sees the credential.
+// Slack/Databricks/Linear/etc. are just a (service, base_url, allowed_tools) triple. Catalog/connect
+// UX + non-bearer auth (OAuth refresh / AWS SigV4) are follow-ons on this same spine.
+// ================================================================================================
+
+/// POST /v1/hypervisor/connectors — register a generic service connector (no credential yet).
+pub(crate) async fn handle_connector_register(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let service = body
+        .get("service")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let base_url = body
+        .get("base_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim_end_matches('/')
+        .to_string();
+    if service.is_empty() || base_url.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "service and base_url are required" })),
+        );
+    }
+    let kind = body
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or("bearer")
+        .to_string();
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or(service.as_str())
+        .to_string();
+    let allowed_tools = body
+        .get("allowed_tools")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let requires_credential = body
+        .get("requires_credential")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    // The auth profile declares HOW a member connects (OAuth authcode+PKCE / DCR / device / BYOA /
+    // manual). A BYOA confidential client may carry a client_secret — SEAL it (never store plaintext).
+    let mut auth_profile = body.get("auth_profile").cloned().unwrap_or(Value::Null);
+    if let Some(secret) = auth_profile
+        .get("client_secret")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+    {
+        if let Some(obj) = auth_profile.as_object_mut() {
+            obj.remove("client_secret");
+            if let Some(sealed) = seal_scm_token(&secret) {
+                obj.insert("sealed_client_secret".to_string(), json!(sealed));
+            }
+        }
+    }
+    // Org policy: the allow-list of tools members may invoke + the risk posture (set by the org).
+    // Default standard / no tool restriction; tightened via the set-policy endpoint or at create.
+    let org_policy = body
+        .get("org_policy")
+        .cloned()
+        .unwrap_or_else(|| json!({ "allowed_tools": Value::Null, "risk_posture": "standard" }));
+    let connector_id = format!(
+        "conn_{}",
+        short_hash(&format!("{service}:{name}:{base_url}"))
+    );
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.connector.v1",
+        "connector_id": connector_id, "service": service, "kind": kind, "name": name,
+        "base_url": base_url, "allowed_tools": allowed_tools, "requires_credential": requires_credential,
+        "auth_profile": auth_profile, "org_policy": org_policy,
+        "auth_posture": if requires_credential { "token-lease:unbound" } else { "open" }, "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "connectors", &connector_id, &connector);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "connector": connector })),
+    )
+}
+
+/// GET /v1/hypervisor/connectors — list registered service connectors (NEVER includes credentials).
+pub(crate) async fn handle_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "connectors") }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/credential — bind a sealed bearer credential to a connector.
+pub(crate) async fn handle_connector_bind_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    let key_source = scm_key_source();
+    // Two credential KINDS: a static bearer token, or an OAuth2 refresh token (the daemon mints a
+    // fresh access token per use — the model the native Integrations surface uses). Both sealed.
+    let cred = if body.get("kind").and_then(Value::as_str) == Some("oauth-refresh") {
+        let refresh = body
+            .get("refresh_token")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let token_url = body
+            .get("token_url")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let client_id = body
+            .get("client_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let client_secret = body
+            .get("client_secret")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if refresh.is_empty() || token_url.is_empty() {
+            return Json(
+                json!({ "ok": false, "reason": "oauth-refresh needs refresh_token and token_url" }),
+            );
+        }
+        let (Some(sealed_refresh), Some(sealed_secret)) =
+            (seal_scm_token(&refresh), seal_scm_token(&client_secret))
+        else {
+            return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+        };
+        json!({ "connector_id": id, "kind": "oauth-refresh", "sealed_refresh_token": sealed_refresh,
+            "token_url": token_url, "client_id": client_id, "sealed_client_secret": sealed_secret,
+            "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else if body.get("kind").and_then(Value::as_str) == Some("oidc-workload") {
+        // Workload identity (RFC 8693): a sealed subject token, OR a path to a mounted (rotating)
+        // workload identity token that the daemon reads fresh each use.
+        let token_url = body
+            .get("token_url")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let subject_token_file = body
+            .get("subject_token_file")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let subject_token = body
+            .get("subject_token")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if token_url.is_empty() || (subject_token.is_empty() && subject_token_file.is_empty()) {
+            return Json(
+                json!({ "ok": false, "reason": "oidc-workload needs token_url and a subject_token or subject_token_file" }),
+            );
+        }
+        let sealed_subject = if subject_token.is_empty() {
+            Value::Null
+        } else {
+            match seal_scm_token(&subject_token) {
+                Some(s) => json!(s),
+                None => {
+                    return Json(json!({ "ok": false, "reason": "failed to seal subject token" }))
+                }
+            }
+        };
+        json!({ "connector_id": id, "kind": "oidc-workload", "token_url": token_url,
+            "sealed_subject_token": sealed_subject, "subject_token_file": subject_token_file,
+            "subject_token_type": body.get("subject_token_type").and_then(Value::as_str).unwrap_or("urn:ietf:params:oauth:token-type:jwt"),
+            "audience": body.get("audience").and_then(Value::as_str).unwrap_or(""),
+            "scopes": body.get("scopes").and_then(Value::as_str).unwrap_or(""),
+            "client_id": body.get("client_id").and_then(Value::as_str).unwrap_or(""),
+            "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else if body.get("kind").and_then(Value::as_str) == Some("aws-sigv4") {
+        // AWS keys: seal the secret (+ optional session token); access_key_id/region/service are
+        // identifiers stored plainly. Each request is SigV4-signed at invoke time.
+        let access_key_id = body
+            .get("access_key_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let secret = body
+            .get("secret_access_key")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let region = body
+            .get("region")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let service = body
+            .get("service")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let session = body
+            .get("session_token")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if access_key_id.is_empty() || secret.is_empty() || region.is_empty() || service.is_empty()
+        {
+            return Json(
+                json!({ "ok": false, "reason": "aws-sigv4 needs access_key_id, secret_access_key, region, service" }),
+            );
+        }
+        let Some(sealed_secret) = seal_scm_token(&secret) else {
+            return Json(json!({ "ok": false, "reason": "failed to seal secret" }));
+        };
+        let sealed_session = if session.is_empty() {
+            Value::Null
+        } else {
+            match seal_scm_token(&session) {
+                Some(s) => json!(s),
+                None => {
+                    return Json(json!({ "ok": false, "reason": "failed to seal session token" }))
+                }
+            }
+        };
+        json!({ "connector_id": id, "kind": "aws-sigv4", "access_key_id": access_key_id,
+            "sealed_secret_access_key": sealed_secret, "sealed_session_token": sealed_session,
+            "region": region, "service": service, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    } else {
+        let token = body
+            .get("token")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if token.is_empty() {
+            return Json(json!({ "ok": false, "reason": "token is required" }));
+        }
+        let Some(sealed) = seal_scm_token(&token) else {
+            return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+        };
+        // "service-account" = a managed long-lived service credential (advanced); else a static bearer.
+        let kind = if body.get("kind").and_then(Value::as_str) == Some("service-account") {
+            "service-account"
+        } else {
+            "bearer"
+        };
+        json!({ "connector_id": id, "kind": kind, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() })
+    };
+    let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+    connector["auth_posture"] = json!("token-lease:bound");
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    Json(
+        json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "kind": cred["kind"] }),
+    )
+}
+
+/// DELETE /v1/hypervisor/connectors/:id/credential — revoke the sealed credential (fail-closed after).
+pub(crate) async fn handle_connector_revoke_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let revoked = remove_record(&st.data_dir, "connector-credentials", &id);
+    if let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    {
+        connector["auth_posture"] = json!("token-lease:unbound");
+        connector["revoked_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    }
+    Json(
+        json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }),
+    )
+}
+
+/// POST /v1/hypervisor/connectors/:id/policy — set the org policy (allowed-tools allow-list + risk
+/// posture) enforced on every invoke. `allowed_tools: null` = no restriction; an array = allow-list
+/// (empty = nothing permitted). risk_posture "locked" blocks all invokes (enabled but not usable).
+pub(crate) async fn handle_connector_set_policy(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    let allowed_tools = body.get("allowed_tools").cloned().unwrap_or(Value::Null);
+    let risk_posture = body
+        .get("risk_posture")
+        .and_then(Value::as_str)
+        .unwrap_or("standard")
+        .to_string();
+    // principal_scoped: when true, only principals holding an explicit lease grant for (connector,tool)
+    // may invoke — preserve the prior value if not specified.
+    let principal_scoped = body
+        .get("principal_scoped")
+        .and_then(Value::as_bool)
+        .unwrap_or_else(|| {
+            connector["org_policy"]["principal_scoped"]
+                .as_bool()
+                .unwrap_or(false)
+        });
+    let org_policy = json!({ "allowed_tools": allowed_tools, "risk_posture": risk_posture, "principal_scoped": principal_scoped, "set_at": iso_now() });
+    connector["org_policy"] = org_policy.clone();
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    Json(json!({ "ok": true, "connector_id": id, "org_policy": org_policy }))
+}
+
+/// True if a principal holds a lease grant for (connector, tool) — "*" grants all tools.
+fn principal_has_lease_grant(
+    data_dir: &str,
+    principal_id: &str,
+    connector_id: &str,
+    tool: &str,
+) -> bool {
+    read_record_dir(data_dir, "principal-lease-grants")
+        .iter()
+        .any(|g| {
+            g["principal_id"].as_str() == Some(principal_id)
+                && g["connector_id"].as_str() == Some(connector_id)
+                && g["tools"]
+                    .as_array()
+                    .map(|ts| {
+                        ts.iter()
+                            .any(|t| t.as_str() == Some(tool) || t.as_str() == Some("*"))
+                    })
+                    .unwrap_or(false)
+        })
+}
+/// POST /v1/hypervisor/principals/:id/lease-grants {connector_id, tools:[...]} — grant a principal
+/// scoped access to specific connector tools. This is the per-principal authority scope (NOT a role).
+pub(crate) async fn handle_principal_lease_grant(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if find_principal(&st.data_dir, &id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown_principal" })),
+        );
+    }
+    let connector_id = body
+        .get("connector_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if connector_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "connector_id is required" })),
+        );
+    }
+    let tools = body.get("tools").cloned().unwrap_or_else(|| json!(["*"]));
+    let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
+    let rec = json!({ "id": gid, "grant_id": gid, "principal_id": id, "connector_id": connector_id, "tools": tools, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "principal-lease-grants", &gid, &rec);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "lease_grant": rec })),
+    )
+}
+/// GET /v1/hypervisor/principals/:id/lease-grants
+pub(crate) async fn handle_principal_lease_grant_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let grants: Vec<Value> = read_record_dir(&st.data_dir, "principal-lease-grants")
+        .into_iter()
+        .filter(|g| g["principal_id"].as_str() == Some(id.as_str()))
+        .collect();
+    Json(json!({ "ok": true, "lease_grants": grants }))
+}
+/// DELETE /v1/hypervisor/principals/:id/lease-grants/:connector_id — revoke a principal's scope.
+pub(crate) async fn handle_principal_lease_grant_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((id, connector_id)): AxumPath<(String, String)>,
+) -> Json<Value> {
+    let gid = format!("plg_{}", short_hash(&format!("{id}:{connector_id}")));
+    let removed = remove_record(&st.data_dir, "principal-lease-grants", &gid);
+    Json(
+        json!({ "ok": true, "principal_id": id, "connector_id": connector_id, "revoked": removed }),
+    )
+}
+
+/// DELETE /v1/hypervisor/connectors/:id — remove a connector and its sealed credential entirely.
+pub(crate) async fn handle_connector_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let cred = remove_record(&st.data_dir, "connector-credentials", &id);
+    let conn = remove_record(&st.data_dir, "connectors", &id);
+    Json(json!({ "ok": true, "connector_id": id, "removed": conn, "credential_removed": cred }))
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/discover — auto-configure the auth_profile for an MCP
+/// connector: discover the authorization server (RFC 9728 → 8414) and dynamically register a public
+/// PKCE client (RFC 7591). No per-service OAuth app needed; no vendor secret. Idempotent (keeps an
+/// existing client_id).
+pub(crate) async fn handle_connector_oauth_discover(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let redirect_uri = body
+        .get("redirect_uri")
+        .and_then(Value::as_str)
+        .unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback")
+        .to_string();
+    let (auth_ep, token_ep, reg_ep, device_ep, scopes) =
+        match discover_oauth_for_mcp(&base_url).await {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({ "ok": false, "reason": "discovery_failed", "message": e })),
+                )
+            }
+        };
+    let existing = connector["auth_profile"]["client_id"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let client_id = if !existing.is_empty() {
+        existing
+    } else if !reg_ep.is_empty() {
+        match dynamic_client_register(&reg_ep, &redirect_uri, &scopes).await {
+            Ok(c) => c,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({ "ok": false, "reason": "dcr_failed", "message": e })),
+                )
+            }
+        }
+    } else {
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "reason": "no_registration_endpoint", "message": "Authorization server has no Dynamic Client Registration; provide a BYOA client_id in the auth_profile." }),
+            ),
+        );
+    };
+    let auth_profile = json!({
+        "type": "oauth_authcode_pkce", "authorization_endpoint": auth_ep, "token_endpoint": token_ep,
+        "registration_endpoint": reg_ep, "device_authorization_endpoint": device_ep,
+        "client_id": client_id, "scopes": scopes, "discovered": true,
+    });
+    connector["auth_profile"] = auth_profile.clone();
+    let _ = persist_record(&st.data_dir, "connectors", &id, &connector);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "discovered": true, "auth_profile": auth_profile })),
+    )
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/start — begin the OAuth Authorization Code + PKCE
+/// Connect ("authorize this integration"). Returns the provider authorize URL the browser visits.
+/// Stores the PKCE verifier (sealed) keyed by state; no secret leaves the daemon.
+pub(crate) async fn handle_connector_oauth_start(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let ap = &connector["auth_profile"];
+    let authorization_endpoint = ap["authorization_endpoint"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    if authorization_endpoint.is_empty() || token_endpoint.is_empty() || client_id.is_empty() {
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "reason": "no_oauth_profile", "message": "This integration has no OAuth auth_profile (authorization_endpoint/token_endpoint/client_id)." }),
+            ),
+        );
+    }
+    let scopes = ap["scopes"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default();
+    let redirect_uri = body
+        .get("redirect_uri")
+        .and_then(Value::as_str)
+        .unwrap_or("http://127.0.0.1:4173/__ioi/integrations/oauth/callback")
+        .to_string();
+    let verifier = random_token(64);
+    let challenge = pkce_challenge(&verifier);
+    let state = random_token(32);
+    let Some(sealed_verifier) = seal_scm_token(&verifier) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" })),
+        );
+    };
+    let pending = json!({ "state": state, "connector_id": id, "sealed_verifier": sealed_verifier, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    let mut authorize_url = format!(
+        "{authorization_endpoint}?response_type=code&client_id={}&redirect_uri={}&state={state}&code_challenge={challenge}&code_challenge_method=S256",
+        pct(&client_id), pct(&redirect_uri)
+    );
+    if !scopes.is_empty() {
+        authorize_url.push_str(&format!("&scope={}", pct(&scopes)));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "authorize_url": authorize_url, "state": state })),
+    )
+}
+
+/// POST /v1/hypervisor/connectors/oauth/callback — finish the Connect: exchange the authorization
+/// code (PKCE) for tokens and SEAL the refresh token as an oauth-refresh credential. The agent never
+/// sees any of it — it gets scoped capability leases minted from this backing material.
+pub(crate) async fn handle_connector_oauth_callback(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let state = body
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let code = body
+        .get("code")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if state.is_empty() || code.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "state and code are required" })),
+        );
+    }
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
+        .into_iter()
+        .find(|p| p["state"].as_str() == Some(state.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown or expired state" })),
+        );
+    };
+    let connector_id = pending["connector_id"].as_str().unwrap_or("").to_string();
+    let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
+    let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "could not open pkce verifier" })),
+        );
+    };
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let ap = &connector["auth_profile"];
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    // Confidential BYOA client (e.g. Slack): the sealed client_secret is sent at the token exchange.
+    let client_secret = ap["sealed_client_secret"]
+        .as_str()
+        .and_then(open_scm_token)
+        .unwrap_or_default();
+    let (access, refresh) = match exchange_oauth_code(
+        &token_endpoint,
+        &client_id,
+        &client_secret,
+        &code,
+        &redirect_uri,
+        &verifier,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": "oauth_exchange_failed", "message": e })),
+            )
+        }
+    };
+    // Prefer a refresh token (daemon mints access per use); else seal the access token as a bearer.
+    let Some(cred) = seal_oauth_result(
+        &connector_id,
+        &token_endpoint,
+        &client_id,
+        &client_secret,
+        &access,
+        refresh.as_deref(),
+    ) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal token" })),
+        );
+    };
+    let _ = persist_record(&st.data_dir, "connector-credentials", &connector_id, &cred);
+    if let Some(mut c) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    {
+        c["auth_posture"] = json!("token-lease:bound");
+        let _ = persist_record(&st.data_dir, "connectors", &connector_id, &c);
+    }
+    let _ = remove_record(&st.data_dir, "oauth-pending", &state);
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "connected": true, "connector_id": connector_id, "credential_kind": cred["kind"] }),
+        ),
+    )
+}
+
+// Seal an OAuth result (access + optional refresh) as a connector credential: oauth-refresh when a
+// refresh token is present (daemon mints access per use), else a static bearer access token.
+fn seal_oauth_result(
+    connector_id: &str,
+    token_endpoint: &str,
+    client_id: &str,
+    client_secret: &str,
+    access: &str,
+    refresh: Option<&str>,
+) -> Option<Value> {
+    let key_source = scm_key_source();
+    if let Some(refresh) = refresh {
+        let sealed = seal_scm_token(refresh)?;
+        Some(
+            json!({ "connector_id": connector_id, "kind": "oauth-refresh", "sealed_refresh_token": sealed, "token_url": token_endpoint, "client_id": client_id, "sealed_client_secret": seal_scm_token(client_secret)?, "key_source": key_source, "sealed": true, "bound_at": iso_now() }),
+        )
+    } else {
+        let sealed = seal_scm_token(access)?;
+        Some(
+            json!({ "connector_id": connector_id, "kind": "bearer", "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() }),
+        )
+    }
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/device/start — OAuth Device Authorization Grant (RFC
+/// 8628): headless / no-redirect connect. Returns the user_code + verification_uri to display; the
+/// user authorizes on another device, then the client polls. (Phase D auth profile.)
+pub(crate) async fn handle_connector_device_start(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let ap = &connector["auth_profile"];
+    let device_ep = ap["device_authorization_endpoint"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    if device_ep.is_empty() || client_id.is_empty() {
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "reason": "no_device_profile", "message": "This integration has no device_authorization_endpoint (run discovery, or the AS lacks device flow)." }),
+            ),
+        );
+    }
+    let scopes = ap["scopes"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default();
+    let resp = reqwest::Client::new()
+        .post(&device_ep)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&[
+            ("client_id", client_id.as_str()),
+            ("scope", scopes.as_str()),
+        ])
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let v: Value = match resp {
+        Ok(r) if r.status().is_success() => r.json().await.unwrap_or(Value::Null),
+        Ok(r) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(
+                    json!({ "ok": false, "reason": "device_start_failed", "status": r.status().as_u16() }),
+                ),
+            )
+        }
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("device endpoint unreachable: {e}") })),
+            )
+        }
+    };
+    let device_code = v["device_code"].as_str().unwrap_or("").to_string();
+    if device_code.is_empty() {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "no device_code in response" })),
+        );
+    }
+    let Some(sealed) = seal_scm_token(&device_code) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal device_code" })),
+        );
+    };
+    let interval = v["interval"].as_u64().unwrap_or(5);
+    let _ = persist_record(
+        &st.data_dir,
+        "oauth-device-pending",
+        &id,
+        &json!({ "connector_id": id, "sealed_device_code": sealed, "interval": interval, "created_at": iso_now() }),
+    );
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true, "user_code": v["user_code"], "verification_uri": v["verification_uri"],
+            "verification_uri_complete": v["verification_uri_complete"], "interval": interval, "expires_in": v["expires_in"],
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/connectors/:id/oauth/device/poll — poll the token endpoint for the device
+/// grant; on success seals the tokens (oauth-refresh). Returns {pending:true} while the user hasn't
+/// authorized yet.
+pub(crate) async fn handle_connector_device_poll(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-device-pending")
+        .into_iter()
+        .find(|p| p["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "no pending device authorization" })),
+        );
+    };
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let ap = &connector["auth_profile"];
+    let token_endpoint = ap["token_endpoint"].as_str().unwrap_or("").to_string();
+    let client_id = ap["client_id"].as_str().unwrap_or("").to_string();
+    let Some(device_code) = pending["sealed_device_code"]
+        .as_str()
+        .and_then(open_scm_token)
+    else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "could not open device_code" })),
+        );
+    };
+    let resp = reqwest::Client::new()
+        .post(&token_endpoint)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&[
+            ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+            ("device_code", device_code.as_str()),
+            ("client_id", client_id.as_str()),
+        ])
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let (status, v): (u16, Value) = match resp {
+        Ok(r) => {
+            let s = r.status().as_u16();
+            (s, r.json().await.unwrap_or(Value::Null))
+        }
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("token endpoint unreachable: {e}") })),
+            )
+        }
+    };
+    if (200..300).contains(&status) {
+        let access = v["access_token"].as_str().unwrap_or("").to_string();
+        let refresh = v["refresh_token"].as_str();
+        let Some(cred) = seal_oauth_result(&id, &token_endpoint, &client_id, "", &access, refresh)
+        else {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "reason": "failed to seal token" })),
+            );
+        };
+        let _ = persist_record(&st.data_dir, "connector-credentials", &id, &cred);
+        if let Some(mut c) = read_record_dir(&st.data_dir, "connectors")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+        {
+            c["auth_posture"] = json!("token-lease:bound");
+            let _ = persist_record(&st.data_dir, "connectors", &id, &c);
+        }
+        let _ = remove_record(&st.data_dir, "oauth-device-pending", &id);
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "connected": true, "connector_id": id, "credential_kind": cred["kind"] }),
+            ),
+        );
+    }
+    let err = v["error"].as_str().unwrap_or("");
+    if err == "authorization_pending" || err == "slow_down" {
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "pending": true, "error": err })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": false, "reason": if err.is_empty() { "device_poll_failed" } else { err } }),
+        ),
+    )
+}
+
+/// POST /v1/hypervisor/connectors/:id/invoke — the wallet-authorized USE crossing: invoke a declared
+/// tool on the connector's service with its sealed credential. The agent names a tool; the daemon
+/// authorizes via the CapabilityLease gateway, performs the authenticated call, and returns the tool
+/// RESULT (credential redacted). The credential never leaves the daemon.
+pub(crate) async fn handle_connector_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    // The calling PRINCIPAL (identity) — attributed on the receipt and, when the connector is
+    // principal-scoped, checked against a per-principal lease grant. Identity scopes WHO may request
+    // the crossing; it does NOT replace the wallet authority that authorizes the crossing itself.
+    let caller = resolve_principal(&st.data_dir, &headers);
+    let caller_id = caller
+        .as_ref()
+        .and_then(|p| p["principal_id"].as_str())
+        .unwrap_or("unattributed")
+        .to_string();
+    let service = connector["service"]
+        .as_str()
+        .unwrap_or("service")
+        .to_string();
+    let kind = connector["kind"].as_str().unwrap_or("bearer").to_string();
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(true);
+    let tool_name = body
+        .get("tool")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if tool_name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "tool is required" })),
+        );
+    }
+    // For HTTP connectors the lease only permits DECLARED tools (off-manifest → refused). MCP servers
+    // define their own tools dynamically, so we don't gate on a static manifest — but the wallet
+    // grant still scopes to THIS tool name, so authority stays per-tool either way.
+    let (method, path) = if kind == "mcp" {
+        ("POST".to_string(), "/".to_string())
+    } else {
+        let Some(tool) = connector["allowed_tools"].as_array().and_then(|tools| {
+            tools
+                .iter()
+                .find(|t| t["name"].as_str() == Some(tool_name.as_str()))
+                .cloned()
+        }) else {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({ "ok": false, "reason": "tool_not_allowed", "message": format!("'{tool_name}' is not a declared tool on this connector") }),
+                ),
+            );
+        };
+        (
+            tool["method"].as_str().unwrap_or("POST").to_uppercase(),
+            tool["path"].as_str().unwrap_or("/").to_string(),
+        )
+    };
+    let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
+
+    // ORG POLICY gate (Phase C) — enforced before the wallet crossing. risk_posture "locked" blocks
+    // all use; an allowed_tools allow-list (when set) restricts which tools members may invoke.
+    let org_policy = connector["org_policy"].clone();
+    let risk_posture = org_policy["risk_posture"]
+        .as_str()
+        .unwrap_or("standard")
+        .to_string();
+    if risk_posture == "locked" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({ "ok": false, "reason": "policy_locked", "message": "Org policy has locked this integration (enabled but not usable).", "risk_posture": risk_posture }),
+            ),
+        );
+    }
+    if let Some(allow) = org_policy["allowed_tools"].as_array() {
+        if !allow.iter().any(|t| t.as_str() == Some(tool_name.as_str())) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({ "ok": false, "reason": "tool_not_in_policy", "message": format!("Org policy does not permit the tool '{tool_name}' on this integration."), "allowed_tools": allow }),
+                ),
+            );
+        }
+    }
+
+    // PRINCIPAL-SCOPE gate (hardening #3) — least-privilege per principal. When the connector is
+    // principal-scoped, the CALLING principal must hold a lease grant for (connector, tool); roles
+    // grant nothing here — only an explicit per-principal grant does. Off → any caller (still
+    // wallet-gated). This composes BEFORE the wallet crossing.
+    if org_policy["principal_scoped"].as_bool().unwrap_or(false) {
+        if caller.is_none() {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({ "ok": false, "reason": "principal_required", "message": "This integration is principal-scoped; the caller must be an authenticated principal." }),
+                ),
+            );
+        }
+        if !principal_has_lease_grant(&st.data_dir, &caller_id, &id, &tool_name) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({ "ok": false, "reason": "principal_not_authorized", "message": format!("Principal '{caller_id}' has no lease grant for tool '{tool_name}' on this integration."), "principal_id": caller_id }),
+                ),
+            );
+        }
+    }
+
+    // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("{service}:connector:{id}"),
+        allowed_tools: vec![tool_name.clone()],
+        resource_refs: vec![base_url.clone(), service.clone()],
+        scopes: vec![format!("{service}.{tool_name}")],
+        policy_domain: "hypervisor.connector.invoke.policy.v1".to_string(),
+        request_domain: "hypervisor.connector.invoke.request.v1".to_string(),
+        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args) }),
+        credential_connector_id: Some(id.clone()),
+        credential_store: "connector-credentials".to_string(),
+        credential_required: requires_credential,
+        github_host_fallback: false,
+        receipt_required: true,
+        revocation_ref: format!("connectors/{id}/credential"),
+        authority_reason: "connector_invoke_authority_required".to_string(),
+        grant_value: body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
+    };
+    let token = lease.token.unwrap_or_default();
+
+    // daemon EXECUTES the authenticated call (the agent never holds the token). An MCP connector
+    // performs a JSON-RPC tools/call; any other connector performs the declared HTTP request.
+    let redact = |s: String| {
+        if token.is_empty() {
+            s
+        } else {
+            s.replace(token.as_str(), "***")
+        }
+    };
+    let url = if kind == "mcp" {
+        base_url.clone()
+    } else {
+        format!(
+            "{}{}",
+            base_url,
+            if path.starts_with('/') {
+                path.clone()
+            } else {
+                format!("/{path}")
+            }
+        )
+    };
+    let (status_code, response_value, error) = if kind == "mcp" {
+        match mcp_call_tool(&base_url, &token, &tool_name, &request_args).await {
+            Ok(result) => {
+                let red = redact(serde_json::to_string(&result).unwrap_or_default());
+                (200u16, serde_json::from_str(&red).unwrap_or(result), None)
+            }
+            Err(e) => (502u16, Value::Null, Some(redact(e))),
+        }
+    } else {
+        let client = reqwest::Client::new();
+        let mut rb = match method.as_str() {
+            "GET" => client.get(&url),
+            "POST" => client.post(&url),
+            "PUT" => client.put(&url),
+            "PATCH" => client.patch(&url),
+            "DELETE" => client.delete(&url),
+            other => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "reason": format!("unsupported method {other}") })),
+                )
+            }
+        };
+        rb = rb
+            .header("User-Agent", "ioi-hypervisor")
+            .header("Accept", "application/json")
+            .timeout(std::time::Duration::from_secs(20));
+        let body_bytes = if method != "GET" {
+            serde_json::to_vec(&request_args).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        if lease.credential_source.as_deref() == Some("aws-sigv4") {
+            // AWS SigV4: sign this exact request with the sealed keys (never a bearer).
+            if let Some(cred) = read_record_dir(&st.data_dir, "connector-credentials")
+                .into_iter()
+                .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+            {
+                let access_key = cred["access_key_id"].as_str().unwrap_or("").to_string();
+                let secret = cred["sealed_secret_access_key"]
+                    .as_str()
+                    .and_then(open_scm_token)
+                    .unwrap_or_default();
+                let session = cred["sealed_session_token"]
+                    .as_str()
+                    .and_then(open_scm_token);
+                let region = cred["region"].as_str().unwrap_or("us-east-1").to_string();
+                let service = cred["service"].as_str().unwrap_or("").to_string();
+                let parsed = reqwest::Url::parse(&url).ok();
+                let host = parsed
+                    .as_ref()
+                    .map(|u| match u.port() {
+                        Some(p) => format!("{}:{}", u.host_str().unwrap_or(""), p),
+                        None => u.host_str().unwrap_or("").to_string(),
+                    })
+                    .unwrap_or_default();
+                let canonical_uri = parsed
+                    .as_ref()
+                    .map(|u| u.path().to_string())
+                    .unwrap_or_else(|| "/".to_string());
+                let canonical_query = parsed
+                    .as_ref()
+                    .and_then(|u| u.query())
+                    .unwrap_or("")
+                    .to_string();
+                let amz = amz_date_now();
+                let auth = sigv4_authorization(
+                    &method,
+                    &host,
+                    &canonical_uri,
+                    &canonical_query,
+                    &body_bytes,
+                    &access_key,
+                    &secret,
+                    session.as_deref(),
+                    &region,
+                    &service,
+                    &amz,
+                );
+                rb = rb.header("Authorization", auth).header("x-amz-date", amz);
+                if let Some(t) = &session {
+                    rb = rb.header("x-amz-security-token", t.clone());
+                }
+            }
+            if !body_bytes.is_empty() {
+                rb = rb
+                    .header("Content-Type", "application/json")
+                    .body(body_bytes);
+            }
+        } else {
+            if !token.is_empty() {
+                rb = rb.bearer_auth(&token);
+            }
+            if !body_bytes.is_empty() {
+                rb = rb
+                    .header("Content-Type", "application/json")
+                    .body(body_bytes);
+            }
+        }
+        match rb.send().await {
+            Ok(r) => {
+                let sc = r.status().as_u16();
+                let red = redact(r.text().await.unwrap_or_default());
+                (
+                    sc,
+                    serde_json::from_str(&red)
+                        .unwrap_or(Value::String(red.chars().take(2000).collect())),
+                    None,
+                )
+            }
+            Err(e) => (0, Value::Null, Some(redact(e.to_string()))),
+        }
+    };
+    let ok = (200..300).contains(&status_code);
+    let receipt_id = format!(
+        "invk_{}",
+        short_hash(&format!("{id}:{tool_name}:{status_code}"))
+    );
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
+        "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
+        "method": method, "url": url, "status": status_code, "ok": ok,
+        "principal_id": caller_id, "principal_scoped": org_policy["principal_scoped"].as_bool().unwrap_or(false),
+        "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
+        "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
+        "invoked_at": iso_now(),
+    });
+    let _ = persist_record(
+        &st.data_dir,
+        "connector-invoke-receipts",
+        &receipt_id,
+        &receipt,
+    );
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": ok, "status": status_code, "response": response_value, "receipt": receipt }),
+        ),
+    )
+}
+
+/// GET /v1/hypervisor/connectors/:id/mcp/tools — discover an MCP connector's tools (read-only). Uses
+/// the resolved credential (428 if required + unbound); discovery is grant-free, tools/call is leased.
+pub(crate) async fn handle_connector_mcp_tools(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(connector) = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let base_url = connector["base_url"].as_str().unwrap_or("").to_string();
+    let requires_credential = connector["requires_credential"].as_bool().unwrap_or(true);
+    let token = if requires_credential {
+        match read_record_dir(&st.data_dir, "connector-credentials")
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+        {
+            Some(rec) => resolve_sealed_credential(&rec).await.0,
+            None => None,
+        }
+    } else {
+        None
+    };
+    if requires_credential && token.is_none() {
+        return (
+            StatusCode::PRECONDITION_REQUIRED,
+            Json(
+                json!({ "ok": false, "reason": "scm_credential_required", "message": "Bind a credential before discovering MCP tools." }),
+            ),
+        );
+    }
+    match mcp_list_tools(&base_url, &token.unwrap_or_default()).await {
+        Ok(tools) => (StatusCode::OK, Json(json!({ "ok": true, "tools": tools }))),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": e })),
+        ),
+    }
+}
+
+// SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
+// + AEAD), keyed by the SAME wallet-secret passphrase the wallet.network secret model uses
+// (IOI_WALLET_SECRET_PASS → IOI_GUARDIAN_KEY_PASS → "local-mode" fallback). With a real passphrase
+// set this is genuine at-rest protection (key supplied out-of-band, never in the data dir); without
+// one it seals under the local-mode fallback (no plaintext at rest, but key is well-known — honest
+// label travels via key_source). Decrypt failure → token unavailable → publish fails closed.
+fn scm_secret_passphrase() -> String {
+    std::env::var("IOI_WALLET_SECRET_PASS")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .or_else(|| {
+            std::env::var("IOI_GUARDIAN_KEY_PASS")
+                .ok()
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+        })
+        .unwrap_or_else(|| "local-mode".to_string())
+}
+fn scm_key_source() -> &'static str {
+    let has = |k: &str| {
+        std::env::var(k)
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+    };
+    if has("IOI_WALLET_SECRET_PASS") || has("IOI_GUARDIAN_KEY_PASS") {
+        "wallet-secret-pass"
+    } else {
+        "local-mode-fallback"
+    }
+}
+fn seal_scm_token(token: &str) -> Option<String> {
+    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &scm_secret_passphrase())
+        .ok()
+        .map(hex::encode)
+}
+fn open_scm_token(sealed_hex: &str) -> Option<String> {
+    let bytes = hex::decode(sealed_hex).ok()?;
+    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &scm_secret_passphrase()).ok()?;
+    String::from_utf8(plain.0.to_vec()).ok()
+}
+
+/// POST /v1/hypervisor/scm-connectors — register a named SCM remote target.
+pub(crate) async fn handle_scm_connector_register(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let remote_url = body
+        .get("remote_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if remote_url.is_empty() {
+        return Json(json!({ "ok": false, "reason": "remote_url is required" }));
+    }
+    let kind = body
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or("git")
+        .to_string();
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or(remote_url.as_str())
+        .to_string();
+    // local file:// remotes need no credentials; hosted connectors declare a token-lease posture
+    // that a scoped secret lease must satisfy before publish (fail-closed until bound).
+    let is_local = remote_url.starts_with("file:")
+        || remote_url.starts_with('/')
+        || remote_url.starts_with("./");
+    // Hosted (non-local) connectors require a credential by default; an explicit flag lets a local
+    // remote also require one (exercises the credential gate without an external host).
+    let requires_credential = body
+        .get("requires_credential")
+        .and_then(Value::as_bool)
+        .unwrap_or(!is_local);
+    let auth_posture = if requires_credential {
+        "token-lease:unbound".to_string()
+    } else {
+        "local-none".to_string()
+    };
+    let connector_id = format!("scm_{}", short_hash(&format!("{remote_url}:{kind}")));
+    let record = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id,
+        "kind": kind,
+        "name": name,
+        "remote_url": remote_url,
+        "requires_credential": requires_credential,
+        "auth_posture": auth_posture,
+        "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &record);
+    Json(json!({ "ok": true, "connector": record }))
+}
+
+/// GET /v1/hypervisor/scm-connectors — list registered connectors (NEVER includes tokens).
+pub(crate) async fn handle_scm_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "scm-connectors") }))
+}
+
+/// POST /v1/hypervisor/scm-connectors/:id/credential — bind a scoped credential (SCM token) to a
+/// connector. The token is stored in a SEPARATE scoped record (`scm-credentials`) that is never
+/// returned in connector listings; the connector only flips auth_posture unbound→bound. Interim
+/// posture: the daemon data dir is the trust boundary — encrypted / wallet.network secret leases are
+/// the named long-term. Binding ≠ release: the wallet gate stays on the publish CROSSING.
+pub(crate) async fn handle_scm_connector_bind_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let token = body
+        .get("token")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        return Json(json!({ "ok": false, "reason": "token is required" }));
+    }
+    let Some(mut connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    else {
+        return Json(json!({ "ok": false, "reason": "unknown connector_id" }));
+    };
+    // Seal the secret at rest (no plaintext token in the record) and store it scoped — never
+    // surfaced in connector listings. Fail closed if sealing fails (do not fall back to plaintext).
+    let Some(sealed) = seal_scm_token(&token) else {
+        return Json(json!({ "ok": false, "reason": "failed to seal credential" }));
+    };
+    let key_source = scm_key_source();
+    let cred = json!({ "connector_id": id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &id, &cred);
+    connector["auth_posture"] = json!("token-lease:bound");
+    connector["requires_credential"] = json!(true);
+    connector["credential_key_source"] = json!(key_source);
+    let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+    // NEVER return the token
+    Json(
+        json!({ "ok": true, "connector_id": id, "auth_posture": "token-lease:bound", "key_source": key_source }),
+    )
+}
+
+/// DELETE /v1/hypervisor/scm-connectors/:id/credential — revoke a bound credential. Deletes the
+/// sealed credential record and flips the connector back to unbound. After revoke, the publish
+/// crossing fails closed (no credential to resolve — and for github repos, no host-fallback either,
+/// once the host connection is revoked). This is the real backing for the native "Git
+/// authentications → Disconnect" (no fake ack).
+pub(crate) async fn handle_scm_connector_revoke_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let revoked = remove_record(&st.data_dir, "scm-credentials", &id);
+    // Flip the connector posture back to unbound (if the connector record still exists).
+    if let Some(mut connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+    {
+        connector["auth_posture"] = json!("token-lease:unbound");
+        connector["credential_key_source"] = Value::Null;
+        connector["connected_login"] = Value::Null;
+        connector["revoked_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "scm-connectors", &id, &connector);
+    }
+    Json(
+        json!({ "ok": true, "connector_id": id, "revoked": revoked, "auth_posture": "token-lease:unbound" }),
+    )
+}
+
+// ============================================================================================
+// Secrets plane — org/user/project secrets, SEALED at rest in the daemon. The value is encrypted
+// with the same passphrase-derived key as SCM credentials and stored in a SEPARATE `secret-values`
+// record that is NEVER returned by any list/get. The `secrets` record holds METADATA ONLY (name,
+// scope, mount) so the surface can render without ever exposing the value. This backs the native
+// Org/User Settings → Secrets pages (previously mock-only). Boundary: daemon EXECUTES (holds the
+// sealed value), the agent/session/UI receive only metadata; injection into environments is the
+// downstream consumer (a secret is "available in new environments" per the native copy).
+// ============================================================================================
+
+/// Generic value sealing (delegates to the SCM token sealer — same Argon2id+AEAD key). Named for
+/// the secrets plane so call sites read honestly.
+fn seal_value(plain: &str) -> Option<String> {
+    seal_scm_token(plain)
+}
+
+/// Derive a stable scope key from a connect-JSON SecretScope ({organizationId|userId|projectId:..}).
+/// Used both to namespace the secret id (unique per scope+name) and to filter list-by-scope.
+fn secret_scope_key(scope: &Value) -> String {
+    for k in [
+        "organizationId",
+        "userId",
+        "projectId",
+        "organization_id",
+        "user_id",
+        "project_id",
+    ] {
+        if let Some(v) = scope.get(k).and_then(Value::as_str) {
+            if !v.is_empty() {
+                // normalize snake/camel to a single key form for stability
+                let norm = k.trim_end_matches("_id").replace("_id", "");
+                let norm = match norm.as_str() {
+                    "organization" | "organizationId" => "organizationId",
+                    "user" | "userId" => "userId",
+                    "project" | "projectId" => "projectId",
+                    other => other,
+                };
+                return format!("{norm}:{v}");
+            }
+        }
+    }
+    "global".to_string()
+}
+
+/// POST /v1/hypervisor/secrets — create (or overwrite) a secret. Seals the value; persists metadata.
+pub(crate) async fn handle_secret_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "name is required" })),
+        );
+    }
+    let value = body.get("value").and_then(Value::as_str).unwrap_or("");
+    if value.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "value is required" })),
+        );
+    }
+    let scope = body.get("scope").cloned().unwrap_or(Value::Null);
+    let mount = body.get("mount").cloned().unwrap_or(Value::Null);
+    let credential_proxy = body
+        .get("credential_proxy")
+        .or_else(|| body.get("credentialProxy"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let scope_key = secret_scope_key(&scope);
+    let secret_id = format!("sec_{}", short_hash(&format!("{scope_key}:{name}")));
+    let Some(sealed) = seal_value(value) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal secret" })),
+        );
+    };
+    let key_source = scm_key_source();
+    let now = iso_now();
+    // Preserve created_at on overwrite (same scope+name => same id).
+    let created_at = read_record_dir(&st.data_dir, "secrets")
+        .into_iter()
+        .find(|s| s["secret_id"].as_str() == Some(secret_id.as_str()))
+        .and_then(|s| s["created_at"].as_str().map(String::from))
+        .unwrap_or_else(|| now.clone());
+    let record = json!({
+        "schema_version": "ioi.hypervisor.secret.v1",
+        "secret_id": secret_id,
+        "name": name,
+        "scope": scope,
+        "scope_key": scope_key,
+        "mount": mount,
+        "credential_proxy": credential_proxy,
+        "key_source": key_source,
+        "sealed": true,
+        "created_at": created_at,
+        "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "secrets", &secret_id, &record);
+    // Sealed value lives in a SEPARATE record, never surfaced by any read.
+    let cred = json!({ "secret_id": secret_id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "secret-values", &secret_id, &cred);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "secret": record })),
+    )
+}
+
+/// GET /v1/hypervisor/secrets — list secret METADATA (never values).
+pub(crate) async fn handle_secret_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "secrets": read_record_dir(&st.data_dir, "secrets") }))
+}
+
+/// POST /v1/hypervisor/secrets/:id/value — rotate the sealed value (name/scope unchanged).
+pub(crate) async fn handle_secret_update_value(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let value = body.get("value").and_then(Value::as_str).unwrap_or("");
+    if value.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "value is required" })),
+        );
+    }
+    let Some(mut record) = read_record_dir(&st.data_dir, "secrets")
+        .into_iter()
+        .find(|s| s["secret_id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown secret_id" })),
+        );
+    };
+    let Some(sealed) = seal_value(value) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal secret" })),
+        );
+    };
+    let key_source = scm_key_source();
+    let now = iso_now();
+    let cred = json!({ "secret_id": id, "sealed_value": sealed, "key_source": key_source, "sealed": true, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "secret-values", &id, &cred);
+    record["updated_at"] = json!(now);
+    record["key_source"] = json!(key_source);
+    let _ = persist_record(&st.data_dir, "secrets", &id, &record);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "secret": record })),
+    )
+}
+
+/// DELETE /v1/hypervisor/secrets/:id — remove the secret (metadata + sealed value).
+pub(crate) async fn handle_secret_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "secrets", &id);
+    let _ = remove_record(&st.data_dir, "secret-values", &id);
+    Json(json!({ "ok": true, "secret_id": id, "removed": removed }))
+}
+
+// ============================================================================================
+// API access tokens plane — inbound tokens that authenticate calls TO the Hypervisor API (the
+// native "API access tokens" surface). Best practice for an inbound credential: store ONLY a
+// sha256 hash + metadata; return the plaintext exactly ONCE (in the create response). The token is
+// never recoverable after creation. (Inbound enforcement on the daemon is a separate concern; the
+// hash is stored ready for it — the management surface is real today: mint / list / revoke.)
+// ============================================================================================
+
+/// RFC 3339 timestamp `secs` seconds from now (token expiry).
+fn iso_in_seconds(secs: i64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    (time::OffsetDateTime::now_utc() + time::Duration::seconds(secs))
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| iso_now())
+}
+
+/// Parse a connect-JSON Duration ("2592000s") or {seconds} object into seconds (default 30 days).
+fn parse_valid_for(v: &Value) -> i64 {
+    if let Some(s) = v.as_str() {
+        return s
+            .trim_end_matches('s')
+            .trim()
+            .parse::<i64>()
+            .unwrap_or(2_592_000);
+    }
+    if let Some(n) = v.get("seconds") {
+        return n
+            .as_i64()
+            .or_else(|| n.as_str().and_then(|s| s.parse().ok()))
+            .unwrap_or(2_592_000);
+    }
+    2_592_000
+}
+
+/// POST /v1/hypervisor/api-tokens — mint a token. Returns the plaintext ONCE; stores only the hash.
+pub(crate) async fn handle_api_token_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let description = body
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if description.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "description is required" })),
+        );
+    }
+    let user_id = body
+        .get("user_id")
+        .or_else(|| body.get("userId"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let read_only = body
+        .get("read_only")
+        .or_else(|| body.get("readOnly"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let valid_for_secs = body
+        .get("valid_for")
+        .or_else(|| body.get("validFor"))
+        .map(parse_valid_for)
+        .unwrap_or(2_592_000);
+    // Generate a high-entropy opaque token (never stored in plaintext).
+    let plaintext = format!(
+        "ioi_pat_{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let token_hash = sha256_hex_str(&plaintext);
+    let token_id = format!("pat_{}", short_hash(&token_hash));
+    let now = iso_now();
+    let expires_at = iso_in_seconds(valid_for_secs);
+    // Metadata record — NEVER contains the plaintext; the hash is for future inbound verification.
+    let record = json!({
+        "schema_version": "ioi.hypervisor.api-token.v1",
+        "token_id": token_id,
+        "user_id": user_id,
+        "description": description,
+        "read_only": read_only,
+        "token_hash": token_hash,
+        "created_at": now,
+        "expires_at": expires_at,
+        "last_used_at": Value::Null,
+    });
+    let _ = persist_record(&st.data_dir, "api-tokens", &token_id, &record);
+    // Return the plaintext ONCE (the only time it is ever surfaced).
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "token": {
+                "token_id": token_id,
+                "user_id": user_id,
+                "description": description,
+                "read_only": read_only,
+                "value": plaintext,
+                "created_at": now,
+                "expires_at": expires_at,
+            }
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/api-tokens — list token METADATA (never the value or the hash).
+pub(crate) async fn handle_api_token_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let tokens: Vec<Value> = read_record_dir(&st.data_dir, "api-tokens")
+        .into_iter()
+        .map(|mut t| {
+            // defense in depth: strip the hash from any list projection
+            if let Some(obj) = t.as_object_mut() {
+                obj.remove("token_hash");
+            }
+            t
+        })
+        .collect();
+    Json(json!({ "ok": true, "tokens": tokens }))
+}
+
+/// DELETE /v1/hypervisor/api-tokens/:id — revoke a token.
+pub(crate) async fn handle_api_token_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "api-tokens", &id);
+    Json(json!({ "ok": true, "token_id": id, "removed": removed }))
+}
+
+// ============================================================================================
+// Identity & Auth plane (multi-user IdP) — principals, sessions, and a gated inbound auth ring.
+// This is the OUTER ring (who is calling); it COMPOSES with — does not replace — the wallet/lease
+// authority model (what a crossing is allowed to do). Enforcement is policy-gated (default OFF) so
+// the single-operator localhost runtime is untouched until an org turns authentication on.
+// Boundary: passwords + tokens are HASHED at rest (salted sha256); the plaintext is never stored.
+// ============================================================================================
+
+const OPERATOR_ID: &str = "00000000-0000-4000-8000-000000000001";
+
+// Password hashing is Argon2id via dcrypt (ioi_crypto::key_store). The stored field is the hex of
+// `salt(16) || hash(32)`; verification re-derives. Never reversible, never sha256.
+fn hash_password(pw: &str) -> Option<String> {
+    ioi_crypto::key_store::hash_password(pw)
+        .ok()
+        .map(hex::encode)
+}
+fn verify_password(pw: &str, stored_hex: &str) -> bool {
+    match hex::decode(stored_hex) {
+        Ok(bytes) => ioi_crypto::key_store::verify_password(pw, &bytes),
+        Err(_) => false,
+    }
+}
+fn gen_opaque(prefix: &str) -> String {
+    format!(
+        "{prefix}_{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+fn principal_public(mut p: Value) -> Value {
+    if let Some(o) = p.as_object_mut() {
+        o.remove("salt");
+        o.remove("password_hash");
+    }
+    p
+}
+/// Lazily ensure the single bootstrap operator principal exists (admin, no password until set).
+fn ensure_operator(data_dir: &str) {
+    let exists = read_record_dir(data_dir, "principals")
+        .iter()
+        .any(|p| p["principal_id"].as_str() == Some(OPERATOR_ID));
+    if !exists {
+        let now = iso_now();
+        let p = json!({
+            "schema_version": "ioi.hypervisor.principal.v1",
+            "principal_id": OPERATOR_ID, "email": "johndoe@ioi.local", "name": "John Doe",
+            "role": "admin", "status": "active", "source": "local-operator",
+            "created_at": now, "updated_at": now,
+        });
+        let _ = persist_record(data_dir, "principals", OPERATOR_ID, &p);
+    }
+}
+fn find_principal(data_dir: &str, id: &str) -> Option<Value> {
+    read_record_dir(data_dir, "principals")
+        .into_iter()
+        .find(|p| p["principal_id"].as_str() == Some(id))
+}
+fn find_principal_by_email(data_dir: &str, email: &str) -> Option<Value> {
+    let e = email.trim().to_lowercase();
+    read_record_dir(data_dir, "principals")
+        .into_iter()
+        .find(|p| p["email"].as_str().map(|x| x.to_lowercase()) == Some(e.clone()))
+}
+fn auth_policy(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "auth-policy").into_iter().find(|p| p["id"].as_str() == Some("policy"))
+        .unwrap_or_else(|| json!({ "id": "policy", "mode": "auto", "allowed_methods": ["local", "oidc", "sso", "api-token"] }))
+}
+/// A request is "exposed" if it arrived through a proxy/tunnel (forwarded headers) or a non-local
+/// Host — i.e., reachable beyond loopback. The serve layer forwards x-forwarded-host on tunneled
+/// requests so the daemon (which sits on loopback behind serve) can still tell.
+fn request_exposed(headers: &HeaderMap) -> bool {
+    if headers.get("x-forwarded-host").is_some()
+        || headers.get("x-forwarded-for").is_some()
+        || headers.get("x-ioi-forwarded").is_some()
+    {
+        return true;
+    }
+    if let Some(host) = headers.get(header::HOST).and_then(|h| h.to_str().ok()) {
+        let h = host.split(':').next().unwrap_or("");
+        return !(h == "127.0.0.1" || h == "localhost" || h == "::1" || h.is_empty());
+    }
+    false
+}
+/// True if the daemon itself is bound to a non-loopback address (directly exposed).
+fn daemon_exposed() -> bool {
+    std::env::var("IOI_HYPERVISOR_DAEMON_ADDR")
+        .ok()
+        .map(|a| {
+            let host = a
+                .rsplit_once(':')
+                .map(|(h, _)| h)
+                .unwrap_or(a.as_str())
+                .to_string();
+            !(host == "127.0.0.1" || host == "localhost" || host == "::1" || host.is_empty())
+        })
+        .unwrap_or(false)
+}
+/// At least one login method exists (a principal with a password, or an SSO connection). Used to
+/// decide whether enforcement would lock everyone out (→ bootstrap required instead).
+fn login_possible(data_dir: &str) -> bool {
+    read_record_dir(data_dir, "principals").iter().any(|p| {
+        p["password_hash"]
+            .as_str()
+            .map(|h| !h.is_empty())
+            .unwrap_or(false)
+    }) || !read_record_dir(data_dir, "sso-configurations").is_empty()
+}
+/// Resolve the effective enforcement decision: mode "always"/"never", or "auto" → enforce when
+/// exposed. SAFE default: an exposed instance enforces. When enforcement is wanted but no login is
+/// possible, we still enforce (fail-safe) — the operator bootstraps via the exempt bootstrap endpoint.
+fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
+    let policy = auth_policy(data_dir);
+    let mode = policy["mode"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| {
+            if policy["require_authentication"].as_bool().unwrap_or(false) {
+                "always".into()
+            } else {
+                "auto".into()
+            }
+        });
+    match mode.as_str() {
+        "always" => true,
+        "never" => false,
+        _ => daemon_exposed() || request_exposed(headers),
+    }
+}
+/// Startup notice: if this instance is exposed (non-loopback bind) with no login configured,
+/// enforcement is ON (fail-safe) — print a one-time bootstrap token for the host operator (log access).
+pub(crate) fn startup_auth_notice(data_dir: &str) {
+    let policy = auth_policy(data_dir);
+    let mode = policy["mode"].as_str().unwrap_or("auto");
+    let would_enforce = mode == "always" || (mode != "never" && daemon_exposed());
+    if would_enforce && !login_possible(data_dir) {
+        let token = ensure_bootstrap_token(data_dir);
+        tracing::warn!(
+            "AUTH BOOTSTRAP REQUIRED — exposed instance, no login configured, authentication enforced. Set the first operator password: POST /v1/hypervisor/auth/bootstrap {{\"token\":\"{token}\",\"password\":\"<min 8 chars>\"}}"
+        );
+    }
+}
+/// The one-time bootstrap token (created lazily) used to set the first operator password on an
+/// exposed instance that has no login configured yet. Printed to the daemon log at startup.
+fn ensure_bootstrap_token(data_dir: &str) -> String {
+    if let Some(rec) = read_record_dir(data_dir, "auth-bootstrap")
+        .into_iter()
+        .find(|b| b["id"].as_str() == Some("bootstrap"))
+    {
+        if let Some(t) = rec["token"].as_str() {
+            return t.to_string();
+        }
+    }
+    let token = gen_opaque("ioi_bootstrap");
+    let _ = persist_record(
+        data_dir,
+        "auth-bootstrap",
+        "bootstrap",
+        &json!({ "id": "bootstrap", "token": token, "created_at": iso_now() }),
+    );
+    token
+}
+/// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
+/// token OR an API access token whose hash we stored). Returns the public principal record.
+fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+    // 1) session cookie
+    let mut session_tok: Option<String> = None;
+    if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
+        for part in cookie.split(';') {
+            let kv = part.trim();
+            if let Some(v) = kv.strip_prefix("ioi_session=") {
+                session_tok = Some(v.to_string());
+            }
+        }
+    }
+    // 2) bearer (session token or API token)
+    let bearer = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_string());
+    let try_session = |tok: &str| -> Option<Value> {
+        let h = sha256_hex_str(tok);
+        let now = iso_now();
+        read_record_dir(data_dir, "sessions")
+            .into_iter()
+            .find(|s| {
+                s["token_hash"].as_str() == Some(h.as_str())
+                    && s["expires_at"]
+                        .as_str()
+                        .map(|e| e > now.as_str())
+                        .unwrap_or(false)
+            })
+            .and_then(|s| s["principal_id"].as_str().map(String::from))
+            .and_then(|pid| find_principal(data_dir, &pid))
+    };
+    if let Some(tok) = &session_tok {
+        if let Some(p) = try_session(tok) {
+            if p["status"].as_str() == Some("active") {
+                return Some(principal_public(p));
+            }
+        }
+    }
+    if let Some(tok) = &bearer {
+        if let Some(p) = try_session(tok) {
+            if p["status"].as_str() == Some("active") {
+                return Some(principal_public(p));
+            }
+        }
+        // API access token: match the stored hash → its user_id → principal
+        let h = sha256_hex_str(tok);
+        if let Some(rec) = read_record_dir(data_dir, "api-tokens")
+            .into_iter()
+            .find(|t| t["token_hash"].as_str() == Some(h.as_str()))
+        {
+            if let Some(uid) = rec["user_id"].as_str() {
+                if let Some(p) = find_principal(data_dir, uid) {
+                    if p["status"].as_str() == Some("active") {
+                        return Some(principal_public(p));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Axum middleware: when auth-policy.require_authentication is ON, reject unauthenticated requests to
+/// the hypervisor data plane (401). Auth endpoints + non-hypervisor paths are always exempt so a
+/// client can still log in. Default policy is OFF → pure passthrough (local runtime untouched).
+pub(crate) async fn auth_gate(
+    State(st): State<Arc<DaemonState>>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let path = req.uri().path().to_string();
+    // Exempt ONLY the login-flow endpoints (so a client can authenticate/bootstrap) + the readiness
+    // probe — NOT /auth/policy or /principals, which must require auth so an unauthenticated caller
+    // can't disable enforcement or manage users.
+    const EXEMPT: &[&str] = &[
+        "/v1/hypervisor/auth/login",
+        "/v1/hypervisor/auth/logout",
+        "/v1/hypervisor/auth/whoami",
+        "/v1/hypervisor/auth/bootstrap",
+        "/v1/hypervisor/auth/bootstrap-status",
+        "/v1/hypervisor/auth/oidc/start",
+        "/v1/hypervisor/auth/oidc/callback",
+        "/v1/hypervisor/editor-targets",
+    ];
+    let exempt = !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str());
+    if !exempt && auth_enforced(&st.data_dir, req.headers()) {
+        if resolve_principal(&st.data_dir, req.headers()).is_none() {
+            let needs_bootstrap = !login_possible(&st.data_dir);
+            return (StatusCode::UNAUTHORIZED, Json(json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": needs_bootstrap }))).into_response();
+        }
+    }
+    next.run(req).await
+}
+
+/// POST /v1/hypervisor/auth/login — local credential login. Returns an opaque session token (the
+/// caller — the serve layer — sets it as an HttpOnly cookie). The token hash is stored, never the token.
+pub(crate) async fn handle_auth_login(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    let email = body
+        .get("email")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let pw = body.get("password").and_then(Value::as_str).unwrap_or("");
+    let Some(p) = find_principal_by_email(&st.data_dir, &email) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "ok": false, "reason": "invalid_credentials" })),
+        );
+    };
+    if p["status"].as_str() != Some("active") {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "reason": "account_deactivated" })),
+        );
+    }
+    let stored = p["password_hash"].as_str().unwrap_or("");
+    if stored.is_empty() || !verify_password(pw, stored) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "ok": false, "reason": "invalid_credentials" })),
+        );
+    }
+    let (status, sess) = issue_session(
+        &st.data_dir,
+        p["principal_id"].as_str().unwrap_or(""),
+        "local",
+    );
+    (status, Json(sess))
+}
+
+/// Issue a session for a principal (shared by local login + OIDC/SSO callback). Returns the plaintext
+/// session token ONCE.
+fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCode, Value) {
+    let Some(p) = find_principal(data_dir, principal_id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            json!({ "ok": false, "reason": "unknown_principal" }),
+        );
+    };
+    let token = gen_opaque("ioi_sess");
+    let sid = format!("sess_{}", short_hash(&sha256_hex_str(&token)));
+    let rec = json!({
+        "session_id": sid, "token_hash": sha256_hex_str(&token), "principal_id": principal_id,
+        "source": source, "created_at": iso_now(), "expires_at": iso_in_seconds(7 * 24 * 3600),
+    });
+    let _ = persist_record(data_dir, "sessions", &sid, &rec);
+    (
+        StatusCode::OK,
+        json!({ "ok": true, "session_token": token, "expires_at": rec["expires_at"], "principal": principal_public(p) }),
+    )
+}
+
+/// POST /v1/hypervisor/auth/logout — revoke the current session.
+pub(crate) async fn handle_auth_logout(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Json<Value> {
+    let mut tok: Option<String> = None;
+    if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {
+        for part in cookie.split(';') {
+            if let Some(v) = part.trim().strip_prefix("ioi_session=") {
+                tok = Some(v.to_string());
+            }
+        }
+    }
+    if tok.is_none() {
+        tok = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(|s| s.trim().to_string());
+    }
+    if let Some(tok) = tok {
+        let h = sha256_hex_str(&tok);
+        if let Some(s) = read_record_dir(&st.data_dir, "sessions")
+            .into_iter()
+            .find(|s| s["token_hash"].as_str() == Some(h.as_str()))
+        {
+            if let Some(sid) = s["session_id"].as_str() {
+                remove_record(&st.data_dir, "sessions", sid);
+            }
+        }
+    }
+    Json(json!({ "ok": true }))
+}
+
+/// GET /v1/hypervisor/auth/whoami — the authenticated principal (401 if none and auth required;
+/// otherwise falls back to the bootstrap operator so local-mode reads keep working).
+pub(crate) async fn handle_auth_whoami(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    if let Some(p) = resolve_principal(&st.data_dir, &headers) {
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "principal": p, "authenticated": true })),
+        );
+    }
+    if auth_enforced(&st.data_dir, &headers) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(
+                json!({ "ok": false, "reason": "authentication_required", "needs_bootstrap": !login_possible(&st.data_dir) }),
+            ),
+        );
+    }
+    let op = find_principal(&st.data_dir, OPERATOR_ID)
+        .map(principal_public)
+        .unwrap_or(Value::Null);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "principal": op, "authenticated": false })),
+    )
+}
+
+/// GET /v1/hypervisor/auth/policy — the enforcement policy + the resolved effective decision.
+pub(crate) async fn handle_auth_policy_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Json<Value> {
+    Json(
+        json!({ "ok": true, "policy": auth_policy(&st.data_dir), "effective_enforced": auth_enforced(&st.data_dir, &headers), "exposed": daemon_exposed() || request_exposed(&headers), "login_possible": login_possible(&st.data_dir) }),
+    )
+}
+/// PUT /v1/hypervisor/auth/policy — set the enforcement mode (auto|always|never) / allowed methods.
+pub(crate) async fn handle_auth_policy_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut p = auth_policy(&st.data_dir);
+    if let Some(m) = body.get("mode").and_then(Value::as_str) {
+        if ["auto", "always", "never"].contains(&m) {
+            p["mode"] = json!(m);
+        }
+    }
+    // back-compat: require_authentication:true → "always", false → "auto" (exposure-driven)
+    if let Some(v) = body.get("require_authentication").and_then(Value::as_bool) {
+        p["mode"] = json!(if v { "always" } else { "auto" });
+    }
+    if let Some(v) = body.get("allowed_methods").cloned() {
+        if v.is_array() {
+            p["allowed_methods"] = v;
+        }
+    }
+    p["id"] = json!("policy");
+    p["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "auth-policy", "policy", &p);
+    Json(json!({ "ok": true, "policy": p }))
+}
+
+/// GET /v1/hypervisor/auth/bootstrap-status — is a first-login bootstrap required? (exempt route)
+pub(crate) async fn handle_auth_bootstrap_status(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Json<Value> {
+    let needs = auth_enforced(&st.data_dir, &headers) && !login_possible(&st.data_dir);
+    if needs {
+        ensure_bootstrap_token(&st.data_dir);
+    } // materialize the token (printed to log; never returned here)
+    Json(
+        json!({ "ok": true, "needs_bootstrap": needs, "login_possible": login_possible(&st.data_dir) }),
+    )
+}
+/// POST /v1/hypervisor/auth/bootstrap {token, password, email?} — one-time: set the first operator
+/// password using the token printed to the daemon log. Only works while no login is configured.
+pub(crate) async fn handle_auth_bootstrap(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    if login_possible(&st.data_dir) {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "reason": "already_bootstrapped" })),
+        );
+    }
+    let token = body.get("token").and_then(Value::as_str).unwrap_or("");
+    let expected = read_record_dir(&st.data_dir, "auth-bootstrap")
+        .into_iter()
+        .find(|b| b["id"].as_str() == Some("bootstrap"))
+        .and_then(|b| b["token"].as_str().map(String::from))
+        .unwrap_or_default();
+    if token.is_empty() || expected.is_empty() || token != expected {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "reason": "invalid_bootstrap_token" })),
+        );
+    }
+    let password = body.get("password").and_then(Value::as_str).unwrap_or("");
+    if password.len() < 8 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "password must be at least 8 characters" })),
+        );
+    }
+    let Some(mut op) = find_principal(&st.data_dir, OPERATOR_ID) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "no operator" })),
+        );
+    };
+    let Some(h) = hash_password(password) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "hash failed" })),
+        );
+    };
+    op["password_hash"] = json!(h);
+    op["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "principals", OPERATOR_ID, &op);
+    remove_record(&st.data_dir, "auth-bootstrap", "bootstrap");
+    let (status, sess) = issue_session(&st.data_dir, OPERATOR_ID, "bootstrap");
+    (status, Json(sess))
+}
+
+/// GET /v1/hypervisor/principals — list members (public records, no secrets).
+pub(crate) async fn handle_principal_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    ensure_operator(&st.data_dir);
+    let ps: Vec<Value> = read_record_dir(&st.data_dir, "principals")
+        .into_iter()
+        .map(principal_public)
+        .collect();
+    Json(json!({ "ok": true, "principals": ps }))
+}
+/// POST /v1/hypervisor/principals — create/provision a principal (optionally with a local password).
+pub(crate) async fn handle_principal_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let email = body
+        .get("email")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if email.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "email is required" })),
+        );
+    }
+    if let Some(existing) = find_principal_by_email(&st.data_dir, &email) {
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "principal": principal_public(existing), "existed": true })),
+        );
+    }
+    let now = iso_now();
+    let pid = body
+        .get("principal_id")
+        .and_then(Value::as_str)
+        .map(String::from)
+        .unwrap_or_else(|| format!("usr_{}", short_hash(&format!("{email}:{now}"))));
+    let mut p = json!({
+        "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+        "name": body.get("name").and_then(Value::as_str).unwrap_or(&email),
+        "role": body.get("role").and_then(Value::as_str).unwrap_or("member"),
+        "status": "active", "source": body.get("source").and_then(Value::as_str).unwrap_or("local"),
+        "created_at": now, "updated_at": now,
+    });
+    if let Some(pw) = body.get("password").and_then(Value::as_str) {
+        if !pw.is_empty() {
+            if let Some(h) = hash_password(pw) {
+                p["password_hash"] = json!(h);
+            }
+        }
+    }
+    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "principal": principal_public(p) })),
+    )
+}
+/// POST /v1/hypervisor/principals/:id/password — set/rotate a local password.
+pub(crate) async fn handle_principal_set_password(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_operator(&st.data_dir);
+    let Some(mut p) = find_principal(&st.data_dir, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown_principal" })),
+        );
+    };
+    let pw = body.get("password").and_then(Value::as_str).unwrap_or("");
+    if pw.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "password is required" })),
+        );
+    }
+    let Some(h) = hash_password(pw) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to hash password" })),
+        );
+    };
+    p["password_hash"] = json!(h);
+    p["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "principals", &id, &p);
+    (StatusCode::OK, Json(json!({ "ok": true })))
+}
+/// DELETE /v1/hypervisor/principals/:id[?purge=true] — deactivate a principal (default; keeps the
+/// record for audit) or hard-purge it (compliance erasure). The operator cannot be removed. Sessions
+/// are always revoked.
+pub(crate) async fn handle_principal_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
+    if id == OPERATOR_ID {
+        return Json(json!({ "ok": false, "reason": "cannot_remove_operator" }));
+    }
+    // revoke sessions regardless of mode
+    for s in read_record_dir(&st.data_dir, "sessions")
+        .into_iter()
+        .filter(|s| s["principal_id"].as_str() == Some(id.as_str()))
+    {
+        if let Some(sid) = s["session_id"].as_str() {
+            remove_record(&st.data_dir, "sessions", sid);
+        }
+    }
+    let purge = q
+        .get("purge")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+    if purge {
+        let removed = remove_record(&st.data_dir, "principals", &id);
+        return Json(json!({ "ok": true, "principal_id": id, "purged": removed }));
+    }
+    if let Some(mut p) = find_principal(&st.data_dir, &id) {
+        p["status"] = json!("deactivated");
+        p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+    }
+    Json(json!({ "ok": true, "principal_id": id, "status": "deactivated" }))
+}
+
+// ---- SSO / OIDC login (multi-user IdP, Phase 2) --------------------------------------------
+// An SSO configuration is a BYO OIDC IdP for org login. Login is Authorization Code + PKCE (reusing
+// the connector OAuth machinery); on callback the daemon reads userinfo, provisions/matches the
+// principal (emailDomain auto-join), and issues a session. The IdP client_secret is SEALED at rest.
+// This authenticates WHO; it grants no machine authority (crossings still require wallet/lease).
+fn sso_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() {
+        o.remove("sealed_client_secret");
+        o.remove("key_source");
+    }
+    c
+}
+async fn oidc_discover(issuer: &str) -> Result<(String, String, String, String), String> {
+    let base = issuer.trim_end_matches('/');
+    let client = reqwest::Client::new();
+    let doc = http_get_json(&client, &format!("{base}/.well-known/openid-configuration")).await?;
+    let a = doc["authorization_endpoint"]
+        .as_str()
+        .ok_or("no authorization_endpoint")?
+        .to_string();
+    let t = doc["token_endpoint"]
+        .as_str()
+        .ok_or("no token_endpoint")?
+        .to_string();
+    let u = doc["userinfo_endpoint"].as_str().unwrap_or("").to_string();
+    let j = doc["jwks_uri"].as_str().unwrap_or("").to_string();
+    Ok((a, t, u, j))
+}
+async fn oidc_userinfo(userinfo_url: &str, access: &str) -> Result<Value, String> {
+    if userinfo_url.is_empty() {
+        return Err("no userinfo_endpoint".into());
+    }
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(userinfo_url)
+        .header("Authorization", format!("Bearer {access}"))
+        .header("Accept", "application/json")
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("userinfo -> {}", resp.status().as_u16()));
+    }
+    resp.json().await.map_err(|e| e.to_string())
+}
+/// Exchange the authorization code and return the FULL token response (so we can read the id_token).
+async fn oidc_exchange(
+    token_url: &str,
+    client_id: &str,
+    client_secret: &str,
+    code: &str,
+    redirect_uri: &str,
+    code_verifier: &str,
+) -> Result<Value, String> {
+    let mut form = vec![
+        ("grant_type", "authorization_code"),
+        ("code", code),
+        ("redirect_uri", redirect_uri),
+        ("client_id", client_id),
+        ("code_verifier", code_verifier),
+    ];
+    if !client_secret.is_empty() {
+        form.push(("client_secret", client_secret));
+    }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if !status.is_success() {
+        return Err(format!("token endpoint -> {} {}", status.as_u16(), body));
+    }
+    Ok(body)
+}
+/// Verify an OIDC id_token: RS256 signature against the IdP JWKS (by kid) + iss/aud/exp + nonce.
+/// Returns the verified claims. This is the proof the identity was issued by the configured IdP.
+async fn verify_oidc_id_token(
+    id_token: &str,
+    jwks_uri: &str,
+    issuer: &str,
+    client_id: &str,
+    expected_nonce: &str,
+) -> Result<Value, String> {
+    use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+    if jwks_uri.is_empty() {
+        return Err("IdP exposes no jwks_uri".into());
+    }
+    let header = decode_header(id_token).map_err(|e| format!("bad id_token header: {e}"))?;
+    let kid = header.kid.ok_or("id_token has no kid")?;
+    let client = reqwest::Client::new();
+    let jwks = http_get_json(&client, jwks_uri).await?;
+    let key = jwks["keys"]
+        .as_array()
+        .and_then(|ks| ks.iter().find(|k| k["kid"].as_str() == Some(kid.as_str())))
+        .ok_or("no JWK matches the id_token kid")?;
+    let n = key["n"].as_str().ok_or("JWK missing n")?;
+    let e = key["e"].as_str().ok_or("JWK missing e")?;
+    let dk = DecodingKey::from_rsa_components(n, e).map_err(|e| format!("bad JWK: {e}"))?;
+    let mut val = Validation::new(Algorithm::RS256);
+    val.set_audience(&[client_id]);
+    val.set_issuer(&[issuer.trim_end_matches('/')]);
+    let data = decode::<Value>(id_token, &dk, &val)
+        .map_err(|e| format!("id_token signature/claims invalid: {e}"))?;
+    let claims = data.claims;
+    if !expected_nonce.is_empty() && claims["nonce"].as_str() != Some(expected_nonce) {
+        return Err("id_token nonce mismatch (possible replay)".into());
+    }
+    Ok(claims)
+}
+
+/// GET /v1/hypervisor/sso-configurations — list SSO/OIDC login connections (no secrets).
+pub(crate) async fn handle_sso_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cfgs: Vec<Value> = read_record_dir(&st.data_dir, "sso-configurations")
+        .into_iter()
+        .map(sso_public)
+        .collect();
+    Json(json!({ "ok": true, "sso_configurations": cfgs }))
+}
+/// POST /v1/hypervisor/sso-configurations — register a BYO OIDC IdP (client_secret sealed).
+pub(crate) async fn handle_sso_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let issuer = body
+        .get("issuer_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .trim_end_matches('/')
+        .to_string();
+    let client_id = body
+        .get("client_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if issuer.is_empty() || client_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "issuer_url and client_id are required" })),
+        );
+    }
+    let id = format!("sso_{}", short_hash(&format!("{issuer}:{client_id}")));
+    let now = iso_now();
+    let mut c = json!({
+        "schema_version": "ioi.hypervisor.sso-config.v1", "sso_id": id, "id": id,
+        "issuer_url": issuer, "client_id": client_id,
+        "email_domain": body.get("email_domain").and_then(Value::as_str).unwrap_or(""),
+        "display_name": body.get("display_name").and_then(Value::as_str).unwrap_or(issuer.as_str()),
+        "provider_type": "PROVIDER_TYPE_OIDC", "state": "active", "client_secret_set": false,
+        "created_at": now, "updated_at": now,
+    });
+    if let Some(sec) = body.get("client_secret").and_then(Value::as_str) {
+        if !sec.is_empty() {
+            if let Some(s) = seal_value(sec) {
+                c["sealed_client_secret"] = json!(s);
+                c["client_secret_set"] = json!(true);
+                c["key_source"] = json!(scm_key_source());
+            }
+        }
+    }
+    let _ = persist_record(&st.data_dir, "sso-configurations", &id, &c);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "sso_configuration": sso_public(c) })),
+    )
+}
+/// DELETE /v1/hypervisor/sso-configurations/:id
+pub(crate) async fn handle_sso_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "sso-configurations", &id);
+    Json(json!({ "ok": true, "sso_id": id, "removed": removed }))
+}
+
+/// POST /v1/hypervisor/auth/oidc/start — begin SSO login (build the PKCE authorize URL).
+pub(crate) async fn handle_auth_oidc_start(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let cfg_id = body.get("config_id").and_then(Value::as_str).unwrap_or("");
+    let Some(cfg) = read_record_dir(&st.data_dir, "sso-configurations")
+        .into_iter()
+        .find(|c| c["sso_id"].as_str() == Some(cfg_id))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown sso config" })),
+        );
+    };
+    let issuer = cfg["issuer_url"].as_str().unwrap_or("");
+    let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
+    let (auth_ep, _t, _u, _j) = match oidc_discover(issuer).await {
+        Ok(x) => x,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("oidc discovery failed: {e}") })),
+            )
+        }
+    };
+    let redirect_uri = body
+        .get("redirect_uri")
+        .and_then(Value::as_str)
+        .unwrap_or("http://127.0.0.1:4173/__ioi/login/sso/callback")
+        .to_string();
+    let verifier = random_token(64);
+    let challenge = pkce_challenge(&verifier);
+    let state = random_token(32);
+    let nonce = random_token(32); // replay defense — bound into the id_token, checked on callback
+    let Some(sv) = seal_scm_token(&verifier) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal pkce verifier" })),
+        );
+    };
+    let pending = json!({ "state": state, "flow": "login", "sso_id": cfg_id, "sealed_verifier": sv, "nonce": nonce, "redirect_uri": redirect_uri, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "oauth-pending", &state, &pending);
+    let url = format!(
+        "{auth_ep}?response_type=code&client_id={}&redirect_uri={}&state={state}&nonce={nonce}&scope=openid%20email%20profile&code_challenge={challenge}&code_challenge_method=S256",
+        pct(&client_id), pct(&redirect_uri)
+    );
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "authorize_url": url, "state": state })),
+    )
+}
+
+/// POST /v1/hypervisor/auth/oidc/callback — finish SSO login: exchange code → userinfo → provision
+/// principal (emailDomain auto-join) → issue a session.
+pub(crate) async fn handle_auth_oidc_callback(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let state = body.get("state").and_then(Value::as_str).unwrap_or("");
+    let code = body.get("code").and_then(Value::as_str).unwrap_or("");
+    let Some(pending) = read_record_dir(&st.data_dir, "oauth-pending")
+        .into_iter()
+        .find(|p| p["state"].as_str() == Some(state) && p["flow"].as_str() == Some("login"))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown or expired state" })),
+        );
+    };
+    let sso_id = pending["sso_id"].as_str().unwrap_or("").to_string();
+    let redirect_uri = pending["redirect_uri"].as_str().unwrap_or("").to_string();
+    let Some(verifier) = pending["sealed_verifier"].as_str().and_then(open_scm_token) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "verifier unseal failed" })),
+        );
+    };
+    let Some(cfg) = read_record_dir(&st.data_dir, "sso-configurations")
+        .into_iter()
+        .find(|c| c["sso_id"].as_str() == Some(sso_id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown sso config" })),
+        );
+    };
+    let issuer = cfg["issuer_url"].as_str().unwrap_or("");
+    let client_id = cfg["client_id"].as_str().unwrap_or("").to_string();
+    let client_secret = cfg["sealed_client_secret"]
+        .as_str()
+        .and_then(open_scm_token)
+        .unwrap_or_default();
+    let nonce = pending["nonce"].as_str().unwrap_or("").to_string();
+    let (_a, token_ep, userinfo_ep, jwks_uri) = match oidc_discover(issuer).await {
+        Ok(x) => x,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("discovery failed: {e}") })),
+            )
+        }
+    };
+    let tokens = match oidc_exchange(
+        &token_ep,
+        &client_id,
+        &client_secret,
+        code,
+        &redirect_uri,
+        &verifier,
+    )
+    .await
+    {
+        Ok(x) => x,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("token exchange failed: {e}") })),
+            )
+        }
+    };
+    let access = tokens["access_token"].as_str().unwrap_or("").to_string();
+    // Identity comes from the cryptographically VERIFIED id_token (RS256 vs the IdP JWKS, iss/aud/exp
+    // + nonce). userinfo is only a fallback for non-conformant IdPs that omit an id_token.
+    let id_token = tokens["id_token"].as_str().unwrap_or("");
+    let (email, name) = if !id_token.is_empty() {
+        let claims = match verify_oidc_id_token(id_token, &jwks_uri, issuer, &client_id, &nonce)
+            .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(
+                        json!({ "ok": false, "reason": format!("id_token verification failed: {e}") }),
+                    ),
+                )
+            }
+        };
+        let em = claims["email"].as_str().unwrap_or("").trim().to_lowercase();
+        let nm = claims["name"]
+            .as_str()
+            .or_else(|| claims["preferred_username"].as_str())
+            .unwrap_or(em.as_str())
+            .to_string();
+        (em, nm)
+    } else {
+        let info = match oidc_userinfo(&userinfo_ep, &access).await {
+            Ok(x) => x,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(
+                        json!({ "ok": false, "reason": format!("no id_token and userinfo failed: {e}") }),
+                    ),
+                )
+            }
+        };
+        let em = info["email"].as_str().unwrap_or("").trim().to_lowercase();
+        let nm = info["name"]
+            .as_str()
+            .or_else(|| info["preferred_username"].as_str())
+            .unwrap_or(em.as_str())
+            .to_string();
+        (em, nm)
+    };
+    if email.is_empty() {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "no email claim from IdP" })),
+        );
+    }
+    let domain = cfg["email_domain"].as_str().unwrap_or("");
+    if !domain.is_empty() && !email.ends_with(&format!("@{domain}")) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({ "ok": false, "reason": "email domain not allowed for this SSO connection" }),
+            ),
+        );
+    }
+    let principal = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) => p,
+        None => {
+            let pid = format!("usr_{}", short_hash(&format!("{email}:{}", iso_now())));
+            let p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email, "name": name, "role": "member", "status": "active", "source": format!("sso:{sso_id}"), "created_at": iso_now(), "updated_at": iso_now() });
+            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+            p
+        }
+    };
+    remove_record(&st.data_dir, "oauth-pending", state);
+    let (status, sess) = issue_session(
+        &st.data_dir,
+        principal["principal_id"].as_str().unwrap_or(""),
+        &format!("sso:{sso_id}"),
+    );
+    (status, Json(sess))
+}
+
+// ---- SCIM 2.0 provisioning (multi-user IdP, Phase 3) ----------------------------------------
+// A SCIM 2.0 server an external IdP (Okta/Azure AD/etc.) calls to provision/deprovision users +
+// groups. Users map onto the `principals` plane (source: scim); groups are `scim-groups` records.
+// Auth is a SCIM bearer token (hash stored, plaintext returned ONCE on config create). Provisioned
+// principals still hold NO machine authority — crossings remain wallet/lease-gated.
+
+fn scim_config_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() {
+        o.remove("token_hash");
+    }
+    c
+}
+/// True if the request carries a Bearer matching an active SCIM config token.
+fn scim_authed(data_dir: &str, headers: &HeaderMap) -> bool {
+    let Some(tok) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_string())
+    else {
+        return false;
+    };
+    let h = sha256_hex_str(&tok);
+    read_record_dir(data_dir, "scim-configurations")
+        .iter()
+        .any(|c| c["token_hash"].as_str() == Some(h.as_str()))
+}
+fn scim_unauth() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(
+            json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "401", "detail": "invalid SCIM token" }),
+        ),
+    )
+}
+fn principal_to_scim(p: &Value) -> Value {
+    let email = p["email"].as_str().unwrap_or("");
+    json!({
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": p["principal_id"], "userName": email,
+        "name": { "formatted": p["name"].as_str().unwrap_or(email) },
+        "displayName": p["name"], "emails": [{ "value": email, "primary": true }],
+        "active": p["status"].as_str() == Some("active"),
+        "externalId": p.get("scim_external_id").cloned().unwrap_or(Value::Null),
+        "meta": { "resourceType": "User" },
+    })
+}
+fn scim_list(resources: Vec<Value>) -> Value {
+    json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"], "totalResults": resources.len(), "startIndex": 1, "itemsPerPage": resources.len(), "Resources": resources })
+}
+
+/// GET /v1/hypervisor/scim-configurations — list SCIM provisioning connections (no token).
+pub(crate) async fn handle_scim_config_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cfgs: Vec<Value> = read_record_dir(&st.data_dir, "scim-configurations")
+        .into_iter()
+        .map(scim_config_public)
+        .collect();
+    Json(json!({ "ok": true, "scim_configurations": cfgs }))
+}
+/// POST /v1/hypervisor/scim-configurations — provision (or rotate) a SCIM token. Returns the token ONCE.
+pub(crate) async fn handle_scim_config_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let token = gen_opaque("scim");
+    let id = body
+        .get("scim_id")
+        .and_then(Value::as_str)
+        .map(String::from)
+        .unwrap_or_else(|| "scim-config".to_string());
+    let base_url = body
+        .get("base_url")
+        .and_then(Value::as_str)
+        .unwrap_or("/scim/v2")
+        .to_string();
+    let now = iso_now();
+    let rec = json!({
+        "schema_version": "ioi.hypervisor.scim-config.v1", "scim_id": id, "base_url": base_url,
+        "token_hash": sha256_hex_str(&token), "enabled": true, "created_at": now, "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "scim-configurations", &id, &rec);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "scim_configuration": scim_config_public(rec), "token": token })),
+    )
+}
+/// DELETE /v1/hypervisor/scim-configurations/:id
+pub(crate) async fn handle_scim_config_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "scim-configurations", &id);
+    Json(json!({ "ok": true, "scim_id": id, "removed": removed }))
+}
+
+/// GET /scim/v2/ServiceProviderConfig — advertise SCIM capabilities.
+pub(crate) async fn handle_scim_spc(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"],
+            "patch": { "supported": true }, "bulk": { "supported": false }, "filter": { "supported": true, "maxResults": 200 },
+            "changePassword": { "supported": false }, "sort": { "supported": false }, "etag": { "supported": false },
+            "authenticationSchemes": [{ "type": "oauthbearertoken", "name": "OAuth Bearer Token" }],
+        })),
+    )
+}
+
+fn scim_filter_value(q: &std::collections::HashMap<String, String>) -> Option<String> {
+    // parse `userName eq "x"` / `emails eq "x"` → x
+    q.get("filter")
+        .and_then(|f| f.split('"').nth(1).map(|s| s.to_string()))
+}
+
+/// GET /scim/v2/Users — list/filter provisioned users (principals).
+pub(crate) async fn handle_scim_users_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    let want = scim_filter_value(&q).map(|s| s.to_lowercase());
+    let users: Vec<Value> = read_record_dir(&st.data_dir, "principals")
+        .into_iter()
+        .filter(|p| {
+            want.as_ref()
+                .map(|w| p["email"].as_str().map(|e| e.to_lowercase()) == Some(w.clone()))
+                .unwrap_or(true)
+        })
+        .map(|p| principal_to_scim(&p))
+        .collect();
+    (StatusCode::OK, Json(scim_list(users)))
+}
+/// POST /scim/v2/Users — provision a user (creates a principal, source: scim).
+pub(crate) async fn handle_scim_user_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    let email = body["userName"]
+        .as_str()
+        .or_else(|| body["emails"][0]["value"].as_str())
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if email.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "400", "detail": "userName/email required" }),
+            ),
+        );
+    }
+    if let Some(existing) = find_principal_by_email(&st.data_dir, &email) {
+        return (StatusCode::CONFLICT, Json(principal_to_scim(&existing)));
+    }
+    let name = body["name"]["formatted"]
+        .as_str()
+        .or_else(|| body["displayName"].as_str())
+        .map(String::from)
+        .unwrap_or_else(|| {
+            let g = body["name"]["givenName"].as_str().unwrap_or("");
+            let f = body["name"]["familyName"].as_str().unwrap_or("");
+            format!("{g} {f}").trim().to_string()
+        });
+    let active = body["active"].as_bool().unwrap_or(true);
+    let pid = format!("usr_{}", short_hash(&format!("scim:{email}")));
+    let now = iso_now();
+    let p = json!({
+        "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+        "name": if name.is_empty() { email.clone() } else { name }, "role": "member",
+        "status": if active { "active" } else { "deactivated" }, "source": "scim",
+        "scim_external_id": body.get("externalId").cloned().unwrap_or(Value::Null),
+        "created_at": now, "updated_at": now,
+    });
+    let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+    (StatusCode::CREATED, Json(principal_to_scim(&p)))
+}
+/// GET /scim/v2/Users/:id
+pub(crate) async fn handle_scim_user_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    match find_principal(&st.data_dir, &id) {
+        Some(p) => (StatusCode::OK, Json(principal_to_scim(&p))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "404" }),
+            ),
+        ),
+    }
+}
+/// PATCH/PUT /scim/v2/Users/:id — the IdP toggles `active` (deprovision = active:false).
+pub(crate) async fn handle_scim_user_patch(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    if id == OPERATOR_ID {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "status": "403", "detail": "operator is not SCIM-managed" })),
+        );
+    }
+    let Some(mut p) = find_principal(&st.data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "status": "404" })));
+    };
+    // PATCH Operations form
+    let mut active: Option<bool> = body["active"].as_bool();
+    if let Some(ops) = body["Operations"].as_array() {
+        for op in ops {
+            let path = op["path"].as_str().unwrap_or("");
+            if path == "active" || op["value"]["active"].is_boolean() {
+                active = op["value"]
+                    .as_bool()
+                    .or_else(|| op["value"]["active"].as_bool())
+                    .or(active);
+            }
+        }
+    }
+    if let Some(a) = active {
+        p["status"] = json!(if a { "active" } else { "deactivated" });
+        p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+        if !a {
+            for s in read_record_dir(&st.data_dir, "sessions")
+                .into_iter()
+                .filter(|s| s["principal_id"].as_str() == Some(id.as_str()))
+            {
+                if let Some(sid) = s["session_id"].as_str() {
+                    remove_record(&st.data_dir, "sessions", sid);
+                }
+            }
+        }
+    }
+    (StatusCode::OK, Json(principal_to_scim(&p)))
+}
+/// DELETE /scim/v2/Users/:id — deprovision (soft deactivate; operator protected).
+pub(crate) async fn handle_scim_user_delete(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    if id == OPERATOR_ID {
+        return (StatusCode::FORBIDDEN, Json(json!({ "status": "403" })));
+    }
+    if let Some(mut p) = find_principal(&st.data_dir, &id) {
+        p["status"] = json!("deactivated");
+        p["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "principals", &id, &p);
+    }
+    (StatusCode::NO_CONTENT, Json(Value::Null))
+}
+
+fn group_to_scim(g: &Value) -> Value {
+    json!({
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+        "id": g["group_id"], "displayName": g["display_name"], "externalId": g.get("external_id").cloned().unwrap_or(Value::Null),
+        "members": g["members"].as_array().cloned().unwrap_or_default().iter().map(|m| json!({ "value": m })).collect::<Vec<_>>(),
+        "meta": { "resourceType": "Group" },
+    })
+}
+/// GET /scim/v2/Groups
+pub(crate) async fn handle_scim_groups_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    let gs: Vec<Value> = read_record_dir(&st.data_dir, "scim-groups")
+        .iter()
+        .map(group_to_scim)
+        .collect();
+    (StatusCode::OK, Json(scim_list(gs)))
+}
+/// POST /scim/v2/Groups
+pub(crate) async fn handle_scim_group_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    let name = body["displayName"]
+        .as_str()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "status": "400", "detail": "displayName required" })),
+        );
+    }
+    let gid = format!("grp_{}", short_hash(&format!("scim-group:{name}")));
+    let members: Vec<Value> = body["members"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|m| m["value"].as_str().map(|s| json!(s)))
+                .collect()
+        })
+        .unwrap_or_default();
+    let now = iso_now();
+    let g = json!({ "schema_version": "ioi.hypervisor.scim-group.v1", "group_id": gid, "display_name": name, "external_id": body.get("externalId").cloned().unwrap_or(Value::Null), "members": members, "created_at": now, "updated_at": now });
+    let _ = persist_record(&st.data_dir, "scim-groups", &gid, &g);
+    (StatusCode::CREATED, Json(group_to_scim(&g)))
+}
+/// GET /scim/v2/Groups/:id
+pub(crate) async fn handle_scim_group_get(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    match read_record_dir(&st.data_dir, "scim-groups")
+        .into_iter()
+        .find(|g| g["group_id"].as_str() == Some(id.as_str()))
+    {
+        Some(g) => (StatusCode::OK, Json(group_to_scim(&g))),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "status": "404" }))),
+    }
+}
+/// PATCH/PUT /scim/v2/Groups/:id — update membership / displayName.
+pub(crate) async fn handle_scim_group_patch(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    let Some(mut g) = read_record_dir(&st.data_dir, "scim-groups")
+        .into_iter()
+        .find(|g| g["group_id"].as_str() == Some(id.as_str()))
+    else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "status": "404" })));
+    };
+    if let Some(n) = body["displayName"].as_str() {
+        g["display_name"] = json!(n);
+    }
+    if let Some(ms) = body["members"].as_array() {
+        g["members"] = json!(ms
+            .iter()
+            .filter_map(|m| m["value"].as_str().map(|s| json!(s)))
+            .collect::<Vec<_>>());
+    }
+    g["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "scim-groups", &id, &g);
+    (StatusCode::OK, Json(group_to_scim(&g)))
+}
+/// DELETE /scim/v2/Groups/:id
+pub(crate) async fn handle_scim_group_delete(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    if !scim_authed(&st.data_dir, &headers) {
+        return scim_unauth();
+    }
+    remove_record(&st.data_dir, "scim-groups", &id);
+    (StatusCode::NO_CONTENT, Json(Value::Null))
+}
+
+// ---- Invites + domain verification + custom domain (multi-user IdP, Phase 4) ----------------
+// Org invite = a single standing link that provisions a new principal (member). Domain verification
+// proves email-domain ownership (DNS TXT via DoH) to enable SSO/invite auto-join. Custom domain is a
+// stored vanity config. All identity/policy — none of it grants machine authority.
+
+fn load_org_invite(data_dir: &str) -> Option<Value> {
+    read_record_dir(data_dir, "org-invite")
+        .into_iter()
+        .find(|i| i["id"].as_str() == Some("invite"))
+}
+/// GET /v1/hypervisor/org-invite — the org's standing invite (creates one on first read).
+pub(crate) async fn handle_org_invite_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let inv = load_org_invite(&st.data_dir).unwrap_or_else(|| {
+        let id = gen_opaque("inv");
+        let rec = json!({ "id": "invite", "invite_id": id, "created_at": iso_now() });
+        let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
+        rec
+    });
+    Json(json!({ "ok": true, "invite": inv }))
+}
+/// POST /v1/hypervisor/org-invite — rotate (regenerate) the invite link.
+pub(crate) async fn handle_org_invite_reset(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let rec = json!({ "id": "invite", "invite_id": gen_opaque("inv"), "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
+    Json(json!({ "ok": true, "invite": rec }))
+}
+/// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
+/// issue a session. Fails closed if the invite id doesn't match the current link.
+pub(crate) async fn handle_org_invite_accept(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let invite_id = body.get("invite_id").and_then(Value::as_str).unwrap_or("");
+    let current = load_org_invite(&st.data_dir)
+        .and_then(|i| i["invite_id"].as_str().map(String::from))
+        .unwrap_or_default();
+    if invite_id.is_empty() || invite_id != current {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "reason": "invalid_or_expired_invite" })),
+        );
+    }
+    let email = body
+        .get("email")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if email.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "email is required" })),
+        );
+    }
+    let principal = match find_principal_by_email(&st.data_dir, &email) {
+        Some(p) => p,
+        None => {
+            let pid = format!("usr_{}", short_hash(&format!("invite:{email}")));
+            let mut p = json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": pid, "email": email,
+                "name": body.get("name").and_then(Value::as_str).unwrap_or(email.as_str()), "role": "member",
+                "status": "active", "source": "invite", "created_at": iso_now(), "updated_at": iso_now() });
+            if let Some(pw) = body.get("password").and_then(Value::as_str) {
+                if !pw.is_empty() {
+                    if let Some(h) = hash_password(pw) {
+                        p["password_hash"] = json!(h);
+                    }
+                }
+            }
+            let _ = persist_record(&st.data_dir, "principals", &pid, &p);
+            p
+        }
+    };
+    let (status, sess) = issue_session(
+        &st.data_dir,
+        principal["principal_id"].as_str().unwrap_or(""),
+        "invite",
+    );
+    (status, Json(sess))
+}
+
+async fn doh_txt(domain: &str) -> Vec<String> {
+    let client = reqwest::Client::new();
+    let url = format!(
+        "https://cloudflare-dns.com/dns-query?name={}&type=TXT",
+        pct(domain)
+    );
+    match client
+        .get(&url)
+        .header("Accept", "application/dns-json")
+        .timeout(std::time::Duration::from_secs(8))
+        .send()
+        .await
+    {
+        Ok(r) => match r.json::<Value>().await {
+            Ok(j) => j["Answer"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x["data"].as_str().map(|s| s.trim_matches('"').to_string()))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            Err(_) => vec![],
+        },
+        Err(_) => vec![],
+    }
+}
+/// GET /v1/hypervisor/domain-verifications
+pub(crate) async fn handle_domain_verification_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
+    Json(
+        json!({ "ok": true, "domain_verifications": read_record_dir(&st.data_dir, "domain-verifications") }),
+    )
+}
+/// POST /v1/hypervisor/domain-verifications {domain} — start verification (issues a TXT record value).
+pub(crate) async fn handle_domain_verification_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let domain = body
+        .get("domain")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if domain.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "domain is required" })),
+        );
+    }
+    let id = format!("dv_{}", short_hash(&domain));
+    let token = format!("ioi-domain-verification={}", gen_opaque("v"));
+    let rec = json!({ "id": id, "domain_verification_id": id, "domain": domain, "verification_token": token, "record_name": "@", "record_type": "TXT", "verified": false, "created_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "domain_verification": rec })),
+    )
+}
+/// POST /v1/hypervisor/domain-verifications/:id/verify — check the DNS TXT (DoH); flip verified.
+pub(crate) async fn handle_domain_verification_verify(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut rec) = read_record_dir(&st.data_dir, "domain-verifications")
+        .into_iter()
+        .find(|d| d["id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "unknown domain verification" })),
+        );
+    };
+    let domain = rec["domain"].as_str().unwrap_or("");
+    let token = rec["verification_token"].as_str().unwrap_or("");
+    let txts = doh_txt(domain).await;
+    let verified = txts.iter().any(|t| t.contains(token));
+    rec["verified"] = json!(verified);
+    rec["checked_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "domain-verifications", &id, &rec);
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "verified": verified, "domain_verification": rec })),
+    )
+}
+/// DELETE /v1/hypervisor/domain-verifications/:id
+pub(crate) async fn handle_domain_verification_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "domain-verifications", &id);
+    Json(json!({ "ok": true, "domain_verification_id": id, "removed": removed }))
+}
+
+/// GET /v1/hypervisor/custom-domain
+pub(crate) async fn handle_custom_domain_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let cd = read_record_dir(&st.data_dir, "custom-domain")
+        .into_iter()
+        .find(|c| c["id"].as_str() == Some("custom-domain"));
+    Json(
+        json!({ "ok": true, "custom_domain": cd.and_then(|c| c["domain"].as_str().map(String::from)) }),
+    )
+}
+/// PUT /v1/hypervisor/custom-domain {domain} — set/clear the org vanity domain.
+pub(crate) async fn handle_custom_domain_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let domain = body
+        .get("domain")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    if domain.is_empty() {
+        remove_record(&st.data_dir, "custom-domain", "custom-domain");
+        return Json(json!({ "ok": true, "custom_domain": Value::Null }));
+    }
+    let rec = json!({ "id": "custom-domain", "domain": domain, "updated_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "custom-domain", "custom-domain", &rec);
+    Json(json!({ "ok": true, "custom_domain": domain }))
+}
+
+// ============================================================================================
+// Metering & Cost plane — the Hypervisor's REAL economic plane (Bucket B absorption). Consumption
+// is derived from actual agentgres records (the `receipts` the daemon already writes for every
+// session/agent execution), NOT fabricated. Transparent self-hosted OCU (Hypervisor Compute Unit)
+// derivation: KIND_ENVIRONMENT = compute-hours (receipt runtime started_at→finished_at);
+// KIND_LLM = 0.1 OCU per model-backed receipt. A wallet-backed budget plane sets a ceiling +
+// auto-funding policy ("auto top-up" reframed: replenish the budget from wallet.network when the
+// balance crosses a threshold). Boundary: agentgres RECORDS (receipts) → metered; wallet FUNDS.
+// ============================================================================================
+
+fn parse_ts(s: &str) -> Option<time::OffsetDateTime> {
+    time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).ok()
+}
+fn day_bucket(dt: &time::OffsetDateTime) -> String {
+    format!(
+        "{:04}-{:02}-{:02}T00:00:00Z",
+        dt.year(),
+        dt.month() as u8,
+        dt.day()
+    )
+}
+fn round6(v: f64) -> f64 {
+    (v * 1e6).round() / 1e6
+}
+/// OCU contributed by one receipt: (compute-hours, llm-units).
+fn receipt_ocu(r: &Value) -> (f64, f64) {
+    let fin = r
+        .get("finished_at")
+        .and_then(Value::as_str)
+        .and_then(parse_ts);
+    let start = r
+        .get("started_at")
+        .and_then(Value::as_str)
+        .and_then(parse_ts);
+    let hours = match (start, fin) {
+        (Some(s), Some(f)) => ((f - s).as_seconds_f64() / 3600.0).max(0.0),
+        _ => 0.0,
+    };
+    let llm = if r
+        .get("model")
+        .and_then(Value::as_str)
+        .map(|m| !m.is_empty())
+        .unwrap_or(false)
+    {
+        0.1
+    } else {
+        0.0
+    };
+    (hours, llm)
+}
+/// All-time consumption (compute-hours + llm-units) across every recorded receipt.
+fn all_time_consumption(data_dir: &str) -> f64 {
+    let mut total = 0.0;
+    for r in read_record_dir(data_dir, "receipts") {
+        let (h, l) = receipt_ocu(&r);
+        total += h + l;
+    }
+    round6(total)
+}
+
+/// GET /v1/hypervisor/usage/consumption?from=&to= — per-day OCU consumption by metric kind,
+/// aggregated from the real `receipts` records over [from,to] (default: last 7 days).
+pub(crate) async fn handle_usage_consumption(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
+    let to = q
+        .get("to")
+        .and_then(|s| parse_ts(s))
+        .unwrap_or_else(time::OffsetDateTime::now_utc);
+    let from = q
+        .get("from")
+        .and_then(|s| parse_ts(s))
+        .unwrap_or_else(|| to - time::Duration::days(7));
+    let mut env: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    let mut llm: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    for r in read_record_dir(&st.data_dir, "receipts") {
+        let Some(fin) = r
+            .get("finished_at")
+            .and_then(Value::as_str)
+            .and_then(parse_ts)
+        else {
+            continue;
+        };
+        if fin < from || fin > to {
+            continue;
+        }
+        let day = day_bucket(&fin);
+        let (hours, llm_units) = receipt_ocu(&r);
+        *env.entry(day.clone()).or_default() += hours;
+        if llm_units > 0.0 {
+            *llm.entry(day).or_default() += llm_units;
+        }
+    }
+    let series = |m: &std::collections::BTreeMap<String, f64>| -> Vec<Value> {
+        let mut out = Vec::new();
+        let mut d = from.replace_time(time::Time::MIDNIGHT);
+        let end = to.replace_time(time::Time::MIDNIGHT);
+        while d <= end {
+            let key = day_bucket(&d);
+            let ocu = *m.get(&key).unwrap_or(&0.0);
+            let mut entry = json!({ "time": key });
+            if ocu > 0.0 {
+                entry["ocu"] = json!(round6(ocu));
+            }
+            out.push(entry);
+            d += time::Duration::days(1);
+        }
+        out
+    };
+    // KIND_ALL = the per-day TOTAL across every kind. The native chart selects this aggregate metric
+    // (sf(metrics, KIND_ALL)); without it the usage chart reads empty even when kinds have data.
+    let mut all: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
+    for (k, v) in env.iter().chain(llm.iter()) {
+        *all.entry(k.clone()).or_default() += *v;
+    }
+    let total: f64 = all.values().sum::<f64>();
+    Json(json!({
+        "ok": true,
+        "metrics": [
+            { "kind": "KIND_ALL", "display_name": "Total", "series": series(&all) },
+            { "kind": "KIND_ENVIRONMENT", "display_name": "Environment Usage", "series": series(&env) },
+            { "kind": "KIND_LLM", "display_name": "LLM Usage", "series": series(&llm) },
+        ],
+        "total_ocu": round6(total),
+    }))
+}
+
+fn load_budget(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "budget")
+        .into_iter()
+        .find(|b| b["id"].as_str() == Some("policy"))
+        .unwrap_or_else(|| {
+            json!({
+                "id": "policy", "budget_ocu": 1000.0, "auto_fund_enabled": false,
+                "threshold_ocu": 20.0, "target_ocu": 1000.0, "wallet_ref": Value::Null
+            })
+        })
+}
+fn budget_with_balance(data_dir: &str) -> Value {
+    let mut b = load_budget(data_dir);
+    let used = all_time_consumption(data_dir);
+    let budget = b
+        .get("budget_ocu")
+        .and_then(Value::as_f64)
+        .unwrap_or(1000.0);
+    b["used_ocu"] = json!(used);
+    b["available_ocu"] = json!(round6((budget - used).max(0.0)));
+    b
+}
+
+/// GET /v1/hypervisor/budget — the budget policy + live balance (used/available from real usage).
+pub(crate) async fn handle_budget_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
+}
+
+/// PUT /v1/hypervisor/budget — set the budget ceiling + wallet auto-funding policy.
+pub(crate) async fn handle_budget_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut b = load_budget(&st.data_dir);
+    for k in ["budget_ocu", "threshold_ocu", "target_ocu"] {
+        if let Some(v) = body.get(k).and_then(Value::as_f64) {
+            b[k] = json!(v);
+        }
+    }
+    if let Some(v) = body.get("auto_fund_enabled").and_then(Value::as_bool) {
+        b["auto_fund_enabled"] = json!(v);
+    }
+    if let Some(v) = body.get("wallet_ref").and_then(Value::as_str) {
+        b["wallet_ref"] = json!(v);
+    }
+    b["id"] = json!("policy");
+    b["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "budget", "policy", &b);
+    Json(json!({ "ok": true, "budget": budget_with_balance(&st.data_dir) }))
+}
+
+/// POST /v1/hypervisor/budget/reconcile — recompute used vs budget; if auto-funding is enabled and
+/// the balance is below threshold, replenish the budget to (used + target) and record a wallet
+/// funding ledger entry. This is the wallet-native reframe of SaaS "auto top-up".
+pub(crate) async fn handle_budget_reconcile(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut b = load_budget(&st.data_dir);
+    let used = all_time_consumption(&st.data_dir);
+    let mut budget = b
+        .get("budget_ocu")
+        .and_then(Value::as_f64)
+        .unwrap_or(1000.0);
+    let threshold = b
+        .get("threshold_ocu")
+        .and_then(Value::as_f64)
+        .unwrap_or(20.0);
+    let target = b
+        .get("target_ocu")
+        .and_then(Value::as_f64)
+        .unwrap_or(1000.0);
+    let auto = b
+        .get("auto_fund_enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut available = round6((budget - used).max(0.0));
+    let mut funded = false;
+    let mut funding_ref = Value::Null;
+    if auto && available < threshold {
+        let new_budget = used + target;
+        let amount = round6(new_budget - budget);
+        let ev_id = format!("fund_{}", short_hash(&format!("{used}:{}", iso_now())));
+        let ev = json!({
+            "id": ev_id, "kind": "budget-auto-fund", "credential_source": "wallet.network",
+            "amount_ocu": amount, "target_ocu": target, "used_ocu": round6(used), "at": iso_now()
+        });
+        let _ = persist_record(&st.data_dir, "ledgers", &ev_id, &ev);
+        budget = new_budget;
+        b["budget_ocu"] = json!(round6(budget));
+        b["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, "budget", "policy", &b);
+        available = round6((budget - used).max(0.0));
+        funded = true;
+        funding_ref = json!(ev_id);
+    }
+    Json(json!({
+        "ok": true,
+        "reconciled": { "used_ocu": round6(used), "budget_ocu": round6(budget), "available_ocu": available, "threshold_ocu": threshold, "auto_fund_enabled": auto },
+        "funded": funded,
+        "funding_event_ref": funding_ref,
+    }))
+}
+
+// ---- OIDC login config (BYO OIDC IdP for org login) — management surface; client_secret SEALED,
+// never returned. Login enforcement is a separate concern (the daemon has no session layer yet);
+// this makes the config real (save/load/update) the same way API tokens store a hash today. ----
+fn load_oidc(data_dir: &str) -> Value {
+    read_record_dir(data_dir, "oidc-config")
+        .into_iter()
+        .find(|c| c["id"].as_str() == Some("config"))
+        .unwrap_or_else(|| json!({ "id": "config", "enabled": false, "issuer_url": "", "client_id": "", "email_domain": "", "client_secret_set": false }))
+}
+fn oidc_public(mut c: Value) -> Value {
+    if let Some(o) = c.as_object_mut() {
+        o.remove("sealed_client_secret");
+        o.remove("key_source");
+    }
+    c
+}
+/// GET /v1/hypervisor/oidc-config — the OIDC login config (never returns the sealed client secret).
+pub(crate) async fn handle_oidc_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    Json(json!({ "ok": true, "config": oidc_public(load_oidc(&st.data_dir)) }))
+}
+/// PUT /v1/hypervisor/oidc-config — upsert the OIDC IdP config; seals the client secret at rest.
+pub(crate) async fn handle_oidc_set(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut c = load_oidc(&st.data_dir);
+    for k in ["issuer_url", "client_id", "email_domain"] {
+        if let Some(v) = body.get(k).and_then(Value::as_str) {
+            c[k] = json!(v);
+        }
+    }
+    if let Some(v) = body.get("enabled").and_then(Value::as_bool) {
+        c["enabled"] = json!(v);
+    }
+    if let Some(sec) = body.get("client_secret").and_then(Value::as_str) {
+        if !sec.is_empty() {
+            if let Some(sealed) = seal_value(sec) {
+                c["sealed_client_secret"] = json!(sealed);
+                c["client_secret_set"] = json!(true);
+                c["key_source"] = json!(scm_key_source());
+            }
+        }
+    }
+    c["id"] = json!("config");
+    c["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "oidc-config", "config", &c);
+    Json(json!({ "ok": true, "config": oidc_public(c) }))
+}
+
+/// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized publish crossing.
+pub(crate) async fn handle_scm_publish(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(env) = read_record_dir(&st.data_dir, "environments")
+        .into_iter()
+        .find(|e| e["id"].as_str() == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "environment not found" })),
+        );
+    };
+    let Some(ws) = env["status"]["workspace_root"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+    else {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "reason": "workspace not started", "fail_closed": true })),
+        );
+    };
+    let connector_id = body
+        .get("connector_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let Some(connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    // A host-level connector (the github host PAT or a BYOA github-app) can publish to ANY repo it
+    // is authorized for, so it takes an explicit target `remote_url` from the request; a repo
+    // connector uses its own pinned remote.
+    let connector_host_level = connector["host_level"].as_bool().unwrap_or(false);
+    let remote_url = body
+        .get("remote_url")
+        .and_then(Value::as_str)
+        .filter(|s| connector_host_level && s.starts_with("https://"))
+        .map(str::to_string)
+        .unwrap_or_else(|| connector["remote_url"].as_str().unwrap_or("").to_string());
+    let auth_posture = connector["auth_posture"].as_str().unwrap_or("").to_string();
+    let branch = body
+        .get("branch")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            format!(
+                "hypervisor/publish-{}",
+                short_hash(&format!("{id}:{connector_id}"))
+            )
+        });
+
+    let kind = connector["kind"].as_str().unwrap_or("git").to_string();
+    let requires_credential = connector["requires_credential"]
+        .as_bool()
+        .unwrap_or(auth_posture.starts_with("token-lease"));
+
+    // Authorize the publish CROSSING through the generic capability-lease gateway: it resolves the
+    // sealed backing credential (connector or github host fallback), verifies the bound wallet grant,
+    // and issues a lease. Fail-closed responses (428 credential / 403 authority) return verbatim.
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: if requires_credential {
+            format!("scm:connector:{connector_id}")
+        } else {
+            "none".to_string()
+        },
+        allowed_tools: vec!["scm.publish".to_string()],
+        resource_refs: vec![remote_url.clone(), id.clone()],
+        scopes: SCM_PUBLISH_SCOPES.iter().map(|s| s.to_string()).collect(),
+        policy_domain: "hypervisor.scm.publish.policy.v1".to_string(),
+        request_domain: "hypervisor.scm.publish.request.v1".to_string(),
+        request_facets: json!({ "environment_id": id, "connector_id": connector_id, "branch": branch }),
+        credential_connector_id: Some(connector_id.clone()),
+        credential_store: "scm-credentials".to_string(),
+        credential_required: requires_credential,
+        github_host_fallback: remote_url.contains("github.com"),
+        receipt_required: true,
+        revocation_ref: format!("scm-connectors/{connector_id}/credential"),
+        authority_reason: "scm_publish_authority_required".to_string(),
+        grant_value: body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
+    };
+    let token = lease.token;
+    let credential_key_source = lease.credential_key_source;
+    let credential_source = lease.credential_source;
+    let grant_ref = lease.grant_ref;
+    let capability_lease = lease.descriptor;
+
+    // --- daemon EXECUTES the real push (authorized) ---
+    let git = |args: &[&str]| -> (bool, String) {
+        match std::process::Command::new("git")
+            .arg("-C")
+            .arg(&ws)
+            .args(args)
+            .output()
+        {
+            Ok(o) => (
+                o.status.success(),
+                format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&o.stdout),
+                    String::from_utf8_lossy(&o.stderr)
+                ),
+            ),
+            Err(e) => (false, e.to_string()),
+        }
+    };
+    let title = body
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or("Hypervisor publish")
+        .to_string();
+    let _ = git(&["checkout", "-B", &branch]);
+    let _ = git(&["add", "-A"]);
+    let _ = git(&[
+        "-c",
+        "user.email=hypervisor@ioi.local",
+        "-c",
+        "user.name=Hypervisor",
+        "commit",
+        "--allow-empty",
+        "-m",
+        &title,
+    ]);
+    let head = {
+        let (_, s) = git(&["rev-parse", "HEAD"]);
+        s.trim().to_string()
+    };
+    // Inject the resolved credential into an https remote for the push; file:// remotes ignore it.
+    let push_url = match (&token, remote_url.starts_with("https://")) {
+        (Some(tok), true) => {
+            remote_url.replacen("https://", &format!("https://x-access-token:{tok}@"), 1)
+        }
+        _ => remote_url.clone(),
+    };
+    let (pushed, push_out_raw) =
+        git(&["push", "--force", &push_url, &format!("{branch}:{branch}")]);
+    // REDACT the token from any captured output before it is stored or returned.
+    let push_out = match &token {
+        Some(tok) => push_out_raw.replace(tok.as_str(), "***"),
+        None => push_out_raw,
+    };
+
+    // GitHub connector → open a REAL pull request via the API. Outward call; only fires for a real
+    // https github remote with a bound token (skipped/fail-closed otherwise — e.g. the local slice).
+    let mut pr_url: Option<String> = None;
+    let mut pr_error: Option<String> = None;
+    if pushed && (kind == "github" || kind == "github-app") && remote_url.starts_with("https://") {
+        if let Some(tok) = &token {
+            let base = body
+                .get("base")
+                .and_then(Value::as_str)
+                .unwrap_or("main")
+                .to_string();
+            match create_github_pull_request(&remote_url, tok, &branch, &base, &title).await {
+                Ok(url) => pr_url = Some(url),
+                Err(e) => pr_error = Some(e),
+            }
+        }
+    }
+
+    let receipt_id = format!("scmpub_{}", short_hash(&format!("{id}:{branch}:{head}")));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.scm-publish-receipt.v1",
+        "receipt_id": receipt_id,
+        "environment_id": id,
+        "connector_id": connector_id,
+        "remote_url": remote_url,
+        "branch": branch,
+        "commit_sha": head,
+        "title": title,
+        "published": pushed,
+        "credential_bound": token.is_some(),
+        "credential_key_source": credential_key_source,
+        "credential_source": credential_source,
+        "pull_request_url": pr_url,
+        "pull_request_error": pr_error,
+        "grant_ref": grant_ref,
+        "capability_lease": capability_lease,
+        "host_mutation": true,
+        "push_tail": push_out.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"),
+        "published_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-publish-receipts", &receipt_id, &receipt);
+
+    if !pushed {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "git push failed", "receipt": receipt })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "receipt": receipt, "remote_ref": format!("{remote_url}#{branch}") }),
+        ),
+    )
+}
+
+/// Open a GitHub pull request via the REST API (a REAL outward call). Parses owner/repo from the
+/// https remote and authenticates with the bound token. Returns the PR html_url or an error string.
+/// Only invoked for a real https github remote with a bound credential (the local slice never hits
+/// this; github.com stays fail-closed until an operator binds a token to a real repo).
+async fn create_github_pull_request(
+    remote_url: &str,
+    token: &str,
+    head: &str,
+    base: &str,
+    title: &str,
+) -> Result<String, String> {
+    let path = remote_url
+        .trim_start_matches("https://github.com/")
+        .trim_end_matches(".git")
+        .trim_matches('/');
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").to_string();
+    let repo = parts.next().unwrap_or("").to_string();
+    if owner.is_empty() || repo.is_empty() {
+        return Err(format!("could not parse owner/repo from {remote_url}"));
+    }
+    let api = format!("https://api.github.com/repos/{owner}/{repo}/pulls");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .json(&json!({
+            "title": title, "head": head, "base": base,
+            "body": "Opened by IOI Hypervisor (governed publish crossing).",
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("html_url")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "github pr api: no html_url in response".to_string())
+    } else {
+        Err(format!(
+            "github pr api {}: {}",
+            status.as_u16(),
+            body.get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("error")
+        ))
+    }
+}
+
+/// Close a GitHub pull request (and optionally delete its head branch) via the REST API — a REAL
+/// outward mutation authenticated with the sealed token. Returns (closed, head_branch, branch_deleted).
+async fn close_github_pull_request(
+    remote_url: &str,
+    token: &str,
+    pr_number: u64,
+    delete_branch: bool,
+) -> Result<(bool, String, bool), String> {
+    let path = remote_url
+        .trim_start_matches("https://github.com/")
+        .trim_end_matches(".git")
+        .trim_matches('/');
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next().unwrap_or("").to_string();
+    let repo = parts.next().unwrap_or("").to_string();
+    if owner.is_empty() || repo.is_empty() {
+        return Err(format!("could not parse owner/repo from {remote_url}"));
+    }
+    let client = reqwest::Client::new();
+    let pr_api = format!("https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}");
+    // Read the PR first to learn the head branch (needed for branch deletion).
+    let getr = client
+        .get(&pr_api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let pr: Value = getr.json().await.unwrap_or(Value::Null);
+    let head_branch = pr
+        .pointer("/head/ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    // Close the PR.
+    let patch = client
+        .patch(&pr_api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .timeout(std::time::Duration::from_secs(20))
+        .json(&json!({ "state": "closed" }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !patch.status().is_success() {
+        let b: Value = patch.json().await.unwrap_or(Value::Null);
+        return Err(format!(
+            "github close pr {}: {}",
+            pr_number,
+            b.get("message").and_then(Value::as_str).unwrap_or("error")
+        ));
+    }
+    // Optionally delete the head branch (only for branches in this repo, not cross-fork heads).
+    let mut branch_deleted = false;
+    if delete_branch && !head_branch.is_empty() {
+        let ref_api =
+            format!("https://api.github.com/repos/{owner}/{repo}/git/refs/heads/{head_branch}");
+        let del = client
+            .delete(&ref_api)
+            .header("User-Agent", "ioi-hypervisor")
+            .header("Accept", "application/vnd.github+json")
+            .bearer_auth(token)
+            .timeout(std::time::Duration::from_secs(20))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        branch_deleted = del.status().is_success();
+    }
+    Ok((true, head_branch, branch_deleted))
+}
+
+// ---- GitHub App (BYOA) authentication — manifest-created App, installation tokens ----------------
+// The App is created in the USER's own account via GitHub's App-Manifest flow (no vendor-owned
+// secret). The App private key (pem) is sealed in the daemon; to ACT, the daemon mints a short-lived
+// RS256 JWT from the pem, exchanges it for an installation access token (1h), and uses THAT for the
+// crossing. The pem + installation token never leave the daemon; refresh is automatic per use.
+
+#[derive(serde::Serialize)]
+struct GithubAppJwtClaims {
+    iat: u64,
+    exp: u64,
+    iss: String,
+}
+
+/// Mint a GitHub App JWT (RS256, signed by the App private key). Authenticates AS the App to list
+/// installations and mint installation tokens. The pem never leaves the daemon.
+fn mint_github_app_jwt(app_id: &str, pem: &str) -> Result<String, String> {
+    let now = daemon_now_ms_fail_closed() / 1000;
+    let claims = GithubAppJwtClaims {
+        iat: now.saturating_sub(60),
+        exp: now + 540,
+        iss: app_id.to_string(),
+    };
+    let key = EncodingKey::from_rsa_pem(pem.as_bytes())
+        .map_err(|e| format!("invalid app private key: {e}"))?;
+    jwt_encode(&JwtHeader::new(JwtAlgorithm::RS256), &claims, &key)
+        .map_err(|e| format!("app jwt sign failed: {e}"))
+}
+
+/// Exchange the App JWT for a short-lived INSTALLATION access token (server-to-server). This is the
+/// token the daemon USES for the crossing — minted fresh per use, never exported.
+async fn mint_github_installation_token(
+    app_id: &str,
+    pem: &str,
+    installation_id: &str,
+) -> Result<String, String> {
+    let jwt = mint_github_app_jwt(app_id, pem)?;
+    let api = format!("https://api.github.com/app/installations/{installation_id}/access_tokens");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(&jwt)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("token")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "no token in installation response".to_string())
+    } else {
+        Err(format!(
+            "installation token {}: {}",
+            status.as_u16(),
+            body.get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("error")
+        ))
+    }
+}
+
+/// Mint a fresh OAuth2 access token from a sealed REFRESH token (the OAuth model the native
+/// Integrations surface uses — Gmail/Google/Atlassian/etc.). Standard refresh_token grant; the
+/// refresh token + client secret never leave the daemon, and the short-lived access token is minted
+/// per use. credential_source "oauth-refresh".
+async fn mint_oauth_access_token(
+    token_url: &str,
+    client_id: &str,
+    client_secret: &str,
+    refresh_token: &str,
+) -> Result<String, String> {
+    let mut form = vec![
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+        ("client_id", client_id),
+    ];
+    if !client_secret.is_empty() {
+        form.push(("client_secret", client_secret));
+    }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("access_token")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "no access_token in refresh response".to_string())
+    } else {
+        Err(format!(
+            "oauth refresh {}: {}",
+            status.as_u16(),
+            body.get("error").and_then(Value::as_str).unwrap_or("error")
+        ))
+    }
+}
+
+// ---- AWS Signature Version 4 (provider-native signed auth) ---------------------------------------
+// AWS doesn't use bearer tokens — each request is SIGNED with SigV4 (HMAC-SHA256 chain over a
+// canonical request). The sealed secret key never leaves the daemon; we sign per request.
+
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> Vec<u8> {
+    use sha2::{Digest, Sha256};
+    const BLOCK: usize = 64;
+    let mut k = key.to_vec();
+    if k.len() > BLOCK {
+        k = Sha256::digest(&k).to_vec();
+    }
+    k.resize(BLOCK, 0);
+    let ipad: Vec<u8> = k.iter().map(|b| b ^ 0x36).collect();
+    let opad: Vec<u8> = k.iter().map(|b| b ^ 0x5c).collect();
+    let mut inner = Sha256::new();
+    inner.update(&ipad);
+    inner.update(msg);
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(&opad);
+    outer.update(inner);
+    outer.finalize().to_vec()
+}
+fn sha256_hex_bytes(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(data))
+}
+
+/// Compute the AWS SigV4 `Authorization` header for a request. `signed_headers` always covers
+/// host + x-amz-date (+ x-amz-security-token when a session token is present).
+fn sigv4_authorization(
+    method: &str,
+    host: &str,
+    canonical_uri: &str,
+    canonical_query: &str,
+    payload: &[u8],
+    access_key: &str,
+    secret_key: &str,
+    session_token: Option<&str>,
+    region: &str,
+    service: &str,
+    amz_date: &str,
+) -> String {
+    let date_stamp = &amz_date[..8.min(amz_date.len())];
+    let payload_hash = sha256_hex_bytes(payload);
+    let (canonical_headers, signed_headers) = match session_token {
+        Some(tok) => (
+            format!("host:{host}\nx-amz-date:{amz_date}\nx-amz-security-token:{tok}\n"),
+            "host;x-amz-date;x-amz-security-token",
+        ),
+        None => (
+            format!("host:{host}\nx-amz-date:{amz_date}\n"),
+            "host;x-amz-date",
+        ),
+    };
+    let canonical_request = format!("{method}\n{canonical_uri}\n{canonical_query}\n{canonical_headers}\n{signed_headers}\n{payload_hash}");
+    let scope = format!("{date_stamp}/{region}/{service}/aws4_request");
+    let string_to_sign = format!(
+        "AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}",
+        sha256_hex_bytes(canonical_request.as_bytes())
+    );
+    let k_date = hmac_sha256(
+        format!("AWS4{secret_key}").as_bytes(),
+        date_stamp.as_bytes(),
+    );
+    let k_region = hmac_sha256(&k_date, region.as_bytes());
+    let k_service = hmac_sha256(&k_region, service.as_bytes());
+    let k_signing = hmac_sha256(&k_service, b"aws4_request");
+    let signature = hex::encode(hmac_sha256(&k_signing, string_to_sign.as_bytes()));
+    format!("AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed_headers}, Signature={signature}")
+}
+
+/// Current time as an AWS amz-date (YYYYMMDDTHHMMSSZ, UTC).
+fn amz_date_now() -> String {
+    let secs = (daemon_now_ms_fail_closed() / 1000) as i64;
+    match time::OffsetDateTime::from_unix_timestamp(secs) {
+        Ok(dt) => format!(
+            "{:04}{:02}{:02}T{:02}{:02}{:02}Z",
+            dt.year(),
+            dt.month() as u8,
+            dt.day(),
+            dt.hour(),
+            dt.minute(),
+            dt.second()
+        ),
+        Err(_) => "19700101T000000Z".to_string(),
+    }
+}
+
+/// OAuth 2.0 Token Exchange (RFC 8693) — workload/OIDC identity: present a subject token (the
+/// workload's own OIDC/JWT identity) and exchange it for a provider access token. No interactive
+/// auth; the workload's identity IS the credential. credential_source "oidc-workload".
+async fn mint_token_exchange(
+    token_url: &str,
+    subject_token: &str,
+    subject_token_type: &str,
+    audience: &str,
+    scopes: &str,
+    client_id: &str,
+) -> Result<String, String> {
+    let mut form = vec![
+        (
+            "grant_type",
+            "urn:ietf:params:oauth:grant-type:token-exchange",
+        ),
+        ("subject_token", subject_token),
+        ("subject_token_type", subject_token_type),
+        (
+            "requested_token_type",
+            "urn:ietf:params:oauth:token-type:access_token",
+        ),
+    ];
+    if !audience.is_empty() {
+        form.push(("audience", audience));
+    }
+    if !scopes.is_empty() {
+        form.push(("scope", scopes));
+    }
+    if !client_id.is_empty() {
+        form.push(("client_id", client_id));
+    }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        body.get("access_token")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "no access_token in token-exchange response".to_string())
+    } else {
+        Err(format!(
+            "token-exchange {}: {}",
+            status.as_u16(),
+            body.get("error").and_then(Value::as_str).unwrap_or("error")
+        ))
+    }
+}
+
+// ---- OAuth Authorization Code + PKCE (the canonical "authorize this integration" Connect) ---------
+// Provider-delegated authority: the user authorizes at the provider; the daemon exchanges the code
+// (PKCE, public client) for tokens and seals the refresh token. Agents only ever get scoped leases.
+
+fn random_token(n: usize) -> String {
+    use rand::Rng;
+    rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(n)
+        .map(char::from)
+        .collect()
+}
+/// PKCE S256 code challenge from a verifier (base64url-no-pad of SHA-256).
+fn pkce_challenge(verifier: &str) -> String {
+    use sha2::{Digest, Sha256};
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
+}
+/// Percent-encode a query value (unreserved set per RFC 3986).
+fn pct(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+/// Exchange an authorization code for (access_token, optional refresh_token). PKCE always; a
+/// non-empty client_secret makes it a CONFIDENTIAL client (BYOA OAuth app, e.g. Slack).
+async fn exchange_oauth_code(
+    token_url: &str,
+    client_id: &str,
+    client_secret: &str,
+    code: &str,
+    redirect_uri: &str,
+    code_verifier: &str,
+) -> Result<(String, Option<String>), String> {
+    let mut form = vec![
+        ("grant_type", "authorization_code"),
+        ("code", code),
+        ("redirect_uri", redirect_uri),
+        ("client_id", client_id),
+        ("code_verifier", code_verifier),
+    ];
+    if !client_secret.is_empty() {
+        form.push(("client_secret", client_secret));
+    }
+    let resp = reqwest::Client::new()
+        .post(token_url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .form(&form)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        let access = body
+            .get("access_token")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| "no access_token in code exchange".to_string())?;
+        let refresh = body
+            .get("refresh_token")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        Ok((access, refresh))
+    } else {
+        Err(format!(
+            "oauth code exchange {}: {}",
+            status.as_u16(),
+            body.get("error").and_then(Value::as_str).unwrap_or("error")
+        ))
+    }
+}
+
+// ---- MCP OAuth auto-discovery (RFC 9728 → 8414) + Dynamic Client Registration (RFC 7591) ---------
+// The MCP 2025 auth flow: probe the server (401 → protected-resource-metadata) → authorization-server
+// metadata → dynamically register a public PKCE client. Result: register only an MCP URL and the
+// daemon self-configures the auth_profile — no per-service OAuth app, no vendor secret.
+
+fn url_origin(u: &str) -> String {
+    if let Some(idx) = u.find("://") {
+        let after = &u[idx + 3..];
+        let host_end = after.find('/').unwrap_or(after.len());
+        format!("{}{}", &u[..idx + 3], &after[..host_end])
+    } else {
+        u.to_string()
+    }
+}
+
+async fn http_get_json(client: &reqwest::Client, url: &str) -> Result<Value, String> {
+    let resp = client
+        .get(url)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("GET {url} -> {}", resp.status().as_u16()));
+    }
+    resp.json().await.map_err(|e| e.to_string())
+}
+
+/// Discover (authorization_endpoint, token_endpoint, registration_endpoint, device_authorization_endpoint, scopes) for an MCP server.
+async fn discover_oauth_for_mcp(
+    mcp_url: &str,
+) -> Result<(String, String, String, String, Vec<String>), String> {
+    let client = reqwest::Client::new();
+    // 1) protected-resource-metadata URL: prefer the 401 WWW-Authenticate pointer, else well-known.
+    let mut prm_url: Option<String> = None;
+    if let Ok(resp) = client
+        .post(mcp_url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":MCP_CLIENT_INIT()}))
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+    {
+        if resp.status().as_u16() == 401 {
+            if let Some(h) = resp
+                .headers()
+                .get("www-authenticate")
+                .and_then(|v| v.to_str().ok())
+            {
+                if let Some(idx) = h.find("resource_metadata=") {
+                    let rest = h[idx + "resource_metadata=".len()..].trim_start_matches('"');
+                    let end = rest.find('"').unwrap_or(rest.len());
+                    prm_url = Some(rest[..end].to_string());
+                }
+            }
+        }
+    }
+    let origin = url_origin(mcp_url);
+    let prm_url =
+        prm_url.unwrap_or_else(|| format!("{origin}/.well-known/oauth-protected-resource"));
+    let prm = http_get_json(&client, &prm_url)
+        .await
+        .map_err(|e| format!("protected-resource-metadata: {e}"))?;
+    let as_url = prm["authorization_servers"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_str())
+        .ok_or("no authorization_servers in resource metadata")?
+        .to_string();
+    let prm_scopes: Vec<String> = prm["scopes_supported"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    // 2) authorization-server metadata (oauth-authorization-server, else openid-configuration, else as_url).
+    let as_origin = url_origin(&as_url);
+    let candidates = [
+        format!(
+            "{}/.well-known/oauth-authorization-server",
+            as_url.trim_end_matches('/')
+        ),
+        format!("{as_origin}/.well-known/oauth-authorization-server"),
+        format!("{as_origin}/.well-known/openid-configuration"),
+        as_url.clone(),
+    ];
+    let mut meta: Option<Value> = None;
+    for c in candidates.iter() {
+        if let Ok(m) = http_get_json(&client, c).await {
+            if m.get("token_endpoint").is_some() {
+                meta = Some(m);
+                break;
+            }
+        }
+    }
+    let meta = meta.ok_or("could not fetch authorization-server metadata")?;
+    let authorization_endpoint = meta["authorization_endpoint"]
+        .as_str()
+        .ok_or("no authorization_endpoint")?
+        .to_string();
+    let token_endpoint = meta["token_endpoint"]
+        .as_str()
+        .ok_or("no token_endpoint")?
+        .to_string();
+    let registration_endpoint = meta["registration_endpoint"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let device_authorization_endpoint = meta["device_authorization_endpoint"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let scopes = if !prm_scopes.is_empty() {
+        prm_scopes
+    } else {
+        meta["scopes_supported"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    Ok((
+        authorization_endpoint,
+        token_endpoint,
+        registration_endpoint,
+        device_authorization_endpoint,
+        scopes,
+    ))
+}
+
+/// Dynamically register a PUBLIC (PKCE) client (RFC 7591) → client_id.
+async fn dynamic_client_register(
+    registration_endpoint: &str,
+    redirect_uri: &str,
+    scopes: &[String],
+) -> Result<String, String> {
+    let body = json!({
+        "client_name": "IOI Hypervisor",
+        "redirect_uris": [redirect_uri],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+        "scope": scopes.join(" "),
+    });
+    let resp = reqwest::Client::new()
+        .post(registration_endpoint)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = resp.status();
+    let v: Value = resp.json().await.unwrap_or(Value::Null);
+    if status.is_success() {
+        v["client_id"]
+            .as_str()
+            .map(String::from)
+            .ok_or_else(|| "no client_id in DCR response".to_string())
+    } else {
+        Err(format!(
+            "DCR {}: {}",
+            status.as_u16(),
+            v.get("error").and_then(Value::as_str).unwrap_or("error")
+        ))
+    }
+}
+
+// ---- Minimal MCP (Model Context Protocol) client over Streamable HTTP ----------------------------
+// The native Integrations surface consumes MCP servers; this lets the daemon BE an MCP client so an
+// MCP integration's tools become available to the agent — each tool call governed by a wallet lease.
+// Does the initialize handshake (capturing Mcp-Session-Id), then tools/list or tools/call. Handles
+// both JSON and SSE responses. The token never leaves the daemon.
+
+fn parse_mcp_response(content_type: &str, text: &str) -> Result<Value, String> {
+    if content_type.contains("text/event-stream") {
+        for line in text.lines().rev() {
+            if let Some(rest) = line.strip_prefix("data:") {
+                let t = rest.trim();
+                if t.starts_with('{') {
+                    return serde_json::from_str(t).map_err(|e| e.to_string());
+                }
+            }
+        }
+        Err("no data frame in SSE response".to_string())
+    } else {
+        serde_json::from_str(text).map_err(|e| e.to_string())
+    }
+}
+
+async fn mcp_request(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    session: &Option<String>,
+    method: &str,
+    params: Value,
+    id: Option<i64>,
+) -> Result<(Value, Option<String>), String> {
+    let mut body = serde_json::Map::new();
+    body.insert("jsonrpc".to_string(), json!("2.0"));
+    body.insert("method".to_string(), json!(method));
+    if let Some(i) = id {
+        body.insert("id".to_string(), json!(i));
+    }
+    body.insert("params".to_string(), params);
+    let mut rb = client
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .header("MCP-Protocol-Version", "2025-06-18")
+        .timeout(std::time::Duration::from_secs(25))
+        .json(&Value::Object(body));
+    if !token.is_empty() {
+        rb = rb.bearer_auth(token);
+    }
+    if let Some(s) = session {
+        rb = rb.header("Mcp-Session-Id", s.as_str());
+    }
+    let resp = rb.send().await.map_err(|e| e.to_string())?;
+    let new_session = resp
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
+        .or_else(|| session.clone());
+    let status = resp.status();
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let text = resp.text().await.unwrap_or_default();
+    if id.is_none() {
+        return Ok((Value::Null, new_session)); // notification — no response body
+    }
+    if !status.is_success() {
+        return Err(format!(
+            "mcp {method} {}: {}",
+            status.as_u16(),
+            text.chars().take(200).collect::<String>()
+        ));
+    }
+    let parsed = parse_mcp_response(&ct, &text)?;
+    if let Some(err) = parsed.get("error") {
+        return Err(format!(
+            "mcp {method} error: {}",
+            err.get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("error")
+        ));
+    }
+    Ok((
+        parsed.get("result").cloned().unwrap_or(Value::Null),
+        new_session,
+    ))
+}
+
+const MCP_CLIENT_INIT: fn() -> Value = || {
+    json!({
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": { "name": "ioi-hypervisor", "version": "1" },
+    })
+};
+
+/// MCP initialize handshake → returns the session id for the follow-on calls.
+async fn mcp_handshake(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+) -> Result<Option<String>, String> {
+    let (_init, session) = mcp_request(
+        client,
+        url,
+        token,
+        &None,
+        "initialize",
+        MCP_CLIENT_INIT(),
+        Some(1),
+    )
+    .await?;
+    let _ = mcp_request(
+        client,
+        url,
+        token,
+        &session,
+        "notifications/initialized",
+        json!({}),
+        None,
+    )
+    .await;
+    Ok(session)
+}
+
+/// List an MCP server's tools (read-only discovery).
+async fn mcp_list_tools(url: &str, token: &str) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let session = mcp_handshake(&client, url, token).await?;
+    let (result, _) = mcp_request(
+        &client,
+        url,
+        token,
+        &session,
+        "tools/list",
+        json!({}),
+        Some(2),
+    )
+    .await?;
+    Ok(result.get("tools").cloned().unwrap_or_else(|| json!([])))
+}
+
+/// Call one MCP tool (the lease-governed crossing performs this).
+async fn mcp_call_tool(url: &str, token: &str, name: &str, args: &Value) -> Result<Value, String> {
+    let client = reqwest::Client::new();
+    let session = mcp_handshake(&client, url, token).await?;
+    let (result, _) = mcp_request(
+        &client,
+        url,
+        token,
+        &session,
+        "tools/call",
+        json!({ "name": name, "arguments": args }),
+        Some(2),
+    )
+    .await?;
+    Ok(result)
+}
+
+/// POST /v1/hypervisor/scm-connectors/:id/abandon-pull-request — the wallet-authorized CLEANUP
+/// crossing: close a published PR (and delete its branch) using the connector's sealed credential
+/// (or the github host git-auth fallback). The daemon USES the token; it is never exported. Fails
+/// closed (428) without a resolvable credential and (403) without a bound wallet grant.
+pub(crate) async fn handle_scm_abandon_pull_request(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let connector_id = id;
+    let Some(connector) = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "unknown connector_id" })),
+        );
+    };
+    let remote_url = connector["remote_url"].as_str().unwrap_or("").to_string();
+    let auth_posture = connector["auth_posture"].as_str().unwrap_or("").to_string();
+    let pull_request_url = body
+        .get("pull_request_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if pull_request_url.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "pull_request_url is required" })),
+        );
+    }
+    let delete_branch = body
+        .get("delete_branch")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let Some(pr_number) = pull_request_url
+        .rsplit('/')
+        .next()
+        .and_then(|s| s.parse::<u64>().ok())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "reason": "could not parse PR number from pull_request_url" }),
+            ),
+        );
+    };
+    // The repo to act on comes from the PR URL itself (https://github.com/{owner}/{repo}/pull/{n}),
+    // so this works for a host-level connector (App / host PAT) whose remote_url is just github.com.
+    let target_remote = {
+        let path = pull_request_url.trim_start_matches("https://github.com/");
+        let mut it = path.split('/');
+        match (it.next(), it.next()) {
+            (Some(o), Some(r)) if !o.is_empty() && !r.is_empty() => {
+                format!("https://github.com/{o}/{r}.git")
+            }
+            _ => remote_url.clone(),
+        }
+    };
+
+    // Authorize the cleanup CROSSING through the SAME generic capability-lease gateway as publish —
+    // distinct scopes/domains (scm.pr.close) so a publish grant can't authorize an abandon.
+    let requires_credential = connector["requires_credential"]
+        .as_bool()
+        .unwrap_or(auth_posture.starts_with("token-lease"));
+    let lease_req = CapabilityLeaseRequest {
+        authority_provider_ref: "wallet.network".to_string(),
+        backing_provider: format!("scm:connector:{connector_id}"),
+        allowed_tools: vec!["scm.pr.close".to_string()],
+        resource_refs: vec![remote_url.clone(), pull_request_url.clone()],
+        scopes: SCM_ABANDON_SCOPES.iter().map(|s| s.to_string()).collect(),
+        policy_domain: "hypervisor.scm.abandon.policy.v1".to_string(),
+        request_domain: "hypervisor.scm.abandon.request.v1".to_string(),
+        request_facets: json!({ "connector_id": connector_id, "pull_request_url": pull_request_url, "delete_branch": delete_branch }),
+        credential_connector_id: Some(connector_id.clone()),
+        credential_store: "scm-credentials".to_string(),
+        credential_required: requires_credential,
+        github_host_fallback: remote_url.contains("github.com"),
+        receipt_required: true,
+        revocation_ref: format!("scm-connectors/{connector_id}/credential"),
+        authority_reason: "scm_abandon_authority_required".to_string(),
+        grant_value: body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    let lease = match authorize_capability_lease(&st, &lease_req).await {
+        Ok(l) => l,
+        Err((code, challenge)) => return (code, Json(challenge)),
+    };
+    let token = lease.token;
+    let credential_source = lease.credential_source;
+    let grant_ref = lease.grant_ref;
+    let capability_lease = lease.descriptor;
+
+    // daemon EXECUTES the cleanup (authorized).
+    let tok = token.unwrap_or_default();
+    let (closed, head_branch, branch_deleted, error) =
+        match close_github_pull_request(&target_remote, &tok, pr_number, delete_branch).await {
+            Ok((c, b, d)) => (c, b, d, None),
+            Err(e) => (
+                false,
+                String::new(),
+                false,
+                Some(e.replace(tok.as_str(), "***")),
+            ),
+        };
+
+    let receipt_id = format!(
+        "scmaband_{}",
+        short_hash(&format!("{connector_id}:{pr_number}"))
+    );
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.scm-abandon-receipt.v1",
+        "receipt_id": receipt_id,
+        "connector_id": connector_id,
+        "remote_url": remote_url,
+        "pull_request_url": pull_request_url,
+        "pull_request_number": pr_number,
+        "closed": closed,
+        "branch": head_branch,
+        "branch_deleted": branch_deleted,
+        "credential_source": credential_source,
+        "grant_ref": grant_ref,
+        "capability_lease": capability_lease,
+        "host_mutation": closed,
+        "error": error,
+        "abandoned_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-abandon-receipts", &receipt_id, &receipt);
+    if !closed {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "github close failed", "receipt": receipt })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "receipt": receipt })),
+    )
+}
+
+/// POST /v1/hypervisor/scm-connect/github — "Connect GitHub" (the login). Validates the token
+/// against the GitHub API (identifies the account), then registers a github connector for
+/// {owner}/{repo} and SEAL-binds the token in one step. The token is validated + sealed at rest;
+/// never returned. Fail-closed if GitHub rejects the token. With no repo it returns identity only
+/// (account connected; provide a repo to materialize a connector). This is the PAT-connect flow;
+/// OAuth/device flow is a follow-on (needs a registered GitHub OAuth App client_id).
+pub(crate) async fn handle_scm_connect_github(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let token = body
+        .get("token")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "token is required" })),
+        );
+    }
+    // validate + identify the account (read-only)
+    let resp = reqwest::Client::new()
+        .get("https://api.github.com/user")
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .bearer_auth(&token)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let resp = match resp {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("github unreachable: {e}") })),
+            )
+        }
+    };
+    if !resp.status().is_success() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false, "decision": "blocked", "reason": "github rejected the token",
+                "status": resp.status().as_u16(),
+            })),
+        );
+    }
+    let login = resp
+        .json::<Value>()
+        .await
+        .ok()
+        .and_then(|v| v["login"].as_str().map(str::to_string))
+        .unwrap_or_default();
+    if login.is_empty() {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "could not read github login" })),
+        );
+    }
+    let owner = body
+        .get("owner")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(login.as_str())
+        .trim()
+        .to_string();
+    let repo = body
+        .get("repo")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if repo.is_empty() {
+        // Host-level git authentication (no specific repo) — the native "Git authentications" flow.
+        // Persist a HOST connector for github.com + seal the token; publish to any github repo
+        // resolves this host credential when the repo connector has none of its own.
+        let connector_id = "scm_host_github".to_string();
+        let key_source = scm_key_source();
+        let Some(sealed) = seal_scm_token(&token) else {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "reason": "failed to seal credential" })),
+            );
+        };
+        let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        let connector = json!({
+            "schema_version": "ioi.hypervisor.scm-connector.v1",
+            "connector_id": connector_id, "kind": "github", "name": format!("github:@{login}"),
+            "remote_url": "https://github.com", "host": "github.com", "requires_credential": true,
+            "auth_posture": "token-lease:bound", "credential_key_source": key_source,
+            "connected_login": login, "host_level": true, "created_at": iso_now(),
+        });
+        let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "login": login, "connected": true, "connector_id": connector_id, "host": "github.com" }),
+            ),
+        );
+    }
+    let remote_url = format!("https://github.com/{owner}/{repo}.git");
+    let connector_id = format!("scm_{}", short_hash(&format!("{remote_url}:github")));
+    let key_source = scm_key_source();
+    let Some(sealed) = seal_scm_token(&token) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal credential" })),
+        );
+    };
+    let cred = json!({ "connector_id": connector_id, "sealed_token": sealed, "key_source": key_source, "sealed": true, "bound_at": iso_now() });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id,
+        "kind": "github",
+        "name": format!("github:{owner}/{repo}"),
+        "remote_url": remote_url,
+        "requires_credential": true,
+        "auth_posture": "token-lease:bound",
+        "credential_key_source": key_source,
+        "connected_login": login,
+        "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "login": login, "connector": connector, "connector_id": connector_id }),
+        ),
+    )
+}
+
 /// Lane B (Phase-5 foothold): a Rust-native, DETERMINISTIC, offline decision step.
 /// It derives a deterministic decision from the intent (sha256-seeded, mirroring
 /// the model_mount native-local backend's determinism — no external model, no
@@ -7759,12 +13871,18 @@ fn execute_authority_gate(
 /// workspace. Returns `(files_written, transcript)`. This is the honest foothold
 /// toward routing execution through the canonical `RuntimeAgentService::handle_step`
 /// once the daemon hosts the full agentic runtime + drivers.
-fn run_native_local_decision_step(workspace_root: &str, intent: &str) -> (Vec<String>, Vec<(String, String)>) {
+fn run_native_local_decision_step(
+    workspace_root: &str,
+    intent: &str,
+) -> (Vec<String>, Vec<(String, String)>) {
     let digest: String = sha256_hex_str(intent).chars().take(12).collect();
     let rel_dir = "lane-b-native-local";
     let rel_path = format!("{rel_dir}/decision-step.md");
     let mut transcript: Vec<(String, String)> = Vec::new();
-    transcript.push(("stdout".to_string(), format!("[lane-b:native_local] perceiving workspace {workspace_root}")));
+    transcript.push((
+        "stdout".to_string(),
+        format!("[lane-b:native_local] perceiving workspace {workspace_root}"),
+    ));
     transcript.push((
         "stdout".to_string(),
         format!("[lane-b:native_local] deterministic decision (input_hash={digest})"),
@@ -7784,11 +13902,20 @@ fn run_native_local_decision_step(workspace_root: &str, intent: &str) -> (Vec<St
     );
     if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&target, contents).is_ok() {
         files_written.push(rel_path.clone());
-        transcript.push(("stdout".to_string(), format!("[lane-b:native_local] wrote {rel_path}")));
+        transcript.push((
+            "stdout".to_string(),
+            format!("[lane-b:native_local] wrote {rel_path}"),
+        ));
     } else {
-        transcript.push(("stderr".to_string(), format!("[lane-b:native_local] failed to write {rel_path}")));
+        transcript.push((
+            "stderr".to_string(),
+            format!("[lane-b:native_local] failed to write {rel_path}"),
+        ));
     }
-    transcript.push(("stdout".to_string(), "[lane-b:native_local] step complete".to_string()));
+    transcript.push((
+        "stdout".to_string(),
+        "[lane-b:native_local] step complete".to_string(),
+    ));
     (files_written, transcript)
 }
 
@@ -7809,7 +13936,10 @@ fn run_native_local_lane(
     let ok = !files_written.is_empty();
 
     let diff = project_session_workspace_diff(workspace_root);
-    let changed_file_groups = diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([]));
+    let changed_file_groups = diff
+        .get("changed_file_groups")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     let terminal_events: Vec<Value> = transcript
         .iter()
         .enumerate()
@@ -7817,7 +13947,10 @@ fn run_native_local_lane(
         .collect();
 
     let exit_status = if ok { "success" } else { "failure" };
-    let receipt_ref = format!("receipt://hypervisor/session-lane-b/{}", safe_session_tag(session_id));
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-lane-b/{}",
+        safe_session_tag(session_id)
+    );
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.lane_b_native_local_step",
@@ -7839,13 +13972,23 @@ fn run_native_local_lane(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+    if !receipt_refs
+        .iter()
+        .any(|reference| reference.as_str() == Some(receipt_ref.as_str()))
+    {
         receipt_refs.push(json!(receipt_ref));
     }
 
     let mut updated = record.clone();
     if let Some(object) = updated.as_object_mut() {
-        object.insert("lifecycle_state".into(), json!(if ok { "executed_native_local" } else { "execution_failed" }));
+        object.insert(
+            "lifecycle_state".into(),
+            json!(if ok {
+                "executed_native_local"
+            } else {
+                "execution_failed"
+            }),
+        );
         object.insert("terminal_events".into(), json!(terminal_events));
         object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
     }
@@ -7873,6 +14016,269 @@ fn run_native_local_lane(
     )
 }
 
+// ---- GitHub App BYOA manifest flow (the "Create & connect GitHub App" connect button) ------------
+// No vendor-owned OAuth App: the user creates an App in THEIR OWN account via GitHub's App-Manifest
+// flow. (1) manifest → the browser POSTs it to github.com and the user clicks "Create GitHub App";
+// (2) GitHub redirects back with a temporary code; (3) conversion exchanges the code for the App's
+// id/client_secret/PRIVATE KEY, which the daemon SEALS; (4) the user installs the App and we capture
+// the installation_id. To act, the daemon mints a short-lived installation token from the sealed pem
+// (see resolve_sealed_credential) — the credential never leaves the daemon. wallet.network still
+// authorizes every crossing on top.
+
+/// POST /v1/hypervisor/scm-connect/github-app/manifest — build the App manifest + the github.com
+/// create-app URL the browser POSTs it to. No secret involved yet (the App doesn't exist).
+pub(crate) async fn handle_github_app_manifest(
+    State(_st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let callback_base = body
+        .get("callback_base")
+        .and_then(Value::as_str)
+        .unwrap_or("http://127.0.0.1:4173")
+        .trim_end_matches('/')
+        .to_string();
+    let owner = body
+        .get("owner")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let now = daemon_now_ms_fail_closed();
+    let state = short_hash(&format!("ghapp:{now}:{owner}"));
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("ioi-hypervisor-{}", short_hash(&format!("{now}:{owner}"))));
+    // No hook_attributes: GitHub requires the webhook URL be publicly reachable (localhost is
+    // rejected), and a GitHub App needs no webhook for this flow. Omitting it = no webhook, which
+    // keeps the manifest valid for a localhost (BYOA/dev) callback. redirect_url + setup_url on
+    // localhost are accepted (they're browser redirects, not server-reachable hooks).
+    let manifest = json!({
+        "name": name,
+        "url": callback_base,
+        "redirect_url": format!("{callback_base}/__ioi/github-app/callback"),
+        "setup_url": format!("{callback_base}/__ioi/github-app/installed"),
+        "setup_on_update": true,
+        "public": false,
+        "default_permissions": { "contents": "write", "pull_requests": "write", "metadata": "read" },
+        "default_events": [],
+    });
+    let create_url = if owner.is_empty() {
+        format!("https://github.com/settings/apps/new?state={state}")
+    } else {
+        format!("https://github.com/organizations/{owner}/settings/apps/new?state={state}")
+    };
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "create_url": create_url, "manifest": manifest, "state": state })),
+    )
+}
+
+/// POST /v1/hypervisor/scm-connect/github-app/conversion — exchange the manifest `code` for the App
+/// credentials (id, client_secret, PRIVATE KEY), SEAL the secrets, and register a github-app
+/// connector. Returns the install_url. Fail-closed if GitHub rejects the code or sealing fails.
+pub(crate) async fn handle_github_app_conversion(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let code = body
+        .get("code")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if code.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "code is required" })),
+        );
+    }
+    let api = format!("https://api.github.com/app-manifests/{code}/conversions");
+    let resp = reqwest::Client::new()
+        .post(&api)
+        .header("User-Agent", "ioi-hypervisor")
+        .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await;
+    let resp = match resp {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "reason": format!("github unreachable: {e}") })),
+            )
+        }
+    };
+    let status = resp.status();
+    let conv: Value = resp.json().await.unwrap_or(Value::Null);
+    if !status.is_success() {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "ok": false, "reason": "github rejected the manifest code",
+                "status": status.as_u16(), "message": conv.get("message").and_then(Value::as_str).unwrap_or("error"),
+            })),
+        );
+    }
+    let app_id = conv
+        .get("id")
+        .and_then(Value::as_i64)
+        .map(|n| n.to_string())
+        .unwrap_or_default();
+    let slug = conv
+        .get("slug")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let client_id = conv
+        .get("client_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let client_secret = conv
+        .get("client_secret")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let pem = conv.get("pem").and_then(Value::as_str).unwrap_or("");
+    let owner_login = conv
+        .pointer("/owner/login")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let html_url = conv
+        .get("html_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if app_id.is_empty() || slug.is_empty() || pem.is_empty() {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "reason": "incomplete app conversion response" })),
+        );
+    }
+    // Seal the App PRIVATE KEY + client secret at rest. Fail closed if sealing fails (no plaintext).
+    let (Some(sealed_pem), Some(sealed_secret)) =
+        (seal_scm_token(pem), seal_scm_token(client_secret))
+    else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "failed to seal app credentials" })),
+        );
+    };
+    let key_source = scm_key_source();
+    let connector_id = format!("scm_ghapp_{}", short_hash(&format!("{app_id}:{slug}")));
+    let cred = json!({
+        "connector_id": connector_id, "kind": "github-app", "sealed_pem": sealed_pem,
+        "sealed_client_secret": sealed_secret, "app_id": app_id, "installation_id": Value::Null,
+        "key_source": key_source, "sealed": true, "bound_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+    let connector = json!({
+        "schema_version": "ioi.hypervisor.scm-connector.v1",
+        "connector_id": connector_id, "kind": "github-app",
+        "name": format!("github-app:@{owner_login} ({slug})"),
+        "remote_url": "https://github.com", "host": "github.com", "requires_credential": true,
+        "auth_posture": "token-lease:unbound", "credential_key_source": key_source,
+        "connected_login": owner_login, "app_id": app_id, "app_slug": slug, "client_id": client_id,
+        "html_url": html_url, "installation_id": Value::Null, "host_level": true, "created_at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    let install_url = format!("https://github.com/apps/{slug}/installations/new");
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true, "connector_id": connector_id, "app_slug": slug, "app_id": app_id,
+            "connected_login": owner_login, "install_url": install_url, "html_url": html_url,
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/scm-connect/github-app/installation — capture the installation_id after the
+/// user installs the App (binds the connector). If no connector_id is given, attaches to the newest
+/// github-app connector still awaiting an installation. Verifies by minting an installation token.
+pub(crate) async fn handle_github_app_installation(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let installation_id = body
+        .get("installation_id")
+        .and_then(|v| {
+            v.as_str()
+                .map(str::to_string)
+                .or_else(|| v.as_i64().map(|n| n.to_string()))
+        })
+        .unwrap_or_default();
+    if installation_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "reason": "installation_id is required" })),
+        );
+    }
+    let explicit = body
+        .get("connector_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let mut connectors: Vec<Value> = read_record_dir(&st.data_dir, "scm-connectors")
+        .into_iter()
+        .filter(|c| c["kind"].as_str() == Some("github-app"))
+        .collect();
+    // newest first (ISO created_at sorts lexically)
+    connectors.sort_by(|a, b| {
+        b["created_at"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["created_at"].as_str().unwrap_or(""))
+    });
+    let Some(mut connector) = (match &explicit {
+        Some(id) => connectors
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str())),
+        None => connectors.into_iter().find(|c| {
+            c["installation_id"].is_null() || c["installation_id"].as_str().unwrap_or("").is_empty()
+        }),
+    }) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "no github-app connector awaiting installation" })),
+        );
+    };
+    let connector_id = connector["connector_id"].as_str().unwrap_or("").to_string();
+    connector["installation_id"] = json!(installation_id);
+    connector["auth_posture"] = json!("token-lease:bound");
+    let _ = persist_record(&st.data_dir, "scm-connectors", &connector_id, &connector);
+    // mirror installation_id onto the sealed cred record (the gateway reads it there to mint tokens)
+    if let Some(mut cred) = read_record_dir(&st.data_dir, "scm-credentials")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
+    {
+        cred["installation_id"] = json!(installation_id);
+        let _ = persist_record(&st.data_dir, "scm-credentials", &connector_id, &cred);
+        // verify by minting a token (proves the sealed pem + installation are usable). Never returned.
+        let app_id = cred["app_id"].as_str().unwrap_or("").to_string();
+        let verified = match cred["sealed_pem"].as_str().and_then(open_scm_token) {
+            Some(pem) => mint_github_installation_token(&app_id, &pem, &installation_id)
+                .await
+                .is_ok(),
+            None => false,
+        };
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "connector_id": connector_id, "installation_id": installation_id, "verified": verified }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "connector_id": connector_id, "installation_id": installation_id, "verified": false }),
+        ),
+    )
+}
+
 /// POST /v1/hypervisor/sessions/:id/execute — session execution (Lane A or Lane B).
 ///
 /// Lane A (default `host_spawn`): FAILS CLOSED with an honest reason
@@ -7890,22 +14296,36 @@ pub(crate) async fn handle_session_execute(
     let Some(record) = load_session_record(&st, &session_id) else {
         return (
             StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+            Json(
+                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
+            ),
         );
     };
-    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("").to_string();
-    let lane = body.get("lane").and_then(Value::as_str).unwrap_or("host_spawn").to_string();
+    let workspace_root = record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let lane = body
+        .get("lane")
+        .and_then(Value::as_str)
+        .unwrap_or("host_spawn")
+        .to_string();
 
     let Some(intent) = session_execute_intent(&body) else {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "session_execute_intent_required", "message": "Execute requires a task intent (`intent` or `messages`)." } })),
+            Json(
+                json!({ "error": { "code": "session_execute_intent_required", "message": "Execute requires a task intent (`intent` or `messages`)." } }),
+            ),
         );
     };
     if workspace_root.is_empty() {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "error": { "code": "session_workspace_absent", "message": "Session has no provisioned workspace to execute in." } })),
+            Json(
+                json!({ "error": { "code": "session_workspace_absent", "message": "Session has no provisioned workspace to execute in." } }),
+            ),
         );
     }
 
@@ -7916,11 +14336,19 @@ pub(crate) async fn handle_session_execute(
     // the full runtime and runs constrained file/shell/browser tools through
     // handle_step); this lightweight foothold is retained for offline/no-driver use.
     if lane == "native_local" {
-        let capability_lease_ref = match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
-            Ok(lease) => lease,
-            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
-        };
-        return run_native_local_lane(&st, &session_id, &workspace_root, &intent, &record, &capability_lease_ref);
+        let capability_lease_ref =
+            match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
+                Ok(lease) => lease,
+                Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+            };
+        return run_native_local_lane(
+            &st,
+            &session_id,
+            &workspace_root,
+            &intent,
+            &record,
+            &capability_lease_ref,
+        );
     }
 
     // Lane A (host_spawn / container): honest fail-closed substrate checks FIRST so
@@ -7969,10 +14397,11 @@ pub(crate) async fn handle_session_execute(
 
     // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
     // AFTER the substrate check (offline contract) and BEFORE any spawn.
-    let capability_lease_ref = match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
-        Ok(lease) => lease,
-        Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
-    };
+    let capability_lease_ref =
+        match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
+            Ok(lease) => lease,
+            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+        };
 
     // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
     // the intent. The harness drives the local model and edits the workspace.
@@ -7992,14 +14421,20 @@ pub(crate) async fn handle_session_execute(
             })),
         );
     };
-    let model_endpoint = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM").ok().filter(|value| !value.is_empty());
+    let model_endpoint = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+        .ok()
+        .filter(|value| !value.is_empty());
     let started_at = iso_now();
-    let outcome = run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
+    let outcome =
+        run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
     let finished_at = iso_now();
 
     // Real workspace diff — whatever the harness actually wrote (git or walk).
     let diff = project_session_workspace_diff(&workspace_root);
-    let changed_file_groups = diff.get("changed_file_groups").cloned().unwrap_or_else(|| json!([]));
+    let changed_file_groups = diff
+        .get("changed_file_groups")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
 
     // Real terminal transcript → terminal_events (the harness's actual output).
     let terminal_events: Vec<Value> = outcome
@@ -8013,9 +14448,14 @@ pub(crate) async fn handle_session_execute(
     // open a REAL preview listener exposing the workspace, admitted under the same
     // grant's capability lease. Honest: no listener when there is no index.html.
     let mut environment_ports: Vec<Value> = Vec::new();
-    if outcome.ok && std::path::Path::new(&workspace_root).join("index.html").is_file() {
+    if outcome.ok
+        && std::path::Path::new(&workspace_root)
+            .join("index.html")
+            .is_file()
+    {
         if let Some(port) =
-            open_session_preview_port(&st, &session_id, &workspace_root, &capability_lease_ref).await
+            open_session_preview_port(&st, &session_id, &workspace_root, &capability_lease_ref)
+                .await
         {
             environment_ports.push(port);
         }
@@ -8023,7 +14463,10 @@ pub(crate) async fn handle_session_execute(
 
     // Real lane execution receipt.
     let exit_status = if outcome.ok { "success" } else { "failure" };
-    let lane_receipt_ref = format!("receipt://hypervisor/session-execute/{}", safe_session_tag(&session_id));
+    let lane_receipt_ref = format!(
+        "receipt://hypervisor/session-execute/{}",
+        safe_session_tag(&session_id)
+    );
     let lane_receipt = json!({
         "id": lane_receipt_ref,
         "kind": "hypervisor.session.execute",
@@ -8048,7 +14491,10 @@ pub(crate) async fn handle_session_execute(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(lane_receipt_ref.as_str())) {
+    if !receipt_refs
+        .iter()
+        .any(|reference| reference.as_str() == Some(lane_receipt_ref.as_str()))
+    {
         receipt_refs.push(json!(lane_receipt_ref));
     }
 
@@ -8056,7 +14502,14 @@ pub(crate) async fn handle_session_execute(
     // surfaces the real transcript + receipts.
     let mut updated = record.clone();
     if let Some(object) = updated.as_object_mut() {
-        object.insert("lifecycle_state".into(), json!(if outcome.ok { "executed" } else { "execution_failed" }));
+        object.insert(
+            "lifecycle_state".into(),
+            json!(if outcome.ok {
+                "executed"
+            } else {
+                "execution_failed"
+            }),
+        );
         object.insert("terminal_events".into(), json!(terminal_events));
         object.insert(
             "last_execution".into(),
@@ -8176,13 +14629,18 @@ pub(crate) async fn handle_session_ports_revoke(
     let Some(record) = load_session_record(&st, &session_id) else {
         return (
             StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+            Json(
+                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
+            ),
         );
     };
     let revoked_port = revoke_session_preview(&st, &session_id).await;
     let ports = mark_session_ports_revoked(&record);
 
-    let receipt_ref = format!("receipt://hypervisor/session-port-revoke/{}", safe_session_tag(&session_id));
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-port-revoke/{}",
+        safe_session_tag(&session_id)
+    );
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.port_revoke",
@@ -8198,7 +14656,10 @@ pub(crate) async fn handle_session_ports_revoke(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+    if !receipt_refs
+        .iter()
+        .any(|reference| reference.as_str() == Some(receipt_ref.as_str()))
+    {
         receipt_refs.push(json!(receipt_ref));
     }
 
@@ -8234,14 +14695,23 @@ pub(crate) async fn handle_session_teardown(
     let Some(record) = load_session_record(&st, &session_id) else {
         return (
             StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
+            Json(
+                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
+            ),
         );
     };
     let revoked_port = revoke_session_preview(&st, &session_id).await;
-    let workspace_root = record.get("workspace_root").and_then(Value::as_str).unwrap_or("").to_string();
+    let workspace_root = record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let workspace_removed = remove_session_workspace(&workspace_root);
 
-    let receipt_ref = format!("receipt://hypervisor/session-teardown/{}", safe_session_tag(&session_id));
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-teardown/{}",
+        safe_session_tag(&session_id)
+    );
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.teardown",
@@ -8258,7 +14728,10 @@ pub(crate) async fn handle_session_teardown(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    if !receipt_refs.iter().any(|reference| reference.as_str() == Some(receipt_ref.as_str())) {
+    if !receipt_refs
+        .iter()
+        .any(|reference| reference.as_str() == Some(receipt_ref.as_str()))
+    {
         receipt_refs.push(json!(receipt_ref));
     }
 
@@ -8336,7 +14809,9 @@ pub(crate) mod runtime_host {
         install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
         install_constrained_workspace_write_policy, RuntimeAgentService,
     };
-    use ioi_services::agentic::runtime::types::{AgentMode, PostMessageParams, StartAgentParams, StepAgentParams};
+    use ioi_services::agentic::runtime::types::{
+        AgentMode, PostMessageParams, StartAgentParams, StepAgentParams,
+    };
     use ioi_types::app::agentic::{
         BrowserActionPlanRef, CommandExecutionPlanRef, FileMutationPlanRef, RequiredCapability,
         RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame,
@@ -8444,20 +14919,33 @@ pub(crate) mod runtime_host {
 
     #[async_trait]
     impl GuiDriver for NoopGuiDriver {
-        async fn capture_screen(&self, _crop: Option<(i32, i32, u32, u32)>) -> Result<Vec<u8>, VmError> {
-            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+        async fn capture_screen(
+            &self,
+            _crop: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError(
+                "runtime-host GUI is disabled in Phase 5A".into(),
+            ))
         }
         async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
-            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+            Err(VmError::HostError(
+                "runtime-host GUI is disabled in Phase 5A".into(),
+            ))
         }
         async fn capture_tree(&self) -> Result<String, VmError> {
-            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+            Err(VmError::HostError(
+                "runtime-host GUI is disabled in Phase 5A".into(),
+            ))
         }
         async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
-            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+            Err(VmError::HostError(
+                "runtime-host GUI is disabled in Phase 5A".into(),
+            ))
         }
         async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
-            Err(VmError::HostError("runtime-host GUI is disabled in Phase 5A".into()))
+            Err(VmError::HostError(
+                "runtime-host GUI is disabled in Phase 5A".into(),
+            ))
         }
         async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
             Ok(None)
@@ -8512,7 +15000,13 @@ pub(crate) mod runtime_host {
     /// A compact, deterministic summary of a KernelEvent for the step probe / response.
     fn summarize_kernel_event(event: &KernelEvent) -> Value {
         match event {
-            KernelEvent::AgentActionResult { step_index, tool_name, error_class, agent_status, .. } => json!({
+            KernelEvent::AgentActionResult {
+                step_index,
+                tool_name,
+                error_class,
+                agent_status,
+                ..
+            } => json!({
                 "kind": "AgentActionResult",
                 "step_index": step_index,
                 "tool_name": tool_name,
@@ -8522,7 +15016,9 @@ pub(crate) mod runtime_host {
             KernelEvent::AgentThought { .. } => json!({ "kind": "AgentThought" }),
             KernelEvent::AgentAnswerDelta { .. } => json!({ "kind": "AgentAnswerDelta" }),
             KernelEvent::RuntimeThreadEvent { .. } => json!({ "kind": "RuntimeThreadEvent" }),
-            other => json!({ "kind": format!("{other:?}").split_whitespace().next().unwrap_or("KernelEvent") }),
+            other => {
+                json!({ "kind": format!("{other:?}").split_whitespace().next().unwrap_or("KernelEvent") })
+            }
         }
     }
 
@@ -8765,7 +15261,10 @@ pub(crate) mod runtime_host {
             .and_then(Value::as_str)
             .unwrap_or("Phase 5A runtime-host lifecycle exercise")
             .to_string();
-        let message = body.get("message").and_then(Value::as_str).map(str::to_string);
+        let message = body
+            .get("message")
+            .and_then(Value::as_str)
+            .map(str::to_string);
 
         let session_id = session_id_for_ref(&session_ref);
         let session_id_hex = hex_encode(&session_id);
@@ -8816,7 +15315,9 @@ pub(crate) mod runtime_host {
         // that creates no session (so the grant-bound retry runs `start@v1` cleanly).
         let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
         if step_requested {
-            if let Err(challenge) = super::execute_authority_gate(&body, &session_ref, &workspace_path, &goal) {
+            if let Err(challenge) =
+                super::execute_authority_gate(&body, &session_ref, &workspace_path, &goal)
+            {
                 return (StatusCode::FORBIDDEN, Json(challenge));
             }
         }
@@ -8824,21 +15325,29 @@ pub(crate) mod runtime_host {
         // Phase 5C: a `file_write` directive supplies a pre-resolved route frame so the step
         // deterministically dispatches a constrained `file__write` (no model tool selection,
         // no shell/browser). Path is workspace-relative + traversal-guarded.
-        let file_write_frame = body.get("file_write").and_then(Value::as_object).and_then(|fw| {
-            let path = fw.get("path").and_then(Value::as_str)?.trim();
-            let content = fw.get("content").and_then(Value::as_str).unwrap_or("");
-            if path.is_empty() || path.starts_with('/') || path.split('/').any(|seg| seg == "..") {
-                return None;
-            }
-            Some(file_write_route_frame(path, content))
-        });
+        let file_write_frame = body
+            .get("file_write")
+            .and_then(Value::as_object)
+            .and_then(|fw| {
+                let path = fw.get("path").and_then(Value::as_str)?.trim();
+                let content = fw.get("content").and_then(Value::as_str).unwrap_or("");
+                if path.is_empty()
+                    || path.starts_with('/')
+                    || path.split('/').any(|seg| seg == "..")
+                {
+                    return None;
+                }
+                Some(file_write_route_frame(path, content))
+            });
 
         // Phase 5 (shell): a `shell_run` directive supplies a pre-resolved command frame so
         // the step deterministically dispatches a constrained `shell__run` through the REAL
         // TerminalDriver (bwrap sandbox, network-unshared, workspace-bound cwd). argv[0] is
         // the command; the policy command allowlist + the bwrap sandbox bound it.
-        let shell_run_argv: Option<Vec<String>> =
-            body.get("shell_run").and_then(Value::as_object).and_then(|sr| {
+        let shell_run_argv: Option<Vec<String>> = body
+            .get("shell_run")
+            .and_then(Value::as_object)
+            .and_then(|sr| {
                 let argv: Vec<String> = sr
                     .get("argv")
                     .and_then(Value::as_array)?
@@ -8869,7 +15378,9 @@ pub(crate) mod runtime_host {
         // Exactly one pre-resolved tool frame may drive the constrained step (precedence:
         // file write → shell → browser). Without a directive the step runs unconstrained cognition.
         let has_file_write_directive = file_write_frame.is_some();
-        let route_frame = file_write_frame.or(shell_run_frame).or(browser_navigate_frame);
+        let route_frame = file_write_frame
+            .or(shell_run_frame)
+            .or(browser_navigate_frame);
 
         // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
@@ -8885,7 +15396,10 @@ pub(crate) mod runtime_host {
             Ok(bytes) => bytes,
             Err(error) => return host_error(&session_ref, "encode_start_params", &error),
         };
-        if let Err(error) = host.handle_service_call(&mut state, "start@v1", &start_bytes, &mut ctx).await {
+        if let Err(error) = host
+            .handle_service_call(&mut state, "start@v1", &start_bytes, &mut ctx)
+            .await
+        {
             return host_error(&session_ref, "start_v1", &format!("{error:?}"));
         }
 
@@ -8897,17 +15411,31 @@ pub(crate) mod runtime_host {
         // allowlist + bwrap) still apply.
         if has_file_write_directive {
             if let Err(error) = install_constrained_workspace_write_policy(&mut state, session_id) {
-                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+                return host_error(
+                    &session_ref,
+                    "install_session_policy",
+                    &format!("{error:?}"),
+                );
             }
         } else if let Some(argv) = shell_run_argv.as_ref() {
             if let Err(error) =
                 install_constrained_shell_exec_policy(&mut state, session_id, &argv[0])
             {
-                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+                return host_error(
+                    &session_ref,
+                    "install_session_policy",
+                    &format!("{error:?}"),
+                );
             }
         } else if browser_navigate_url.is_some() {
-            if let Err(error) = install_constrained_browser_navigation_policy(&mut state, session_id) {
-                return host_error(&session_ref, "install_session_policy", &format!("{error:?}"));
+            if let Err(error) =
+                install_constrained_browser_navigation_policy(&mut state, session_id)
+            {
+                return host_error(
+                    &session_ref,
+                    "install_session_policy",
+                    &format!("{error:?}"),
+                );
             }
         }
 
@@ -8921,9 +15449,14 @@ pub(crate) mod runtime_host {
             };
             let post_bytes = match codec::to_bytes_canonical(&post_params) {
                 Ok(bytes) => bytes,
-                Err(error) => return host_error(&session_ref, "encode_post_message_params", &error),
+                Err(error) => {
+                    return host_error(&session_ref, "encode_post_message_params", &error)
+                }
             };
-            if let Err(error) = host.handle_service_call(&mut state, "post_message@v1", &post_bytes, &mut ctx).await {
+            if let Err(error) = host
+                .handle_service_call(&mut state, "post_message@v1", &post_bytes, &mut ctx)
+                .await
+            {
                 return host_error(&session_ref, "post_message_v1", &format!("{error:?}"));
             }
             message_posted = true;
@@ -8940,7 +15473,9 @@ pub(crate) mod runtime_host {
                 Ok(bytes) => bytes,
                 Err(error) => return host_error(&session_ref, "encode_step_params", &error),
             };
-            let step_result = host.handle_service_call(&mut state, "step@v1", &step_bytes, &mut ctx).await;
+            let step_result = host
+                .handle_service_call(&mut state, "step@v1", &step_bytes, &mut ctx)
+                .await;
             let mut captured: Vec<Value> = Vec::new();
             while let Ok(event) = events_rx.try_recv() {
                 captured.push(summarize_kernel_event(&event));
@@ -8986,7 +15521,10 @@ pub(crate) mod runtime_host {
             "receipt_refs": [format!("receipt_runtime_host_session_{event_hash}")],
         })
         .to_string();
-        let _ = bridge.send(KernelEvent::RuntimeThreadEvent { session_id, event_json });
+        let _ = bridge.send(KernelEvent::RuntimeThreadEvent {
+            session_id,
+            event_json,
+        });
 
         (
             StatusCode::OK,
@@ -9032,5 +15570,33 @@ pub(crate) mod runtime_host {
                 },
             })),
         )
+    }
+}
+
+#[cfg(test)]
+mod sigv4_tests {
+    use super::sigv4_authorization;
+    // AWS SigV4 official test suite "get-vanilla" known-answer vector.
+    #[test]
+    fn sigv4_get_vanilla_matches_aws_vector() {
+        let auth = sigv4_authorization(
+            "GET",
+            "example.amazonaws.com",
+            "/",
+            "",
+            b"",
+            "AKIDEXAMPLE",
+            "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+            None,
+            "us-east-1",
+            "service",
+            "20150830T123600Z",
+        );
+        assert_eq!(
+            auth,
+            "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, \
+             SignedHeaders=host;x-amz-date, \
+             Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31"
+        );
     }
 }

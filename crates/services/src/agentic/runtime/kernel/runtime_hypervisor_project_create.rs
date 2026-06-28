@@ -31,7 +31,12 @@ pub struct RuntimeHypervisorProjectCreateError {
 
 impl RuntimeHypervisorProjectCreateError {
     fn new(code: &str, message: String, details: Value) -> Self {
-        Self { status: 400, code: code.to_string(), message, details }
+        Self {
+            status: 400,
+            code: code.to_string(),
+            message,
+            details,
+        }
     }
 }
 
@@ -61,12 +66,17 @@ impl RuntimeHypervisorProjectCreateCore {
         let slug = repo_slug(&repository_url)
             .or_else(|| {
                 let project_slug = slugify(&project_name);
-                if project_slug.is_empty() { None } else { Some(project_slug) }
+                if project_slug.is_empty() {
+                    None
+                } else {
+                    Some(project_slug)
+                }
             })
             .unwrap_or_else(|| "repository".to_string());
         let project_id = format!("project:{slug}");
 
-        let created_at = optional_value(request.get("created_at")).unwrap_or_else(|| now_iso.to_string());
+        let created_at =
+            optional_value(request.get("created_at")).unwrap_or_else(|| now_iso.to_string());
 
         Ok(json!({
             "project_id": project_id,
@@ -184,14 +194,23 @@ mod tests {
             .expect("planned");
         assert_eq!(record["project_id"], "project:ioi");
         assert_eq!(record["name"], "ioi");
-        assert_eq!(record["repository_url"], "https://github.com/teamioitest/ioi");
+        assert_eq!(
+            record["repository_url"],
+            "https://github.com/teamioitest/ioi"
+        );
         assert_eq!(record["repository_branch"], "main");
         assert_eq!(record["root_path"], "/workspace/ioi");
         assert_eq!(record["workspace_ref"], "workspace://repo/ioi");
         assert_eq!(record["restore_state"], "active");
         assert_eq!(record["created_at"], "2026-06-22T00:00:00.000Z");
-        assert_eq!(record["environment_class_refs"], json!(["environment-class:local-dev-replay"]));
-        assert_eq!(record["agentgres_object_head_ref"], "agentgres://object-head/project:ioi");
+        assert_eq!(
+            record["environment_class_refs"],
+            json!(["environment-class:local-dev-replay"])
+        );
+        assert_eq!(
+            record["agentgres_object_head_ref"],
+            "agentgres://object-head/project:ioi"
+        );
     }
 
     #[test]
@@ -206,7 +225,10 @@ mod tests {
     fn falls_back_to_project_name_slug() {
         // A degenerate URL with no usable terminal segment falls back to the project-name slug.
         let record = RuntimeHypervisorProjectCreateCore
-            .plan(&json!({ "repository_url": "/", "project_name": "Cool Project" }), "now")
+            .plan(
+                &json!({ "repository_url": "/", "project_name": "Cool Project" }),
+                "now",
+            )
             .expect("planned");
         assert_eq!(record["project_id"], "project:cool-project");
     }
@@ -214,7 +236,10 @@ mod tests {
     #[test]
     fn host_only_url_uses_host_slug() {
         let record = RuntimeHypervisorProjectCreateCore
-            .plan(&json!({ "repository_url": "https://example.com/", "project_name": "Cool" }), "now")
+            .plan(
+                &json!({ "repository_url": "https://example.com/", "project_name": "Cool" }),
+                "now",
+            )
             .expect("planned");
         assert_eq!(record["project_id"], "project:example.com");
     }
@@ -239,7 +264,10 @@ mod tests {
     #[test]
     fn rejects_unknown_source() {
         let error = RuntimeHypervisorProjectCreateCore
-            .plan(&json!({ "repository_url": "https://x/y", "project_name": "y", "source": "nope" }), "now")
+            .plan(
+                &json!({ "repository_url": "https://x/y", "project_name": "y", "source": "nope" }),
+                "now",
+            )
             .expect_err("blocked");
         assert_eq!(error.code, "project_create_source_invalid");
     }

@@ -119,7 +119,7 @@ try {
   else { lines["Editor restart reconcile + negatives"] = "FAIL"; failures.push("WS-3r reconcile verifier not PASS"); }
 
   // ---- packaged VS Code adapter host (external Electron binary) ----
-  const packaged = existsSync(join(REPO, "code-editor-adapters/builds/VSCode-linux-x64/bin/hypervisor"));
+  const packaged = existsSync(join(REPO, "packages/hypervisor-adapter-targets/builds/VSCode-linux-x64/bin/hypervisor"));
   lines["Packaged VS Code adapter host"] = packaged ? "PASS" : "HOST_GATED";
   if (!packaged) declaredGaps.push({ gate: "packaged_vscode", prerequisite: "PACKAGED_VSCODE_BINARY_ABSENT", reason: "the packaged VS Code adapter host (Electron build) is not present on this host; external binary — host-gated" });
 
@@ -152,13 +152,18 @@ try {
   rmSync(dataDir, { recursive: true, force: true });
 }
 
-// ---- optional --browser tier: real Playwright render of the native cockpit (Open-in affordance) ----
+// ---- optional --browser tier: real Playwright render of the served reference UX ----
+// The product UX is the served live reference made daemon-backed (the native React duplicate was
+// removed); the done-bar is the (local-only) reference harness (zero reference-RPC mock
+// fallthrough + real daemon effects + route-crawl with zero console errors). It needs the served
+// stack up (serve:reference :4173 + daemon :8765); BLOCKED ⇒ named host gap, not a failure.
 if (WANT_BROWSER) {
-  const nb = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-native-ux.mjs"), "--browser", "--json"], { encoding: "utf8", cwd: REPO, timeout: 600000 });
+  const nb = spawnSync("node", [join(REPO, "scripts/verify-hypervisor-reference-functional.mjs"), "--json"], { encoding: "utf8", cwd: REPO, timeout: 600000 });
   let nbjson = null; try { nbjson = JSON.parse((nb.stdout || "").slice((nb.stdout || "").indexOf("{"))); } catch {}
-  if (nbjson?.verdict === "PASS") lines["Native UI browser render"] = "PASS";
-  else if (nbjson?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["Native UI browser render"] = "HOST_GATED"; for (const g of nbjson.declared_gaps || []) declaredGaps.push(g); }
-  else { lines["Native UI browser render"] = "FAIL"; failures.push("native-ux --browser render not PASS"); }
+  if (nbjson?.verdict === "PASS") lines["Reference UI browser render"] = "PASS";
+  else if (nbjson?.verdict === "PASS_WITH_DECLARED_GAPS") { lines["Reference UI browser render"] = "HOST_GATED"; for (const g of nbjson.declared_gaps || []) declaredGaps.push(g); }
+  else if (nbjson?.verdict === "BLOCKED") { lines["Reference UI browser render"] = "HOST_GATED"; declaredGaps.push({ gate: "reference_functional_ux", prerequisite: "REFERENCE_STACK_NOT_RUNNING", reason: nbjson.reason || "serve:reference (:4173) + hypervisor-daemon (:8765) must be up; not an unbuilt gate" }); }
+  else { lines["Reference UI browser render"] = "FAIL"; failures.push("reference-functional --browser render not PASS"); }
 }
 
 // ---- Overall ----

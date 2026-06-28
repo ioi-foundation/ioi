@@ -11,7 +11,8 @@
 
 use serde_json::{json, Value};
 
-pub const WORKSPACE_DIFF_PROJECTION_SCHEMA_VERSION: &str = "ioi.hypervisor.workspace_diff_projection.v1";
+pub const WORKSPACE_DIFF_PROJECTION_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.workspace_diff_projection.v1";
 
 /// Projection for a session with no workspace yet (no fake work).
 pub fn workspace_diff_absent() -> Value {
@@ -26,7 +27,11 @@ pub fn workspace_diff_absent() -> Value {
 
 /// Parse `git diff --numstat HEAD` + `git status --porcelain` into the
 /// canonical projection (`source: "git"`). Pure.
-pub fn workspace_diff_from_git(workspace_root: &str, numstat_stdout: &str, status_stdout: &str) -> Value {
+pub fn workspace_diff_from_git(
+    workspace_root: &str,
+    numstat_stdout: &str,
+    status_stdout: &str,
+) -> Value {
     // numstat: `<added>\t<removed>\t<path>` (added/removed may be "-" for binary).
     let mut numstat: Vec<(String, String, String)> = Vec::new();
     for line in numstat_stdout.split('\n') {
@@ -47,7 +52,11 @@ pub fn workspace_diff_from_git(workspace_root: &str, numstat_stdout: &str, statu
             .find(|(_, _, path)| path == &rel_path)
             .map(|(added, removed, _)| {
                 let added = if added == "-" { "0" } else { added.as_str() };
-                let removed = if removed == "-" { "0" } else { removed.as_str() };
+                let removed = if removed == "-" {
+                    "0"
+                } else {
+                    removed.as_str()
+                };
                 format!("+{added}/-{removed}")
             })
             .unwrap_or_else(|| "+0".to_string());
@@ -103,11 +112,15 @@ fn status_label(code: &str) -> &'static str {
 /// Mirror JS `groupByFolder`: stable folder-keyed groups in first-seen order.
 fn group_by_folder(records: &[Value]) -> Vec<Value> {
     let mut order: Vec<String> = Vec::new();
-    let mut groups: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<String, Vec<Value>> =
+        std::collections::HashMap::new();
     for record in records {
         let rel_path = record.get("relPath").and_then(Value::as_str).unwrap_or("");
         let delta = record.get("delta").and_then(Value::as_str).unwrap_or("+0");
-        let status = record.get("status").and_then(Value::as_str).unwrap_or("modified");
+        let status = record
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("modified");
         let folder = folder_for(rel_path);
         if !groups.contains_key(&folder) {
             order.push(folder.clone());
@@ -126,9 +139,17 @@ fn group_by_folder(records: &[Value]) -> Vec<Value> {
         .map(|folder| {
             let group_ref = format!(
                 "changed-group:{}",
-                safe_id(if folder.is_empty() { "root" } else { folder.as_str() })
+                safe_id(if folder.is_empty() {
+                    "root"
+                } else {
+                    folder.as_str()
+                })
             );
-            let display_folder = if folder.is_empty() { "./".to_string() } else { folder.clone() };
+            let display_folder = if folder.is_empty() {
+                "./".to_string()
+            } else {
+                folder.clone()
+            };
             json!({
                 "group_ref": group_ref,
                 "folder": display_folder,
@@ -190,7 +211,10 @@ mod tests {
         let projection = workspace_diff_absent();
         assert_eq!(projection["source"], "absent");
         assert_eq!(projection["workspace_root"], Value::Null);
-        assert_eq!(projection["changed_file_groups"].as_array().unwrap().len(), 0);
+        assert_eq!(
+            projection["changed_file_groups"].as_array().unwrap().len(),
+            0
+        );
     }
 
     #[test]
@@ -209,7 +233,10 @@ mod tests {
         assert_eq!(groups[0]["files"][0]["delta"], "+3/-1");
         assert_eq!(groups[0]["files"][0]["status"], "modified");
         assert_eq!(groups[0]["files"][0]["file_ref"], "changed-file:src_app.ts");
-        assert_eq!(groups[0]["files"][0]["receipt_ref"], "receipt://changes/src_app.ts");
+        assert_eq!(
+            groups[0]["files"][0]["receipt_ref"],
+            "receipt://changes/src_app.ts"
+        );
         assert_eq!(groups[1]["folder"], "./");
         assert_eq!(groups[1]["group_ref"], "changed-group:root");
         assert_eq!(groups[1]["files"][0]["name"], "index.html");
@@ -253,6 +280,9 @@ mod tests {
     fn ignores_blank_status_lines() {
         let projection = workspace_diff_from_git("/ws", "", "\n\n");
         assert_eq!(projection["changed_file_count"], 0);
-        assert_eq!(projection["changed_file_groups"].as_array().unwrap().len(), 0);
+        assert_eq!(
+            projection["changed_file_groups"].as_array().unwrap().len(),
+            0
+        );
     }
 }

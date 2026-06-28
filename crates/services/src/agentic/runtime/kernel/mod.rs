@@ -32,6 +32,8 @@ pub mod profile;
 pub mod projection;
 pub mod receipt_binder;
 pub mod repository_workflow;
+pub mod runtime_artifact_availability_incident_admission;
+pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_computer_use;
 pub mod runtime_conversation_artifact_control;
 pub mod runtime_conversation_artifact_projection;
@@ -39,33 +41,31 @@ pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_doctor_report;
-pub mod runtime_lifecycle;
-pub mod runtime_managed_session_control;
-pub mod runtime_mcp_serve;
-pub mod runtime_memory_command;
 pub mod runtime_harness_session_binding_admission;
 pub mod runtime_harness_session_terminal_attach_admission;
-pub mod runtime_artifact_availability_incident_admission;
-pub mod runtime_code_editor_adapter_launch_plan_admission;
 pub mod runtime_hypervisor_approved_operation_admission;
 pub mod runtime_hypervisor_environment_status_projection;
 pub mod runtime_hypervisor_project_create;
 pub mod runtime_hypervisor_session_launch_recipe_admission;
 pub mod runtime_hypervisor_workspace_diff_projection;
+pub mod runtime_lifecycle;
+pub mod runtime_managed_session_control;
 pub mod runtime_managed_worker_instance_lifecycle_admission;
+pub mod runtime_mcp_serve;
+pub mod runtime_memory_command;
+pub mod runtime_memory_control;
+pub mod runtime_memory_projection;
 pub mod runtime_model_route_mutation_admission;
 pub mod runtime_model_weight_custody_admission;
 pub mod runtime_physical_action_intent_admission;
 pub mod runtime_private_workspace_mount_admission;
 pub mod runtime_service_composition_receipt_bundle_admission;
-pub mod runtime_worker_package_install_admission;
-pub mod runtime_memory_control;
-pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
 pub mod runtime_subagent_projection;
 pub mod runtime_thread_event;
 pub mod runtime_thread_fork_control;
 pub mod runtime_tool_catalog;
+pub mod runtime_worker_package_install_admission;
 pub mod runtime_workflow_edit_control;
 pub mod runtime_workspace_change_control;
 pub mod scope;
@@ -793,7 +793,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionError,
-    > {
+    >{
         runtime_service_composition_receipt_bundle_admission::RuntimeServiceCompositionReceiptBundleAdmissionCore
             .admit(request, now_iso)
     }
@@ -813,12 +813,18 @@ impl RuntimeKernelService {
 
     /// Project a canonical `HypervisorEnvironmentStatus` from real transitions (pure: the daemon
     /// gathers the component phases + readiness checks and this canonicalizes the shape).
-    pub fn project_hypervisor_environment_status(&self, input: &serde_json::Value) -> serde_json::Value {
+    pub fn project_hypervisor_environment_status(
+        &self,
+        input: &serde_json::Value,
+    ) -> serde_json::Value {
         runtime_hypervisor_environment_status_projection::build_hypervisor_environment_status(input)
     }
 
     /// Derive a typed `HypervisorWorkspaceInitializer` from an initializer spec request (pure).
-    pub fn derive_hypervisor_workspace_initializer(&self, input: &serde_json::Value) -> serde_json::Value {
+    pub fn derive_hypervisor_workspace_initializer(
+        &self,
+        input: &serde_json::Value,
+    ) -> serde_json::Value {
         runtime_hypervisor_environment_status_projection::derive_workspace_initializer(input)
     }
 
@@ -844,7 +850,11 @@ impl RuntimeKernelService {
         source: &str,
         records: &[serde_json::Value],
     ) -> serde_json::Value {
-        runtime_hypervisor_workspace_diff_projection::workspace_diff_from_records(workspace_root, source, records)
+        runtime_hypervisor_workspace_diff_projection::workspace_diff_from_records(
+            workspace_root,
+            source,
+            records,
+        )
     }
 
     /// Workspace-diff projection for a session with no workspace yet (no fake work).
@@ -862,7 +872,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionError,
-    > {
+    >{
         runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionCore
             .admit(request, now_iso)
     }
@@ -877,7 +887,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_harness_session_terminal_attach_admission::RuntimeHarnessSessionTerminalAttachAdmissionError,
-    > {
+    >{
         runtime_harness_session_terminal_attach_admission::RuntimeHarnessSessionTerminalAttachAdmissionCore
             .admit(request, now_iso)
     }
@@ -893,7 +903,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_artifact_availability_incident_admission::RuntimeArtifactAvailabilityIncidentAdmissionError,
-    > {
+    >{
         runtime_artifact_availability_incident_admission::RuntimeArtifactAvailabilityIncidentAdmissionCore
             .admit(request, now_iso)
     }
@@ -908,7 +918,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_code_editor_adapter_launch_plan_admission::RuntimeCodeEditorAdapterLaunchPlanAdmissionError,
-    > {
+    >{
         runtime_code_editor_adapter_launch_plan_admission::RuntimeCodeEditorAdapterLaunchPlanAdmissionCore
             .admit(request, now_iso)
     }
@@ -924,7 +934,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_managed_worker_instance_lifecycle_admission::RuntimeManagedWorkerInstanceLifecycleAdmissionError,
-    > {
+    >{
         runtime_managed_worker_instance_lifecycle_admission::RuntimeManagedWorkerInstanceLifecycleAdmissionCore
             .admit(request, now_iso)
     }
@@ -954,7 +964,7 @@ impl RuntimeKernelService {
     ) -> Result<
         serde_json::Value,
         runtime_hypervisor_session_launch_recipe_admission::RuntimeHypervisorSessionLaunchRecipeAdmissionError,
-    > {
+    >{
         runtime_hypervisor_session_launch_recipe_admission::RuntimeHypervisorSessionLaunchRecipeAdmissionCore
             .admit(request, now_iso)
     }

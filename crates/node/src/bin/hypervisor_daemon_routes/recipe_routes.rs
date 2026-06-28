@@ -20,7 +20,10 @@ const RESOLUTION_SCHEMA: &str = "ioi.hypervisor.environment-recipe-resolution.v1
 const GATE_SCHEMA: &str = "ioi.hypervisor.environment-readiness-gate.v1";
 
 fn safe_id(id: &str) -> String {
-    id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+    id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    )
 }
 
 fn gen_id(prefix: &str) -> String {
@@ -48,7 +51,11 @@ pub(crate) fn detect_recipe_fields(repo_path: &str) -> Value {
     if has(".devcontainer/devcontainer.json") || has("devcontainer.json") {
         signals.push("devcontainer.json");
         substrate = "devcontainer";
-        let body = if has("devcontainer.json") { read("devcontainer.json") } else { read(".devcontainer/devcontainer.json") };
+        let body = if has("devcontainer.json") {
+            read("devcontainer.json")
+        } else {
+            read(".devcontainer/devcontainer.json")
+        };
         // forwardPorts / postCreateCommand are common devcontainer keys (best-effort, no JSON5).
         if let Ok(dc) = serde_json::from_str::<Value>(&body) {
             if let Some(pcc) = dc.get("postCreateCommand").and_then(|v| v.as_str()) {
@@ -63,7 +70,9 @@ pub(crate) fn detect_recipe_fields(repo_path: &str) -> Value {
     }
     if has("Dockerfile") {
         signals.push("Dockerfile");
-        if substrate == "local_host" { substrate = "container"; }
+        if substrate == "local_host" {
+            substrate = "container";
+        }
     }
     if has("Cargo.toml") {
         signals.push("Cargo.toml");
@@ -103,7 +112,12 @@ pub(crate) fn detect_recipe_fields(repo_path: &str) -> Value {
 }
 
 /// Build a recipe record from explicit fields and/or detected signals.
-pub(crate) fn new_recipe(id: &str, fields: &Value, source: &str, project_ref: Option<&str>) -> Value {
+pub(crate) fn new_recipe(
+    id: &str,
+    fields: &Value,
+    source: &str,
+    project_ref: Option<&str>,
+) -> Value {
     let get = |k: &str, dflt: Value| fields.get(k).cloned().unwrap_or(dflt);
     json!({
         "schema_version": RECIPE_SCHEMA,
@@ -131,26 +145,44 @@ pub(crate) fn new_recipe(id: &str, fields: &Value, source: &str, project_ref: Op
 
 pub(crate) fn persist_recipe(data_dir: &str, recipe: &Value) -> Result<(), AppError> {
     let id = recipe["recipe_ref"].as_str().unwrap_or("recipe");
-    persist_record(data_dir, "recipes", id, recipe)
-        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist recipe: {e}")))
+    persist_record(data_dir, "recipes", id, recipe).map_err(|e| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("persist recipe: {e}"),
+        )
+    })
 }
 
 pub(crate) fn load_recipe(data_dir: &str, recipe_ref: &str) -> Option<Value> {
-    let path = std::path::Path::new(data_dir).join("recipes").join(format!("{}.json", safe_id(recipe_ref)));
-    std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok())
+    let path = std::path::Path::new(data_dir)
+        .join("recipes")
+        .join(format!("{}.json", safe_id(recipe_ref)));
+    std::fs::read(path)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
 }
 
 fn task_refs(recipe: &Value, key: &str, required_only: bool) -> Vec<String> {
-    recipe.get(key).and_then(|v| v.as_array()).map(|a| {
-        a.iter()
-            .filter(|t| !required_only || t.get("required").and_then(|r| r.as_bool()).unwrap_or(false))
-            .filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(String::from))
-            .collect()
-    }).unwrap_or_default()
+    recipe
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter(|t| {
+                    !required_only || t.get("required").and_then(|r| r.as_bool()).unwrap_or(false)
+                })
+                .filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Resolve a recipe into a concrete `HypervisorEnvironmentRecipeResolution` for an environment.
-pub(crate) fn resolve_recipe(data_dir: &str, recipe: &Value, env_id: &str) -> Result<Value, AppError> {
+pub(crate) fn resolve_recipe(
+    data_dir: &str,
+    recipe: &Value,
+    env_id: &str,
+) -> Result<Value, AppError> {
     let resolution_id = gen_id("reso");
     let gate_ref = gen_id("gate");
     let required_task_refs: Vec<String> = task_refs(recipe, "init_tasks", true)
@@ -158,15 +190,25 @@ pub(crate) fn resolve_recipe(data_dir: &str, recipe: &Value, env_id: &str) -> Re
         .chain(task_refs(recipe, "prebuild_tasks", true))
         .chain(task_refs(recipe, "post_start_tasks", true))
         .collect();
-    let required_service_refs: Vec<String> = recipe.get("services").and_then(|v| v.as_array()).map(|a| {
-        a.iter()
-            .filter(|s| s.get("lifecycle").and_then(|l| l.as_str()) == Some("required"))
-            .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
-            .collect()
-    }).unwrap_or_default();
-    let required_port_refs: Vec<u64> = recipe.get("ports").and_then(|v| v.as_array()).map(|a| {
-        a.iter().filter_map(|p| p.get("port").and_then(|n| n.as_u64())).collect()
-    }).unwrap_or_default();
+    let required_service_refs: Vec<String> = recipe
+        .get("services")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter(|s| s.get("lifecycle").and_then(|l| l.as_str()) == Some("required"))
+                .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let required_port_refs: Vec<u64> = recipe
+        .get("ports")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|p| p.get("port").and_then(|n| n.as_u64()))
+                .collect()
+        })
+        .unwrap_or_default();
     let resolution = json!({
         "schema_version": RESOLUTION_SCHEMA,
         "recipe_ref": recipe["recipe_ref"],
@@ -186,8 +228,12 @@ pub(crate) fn resolve_recipe(data_dir: &str, recipe: &Value, env_id: &str) -> Re
         "blocked_reason": Value::Null,
         "created_at": iso_now()
     });
-    persist_record(data_dir, "recipe-resolutions", &resolution_id, &resolution)
-        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist resolution: {e}")))?;
+    persist_record(data_dir, "recipe-resolutions", &resolution_id, &resolution).map_err(|e| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("persist resolution: {e}"),
+        )
+    })?;
     Ok(resolution)
 }
 
@@ -195,31 +241,55 @@ pub(crate) fn resolve_recipe(data_dir: &str, recipe: &Value, env_id: &str) -> Re
 /// readiness_mode = full | degraded | dry_run_only | blocked, naming the blocking edges.
 /// `env` carries: workspace_ready (bool), services_healthy (set of names), secret_leases (set),
 /// scm_auth (set). Required edges that aren't satisfied push blocked_reasons.
-pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &Value) -> Result<Value, AppError> {
-    let arr = |v: &Value, k: &str| v.get(k).and_then(|x| x.as_array()).cloned().unwrap_or_default();
-    let strs = |v: &Vec<Value>| v.iter().filter_map(|x| x.as_str().map(String::from)).collect::<Vec<_>>();
+pub(crate) fn compute_readiness_gate(
+    data_dir: &str,
+    resolution: &Value,
+    env: &Value,
+) -> Result<Value, AppError> {
+    let arr = |v: &Value, k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_array())
+            .cloned()
+            .unwrap_or_default()
+    };
+    let strs = |v: &Vec<Value>| {
+        v.iter()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect::<Vec<_>>()
+    };
 
     let mut blocked: Vec<String> = Vec::new();
 
     // required secrets: satisfied only if a lease exists (local provider has none by default).
-    let leases: Vec<String> = env["status"]["secret_leases"].as_array().map(strs).unwrap_or_default();
+    let leases: Vec<String> = env["status"]["secret_leases"]
+        .as_array()
+        .map(strs)
+        .unwrap_or_default();
     for s in strs(&arr(resolution, "required_secret_refs")) {
         if !leases.contains(&s) {
             blocked.push(format!("required_secret:{s}"));
         }
     }
     // required scm-auth: satisfied only if recorded.
-    let scm: Vec<String> = env["status"]["scm_auth"].as_array().map(strs).unwrap_or_default();
+    let scm: Vec<String> = env["status"]["scm_auth"]
+        .as_array()
+        .map(strs)
+        .unwrap_or_default();
     for s in strs(&arr(resolution, "required_scm_auth_refs")) {
         if !scm.contains(&s) {
             blocked.push(format!("required_scm_auth:{s}"));
         }
     }
     // required services: satisfied only if the env reports them healthy.
-    let healthy: Vec<String> = env["status"]["services"].as_array().map(|a| {
-        a.iter().filter(|s| s.get("phase").and_then(|p| p.as_str()) == Some("running"))
-            .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from)).collect()
-    }).unwrap_or_default();
+    let healthy: Vec<String> = env["status"]["services"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|s| s.get("phase").and_then(|p| p.as_str()) == Some("running"))
+                .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     for s in strs(&arr(resolution, "required_service_refs")) {
         if !healthy.contains(&s) {
             blocked.push(format!("required_service:{s}"));
@@ -239,7 +309,8 @@ pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &V
         }
     }
 
-    let workspace_ready = env["status"]["components"]["workspace_content"]["phase"].as_str() == Some("ready")
+    let workspace_ready = env["status"]["components"]["workspace_content"]["phase"].as_str()
+        == Some("ready")
         && env["status"]["components"]["provisioner"]["phase"].as_str() == Some("ready");
     let sandbox_failed = env["status"]["components"]["sandbox"]["phase"].as_str() == Some("failed");
     if sandbox_failed {
@@ -256,7 +327,10 @@ pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &V
         "full"
     };
 
-    let gate_ref = resolution["readiness_gate_ref"].as_str().unwrap_or("gate").to_string();
+    let gate_ref = resolution["readiness_gate_ref"]
+        .as_str()
+        .unwrap_or("gate")
+        .to_string();
     let gate = json!({
         "schema_version": GATE_SCHEMA,
         "gate_ref": gate_ref,
@@ -271,13 +345,21 @@ pub(crate) fn compute_readiness_gate(data_dir: &str, resolution: &Value, env: &V
         "evidence_refs": [],
         "created_at": iso_now()
     });
-    persist_record(data_dir, "readiness-gates", &gate_ref, &gate)
-        .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, format!("persist gate: {e}")))?;
+    persist_record(data_dir, "readiness-gates", &gate_ref, &gate).map_err(|e| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("persist gate: {e}"),
+        )
+    })?;
     Ok(gate)
 }
 
 /// Repo-detect-first: detect + admit a recipe for a repo, returning its recipe_ref.
-pub(crate) fn detect_and_admit(data_dir: &str, repo_path: &str, project_ref: Option<&str>) -> Result<String, AppError> {
+pub(crate) fn detect_and_admit(
+    data_dir: &str,
+    repo_path: &str,
+    project_ref: Option<&str>,
+) -> Result<String, AppError> {
     let id = gen_id("recipe");
     let fields = detect_recipe_fields(repo_path);
     let recipe = new_recipe(&id, &fields, "repo_detected", project_ref);
@@ -298,7 +380,10 @@ pub(crate) async fn handle_recipe_create(
     let (fields, source) = if let Some(repo) = body.get("repo_path").and_then(|v| v.as_str()) {
         (detect_recipe_fields(repo), "repo_detected")
     } else {
-        (body.get("recipe").cloned().unwrap_or_else(|| body.clone()), "explicit")
+        (
+            body.get("recipe").cloned().unwrap_or_else(|| body.clone()),
+            "explicit",
+        )
     };
     let recipe = new_recipe(&id, &fields, source, project_ref);
     persist_recipe(&st.data_dir, &recipe)?;

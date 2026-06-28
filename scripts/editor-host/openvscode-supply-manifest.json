@@ -1,14 +1,15 @@
 {
-  "schemaVersion": "ioi.hypervisor.editor-host-supply-manifest.v1",
-  "runtime": "openvscode-server",
+  "schemaVersion": "ioi.hypervisor.editor-host-supply-manifest.v2",
+  "runtime": "openvscode-protocol-server",
+  "runtimeProtocol": "openvscode",
   "license": "MIT (OSS)",
   "licensePosture": "oss",
   "version": "1.96.4",
   "commit": "56bdd153e7c7f853189fd6965f73b2049f6d06c9",
-  "source": "https://github.com/gitpod-io/openvscode-server/releases/tag/openvscode-server-v1.96.4",
-  "note": "Reproducible OSS browser-IDE runtime. Pinned version+commit+sha256, fetch-once cache, fail-closed on checksum mismatch (Phase 1 ~/.ioi/vm-toolchain pattern). The Ona stripped binary is reference-only and is NEVER vendored as product source.",
+  "supply": "operator-supplied",
+  "urlEnv": "IOI_EDITOR_RUNTIME_URL",
+  "note": "Neutral editor-host runtime contract: a compliant OpenVSCode-protocol browser-IDE server. The artifact is OPERATOR-SUPPLIED at provision time (set IOI_EDITOR_RUNTIME_URL to a pinned tarball) and verified against the sha256 below; it is NEVER vendored into the product tree and no reference-product/vendor-origin provenance is carried here. The daemon mounts any runtime that satisfies this contract; attribution for the operator-chosen runtime is the operator's responsibility (standard OSS NOTICE).",
   "linux_x64": {
-    "url": "https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.96.4/openvscode-server-v1.96.4-linux-x64.tar.gz",
     "sha256": "688aab2616e57b55083a9264b0fa17c5f8cd3c79449972956cab9e13b884d4a9",
     "bytes": 59719599
   }

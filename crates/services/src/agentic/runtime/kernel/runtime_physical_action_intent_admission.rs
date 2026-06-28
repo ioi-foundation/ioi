@@ -82,7 +82,12 @@ pub struct RuntimePhysicalActionIntentAdmissionError {
 
 impl RuntimePhysicalActionIntentAdmissionError {
     fn new(status: u16, code: String, message: String, details: Value) -> Self {
-        Self { status, code, message, details }
+        Self {
+            status,
+            code,
+            message,
+            details,
+        }
     }
 }
 
@@ -99,38 +104,54 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         let actor_id = required_string(request.get("actor_id"), "actor_id")?;
         let task_id = optional_value(request.get("task_id"));
         let domain_ref = optional_value(request.get("domain_ref"));
-        let target_system_ref = required_string(request.get("target_system_ref"), "target_system_ref")?;
+        let target_system_ref =
+            required_string(request.get("target_system_ref"), "target_system_ref")?;
         let action_kind = enum_value(request.get("action_kind"), "action_kind", ACTION_KINDS)?;
-        let risk_class =
-            optional_value(request.get("risk_class")).unwrap_or_else(|| "physical_action".to_string());
+        let risk_class = optional_value(request.get("risk_class"))
+            .unwrap_or_else(|| "physical_action".to_string());
         let execution_phase = enum_value(
-            Some(&default_value(request.get("execution_phase"), "preflight_verified")),
+            Some(&default_value(
+                request.get("execution_phase"),
+                "preflight_verified",
+            )),
             "execution_phase",
             EXECUTION_PHASES,
         )?;
         let requested_primitives = unique_strings_raw(request.get("requested_primitives"));
         let requested_scopes = unique_strings_raw(request.get("requested_scopes"));
-        let physical_action_policy_ref =
-            required_string(request.get("physical_action_policy_ref"), "physical_action_policy_ref")?;
-        let safety_envelope_ref = required_string(request.get("safety_envelope_ref"), "safety_envelope_ref")?;
-        let human_supervision_policy_ref = optional_value(request.get("human_supervision_policy_ref"));
+        let physical_action_policy_ref = required_string(
+            request.get("physical_action_policy_ref"),
+            "physical_action_policy_ref",
+        )?;
+        let safety_envelope_ref =
+            required_string(request.get("safety_envelope_ref"), "safety_envelope_ref")?;
+        let human_supervision_policy_ref =
+            optional_value(request.get("human_supervision_policy_ref"));
         let supervision_mode = enum_value(
             Some(&default_value(request.get("supervision_mode"), "monitored")),
             "supervision_mode",
             SUPERVISION_MODES,
         )?;
         let human_supervisor_refs = unique_strings_raw(request.get("human_supervisor_refs"));
-        let emergency_stop_authority_ref =
-            required_string(request.get("emergency_stop_authority_ref"), "emergency_stop_authority_ref")?;
-        let emergency_stop_tested = boolean_value(request.get("emergency_stop_tested")).unwrap_or(false);
-        let emergency_stop_max_latency_ms = optional_positive_integer(request.get("emergency_stop_max_latency_ms"))?;
-        let sensor_evidence_receipt_refs = unique_strings_raw(request.get("sensor_evidence_receipt_refs"));
-        let actuator_command_receipt_refs = unique_strings_raw(request.get("actuator_command_receipt_refs"));
-        let incident_policy_ref = required_string(request.get("incident_policy_ref"), "incident_policy_ref")?;
+        let emergency_stop_authority_ref = required_string(
+            request.get("emergency_stop_authority_ref"),
+            "emergency_stop_authority_ref",
+        )?;
+        let emergency_stop_tested =
+            boolean_value(request.get("emergency_stop_tested")).unwrap_or(false);
+        let emergency_stop_max_latency_ms =
+            optional_positive_integer(request.get("emergency_stop_max_latency_ms"))?;
+        let sensor_evidence_receipt_refs =
+            unique_strings_raw(request.get("sensor_evidence_receipt_refs"));
+        let actuator_command_receipt_refs =
+            unique_strings_raw(request.get("actuator_command_receipt_refs"));
+        let incident_policy_ref =
+            required_string(request.get("incident_policy_ref"), "incident_policy_ref")?;
         let rollback_or_compensation_policy_ref =
             optional_value(request.get("rollback_or_compensation_policy_ref"));
         let wallet_approval_ref = optional_value(request.get("wallet_approval_ref"));
-        let authority_ref = optional_value(request.get("authority_ref")).or_else(|| wallet_approval_ref.clone());
+        let authority_ref =
+            optional_value(request.get("authority_ref")).or_else(|| wallet_approval_ref.clone());
         let policy_refs = unique_strings_raw(request.get("policy_refs"));
         let receipt_refs = unique_strings_raw(request.get("receipt_refs"));
         let agentgres_operation_refs = unique_strings_raw(request.get("agentgres_operation_refs"));
@@ -144,12 +165,24 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         require_prefix(&intent_id, "intent://", "intent_id")?;
         require_actor_ref(&actor_id)?;
         require_target_prefix(&target_system_ref)?;
-        require_prefix(&physical_action_policy_ref, "policy://", "physical_action_policy_ref")?;
+        require_prefix(
+            &physical_action_policy_ref,
+            "policy://",
+            "physical_action_policy_ref",
+        )?;
         require_prefix(&safety_envelope_ref, "safety://", "safety_envelope_ref")?;
-        require_prefix(&emergency_stop_authority_ref, "estop://", "emergency_stop_authority_ref")?;
+        require_prefix(
+            &emergency_stop_authority_ref,
+            "estop://",
+            "emergency_stop_authority_ref",
+        )?;
         require_prefix(&incident_policy_ref, "policy://", "incident_policy_ref")?;
         if let Some(ref supervision_policy) = human_supervision_policy_ref {
-            require_prefix(supervision_policy, "supervision://", "human_supervision_policy_ref")?;
+            require_prefix(
+                supervision_policy,
+                "supervision://",
+                "human_supervision_policy_ref",
+            )?;
         }
         if risk_class != "physical_action" {
             return Err(authority_error(
@@ -174,14 +207,20 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         }
         require_refs(&requested_primitives, "requested_primitives")?;
         require_refs(&requested_scopes, "requested_scopes")?;
-        if !requested_primitives.iter().any(|reference| reference.starts_with("prim:physical.")) {
+        if !requested_primitives
+            .iter()
+            .any(|reference| reference.starts_with("prim:physical."))
+        {
             return Err(authority_error(
                 "physical_action_primitive_required",
                 "Physical-action admission requires a prim:physical.* primitive.",
                 json!({ "requested_primitives": requested_primitives }),
             ));
         }
-        if !requested_scopes.iter().any(|reference| reference.starts_with("scope:physical.")) {
+        if !requested_scopes
+            .iter()
+            .any(|reference| reference.starts_with("scope:physical."))
+        {
             return Err(authority_error(
                 "physical_action_scope_required",
                 "Physical-action admission requires a scope:physical.* scope.",
@@ -204,18 +243,26 @@ impl RuntimePhysicalActionIntentAdmissionCore {
                 ));
             }
         }
-        require_refs(&sensor_evidence_receipt_refs, "sensor_evidence_receipt_refs")?;
+        require_refs(
+            &sensor_evidence_receipt_refs,
+            "sensor_evidence_receipt_refs",
+        )?;
         for reference in &sensor_evidence_receipt_refs {
             require_prefix(reference, "receipt://", "sensor_evidence_receipt_refs")?;
         }
         if execution_phase == "command_issued" || execution_phase == "completed" {
-            require_refs(&actuator_command_receipt_refs, "actuator_command_receipt_refs")?;
+            require_refs(
+                &actuator_command_receipt_refs,
+                "actuator_command_receipt_refs",
+            )?;
         }
         for reference in &actuator_command_receipt_refs {
             require_prefix(reference, "receipt://", "actuator_command_receipt_refs")?;
         }
-        if matches!(supervision_mode.as_str(), "human_in_loop" | "manual_confirm_each_action")
-            && (human_supervisor_refs.is_empty() || wallet_approval_ref.is_none())
+        if matches!(
+            supervision_mode.as_str(),
+            "human_in_loop" | "manual_confirm_each_action"
+        ) && (human_supervisor_refs.is_empty() || wallet_approval_ref.is_none())
         {
             return Err(authority_error(
                 "physical_action_human_supervision_authority_required",
@@ -235,7 +282,11 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         require_refs(&agentgres_operation_refs, "agentgres_operation_refs")?;
 
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
-            format!("physical-action-admission:{}:{}", safe_id(&intent_id), safe_id(&action_kind))
+            format!(
+                "physical-action-admission:{}:{}",
+                safe_id(&intent_id),
+                safe_id(&action_kind)
+            )
         });
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
@@ -328,7 +379,10 @@ fn enum_value(value: Option<&Value>, field: &str, allowed: &[&str]) -> AdmitResu
         Some(value) if allowed.contains(&value.as_str()) => Ok(value.clone()),
         _ => {
             let mut details = Map::new();
-            details.insert(field.to_string(), normalized.map(Value::String).unwrap_or(Value::Null));
+            details.insert(
+                field.to_string(),
+                normalized.map(Value::String).unwrap_or(Value::Null),
+            );
             details.insert("allowed_values".to_string(), json!(allowed));
             Err(RuntimePhysicalActionIntentAdmissionError::new(
                 400,
@@ -368,7 +422,10 @@ fn require_prefix(value: &str, prefix: &str, field: &str) -> AdmitResult<()> {
 }
 
 fn require_target_prefix(value: &str) -> AdmitResult<()> {
-    if TARGET_PREFIXES.iter().any(|prefix| value.starts_with(prefix)) {
+    if TARGET_PREFIXES
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+    {
         return Ok(());
     }
     Err(RuntimePhysicalActionIntentAdmissionError::new(
@@ -380,7 +437,10 @@ fn require_target_prefix(value: &str) -> AdmitResult<()> {
 }
 
 fn require_actor_ref(value: &str) -> AdmitResult<()> {
-    if ACTOR_PREFIXES.iter().any(|prefix| value.starts_with(prefix)) {
+    if ACTOR_PREFIXES
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+    {
         return Ok(());
     }
     Err(RuntimePhysicalActionIntentAdmissionError::new(
@@ -402,8 +462,17 @@ fn require_refs(refs: &[String], field: &str) -> AdmitResult<()> {
     ))
 }
 
-fn authority_error(code: &str, message: &str, details: Value) -> RuntimePhysicalActionIntentAdmissionError {
-    RuntimePhysicalActionIntentAdmissionError::new(403, code.to_string(), message.to_string(), details)
+fn authority_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimePhysicalActionIntentAdmissionError {
+    RuntimePhysicalActionIntentAdmissionError::new(
+        403,
+        code.to_string(),
+        message.to_string(),
+        details,
+    )
 }
 
 /// Mirror JS `optionalPositiveInteger`: null/undefined/"" → None; Number(value) coercion; must be
@@ -421,7 +490,8 @@ fn optional_positive_integer(value: Option<&Value>) -> AdmitResult<Option<f64>> 
     Err(RuntimePhysicalActionIntentAdmissionError::new(
         400,
         "physical_action_emergency_stop_max_latency_ms_invalid".to_string(),
-        "Physical-action emergency_stop_max_latency_ms must be a positive integer when supplied.".to_string(),
+        "Physical-action emergency_stop_max_latency_ms must be a positive integer when supplied."
+            .to_string(),
         json!({ "emergency_stop_max_latency_ms": raw }),
     ))
 }
@@ -520,13 +590,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -609,7 +680,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -724,7 +799,10 @@ mod tests {
         let admission = RuntimePhysicalActionIntentAdmissionCore
             .admit(&base_request(), "2026-06-17T18:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], PHYSICAL_ACTION_INTENT_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            PHYSICAL_ACTION_INTENT_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(
             admission["admission_id"],
             "physical-action-admission:intent_physical_carwash_prep-vehicle-001:manipulation"
@@ -741,7 +819,9 @@ mod tests {
         let mut request = base_request();
         request["execution_channel"] = json!("tool.invoke");
         request["generic_tool_call"] = json!(true);
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
         assert_eq!(error.code, "physical_action_generic_tool_call_blocked");
     }
@@ -750,7 +830,9 @@ mod tests {
     fn requires_tested_emergency_stop() {
         let mut request = base_request();
         request["emergency_stop_tested"] = json!(false);
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.code, "physical_action_emergency_stop_test_required");
         assert_eq!(error.status, 403);
     }
@@ -759,8 +841,13 @@ mod tests {
     fn requires_sensor_evidence() {
         let mut request = base_request();
         request["sensor_evidence_receipt_refs"] = json!([]);
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "physical_action_sensor_evidence_receipt_refs_required");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "physical_action_sensor_evidence_receipt_refs_required"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -768,8 +855,13 @@ mod tests {
     fn blocks_simulation_only_execution() {
         let mut request = base_request();
         request["simulation_only"] = json!(true);
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "physical_action_simulation_not_execution_receipt");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "physical_action_simulation_not_execution_receipt"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -780,8 +872,13 @@ mod tests {
         request["human_supervisor_refs"] = json!([]);
         request["wallet_approval_ref"] = Value::Null;
         request["authority_ref"] = Value::Null;
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "physical_action_human_supervision_authority_required");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "physical_action_human_supervision_authority_required"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -808,8 +905,13 @@ mod tests {
     fn latency_over_1000_blocked() {
         let mut request = base_request();
         request["emergency_stop_max_latency_ms"] = json!(1500);
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
-        assert_eq!(error.code, "physical_action_emergency_stop_latency_exceeded");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
+        assert_eq!(
+            error.code,
+            "physical_action_emergency_stop_latency_exceeded"
+        );
         assert_eq!(error.status, 403);
     }
 
@@ -817,7 +919,9 @@ mod tests {
     fn bad_intent_prefix_is_400() {
         let mut request = base_request();
         request["intent_id"] = json!("nope://x");
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "physical_action_intent_id_invalid");
     }
@@ -828,7 +932,7 @@ mod tests {
         assert_eq!(js_trim("\u{FEFF}intent://x\u{FEFF}"), "intent://x");
         assert_eq!(js_trim("\u{0085}x\u{0085}"), "\u{0085}x\u{0085}"); // NEL not trimmed
         assert_eq!(js_trim("\u{00A0}x\u{2028}"), "x"); // NBSP + LS trimmed
-        // Number("﻿10") === 10 (BOM trimmed before parse).
+                                                       // Number("﻿10") === 10 (BOM trimmed before parse).
         assert_eq!(js_number_coerce(&json!("\u{FEFF}10")), 10.0);
     }
 
@@ -837,14 +941,19 @@ mod tests {
         assert_eq!(latency_to_json(250.0), json!(250));
         assert_eq!(latency_to_json(1e16), json!(10_000_000_000_000_000i64));
         // 2^53 renders as a full integer, not 9007199254740992.0
-        assert_eq!(latency_to_json(9_007_199_254_740_992.0), json!(9_007_199_254_740_992i64));
+        assert_eq!(
+            latency_to_json(9_007_199_254_740_992.0),
+            json!(9_007_199_254_740_992i64)
+        );
     }
 
     #[test]
     fn rejects_retired_aliases() {
         let mut request = base_request();
         request["intentId"] = json!("legacy");
-        let error = RuntimePhysicalActionIntentAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "physical_action_request_aliases_retired");
     }

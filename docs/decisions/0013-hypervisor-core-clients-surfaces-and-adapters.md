@@ -70,9 +70,11 @@ IOI L1 settles only selected public/economic/cross-domain commitments.
 - Retired Tauri code and native desktop Rust paths must not be recreated as an active
   product path.
 - The old root `ide/` artifact path is retired; the editor-target registry
-  metadata and local host build conventions live under `code-editor-adapters/`
-  (`editor-targets.manifest.json`). Editor adapter source lives in the package
-  graph under `packages/hypervisor-adapter-targets/`.
+  metadata (`editor-targets.manifest.json`), the editor adapter source, and the
+  local host build conventions all live in the package graph under
+  `packages/hypervisor-adapter-targets/`. (Amended: the interim root
+  `code-editor-adapters/` home was consolidated into that package so the registry
+  metadata sits beside its adapter source rather than as a loose root directory.)
 - Documentation must not use "Hypervisor IDE" as the live parent product.
   `Hypervisor Workbench` is the code/systems/workspace surface.
 - The App orchestrates a multi-family editor-target registry — VS Code-family

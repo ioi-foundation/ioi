@@ -809,7 +809,10 @@ mod managed_session_producer_e2e {
         // The producer emitted a RuntimeThreadEvent carrier on the channel.
         let event = rx.try_recv().expect("producer emitted a KernelEvent");
         let (sent_session, event_json) = match event {
-            KernelEvent::RuntimeThreadEvent { session_id, event_json } => (session_id, event_json),
+            KernelEvent::RuntimeThreadEvent {
+                session_id,
+                event_json,
+            } => (session_id, event_json),
             other => panic!("expected RuntimeThreadEvent, got {other:?}"),
         };
         assert_eq!(sent_session, session_id);
@@ -821,7 +824,10 @@ mod managed_session_producer_e2e {
             .expect("an event was admitted");
         assert_eq!(admitted["event_kind"], "managed_session.projected");
         assert_eq!(admitted["thread_id"], "thread_e2e");
-        assert!(admitted.get("seq").and_then(serde_json::Value::as_u64).is_some());
+        assert!(admitted
+            .get("seq")
+            .and_then(serde_json::Value::as_u64)
+            .is_some());
 
         // The daemon's projection core (what GET /managed-sessions delegates to) serves it.
         let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
@@ -837,7 +843,10 @@ mod managed_session_producer_e2e {
         let record = RuntimeManagedSessionProjectionCore
             .project(&request)
             .expect("projection");
-        assert_eq!(record.record_count, 1, "the daemon projects the produced managed session");
+        assert_eq!(
+            record.record_count, 1,
+            "the daemon projects the produced managed session"
+        );
         let sessions = record.projection.as_array().expect("sessions array");
         assert_eq!(sessions[0]["kind"], "sandbox_browser");
     }

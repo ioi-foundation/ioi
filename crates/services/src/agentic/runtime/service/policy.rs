@@ -55,7 +55,9 @@ fn install_constrained_session_policy(
     };
     let key = action_policy_key(&session_id);
     let bytes = codec::to_bytes_canonical(&action_rules)?;
-    state.insert(&key, &bytes).map_err(TransactionError::State)?;
+    state
+        .insert(&key, &bytes)
+        .map_err(TransactionError::State)?;
     Ok(())
 }
 

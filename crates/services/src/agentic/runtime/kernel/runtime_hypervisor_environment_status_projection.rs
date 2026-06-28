@@ -27,8 +27,14 @@ pub const HYPERVISOR_WORKSPACE_INITIALIZER_SCHEMA_VERSION: &str =
     "ioi.hypervisor.workspace_initializer.v1";
 
 /// Per-component sub-phase taxonomy (distinct from the top-level environment phase).
-pub const ENVIRONMENT_COMPONENT_PHASES: &[&str] =
-    &["pending", "creating", "initializing", "ready", "degraded", "failed"];
+pub const ENVIRONMENT_COMPONENT_PHASES: &[&str] = &[
+    "pending",
+    "creating",
+    "initializing",
+    "ready",
+    "degraded",
+    "failed",
+];
 
 /// The ordered component sub-objects the status carries.
 pub const ENVIRONMENT_COMPONENT_KEYS: &[&str] = &[
@@ -101,10 +107,14 @@ pub fn derive_workspace_initializer(input: &Value) -> Value {
             }));
         }
     }
-    let custody_posture =
-        optional_string(input.get("workspaceMountPolicy")).unwrap_or_else(|| "public_trunk".to_string());
+    let custody_posture = optional_string(input.get("workspaceMountPolicy"))
+        .unwrap_or_else(|| "public_trunk".to_string());
     let initializer_ref = optional_string(input.get("initializerRef")).unwrap_or_else(|| {
-        format!("workspace-initializer:{}-{}", safe_id(&custody_posture), specs.len())
+        format!(
+            "workspace-initializer:{}-{}",
+            safe_id(&custody_posture),
+            specs.len()
+        )
     });
     json!({
         "schema_version": HYPERVISOR_WORKSPACE_INITIALIZER_SCHEMA_VERSION,
@@ -131,7 +141,11 @@ pub fn build_environment_port(input: &Value) -> Value {
 }
 
 fn component_evidence(environment_ref: &str, component: &str) -> String {
-    format!("agentgres://evidence/environment-status/{}/{}", safe_id(environment_ref), component)
+    format!(
+        "agentgres://evidence/environment-status/{}/{}",
+        safe_id(environment_ref),
+        component
+    )
 }
 
 /// Map real readiness checks (`harness_binary`, `ollama_provider`,
@@ -139,8 +153,10 @@ fn component_evidence(environment_ref: &str, component: &str) -> String {
 fn phases_from_readiness_checks(readiness_checks: Option<&Value>) -> Map<String, Value> {
     let mut result = Map::new();
     let checks_owned = normalize_array(readiness_checks);
-    let checks: Vec<&Map<String, Value>> =
-        checks_owned.iter().filter_map(|item| item.as_object()).collect();
+    let checks: Vec<&Map<String, Value>> = checks_owned
+        .iter()
+        .filter_map(|item| item.as_object())
+        .collect();
     if checks.is_empty() {
         return result;
     }
@@ -161,8 +177,8 @@ fn phases_from_readiness_checks(readiness_checks: Option<&Value>) -> Map<String,
     if let Some(harness_phase) = to_phase(status_for("harness_binary")) {
         result.insert("harness".to_string(), json!(harness_phase));
     }
-    let provider_phase =
-        to_phase(status_for("qwen_model_available")).or_else(|| to_phase(status_for("ollama_provider")));
+    let provider_phase = to_phase(status_for("qwen_model_available"))
+        .or_else(|| to_phase(status_for("ollama_provider")));
     if let Some(provider_phase) = provider_phase {
         result.insert("model_mount".to_string(), json!(provider_phase));
     }
@@ -181,19 +197,21 @@ fn phases_from_readiness_checks(readiness_checks: Option<&Value>) -> Map<String,
 /// `workspaceArtifactRef`, `componentPhases`, `readinessChecks`, `ports`,
 /// `capabilityLeaseRefs`, `failureMessage`, `warningMessage`.
 pub fn build_hypervisor_environment_status(input: &Value) -> Value {
-    let env_ref =
-        optional_string(input.get("environmentRef")).unwrap_or_else(|| "environment:hypervisor-session".to_string());
+    let env_ref = optional_string(input.get("environmentRef"))
+        .unwrap_or_else(|| "environment:hypervisor-session".to_string());
     let empty = Map::new();
     let overrides = object_record(input.get("componentPhases")).unwrap_or(&empty);
     let readiness_phases = phases_from_readiness_checks(input.get("readinessChecks"));
 
     let phase_for = |component: &str, fallback: &str| -> String {
-        let override_value = overrides.get(component).or_else(|| readiness_phases.get(component));
+        let override_value = overrides
+            .get(component)
+            .or_else(|| readiness_phases.get(component));
         coerce_component_phase(override_value, fallback)
     };
 
-    let custody_posture =
-        optional_string(input.get("workspaceMountPolicy")).unwrap_or_else(|| "public_trunk".to_string());
+    let custody_posture = optional_string(input.get("workspaceMountPolicy"))
+        .unwrap_or_else(|| "public_trunk".to_string());
 
     let mut components = Map::new();
     components.insert(
@@ -269,8 +287,12 @@ pub fn build_hypervisor_environment_status(input: &Value) -> Value {
         })
         .collect();
 
-    let state_root_ref = optional_string(input.get("stateRootRef"))
-        .unwrap_or_else(|| format!("agentgres://state-root/environment-status/{}", safe_id(&env_ref)));
+    let state_root_ref = optional_string(input.get("stateRootRef")).unwrap_or_else(|| {
+        format!(
+            "agentgres://state-root/environment-status/{}",
+            safe_id(&env_ref)
+        )
+    });
 
     json!({
         "schema_version": HYPERVISOR_ENVIRONMENT_STATUS_SCHEMA_VERSION,
@@ -307,13 +329,19 @@ fn optional_string(value: Option<&Value>) -> Option<String> {
 
 /// `optionalString(...) ?? null` — the trimmed string or a JSON null.
 fn optional_value(value: Option<&Value>) -> Value {
-    optional_string(value).map(Value::String).unwrap_or(Value::Null)
+    optional_string(value)
+        .map(Value::String)
+        .unwrap_or(Value::Null)
 }
 
 /// Mirror JS `normalizeArray`: array filtered of falsy entries, else [].
 fn normalize_array(value: Option<&Value>) -> Vec<Value> {
     match value {
-        Some(Value::Array(items)) => items.iter().filter(|item| is_truthy(item)).cloned().collect(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter(|item| is_truthy(item))
+            .cloned()
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -387,18 +415,27 @@ mod tests {
             "workspaceRoot": "/tmp/ioi-hypervisor-sessions/session-abc",
             "workspaceMountPolicy": "public_trunk",
         }));
-        assert_eq!(status["schema_version"], HYPERVISOR_ENVIRONMENT_STATUS_SCHEMA_VERSION);
+        assert_eq!(
+            status["schema_version"],
+            HYPERVISOR_ENVIRONMENT_STATUS_SCHEMA_VERSION
+        );
         assert_eq!(status["phase"], "running");
         assert_eq!(status["runtimeTruthSource"], "daemon-runtime");
         // All 7 components present and ready by default.
         for key in ENVIRONMENT_COMPONENT_KEYS {
-            assert_eq!(status["components"][key]["phase"], "ready", "component {key}");
+            assert_eq!(
+                status["components"][key]["phase"], "ready",
+                "component {key}"
+            );
         }
         assert_eq!(
             status["components"]["workspace_content"]["workspace_root"],
             "/tmp/ioi-hypervisor-sessions/session-abc"
         );
-        assert_eq!(status["components"]["workspace_content"]["custody_posture"], "public_trunk");
+        assert_eq!(
+            status["components"]["workspace_content"]["custody_posture"],
+            "public_trunk"
+        );
         assert_eq!(
             status["components"]["provisioner"]["evidence_ref"],
             "agentgres://evidence/environment-status/environment_hypervisor-session/provisioner"
@@ -415,7 +452,10 @@ mod tests {
             "componentPhases": { "workspace_content": "initializing" },
         }));
         assert_eq!(status["phase"], "starting");
-        assert_eq!(status["components"]["workspace_content"]["phase"], "initializing");
+        assert_eq!(
+            status["components"]["workspace_content"]["phase"],
+            "initializing"
+        );
     }
 
     #[test]
@@ -479,10 +519,16 @@ mod tests {
     #[test]
     fn derive_initializer_empty_specs_is_scratch() {
         let initializer = derive_workspace_initializer(&json!({}));
-        assert_eq!(initializer["schema_version"], HYPERVISOR_WORKSPACE_INITIALIZER_SCHEMA_VERSION);
+        assert_eq!(
+            initializer["schema_version"],
+            HYPERVISOR_WORKSPACE_INITIALIZER_SCHEMA_VERSION
+        );
         assert_eq!(initializer["specs"].as_array().unwrap().len(), 0);
         assert_eq!(initializer["custody_posture"], "public_trunk");
-        assert_eq!(initializer["initializer_ref"], "workspace-initializer:public_trunk-0");
+        assert_eq!(
+            initializer["initializer_ref"],
+            "workspace-initializer:public_trunk-0"
+        );
     }
 
     #[test]
@@ -492,11 +538,20 @@ mod tests {
             "workspaceMountPolicy": "redacted_projection",
             "authorityScopeRefs": ["scope:fs.write", "scope:fs.write", "scope:net"],
         }));
-        assert_eq!(initializer["specs"][0]["git"]["remote_uri"], "https://github.com/x/y");
+        assert_eq!(
+            initializer["specs"][0]["git"]["remote_uri"],
+            "https://github.com/x/y"
+        );
         assert_eq!(initializer["specs"][0]["git"]["clone_target"], ".");
-        assert_eq!(initializer["specs"][0]["git"]["target_mode"], "remote_branch");
+        assert_eq!(
+            initializer["specs"][0]["git"]["target_mode"],
+            "remote_branch"
+        );
         // uniqueStrings dedupes preserving order.
-        assert_eq!(initializer["authority_scope_refs"], json!(["scope:fs.write", "scope:net"]));
+        assert_eq!(
+            initializer["authority_scope_refs"],
+            json!(["scope:fs.write", "scope:net"])
+        );
     }
 
     #[test]
@@ -505,7 +560,10 @@ mod tests {
             "contextUrl": "https://example.com/seed.tar",
             "gitSpec": { "remote_uri": "https://github.com/x/y", "clone_target": "repo", "target_mode": "tag" },
         }));
-        assert_eq!(initializer["specs"][0]["context_url"], "https://example.com/seed.tar");
+        assert_eq!(
+            initializer["specs"][0]["context_url"],
+            "https://example.com/seed.tar"
+        );
         assert_eq!(initializer["specs"][1]["git"]["clone_target"], "repo");
         assert_eq!(initializer["specs"][1]["git"]["target_mode"], "tag");
     }

@@ -152,9 +152,7 @@ pub async fn run(args: McpArgs) -> Result<()> {
 
     let workload = read_workload(&args.workload)?;
     match args.command {
-        McpCommands::Validate { .. }
-        | McpCommands::Ls
-        | McpCommands::Invoke { .. } => Ok(()),
+        McpCommands::Validate { .. } | McpCommands::Ls | McpCommands::Invoke { .. } => Ok(()),
         McpCommands::List => print_list(&workload, args.json),
         McpCommands::Inspect { server } => print_inspect(&workload, &server, args.json),
         McpCommands::Tools { server } => print_tools(&workload, &server, args.json),

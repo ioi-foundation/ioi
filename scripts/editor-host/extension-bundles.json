@@ -1,6 +1,6 @@
 {
   "schemaVersion": "ioi.hypervisor.editor-extension-bundles.v1",
-  "note": "WS-6b extension allowlist. The Hypervisor adapter is REQUIRED and its absence fails the browser-host readiness gate. Optional baseline extensions are declared with offline-cache refs; a marketplace timeout marks them degraded (not failed) when a cache/prior install exists. Source-controlled adapter only — never the Ona binary.",
+  "note": "WS-6b extension allowlist. The Hypervisor adapter is REQUIRED and its absence fails the browser-host readiness gate. Optional baseline extensions are declared with offline-cache refs; a marketplace timeout marks them degraded (not failed) when a cache/prior install exists. Source-controlled adapter only — never the upstream reference binary.",
   "required": [
     {
       "extension_id": "ioi.hypervisor-vscode-extension",

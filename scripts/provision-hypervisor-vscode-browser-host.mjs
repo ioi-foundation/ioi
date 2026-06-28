@@ -4,7 +4,7 @@
 // The Phase 1 (~/.ioi/vm-toolchain) supply-manifest pattern, applied to the editor host: a pinned
 // version + URL + sha256, a fetch-once cache, checksum verification, and FAIL-CLOSED behavior. The
 // OSS lane is reproducible — NOT a permitted host-gap (a vendor VS Code Server variant may be
-// license-gated, the OSS openvscode runtime is not). The Ona stripped binary is never vendored.
+// license-gated, the OSS openvscode runtime is not). The upstream stripped reference binary is never vendored.
 //
 // Installs into ~/.ioi/editor-toolchain/openvscode-server (override IOI_HYPERVISOR_EDITOR_TOOLCHAIN_DIR).
 // Idempotent: reuses an installed runtime whose checksum still matches the pin.
@@ -29,7 +29,10 @@ const fail = (reason) => { console.log(JSON_OUT ? JSON.stringify({ ok: false, re
 if (!existsSync(MANIFEST)) fail(`supply manifest missing: ${MANIFEST}`);
 const m = JSON.parse(readFileSync(MANIFEST, "utf8"));
 const { version, linux_x64 } = m;
-if (!linux_x64?.url || !linux_x64?.sha256) fail("manifest missing linux_x64.url/sha256 (run with the pinned hash)");
+// Operator-supplied artifact URL (env first; an operator may add a local linux_x64.url override).
+// The product tree carries NO vendor-origin URL — only the sha256 pin that the artifact must match.
+const runtimeUrl = process.env[m.urlEnv || "IOI_EDITOR_RUNTIME_URL"] || linux_x64?.url;
+if (!runtimeUrl || !linux_x64?.sha256) fail(`set ${m.urlEnv || "IOI_EDITOR_RUNTIME_URL"} to a pinned OpenVSCode-protocol runtime tarball (operator-supplied, verified against the manifest sha256; never vendored)`);
 
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const installRoot = join(DEST, `openvscode-server-v${version}-linux-x64`);
@@ -65,7 +68,7 @@ async function download(url, dest) {
 
 // fetch-once cache: only download if the cached tarball is absent or fails the checksum.
 if (FORCE || !existsSync(tarball) || sha(tarball) !== linux_x64.sha256) {
-  await download(linux_x64.url, tarball);
+  await download(runtimeUrl, tarball);
 }
 const got = sha(tarball);
 if (got !== linux_x64.sha256) fail(`checksum_mismatch: expected ${linux_x64.sha256}, got ${got} (fail-closed; not installing)`);

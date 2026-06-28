@@ -1,0 +1,79 @@
+/* Responsive layer for the Hypervisor homepage.
+   Components are authored with inline styles, so layout overrides here
+   are scoped to explicit class hooks and use !important to win over inline. */
+
+html, body { overflow-x: clip; }
+
+/* --- Mobile nav toggle (hidden on desktop) --- */
+.hv-navtoggle { display: none; }
+.hv-mobile-menu { display: none; }
+
+@media (max-width: 1040px) {
+  .hv-nav-links, .hv-nav-cta { display: none !important; }
+  .hv-navtoggle { display: inline-flex !important; }
+  .hv-mobile-menu { display: flex !important; }
+  .hv-header-inner { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+}
+
+/* --- Stack the layout grids --- */
+@media (max-width: 860px) {
+  .hv-section { padding-left: 1.25rem !important; padding-right: 1.25rem !important; padding-top: 4.5rem !important; }
+  .hv-hero { grid-template-columns: 1fr !important; gap: 2.5rem !important; padding: 2.75rem 1.25rem 0 !important; }
+  .hv-grid-2 { grid-template-columns: 1fr !important; gap: 2.5rem !important; }
+  .hv-grid-3 { grid-template-columns: 1fr !important; gap: 1.25rem !important; }
+  .hv-cap-grid { grid-template-columns: 1fr !important; }
+  .hv-feat-row { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 2.25rem 1.5rem !important; }
+  .hv-feat-media { order: 2 !important; }
+  .hv-feat-text { order: 1 !important; }
+
+  .hv-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 2rem 1.5rem !important; padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+  .hv-footer-bar { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+
+  /* Stacked MoW totals bar: swap side dividers for top dividers */
+  .hv-mow-totals { grid-template-columns: 1fr 1fr 1fr !important; }
+
+  /* Tame display type on small screens */
+  .hv-section h2 { font-size: 2rem !important; line-height: 1.1 !important; }
+  .hv-hero h1 { font-size: 2.5rem !important; }
+}
+
+/* --- Lifecycle ring → vertical timeline on small screens --- */
+@media (max-width: 720px) {
+  .hv-lc-ring { display: none !important; }
+  .hv-lc-list { display: flex !important; }
+}
+
+/* --- Related-product card hover (premium nudge) --- */
+.hv-relcard:hover { border-color: var(--color-onyx-black) !important; }
+.hv-relcard:hover .hv-relarrow span { transform: translateX(4px); }
+
+/* --- Platform product-map card hover --- */
+.hv-pmcard { transition: border-color 200ms cubic-bezier(0.22,1,0.36,1), transform 200ms cubic-bezier(0.22,1,0.36,1); }
+.hv-pmcard:hover { border-color: var(--color-onyx-black) !important; }
+.hv-pmcard:hover .hv-pmarrow { opacity: 1 !important; transform: translateX(0) !important; }
+
+/* --- Product subpage layout grids --- */
+@media (max-width: 860px) {
+  .hv-pd-detail { grid-template-columns: 1fr !important; }
+  .hv-pd-detail > div:first-child { border-right: none !important; border-bottom: 0.5px solid var(--color-grey-500) !important; padding: 2.25rem 1.5rem !important; }
+  .hv-pd-points { grid-template-columns: 1fr !important; }
+  .hv-pd-points > div { border-right: none !important; border-top: 0.5px solid var(--color-grey-500) !important; padding: 1.75rem 1.5rem !important; }
+  .hv-pd-points > div:first-child { border-top: none !important; }
+  .hv-pd-specs { grid-template-columns: 1fr 1fr !important; }
+  .hv-pd-specs > div { padding-left: 1.25rem !important; border-left: 0.5px solid var(--color-grey-500) !important; }
+  .hv-pd-specs > div:nth-child(odd) { padding-left: 0 !important; border-left: none !important; }
+  .hv-pd-related { grid-template-columns: 1fr !important; }
+  .hv-plat-hero { grid-template-columns: 1fr !important; gap: 2.5rem !important; }
+  .hv-pm-grid { grid-template-columns: 1fr !important; }
+}
+
+/* --- Doctrine card breathing room --- */
+@media (max-width: 560px) {
+  .hv-doctrine > :first-child { padding: 2rem 1.5rem !important; }
+  .hv-footer-grid { grid-template-columns: 1fr !important; }
+  .hv-hero h1 { font-size: 2.125rem !important; }
+  .hv-section h2 { font-size: 1.75rem !important; }
+  .hv-cap-grid { grid-template-columns: 1fr !important; }
+  .hv-pd-specs { grid-template-columns: 1fr !important; }
+  .hv-pd-specs > div { padding-left: 0 !important; border-left: none !important; }
+}

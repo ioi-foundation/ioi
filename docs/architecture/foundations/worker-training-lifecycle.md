@@ -26,6 +26,8 @@ Worker Training is broader than model fine-tuning. A worker can be improved by:
 - adapter or worker-package promotion;
 - model fine-tuning;
 - distillation from larger systems;
+- teacher sessions that generate, critique, debate, label, or correct candidate
+  supervision under Foundry gates;
 - distillation of ontology-bound source truth into compact training and
   evaluation signal;
 - evaluation and regression-suite expansion;
@@ -113,10 +115,11 @@ authority, or execution substrate.
 When the lifecycle becomes a multi-stage model or worker build that must run,
 pause, resume, checkpoint, spend budget, evaluate, convert artifacts, register
 models, or produce conductor-advisor candidates, it should materialize as a
-Foundry `TrainingPipelineRun` rather than remaining an informal notebook or
-guided recipe. The pipeline binds authority grants, training-data posture,
-checkpoint and resume refs, spend forecast/current burn, stop/resume policy,
-eval and validation refs, artifact conversion refs, registry candidates, and
+Foundry `FoundrySpec`, `RunPlan`, and `TrainingPipelineRun` rather than
+remaining an informal notebook or guided recipe. The pipeline binds authority
+grants, training-data posture, dataset snapshots, trials, checkpoint and resume
+refs, spend forecast/current burn, stop/resume policy, eval and validation refs,
+artifact conversion refs, registry candidates, route-binding candidates, and
 receipts.
 
 Foundry is a product lens over the shared IOI builder substrate, not a
@@ -207,12 +210,22 @@ Hypervisor Foundry should expose these product primitives:
 - **Batch Planner**: turns the objective into bounded generation or capture
   batches with target scope or family, label boundaries, hard eval patterns,
   quota, split policy, provider/executor mix, and acceptance thresholds.
+- **Foundry Spec Builder**: emits the durable lifecycle spec for objective,
+  base model, training mode, dataset snapshots, search space, budget, eval
+  policy, package targets, and route target. Notebooks or chats may draft it,
+  but the spec is the record.
 - **Dataset Workbench**: lets users inspect, edit, score, label, compare,
   reject, and promote examples, traces, distilled datasets, and evaluation
   cases.
+- **Dataset Snapshot Browser**: shows immutable materializations, manifests,
+  splits, source versions, retention posture, and lineage. Factory logic and
+  snapshot materialization are distinct.
 - **Raw Batch Archive**: preserves generated or captured rows, prompts, caches,
   provider metadata, token/cost telemetry, and pre-gate artifacts before they are
   curated or rejected. A raw batch is evidence, not accepted training signal.
+- **Teacher Session Log**: preserves teacher, critic, judge, debate, and
+  student-rollout-correction interactions that produce candidate training
+  signal. Teacher output is quarantined evidence until gates accept it.
 - **Gate Console**: shows the live quality funnel from generated/captured
   material through schema checks, rubric gates, dedupe, PII/secrets filters,
   human review, and accepted training signal.
@@ -225,11 +238,16 @@ Hypervisor Foundry should expose these product primitives:
 - **Model Bake-Off**: runs the same eval set across the base model, trained
   worker, previous worker version, frontier model, competing worker, or
   deterministic baseline.
+- **Trial And Checkpoint Console**: exposes search trials, pruned candidates,
+  selected candidates, checkpoints, resume compatibility, and resource burn.
 - **Model Capacity Advisor**: recommends a target worker/model size and serving
   profile from task difficulty, row structure, system-prompt budget, tool count,
   latency, privacy, cost, and eval risk. Smaller workers often need more
   structured rows, shorter system prompts, tighter label sets, and smaller tool
   batches.
+- **Artifact Packaging Graph**: distinguishes checkpoints, adapters, merged
+  models, model artifacts, package artifacts, runtime images, model cards,
+  endpoint packages, and routeable registry versions.
 - **Iteration Loop**: clusters failures and suggests the next data, recipe,
   gate, rubric, tool, model, or workflow change before the next training run.
 - **Cost/Quality Simulator**: previews tradeoffs across base model, training

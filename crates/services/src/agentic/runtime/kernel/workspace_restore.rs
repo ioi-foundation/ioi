@@ -1284,7 +1284,10 @@ fn preview_operation(
     let target = resolve_workspace_restore_path(workspace_root, &file.path)?;
     let current = read_workspace_restore_current(
         &target.absolute_path,
-        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
+        file.before
+            .encoding
+            .as_deref()
+            .or(file.after.encoding.as_deref()),
     );
     let before_exists = file.before.exists;
     let after_exists = file.after.exists;
@@ -1397,9 +1400,12 @@ fn apply_operation(
     let target_exists = file.before.exists;
     if preview.status == "noop" {
         let current = read_workspace_restore_current(
-        &target.absolute_path,
-        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
-    );
+            &target.absolute_path,
+            file.before
+                .encoding
+                .as_deref()
+                .or(file.after.encoding.as_deref()),
+        );
         return Ok(applied_operation(preview, current, "noop"));
     }
     let write_result = if !target_exists {
@@ -1420,7 +1426,8 @@ fn apply_operation(
                 Err(error) => {
                     let mut failed = preview;
                     failed.apply_status = Some("failed".to_string());
-                    failed.apply_reason = Some("workspace_restore_base64_decode_failed".to_string());
+                    failed.apply_reason =
+                        Some("workspace_restore_base64_decode_failed".to_string());
                     failed.error_message = Some(error.to_string());
                     return Ok(failed);
                 }
@@ -1443,7 +1450,10 @@ fn apply_operation(
     }
     let current = read_workspace_restore_current(
         &target.absolute_path,
-        file.before.encoding.as_deref().or(file.after.encoding.as_deref()),
+        file.before
+            .encoding
+            .as_deref()
+            .or(file.after.encoding.as_deref()),
     );
     let apply_status = if preview.status == "conflict" && allow_conflicts {
         "applied_with_override"

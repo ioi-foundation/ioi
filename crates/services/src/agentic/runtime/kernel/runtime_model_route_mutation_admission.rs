@@ -107,11 +107,20 @@ impl RuntimeModelRouteMutationAdmissionCore {
         let privacy_posture_ref = optional_field(request, "privacy_posture_ref");
         let tee_attestation_ref = optional_field(request, "tee_attestation_ref");
         let customer_boundary_ref = optional_field(request, "customer_boundary_ref");
-        let provider_trust_acceptance_ref = optional_field(request, "provider_trust_acceptance_ref");
-        let secret_disclosure_receipt_refs =
-            prefixed_refs(request, "secret_disclosure_receipt_refs", "receipt://", true)?;
-        let agentgres_operation_refs =
-            prefixed_refs(request, "agentgres_operation_refs", "agentgres://operation/", false)?;
+        let provider_trust_acceptance_ref =
+            optional_field(request, "provider_trust_acceptance_ref");
+        let secret_disclosure_receipt_refs = prefixed_refs(
+            request,
+            "secret_disclosure_receipt_refs",
+            "receipt://",
+            true,
+        )?;
+        let agentgres_operation_refs = prefixed_refs(
+            request,
+            "agentgres_operation_refs",
+            "agentgres://operation/",
+            false,
+        )?;
         let receipt_refs = prefixed_refs(request, "receipt_refs", "receipt://", false)?;
         let state_root_ref =
             prefixed_string(request, "state_root_ref", "agentgres://state-root/", 400)?;
@@ -142,13 +151,14 @@ impl RuntimeModelRouteMutationAdmissionCore {
                 safe_id(&mutation_kind)
             )
         });
-        let mutation_receipt_ref = optional_field(request, "mutation_receipt_ref").unwrap_or_else(|| {
-            format!(
-                "receipt://model-route-mutation/{}/{}",
-                safe_id(&route_ref),
-                safe_id(&mutation_kind)
-            )
-        });
+        let mutation_receipt_ref =
+            optional_field(request, "mutation_receipt_ref").unwrap_or_else(|| {
+                format!(
+                    "receipt://model-route-mutation/{}/{}",
+                    safe_id(&route_ref),
+                    safe_id(&mutation_kind)
+                )
+            });
         let admitted_at =
             optional_field(request, "admitted_at").unwrap_or_else(|| now_iso.to_string());
 
@@ -211,7 +221,11 @@ fn assert_route_mutation(
     provider_root_receives_prompt_plaintext: bool,
     provider_root_receives_credential_plaintext: bool,
 ) -> AdmitResult<()> {
-    require_scope(authority_scope_refs, "scope:model.route.mutate", mutation_kind)?;
+    require_scope(
+        authority_scope_refs,
+        "scope:model.route.mutate",
+        mutation_kind,
+    )?;
 
     if mutation_kind != "disable_route"
         && !model_weight_custody_admission_ref
@@ -231,7 +245,8 @@ fn assert_route_mutation(
             json!({ "mutation_kind": mutation_kind }),
         ));
     }
-    if credential_posture == "wallet_credential_lease" || credential_posture == "provider_vault_token"
+    if credential_posture == "wallet_credential_lease"
+        || credential_posture == "provider_vault_token"
     {
         require_scope(credential_scope_refs, "scope:secret.use", mutation_kind)?;
         if provider_credential_lease_ref.is_none() {
@@ -441,7 +456,11 @@ fn require_scope(scope_refs: &[String], scope: &str, mutation_kind: &str) -> Adm
     ))
 }
 
-fn admission_error(code: &str, message: &str, details: Value) -> RuntimeModelRouteMutationAdmissionError {
+fn admission_error(
+    code: &str,
+    message: &str,
+    details: Value,
+) -> RuntimeModelRouteMutationAdmissionError {
     RuntimeModelRouteMutationAdmissionError::new(403, code, message, details)
 }
 

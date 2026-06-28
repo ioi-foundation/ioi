@@ -87,8 +87,21 @@ OntologyDevelopmentKitManifestEnvelope
 OntologySurfaceDescriptorEnvelope
 ModelCapacityProfileEnvelope
 ModelDeploymentProfileEnvelope
+FoundrySpecEnvelope
+DatasetSnapshotEnvelope
+FoundryRunPlanEnvelope
+FoundryTrialEnvelope
+FoundryCheckpointArtifactEnvelope
+FoundryModelAndPackageArtifactEnvelope
+FoundryRegistryVersionAndRouteBindingEnvelope
+EmbodiedCapabilitySpecEnvelope
+EmbodiedTrainingDataContractEnvelope
+EmbodiedCapabilityPackageEnvelope
+FoundryEmbodiedRuntimeCandidateEnvelope
 TrainingBatchPlanEnvelope
 GenerationBatchEnvelope
+TeacherSessionEnvelope
+CandidateTrainingSignalEnvelope
 RawBatchArchiveEnvelope
 QualityGateReportEnvelope
 TrainingCostLedgerEnvelope
@@ -100,8 +113,14 @@ ArtifactConversionRunEnvelope
 ConductorAdvisorCandidateEnvelope
 PostTrainingCycleEnvelope
 ContextMutationEnvelope
+FoundryPromotionBundleEnvelope
 PromotionDecisionEnvelope
 CapabilityRegressionRecordEnvelope
+OrchestrationConstraintEnvelope
+OrchestrationPlanEnvelope
+OrchestrationPolicyEnvelope
+VerifierPathEnvelope
+OrchestrationDecisionReceiptEnvelope
 BenchmarkEnvelope
 RoutingDecisionEnvelope
 ```
@@ -130,12 +149,17 @@ ioi://publisher/...     publisher identity
 agent://...             product-facing agent instance or compatibility worker instance
 worker://...            worker package or worker type
 install://...           worker install/license binding
+package://...           worker, model, service, autonomous-system, or embodied capability package identity
 subscription://...      runtime or managed-instance subscription/entitlement
 service://...           sas.xyz service definition
 order://...             sas.xyz service order or cross-domain outcome order
 run://...               runtime run identity
 task://...              task identity
 goal://...              ioi.ai or coordinator goal identity
+constraint://...        orchestration, workflow, policy, or object constraint identity
+orchestration_policy://... versioned outcome-conductor plan-selection policy identity
+orchestration_plan://... candidate or selected orchestration plan identity
+verifier_path://...     configured verification path for a run, plan, worker, route, or package
 runtime://...           Hypervisor Daemon runtime-node identity
 compute://...           compute session identity
 boot_profile://...      HypervisorOS boot profile identity
@@ -150,7 +174,20 @@ recipe://...            data recipe identity
 mapping://...           connector mapping identity
 view://...              policy-bound data view identity
 dataset://...           evaluation or training dataset identity
+dataset_snapshot://...  immutable dataset materialization, split, manifest, and lineage identity
 eligibility://...       training evidence eligibility or exclusion identity
+teacher_session://...   Foundry teacher, critic, judge, debate, or correction session identity
+candidate_data://...    quarantined or accepted candidate training-signal record identity
+foundry_spec://...      declarative Foundry training, eval, packaging, or promotion spec identity
+run_plan://...          typed Foundry stage graph and executor-binding plan identity
+trial://...             optimizer, sweep, training, or evaluation trial identity
+checkpoint://...        resumable training, optimizer, or execution checkpoint identity
+model_artifact://...    frozen training-native model, adapter, or checkpoint-derived artifact identity
+package_artifact://...  deployable runtime package, converted model, image, or endpoint package identity
+registry_version://...  registered model, worker, package, or routeable artifact version identity
+promotion_record://...  auditable route binding, traffic split, alias change, or promotion decision identity
+promotion_bundle://...  immutable Foundry promotion bundle identity
+package_binding://...   runtime binding between a capability package and a target domain or route identity
 projection://...        ontology-aware or Agentgres projection identity
 transform://...         transformation run identity
 plan://...              ontology-to-worker plan identity
@@ -185,9 +222,41 @@ trainpipe://...         Foundry training pipeline run identity
 optcycle://...          Foundry experiment optimization cycle identity
 conversion://...        Foundry artifact conversion run identity
 conductor://...         conductor advisor or coordinator candidate identity
+embodied_candidate://... Foundry embodied runtime candidate identity
 regression://...        capability regression, canary regression, or post-promotion regression record identity
 model://...             model artifact, registered model, or model-family identity
 model_route://...       model routing profile, endpoint candidate, or serving policy identity
+capability_spec://...   embodied or autonomous capability task, success, command, and safety spec identity
+embodied_domain://...   physical-domain runtime identity for a site, facility, field area, or fleet domain
+robot_fleet://...       fleet identity for robots, drones, humanoids, devices, or facility systems
+robot://...             robot, drone, device, or embodied unit identity
+controller://...        controller identity for robot, facility, actuator, or bridge control
+sensor://...            physical sensor identity
+actuator://...          physical actuator identity
+embodiment://...        robot embodiment, body, kinematic family, or actuator/sensor form identity
+embodiment_adapter://... mapping between canonical action semantics and a specific robot/controller identity
+sensor_contract://...   required sensor schema, modality, calibration, freshness, and evidence contract identity
+action_schema://...     embodied action space, action chunk, trajectory, or command-target schema identity
+world_contract://...    scene, geometry, coordinate-frame, simulation, and collision/physics assumptions identity
+world_model://...       live or candidate physical world model identity
+world_representation://... visual, geometric, semantic, or physics-proxy world representation identity
+robot_log://...         raw synchronized multimodal robot log, bag, or robotics-native capture identity
+episode_dataset://...   normalized sequential decision episode dataset identity
+teacher_label_set://... teacher-generated embodied labels, rewards, subgoals, or success annotations identity
+success_detector://...  embodied success/failure detector, evaluator, or validation policy identity
+eval_report://...       embodied, model, package, route, or capability evaluation report identity
+safety://...            physical safety envelope or safety-case identity
+supervision://...       human supervision, handoff, or operator policy identity
+estop://...             emergency-stop authority, channel, or control identity
+calibration://...       physical calibration record identity
+time_sync://...         clock, timestamp, frame, and stream synchronization contract identity
+local_control_bridge://... local control bridge identity for embodied domains
+heartbeat_policy://...  heartbeat and fail-closed policy identity
+physical_command_queue://... physical command queue identity
+physical_command://...  movement, manipulation, facility, stop, or handoff command identity
+telemetry_stream://...  physical telemetry stream identity
+physical_replay://...   physical replay bundle identity
+sim_to_real_gate://...  sim-to-real promotion gate identity
 wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
@@ -205,6 +274,8 @@ key://...               public key, signing key, or key material metadata ref
 lease://...             capability lease or short-lived authority lease ref
 mcp_gateway://...       Hypervisor MCP Gateway profile identity
 connector://...         connector or external-system adapter identity
+tool://...              typed tool or tool contract identity
+mcp://...               MCP server, tool surface, or gateway-exposed MCP capability identity
 session://...           Hypervisor session identity
 work_run://...          WorkRun identity
 incident://...          provider, runtime, storage, authority, safety, or ecosystem incident identity
@@ -1328,7 +1399,7 @@ RuntimeEventEnvelope:
   run_id: run_...
   task_id: task_...
   turn_id: optional
-  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | environment.failure_detected | environment.recovery_planned | environment.recovery_started | environment.recovery_completed | environment.recovery_failed | workrun.recovery_reconciled | resource.allocation_requested | resource.allocation_decided | resource.budget_warning | resource.budget_exhausted | resource.preemption_decided | resource.degradation_applied | scheduler.catchup_planned | scheduler.catchup_executed | assurance.policy_pack.applied | assurance.policy_pack.blocked | assurance.audit_export.requested | assurance.audit_export.generated | assurance.audit_export.delivered | assurance.audit_export.revoked | collaboration.context_created | collaboration.party_joined | collaboration.party_removed | collaboration.view_granted | collaboration.view_revoked | collaboration.proof_bundle_generated | training.evidence_eligibility_recorded | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_registered | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | capability.regression_detected | capability.regression_adjudicated | authority_client.* | mcp_gateway.* | revocation.* | embodied.* | sim_to_real.* | assurance.* | capability.* | job.* | receipt.emitted | run.completed | run.failed
+  kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | environment.failure_detected | environment.recovery_planned | environment.recovery_started | environment.recovery_completed | environment.recovery_failed | workrun.recovery_reconciled | resource.allocation_requested | resource.allocation_decided | resource.budget_warning | resource.budget_exhausted | resource.preemption_decided | resource.degradation_applied | scheduler.catchup_planned | scheduler.catchup_executed | assurance.policy_pack.applied | assurance.policy_pack.blocked | assurance.audit_export.requested | assurance.audit_export.generated | assurance.audit_export.delivered | assurance.audit_export.revoked | collaboration.context_created | collaboration.party_joined | collaboration.party_removed | collaboration.view_granted | collaboration.view_revoked | collaboration.proof_bundle_generated | orchestration.decision_recorded | training.foundry_spec_admitted | training.dataset_snapshot_materialized | training.run_plan_admitted | training.evidence_eligibility_recorded | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.teacher_session_started | training.teacher_session_completed | training.candidate_data_quarantined | training.on_policy_correction_recorded | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.trial_started | training.trial_pruned | training.trial_completed | training.checkpoint_created | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_artifact_frozen | training.package_artifact_validated | training.model_registered | training.registry_version_created | training.route_binding_proposed | training.route_binding_activated | training.promotion_bundle_frozen | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | capability.regression_detected | capability.regression_adjudicated | authority_client.* | mcp_gateway.* | revocation.* | embodied.* | sim_to_real.* | assurance.* | capability.* | job.* | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
   privacy_class: public | internal | private | secret
@@ -1344,7 +1415,7 @@ RuntimeEventEnvelope:
 ```yaml
 ReceiptEnvelope:
   receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | aiip_packet | aiip_delivery_update | aiip_acceptance_decision | aiip_dispute_resolution | aiip_settlement_intent | cross_domain_delivery_bundle | multi_party_collaboration | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | environment_failure | environment_recovery | workrun_recovery | resource_allocation | budget_exhaustion | preemption | scheduler_catchup | jurisdiction_policy_decision | assurance_evidence_bundle | compliance_audit_export_bundle | commercial_assurance_export | training_evidence_eligibility | upgrade_proposal | upgrade_decision | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | capability_regression | benchmark_run | evaluation_verdict | routing_decision | authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report | physical_action_preflight | sensor_evidence | actuator_command | emergency_stop | physical_action_execution | physical_action_incident | physical_action_remediation | physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery | liability_claim_route | quarantine_advisory
+  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | aiip_packet | aiip_delivery_update | aiip_acceptance_decision | aiip_dispute_resolution | aiip_settlement_intent | cross_domain_delivery_bundle | multi_party_collaboration | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | environment_failure | environment_recovery | workrun_recovery | resource_allocation | budget_exhaustion | preemption | scheduler_catchup | jurisdiction_policy_decision | assurance_evidence_bundle | compliance_audit_export_bundle | commercial_assurance_export | orchestration_decision | training_evidence_eligibility | upgrade_proposal | upgrade_decision | foundry_spec | dataset_snapshot | foundry_run_plan | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | teacher_session | candidate_training_signal | on_policy_correction | quality_gate_report | training_cost_ledger | training_trace | training_trial | training_checkpoint | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_artifact | package_artifact | model_registration | registry_version | route_binding | foundry_promotion_bundle | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | capability_regression | benchmark_run | evaluation_verdict | routing_decision | authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report | physical_action_preflight | sensor_evidence | actuator_command | emergency_stop | physical_action_execution | physical_action_incident | physical_action_remediation | physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery | liability_claim_route | quarantine_advisory
   run_id: optional
   task_id: optional
   actor_id: string
@@ -1933,6 +2004,347 @@ ModelWeightCustodyProfileEnvelope:
   status: proposed | accepted | blocked | revoked
 ```
 
+## FoundrySpecEnvelope
+
+The Foundry spec is the declarative source of truth for a durable training,
+evaluation, packaging, or route-promotion lifecycle. Notebooks, chats, and code
+workspaces may author it, but they are not the system of record.
+
+```yaml
+FoundrySpecEnvelope:
+  foundry_spec_id: foundry_spec://...
+  foundry_job_ref: optional foundry_job://...
+  objective: string
+  task_family: string
+  base_model_refs:
+    - model://...
+  training_mode:
+    sft | adapter | full_finetune | distillation |
+    preference_optimization | on_policy_correction | eval_only |
+    packaging_only | route_policy_training | conductor_advisor_training
+  dataset_snapshot_refs:
+    - dataset_snapshot://... | dataset://...
+  search_space_ref: optional artifact://... | policy://...
+  packaging_targets:
+    - adapter_merge | quantization | gguf | mlx | onnx | tensorrt |
+      runtime_image | endpoint_package | model_card | custom
+  budget_policy_ref: budget://... | policy://...
+  eval_policy_ref: gate://... | policy://...
+  target_route_ref: optional model_route://...
+  version: integer
+  created_by_ref: wallet://... | org://... | service://...
+  status: draft | ready | superseded | archived
+```
+
+## DatasetSnapshotEnvelope
+
+Dataset factories define how data is produced; dataset snapshots are immutable
+materializations used for training, evaluation, regression, and promotion
+replay.
+
+```yaml
+DatasetSnapshotEnvelope:
+  dataset_snapshot_id: dataset_snapshot://...
+  dataset_factory_ref: foundry_job://... | recipe://...
+  dataset_refs:
+    - dataset://...
+  content_manifest_ref: artifact://...
+  split_manifest_ref: artifact://...
+  source_version_refs:
+    - artifact://... | connector://... | view://... | receipt://...
+  slice_definitions_ref: optional artifact://...
+  filtering_rules_ref: optional policy://... | artifact://...
+  retention_policy_ref: policy://...
+  lineage_refs:
+    - receipt://... | transform://...
+  snapshot_hash: hash
+  status: materialized | retained | deprecated | revoked
+```
+
+## FoundryRunPlanEnvelope
+
+Run plans turn a spec and snapshots into a typed stage graph with explicit
+executor bindings, artifact contracts, retry policy, and checkpoint policy.
+
+```yaml
+FoundryRunPlanEnvelope:
+  run_plan_id: run_plan://...
+  foundry_spec_ref: foundry_spec://...
+  stage_graph_ref: artifact://...
+  stages:
+    - data_prep
+    - training
+    - checkpointing
+    - eval
+    - packaging
+    - registration
+    - route_promotion
+  executor_bindings:
+    - runtime://... | compute://... | service://...
+  retry_policy_ref: policy://...
+  checkpoint_policy_ref: policy://...
+  timeout_policy_ref: policy://...
+  artifact_contract_refs:
+    - schema://...
+  status: draft | admitted | running | completed | superseded
+```
+
+## FoundryTrialEnvelope
+
+Trials are the unit of search, pruning, early stopping, comparison, and
+optimizer attribution.
+
+```yaml
+FoundryTrialEnvelope:
+  trial_id: trial://...
+  run_plan_ref: run_plan://...
+  training_pipeline_ref: optional trainpipe://...
+  optimization_cycle_ref: optional optcycle://...
+  parameter_values_ref: artifact://...
+  objective_metric_refs:
+    - gate://... | artifact://...
+  scheduler_state_ref: optional artifact://...
+  checkpoint_refs:
+    - checkpoint://... | artifact://...
+  cost_ledger_ref: ledger://...
+  status: queued | running | pruned | completed | failed | selected | rejected
+```
+
+## FoundryCheckpointArtifactEnvelope
+
+Checkpoints are resumable state, not just files.
+
+```yaml
+FoundryCheckpointArtifactEnvelope:
+  checkpoint_id: checkpoint://...
+  trial_ref: optional trial://...
+  training_pipeline_ref: trainpipe://...
+  checkpoint_artifact_ref: artifact://...
+  global_step: optional integer
+  token_count: optional integer
+  optimizer_state_ref: optional artifact://...
+  resume_compatibility_ref: optional schema://... | artifact://...
+  status: created | retained | resume_candidate | deprecated | revoked
+```
+
+## FoundryModelAndPackageArtifactEnvelope
+
+Training-native model artifacts and deployable package artifacts are distinct
+lineage nodes. Packaging may merge adapters, quantize, export, build runtime
+images, or create endpoint packages, but it must not overwrite the source
+artifact.
+
+```yaml
+FoundryModelArtifactEnvelope:
+  model_artifact_id: model_artifact://...
+  source_checkpoint_ref: checkpoint://... | artifact://...
+  artifact_ref: artifact://...
+  artifact_kind:
+    checkpoint | adapter | merged_model | safetensors | pytorch |
+    trainer_native | verifier_model | route_policy | conductor_advisor
+  architecture_ref: optional profile://... | artifact://...
+  precision: optional string
+  signature_ref: optional schema://...
+  metrics_ref: optional gate://... | artifact://...
+  status: frozen | evaluated | deprecated | revoked
+
+FoundryPackageArtifactEnvelope:
+  package_artifact_id: package_artifact://...
+  source_model_artifact_ref: model_artifact://... | artifact://...
+  target_runtime:
+    local_model_mount | hosted_endpoint | ctee_mount | mobile |
+    browser | robot_runtime | batch_inference | custom
+  format:
+    adapter_merge | quantization | gguf | mlx | onnx | tensorrt |
+    runtime_image | endpoint_package | model_card | custom
+  output_artifact_refs:
+    - artifact://...
+  build_log_ref: artifact://...
+  compatibility_ref: optional schema://... | conformance_profile://...
+  validation_refs:
+    - gate://... | receipt://...
+  status: built | validated | registered | failed | revoked
+```
+
+## FoundryRegistryVersionAndRouteBindingEnvelope
+
+Promotion updates route indirection. It does not mutate old artifacts in place.
+
+```yaml
+FoundryRegistryVersionEnvelope:
+  registry_version_id: registry_version://...
+  registry_model_ref: model://... | worker://... | package://...
+  artifact_ref: model_artifact://... | package_artifact://... | artifact://...
+  scorecard_ref: gate://... | artifact://...
+  lineage_refs:
+    - foundry_spec://... | dataset_snapshot://... | trainpipe://... |
+      receipt://...
+  aliases:
+    - champion
+    - candidate
+    - shadow
+    - canary
+  approval_status:
+    draft | pending | approved | rejected | deprecated | revoked
+  model_card_ref: optional artifact://...
+
+FoundryRouteBindingEnvelope:
+  route_binding_id: promotion_record://...
+  route_ref: model_route://...
+  registry_version_ref: registry_version://...
+  alias: champion | candidate | shadow | canary | rollback
+  traffic_split: optional object
+  canary_policy_ref: optional policy://...
+  rollback_target_ref: registry_version://... | model://... | package://...
+  decision_evidence_refs:
+    - gate://... | artifact://... | receipt://...
+  status: proposed | active | paused | rolled_back | recalled | superseded
+```
+
+## EmbodiedCapabilitySpecEnvelope
+
+Embodied capability work starts with the task and physical contract, not a model
+choice. The spec names the task family, command interface, allowed workspace,
+success criteria, and safety category before Foundry trains or packages
+anything.
+
+```yaml
+EmbodiedCapabilitySpecEnvelope:
+  capability_spec_id: capability_spec://...
+  task_family: string
+  command_interface_ref: action_schema://...
+  allowed_workspace_refs:
+    - zone://... | world_contract://...
+  success_criteria_ref: gate://... | eval_report://... | artifact://...
+  safety_category:
+    observe_only | low_risk_motion | supervised_manipulation |
+    high_value_physical_action | human_proximity | custom
+  required_sensor_contract_refs:
+    - sensor_contract://...
+  required_world_contract_ref: world_contract://...
+  required_supervision_policy_ref: supervision://...
+  receipt_refs:
+    - receipt://...
+  status: draft | ready | superseded | archived
+```
+
+## EmbodiedTrainingDataContractEnvelope
+
+Embodied datasets should preserve both raw synchronized logs and normalized
+episode views. Raw logs are the replay/audit substrate; episode datasets are
+the training/eval substrate.
+
+```yaml
+EmbodiedTrainingDataContractEnvelope:
+  data_contract_id: dataset_snapshot://... | artifact://...
+  capability_spec_ref: capability_spec://...
+  raw_robot_log_refs:
+    - robot_log://... | artifact://...
+  normalized_episode_dataset_refs:
+    - episode_dataset://... | dataset_snapshot://...
+  time_sync_contract_ref: time_sync://...
+  sensor_contract_refs:
+    - sensor_contract://...
+  calibration_refs:
+    - calibration://...
+  modality_channels:
+    - rgb
+    - rgbd
+    - lidar
+    - imu
+    - force_torque
+    - tactile
+    - proprioception
+    - command_status
+    - estop_state
+    - operator_event
+  split_manifest_ref: artifact://...
+  retention_policy_ref: policy://...
+  receipt_refs:
+    - receipt://...
+  status: draft | materialized | retained | deprecated | revoked
+```
+
+## EmbodiedCapabilityPackageEnvelope
+
+The embodied capability package is the center of the embodied architecture.
+Foundry builds it, Hypervisor Daemon executes it, Physical Action Safety
+constrains it, wallet.network authorizes mission scope where delegated power is
+required, and Agentgres records state, receipts, and replay.
+
+```yaml
+EmbodiedCapabilityPackageEnvelope:
+  package_ref: package://...
+  foundry_job_ref: foundry_job://...
+  capability_spec_ref: capability_spec://...
+  robot_embodiment_refs:
+    - embodiment://...
+  embodiment_adapter_refs:
+    - embodiment_adapter://...
+  sensor_contract_ref: sensor_contract://...
+  action_schema_ref: action_schema://...
+  world_contract_ref: world_contract://...
+  world_representation_refs:
+    - world_representation://... | artifact://...
+  raw_robot_log_refs:
+    - robot_log://... | artifact://...
+  episode_dataset_refs:
+    - episode_dataset://... | dataset_snapshot://...
+  teacher_label_set_refs:
+    - teacher_label_set://...
+  perception_model_refs:
+    - model://...
+  action_policy_refs:
+    - model://... | worker://... | artifact://...
+  success_detector_refs:
+    - success_detector://... | model://... | worker://...
+  runtime_adapter_ref: worker://...
+  calibration_refs:
+    - calibration://...
+  time_sync_contract_ref: time_sync://...
+  physical_action_safety_envelope_ref: policy://... | safety://...
+  human_supervision_policy_ref: supervision://...
+  emergency_stop_authority_ref: estop://...
+  eval_report_refs:
+    - eval_report://... | artifact://... | gate://...
+  sim_to_real_report_ref: eval_report://... | artifact://...
+  promotion_record_refs:
+    - promotion_record://...
+  receipt_root: hash
+  status: draft | evaluated | packaged | proposed | promoted | recalled | revoked
+```
+
+## FoundryEmbodiedRuntimeCandidateEnvelope
+
+An embodied runtime candidate is a proposal to bind an embodied capability
+package to a target runtime and physical domain. It is not live actuator
+authority.
+
+```yaml
+FoundryEmbodiedRuntimeCandidateEnvelope:
+  candidate_id: embodied_candidate://...
+  source_training_pipeline_ref: trainpipe://...
+  embodied_capability_package_ref: package://...
+  intended_runtime:
+    hypervisor_daemon | partner_robot_runtime | simulator_only
+  target_domain_ref: embodied_domain://...
+  target_fleet_ref: robot_fleet://...
+  sensor_contract_ref: sensor_contract://...
+  action_schema_ref: action_schema://...
+  world_contract_ref: world_contract://...
+  runtime_adapter_ref: worker://...
+  safety_envelope_ref: safety://...
+  required_stage_refs:
+    offline_eval: eval_report://...
+    software_in_loop: eval_report://...
+    hardware_in_loop: eval_report://...
+    shadow: run://...
+    canary: sim_to_real_gate://... | gate://...
+  promotion_status:
+    draft | eval | shadow | canary | gated | proposed | rejected | promoted |
+    rolled_back | recalled
+```
+
 ## TrainingBatchPlanEnvelope
 
 ```yaml
@@ -1955,6 +2367,9 @@ TrainingBatchPlanEnvelope:
     adversarial: percentage
     regression: percentage
   model_capacity_profile_ref: optional
+  teacher_session_refs:
+    - teacher_session://...
+  candidate_data_quarantine_policy_ref: optional policy://...
   executor_worker_refs:
     - worker://...
   prompt_artifact_refs:
@@ -1985,6 +2400,72 @@ GenerationBatchEnvelope:
   status: queued | running | archived | gated | rejected | failed
 ```
 
+## TeacherSessionEnvelope
+
+Teacher sessions record foundation-model, worker, verifier, or human-review
+interactions used to generate candidate supervision. They produce candidate
+training signal, not accepted truth.
+
+```yaml
+TeacherSessionEnvelope:
+  teacher_session_id: teacher_session://...
+  foundry_job_ref: foundry_job://...
+  task_contract_ref: schema://... | artifact://...
+  session_mode:
+    generate | critique | debate | revise | label | judge |
+    student_rollout_correction | route_policy_supervision
+  teacher_refs:
+    - model://... | worker://... | agent://...
+  student_candidate_ref: optional model://... | worker://... | conductor://...
+  prompt_artifact_refs:
+    - artifact://...
+  tool_contract_refs:
+    - tool://... | mcp://...
+  evidence_refs:
+    - artifact://... | receipt://... | view://...
+  output_candidate_data_refs:
+    - candidate_data://...
+  privacy_policy_ref: policy://...
+  cost_ledger_ref: ledger://...
+  receipt_refs:
+    - receipt://...
+  status:
+    planned | running | completed | quarantined | rejected | superseded
+```
+
+## CandidateTrainingSignalEnvelope
+
+Candidate training signal is quarantined by default. It may become an accepted
+dataset row only after privacy, provenance, quality, and truth gates pass.
+
+```yaml
+CandidateTrainingSignalEnvelope:
+  candidate_data_id: candidate_data://...
+  teacher_session_ref: teacher_session://...
+  training_id: optional train_...
+  record_family:
+    instruction | demonstration | chosen_rejected_preference |
+    binary_preference | critique_revision | tool_trace |
+    agent_trajectory | verifier_label | process_label |
+    route_orchestration_trace | on_policy_correction
+  source_teacher_refs:
+    - model://... | worker://... | agent://...
+  prompt_template_ref: optional artifact://...
+  environment_ref: optional runtime://... | compute://...
+  evidence_refs:
+    - artifact://... | receipt://... | view://...
+  verifier_refs:
+    - worker://... | model://... | gate://...
+  privacy_status_ref: eligibility://... | policy://...
+  quality_gate_refs:
+    - gate://...
+  accepted_dataset_refs:
+    - dataset://...
+  status:
+    quarantined | eligible | accepted | rejected | held_for_review |
+    redacted | superseded
+```
+
 ## RawBatchArchiveEnvelope
 
 ```yaml
@@ -1995,6 +2476,8 @@ RawBatchArchiveEnvelope:
     - batch://...
   raw_artifact_refs:
     - artifact://...
+  candidate_data_refs:
+    - candidate_data://...
   cache_artifact_refs:
     - artifact://...
   provider_metadata_hash: optional
@@ -2027,6 +2510,11 @@ QualityGateReportEnvelope:
     unsupported_primary_policy: pass | fail | skipped
     split_intent: pass | fail | skipped
     leakage_risk: pass | fail | skipped
+    source_teacher_provenance: pass | fail | skipped
+    candidate_data_quarantine: pass | fail | skipped
+    execution_truth_gate: pass | fail | skipped
+    retrieval_evidence_support: pass | fail | skipped
+    verifier_agreement: pass | fail | skipped
     low_quality_or_synthetic_pattern: pass | fail | skipped
     gold_reason_quality: pass | fail | skipped
     rubric_fit: pass | fail | skipped
@@ -2111,6 +2599,7 @@ WorkerTrainingEnvelope:
 DatasetFactoryRunEnvelope:
   dataset_factory_run_id: run://... | foundry_job://...
   foundry_job_ref: foundry_job://...
+  foundry_spec_ref: optional foundry_spec://...
   objective: string
   source_refs:
     - artifact://... | connector://... | view://... | receipt://...
@@ -2131,6 +2620,8 @@ DatasetFactoryRunEnvelope:
   stage: define | research | ground | generate | audit | export | runbook
   output_dataset_refs:
     - dataset://...
+  dataset_snapshot_refs:
+    - dataset_snapshot://...
   holdout_dataset_refs:
     - dataset://...
   adversarial_dataset_refs:
@@ -2148,6 +2639,8 @@ DatasetFactoryRunEnvelope:
 TrainingPipelineRunEnvelope:
   training_pipeline_run_id: trainpipe://...
   foundry_job_ref: foundry_job://...
+  foundry_spec_ref: foundry_spec://...
+  run_plan_ref: optional run_plan://...
   objective: string
   stage:
     idea | data_binding | dataset_factory | notebook_prep | training |
@@ -2157,7 +2650,7 @@ TrainingPipelineRunEnvelope:
   compute_session_refs:
     - compute://...
   checkpoint_refs:
-    - artifact://... | receipt://...
+    - checkpoint://... | artifact://... | receipt://...
   resume_ref: optional artifact://... | receipt://...
   last_heartbeat_ref: optional receipt://...
   authority_grant_refs:
@@ -2170,9 +2663,17 @@ TrainingPipelineRunEnvelope:
     - model://... | model_mount://...
   input_dataset_refs:
     - dataset://...
+  dataset_snapshot_refs:
+    - dataset_snapshot://...
   training_config_ref: artifact://...
   training_batch_plan_refs:
     - batch://...
+  trial_refs:
+    - trial://...
+  teacher_session_refs:
+    - teacher_session://...
+  candidate_data_refs:
+    - candidate_data://...
   eval_suite_refs:
     - benchmark://... | gate://...
   validation_report_refs:
@@ -2181,10 +2682,16 @@ TrainingPipelineRunEnvelope:
     - optcycle://...
   artifact_conversion_refs:
     - conversion://...
-  registered_model_candidate_ref: model://...
+  model_artifact_refs:
+    - model_artifact://...
+  package_artifact_refs:
+    - package_artifact://...
+  registered_model_candidate_ref: model://... | registry_version://...
   endpoint_candidate_ref: model_route://...
+  route_binding_candidate_ref: optional promotion_record://...
   conductor_advisor_candidate_ref: optional conductor://...
   scorecard_ref: gate://... | artifact://...
+  promotion_bundle_ref: optional promotion_bundle://...
   spend_forecast_ref: optional ledger://...
   current_burn_ref: optional ledger://...
   continuation_policy_ref: optional policy://...
@@ -2208,7 +2715,7 @@ ExperimentOptimizationCycleEnvelope:
   baseline_recipe_ref: artifact://...
   best_candidate_ref: artifact://...
   trial_refs:
-    - run://... | artifact://...
+    - trial://... | run://... | artifact://...
   accepted_change_refs:
     - artifact://...
   rejected_change_refs:
@@ -2226,7 +2733,7 @@ ExperimentOptimizationCycleEnvelope:
 ArtifactConversionRunEnvelope:
   conversion_run_id: conversion://...
   training_pipeline_ref: trainpipe://...
-  source_model_artifact_ref: artifact://... | model://...
+  source_model_artifact_ref: model_artifact://... | artifact://... | model://...
   conversion_targets:
     - adapter_merge
     - quantization
@@ -2238,10 +2745,10 @@ ArtifactConversionRunEnvelope:
     - endpoint_package
     - custom
   output_artifact_refs:
-    - artifact://...
+    - package_artifact://... | artifact://...
   validation_refs:
     - gate://... | receipt://... | benchmark://...
-  registered_model_candidate_ref: model://...
+  registered_model_candidate_ref: model://... | registry_version://...
   receipt_root: hash
   status: planned | running | validated | registered | failed | rejected
 ```
@@ -2261,6 +2768,10 @@ ConductorAdvisorCandidateEnvelope:
     - eligibility://...
   input_refs:
     - artifact://... | receipt://... | dataset://...
+  teacher_session_refs:
+    - teacher_session://...
+  candidate_data_refs:
+    - candidate_data://...
   eval_suite_refs:
     - benchmark://... | gate://...
   scorecard_refs:
@@ -2280,6 +2791,7 @@ ConductorAdvisorCandidateEnvelope:
     draft | training | shadow | gated | promoted | rejected | paused |
     rolled_back | recalled
   rollback_ref: optional
+  promotion_bundle_ref: optional promotion_bundle://...
 ```
 
 ## PostTrainingCycleEnvelope
@@ -2357,6 +2869,34 @@ ContextMutationEnvelope:
 
 ## PromotionDecisionEnvelope
 
+Foundry promotion bundles freeze the evidence package that Governance may use
+for rollout, rollback, recall, or placement decisions. A bundle is not itself
+deployment permission.
+
+```yaml
+FoundryPromotionBundleEnvelope:
+  promotion_bundle_id: promotion_bundle://...
+  foundry_job_ref: foundry_job://...
+  candidate_ref: model://... | worker://... | model_route://... | conductor://... | package://...
+  parent_artifact_ref: optional artifact://... | model://... | worker://...
+  dataset_digest_refs:
+    - dataset://... | hash
+  teacher_session_refs:
+    - teacher_session://...
+  verifier_version_refs:
+    - worker://... | model://... | gate://...
+  scorecard_ref: gate://... | artifact://...
+  gating_threshold_ref: policy://...
+  authority_or_signoff_refs:
+    - grant://... | policy://... | receipt://...
+  monitoring_policy_ref: policy://...
+  deployment_tier: local | shadow | canary | production | marketplace
+  rollback_target_ref: artifact://... | model://... | worker://... | package://...
+  receipt_root: hash
+  status:
+    draft | frozen | proposed | approved | rejected | rolled_back | recalled
+```
+
 ```yaml
 PromotionDecisionEnvelope:
   promotion_id: promote_...
@@ -2411,12 +2951,198 @@ may become a future holdout, eval case, or Foundry job only after the owning
 governance surface records `TrainingEvidenceEligibility` or an equivalent
 policy decision.
 
+## OrchestrationConstraintEnvelope
+
+Captures the constraints that bind an outcome-conductor plan before a model,
+harness, worker, or session receives private context or scoped tool access.
+This is a plan-selection input, not an authority grant.
+
+```yaml
+OrchestrationConstraintEnvelope:
+  constraint_id: constraint://...
+  goal_ref: goal://... | task://...
+  requester_ref: wallet://... | org://... | system://... | agent://...
+  privacy_posture_ref: policy://... | privacy_posture://... | null
+  authority_posture_refs:
+    - authority://... | grant://... | policy://...
+  provider_trust_posture:
+    local_only | redacted_remote | provider_allowed |
+    customer_boundary | tee_required | no_provider_trust
+  budget_refs:
+    - budget://...
+  latency_target: interactive | batch | background | deadline_bound
+  quality_target_ref: benchmark://... | rubric://... | gate://... | null
+  verification_strength:
+    none | lightweight | standard | independent | adversarial |
+    regulated | physical_safety
+  data_use_eligibility_refs:
+    - eligibility://... | policy://...
+  allowed_route_classes:
+    - local_model | provider_api | marketplace_worker | installed_worker |
+      managed_agent | deterministic_tool | foundry_job
+  disallowed_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - non_opted_in_training_trace
+  user_or_org_preference_refs:
+    - policy://... | profile://...
+  status: draft | active | superseded | revoked
+```
+
+## OrchestrationPolicyEnvelope
+
+Versioned policy for choosing among candidate plan shapes. It may use
+deterministic rules, benchmark priors, contextual bandit updates, online
+quality evidence, user/org preferences, or Foundry-produced conductor advisors.
+It does not execute work or grant authority.
+
+```yaml
+OrchestrationPolicyEnvelope:
+  policy_id: orchestration_policy://...
+  owner_ref: org://... | system://... | domain://... | null
+  policy_version: semver_or_hash
+  applicable_goal_classes:
+    - research | code | computer_use | connector_action | operations |
+      foundry_build | marketplace_handoff | physical_action | custom
+  supported_materializations:
+    - single_path
+    - verifier_backed_single_path
+    - multi_model_answer
+    - multi_harness_attempt
+    - cross_session_branch_and_merge
+    - marketplace_worker_delegation
+    - foundry_job
+  routing_signal_refs:
+    - benchmark://... | receipt://... | ledger://... | gate://...
+  conductor_advisor_refs:
+    - conductor://...
+  hard_policy_refs:
+    - policy://...
+  fallback_policy:
+    ask_user | local_default | safest_private_route | cheapest_route |
+    fail_closed
+  update_mode:
+    static | operator_managed | bandit_assisted | foundry_promoted
+  status: draft | active | shadow | deprecated | revoked
+```
+
+## OrchestrationPlanEnvelope
+
+Candidate or selected plan shape for an outcome conductor. A plan may reference
+model routes, harnesses, workers, verifier paths, sessions, and handoffs, but it
+does not execute until Hypervisor/daemon admission accepts the relevant work.
+
+```yaml
+OrchestrationPlanEnvelope:
+  plan_id: orchestration_plan://...
+  goal_ref: goal://... | task://...
+  constraint_envelope_ref: constraint://...
+  materialization:
+    single_path | verifier_backed_single_path | multi_model_answer |
+    multi_harness_attempt | cross_session_branch_and_merge |
+    marketplace_worker_delegation | foundry_job
+  proposed_model_route_refs:
+    - model_route://...
+  proposed_harness_refs:
+    - harness_profile:... | agent_harness_adapter:...
+  proposed_worker_refs:
+    - worker://... | agent://...
+  proposed_verifier_path_refs:
+    - verifier_path://...
+  proposed_session_topology:
+    single_session | isolated_parallel_sessions | branch_and_merge |
+    handoff_only | no_execution
+  expected_cost_ref: budget://... | null
+  expected_latency_class: interactive | batch | background | deadline_bound
+  evidence_basis_refs:
+    - benchmark://... | receipt://... | ledger://... | gate://...
+  status: candidate | selected | rejected | superseded | admitted
+```
+
+## VerifierPathEnvelope
+
+Defines the selected verification shape for a plan, run, worker, route, or
+package. Verifier paths are evidence contracts; model judges are allowed, but
+they are not truth by themselves.
+
+```yaml
+VerifierPathEnvelope:
+  verifier_path_id: verifier_path://...
+  owner_ref: org://... | system://... | domain://... | null
+  applies_to:
+    - goal://... | run://... | worker://... | model_route://... |
+      package://... | orchestration_plan://...
+  verification_kind:
+    deterministic | test | static_analysis | browser_evidence |
+    model_judge | verifier_worker | human_review | benchmark |
+    regulated_review | physical_safety | hybrid
+  required_evidence_refs:
+    - artifact://... | receipt://... | gate://... | benchmark://...
+  verifier_refs:
+    - worker://... | model://... | gate://... | org://...
+  acceptance_threshold_ref: rubric://... | gate://... | policy://...
+  independence_requirement:
+    none | different_model | different_harness | different_worker |
+    human | regulated_party
+  replay_required: boolean
+  status: draft | active | satisfied | failed | superseded | revoked
+```
+
+## OrchestrationDecisionReceiptEnvelope
+
+Records why a coordinator chose a plan shape. It is distinct from
+`RoutingDecisionEnvelope`, which records worker or domain selection under MoW.
+It proves the plan was selected under declared constraints and policy; it does
+not prove the plan is globally optimal or correct.
+
+```yaml
+OrchestrationDecisionReceiptEnvelope:
+  receipt_id: receipt://...
+  receipt_type: orchestration_decision
+  goal_ref: goal://... | task://...
+  conductor_ref: system://... | agent://... | worker://...
+  orchestration_policy_ref: orchestration_policy://...
+  constraint_envelope_ref: constraint://...
+  candidate_plan_refs:
+    - orchestration_plan://...
+  selected_plan_ref: orchestration_plan://...
+  selected_materialization:
+    single_path | verifier_backed_single_path | multi_model_answer |
+    multi_harness_attempt | cross_session_branch_and_merge |
+    marketplace_worker_delegation | foundry_job
+  selected_model_route_refs:
+    - model_route://...
+  selected_harness_refs:
+    - harness_profile:... | agent_harness_adapter:...
+  selected_worker_refs:
+    - worker://... | agent://...
+  selected_verifier_path_refs:
+    - verifier_path://...
+  expected_cost_ref: budget://... | null
+  expected_latency_class: interactive | batch | background | deadline_bound
+  evidence_basis_refs:
+    - benchmark://... | receipt://... | ledger://... | gate://...
+  fallback_policy_ref: policy://... | null
+  reason_codes:
+    - quality | cost | privacy | latency | locality | installed_status |
+      benchmark_result | authority_fit | user_preference | safety
+  receipt_root: hash
+  signature: optional
+```
+
 ## BenchmarkEnvelope
 
 ```yaml
 BenchmarkEnvelope:
   benchmark_run_id: bench_...
   worker_id: worker://...
+  worker_composition_ref: package://... | ai://... | null
+  model_route_ref: model_route://... | null
+  harness_ref: harness_profile:... | agent_harness_adapter:... | null
+  runtime_profile_ref: runtime://... | profile://... | null
+  privacy_posture_ref: privacy_posture://... | policy://... | null
+  verifier_path_ref: verifier_path://... | null
   sparse_worker_category: string
   benchmark_profile_ref: benchmark://...
   environment_hash: hash

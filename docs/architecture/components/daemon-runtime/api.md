@@ -2125,6 +2125,101 @@ GET  /v1/receipts/{receipt_id}
 GET  /v1/trace-bundles/{run_id}
 ```
 
+## Identity, Access, Secrets, and Metering API
+
+The daemon-local deployment-governance plane. It identifies **who** is operating
+this deployment and scopes org-surface access; it does NOT authorize
+consequential crossings — those still require wallet.network authority. Identity
+and roles are never machine authority. Passwords and inbound tokens are
+hashed/sealed at rest (surfaced at most once); secret values are sealed and never
+returned by a read; metering consumption is derived from recorded receipts.
+Enforcement is fail-safe: `auto` mode authenticates when the deployment is
+exposed (loopback stays open), with a one-time lockout bootstrap. Canon:
+[`../hypervisor/identity-access-and-metering.md`](../hypervisor/identity-access-and-metering.md).
+
+Identity, sessions, and gated enforcement:
+
+```http
+POST   /v1/hypervisor/auth/login
+POST   /v1/hypervisor/auth/logout
+GET    /v1/hypervisor/auth/whoami
+GET    /v1/hypervisor/auth/policy
+PUT    /v1/hypervisor/auth/policy
+GET    /v1/hypervisor/auth/bootstrap-status
+POST   /v1/hypervisor/auth/bootstrap
+GET    /v1/hypervisor/principals
+POST   /v1/hypervisor/principals
+DELETE /v1/hypervisor/principals/{principal_id}        # ?purge=true hard-removes; default soft-deactivates
+POST   /v1/hypervisor/principals/{principal_id}/password
+GET    /v1/hypervisor/principals/{principal_id}/lease-grants
+POST   /v1/hypervisor/principals/{principal_id}/lease-grants
+DELETE /v1/hypervisor/principals/{principal_id}/lease-grants/{connector_id}
+```
+
+Federated login (SSO/OIDC — id_token verified vs JWKS + nonce) and SCIM 2.0
+provisioning (the SCIM bearer is hash-only at rest):
+
+```http
+GET    /v1/hypervisor/sso-configurations
+POST   /v1/hypervisor/sso-configurations
+DELETE /v1/hypervisor/sso-configurations/{sso_id}
+POST   /v1/hypervisor/auth/oidc/start
+POST   /v1/hypervisor/auth/oidc/callback
+GET    /v1/hypervisor/scim-configurations
+POST   /v1/hypervisor/scim-configurations
+DELETE /v1/hypervisor/scim-configurations/{id}
+GET    /scim/v2/ServiceProviderConfig
+GET    /scim/v2/Users
+POST   /scim/v2/Users
+GET    /scim/v2/Users/{id}
+PATCH  /scim/v2/Users/{id}
+PUT    /scim/v2/Users/{id}
+DELETE /scim/v2/Users/{id}
+GET    /scim/v2/Groups
+POST   /scim/v2/Groups
+GET    /scim/v2/Groups/{id}
+PATCH  /scim/v2/Groups/{id}
+PUT    /scim/v2/Groups/{id}
+DELETE /scim/v2/Groups/{id}
+```
+
+Invites, domain verification (DNS-TXT over DoH), and custom domain:
+
+```http
+GET    /v1/hypervisor/org-invite
+POST   /v1/hypervisor/org-invite
+POST   /v1/hypervisor/org-invite/accept
+GET    /v1/hypervisor/domain-verifications
+POST   /v1/hypervisor/domain-verifications
+POST   /v1/hypervisor/domain-verifications/{id}/verify
+DELETE /v1/hypervisor/domain-verifications/{id}
+GET    /v1/hypervisor/custom-domain
+PUT    /v1/hypervisor/custom-domain
+```
+
+Secrets (value sealed at rest; reads return metadata only) and inbound API
+access tokens (hash-only; plaintext surfaced once):
+
+```http
+GET    /v1/hypervisor/secrets
+POST   /v1/hypervisor/secrets
+POST   /v1/hypervisor/secrets/{id}/value
+DELETE /v1/hypervisor/secrets/{id}
+GET    /v1/hypervisor/api-tokens
+POST   /v1/hypervisor/api-tokens
+DELETE /v1/hypervisor/api-tokens/{id}
+```
+
+Metering & cost (OCU consumption derived from receipts; wallet-backed budget +
+auto-funding):
+
+```http
+GET    /v1/hypervisor/usage/consumption
+GET    /v1/hypervisor/budget
+PUT    /v1/hypervisor/budget
+POST   /v1/hypervisor/budget/reconcile
+```
+
 ## Structured Error Shape
 
 Every public daemon error uses the same redacted shape:

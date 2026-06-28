@@ -40,8 +40,13 @@ fn proposal_source_for_family(family: &str) -> Option<&'static str> {
     }
 }
 
-const ARCHIVE_REQUIRED_OPERATIONS: &[&str] =
-    &["archive", "archive_session", "restore", "restore_session", "zero_to_idle"];
+const ARCHIVE_REQUIRED_OPERATIONS: &[&str] = &[
+    "archive",
+    "archive_session",
+    "restore",
+    "restore_session",
+    "zero_to_idle",
+];
 const RESTORE_REQUIRED_OPERATIONS: &[&str] = &["restore", "restore_session"];
 
 const RETIRED_ALIASES: &[&str] = &[
@@ -69,7 +74,12 @@ pub struct RuntimeHypervisorApprovedOperationAdmissionError {
 
 impl RuntimeHypervisorApprovedOperationAdmissionError {
     fn new(status: u16, code: &str, message: String, details: Value) -> Self {
-        Self { status, code: code.to_string(), message, details }
+        Self {
+            status,
+            code: code.to_string(),
+            message,
+            details,
+        }
     }
 }
 
@@ -82,11 +92,20 @@ impl RuntimeHypervisorApprovedOperationAdmissionCore {
     pub fn admit(&self, request: &Value, now_iso: &str) -> AdmitResult<Value> {
         assert_no_retired_aliases(request)?;
 
-        let operation_family = enum_value(request.get("operation_family"), "operation_family", OPERATION_FAMILIES)?;
-        let proposal_schema_version =
-            required_string(request.get("proposal_schema_version"), "proposal_schema_version", 400)?;
+        let operation_family = enum_value(
+            request.get("operation_family"),
+            "operation_family",
+            OPERATION_FAMILIES,
+        )?;
+        let proposal_schema_version = required_string(
+            request.get("proposal_schema_version"),
+            "proposal_schema_version",
+            400,
+        )?;
         // proposal_source ?? source
-        let proposal_source_input = request.get("proposal_source").or_else(|| request.get("source"));
+        let proposal_source_input = request
+            .get("proposal_source")
+            .or_else(|| request.get("source"));
         let proposal_source = required_string(proposal_source_input, "proposal_source", 400)?;
 
         // assertDaemonProposalBoundary
@@ -119,16 +138,37 @@ impl RuntimeHypervisorApprovedOperationAdmissionCore {
         let proposal_ref = required_string(request.get("proposal_ref"), "proposal_ref", 400)?;
         let project_ref = required_string(request.get("project_ref"), "project_ref", 400)?;
         let operation_kind = required_string(request.get("operation_kind"), "operation_kind", 400)?;
-        let wallet_approval_ref =
-            prefixed_string(request.get("wallet_approval_ref"), "wallet_approval_ref", "approval://wallet/", 403)?;
-        let wallet_lease_ref =
-            prefixed_string(request.get("wallet_lease_ref"), "wallet_lease_ref", "lease:", 403)?;
-        let required_scope_refs =
-            prefixed_refs(unique_strings_raw(request.get("required_scope_refs")), "required_scope_refs", "scope:", false, 403)?;
-        let authority_receipt_refs =
-            prefixed_refs(unique_strings_raw(request.get("authority_receipt_refs")), "authority_receipt_refs", "receipt://", true, 400)?;
+        let wallet_approval_ref = prefixed_string(
+            request.get("wallet_approval_ref"),
+            "wallet_approval_ref",
+            "approval://wallet/",
+            403,
+        )?;
+        let wallet_lease_ref = prefixed_string(
+            request.get("wallet_lease_ref"),
+            "wallet_lease_ref",
+            "lease:",
+            403,
+        )?;
+        let required_scope_refs = prefixed_refs(
+            unique_strings_raw(request.get("required_scope_refs")),
+            "required_scope_refs",
+            "scope:",
+            false,
+            403,
+        )?;
+        let authority_receipt_refs = prefixed_refs(
+            unique_strings_raw(request.get("authority_receipt_refs")),
+            "authority_receipt_refs",
+            "receipt://",
+            true,
+            400,
+        )?;
         let agentgres_operation_refs = prefixed_refs(
-            refs_from(request.get("agentgres_operation_refs"), request.get("agentgres_operation_ref")),
+            refs_from(
+                request.get("agentgres_operation_refs"),
+                request.get("agentgres_operation_ref"),
+            ),
             "agentgres_operation_refs",
             "agentgres://operation/",
             false,
@@ -141,25 +181,45 @@ impl RuntimeHypervisorApprovedOperationAdmissionCore {
             false,
             400,
         )?;
-        let state_root_ref =
-            prefixed_string(request.get("state_root_ref"), "state_root_ref", "agentgres://state-root/", 400)?;
-        let artifact_refs =
-            prefixed_refs(unique_strings_raw(request.get("artifact_refs")), "artifact_refs", "artifact://", true, 400)?;
+        let state_root_ref = prefixed_string(
+            request.get("state_root_ref"),
+            "state_root_ref",
+            "agentgres://state-root/",
+            400,
+        )?;
+        let artifact_refs = prefixed_refs(
+            unique_strings_raw(request.get("artifact_refs")),
+            "artifact_refs",
+            "artifact://",
+            true,
+            400,
+        )?;
         let archive_ref = optional_value(request.get("archive_ref"));
         let restore_ref = optional_value(request.get("restore_ref"));
 
-        assert_operation_specific_refs(&operation_kind, archive_ref.as_deref(), restore_ref.as_deref())?;
+        assert_operation_specific_refs(
+            &operation_kind,
+            archive_ref.as_deref(),
+            restore_ref.as_deref(),
+        )?;
 
         let family_targets = family_target_refs(&operation_family, request)?;
-        let family_target_ref =
-            family_targets.iter().find(|(k, _)| k == "target_ref").map(|(_, v)| v.clone()).unwrap_or(Value::Null);
+        let family_target_ref = family_targets
+            .iter()
+            .find(|(k, _)| k == "target_ref")
+            .map(|(_, v)| v.clone())
+            .unwrap_or(Value::Null);
         let target_ref = match optional_value(request.get("target_ref")) {
             Some(value) => Value::String(value),
             None => family_target_ref,
         };
 
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
-            format!("hypervisor-approved-operation:{}:{}", safe_id(&operation_family), safe_id(&proposal_ref))
+            format!(
+                "hypervisor-approved-operation:{}:{}",
+                safe_id(&operation_family),
+                safe_id(&proposal_ref)
+            )
         });
         let executor_kind = executor_kind_for(&operation_family);
 
@@ -190,11 +250,17 @@ impl RuntimeHypervisorApprovedOperationAdmissionCore {
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
 
         let mut out = Map::new();
-        out.insert("schema_version".to_string(), json!(HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION));
+        out.insert(
+            "schema_version".to_string(),
+            json!(HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION),
+        );
         out.insert("admission_id".to_string(), json!(admission_id));
         out.insert("operation_family".to_string(), json!(operation_family));
         out.insert("proposal_ref".to_string(), json!(proposal_ref));
-        out.insert("proposal_schema_version".to_string(), json!(proposal_schema_version));
+        out.insert(
+            "proposal_schema_version".to_string(),
+            json!(proposal_schema_version),
+        );
         out.insert("proposal_source".to_string(), json!(proposal_source));
         out.insert("project_ref".to_string(), json!(project_ref));
         for (key, value) in &family_targets {
@@ -203,22 +269,43 @@ impl RuntimeHypervisorApprovedOperationAdmissionCore {
         out.insert("operation_kind".to_string(), json!(operation_kind));
         out.insert("target_ref".to_string(), target_ref);
         out.insert("decision".to_string(), json!("admitted"));
-        out.insert("execution_status".to_string(), json!("admitted_for_execution"));
+        out.insert(
+            "execution_status".to_string(),
+            json!("admitted_for_execution"),
+        );
         out.insert("executor_kind".to_string(), json!(executor_kind));
         out.insert(
             "execution_plan_ref".to_string(),
-            execution_plan.get("execution_plan_ref").cloned().unwrap_or(Value::Null),
+            execution_plan
+                .get("execution_plan_ref")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
         out.insert(
             "execution_dispatch_ref".to_string(),
-            execution_plan.get("dispatch_ref").cloned().unwrap_or(Value::Null),
+            execution_plan
+                .get("dispatch_ref")
+                .cloned()
+                .unwrap_or(Value::Null),
         );
         out.insert("execution_plan".to_string(), execution_plan);
-        out.insert("wallet_approval_ref".to_string(), json!(wallet_approval_ref));
+        out.insert(
+            "wallet_approval_ref".to_string(),
+            json!(wallet_approval_ref),
+        );
         out.insert("wallet_lease_ref".to_string(), json!(wallet_lease_ref));
-        out.insert("required_scope_refs".to_string(), json!(required_scope_refs));
-        out.insert("authority_receipt_refs".to_string(), json!(authority_receipt_refs));
-        out.insert("agentgres_operation_refs".to_string(), json!(agentgres_operation_refs));
+        out.insert(
+            "required_scope_refs".to_string(),
+            json!(required_scope_refs),
+        );
+        out.insert(
+            "authority_receipt_refs".to_string(),
+            json!(authority_receipt_refs),
+        );
+        out.insert(
+            "agentgres_operation_refs".to_string(),
+            json!(agentgres_operation_refs),
+        );
         out.insert("artifact_refs".to_string(), json!(artifact_refs));
         out.insert("receipt_refs".to_string(), json!(receipt_refs));
         out.insert("state_root_ref".to_string(), json!(state_root_ref));
@@ -264,7 +351,10 @@ fn build_execution_plan(plan: BuildExecutionPlan) -> Value {
         safe_id(plan.admission_id)
     );
     let mut out = Map::new();
-    out.insert("schema_version".to_string(), json!(HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION));
+    out.insert(
+        "schema_version".to_string(),
+        json!(HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION),
+    );
     out.insert("execution_plan_ref".to_string(), json!(plan_ref));
     out.insert("dispatch_ref".to_string(), json!(dispatch_ref));
     out.insert("executor_kind".to_string(), json!(plan.executor_kind));
@@ -279,9 +369,18 @@ fn build_execution_plan(plan: BuildExecutionPlan) -> Value {
     }
     out.insert("target_ref".to_string(), plan.target_ref.clone());
     out.insert("wallet_lease_ref".to_string(), json!(plan.wallet_lease_ref));
-    out.insert("required_scope_refs".to_string(), json!(plan.required_scope_refs));
-    out.insert("authority_receipt_refs".to_string(), json!(plan.authority_receipt_refs));
-    out.insert("agentgres_operation_refs".to_string(), json!(plan.agentgres_operation_refs));
+    out.insert(
+        "required_scope_refs".to_string(),
+        json!(plan.required_scope_refs),
+    );
+    out.insert(
+        "authority_receipt_refs".to_string(),
+        json!(plan.authority_receipt_refs),
+    );
+    out.insert(
+        "agentgres_operation_refs".to_string(),
+        json!(plan.agentgres_operation_refs),
+    );
     out.insert("artifact_refs".to_string(), json!(plan.artifact_refs));
     out.insert("receipt_refs".to_string(), json!(plan.receipt_refs));
     out.insert("state_root_ref".to_string(), json!(plan.state_root_ref));
@@ -305,20 +404,48 @@ fn executor_kind_for(operation_family: &str) -> &'static str {
     }
 }
 
-fn family_target_refs(operation_family: &str, request: &Value) -> AdmitResult<Vec<(String, Value)>> {
+fn family_target_refs(
+    operation_family: &str,
+    request: &Value,
+) -> AdmitResult<Vec<(String, Value)>> {
     let opt = |field: &str| -> Value { value_or_null(&optional_value(request.get(field))) };
     let pair = |key: &str, value: Value| (key.to_string(), value);
     match operation_family {
         "session" => Ok(vec![
-            pair("session_ref", json!(required_string(request.get("session_ref"), "session_ref", 400)?)),
-            pair("environment_ref", json!(required_string(request.get("environment_ref"), "environment_ref", 400)?)),
+            pair(
+                "session_ref",
+                json!(required_string(
+                    request.get("session_ref"),
+                    "session_ref",
+                    400
+                )?),
+            ),
+            pair(
+                "environment_ref",
+                json!(required_string(
+                    request.get("environment_ref"),
+                    "environment_ref",
+                    400
+                )?),
+            ),
             pair(
                 "provider_candidate_ref",
-                json!(required_string(request.get("provider_candidate_ref"), "provider_candidate_ref", 400)?),
+                json!(required_string(
+                    request.get("provider_candidate_ref"),
+                    "provider_candidate_ref",
+                    400
+                )?),
             ),
             pair("candidate_ref", Value::Null),
             pair("direct_provider_ref", Value::Null),
-            pair("target_ref", json!(required_string(request.get("target_ref"), "target_ref", 400)?)),
+            pair(
+                "target_ref",
+                json!(required_string(
+                    request.get("target_ref"),
+                    "target_ref",
+                    400
+                )?),
+            ),
         ]),
         "provider" => {
             let provider_candidate = optional_value(request.get("provider_candidate_ref"))
@@ -329,10 +456,21 @@ fn family_target_refs(operation_family: &str, request: &Value) -> AdmitResult<Ve
                 pair("session_ref", opt("session_ref")),
                 pair("environment_ref", opt("environment_ref")),
                 pair("provider_candidate_ref", value_or_null(&provider_candidate)),
-                pair("candidate_ref", json!(required_string(request.get("candidate_ref"), "candidate_ref", 400)?)),
+                pair(
+                    "candidate_ref",
+                    json!(required_string(
+                        request.get("candidate_ref"),
+                        "candidate_ref",
+                        400
+                    )?),
+                ),
                 pair(
                     "direct_provider_ref",
-                    json!(required_string(request.get("direct_provider_ref"), "direct_provider_ref", 400)?),
+                    json!(required_string(
+                        request.get("direct_provider_ref"),
+                        "direct_provider_ref",
+                        400
+                    )?),
                 ),
                 pair("target_ref", value_or_null(&target)),
             ])
@@ -346,27 +484,53 @@ fn family_target_refs(operation_family: &str, request: &Value) -> AdmitResult<Ve
                 pair("provider_candidate_ref", opt("provider_candidate_ref")),
                 pair("candidate_ref", Value::Null),
                 pair("direct_provider_ref", Value::Null),
-                pair("workspace_ref", json!(required_string(request.get("workspace_ref"), "workspace_ref", 400)?)),
+                pair(
+                    "workspace_ref",
+                    json!(required_string(
+                        request.get("workspace_ref"),
+                        "workspace_ref",
+                        400
+                    )?),
+                ),
                 pair("target_ref", value_or_null(&target)),
             ])
         }
         "automation" => {
-            let launch_action_input =
-                request.get("launch_action_ref").or_else(|| request.get("action_proposal_ref"));
+            let launch_action_input = request
+                .get("launch_action_ref")
+                .or_else(|| request.get("action_proposal_ref"));
             let launch_action_ref = required_string(launch_action_input, "launch_action_ref", 400)?;
-            let target = optional_value(request.get("target_ref")).unwrap_or_else(|| launch_action_ref.clone());
+            let target = optional_value(request.get("target_ref"))
+                .unwrap_or_else(|| launch_action_ref.clone());
             Ok(vec![
                 pair("session_ref", opt("session_ref")),
                 pair("environment_ref", opt("environment_ref")),
                 pair("provider_candidate_ref", opt("provider_candidate_ref")),
                 pair("candidate_ref", Value::Null),
                 pair("direct_provider_ref", Value::Null),
-                pair("template_ref", json!(required_string(request.get("template_ref"), "template_ref", 400)?)),
-                pair("run_recipe_ref", json!(required_string(request.get("run_recipe_ref"), "run_recipe_ref", 400)?)),
+                pair(
+                    "template_ref",
+                    json!(required_string(
+                        request.get("template_ref"),
+                        "template_ref",
+                        400
+                    )?),
+                ),
+                pair(
+                    "run_recipe_ref",
+                    json!(required_string(
+                        request.get("run_recipe_ref"),
+                        "run_recipe_ref",
+                        400
+                    )?),
+                ),
                 pair("graph_ref", opt("graph_ref")),
                 pair("launch_action_ref", json!(launch_action_ref)),
                 pair("action_proposal_ref", json!(launch_action_ref)),
-                pair("context_chamber_refs", json!(unique_strings_raw(request.get("context_chamber_refs")))),
+                pair(
+                    "context_chamber_refs",
+                    json!(unique_strings_raw(request.get("context_chamber_refs"))),
+                ),
                 pair("target_ref", json!(target)),
             ])
         }
@@ -406,7 +570,8 @@ fn assert_operation_specific_refs(
         if !restore_ref.starts_with("agentgres://restore/") {
             return Err(error_400(
                 "hypervisor_approved_operation_restore_ref_prefix_invalid",
-                "Restore refs for approved Hypervisor operations must be Agentgres restore refs.".to_string(),
+                "Restore refs for approved Hypervisor operations must be Agentgres restore refs."
+                    .to_string(),
                 json!({ "operation_kind": operation_kind, "restore_ref": restore_ref, "expected_prefix": "agentgres://restore/" }),
             ));
         }
@@ -424,7 +589,13 @@ fn refs_from(plural: Option<&Value>, singular: Option<&Value>) -> Vec<String> {
     unique_strings_from_values(&combined)
 }
 
-fn prefixed_refs(refs: Vec<String>, field: &str, prefix: &str, allow_empty: bool, status: u16) -> AdmitResult<Vec<String>> {
+fn prefixed_refs(
+    refs: Vec<String>,
+    field: &str,
+    prefix: &str,
+    allow_empty: bool,
+    status: u16,
+) -> AdmitResult<Vec<String>> {
     if !allow_empty && refs.is_empty() {
         return Err(RuntimeHypervisorApprovedOperationAdmissionError::new(
             status,
@@ -446,7 +617,12 @@ fn prefixed_refs(refs: Vec<String>, field: &str, prefix: &str, allow_empty: bool
     Ok(refs)
 }
 
-fn prefixed_string(value: Option<&Value>, field: &str, prefix: &str, status: u16) -> AdmitResult<String> {
+fn prefixed_string(
+    value: Option<&Value>,
+    field: &str,
+    prefix: &str,
+    status: u16,
+) -> AdmitResult<String> {
     let text = required_string(value, field, status)?;
     if !text.starts_with(prefix) {
         return Err(RuntimeHypervisorApprovedOperationAdmissionError::new(
@@ -475,7 +651,10 @@ fn required_string(value: Option<&Value>, field: &str, status: u16) -> AdmitResu
     optional_value(value).ok_or_else(|| required_field_error(field, status))
 }
 
-fn required_field_error(field: &str, status: u16) -> RuntimeHypervisorApprovedOperationAdmissionError {
+fn required_field_error(
+    field: &str,
+    status: u16,
+) -> RuntimeHypervisorApprovedOperationAdmissionError {
     RuntimeHypervisorApprovedOperationAdmissionError::new(
         status,
         "hypervisor_approved_operation_required_field_missing",
@@ -502,7 +681,11 @@ fn assert_no_retired_aliases(request: &Value) -> AdmitResult<()> {
     ))
 }
 
-fn error_400(code: &str, message: String, details: Value) -> RuntimeHypervisorApprovedOperationAdmissionError {
+fn error_400(
+    code: &str,
+    message: String,
+    details: Value,
+) -> RuntimeHypervisorApprovedOperationAdmissionError {
     RuntimeHypervisorApprovedOperationAdmissionError::new(400, code, message, details)
 }
 
@@ -553,7 +736,11 @@ fn unique_strings_from_values(values: &[Value]) -> Vec<String> {
 
 fn normalize_array_raw(value: Option<&Value>) -> Vec<Value> {
     match value {
-        Some(Value::Array(items)) => items.iter().filter(|item| is_truthy(item)).cloned().collect(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter(|item| is_truthy(item))
+            .cloned()
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -594,7 +781,11 @@ fn js_number_to_string(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity".to_string() } else { "-Infinity".to_string() };
+        return if value > 0.0 {
+            "Infinity".to_string()
+        } else {
+            "-Infinity".to_string()
+        };
     }
     let negative = value < 0.0;
     let magnitude = value.abs();
@@ -660,13 +851,14 @@ fn is_js_whitespace(ch: char) -> bool {
             | '\u{0020}'
             | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
-            | '\u{FEFF}'
+            | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
     )
 }
 
@@ -719,7 +911,10 @@ mod tests {
         let admission = RuntimeHypervisorApprovedOperationAdmissionCore
             .admit(&session_request(), "2026-06-18T00:00:00.000Z")
             .expect("admitted");
-        assert_eq!(admission["schema_version"], HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission["schema_version"],
+            HYPERVISOR_APPROVED_OPERATION_ADMISSION_SCHEMA_VERSION
+        );
         assert_eq!(admission["decision"], "admitted");
         assert_eq!(admission["executor_kind"], "session_lifecycle_adapter");
         assert_eq!(admission["candidate_ref"], Value::Null);
@@ -728,7 +923,10 @@ mod tests {
             "hypervisor-approved-operation:session:proposal_session_1"
         );
         let plan = &admission["execution_plan"];
-        assert_eq!(plan["schema_version"], HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION);
+        assert_eq!(
+            plan["schema_version"],
+            HYPERVISOR_APPROVED_OPERATION_EXECUTION_PLAN_SCHEMA_VERSION
+        );
         assert_eq!(plan["dispatch_status"], "awaiting_executor");
         assert_eq!(admission["execution_plan_ref"], plan["execution_plan_ref"]);
         assert_eq!(admission["execution_dispatch_ref"], plan["dispatch_ref"]);
@@ -738,16 +936,23 @@ mod tests {
     fn rejects_proposal_source_mismatch() {
         let mut request = session_request();
         request["proposal_source"] = json!("local-fixture");
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "hypervisor_approved_operation_proposal_source_not_admissible");
+        assert_eq!(
+            error.code,
+            "hypervisor_approved_operation_proposal_source_not_admissible"
+        );
     }
 
     #[test]
     fn rejects_schema_mismatch() {
         let mut request = session_request();
         request["proposal_schema_version"] = json!("ioi.hypervisor.provider_operation_proposal.v1");
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "hypervisor_approved_operation_schema_mismatch");
     }
@@ -756,18 +961,28 @@ mod tests {
     fn wallet_approval_prefix_is_403() {
         let mut request = session_request();
         request["wallet_approval_ref"] = json!("approval://other/1");
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "hypervisor_approved_operation_ref_prefix_invalid");
+        assert_eq!(
+            error.code,
+            "hypervisor_approved_operation_ref_prefix_invalid"
+        );
     }
 
     #[test]
     fn required_scope_missing_is_403() {
         let mut request = session_request();
         request["required_scope_refs"] = json!([]);
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "hypervisor_approved_operation_required_refs_missing");
+        assert_eq!(
+            error.code,
+            "hypervisor_approved_operation_required_refs_missing"
+        );
     }
 
     #[test]
@@ -804,16 +1019,23 @@ mod tests {
     fn archive_required_for_zero_to_idle() {
         let mut request = session_request();
         request["operation_kind"] = json!("zero_to_idle");
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("blocked");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("blocked");
         assert_eq!(error.status, 400);
-        assert_eq!(error.code, "hypervisor_approved_operation_archive_ref_required");
+        assert_eq!(
+            error.code,
+            "hypervisor_approved_operation_archive_ref_required"
+        );
     }
 
     #[test]
     fn rejects_retired_aliases() {
         let mut request = session_request();
         request["proposalRef"] = json!("legacy");
-        let error = RuntimeHypervisorApprovedOperationAdmissionCore.admit(&request, "now").expect_err("retired");
+        let error = RuntimeHypervisorApprovedOperationAdmissionCore
+            .admit(&request, "now")
+            .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "hypervisor_approved_operation_retired_alias");
     }

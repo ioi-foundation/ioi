@@ -26,6 +26,13 @@ Short form:
 
 > **No actuator command is a generic tool call.**
 
+Physical Action Safety must be independently enforceable from the ML policy,
+planner, VLA, runtime adapter, or teacher model that proposes motion. It may be
+implemented beside a local control bridge, safety controller, verified adapter,
+or facility safety system, but it is not merely a library linked into the policy
+process. The policy can suggest action; the safety layer can deny, clip, stop,
+or require handoff.
+
 ## Owns
 
 This document owns the canonical meaning and minimal object model for:
@@ -62,6 +69,11 @@ Physical Action Safety defines the required safety objects and receipts.
 wallet.network authorizes power. The Hypervisor Daemon gates execution.
 Agentgres records admitted truth. IOI L1 settles only when public, economic,
 rights, dispute, or cross-domain commitments require it.
+
+wallet.network belongs to mission admission, authority, spend, scope, and
+revocation. It should not sit in the millisecond actuator loop. A cached
+authority result may permit the run to proceed, but local Physical Action
+Safety retains the final real-time veto for motion.
 
 ## Lifecycle
 
@@ -287,6 +299,10 @@ A conforming implementation must ensure:
 - Letting raw model output control an actuator.
 - Treating SMS, chat, or email text as physical-action authority.
 - Calling a simulation result an execution receipt.
+- Treating a Foundry embodied package, runtime candidate, VLM, VLA, or action
+  policy as an actuator authority grant.
+- Embedding the only safety decision inside the same policy process that emits
+  motor actions.
 - Treating a hardware TEE or cTEE private workspace as physical safety.
 - Using IOI L1 settlement as a substitute for local emergency stop.
 - Storing sensor video or actuator logs as raw blobs without Agentgres refs and

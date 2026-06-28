@@ -32,7 +32,10 @@ pub(crate) struct VmSpec {
 /// can match it). Falls back to a hash if the id would push the path over the limit.
 pub(crate) fn short_sock_path(env_id: &str) -> PathBuf {
     let dir = std::env::var("IOI_VM_SOCK_DIR").unwrap_or_else(|_| "/tmp".to_string());
-    let safe: String = env_id.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').collect();
+    let safe: String = env_id
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect();
     let candidate = Path::new(&dir).join(format!("ioivm-{safe}.sock"));
     if candidate.to_string_lossy().len() <= 100 {
         candidate
@@ -68,15 +71,24 @@ pub(crate) enum Conn {
 }
 impl Read for Conn {
     fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
-        match self { Conn::Uds(s) => s.read(b), Conn::Vsock(s) => s.read(b) }
+        match self {
+            Conn::Uds(s) => s.read(b),
+            Conn::Vsock(s) => s.read(b),
+        }
     }
 }
 impl Write for Conn {
     fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-        match self { Conn::Uds(s) => s.write(b), Conn::Vsock(s) => s.write(b) }
+        match self {
+            Conn::Uds(s) => s.write(b),
+            Conn::Vsock(s) => s.write(b),
+        }
     }
     fn flush(&mut self) -> std::io::Result<()> {
-        match self { Conn::Uds(s) => s.flush(), Conn::Vsock(s) => s.flush() }
+        match self {
+            Conn::Uds(s) => s.flush(),
+            Conn::Vsock(s) => s.flush(),
+        }
     }
 }
 
@@ -87,18 +99,32 @@ pub(crate) struct VsockStream {
 impl Read for VsockStream {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let n = unsafe { libc::read(self.fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
-        if n < 0 { Err(std::io::Error::last_os_error()) } else { Ok(n as usize) }
+        if n < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(n as usize)
+        }
     }
 }
 impl Write for VsockStream {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let n = unsafe { libc::write(self.fd, buf.as_ptr() as *const libc::c_void, buf.len()) };
-        if n < 0 { Err(std::io::Error::last_os_error()) } else { Ok(n as usize) }
+        if n < 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(n as usize)
+        }
     }
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 impl Drop for VsockStream {
-    fn drop(&mut self) { unsafe { libc::close(self.fd); } }
+    fn drop(&mut self) {
+        unsafe {
+            libc::close(self.fd);
+        }
+    }
 }
 
 /// Connect to the guest agent over AF_VSOCK (cid, port). Used by the QEMU lane.
@@ -106,9 +132,15 @@ fn af_vsock_connect(cid: u32, port: u32) -> Result<VsockStream, String> {
     unsafe {
         let fd = libc::socket(libc::AF_VSOCK, libc::SOCK_STREAM, 0);
         if fd < 0 {
-            return Err(format!("socket(AF_VSOCK): {}", std::io::Error::last_os_error()));
+            return Err(format!(
+                "socket(AF_VSOCK): {}",
+                std::io::Error::last_os_error()
+            ));
         }
-        let tv = libc::timeval { tv_sec: 180, tv_usec: 0 };
+        let tv = libc::timeval {
+            tv_sec: 180,
+            tv_usec: 0,
+        };
         let tvp = &tv as *const libc::timeval as *const libc::c_void;
         let tvl = std::mem::size_of::<libc::timeval>() as libc::socklen_t;
         libc::setsockopt(fd, libc::SOL_SOCKET, libc::SO_RCVTIMEO, tvp, tvl);
@@ -133,7 +165,10 @@ fn af_vsock_connect(cid: u32, port: u32) -> Result<VsockStream, String> {
 
 /// Allocate a guest CID for a QEMU VM (vhost-vsock CIDs are a global host resource).
 fn alloc_guest_cid() -> u32 {
-    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     19 + (nanos % 4_000_000) as u32
 }
 
@@ -153,10 +188,12 @@ pub(crate) trait VmMonitor {
     fn import_workspace(&self, vm: &VmHandle, tar: &[u8]) -> Result<(), String> {
         let mut s = self.connect(vm)?;
         s.write_all(b"I").map_err(|e| e.to_string())?;
-        s.write_all(&(tar.len() as u64).to_le_bytes()).map_err(|e| e.to_string())?;
+        s.write_all(&(tar.len() as u64).to_le_bytes())
+            .map_err(|e| e.to_string())?;
         s.write_all(tar).map_err(|e| format!("import write: {e}"))?;
         let mut o = [0u8; 1];
-        s.read_exact(&mut o).map_err(|e| format!("import ack: {e}"))?;
+        s.read_exact(&mut o)
+            .map_err(|e| format!("import ack: {e}"))?;
         if o[0] != b'O' {
             return Err("import not acknowledged".into());
         }
@@ -167,15 +204,19 @@ pub(crate) trait VmMonitor {
         let mut s = self.connect(vm)?;
         let cb = cmd.as_bytes();
         s.write_all(b"E").map_err(|e| e.to_string())?;
-        s.write_all(&(cb.len() as u32).to_le_bytes()).map_err(|e| e.to_string())?;
+        s.write_all(&(cb.len() as u32).to_le_bytes())
+            .map_err(|e| e.to_string())?;
         s.write_all(cb).map_err(|e| format!("exec write: {e}"))?;
         let mut code = [0u8; 4];
-        s.read_exact(&mut code).map_err(|e| format!("exec code: {e}"))?;
+        s.read_exact(&mut code)
+            .map_err(|e| format!("exec code: {e}"))?;
         let mut ol = [0u8; 4];
-        s.read_exact(&mut ol).map_err(|e| format!("exec outlen: {e}"))?;
+        s.read_exact(&mut ol)
+            .map_err(|e| format!("exec outlen: {e}"))?;
         let outlen = u32::from_le_bytes(ol) as usize;
         let mut out = vec![0u8; outlen];
-        s.read_exact(&mut out).map_err(|e| format!("exec out: {e}"))?;
+        s.read_exact(&mut out)
+            .map_err(|e| format!("exec out: {e}"))?;
         Ok(ExecOut {
             exit_code: i32::from_le_bytes(code),
             output: String::from_utf8_lossy(&out).into_owned(),
@@ -186,10 +227,12 @@ pub(crate) trait VmMonitor {
         let mut s = self.connect(vm)?;
         s.write_all(b"X").map_err(|e| e.to_string())?;
         let mut l = [0u8; 8];
-        s.read_exact(&mut l).map_err(|e| format!("export len: {e}"))?;
+        s.read_exact(&mut l)
+            .map_err(|e| format!("export len: {e}"))?;
         let len = u64::from_le_bytes(l) as usize;
         let mut buf = vec![0u8; len];
-        s.read_exact(&mut buf).map_err(|e| format!("export read: {e}"))?;
+        s.read_exact(&mut buf)
+            .map_err(|e| format!("export read: {e}"))?;
         Ok(buf)
     }
 
@@ -265,7 +308,10 @@ pub(crate) fn select_monitor(recipe: &Value) -> (String, String) {
     if let Some(m) = recipe.get("monitor").and_then(|v| v.as_str()) {
         return (m.to_string(), format!("recipe requested monitor={m}"));
     }
-    let profile = recipe.get("isolation_profile").and_then(|v| v.as_str()).unwrap_or("");
+    let profile = recipe
+        .get("isolation_profile")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     match profile {
         "minimal_sealed" | "short_lived" => (
             "firecracker".to_string(),
@@ -308,19 +354,30 @@ pub(crate) struct Toolchain {
 }
 
 pub(crate) fn resolve_toolchain(home_dir: &str) -> Result<Toolchain, String> {
-    let dir = std::env::var("IOI_VM_TOOLCHAIN_DIR").unwrap_or_else(|_| format!("{home_dir}/.ioi/vm-toolchain"));
+    let dir = std::env::var("IOI_VM_TOOLCHAIN_DIR")
+        .unwrap_or_else(|_| format!("{home_dir}/.ioi/vm-toolchain"));
     let manifest_path = Path::new(&dir).join("supply-manifest.json");
     let raw = std::fs::read(&manifest_path).map_err(|e| {
-        format!("VM supply manifest missing at {} ({e}); run scripts/phase1/provision-vm-toolchain.sh", manifest_path.display())
+        format!(
+            "VM supply manifest missing at {} ({e}); run scripts/phase1/provision-vm-toolchain.sh",
+            manifest_path.display()
+        )
     })?;
-    let manifest: Value = serde_json::from_slice(&raw).map_err(|e| format!("supply manifest parse: {e}"))?;
+    let manifest: Value =
+        serde_json::from_slice(&raw).map_err(|e| format!("supply manifest parse: {e}"))?;
     let verify = |key: &str| -> Result<PathBuf, String> {
         let entry = &manifest[key];
-        let path = entry["path"].as_str().ok_or_else(|| format!("manifest {key}.path"))?;
-        let want = entry["sha256"].as_str().ok_or_else(|| format!("manifest {key}.sha256"))?;
+        let path = entry["path"]
+            .as_str()
+            .ok_or_else(|| format!("manifest {key}.path"))?;
+        let want = entry["sha256"]
+            .as_str()
+            .ok_or_else(|| format!("manifest {key}.sha256"))?;
         let got = sha256_file(Path::new(path))?;
         if got != want {
-            return Err(format!("supply-chain CHECKSUM MISMATCH for {key}: got {got}, pinned {want} — fail closed"));
+            return Err(format!(
+                "supply-chain CHECKSUM MISMATCH for {key}: got {got}, pinned {want} — fail closed"
+            ));
         }
         Ok(PathBuf::from(path))
     };
@@ -343,14 +400,21 @@ pub(crate) fn build_vm_spec(
     mem_mib: u32,
 ) -> Result<VmSpec, String> {
     let tc = resolve_toolchain(home_dir)?; // verifies monitor (CH), kernel, initramfs
-    let dir = std::env::var("IOI_VM_TOOLCHAIN_DIR").unwrap_or_else(|_| format!("{home_dir}/.ioi/vm-toolchain"));
+    let dir = std::env::var("IOI_VM_TOOLCHAIN_DIR")
+        .unwrap_or_else(|_| format!("{home_dir}/.ioi/vm-toolchain"));
     let m = &tc.manifest;
     let verify = |key: &str| -> Result<PathBuf, String> {
-        let path = m[key]["path"].as_str().ok_or_else(|| format!("manifest {key}.path"))?;
-        let want = m[key]["sha256"].as_str().ok_or_else(|| format!("manifest {key}.sha256"))?;
+        let path = m[key]["path"]
+            .as_str()
+            .ok_or_else(|| format!("manifest {key}.path"))?;
+        let want = m[key]["sha256"]
+            .as_str()
+            .ok_or_else(|| format!("manifest {key}.sha256"))?;
         let got = sha256_file(Path::new(path))?;
         if got != want {
-            return Err(format!("supply-chain CHECKSUM MISMATCH for {key}: got {got}, pinned {want}"));
+            return Err(format!(
+                "supply-chain CHECKSUM MISMATCH for {key}: got {got}, pinned {want}"
+            ));
         }
         Ok(PathBuf::from(path))
     };
@@ -360,7 +424,9 @@ pub(crate) fn build_vm_spec(
             // QEMU lane: the relocatable wrapper from provision-qemu.sh, or IOI_QEMU_BIN, or PATH.
             // The MMIO (fc) kernel boots under qemu microvm (same kernel as Firecracker).
             let provisioned = format!("{dir}/qemu/qemu-system-x86_64");
-            let monitor_bin = std::env::var("IOI_QEMU_BIN").ok().map(PathBuf::from)
+            let monitor_bin = std::env::var("IOI_QEMU_BIN")
+                .ok()
+                .map(PathBuf::from)
                 .filter(|p| p.exists())
                 .or_else(|| Some(PathBuf::from(&provisioned)).filter(|p| p.exists()))
                 .unwrap_or_else(|| PathBuf::from("qemu-system-x86_64"));
@@ -370,19 +436,31 @@ pub(crate) fn build_vm_spec(
     };
     // sock_path defaults under run_dir; provision_microvm overrides it with a SUN_LEN-safe path.
     let sock_path = run_dir.join("vsock.uds");
-    Ok(VmSpec { monitor_bin, kernel, initramfs: tc.initramfs.clone(), vcpus, mem_mib, run_dir, sock_path })
+    Ok(VmSpec {
+        monitor_bin,
+        kernel,
+        initramfs: tc.initramfs.clone(),
+        vcpus,
+        mem_mib,
+        run_dir,
+        sock_path,
+    })
 }
 
 fn vsock_connect(uds: &Path) -> Result<UnixStream, String> {
-    let mut s = UnixStream::connect(uds).map_err(|e| format!("vsock connect {}: {e}", uds.display()))?;
+    let mut s =
+        UnixStream::connect(uds).map_err(|e| format!("vsock connect {}: {e}", uds.display()))?;
     s.set_read_timeout(Some(Duration::from_secs(180))).ok();
     s.set_write_timeout(Some(Duration::from_secs(180))).ok();
     // cloud-hypervisor host->guest hybrid handshake: "CONNECT <port>\n" then "OK ...\n".
-    s.write_all(b"CONNECT 1024\n").map_err(|e| format!("vsock connect write: {e}"))?;
+    s.write_all(b"CONNECT 1024\n")
+        .map_err(|e| format!("vsock connect write: {e}"))?;
     let mut line = Vec::new();
     let mut byte = [0u8; 1];
     loop {
-        let n = s.read(&mut byte).map_err(|e| format!("vsock handshake read: {e}"))?;
+        let n = s
+            .read(&mut byte)
+            .map_err(|e| format!("vsock handshake read: {e}"))?;
         if n == 0 {
             return Err("vsock handshake closed".into());
         }
@@ -395,7 +473,10 @@ fn vsock_connect(uds: &Path) -> Result<UnixStream, String> {
         }
     }
     if !line.starts_with(b"OK") {
-        return Err(format!("vsock handshake unexpected: {}", String::from_utf8_lossy(&line)));
+        return Err(format!(
+            "vsock handshake unexpected: {}",
+            String::from_utf8_lossy(&line)
+        ));
     }
     Ok(s)
 }
@@ -411,22 +492,41 @@ impl VmMonitor for CloudHypervisorMonitor {
         let serial_log = spec.run_dir.join("serial.log");
         let _ = std::fs::remove_file(&uds);
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
-        let log2 = log.try_clone().map_err(|e| format!("serial log clone: {e}"))?;
+        let log2 = log
+            .try_clone()
+            .map_err(|e| format!("serial log clone: {e}"))?;
         let child = Command::new(&spec.monitor_bin)
-            .arg("--kernel").arg(&spec.kernel)
-            .arg("--initramfs").arg(&spec.initramfs)
-            .arg("--cmdline").arg("console=ttyS0 reboot=t panic=-1 rdinit=/init quiet")
-            .arg("--vsock").arg(format!("cid=3,socket={}", uds.display()))
-            .arg("--serial").arg("tty").arg("--console").arg("off")
-            .arg("--cpus").arg(format!("boot={}", spec.vcpus.max(1)))
-            .arg("--memory").arg(format!("size={}M", spec.mem_mib.max(256)))
+            .arg("--kernel")
+            .arg(&spec.kernel)
+            .arg("--initramfs")
+            .arg(&spec.initramfs)
+            .arg("--cmdline")
+            .arg("console=ttyS0 reboot=t panic=-1 rdinit=/init quiet")
+            .arg("--vsock")
+            .arg(format!("cid=3,socket={}", uds.display()))
+            .arg("--serial")
+            .arg("tty")
+            .arg("--console")
+            .arg("off")
+            .arg("--cpus")
+            .arg(format!("boot={}", spec.vcpus.max(1)))
+            .arg("--memory")
+            .arg(format!("size={}M", spec.mem_mib.max(256)))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log2))
             .spawn()
             .map_err(|e| format!("spawn cloud-hypervisor: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid: 3 };
+        let mut vm = VmHandle {
+            child,
+            uds,
+            run_dir: spec.run_dir.clone(),
+            serial_log,
+            monitor: self.id(),
+            pid,
+            cid: 3,
+        };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }
@@ -456,16 +556,28 @@ impl VmMonitor for FirecrackerMonitor {
         std::fs::write(&config, serde_json::to_vec_pretty(&cfg).unwrap_or_default())
             .map_err(|e| format!("fc config: {e}"))?;
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
-        let log2 = log.try_clone().map_err(|e| format!("serial log clone: {e}"))?;
+        let log2 = log
+            .try_clone()
+            .map_err(|e| format!("serial log clone: {e}"))?;
         let child = Command::new(&spec.monitor_bin)
-            .arg("--no-api").arg("--config-file").arg(&config)
+            .arg("--no-api")
+            .arg("--config-file")
+            .arg(&config)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log2))
             .spawn()
             .map_err(|e| format!("spawn firecracker: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid: 3 };
+        let mut vm = VmHandle {
+            child,
+            uds,
+            run_dir: spec.run_dir.clone(),
+            serial_log,
+            monitor: self.id(),
+            pid,
+            cid: 3,
+        };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }
@@ -485,7 +597,12 @@ impl VmMonitor for QemuMonitor {
         // QEMU compat/diagnostic lane — a REAL boot (microvm machine + qboot firmware + the MMIO
         // guest kernel + vhost-vsock-device). Fails CLOSED with a precise reason if the qemu binary
         // is absent or /dev/vhost-vsock is not openable (group kvm) — never a fake boot.
-        if Command::new(&spec.monitor_bin).arg("--version").output().map(|o| !o.status.success()).unwrap_or(true) {
+        if Command::new(&spec.monitor_bin)
+            .arg("--version")
+            .output()
+            .map(|o| !o.status.success())
+            .unwrap_or(true)
+        {
             return Err(format!(
                 "qemu host-gated: {} not runnable (provision with scripts/phase1/provision-qemu.sh; \
                  cloud-hypervisor + firecracker are the always-available lanes)",
@@ -493,7 +610,11 @@ impl VmMonitor for QemuMonitor {
             ));
         }
         // vhost-vsock must be openable (root:kvm 0660). The user needs the kvm group / an ACL.
-        match std::fs::OpenOptions::new().read(true).write(true).open("/dev/vhost-vsock") {
+        match std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/vhost-vsock")
+        {
             Ok(_) => {}
             Err(e) => {
                 return Err(format!(
@@ -503,35 +624,64 @@ impl VmMonitor for QemuMonitor {
             }
         }
         // firmware: microvm needs qboot.rom (resolved next to the qemu binary's share/ or via env).
-        let fw = std::env::var("IOI_QEMU_FIRMWARE").ok().map(PathBuf::from).or_else(|| {
-            spec.monitor_bin.parent().map(|d| d.join("share/qboot.rom")).filter(|p| p.exists())
-        });
+        let fw = std::env::var("IOI_QEMU_FIRMWARE")
+            .ok()
+            .map(PathBuf::from)
+            .or_else(|| {
+                spec.monitor_bin
+                    .parent()
+                    .map(|d| d.join("share/qboot.rom"))
+                    .filter(|p| p.exists())
+            });
         let cid = alloc_guest_cid();
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
         let log = std::fs::File::create(&serial_log).map_err(|e| format!("serial log: {e}"))?;
-        let log2 = log.try_clone().map_err(|e| format!("serial log clone: {e}"))?;
+        let log2 = log
+            .try_clone()
+            .map_err(|e| format!("serial log clone: {e}"))?;
         let mut cmd = Command::new(&spec.monitor_bin);
-        cmd.arg("-M").arg("microvm,x-option-roms=off,pic=off,rtc=off")
-            .arg("-enable-kvm").arg("-cpu").arg("host")
-            .arg("-m").arg(format!("{}", spec.mem_mib.max(256)))
-            .arg("-smp").arg(format!("{}", spec.vcpus.max(1)));
+        cmd.arg("-M")
+            .arg("microvm,x-option-roms=off,pic=off,rtc=off")
+            .arg("-enable-kvm")
+            .arg("-cpu")
+            .arg("host")
+            .arg("-m")
+            .arg(format!("{}", spec.mem_mib.max(256)))
+            .arg("-smp")
+            .arg(format!("{}", spec.vcpus.max(1)));
         if let Some(fw) = &fw {
             cmd.arg("-bios").arg(fw);
         }
-        cmd.arg("-kernel").arg(&spec.kernel)
-            .arg("-initrd").arg(&spec.initramfs)
-            .arg("-append").arg("console=ttyS0 reboot=t panic=-1 rdinit=/init")
-            .arg("-device").arg(format!("vhost-vsock-device,guest-cid={cid}"))
-            .arg("-nodefaults").arg("-no-reboot").arg("-display").arg("none")
-            .arg("-serial").arg(format!("file:{}", serial_log.to_string_lossy()))
+        cmd.arg("-kernel")
+            .arg(&spec.kernel)
+            .arg("-initrd")
+            .arg(&spec.initramfs)
+            .arg("-append")
+            .arg("console=ttyS0 reboot=t panic=-1 rdinit=/init")
+            .arg("-device")
+            .arg(format!("vhost-vsock-device,guest-cid={cid}"))
+            .arg("-nodefaults")
+            .arg("-no-reboot")
+            .arg("-display")
+            .arg("none")
+            .arg("-serial")
+            .arg(format!("file:{}", serial_log.to_string_lossy()))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log2));
         let child = cmd.spawn().map_err(|e| format!("spawn qemu: {e}"))?;
         let pid = child.id();
-        let mut vm = VmHandle { child, uds, run_dir: spec.run_dir.clone(), serial_log, monitor: self.id(), pid, cid };
+        let mut vm = VmHandle {
+            child,
+            uds,
+            run_dir: spec.run_dir.clone(),
+            serial_log,
+            monitor: self.id(),
+            pid,
+            cid,
+        };
         wait_for_agent(&mut vm, 40, self)?;
         Ok(vm)
     }
@@ -540,7 +690,11 @@ impl VmMonitor for QemuMonitor {
 /// tar a host directory into memory (for import). Uses the system tar (busybox-compatible format).
 pub(crate) fn tar_dir(dir: &Path) -> Result<Vec<u8>, String> {
     let out = Command::new("tar")
-        .arg("-cf").arg("-").arg("-C").arg(dir).arg(".")
+        .arg("-cf")
+        .arg("-")
+        .arg("-C")
+        .arg(dir)
+        .arg(".")
         .output()
         .map_err(|e| format!("tar spawn: {e}"))?;
     if !out.status.success() {
@@ -553,13 +707,21 @@ pub(crate) fn tar_dir(dir: &Path) -> Result<Vec<u8>, String> {
 pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
     let mut child = Command::new("tar")
-        .arg("-xf").arg("-").arg("-C").arg(dir)
+        .arg("-xf")
+        .arg("-")
+        .arg("-C")
+        .arg(dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("tar -x spawn: {e}"))?;
-    child.stdin.take().unwrap().write_all(tar).map_err(|e| format!("tar -x write: {e}"))?;
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(tar)
+        .map_err(|e| format!("tar -x write: {e}"))?;
     let status = child.wait().map_err(|e| format!("tar -x wait: {e}"))?;
     if !status.success() {
         return Err("tar -x failed".into());
