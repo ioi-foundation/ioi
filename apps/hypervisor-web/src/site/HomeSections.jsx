@@ -69,7 +69,7 @@ function HeroPanel() {
   ];
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ position: "absolute", inset: "-8% -6%", background: "url(../assets/textures/pistachio-noise.png) center/cover", borderRadius: "var(--radius-card)", opacity: 0.9 }} />
+      <div style={{ position: "absolute", inset: "-8% -6%", background: "url(/assets/textures/pistachio-noise.png) center/cover", borderRadius: "var(--radius-card)", opacity: 0.9 }} />
       <SCard style={{ position: "relative", padding: 0, overflow: "hidden", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: "0.5px solid var(--color-grey-500)" }}>
           <span style={{ width: 22, height: 22, color: "var(--color-onyx-black)" }}><NS.Logo size={22} /></span>

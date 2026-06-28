@@ -7863,7 +7863,7 @@ function HeroPanel() {
     style: {
       position: "absolute",
       inset: "-8% -6%",
-      background: "url(../assets/textures/pistachio-noise.png) center/cover",
+      background: "url(/assets/textures/pistachio-noise.png) center/cover",
       borderRadius: "var(--radius-card)",
       opacity: 0.9
     }
@@ -18757,7 +18757,7 @@ function HomeScreen({
       overflow: "hidden",
       border: "0.5px solid var(--color-grey-500)",
       aspectRatio: "455/256",
-      background: "url(../../assets/textures/pistachio-noise.png) center/cover"
+      background: "url(/assets/textures/pistachio-noise.png) center/cover"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
