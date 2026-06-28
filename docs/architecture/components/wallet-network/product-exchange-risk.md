@@ -1272,6 +1272,8 @@ an agent-prediction machine with open-ended authority
 a blanket post-quantum safety wrapper for legacy chains
 a receipt UI without machine-verifiable receipt binding
 an app database for exchange history outside Agentgres-backed truth
+a per-approval, per-connector, or per-authority-grant toll booth for ordinary
+IAM-style authority
 ```
 
 Correct model:

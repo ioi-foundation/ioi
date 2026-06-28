@@ -1057,6 +1057,12 @@ product pitch or routine onboarding flow.
   worker instance available by per-invocation use, warm runtime allocation, or
   zero-to-idle restore policy. It does not make aiagent.xyz or ioi.ai the
   execution runtime.
+- `WorkCredit`: the broad product usage and budget abstraction for managed
+  autonomous work across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz, and related
+  first-party product flows. It may meter model, runtime, GPU, connector, MCP,
+  storage, replay, Foundry, automation, conductor, worker, verifier, service,
+  and audit usage. It is not necessarily the final settlement asset and should
+  not be treated as a protocol token by default.
 - `Model`: a cognition backend mounted or invoked by a worker. Models are not
   the economic actor by themselves. Model routing belongs to the runtime/node
   contract; model weights or provider endpoints are mounted by deployment

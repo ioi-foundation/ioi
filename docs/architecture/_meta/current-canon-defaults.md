@@ -97,6 +97,16 @@ synchronized.
   mined; Foundry proposes or builds reusable capability; aiagent.xyz/MoW
   attributes external supply when marketplace workers contribute; future
   work routes better under policy, authority, receipts, and replay;
+- IOI's economic flywheel should monetize product surfaces rather than
+  substrate primitives. Work Credits are the broad product usage and budget
+  abstraction across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz, Foundry jobs,
+  managed runtime, model/connector/GPU use, marketplace invocation, service
+  delivery, verifier work, and audit/replay costs. Agentgres is bundled
+  operational truth infrastructure, ordinary wallet.network authority is
+  bundled safety infrastructure, wallet.network revenue capture concentrates
+  on swaps/trades/payments/exchange/value movement, and IOI L1/token/BME
+  economics should attach to public coordination only after verified work
+  demand and marketplace liquidity exist;
 - Intelligent blockchains are self-driving bounded actors: stateful
   autonomous-system domains that can monitor state, route work, request
   authority, recover, improve future behavior, and settle what matters only

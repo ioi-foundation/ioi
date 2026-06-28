@@ -53,6 +53,10 @@ Ecosystem assurance, certification, compliance, liability, or audit exports
 Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
   -> components/hypervisor/providers-and-environments.md
 
+Pricing boundaries, Work Credits, marketplace fees, token/BME timing, or
+  whether a substrate should monetize
+  -> foundations/economic-flywheel-and-pricing-boundaries.md
+
 ioi.ai multi-model goal pursuit, Stockfish-style coding search, or
 goal-appropriate collaborative outcomes
   -> domains/ioi-ai/collaborative-outcome-pattern.md

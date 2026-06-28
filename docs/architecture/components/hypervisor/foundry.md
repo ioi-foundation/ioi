@@ -39,6 +39,8 @@ a wallet or authority layer
 an Agentgres replacement
 a generic notebook product
 a model provider monopoly
+a separate top-level business by default when it is functioning as a Hypervisor
+surface and Work Credit usage lane
 ```
 
 ## Owns

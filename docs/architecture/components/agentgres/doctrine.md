@@ -149,6 +149,7 @@ Agentgres does not own:
 - raw source-system payload authority;
 - connector mapping authority without an admitted authority grant, policy
   decision, or governance owner ref;
+- first-party product pricing, billing strategy, or separate SKU ownership;
 - the physical compute resource;
 - every local UI hover/draft state;
 - private working memory unless promoted;
@@ -170,6 +171,12 @@ semantics. Storage backends own payload byte availability. IOI L1 owns public
 settlement and rights. Hypervisor Nodes coordinate local settlement and interop,
 but their operational truth is still recorded through Agentgres/domain
 operations rather than client UI state.
+
+Agentgres may record usage, payout, royalty, billing, entitlement, dispute,
+settlement, and ContributionReceipt state for the domains it serves. Recording
+economic truth does not make Agentgres the monetization surface. In the
+first-party stack, routine Agentgres writes, projections, refs, and receipts are
+bundled substrate under the product surface that depends on them.
 
 ## Memory And Agent Wiki Boundary
 

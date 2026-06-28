@@ -34,6 +34,7 @@ aiagent managed workers / sas service outcomes
 physical or embodied action safety
 ecosystem assurance / certification / compliance / liability
 provider integrations across local, cloud, DePIN, storage, and HypervisorOS
+economic flywheel / pricing boundaries / Work Credits
 ```
 
 The core doctrine is:
@@ -295,6 +296,7 @@ distilled back into this architecture pack or into an accepted decision record.
 ## High-Level Canonical Spec Files
 
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
+- [`economic-flywheel-and-pricing-boundaries.md`](./foundations/economic-flywheel-and-pricing-boundaries.md) — stack-wide economic boundaries, Work Credits, product-surface monetization, substrate bundling, marketplace fee legitimacy, wallet.network value-flow revenue boundaries, Agentgres pricing non-boundaries, and token/BME timing.
 - [`domains/decentralized/README.md`](./domains/decentralized/README.md) — active decentralized.exchange and decentralized.trade doctrine for routing liquidity and exposure without becoming authority or trust roots; Hypervisor provider integrations remain direct and are covered by Hypervisor Environments / Providers canon.
 - [`aiip.md`](./foundations/aiip.md) — AIIP work interop protocol, bounded execution domains, profiles, packets, and handoff semantics.
 - [`physical-action-safety.md`](./foundations/physical-action-safety.md) — physical-action safety envelopes, independent local safety veto, human supervision, emergency stop, sensor evidence, actuator command receipts, and incident hooks for embodied workers.
@@ -375,6 +377,7 @@ supporting file.
 | Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
 | Domain Ontologies, Data Recipes, and ODK | Semantic data plane plus ontology-aware builder kit that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training/evaluation/runtime/projection truth and repeatable generated surfaces, domain apps, eval packs, workers, and packages. |
 | Ecosystem Assurance | Cross-domain profile, evidence, certification, compliance, quarantine, liability, and commercial export layer that makes autonomous systems institutionally legible without owning execution, authority, truth, marketplace state, or settlement. |
+| Economic Flywheel | Product surfaces monetize useful work, managed execution, distribution, trust, and value movement; substrate layers meter, prove, authorize, record, or settle without becoming separate toll booths. Work Credits are the broad product usage abstraction; token/BME mechanics wait for verified work demand and liquidity. |
 | Domain Kernel | Application-domain policy/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
@@ -505,3 +508,10 @@ Assurance Plane
     system, insurance adjudicator, or settlement layer. Certification badges,
     policy packs, audit exports, and quarantine advisories must route action
     through the owning domain.
+30. Product surfaces monetize; substrate layers meter, prove, authorize,
+    record, or settle. Hypervisor, ioi.ai, aiagent.xyz, and sas.xyz may charge
+    for product value, managed execution, distribution, commercial trust, and
+    value movement. Agentgres is bundled operational truth infrastructure,
+    wallet.network ordinary authority is bundled safety infrastructure, and IOI
+    L1/token/BME economics should attach to public coordination only after real
+    verified work demand exists.
