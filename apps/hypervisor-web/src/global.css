@@ -1,0 +1,42 @@
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-white);
+  color: var(--color-onyx-black);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--color-pistachio-green);
+}
+
+.hypervisor-web-loading,
+.hypervisor-web-error {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  font-family: var(--font-sans);
+  color: var(--color-grey-800);
+}
+
+.hypervisor-web-error {
+  color: var(--color-onyx-black);
+}

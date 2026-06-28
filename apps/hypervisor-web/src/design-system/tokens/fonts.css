@@ -1,0 +1,44 @@
+/* IOI webfonts — ABC Diatype (sans), ABC Diatype Mono (semi-mono), Martina Plantijn (serif display) */
+
+@font-face {
+  font-family: "ABC Diatype";
+  src: url("../assets/fonts/ABCDiatype-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ABC Diatype";
+  src: url("../assets/fonts/ABCDiatype-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ABC Diatype Mono";
+  src: url("../assets/fonts/ABCDiatypeSemi-Mono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ABC Diatype Mono";
+  src: url("../assets/fonts/ABCDiatypeSemi-Mono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Martina Plantijn";
+  src: url("../assets/fonts/Martina-Plantijn-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IOI Display";
+  src: url("../assets/fonts/IOI.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

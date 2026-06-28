@@ -1,0 +1,59 @@
+/* IOI color system — extracted from ioi.com.
+   Light-first. Onyx black ink, a fine greyscale ramp, a restrained green link accent,
+   and a small set of pastel "decorative" hues used sparingly in illustration. */
+
+:root {
+  /* ---- Base ink & paper ---- */
+  --color-onyx-black: #0a0e19;   /* primary ink, dark fills, dark surfaces */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ---- Greyscale ramp (light → dark) ---- */
+  --color-porcelain-grey: #f9f9f9; /* page tint / subtle surface */
+  --color-grey-400: #f2f2f2;       /* secondary button fill, pill bg */
+  --color-grey-450: #ececec;       /* hover surface */
+  --color-grey-500: #e1e1e1;       /* hairline borders */
+  --color-grey-600: #cecece;       /* stronger borders / disabled */
+  --color-grey-700: #818181;       /* tertiary text */
+  --color-grey-800: #636363;       /* secondary / body-muted text */
+  --color-grey-900: #1f1f1f;       /* near-black UI text */
+
+  /* ---- Green accent (links, "live"/positive) ---- */
+  --color-link-green: #397554;     /* inline links, primary accent */
+  --color-fern-green: #3e7f5c;     /* link hover / brighter accent */
+  --color-pistachio-green: #dbefdb;/* soft green surface */
+  --color-moss-green: #1e3c2c;     /* deep green, illustration */
+
+  /* ---- Decorative pastels (illustration & data only, used sparingly) ---- */
+  --color-pastel-blue: #afc1fd;
+  --color-ocean-blue: #0048ff;
+  --color-frosted-mint: #d9fff7;
+  --color-candy-purple: #efd4ff;
+  --color-chocolate-brown: #541500;
+  --color-pill-active: #cad7fa;
+
+  /* ---- Status ---- */
+  --color-red-500: #fb2c36;
+  --color-red-600: #e40014;
+  --color-green-600: #00a544;
+  --color-blue-600: #155dfc;
+
+  /* ================= Semantic aliases ================= */
+  --bg-page: var(--color-white);
+  --bg-subtle: var(--color-porcelain-grey);
+  --bg-inverse: var(--color-onyx-black);
+  --surface-card: var(--color-white);
+  --surface-muted: var(--color-grey-400);
+
+  --text-primary: var(--color-onyx-black);
+  --text-secondary: var(--color-grey-800);
+  --text-tertiary: var(--color-grey-700);
+  --text-inverse: var(--color-white);
+  --text-link: var(--color-link-green);
+
+  --border-hairline: var(--color-grey-500);
+  --border-strong: var(--color-grey-600);
+
+  --accent: var(--color-link-green);
+  --accent-surface: var(--color-pistachio-green);
+}
