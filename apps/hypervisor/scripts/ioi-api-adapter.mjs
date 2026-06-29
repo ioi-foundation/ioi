@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { threadToAgentExecution, daemonEnvToIOI } from "./ioi-projection.mjs";
+import { threadToAgentExecution, daemonEnvToIOI, daemonProjectToIOI } from "./ioi-projection.mjs";
 import {
   startAgentRun,
   registerAgentRun,
@@ -340,7 +340,16 @@ async function handleImpl(pathname, bodyText) {
         const r = await daemon("GET", "/v1/hypervisor/environments");
         // Deleted envs stay in the daemon as an audit record (status.deleted / phase "deleted"),
         // but a deleted env is not a live lifecycle entry — exclude it from the UI list.
-        const live = (r.environments || []).filter((e) => !e.status?.deleted && e.status?.phase !== "deleted");
+        let live = (r.environments || []).filter((e) => !e.status?.deleted && e.status?.phase !== "deleted");
+        // Project-scoped sessions: honor the SPA's project filter against the env's origin project
+        // (daemon stores it at spec.project_id; see new_env / EnvironmentService.CreateEnvironment).
+        const wantProjects = body.filter?.projectIds || body.filter?.project_ids || null;
+        if (Array.isArray(wantProjects) && wantProjects.length) {
+          live = live.filter((e) => {
+            const pid = e.spec?.project_id ?? e.spec?.projectId;
+            return pid && wantProjects.includes(pid);
+          });
+        }
         return json({ pagination: {}, environments: live.map(daemonEnvToIOI) });
       }
       case "/api/ioi.v1.EnvironmentService/ListEnvironmentClasses": {
@@ -376,7 +385,12 @@ async function handleImpl(pathname, bodyText) {
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironment":
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentFromProject": {
-        const created = await daemon("POST", "/v1/hypervisor/environments", { spec: body.spec || body });
+        // Normalize the project link to the daemon's snake_case spec.project_id so the env is
+        // project-scoped (ListEnvironments filters on it). The SPA sends camelCase / top-level projectId.
+        const spec = { ...(body.spec || body) };
+        const pid = spec.project_id ?? spec.projectId ?? body.projectId ?? body.project_id;
+        if (pid) spec.project_id = pid;
+        const created = await daemon("POST", "/v1/hypervisor/environments", { spec });
         let envRecord = created.environment;
         // The compose flow asks for desiredPhase RUNNING — actually start it so it has a real
         // workspace (the daemon create leaves it stopped). This is what makes the agent + editor work.
@@ -587,13 +601,97 @@ async function handleImpl(pathname, bodyText) {
     }
   }
 
-  // ---- Local-deployment projections: honest local posture for planes the daemon does not yet
-  // own (projects / groups / workflows / per-env automation / SCM). These are deferred data
-  // planes — empty is the honest local truth (NOT the mock's fabricated rows). Identity-derived
-  // surfaces (members, org-members group) reflect the single local operator. ----
-  if (pathname === "/api/ioi.v1.ProjectService/ListProjects") {
-    return json({ pagination: {}, projects: [] });
+  // ---- ProjectService: real daemon projects (WS-C). A project is the durable repository-backed
+  // container the agent-automations plane will hang from; List/Create/Get/Delete are daemon-backed
+  // (/v1/hypervisor/projects + /:id). The IOI automation-ready hooks (automation_refs /
+  // *_policy_ref) live on the daemon record (daemon-side truth), NOT in the SPA projection. ----
+  if (pathname.startsWith("/api/ioi.v1.ProjectService/")) {
+    const op = pathname.slice("/api/ioi.v1.ProjectService/".length);
+    const PROJECT_OPS = new Set(["ListProjects", "GetProject", "CreateProject", "DeleteProject"]);
+    const projectIdFromBody = (b) =>
+      b.projectId || b.project_id || b.id || (b.req && (b.req.projectId || b.req.id)) || "";
+    if (PROJECT_OPS.has(op)) {
+      try {
+        if (op === "ListProjects") {
+          const r = await daemon("GET", "/v1/hypervisor/projects");
+          let records = r.projects || [];
+          const search = (body.filter?.search || body.search || "").trim().toLowerCase();
+          if (search) {
+            records = records.filter(
+              (p) =>
+                (p.name || "").toLowerCase().includes(search) ||
+                (p.repository_url || "").toLowerCase().includes(search),
+            );
+          }
+          return json({ pagination: {}, projects: records.map((p) => daemonProjectToIOI(p, IDENTITY.orgId)) });
+        }
+        if (op === "GetProject") {
+          const id = projectIdFromBody(body);
+          const r = await daemon("GET", `/v1/hypervisor/projects/${encodeURIComponent(id)}`);
+          if (!r.ok || !r.project) return jsonStatus(404, { code: "not_found", message: `project ${id} not found` });
+          return json({ project: daemonProjectToIOI(r.project, IDENTITY.orgId) });
+        }
+        if (op === "CreateProject") {
+          // Translate the SPA's create request (camelCase initializer.specs[].git) to the
+          // daemon's repository-backed create body (snake_case repository_url + project_name).
+          const spec = body.initializer?.specs?.[0] || {};
+          const git = spec.git || {};
+          const repoUrl =
+            git.remoteUri || git.remote_uri || spec.contextUrl?.url || spec.context_url?.url ||
+            body.cloneUrl || body.repositoryUrl || "";
+          const name = (body.name || git.remoteUri || git.remote_uri || "Untitled project").toString();
+          const envClassRefs = Array.isArray(body.environmentClasses)
+            ? body.environmentClasses.map((c) => c.environmentClassId || c.environment_class_id).filter(Boolean)
+            : body.environmentClassIds || [];
+          const createBody = { repository_url: repoUrl, project_name: name, source: "manual_url" };
+          if (envClassRefs.length) createBody.environment_class_refs = envClassRefs;
+          const created = await daemon("POST", "/v1/hypervisor/projects", createBody);
+          const records = created.records || [];
+          const record =
+            records.find((p) => p.project_id === created.selected_project_id) ||
+            records[records.length - 1] ||
+            created.record ||
+            createBody;
+          return json({ project: daemonProjectToIOI(record, IDENTITY.orgId) });
+        }
+        if (op === "DeleteProject") {
+          const id = projectIdFromBody(body);
+          await daemon("DELETE", `/v1/hypervisor/projects/${encodeURIComponent(id)}`);
+          return json({});
+        }
+      } catch (e) {
+        console.error("[ioi-api-adapter] daemon project call failed:", e.message);
+        // Honest local truth on daemon-down: empty list / connect error — never the mock's rows.
+        if (op === "ListProjects") return json({ pagination: {}, projects: [] });
+        return jsonStatus(502, { code: "unavailable", message: "daemon project plane unavailable" });
+      }
+    }
+    if (op === "ListProjectEnvironmentClasses") {
+      // The env classes a project can launch into (the detail page's class picker). Honest = the
+      // daemon substrate catalog (same EnvironmentClass shape as EnvironmentService/ListEnvironmentClasses).
+      try {
+        const r = await daemon("GET", "/v1/hypervisor/environment-classes");
+        const environmentClasses = (r.environmentClasses || []).map((c) => ({
+          id: c.id,
+          displayName: c.display_name || c.id,
+          description: [c.substrate_class, c.minimum_isolation || c.isolation_claim].filter(Boolean).join(" • "),
+          configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
+          runnerId: "local-microvm",
+          enabled: c.enabled !== false,
+        }));
+        return json({ pagination: {}, environmentClasses });
+      } catch {
+        return json({ pagination: {}, environmentClasses: [] });
+      }
+    }
+    // UpdateProject / UpdateProjectEnvironmentClasses are edit flows the daemon has no write plane
+    // for yet — they fall through (not fabricated here), and are not exercised by read navigation.
   }
+
+  // ---- Local-deployment projections: honest local posture for planes the daemon does not yet
+  // own (groups / workflows / per-env automation / SCM). These are deferred data planes — empty is
+  // the honest local truth (NOT the mock's fabricated rows). Identity-derived surfaces (members,
+  // org-members group) reflect the single local operator. ----
   if (pathname === "/api/ioi.v1.ServiceAccountService/ListServiceAccounts") {
     // The org's service accounts (identities environments are created/operated under). A local
     // single-operator deployment has one system-managed account = the Hypervisor automation identity.
@@ -659,6 +757,11 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.PrebuildService/ListPrebuilds") {
     return json({ pagination: {} });
+  }
+  if (pathname === "/api/ioi.v1.PrebuildService/ListWarmPools") {
+    // Prebuild warm pools (a managed-runner prebuild optimization). The local single-operator
+    // substrate keeps no SPA-shaped warm pools — honest empty, not the mock's fabricated rows.
+    return json({ pagination: {}, warmPools: [] });
   }
   if (pathname === "/api/ioi.v1.WorkflowService/ListWorkflows") {
     return json({ pagination: {}, workflows: [] });

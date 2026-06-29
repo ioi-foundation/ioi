@@ -302,6 +302,151 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases) {
   return connectionsShell(add + body);
 }
 
+// ---- Automations cockpit — the owned, PROJECT-FIRST surface for HypervisorAutomationSpec ----------
+// Doctrine: an automation is project-scoped DURABLE work (spec + runs + receipts + authority/memory/
+// connectors + proof), not an org-scoped workflow. This owned surface renders the daemon
+// /v1/hypervisor/automations plane natively; the SPA's org-scoped WorkflowService surface is NOT canonical.
+function automationsShell(title, inner) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${CX_ESC(title)} · Hypervisor</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 80px}
+  a{color:#8ab4ff}
+  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6f7280;margin-bottom:8px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+  .sub{color:#9a9da6;margin:0 0 22px;max-width:680px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 22px}
+  .act{padding:8px 14px;border-radius:8px;border:0;background:#fff;color:#111;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
+  .act:hover{background:#eee}
+  .act.ghost{background:transparent;color:#cbd0da;border:1px solid #2a2c33}
+  .act.ghost:hover{color:#fff;border-color:#3a3d45}
+  .act.danger{background:transparent;color:#e06a6a;border:1px solid #5c2a2a}
+  .act.danger:hover{background:#2a1212}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:26px 0 10px;font-weight:600}
+  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin-bottom:8px;text-decoration:none;color:inherit}
+  a.card:hover{border-color:#3a82f6;background:#191b21}
+  .card .main{flex:1;min-width:0}
+  .card .name{font-weight:600;color:#fff}
+  .card .meta{color:#878a93;font-size:12.5px;margin-top:3px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap;margin-left:8px}
+  .ok{color:#46c277;border-color:#235c3b;background:#11281b}
+  .warn{color:#d6a13a;border-color:#5c4a23;background:#28220f}
+  .muted{color:#9a9da6;border-color:#2a2c33}
+  .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
+  .grid{display:grid;grid-template-columns:160px 1fr;gap:8px 16px;padding:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 18px}
+  .grid dt{color:#878a93;font-size:12.5px}
+  .grid dd{margin:0;color:#e6e7ea}
+  code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:#878a93;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid #24262d}
+  td{padding:8px 10px;border-bottom:1px solid #1b1d23}
+  .field{margin:0 0 14px}
+  .field label{display:block;color:#c7c9cf;font-size:12.5px;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}
+  .field textarea{min-height:84px;resize:vertical}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+  form.inline{display:inline}
+</style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div>${inner}</div></body></html>`;
+}
+function automationProjectName(a, projectsById) {
+  const pid = a.project_ref || a.project_id || "";
+  return (projectsById[pid] && projectsById[pid].name) || pid || "—";
+}
+function renderAutomationsList(automations, projectId, projectsById) {
+  const filtName = projectId ? automationProjectName({ project_ref: projectId }, projectsById) : "";
+  const newHref = `/__ioi/automations/new${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`;
+  const head = `<h1>Automations</h1>
+    <p class="sub">Project-scoped durable work — each automation hangs off a project, runs on the daemon over a real environment, and records a tamper-evident transcript. ${projectId ? `Filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>` : "Showing all projects."}</p>
+    <div class="row"><a class="act" href="${newHref}">+ New automation</a></div>`;
+  if (!automations.length) {
+    return automationsShell("Automations", head + `<div class="empty">No automations yet${projectId ? " for this project" : ""} — create one to get started.</div>`);
+  }
+  const cards = automations.map((a) => {
+    const enabled = a.enabled !== false;
+    const steps = Array.isArray(a.steps) ? a.steps.length : 0;
+    const model = a.model || "default model";
+    return `<a class="card" href="/__ioi/automations/${encodeURIComponent(a.automation_id)}"><div class="main">
+      <div class="name">${CX_ESC(a.name || a.automation_id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span><span class="pill muted">${CX_ESC(a.trigger_kind || "manual")}</span></div>
+      <div class="meta">${CX_ESC(automationProjectName(a, projectsById))} · ${CX_ESC(String(model))} · ${steps} step${steps === 1 ? "" : "s"}</div>
+      </div><span class="act ghost">Open →</span></a>`;
+  }).join("");
+  return automationsShell("Automations", head + cards);
+}
+function renderAutomationDetail(a, runs, projectsById) {
+  const id = a.automation_id;
+  const enabled = a.enabled !== false;
+  const pid = a.project_ref || a.project_id || "";
+  const v = (x) => (x == null || x === "" ? "—" : (typeof x === "string" ? CX_ESC(x) : CX_ESC(JSON.stringify(x))));
+  const connectors = Array.isArray(a.connector_refs) && a.connector_refs.length ? a.connector_refs.map((c) => `<code>${CX_ESC(String(c))}</code>`).join(" ") : "—";
+  const steps = Array.isArray(a.steps) && a.steps.length
+    ? `<h2>Steps</h2>` + a.steps.map((s, i) => `<div class="card"><div class="main"><div class="name">${i + 1}. ${CX_ESC(s.kind || "step")}</div><div class="meta"><code>${CX_ESC((s.prompt || s.command || s.title || "").slice(0, 200))}</code></div></div></div>`).join("")
+    : `<h2>Steps</h2><div class="empty">No steps declared.</div>`;
+  const runRows = (runs || []).length
+    ? `<table><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Steps (done/failed)</th><th>Proof</th></tr></thead><tbody>` +
+      runs.map((r) => {
+        const c = r.counts || {};
+        const st = r.status || "—";
+        const pill = st === "done" ? "ok" : st === "failed" ? "warn" : "muted";
+        return `<tr><td><code>${CX_ESC(r.execution_id || "")}</code></td><td><span class="pill ${pill}">${CX_ESC(st)}</span></td><td>${CX_ESC(r.started_at || "")}</td><td>${c.done || 0}/${c.failed || 0}</td><td><a href="/__ioi/run-timeline/${encodeURIComponent(r.execution_id || "")}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
+      }).join("") + `</tbody></table>`
+    : `<div class="empty">No runs yet — use “Run now”.</div>`;
+  const back = `<p><a href="/__ioi/automations${pid ? `?project=${encodeURIComponent(pid)}` : ""}">← Automations</a></p>`;
+  const actions = `<div class="row">
+    <form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/run"><button class="act" type="submit">▶ Run now</button></form>
+    <a class="act ghost" href="/projects/${encodeURIComponent(pid)}" target="_blank" rel="noopener">Open project ↗</a>
+    <form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/delete" onsubmit="return confirm('Delete this automation?')"><button class="act danger" type="submit">Delete</button></form>
+  </div>`;
+  const spec = `<dl class="grid">
+    <dt>Project</dt><dd><a href="/projects/${encodeURIComponent(pid)}" target="_blank" rel="noopener">${CX_ESC(automationProjectName(a, projectsById))}</a> <code>${CX_ESC(pid)}</code></dd>
+    <dt>Trigger</dt><dd>${v(a.trigger_kind || "manual")}</dd>
+    <dt>Agent</dt><dd>${v(a.agent_ref)}</dd>
+    <dt>Model</dt><dd>${v(a.model)}</dd>
+    <dt>Reasoning</dt><dd>${v(a.reasoning)}</dd>
+    <dt>Harness</dt><dd>${v(a.harness_profile_ref)}</dd>
+    <dt>Connectors</dt><dd>${connectors}</dd>
+    <dt>Memory</dt><dd>${v(a.memory_profile_ref)}</dd>
+    <dt>Authority policy</dt><dd>${v(a.authority_policy_ref)}</dd>
+    <dt>Runtime policy</dt><dd>${v(a.default_runtime_policy_ref)}</dd>
+    <dt>Env class</dt><dd>${v(a.environment_class_id)}</dd>
+  </dl>`;
+  const inner = `${back}<h1>${CX_ESC(a.name || id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span></h1>
+    <p class="sub">${CX_ESC(a.description || "")}</p>${actions}${spec}${steps}<h2>Run history</h2>${runRows}`;
+  return automationsShell(a.name || "Automation", inner);
+}
+function renderAutomationNewForm(projectId, projects) {
+  const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
+  const projectField = projects && projects.length
+    ? `<div class="field"><label>Project (required — the automation's durable container)</label><select name="project_ref" required>${opts}</select></div>`
+    : `<div class="field"><label>Project</label><input name="project_ref" value="${CX_ESC(projectId)}" placeholder="project:my-app" required></div>`;
+  const inner = `<p><a href="/__ioi/automations${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}">← Automations</a></p>
+    <h1>New automation</h1><p class="sub">A project-scoped spec the daemon runs over a real environment. Start with one step; you can run it manually right away.</p>
+    <form method="post" action="/__ioi/automations">
+      ${projectField}
+      <div class="field"><label>Name</label><input name="name" placeholder="Nightly CONTRIBUTING note" required></div>
+      <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
+      <div class="two">
+        <div class="field"><label>Trigger</label><select name="trigger_kind"><option value="manual">manual</option><option value="time">time (scheduled)</option><option value="webhook">webhook</option></select></div>
+        <div class="field"><label>Model</label><input name="model" placeholder="qwen2.5:7b"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Reasoning</label><select name="reasoning"><option value="">(default)</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>
+        <div class="field"><label>Agent ref</label><input name="agent_ref" placeholder="agent:default"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Connector refs (comma-separated)</label><input name="connector_refs" placeholder="connector:github, connector:linear"></div>
+        <div class="field"><label>Memory profile ref</label><input name="memory_profile_ref" placeholder="memory:project-default"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Step kind</label><select name="step_kind"><option value="agent">agent (prompt)</option><option value="command">command (shell)</option></select></div>
+        <div class="field"><label>&nbsp;</label><div class="sub" style="margin:0;font-size:12px">First step runs when you click Run now.</div></div>
+      </div>
+      <div class="field"><label>Step body</label><textarea name="step_body" placeholder="e.g. Write a CONTRIBUTING.md for this repo."></textarea></div>
+      <div class="row"><button class="act" type="submit">Create automation</button></div>
+    </form>`;
+  return automationsShell("New automation", inner);
+}
+
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hypervisor</title>
@@ -1452,6 +1597,113 @@ const server = http.createServer((req, res) => {
         return;
       }
     }
+    // ---- Automations cockpit — the owned PROJECT-FIRST surface (daemon HypervisorAutomationSpec) --
+    if (pathname === "/__ioi/automations" && req.method === "GET") {
+      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      try {
+        const [aRes, pRes] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+        ]);
+        const projectsById = {};
+        for (const p of pRes.projects || []) projectsById[p.project_id] = p;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(renderAutomationsList(aRes.automations || [], projectId, projectsById));
+      } catch (e) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(automationsShell("Automations", `<div class="empty">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</div>`));
+      }
+      return;
+    }
+    if (pathname === "/__ioi/automations.json" && req.method === "GET") {
+      // JSON feed for the project-detail panel (the augmentation script fetches this).
+      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const aRes = await fetch(`${DAEMON}/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({}));
+      const automations = (aRes.automations || []).map((a) => ({ automation_id: a.automation_id, name: a.name, trigger_kind: a.trigger_kind || "manual", enabled: a.enabled !== false, model: a.model || null, steps: Array.isArray(a.steps) ? a.steps.length : 0 }));
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify({ automations }));
+      return;
+    }
+    if (pathname === "/__ioi/automations/new" && req.method === "GET") {
+      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const pRes = await fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderAutomationNewForm(projectId, pRes.projects || []));
+      return;
+    }
+    if (pathname === "/__ioi/automations" && req.method === "POST") {
+      const p = new URLSearchParams(body.toString());
+      const stepBody = (p.get("step_body") || "").trim();
+      const stepKind = p.get("step_kind") || "agent";
+      const steps = stepBody ? [stepKind === "command" ? { kind: "command", command: stepBody } : { kind: "agent", prompt: stepBody }] : [];
+      const connectorRefs = (p.get("connector_refs") || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const payload = {
+        project_ref: (p.get("project_ref") || "").trim(),
+        name: (p.get("name") || "automation").trim(),
+        description: (p.get("description") || "").trim(),
+        trigger_kind: p.get("trigger_kind") || "manual",
+        model: (p.get("model") || "").trim() || null,
+        reasoning: (p.get("reasoning") || "").trim() || null,
+        agent_ref: (p.get("agent_ref") || "").trim() || null,
+        connector_refs: connectorRefs,
+        memory_profile_ref: (p.get("memory_profile_ref") || "").trim() || null,
+        steps,
+      };
+      const r = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await r.json().catch(() => ({}));
+      const newId = j.automation && j.automation.automation_id;
+      if (r.status >= 400 || !newId) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(automationsShell("New automation", `<div class="empty">Create failed: ${CX_ESC((j.error && j.error.message) || ("HTTP " + r.status))}</div><p><a href="/__ioi/automations/new${payload.project_ref ? "?project=" + encodeURIComponent(payload.project_ref) : ""}">← back</a></p>`));
+        return;
+      }
+      res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
+      res.end();
+      return;
+    }
+    if (pathname.startsWith("/__ioi/automations/")) {
+      const rest = pathname.slice("/__ioi/automations/".length);
+      const [rawId, action] = rest.split("/");
+      const id = decodeURIComponent(rawId);
+      if (action === "run" && req.method === "POST") {
+        // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
+        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
+        res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+      if (action === "delete" && req.method === "POST") {
+        const a = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
+        const pid = a.automation && (a.automation.project_ref || a.automation.project_id);
+        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        res.writeHead(302, { Location: `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+      if (!action && req.method === "GET") {
+        try {
+          const [aRes, rRes, pRes] = await Promise.all([
+            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`).then((r) => r.json()).catch(() => ({})),
+            fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+          ]);
+          if (!aRes.automation) {
+            res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(automationsShell("Not found", `<div class="empty">Automation not found.</div><p><a href="/__ioi/automations">← Automations</a></p>`));
+            return;
+          }
+          const projectsById = {};
+          for (const p of pRes.projects || []) projectsById[p.project_id] = p;
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+          res.end(renderAutomationDetail(aRes.automation, rRes.runs || [], projectsById));
+        } catch (e) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Automation", `<div class="empty">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</div>`));
+        }
+        return;
+      }
+    }
+
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
       try {

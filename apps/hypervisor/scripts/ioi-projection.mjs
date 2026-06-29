@@ -158,19 +158,41 @@ export function daemonEnvToIOI(env) {
   };
 }
 
-// ---- Project (daemon project -> IOI project) ----
-// The daemon is the source of truth; this maps its project record to the UI shape.
-export function daemonProjectToIOI(p) {
+// ---- Project (daemon project record -> SPA ProjectService.Project shape) ----
+// The daemon is the source of truth (data_dir/projects/*.json, snake_case IOI-native record).
+// This maps it to the camelCase Project the SPA consumes (ProjectsPage / ProjectCombobox /
+// ProjectDetailsLayout). The SPA's connect client runs with ignoreUnknownFields, so extra keys are
+// dropped — but invalid ENUM strings still throw, so we only emit enum values proven valid
+// elsewhere (creator.principal = PRINCIPAL_USER, as ServiceAccount.creator uses) and omit the
+// unproven ones (git.targetMode, desiredPhase), letting them default. The IOI automation-ready hooks
+// (automation_refs / *_policy_ref) intentionally stay on the daemon record and are NOT projected
+// here — they are daemon-side truth for the future agent-automations plane, not SPA-projected fields.
+export function daemonProjectToIOI(p, orgId) {
+  const repoUrl = p.repository_url || p.repositoryUrl || "";
+  const branch = p.repository_branch || p.repositoryBranch || "main";
+  // Prefer a daemon-supplied initializer; otherwise synthesize one from the repo url (remoteUri +
+  // cloneTarget are plain strings → safe; targetMode omitted to avoid an enum-parse throw).
+  const initializer =
+    p.initializer && Array.isArray(p.initializer.specs) && p.initializer.specs.length
+      ? p.initializer
+      : repoUrl
+        ? { specs: [{ git: { remoteUri: repoUrl, cloneTarget: branch } }] }
+        : { specs: [] };
+  const refs = Array.isArray(p.environment_class_refs) ? p.environment_class_refs : [];
+  const environmentClasses =
+    p.environmentClasses ||
+    p.environment_classes ||
+    refs.map((ref, i) => ({ environmentClassId: ref, order: i }));
   return {
-    id: p.id || p.project_id,
+    id: p.id || p.project_id || "",
     metadata: {
-      organizationId: p.organization_id || p.organizationId || "",
+      organizationId: orgId || p.organization_id || p.organizationId || "",
       name: p.name || p.title || "Untitled project",
-      creator: { id: "local-operator", principal: "PRINCIPAL_USER" },
+      creator: { id: "local-operator", principal: "PRINCIPAL_USER" }, // matches ServiceAccount.creator (valid, exercised)
       createdAt: p.created_at || p.createdAt,
-      updatedAt: p.updated_at || p.updatedAt || p.created_at,
+      updatedAt: p.updated_at || p.updatedAt || p.created_at || p.createdAt,
     },
-    initializer: p.initializer || { specs: [] },
-    environmentClasses: p.environment_classes || p.environmentClasses || [],
+    initializer,
+    environmentClasses,
   };
 }

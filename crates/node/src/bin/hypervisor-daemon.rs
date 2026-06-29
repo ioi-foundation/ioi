@@ -803,6 +803,13 @@ async fn async_main() -> anyhow::Result<()> {
             get(environment_routes::handle_projects_list)
                 .post(lifecycle_routes::handle_project_create),
         )
+        // GetProject (detail/prebuild counts) + DeleteProject (actions dropdown) — completes the
+        // cockpit's ProjectService so it is fully daemon-backed (no mock fallthrough).
+        .route(
+            "/v1/hypervisor/projects/:id",
+            get(environment_routes::handle_project_get)
+                .delete(environment_routes::handle_project_delete),
+        )
         // WS-A/WS-B: Environment object model + local_workspace_provider_v0 (daemon-owned).
         .route(
             "/v1/hypervisor/environment-classes",
@@ -933,11 +940,19 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/automations/:id",
-            get(orchestration_routes::handle_automation_get),
+            get(orchestration_routes::handle_automation_get)
+                .patch(orchestration_routes::handle_automation_patch)
+                .delete(orchestration_routes::handle_automation_delete),
         )
         .route(
             "/v1/hypervisor/automations/:id/start",
             post(orchestration_routes::handle_automation_start),
+        )
+        // Manual run (canonical) + run history. POST reuses the workflow executor; GET lists runs.
+        .route(
+            "/v1/hypervisor/automations/:id/runs",
+            get(orchestration_routes::handle_automation_runs_list)
+                .post(orchestration_routes::handle_automation_start),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",

@@ -15,11 +15,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
-use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, AppError, DaemonState};
 
 fn safe(seg: &str) -> String {
     seg.replace(
@@ -89,31 +91,117 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
 
 // ============================ K. AUTOMATION WORKFLOW ENGINE ======================================
 
-/// POST /v1/hypervisor/automations — create an AutomationWorkflow.
+/// Keep the project the durable container of its automations: add/remove an automation_id on the
+/// referenced project's `automation_refs`. Best-effort + idempotent (no-op if the project isn't a
+/// persisted record, e.g. a legacy free-form project_id). The project create planner seeds
+/// `automation_refs: []`, so the agent-automations plane writes back here.
+fn link_project_automation(data_dir: &str, project_id: &str, automation_id: &str, add: bool) {
+    if project_id.is_empty() {
+        return;
+    }
+    let Some(mut project) = load(data_dir, "projects", project_id) else {
+        return;
+    };
+    let mut refs: Vec<Value> = project
+        .get("automation_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    refs.retain(|r| r.as_str() != Some(automation_id)); // dedupe / removal
+    if add {
+        refs.push(json!(automation_id));
+    }
+    project["automation_refs"] = json!(refs);
+    project["updated_at"] = json!(iso_now());
+    let _ = persist_record(data_dir, "projects", project_id, &project);
+}
+
+/// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
+/// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
+/// a project. Returns 400 if absent. On success the project's `automation_refs` is updated.
 pub(crate) async fn handle_automation_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let project_id = body
+        .get("project_ref")
+        .and_then(|v| v.as_str())
+        .or_else(|| body.get("project_id").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let Some(project_id) = project_id else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": {
+                "code": "automation_project_ref_required",
+                "message": "An automation must declare a project_ref (the project is its durable container)."
+            } })),
+        );
+    };
     let id = format!("auto_{:x}", nanos());
+    let now = iso_now();
+    let trigger = body
+        .get("trigger")
+        .cloned()
+        .unwrap_or_else(|| json!({ "kind": "manual" }));
+    let trigger_kind = body
+        .get("trigger_kind")
+        .and_then(|v| v.as_str())
+        .or_else(|| trigger.get("kind").and_then(|v| v.as_str()))
+        .unwrap_or("manual")
+        .to_string();
     let record = json!({
         "schema_version": "ioi.hypervisor.automation-workflow.v1",
         "automation_id": id,
+        // Project linkage (durable container) — project_id kept for back-compat with the executor.
+        "project_id": project_id,
+        "project_ref": project_id,
         "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("automation"),
-        "trigger": body.get("trigger").cloned().unwrap_or_else(|| json!({ "kind": "manual" })),
+        "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+        "trigger": trigger,
+        "trigger_kind": trigger_kind,
+        "enabled": body.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
         "steps": body.get("steps").cloned().unwrap_or_else(|| json!([])),
+        "workflow_graph_ref": body.get("workflow_graph_ref").cloned().unwrap_or(Value::Null),
         "limits": body.get("limits").cloned().unwrap_or_else(|| json!({ "max_total": 100, "per_exec_seconds": 600, "budget": Value::Null })),
         "executor_identity": body.get("executor_identity").cloned().unwrap_or_else(|| json!({ "kind": "user", "ref": "operator" })),
         "environment_class_id": body.get("environment_class_id").and_then(|v| v.as_str()).unwrap_or("local-workspace-v0"),
         "recipe_ref": body.get("recipe_ref").cloned().unwrap_or(Value::Null),
-        "project_id": body.get("project_id").and_then(|v| v.as_str()).unwrap_or("automation"),
-        "created_at": iso_now()
+        // Agent/runtime config (the HypervisorAutomationSpec surface).
+        "agent_ref": body.get("agent_ref").cloned().unwrap_or(Value::Null),
+        "harness_profile_ref": body.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
+        "model": body.get("model").cloned().unwrap_or(Value::Null),
+        "reasoning": body.get("reasoning").cloned().unwrap_or(Value::Null),
+        "connector_refs": body.get("connector_refs").cloned().unwrap_or_else(|| json!([])),
+        "memory_profile_ref": body.get("memory_profile_ref").cloned().unwrap_or(Value::Null),
+        "default_runtime_policy_ref": body.get("default_runtime_policy_ref").cloned().unwrap_or(Value::Null),
+        "authority_policy_ref": body.get("authority_policy_ref").cloned().unwrap_or(Value::Null),
+        "created_at": now,
+        "updated_at": now
     });
     let _ = persist_record(&st.data_dir, "automations", &id, &record);
-    Json(json!({ "ok": true, "automation": record }))
+    link_project_automation(&st.data_dir, project_id, &id, true);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "automation": record })))
 }
 
-pub(crate) async fn handle_automation_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "ok": true, "automations": read_record_dir(&st.data_dir, "automations") }))
+/// GET /v1/hypervisor/automations[?project_ref=…] — list specs, optionally scoped to one project.
+pub(crate) async fn handle_automation_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let mut items = read_record_dir(&st.data_dir, "automations");
+    if let Some(pid) = q
+        .get("project_ref")
+        .or_else(|| q.get("project_id"))
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        items.retain(|a| {
+            a.get("project_id").and_then(|v| v.as_str()) == Some(pid)
+                || a.get("project_ref").and_then(|v| v.as_str()) == Some(pid)
+        });
+    }
+    Json(json!({ "ok": true, "automations": items }))
 }
 pub(crate) async fn handle_automation_get(
     State(st): State<Arc<DaemonState>>,
@@ -134,7 +222,67 @@ pub(crate) async fn handle_automation_execution_get(
     }
 }
 
-/// POST /v1/hypervisor/automations/:id/start — run the workflow: fresh env → steps → outputs.
+/// PATCH /v1/hypervisor/automations/:id — update mutable spec fields (config-immutable:
+/// automation_id / project_id / environment_class_id are NOT reassigned here).
+pub(crate) async fn handle_automation_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(mut a) = load(&st.data_dir, "automations", &id) else {
+        return Json(json!({ "ok": false, "reason": "automation not found" }));
+    };
+    for key in [
+        "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
+        "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
+        "reasoning", "connector_refs", "memory_profile_ref", "default_runtime_policy_ref",
+        "authority_policy_ref",
+    ] {
+        if let Some(v) = body.get(key) {
+            a[key] = v.clone();
+        }
+    }
+    a["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "automations", &id, &a);
+    Json(json!({ "ok": true, "automation": a }))
+}
+
+/// DELETE /v1/hypervisor/automations/:id — remove the spec + unlink it from the project's
+/// automation_refs. Returns {ok, removed} so a no-op delete is honest.
+pub(crate) async fn handle_automation_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let project_id = load(&st.data_dir, "automations", &id)
+        .and_then(|a| a.get("project_id").and_then(|v| v.as_str()).map(str::to_string));
+    let removed = remove_record(&st.data_dir, "automations", &id);
+    if let Some(pid) = project_id {
+        link_project_automation(&st.data_dir, &pid, &id, false);
+    }
+    Json(json!({ "ok": removed, "removed": removed, "automation_id": id }))
+}
+
+/// GET /v1/hypervisor/automations/:id/runs — the spec's run history (automation-execution records),
+/// newest first. Pairs with POST /:id/runs (manual run).
+pub(crate) async fn handle_automation_runs_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let mut runs: Vec<Value> = read_record_dir(&st.data_dir, "automation-executions")
+        .into_iter()
+        .filter(|e| e.get("automation_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+        .collect();
+    runs.sort_by(|a, b| {
+        b.get("started_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    Json(json!({ "ok": true, "runs": runs }))
+}
+
+/// POST /v1/hypervisor/automations/:id/start (and /:id/runs) — run the workflow: fresh env → steps
+/// → outputs, then record a tamper-evident run transcript for the Run Timeline / Work Ledger.
 pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -328,6 +476,31 @@ pub(crate) async fn handle_automation_start(
     exec["status"] = json!(if failed { "failed" } else { "done" });
     exec["finished_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+
+    // Record a durable, tamper-evident run transcript (the agent-run-transcript plane computes a
+    // state_root over it) so the manual run shows in the Run Timeline / Work Ledger with proof.
+    let transcript = json!({
+        "schema_version": "ioi.hypervisor.agent-run-transcript.v1",
+        "run_id": exec_id,
+        "kind": "automation-run",
+        "automation_id": id,
+        "automation_name": automation["name"],
+        "project_id": automation["project_id"],
+        "environment_id": exec["environment_id"],
+        "status": exec["status"],
+        "step_count": results.len(),
+        "counts": exec["counts"],
+        "step_results": exec["step_results"],
+        "started_at": exec["started_at"],
+        "finished_at": exec["finished_at"],
+    });
+    let _ = call(
+        &base,
+        "POST",
+        &format!("/v1/hypervisor/agent-run-transcripts/{exec_id}"),
+        Some(transcript),
+    )
+    .await;
     Ok(Json(json!({ "ok": !failed, "execution": exec })))
 }
 

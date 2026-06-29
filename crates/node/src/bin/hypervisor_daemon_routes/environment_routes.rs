@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 
 use super::{
     invoke_native_local, iso_now, persist_invocation_receipt, persist_record, read_record_dir,
-    resolve_route, short_hash, AppError, DaemonState,
+    remove_record, resolve_route, short_hash, AppError, DaemonState,
 };
 
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
@@ -1475,6 +1475,31 @@ fn recover_environment(st: &DaemonState, env: &mut Value, id: &str) -> Result<Va
 /// cockpit's ListProjects needs.
 pub(crate) async fn handle_projects_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "projects": read_record_dir(&st.data_dir, "projects") }))
+}
+
+/// GET /v1/hypervisor/projects/:id — fetch one persisted project (the cockpit's GetProject:
+/// detail page + prebuild counts). `{ok:false}` when absent so the client can branch honestly.
+pub(crate) async fn handle_project_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    match read_record_dir(&st.data_dir, "projects")
+        .into_iter()
+        .find(|p| p.get("project_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+    {
+        Some(project) => Json(json!({ "ok": true, "project": project })),
+        None => Json(json!({ "ok": false, "reason": "project not found", "project": Value::Null })),
+    }
+}
+
+/// DELETE /v1/hypervisor/projects/:id — remove a persisted project record (the cockpit's
+/// DeleteProject). Returns `{ok, removed}` so a no-op delete is honest, not a fabricated success.
+pub(crate) async fn handle_project_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, "projects", &id);
+    Json(json!({ "ok": removed, "removed": removed, "project_id": id }))
 }
 
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
