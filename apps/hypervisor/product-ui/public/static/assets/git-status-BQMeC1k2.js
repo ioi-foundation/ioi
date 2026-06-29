@@ -1,1 +1,0 @@
-import{t as e}from"./strings-C6LrS0GJ.js";function t(e){return e?(e?.totalUnpushedCommits||0)+(e?.totalChangedFiles||0):null}function n(t,n){let r=t>99,i=r?`99`:`${t}`,a=r?99:t;return n?.includeLabel?`${r?`+`:``}${i} ${e(a,`change`)}`:`${r?`+`:``}${i}`}export{t as n,n as t};

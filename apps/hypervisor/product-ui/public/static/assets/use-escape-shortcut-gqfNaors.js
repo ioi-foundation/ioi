@@ -1,1 +1,0 @@
-import{a as e}from"./rolldown-runtime-CGYlQKCx.js";import{n as t}from"./@mux-DLaEVubF.js";var n=e(t(),1),r=e=>{let t=(0,n.useCallback)(t=>{t.key===`Escape`&&(t.defaultPrevented||(t.preventDefault(),e(!0)))},[e]);(0,n.useEffect)(()=>(document.addEventListener(`keydown`,t),()=>{document.removeEventListener(`keydown`,t)}),[t])};export{r as t};
