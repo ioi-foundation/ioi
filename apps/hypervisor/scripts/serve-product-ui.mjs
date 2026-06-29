@@ -600,6 +600,39 @@ function renderAutomationNewForm(projectId, projects) {
   return automationsShell("New automation", inner);
 }
 
+// ---- Applications estate — the owned breadth launcher for the 11 open-application surfaces.
+// Beyond the core rail (Home · Projects · Automations), surfaces open from here. Connections is
+// re-homed as the "Developer & Integrations" surface (routes to the existing cockpit; NOT rebuilt).
+// Catalog: internal-docs/.../surfaces/catalog/README.md. Honest status — live surfaces link, the
+// rest are "planned" / "in a session" (no fabricated routes).
+function renderApplications() {
+  const SURFACES = [
+    { icon: "🧰", name: "Workbench", desc: "Code editor, terminal, ports & tasks for a running session.", status: "contextual" },
+    { icon: "🖥", name: "Environments", desc: "Provision and operate dev environments.", status: "contextual" },
+    { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
+    { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
+    { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
+    { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
+    { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
+    { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
+    { icon: "⚙", name: "Operations", desc: "DevOps, issues, jobs, notifications, and resources.", status: "planned" },
+    { icon: "📒", name: "Work Ledger", desc: "Run history, proof, lineage, and replay.", href: "/__ioi/run-timeline", status: "live" },
+    { icon: "🛒", name: "Marketplace", desc: "Apps, training, and walkthroughs.", status: "planned" },
+  ];
+  const pillFor = (s) => s.status === "live"
+    ? `<span class="pill ok">open</span>`
+    : s.status === "contextual" ? `<span class="pill muted">in a session</span>` : `<span class="pill muted">planned</span>`;
+  const card = (s) => {
+    const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}${pillFor(s)}</div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
+    return s.href ? `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>` : `<div class="card">${inner}</div>`;
+  };
+  const body = SURFACES.map(card).join("");
+  return automationsShell(
+    "Applications",
+    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (Home · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials.</p>${body}`,
+  );
+}
+
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Hypervisor</title>
@@ -1915,6 +1948,12 @@ const server = http.createServer((req, res) => {
       }
     }
 
+    // ---- Applications estate — the owned breadth launcher (Connections re-homed as Developer & Integrations).
+    if (pathname === "/__ioi/applications" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderApplications());
+      return;
+    }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
       try {
