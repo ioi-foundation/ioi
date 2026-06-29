@@ -361,6 +361,22 @@ function automationsShell(title, inner) {
   .cinsp{padding:14px;border:1px solid #24262d;border-radius:12px;background:#15171c}
   .cinsp h3{margin:0 0 10px;font-size:13px}
   .cmsg{font-size:12px;color:#d6a13a}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 16px}
+  .chiplabel{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#6f7280;margin:0 4px 0 8px}
+  .chip{background:#15171c;border:1px solid #2a2c33;color:#cbd0da;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer}
+  .chip:hover{border-color:#3a82f6}
+  .chip.on{background:#15315c;border-color:#3a82f6;color:#fff}
+  .wlwrap{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+  .wlrow{cursor:pointer}
+  .wlrow:hover td{background:#15171c}
+  .wlrow.selrow td{background:#191b21}
+  .wldrawer{padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;position:sticky;top:16px;max-height:80vh;overflow:auto}
+  .wldrawer h3{margin:0 0 10px;font-size:14px}
+  .wldrawer h4{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93}
+  .wlgrid{display:grid;grid-template-columns:96px 1fr;gap:5px 12px;font-size:12.5px}
+  .wlk{color:#878a93}
+  .wlv{color:#e6e7ea;word-break:break-word}
+  .wldrawer ul{margin:4px 0 0;padding-left:18px}
   .field{margin:0 0 14px}
   .field label{display:block;color:#c7c9cf;font-size:12.5px;margin-bottom:5px}
   .field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}
@@ -616,7 +632,7 @@ function renderApplications() {
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
     { icon: "⚙", name: "Operations", desc: "DevOps, issues, jobs, notifications, and resources.", status: "planned" },
-    { icon: "📒", name: "Work Ledger", desc: "Run history, proof, lineage, and replay.", href: "/__ioi/run-timeline", status: "live" },
+    { icon: "📒", name: "Work Ledger", desc: "Unified proof stream — runs, trigger receipts, state roots, timeline links.", href: "/__ioi/work-ledger", status: "live" },
     { icon: "🛒", name: "Marketplace", desc: "Apps, training, and walkthroughs.", status: "planned" },
   ];
   const pillFor = (s) => s.status === "live"
@@ -631,6 +647,71 @@ function renderApplications() {
     "Applications",
     `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (Home · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials.</p>${body}`,
   );
+}
+
+// ---- Work Ledger — one chronological PROOF STREAM (runs + webhook receipts) with faceted filters.
+// What happened · under whose authority · with which artifacts · how to replay it. Real records only;
+// no fabricated rows. Row click opens a right proof drawer. Data comes from GET /v1/hypervisor/work-ledger.
+function renderWorkLedger(entries) {
+  const head = `<h1>Work Ledger</h1><p class="sub">One chronological proof stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>`;
+  if (!entries.length) {
+    return automationsShell("Work Ledger", head + `<div class="empty">No admitted work yet. Run an automation to create ledger evidence.</div>`);
+  }
+  const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
+  const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
+  const filters = `<div class="chips">
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "trigger", "Trigger events")}
+    <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "failed", "Failed")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
+    <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
+  </div>`;
+  const icon = (k) => (k === "run" ? "▶" : "🪝");
+  const rows = entries.map((e, i) => {
+    const st = e.status || "";
+    const pill = (st === "done" || st === "accepted") ? "ok" : (st === "failed" || st === "rejected") ? "warn" : "muted";
+    const proof = (e.state_root || "").slice(0, 20) || "—";
+    return `<tr class="wlrow" data-kind="${CX_ESC(e.kind)}" data-status="${CX_ESC(st)}" data-project="${CX_ESC(e.project_id || "")}" data-i="${i}" onclick="wlOpen(${i})">
+      <td>${icon(e.kind)} ${CX_ESC(e.automation_name || "—")}</td>
+      <td>${CX_ESC(e.project_id || "—")}</td>
+      <td><span class="pill ${pill}">${CX_ESC(st)}</span></td>
+      <td>${CX_ESC(e.trigger_kind || "")}</td>
+      <td>${CX_ESC(e.timestamp || "")}</td>
+      <td><code>${CX_ESC(proof)}</code></td>
+    </tr>`;
+  }).join("");
+  const table = `<table><thead><tr><th>Work</th><th>Project</th><th>Status</th><th>Trigger</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // Embed the entries for the drawer (escape </script> + < to keep the JSON inside the tag safe).
+  const dataTag = `<script id="wl-data" type="application/json">${JSON.stringify(entries).replace(/</g, "\\u003c")}</script>`;
+  const drawer = `<div class="wldrawer" id="wl-drawer"><div class="sub" style="margin:0">Select a row to inspect its proof.</div></div>`;
+  const script = `<script>
+    var WL=[];try{WL=JSON.parse(document.getElementById('wl-data').textContent||'[]');}catch(e){}
+    function wlChip(b){b.classList.toggle('on');wlFilter();}
+    function wlFilter(){
+      var ks=[].slice.call(document.querySelectorAll('.chip.on[data-facet="kind"]')).map(function(b){return b.dataset.val;});
+      var ss=[].slice.call(document.querySelectorAll('.chip.on[data-facet="status"]')).map(function(b){return b.dataset.val;});
+      var pe=document.getElementById('wl-project');var pr=pe?pe.value:'';
+      document.querySelectorAll('.wlrow').forEach(function(r){
+        var ok=(!ks.length||ks.indexOf(r.dataset.kind)>=0)&&(!ss.length||ss.indexOf(r.dataset.status)>=0)&&(!pr||r.dataset.project===pr);
+        r.style.display=ok?'':'none';
+      });
+    }
+    function wesc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    function wlOpen(i){
+      var e=WL[i];if(!e)return;
+      function row(k,v){return (v===0||v)?('<div class="wlk">'+k+'</div><div class="wlv">'+wesc(v)+'</div>'):'';}
+      var h='<h3>'+(e.kind==='run'?'▶':'🪝')+' '+wesc(e.automation_name||'—')+'</h3><div class="wlgrid">';
+      h+=row('Kind',e.kind)+row('Project',e.project_id)+row('Status',e.status)+row('Trigger',e.trigger_kind)+row('When',e.timestamp);
+      if(e.kind==='run'){h+=row('Environment',e.environment_id)+row('Authority',e.authority?JSON.stringify(e.authority):'')+row('Steps',e.counts?JSON.stringify(e.counts):'');}
+      if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
+      h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
+      var arts=(e.step_results||[]).filter(function(s){return s&&(s.kind==='proposal'||(s.output&&(s.output.command||s.output.file_changed)));});
+      h+='<h4>Artifacts</h4>'+(arts.length?('<ul>'+arts.map(function(s){return '<li>'+wesc(s.kind||'step')+': '+wesc(JSON.stringify(s.output).slice(0,140))+'</li>';}).join('')+'</ul>'):'<div class="sub" style="margin:0">—</div>');
+      if(e.timeline_ref){h+='<p><a class="act ghost" href="'+e.timeline_ref+'" target="_blank" rel="noopener">Open Run Timeline ↗</a></p>';}
+      h+='<details><summary class="sub" style="cursor:pointer">Raw JSON (advanced)</summary><pre>'+wesc(JSON.stringify(e,null,2))+'</pre></details>';
+      document.getElementById('wl-drawer').innerHTML=h;
+      document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
+    }
+  </script>`;
+  return automationsShell("Work Ledger", head + filters + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -1952,6 +2033,14 @@ const server = http.createServer((req, res) => {
     if (pathname === "/__ioi/applications" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderApplications());
+      return;
+    }
+    // ---- Work Ledger — the owned proof stream (estate surface #10).
+    if (pathname === "/__ioi/work-ledger" && req.method === "GET") {
+      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const r = await fetch(`${DAEMON}/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderWorkLedger(r.entries || []));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------

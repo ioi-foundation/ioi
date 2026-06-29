@@ -973,6 +973,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/cron-preview",
             get(orchestration_routes::handle_cron_preview),
         )
+        // Work Ledger — unified proof stream (runs + webhook receipts) across projects/automations.
+        .route(
+            "/v1/hypervisor/work-ledger",
+            get(orchestration_routes::handle_work_ledger),
+        )
         .route(
             "/v1/hypervisor/automation-executions/:id",
             get(orchestration_routes::handle_automation_execution_get),
