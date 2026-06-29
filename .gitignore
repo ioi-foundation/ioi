@@ -109,18 +109,15 @@ internal-docs/reverse-engineering
 # Local automation runtime state (workspace-scoped <workspace>/automation output).
 # Curated automation examples belong under scripts/fixtures/ or docs/conformance/.
 /automation/
-# ── Borrowed reference-SPA compatibility lane (source-neutral tracked tree) ──
-# These drive/served the harvested upstream SPA and speak its wire contract
-# (the upstream RPC namespace + its asset CDN). They are LOCAL-ONLY (kept on disk, runnable for
-# reference/dev) and deliberately NOT tracked, so the committed product tree is
-# the daemon + native contracts only. See the retirement note in apps/hypervisor/README.md.
-apps/hypervisor/scripts/serve-live-reference.mjs
-apps/hypervisor/scripts/ioi-api-adapter.mjs
-apps/hypervisor/scripts/ioi-augmentation.js
-apps/hypervisor/scripts/ioi-projection.mjs
-apps/hypervisor/scripts/ioi-agent-runs.mjs
-apps/hypervisor/scripts/ioi-run-timeline.mjs
-apps/hypervisor/docs/reference-api-integration.md
+# ── Hypervisor product UI is now the CANONICAL, TRACKED app ──
+# The served SPA (apps/hypervisor/product-ui/) + the IOI /api adapter + serve
+# (apps/hypervisor/scripts/{serve-live-reference,ioi-api-adapter,ioi-projection,
+# ioi-augmentation,ioi-agent-runs,ioi-run-timeline}) are the one runtime. The borrowed
+# upstream brand was rebranded gitpod/ona -> ioi, so they are source-neutral and TRACKED.
+# Only raw reverse-engineering crawl data stays ignored (line 101). Do NOT re-add an ignore
+# for these or build a parallel runtime.
+# The served-UI done-bar verifiers below still speak the upstream wire paths verbatim; kept
+# local-only pending a rebrand+track pass.
 scripts/verify-hypervisor-app-functional.mjs
 scripts/verify-hypervisor-reference-functional.mjs
 scripts/verify-hypervisor-workbench-functional.mjs

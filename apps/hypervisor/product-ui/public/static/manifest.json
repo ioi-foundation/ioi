@@ -1,0 +1,65 @@
+{
+    "name": "IOI",
+    "short_name": "IOI",
+    "description": "IOI is your mission control for serious software projects and parallel coding agents. Keep momentum with secure dev environments in our cloud or your VPC.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0A0E19",
+    "icons": [
+        {
+            "src": "/ioi-logo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/ioi.svg",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/ioi.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona64.png",
+            "sizes": "64x64",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona96.png",
+            "sizes": "96x96",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona128.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona384.png",
+            "sizes": "384x384",
+            "type": "image/png"
+        },
+        {
+            "src": "/ona512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "/ioi-dark.ico",
+            "sizes": "32x32",
+            "type": "image/x-icon"
+        }
+    ]
+}
