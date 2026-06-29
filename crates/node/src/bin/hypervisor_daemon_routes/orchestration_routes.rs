@@ -176,6 +176,16 @@ pub(crate) async fn handle_automation_create(
         "memory_profile_ref": body.get("memory_profile_ref").cloned().unwrap_or(Value::Null),
         "default_runtime_policy_ref": body.get("default_runtime_policy_ref").cloned().unwrap_or(Value::Null),
         "authority_policy_ref": body.get("authority_policy_ref").cloned().unwrap_or(Value::Null),
+        // Scheduling (background execution): schedule_spec drives the daemon scheduler when enabled.
+        // next_run_at is computed by the scheduler (null → it initializes to now+interval, so create
+        // never fires immediately). last_run_at is stamped after each scheduled fire.
+        "schedule_spec": body.get("schedule_spec").cloned().unwrap_or(Value::Null),
+        "next_run_at": Value::Null,
+        "last_run_at": Value::Null,
+        "catch_up_policy": body.get("catch_up_policy").and_then(|v| v.as_str()).unwrap_or("skip"),
+        "misfire_policy": body.get("misfire_policy").and_then(|v| v.as_str()).unwrap_or("skip"),
+        "max_concurrency": body.get("max_concurrency").and_then(|v| v.as_i64()).filter(|n| *n > 0).unwrap_or(1),
+        "failure_policy": body.get("failure_policy").and_then(|v| v.as_str()).unwrap_or("continue"),
         "created_at": now,
         "updated_at": now
     });
@@ -236,11 +246,17 @@ pub(crate) async fn handle_automation_patch(
         "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
         "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
         "reasoning", "connector_refs", "memory_profile_ref", "default_runtime_policy_ref",
-        "authority_policy_ref",
+        "authority_policy_ref", "schedule_spec", "catch_up_policy", "misfire_policy",
+        "max_concurrency", "failure_policy",
     ] {
         if let Some(v) = body.get(key) {
             a[key] = v.clone();
         }
+    }
+    // Rescheduling or (re)enabling resets the next fire so the scheduler recomputes it cleanly
+    // (pause = enabled:false → scheduler skips; resume = enabled:true → fresh next_run_at).
+    if body.get("schedule_spec").is_some() || body.get("enabled").is_some() {
+        a["next_run_at"] = Value::Null;
     }
     a["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, "automations", &id, &a);

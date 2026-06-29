@@ -391,15 +391,28 @@ function renderAutomationDetail(a, runs, projectsById) {
         return `<tr><td><code>${CX_ESC(r.execution_id || "")}</code></td><td><span class="pill ${pill}">${CX_ESC(st)}</span></td><td>${CX_ESC(r.started_at || "")}</td><td>${c.done || 0}/${c.failed || 0}</td><td><a href="/__ioi/run-timeline/${encodeURIComponent(r.execution_id || "")}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
       }).join("") + `</tbody></table>`
     : `<div class="empty">No runs yet — use “Run now”.</div>`;
+  const sched = a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null;
+  const scheduleHuman = sched
+    ? (sched.every_hours ? `every ${sched.every_hours}h` : sched.every_minutes ? `every ${sched.every_minutes}m` : (sched.every_seconds || sched.interval_seconds) ? `every ${sched.every_seconds || sched.interval_seconds}s` : "scheduled")
+    : "manual (no schedule)";
   const back = `<p><a href="/__ioi/automations${pid ? `?project=${encodeURIComponent(pid)}` : ""}">← Automations</a></p>`;
+  const pauseResume = sched
+    ? (enabled
+        ? `<form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/pause"><button class="act ghost" type="submit">⏸ Pause schedule</button></form>`
+        : `<form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/resume"><button class="act" type="submit">▶ Resume schedule</button></form>`)
+    : "";
   const actions = `<div class="row">
     <form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/run"><button class="act" type="submit">▶ Run now</button></form>
+    ${pauseResume}
     <a class="act ghost" href="/projects/${encodeURIComponent(pid)}" target="_blank" rel="noopener">Open project ↗</a>
     <form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/delete" onsubmit="return confirm('Delete this automation?')"><button class="act danger" type="submit">Delete</button></form>
   </div>`;
   const spec = `<dl class="grid">
     <dt>Project</dt><dd><a href="/projects/${encodeURIComponent(pid)}" target="_blank" rel="noopener">${CX_ESC(automationProjectName(a, projectsById))}</a> <code>${CX_ESC(pid)}</code></dd>
     <dt>Trigger</dt><dd>${v(a.trigger_kind || "manual")}</dd>
+    <dt>Schedule</dt><dd>${CX_ESC(scheduleHuman)}${sched ? ` · ${enabled ? "active" : "paused"}` : ""}</dd>
+    <dt>Next run</dt><dd>${v(a.next_run_at)}</dd>
+    <dt>Last run</dt><dd>${v(a.last_run_at)}</dd>
     <dt>Agent</dt><dd>${v(a.agent_ref)}</dd>
     <dt>Model</dt><dd>${v(a.model)}</dd>
     <dt>Reasoning</dt><dd>${v(a.reasoning)}</dd>
@@ -426,13 +439,18 @@ function renderAutomationNewForm(projectId, projects) {
       <div class="field"><label>Name</label><input name="name" placeholder="Nightly CONTRIBUTING note" required></div>
       <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
       <div class="two">
-        <div class="field"><label>Trigger</label><select name="trigger_kind"><option value="manual">manual</option><option value="time">time (scheduled)</option><option value="webhook">webhook</option></select></div>
-        <div class="field"><label>Model</label><input name="model" placeholder="qwen2.5:7b"></div>
+        <div class="field"><label>Run every (0 = manual only)</label><input name="interval_n" type="number" min="0" value="0"></div>
+        <div class="field"><label>Interval unit</label><select name="interval_unit"><option value="minutes">minutes</option><option value="hours">hours</option><option value="seconds">seconds</option></select></div>
       </div>
       <div class="two">
+        <div class="field"><label>Model</label><input name="model" placeholder="qwen2.5:7b"></div>
         <div class="field"><label>Reasoning</label><select name="reasoning"><option value="">(default)</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>
-        <div class="field"><label>Agent ref</label><input name="agent_ref" placeholder="agent:default"></div>
       </div>
+      <div class="two">
+        <div class="field"><label>Max concurrency</label><input name="max_concurrency" type="number" min="1" value="1"></div>
+        <div class="field"><label>On failure</label><select name="failure_policy"><option value="continue">continue scheduling</option><option value="disable">disable on failure</option></select></div>
+      </div>
+      <div class="field"><label>Agent ref</label><input name="agent_ref" placeholder="agent:default"></div>
       <div class="two">
         <div class="field"><label>Connector refs (comma-separated)</label><input name="connector_refs" placeholder="connector:github, connector:linear"></div>
         <div class="field"><label>Memory profile ref</label><input name="memory_profile_ref" placeholder="memory:project-default"></div>
@@ -1637,11 +1655,20 @@ const server = http.createServer((req, res) => {
       const stepKind = p.get("step_kind") || "agent";
       const steps = stepBody ? [stepKind === "command" ? { kind: "command", command: stepBody } : { kind: "agent", prompt: stepBody }] : [];
       const connectorRefs = (p.get("connector_refs") || "").split(",").map((s) => s.trim()).filter(Boolean);
+      // Schedule: interval drives a time trigger (0 = manual only).
+      const intervalN = parseInt(p.get("interval_n") || "0", 10) || 0;
+      const intervalUnit = p.get("interval_unit") || "minutes";
+      const schedule_spec = intervalN > 0
+        ? (intervalUnit === "hours" ? { every_hours: intervalN } : intervalUnit === "seconds" ? { every_seconds: intervalN } : { every_minutes: intervalN })
+        : null;
       const payload = {
         project_ref: (p.get("project_ref") || "").trim(),
         name: (p.get("name") || "automation").trim(),
         description: (p.get("description") || "").trim(),
-        trigger_kind: p.get("trigger_kind") || "manual",
+        trigger_kind: schedule_spec ? "time" : "manual",
+        schedule_spec,
+        max_concurrency: parseInt(p.get("max_concurrency") || "1", 10) || 1,
+        failure_policy: p.get("failure_policy") || "continue",
         model: (p.get("model") || "").trim() || null,
         reasoning: (p.get("reasoning") || "").trim() || null,
         agent_ref: (p.get("agent_ref") || "").trim() || null,
@@ -1668,6 +1695,13 @@ const server = http.createServer((req, res) => {
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
         await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
+        res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+      if ((action === "pause" || action === "resume") && req.method === "POST") {
+        // Pause/resume the schedule = PATCH enabled (the daemon scheduler skips disabled specs).
+        await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => {});
         res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
         res.end();
         return;

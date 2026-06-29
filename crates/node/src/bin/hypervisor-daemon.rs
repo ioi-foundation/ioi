@@ -1680,7 +1680,14 @@ async fn async_main() -> anyhow::Result<()> {
             state.clone(),
             lifecycle_routes::auth_gate,
         ))
-        .with_state(state);
+        .with_state(state.clone());
+
+    // Background automation scheduler: fire due time-triggered automations through the manual-run
+    // path (same run history / state_root / transcript / timeline as a manual run).
+    tokio::spawn(automation_scheduler(
+        state.data_dir.clone(),
+        state.base_url.clone(),
+    ));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(%addr, "hypervisor-daemon listening");
@@ -2197,6 +2204,155 @@ pub(crate) fn iso_now() -> String {
     time::OffsetDateTime::now_utc()
         .format(&Rfc3339)
         .unwrap_or_else(|_| "2026-01-01T00:00:00Z".to_string())
+}
+
+// ============================ Automation scheduler (background execution) =========================
+// A background tick fires DUE time-triggered automations through the SAME manual-run path
+// (POST /:id/runs), so a scheduled run produces identical run history / state_root / transcript /
+// timeline as a manual run. Interval schedules only for now (cron is a later slice).
+const SCHED_TICK_SECS: u64 = 15;
+
+fn epoch_of(iso: &str) -> Option<i64> {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::parse(iso, &Rfc3339)
+        .ok()
+        .map(|dt| dt.unix_timestamp())
+}
+fn iso_add_secs(iso: &str, secs: i64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::parse(iso, &Rfc3339)
+        .ok()
+        .and_then(|dt| dt.checked_add(time::Duration::seconds(secs)))
+        .and_then(|dt| dt.format(&Rfc3339).ok())
+        .unwrap_or_else(iso_now)
+}
+/// Interval (seconds) for a schedule_spec, or None when it isn't an interval schedule. Accepts
+/// { "every_seconds" | "interval_seconds" | "every_minutes" | "every_hours": N }.
+fn schedule_interval_secs(spec: &Value) -> Option<i64> {
+    if !spec.is_object() {
+        return None;
+    }
+    let g = |k: &str| spec.get(k).and_then(|v| v.as_i64()).filter(|n| *n > 0);
+    if let Some(s) = g("every_seconds").or_else(|| g("interval_seconds")) {
+        return Some(s);
+    }
+    if let Some(m) = g("every_minutes") {
+        return Some(m * 60);
+    }
+    if let Some(h) = g("every_hours") {
+        return Some(h * 3600);
+    }
+    None
+}
+fn load_record(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
+    let safe = id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
+    let bytes = std::fs::read(
+        std::path::Path::new(data_dir)
+            .join(kind)
+            .join(format!("{safe}.json")),
+    )
+    .ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+async fn automation_scheduler(data_dir: String, base_url: String) {
+    // Let the HTTP listener come up before the first self-call.
+    sleep(std::time::Duration::from_secs(5)).await;
+    let client = reqwest::Client::new();
+    loop {
+        scheduler_tick(&data_dir, &base_url, &client).await;
+        sleep(std::time::Duration::from_secs(SCHED_TICK_SECS)).await;
+    }
+}
+
+async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client) {
+    let now = iso_now();
+    let Some(now_ts) = epoch_of(&now) else {
+        return;
+    };
+    let automations = read_record_dir(data_dir, "automations");
+    let execs = read_record_dir(data_dir, "automation-executions");
+    for a in automations {
+        let Some(id) = a.get("automation_id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
+            continue; // paused / disabled
+        }
+        let Some(interval) =
+            schedule_interval_secs(a.get("schedule_spec").unwrap_or(&Value::Null))
+        else {
+            continue; // not an interval-scheduled automation
+        };
+        // First sight (or after reschedule/resume) → initialize the next fire; never fire on create.
+        let Some(next_ts) = a.get("next_run_at").and_then(|v| v.as_str()).and_then(epoch_of) else {
+            let mut up = a.clone();
+            up["next_run_at"] = json!(iso_add_secs(&now, interval));
+            let _ = persist_record(data_dir, "automations", id, &up);
+            continue;
+        };
+        if now_ts < next_ts {
+            continue; // not due yet
+        }
+        // Due. Advance next_run_at FIRST so a slow run can't be double-fired on the next tick.
+        let mut up = a.clone();
+        up["next_run_at"] = json!(iso_add_secs(&now, interval));
+        // Concurrency guard (misfire = skip this occurrence when at the cap).
+        let max_conc = a
+            .get("max_concurrency")
+            .and_then(|v| v.as_i64())
+            .filter(|n| *n > 0)
+            .unwrap_or(1);
+        let running = execs
+            .iter()
+            .filter(|e| {
+                e.get("automation_id").and_then(|v| v.as_str()) == Some(id)
+                    && e.get("status").and_then(|v| v.as_str()) == Some("running")
+            })
+            .count() as i64;
+        if running >= max_conc {
+            let _ = persist_record(data_dir, "automations", id, &up);
+            continue;
+        }
+        up["last_run_at"] = json!(now);
+        let _ = persist_record(data_dir, "automations", id, &up);
+        // Fire through the manual-run path. Spawn so the tick stays fast; apply failure_policy on result.
+        let url = format!("{base_url}/v1/hypervisor/automations/{id}/runs");
+        let failure_policy = a
+            .get("failure_policy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("continue")
+            .to_string();
+        let client = client.clone();
+        let data_dir = data_dir.to_string();
+        let id = id.to_string();
+        tokio::spawn(async move {
+            let ok = match client
+                .post(&url)
+                .json(&json!({ "trigger": "schedule" }))
+                .send()
+                .await
+            {
+                Ok(r) => r
+                    .json::<Value>()
+                    .await
+                    .ok()
+                    .and_then(|j| j.get("ok").and_then(|v| v.as_bool()))
+                    .unwrap_or(false),
+                Err(_) => false,
+            };
+            if !ok && failure_policy == "disable" {
+                if let Some(mut rec) = load_record(&data_dir, "automations", &id) {
+                    rec["enabled"] = json!(false);
+                    rec["updated_at"] = json!(iso_now());
+                    let _ = persist_record(&data_dir, "automations", &id, &rec);
+                }
+            }
+        });
+    }
 }
 
 /// Seed the baseline provider + backend catalog as Agentgres-admitted records:
