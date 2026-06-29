@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
-    "check:source-neutral": "node scripts/check-source-neutral.mjs"
+    "check:source-neutral": "node scripts/check-source-neutral.mjs",
+    "test:contract": "node tests/run-contracts.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

@@ -1,0 +1,23 @@
+/* Connections cockpit — source-derived from the product-ui serve cockpit (connectionsShell). */
+.cx-wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; color: #e6e7ea; font: 14px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; }
+.cx-brand { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7280; margin-bottom: 8px; }
+.cx-h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+.cx-sub { color: #9a9da6; margin: 0 0 26px; max-width: 680px; }
+.cx-add { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 30px; }
+.cx-add a { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 9px; border: 1px solid #2a2c33; background: #15171c; color: #e6e7ea; text-decoration: none; font-weight: 500; }
+.cx-add a:hover { border-color: #3a82f6; background: #191b21; }
+.cx-h2 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: #878a93; margin: 28px 0 10px; font-weight: 600; }
+.cx-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #24262d; border-radius: 12px; background: #15171c; margin-bottom: 8px; }
+.cx-main { flex: 1; min-width: 0; }
+.cx-name { font-weight: 600; color: #fff; }
+.cx-meta { color: #878a93; font-size: 12.5px; margin-top: 2px; }
+.cx-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; border: 1px solid; white-space: nowrap; margin-left: 8px; }
+.cx-ok { color: #46c277; border-color: #235c3b; background: #11281b; }
+.cx-warn { color: #d6a13a; border-color: #5c4a23; background: #28220f; }
+.cx-risk { color: #9a9da6; border-color: #2a2c33; }
+.cx-act { padding: 7px 14px; border-radius: 8px; border: 0; background: #fff; color: #111; font: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.cx-act:hover { background: #eee; }
+.cx-act.cx-ghost { background: transparent; color: #9a9da6; border: 1px solid #2a2c33; }
+.cx-act.cx-ghost:hover { color: #e6e7ea; border-color: #3a3d45; }
+.cx-wrap code { font-size: 11.5px; color: #aab; background: #0e0f13; padding: 1px 5px; border-radius: 4px; }
+.cx-empty { color: #6f7280; padding: 18px; border: 1px dashed #24262d; border-radius: 12px; }

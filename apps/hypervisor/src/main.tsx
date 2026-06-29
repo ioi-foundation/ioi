@@ -20,6 +20,8 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
+// Source-owned surfaces (cut 4: migrating the product UI from the seed bundle into source).
+import { ConnectionsView } from "./surfaces/Connections/ConnectionsView";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -54,6 +56,10 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
+          {/* Source-owned surfaces (cut 4). As surfaces land here, the vite app becomes the
+              canonical shell and the seed bundle is retired (cuts 5-6). */}
+          <Route path="/connections" element={<ConnectionsView />} />
+          <Route path="/__ioi/connections" element={<ConnectionsView />} />
           <Route path="*" element={<ServedElsewhereNotice />} />
         </Routes>
       </BrowserRouter>
