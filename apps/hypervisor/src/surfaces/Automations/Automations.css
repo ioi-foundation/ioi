@@ -1,0 +1,43 @@
+/* Automations surface — source-derived from the product-ui automations route
+   (sticky header + New action, stat-card grid, list rows, template-led empty state). */
+.au-wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; color: #e6e7ea; font: 14px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; }
+.au-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.au-brand { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7280; margin-bottom: 8px; }
+.au-h1 { font-size: 26px; margin: 0; letter-spacing: -0.02em; }
+.au-sub { color: #9a9da6; margin: 6px 0 26px; max-width: 680px; }
+
+.au-new { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: 0; background: #fff; color: #111; text-decoration: none; font-weight: 600; white-space: nowrap; }
+.au-new:hover { background: #eee; }
+
+.au-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 28px; }
+.au-stat { border: 1px solid #24262d; border-radius: 12px; background: #15171c; padding: 16px; }
+.au-stat.is-accent { border-color: #2d4a86; background: #121a2b; }
+.au-statlabel { color: #9a9da6; font-size: 12.5px; font-weight: 500; }
+.au-stat.is-accent .au-statlabel { color: #6ea0f0; }
+.au-statvalue { font-size: 24px; font-weight: 600; color: #fff; margin-top: 6px; }
+.au-stat.is-accent .au-statvalue { color: #9bc0ff; }
+
+.au-list { display: flex; flex-direction: column; gap: 8px; }
+.au-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #24262d; border-radius: 12px; background: #15171c; }
+.au-row:hover { border-color: #3a3d45; }
+.au-rowicon { width: 30px; height: 30px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2a2c33; background: #0e0f13; color: #c4c7cd; }
+.au-rowmain { flex: 1; min-width: 0; }
+.au-rowname { font-weight: 600; color: #fff; display: flex; align-items: center; }
+.au-rowmeta { color: #878a93; font-size: 12.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-rowage { color: #6f7280; font-size: 12.5px; white-space: nowrap; }
+
+.au-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; border: 1px solid; white-space: nowrap; margin-left: 8px; }
+.au-trigger { color: #9a9da6; border-color: #2a2c33; font-weight: 500; }
+
+.au-run { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 8px; border: 1px solid #2a2c33; background: transparent; color: #c4c7cd; font: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.au-run:hover { border-color: #3a3d45; color: #fff; }
+
+.au-wrap code { font-size: 11.5px; color: #aab; background: #0e0f13; padding: 1px 5px; border-radius: 4px; }
+
+.au-empty { color: #6f7280; padding: 18px; border: 1px dashed #24262d; border-radius: 12px; }
+
+.au-blank { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 56px 24px; border: 1px dashed #24262d; border-radius: 14px; background: #101216; }
+.au-blankicon { color: #5f636b; }
+.au-blanktitle { font-size: 18px; font-weight: 600; color: #f3f4f6; }
+.au-blanktext { color: #9a9da6; max-width: 380px; }
+.au-blankcta { margin-top: 8px; }

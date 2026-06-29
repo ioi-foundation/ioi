@@ -24,6 +24,9 @@ import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayCli
 import { AppShell } from "./shell/AppShell";
 import { HomeView } from "./surfaces/Home/HomeView";
 import { ConnectionsView } from "./surfaces/Connections/ConnectionsView";
+import { ProjectsView } from "./surfaces/Projects/ProjectsView";
+import { AutomationsView } from "./surfaces/Automations/AutomationsView";
+import { ApplicationsView } from "./surfaces/Applications/ApplicationsView";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -66,9 +69,9 @@ function renderHypervisorApp() {
             <Route index element={<HomeView />} />
             <Route path="connections" element={<ConnectionsView />} />
             <Route path="__ioi/connections" element={<ConnectionsView />} />
-            <Route path="projects" element={<SurfacePending name="Projects" />} />
-            <Route path="automations" element={<SurfacePending name="Automations" />} />
-            <Route path="applications" element={<SurfacePending name="Applications" />} />
+            <Route path="projects" element={<ProjectsView />} />
+            <Route path="automations" element={<AutomationsView />} />
+            <Route path="applications" element={<ApplicationsView />} />
             <Route path="settings/*" element={<SurfacePending name="Settings" />} />
             <Route path="sessions/:id" element={<SurfacePending name="Session" />} />
             <Route path="*" element={<SurfacePending name="This surface" />} />
