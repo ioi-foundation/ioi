@@ -43,17 +43,13 @@ function AppMetricsBeacon() {
   return null;
 }
 
-// Placeholder for rail routes whose source-owned surface is not yet extracted (cut 4 in
-// progress). Until extracted, the full surface remains available in the seed bundle at :4173.
+// Fallback for routes/sub-flows not yet built as source surfaces (e.g. some create/detail
+// flows). The app is fully source-owned; there is no bundle fallback.
 function SurfacePending({ name }: { name: string }) {
   return (
     <div style={{ padding: "64px 32px", color: "#9a9da6", maxWidth: 640, margin: "0 auto" }}>
       <h1 style={{ fontSize: "1.4rem", margin: "0 0 .5rem", color: "#e6e7ea" }}>{name}</h1>
-      <p style={{ margin: 0, lineHeight: 1.6 }}>
-        Source-owned surface extraction in progress. Until this surface is ported into
-        <code style={{ margin: "0 4px" }}>src/surfaces</code> it remains served from the seed
-        product-ui bundle.
-      </p>
+      <p style={{ margin: 0, lineHeight: 1.6 }}>This view isn’t built yet.</p>
     </div>
   );
 }

@@ -32,10 +32,40 @@
 .sh-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid #16181d; }
 .sh-footitem { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #c4c7cd; text-decoration: none; font-size: 13px; }
 .sh-footitem:hover { background: #15171c; color: #fff; }
-.sh-ws { display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 8px; margin-top: 4px; border-radius: 9px; }
-.sh-ws:hover { background: #15171c; }
-.sh-wsmark { width: 26px; height: 26px; border-radius: 7px; background: #6b4bd6; color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
-.sh-wsname { flex: 1; font-size: 13px; font-weight: 500; }
-.sh-wschev { color: #878a93; }
+.sh-ws-wrap { position: relative; }
+.sh-ws { display: flex; align-items: center; gap: 9px; width: 100%; height: 48px; padding: 0 8px; margin-top: 4px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.sh-ws:hover, .sh-ws.is-open { background: #15171c; }
+.sh-wsmark { width: 28px; height: 28px; border-radius: 7px; background: #6b4bd6; color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.sh-wsmark-sm { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
+.sh-wsmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sh-wsname { font-size: 13px; font-weight: 600; color: #e6e7ea; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-wsuser { font-size: 11.5px; color: #878a93; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-wschev { color: #878a93; flex: 0 0 auto; }
+
+/* account/org popover — source-derived from the bundle account menu */
+.sh-menu { position: absolute; bottom: calc(100% + 6px); left: 0; width: 264px; background: #15171c; border: 1px solid #2a2c33; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); padding: 4px; z-index: 50; transform-origin: bottom left; animation: sh-menu-in .12s ease-out; }
+@keyframes sh-menu-in { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sh-menu { animation: none; } }
+.sh-menu-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px; }
+.sh-menu-id { flex: 1; min-width: 0; }
+.sh-menu-name { font-size: 13px; font-weight: 600; color: #fff; }
+.sh-menu-email { font-size: 12px; color: #878a93; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-menu-gear { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #2a2c33; border-radius: 7px; background: transparent; color: #c4c7cd; cursor: pointer; }
+.sh-menu-gear:hover { color: #fff; border-color: #3a3d45; }
+.sh-menu-sec { border-top: 1px solid #1f2127; padding: 8px 0 6px; }
+.sh-menu-label { font-size: 11px; color: #6f7280; padding: 2px 12px 6px; }
+.sh-menu-org { display: flex; align-items: center; gap: 9px; padding: 6px 12px; }
+.sh-menu-orgname { flex: 1; font-size: 13px; font-weight: 500; color: #e6e7ea; }
+.sh-menu-tier { font-size: 10.5px; color: #c4c7cd; background: #24262d; border-radius: 5px; padding: 1px 6px; }
+.sh-menu-check { color: #46c277; }
+.sh-menu-join { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 12px; border: 0; background: transparent; color: #6f8fff; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; }
+.sh-menu-join:hover { background: #191b21; }
+.sh-menu-div { height: 1px; background: #1f2127; margin: 2px 0; }
+.sh-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 12px; border: 0; background: transparent; color: #d6d8dd; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; text-decoration: none; }
+.sh-menu-item:hover { background: #191b21; color: #fff; }
+.sh-menu-static { cursor: default; }
+.sh-menu-static:hover { background: transparent; color: #d6d8dd; }
+.sh-menu-trail { margin-left: auto; color: #878a93; }
+.sh-sessskel { padding: 4px 10px; }
 
 .sh-main { flex: 1; min-width: 0; overflow: auto; background: #0a0b0e; }

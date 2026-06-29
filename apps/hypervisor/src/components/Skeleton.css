@@ -1,0 +1,16 @@
+/* Loading skeleton — source-derived from the bundle's animate-pulse loaders. */
+.sk {
+  display: block;
+  background: linear-gradient(90deg, #15171c 0%, #1d2026 50%, #15171c 100%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+.sk-rows { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.sk-row { display: flex; align-items: center; gap: 12px; }
+.sk-row-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }

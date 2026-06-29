@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Folder, Sparkles, Bug, FlaskConical, ArrowUp, Plus } from "lucide-react";
 import "./Home.css";
 import { createSession, listSessions, relativeTime, type Session } from "../../data/threads";
+import { SkeletonRows } from "../../components/Skeleton";
 
 const QUICK = [
   { icon: Sparkles, label: "Automate env setup" },
@@ -75,7 +76,7 @@ export function HomeView() {
 
         <div className="hm-recent" data-testid="recent-sessions">
           <div className="hm-recenthead">Recent Sessions</div>
-          {recent === null && <div className="hm-recentempty">Loading…</div>}
+          {recent === null && <SkeletonRows rows={4} />}
           {recent !== null && recent.length === 0 && <div className="hm-recentempty">No sessions yet.</div>}
           {(recent || []).slice(0, 8).map((s) => (
             <button
