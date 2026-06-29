@@ -1,4 +1,4 @@
-// IOI projection layer — maps the daemon's governed objects onto the borrowed UI's
+// IOI projection layer — maps the daemon's governed objects onto the seeded UI's
 // IOI-shaped contract. PROJECTION ONLY.
 //
 // Boundary discipline (do not inflate any plane beyond its verb):
@@ -43,7 +43,7 @@ export function threadToAgentExecution(t) {
       statusVersion: String(t.latest_seq || 1),
       session,
       phase,
-      // WorkRun ref (daemon-owned). The borrowed UI is session-centric and folds the
+      // WorkRun ref (daemon-owned). The seeded UI is session-centric and folds the
       // WorkRun into the session; we expose the latest run/turn as a ref.
       latestWorkRunRef: t.latest_turn_id || null,
       // agentgres RECORDS evidence; surfaced as refs only.
@@ -53,7 +53,7 @@ export function threadToAgentExecution(t) {
     // approvalMode "suggest" = child plane PROPOSES; host/platform changes require the
     // operator-plane request path (approvals / workspace-change-reviews). wallet authority
     // is invoked by the daemon only at delegated-authority crossings — never here. This
-    // block is for native IOI surfaces; the borrowed UI ignores unknown fields.
+    // block is for native IOI surfaces; the seeded UI ignores unknown fields.
     governance: {
       approvalMode: t.approval_mode || "suggest",
       harnessBindingRef: t.harness_binding_id || null,
@@ -77,7 +77,7 @@ export function runPhase(run) {
 // ---- Environment (daemon env record -> IOI EnvironmentService shape) ----
 // Env truth is daemon-owned (WS-A); this is projection only. Honest IOI posture
 // (provider/isolationClaim/workspaceRoot) rides under status.ioi for native consumers; the
-// borrowed UI ignores unknown fields.
+// seeded UI ignores unknown fields.
 const ENV_PHASE = {
   running: "ENVIRONMENT_PHASE_RUNNING",
   queued: "ENVIRONMENT_PHASE_STARTING",

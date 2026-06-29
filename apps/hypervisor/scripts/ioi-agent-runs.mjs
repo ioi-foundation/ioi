@@ -190,7 +190,7 @@ export function runToAgentExecution(run) {
       phase,
       conversationUrl: convo,
       transcriptUrl: convo,
-      // V2 conversation path: the harvested SPA prefers conversationUrls.history/live and hydrates a
+      // V2 conversation path: the product-ui bundle prefers conversationUrls.history/live and hydrates a
       // durable MessageStream from binary AgentResponseBlock/UserInputBlock frames. The bare
       // conversationUrl remains as a compatibility fallback, but the visible pane should use V2 so
       // completion blocks render live and replay after reload.

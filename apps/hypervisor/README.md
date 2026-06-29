@@ -12,9 +12,9 @@ provider/environment views, Foundry, Authority, Receipts, and Settings.
 
 ## Working on the UX
 
-The product UI is served as the live reference (`scripts/serve-live-reference.mjs`).
+The product UI is served as the product-ui bundle (`scripts/serve-product-ui.mjs`).
 **Any UX work must follow the design system: [docs/design-system.md](docs/design-system.md)**
-(see also [AGENTS.md](AGENTS.md) and [docs/reference-api-integration.md](docs/reference-api-integration.md)).
+(see also [AGENTS.md](AGENTS.md) and [docs/product-ui-api-integration.md](docs/product-ui-api-integration.md)).
 
 ## Architecture
 

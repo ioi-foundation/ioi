@@ -1,17 +1,17 @@
 # Reference → IOI API integration ("working backwards")
 
-The hypervisor app serves the **live reference** (`apps/hypervisor/scripts/serve-live-reference.mjs`):
-the reference's real bundle (IOI-branded snapshot) is served from the gitignored local
-mirror, so dark mode and every client-side interaction work natively (no hand-wired tail)
+The hypervisor app serves the **product-ui bundle** (`apps/hypervisor/scripts/serve-product-ui.mjs`):
+the product-ui bundle's real bundle (IOI-branded snapshot) is served from the gitignored local
+product-ui server, so dark mode and every client-side interaction work natively (no hand-wired tail)
 and it is pixel-exact by construction. An **IOI-owned `/api` adapter**
-(`apps/hypervisor/scripts/ioi-api-adapter.mjs`) sits in front and replaces the reference's
-mocked backend endpoint-by-endpoint; anything not yet ported is proxied to the mirror so
+(`apps/hypervisor/scripts/ioi-api-adapter.mjs`) sits in front and replaces the product-ui bundle's
+mocked backend endpoint-by-endpoint; anything not yet ported is proxied to the product-ui server so
 nothing breaks during the migration.
 
 ```
-browser :4173 ─▶ serve-live-reference
+browser :4173 ─▶ serve-product-ui
                    ├─ /api/* ─▶ ioi-api-adapter ─▶ real IOI behavior
-                   └─ else / unported /api ─▶ proxy ─▶ mirror :9301 (bundle + branding + mocks)
+                   └─ else / unported /api ─▶ proxy ─▶ product-ui server :9301 (bundle + branding + mocks)
 ```
 
 ## The frontend's contract (IOI Connect-RPC, `ioi.v1.*`)
@@ -22,7 +22,7 @@ frames for streams — header byte `2` + uint32 length + payload, see
 
 | Service / method | Request (key fields) | Response shape |
 | --- | --- | --- |
-| `EventService/WatchEvents` | — | Connect stream; mirror sends an immediate end-stream frame |
+| `EventService/WatchEvents` | — | Connect stream; product-ui server sends an immediate end-stream frame |
 | `RunnerService/CreateRunner` | — | `{ runner: { id, spec{...}, status{ phase, message }, kind } }` |
 | `RunnerService/CheckAuthenticationForHost` | `{ host }` | `{ type: "Authenticated" }` |
 | `UserService/GetPreference` | `{ preferenceKey }` | `{ preference: { key, value, id, createdAt, updatedAt } \| null }` |
@@ -66,7 +66,7 @@ Projection layer: `scripts/ioi-projection.mjs` (verb-disciplined daemon→UI map
 - **Preferences** — `UserService/{Get,Set}Preference` → app-local store (client config).
 
 If the daemon is unreachable the adapter returns null and the request falls back to the
-live reference, so the app never breaks.
+product-ui bundle, so the app never breaks.
 
 ### Boundary (WS3) — daemon-enforced, surfacing awaits native UI
 
@@ -75,14 +75,14 @@ The daemon **enforces** the child/operator split: threads default `approval_mode
 path (`/v1/threads/:id/approvals/*`, `…/workspace-change-reviews/control`,
 `…-admissions`). wallet authority is invoked by the daemon only at delegated-authority
 crossings. The projection carries these signals on the governed object. **Rendering the
-approval/review flow needs native IOI surfaces** — the borrowed IOI UI is session-centric
+approval/review flow needs native IOI surfaces** — the seeded IOI UI is session-centric
 and has no slot for it (the impedance-mismatch case for a native UI).
 
-### Still on the live reference (documented reasons)
+### Still on the product-ui bundle (documented reasons)
 
 - **Project** (WS1) — daemon `/v1/hypervisor/projects` is **create-only** (requires
   `repository_url`); no list/projection GET. Stays proxied until the daemon exposes a
-  project list (or an Agentgres projection). The borrowed UI keeps showing the demo project.
+  project list (or an Agentgres projection). The seeded UI keeps showing the demo project.
 - `Account/Org/Billing` — daemon `/v1/account` is a bare `local-operator` stub; wiring it
   degrades the identity for no gain.
 - `EventService/WatchEvents` — daemon emits **per-thread SSE**; the frontend wants a

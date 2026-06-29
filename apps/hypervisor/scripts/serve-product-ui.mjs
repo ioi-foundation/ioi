@@ -1,22 +1,22 @@
 #!/usr/bin/env node
-// Serve the LIVE reference as the hypervisor app, with an IOI-owned /api adapter in front.
+// Serve the product-ui bundle as the hypervisor app, with an IOI-owned /api adapter in front.
 //
 // "Start with the reference, work backwards": the app serves the reference's actual live
 // bundle (so dark mode + every client interaction work natively — no hand-wired tail, and
 // it's pixel-exact). On top of that, an IOI-owned API adapter progressively replaces the
 // reference's mocked /api with real IOI behavior, endpoint by endpoint; anything not yet
-// ported is transparently proxied to the live reference so nothing breaks mid-migration.
+// ported is transparently proxied to the product-ui bundle so nothing breaks mid-migration.
 //
 // Architecture:
 //   browser :PORT ──▶ this server
 //                       ├─ /api/* handled by ioi-api-adapter ─▶ IOI behavior (real)
-//                       └─ everything else (and unported /api) ─▶ proxy to mirror :MIRROR_PORT
-//   mirror :MIRROR_PORT = reference server (bundle + IOI branding + remaining mocks)
+//                       └─ everything else (and unported /api) ─▶ proxy to productUi :PRODUCT_UI_PORT
+//   productUi :PRODUCT_UI_PORT = product-ui server (bundle + IOI branding + remaining mocks)
 //
-// Transitional: the harvested bundle stays in the gitignored local mirror (not committed),
-// so this mode requires the mirror present. The IOI adapter + serve layer are committed.
+// Transitional: the harvested bundle stays in the gitignored local productUi (not committed),
+// so this mode requires the productUi present. The IOI adapter + serve layer are committed.
 //
-// Usage: PORT=4173 node apps/hypervisor/scripts/serve-live-reference.mjs
+// Usage: PORT=4173 node apps/hypervisor/scripts/serve-product-ui.mjs
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -185,10 +185,10 @@ function selectConversationChunks(chunks, query) {
 }
 const HERE = dirname(fileURLToPath(import.meta.url));
 const AUG_PATH = join(HERE, "ioi-augmentation.js");
-// WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the borrowed SPA's DOM).
+// WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the seeded SPA's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true")}catch(e){}</script>';
-// Only inject into a real HTML document (one with a </body>). The mirror mislabels some JSON
+// Only inject into a real HTML document (one with a </body>). The productUi mislabels some JSON
 // endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
 // body the SPA later parses with Response.json() — so never append when there's no </body>.
 function augmentHtml(html) {
@@ -199,7 +199,7 @@ function augmentHtml(html) {
 const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(HERE, "..", "product-ui", "server.cjs");
 const PORT = Number(process.env.PORT || 4173);
-const MIRROR_PORT = Number(process.env.MIRROR_PORT || 9301);
+const PRODUCT_UI_PORT = Number(process.env.PRODUCT_UI_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 // The browser-facing origin, honoring a reverse tunnel (localhost.run / cloudflared set
@@ -318,7 +318,7 @@ function githubAppShell(title, inner) {
 </style></head><body><div class="card"><div class="brand">IOI Hypervisor · Git authentications</div><h1>${title}</h1>${inner}</div></body></html>`;
 }
 
-// Terminability tracker: any ioi.v1.* RPC that falls through to the mock mirror (adapter
+// Terminability tracker: any ioi.v1.* RPC that falls through to the product-ui server (adapter
 // returned null) is recorded here. ":4173 functional" ⇔ this set is empty after exercising flows.
 // Exposed at GET /__ioi/fallthrough (+ POST /__ioi/fallthrough/reset).
 const fallthrough = new Set();
@@ -440,7 +440,7 @@ export const Terminal=React.forwardRef(function Terminal({environmentId,terminal
 `;
 
 // Hypervisor's OWN transcript primitive — the Run Timeline surface. A self-contained, owned page
-// (not the borrowed SPA chat pane) styled with the reference design tokens (linked from the bundle CSS so
+// (not the seeded SPA chat pane) styled with the reference design tokens (linked from the bundle CSS so
 // the look is native). It polls /__ioi/agent-runs/:id/timeline and renders the 6-part governed-work
 // turn: request → activity → response → artifacts → proof → follow-ups. Any surface (Workbench,
 // Sessions, Agent Studio, Automations, IOI.ai handoffs) routes/embeds this by runId. Client JS avoids
@@ -498,11 +498,11 @@ const RUN_TIMELINE_HTML = `<!doctype html>
   .rt-act:hover { background:rgb(var(--surface-muted)); }
   .rt-muted { color:rgb(var(--content-muted)); font-style:italic; }
   .rt-loading,.rt-error { color:rgb(var(--content-muted)); padding:40px; text-align:center; }
-  /* embed mode — mounted inside the workbench pane (replaces the borrowed transcript) */
+  /* embed mode — mounted inside the workbench pane (replaces the seeded transcript) */
   html.rt-embed, html.rt-embed body { background:transparent; }
   html.rt-embed .rt-wrap { max-width:none; margin:0; padding:12px 14px 32px; }
   html.rt-embed .rt-head { position:sticky; top:0; background:rgb(var(--surface-base)); padding-bottom:8px; z-index:1; }
-  /* owned follow-up composer (so the surface owns transcript + send, no borrowed pane) */
+  /* owned follow-up composer (so the surface owns transcript + send, no seeded pane) */
   .rt-composer { position:sticky; bottom:0; display:flex; gap:8px; max-width:840px; margin:0 auto; padding:12px 14px;
     background:rgb(var(--surface-base)); border-top:1px solid rgb(var(--border-base)); }
   html.rt-embed .rt-composer { max-width:none; }
@@ -691,23 +691,23 @@ const RUN_TIMELINE_HTML = `<!doctype html>
 
 if (!existsSync(REF_SERVER)) {
   console.error(
-    `Live reference not found at:\n  ${REF_SERVER}\n\n` +
-      `The reference bundle is a gitignored local mirror; this serve mode needs it present.`,
+    `product-ui bundle not found at:\n  ${REF_SERVER}\n\n` +
+      `The product-ui bundle is a gitignored local productUi; this serve mode needs it present.`,
   );
   process.exit(1);
 }
 
-// 1) Spawn the reference server (bundle + branding + remaining mocks) on an internal port.
-const mirror = spawn("node", [REF_SERVER], {
+// 1) Spawn the product-ui server (bundle + branding + remaining mocks) on an internal port.
+const productUi = spawn("node", [REF_SERVER], {
   stdio: "inherit",
-  env: { ...process.env, PORT: String(MIRROR_PORT) },
+  env: { ...process.env, PORT: String(PRODUCT_UI_PORT) },
 });
-mirror.on("exit", (code) => process.exit(code ?? 0));
-process.on("SIGINT", () => mirror.kill("SIGINT"));
-process.on("SIGTERM", () => mirror.kill("SIGTERM"));
+productUi.on("exit", (code) => process.exit(code ?? 0));
+process.on("SIGINT", () => productUi.kill("SIGINT"));
+process.on("SIGTERM", () => productUi.kill("SIGTERM"));
 
 // IOI product identity overrides applied to proxied HTML/JSON (the reference ships a demo
-// identity; we substitute ours). Applied in the committed serve layer so it survives mirror
+// identity; we substitute ours). Applied in the committed serve layer so it survives productUi
 // regeneration and never edits the gitignored snapshot.
 const IDENTITY_REWRITES = [
   ["Levi Josman", "John Doe"],
@@ -723,7 +723,7 @@ function rewriteIdentity(text) {
 // via `globalThis.__toAssetUrl = (f) => \`https://app.ioi.io/static/${f}\`` (plus absolute font
 // preloads). Left as-is, every lazy chunk (e.g. /ai's page chunk) is fetched from the upstream CDN
 // — and a single blip / rotated hash there makes the dynamic import reject → the SPA's "Something
-// went wrong" error boundary. The mirror already serves all assets locally, so point the base at
+// went wrong" error boundary. The productUi already serves all assets locally, so point the base at
 // our own origin (root-relative /static/) for a self-contained, deterministic app.
 const ASSET_CDN_BASE = "https://app.ioi.io/static/";
 function localizeAssetBase(html) {
@@ -752,12 +752,12 @@ function renameApiTokens(js) {
 }
 const SETTINGS_BUNDLE_RE = /SegmentProvider-[^/]+\.js/;
 
-function proxyToMirror(req, res, body) {
-  // Drop accept-encoding so the mirror returns plain text we can rewrite.
+function proxyToProductUi(req, res, body) {
+  // Drop accept-encoding so the productUi returns plain text we can rewrite.
   const headers = { ...req.headers };
   delete headers["accept-encoding"];
   const upstream = http.request(
-    { host: "127.0.0.1", port: MIRROR_PORT, method: req.method, path: req.url, headers },
+    { host: "127.0.0.1", port: PRODUCT_UI_PORT, method: req.method, path: req.url, headers },
     (r) => {
       const ct = String(r.headers["content-type"] || "");
       // Only buffer + rewrite text payloads (HTML pages + JSON fixtures). Stream the rest
@@ -793,7 +793,7 @@ function proxyToMirror(req, res, body) {
   );
   upstream.on("error", (e) => {
     res.writeHead(502, { "Content-Type": "text/plain" });
-    res.end(`mirror unavailable: ${e.message}`);
+    res.end(`productUi unavailable: ${e.message}`);
   });
   upstream.end(body);
 }
@@ -1028,7 +1028,7 @@ ${error ? `<div class="err">${error}</div>` : ""}
 </form></body></html>`;
 }
 
-// 2) Front server: IOI /api adapter first, proxy everything else to the mirror.
+// 2) Front server: IOI /api adapter first, proxy everything else to the productUi.
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
@@ -1038,7 +1038,7 @@ const server = http.createServer((req, res) => {
     // Wire bridge: the served SPA's RPC package name is baked into its (immutable) protobuf
     // descriptors, so on the wire it still calls the upstream namespace. Canonicalize any
     // /api/<pkg>.vN.<Service> to the IOI namespace for ALL downstream routing (adapter,
-    // special-cases, fallthrough tracker) AND the mirror proxy (rewrite req.url) — so no other
+    // special-cases, fallthrough tracker) AND the productUi proxy (rewrite req.url) — so no other
     // code needs to know the upstream package name and the tracked source stays brand-neutral.
     {
       const _canon = pathname.replace(/^\/api\/[a-z][a-z0-9.]*\.v\d+\./, "/api/ioi.v1.");
@@ -1146,8 +1146,8 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
-    // Telemetry / error-reporting beacons: the harvested SPA fires Segment analytics (/segment/v1/*)
-    // and a Sentry error tunnel (/sentry-tunnel). With no handler they proxy to the mirror and hang
+    // Telemetry / error-reporting beacons: the product-ui bundle fires Segment analytics (/segment/v1/*)
+    // and a Sentry error tunnel (/sentry-tunnel). With no handler they proxy to the productUi and hang
     // / abort (real pending+failed requests on nearly every surface). Ack them instantly. We collect
     // no analytics and report no errors externally — this is a local, self-contained app.
     if (pathname.startsWith("/segment/") || pathname === "/sentry-tunnel" || pathname.startsWith("/sentry")) {
@@ -1291,7 +1291,7 @@ const server = http.createServer((req, res) => {
     // progresses: the user prompt, then (on completion) the files the agent wrote + its summary. The
     // final PHASE_COMPLETED entries replace the optimistic "Thinking…" placeholder; keeping the
     // socket open (never EOF) means no "Stream closed"/"Retrying". /history + /live are the V2 mode
-    // the harvested SPA prefers for the native workbench conversation pane.
+    // the product-ui bundle prefers for the native workbench conversation pane.
     // Governed "Publish PR" command — orchestrates the wallet-authorized SCM publish crossing for a
     // run (challenge → mint grant → real git push to the connector remote) and records the receipt.
     if (pathname.startsWith("/__ioi/run-publish/") && req.method === "POST") {
@@ -1602,7 +1602,7 @@ const server = http.createServer((req, res) => {
       req.on("close", () => clearInterval(interval));
       return; // NEVER res.end() — the SPA's reader treats EOF as "Stream closed" and retries.
     }
-    // WS-5: editor "Open in VS Code Browser". The reference SPA opens the editor's urlTemplate;
+    // WS-5: editor "Open in VS Code Browser". The product-ui bundle opens the editor's urlTemplate;
     // we point vscode-browser at this endpoint, which drives the proven daemon editor chain
     // (create service → lease → start openvscode-server → expose lease-auth proxy) and 302s to
     // the live editor URL. Fail-closed with an honest page if the runtime isn't provisioned.
@@ -1658,7 +1658,7 @@ const server = http.createServer((req, res) => {
       const m = pathname.match(/^\/api\/(ioi\.v1\.[A-Za-z]+\/[A-Za-z]+)/);
       if (m) fallthrough.add(m[1]);
     }
-    proxyToMirror(req, res, body);
+    proxyToProductUi(req, res, body);
   });
 });
 
@@ -1842,12 +1842,12 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
-// Wait for the mirror to accept connections, then listen.
+// Wait for the productUi to accept connections, then listen.
 function waitForMirror(attempt = 0) {
-  const probe = http.get({ host: "127.0.0.1", port: MIRROR_PORT, path: "/" }, (r) => {
+  const probe = http.get({ host: "127.0.0.1", port: PRODUCT_UI_PORT, path: "/" }, (r) => {
     r.destroy();
     server.listen(PORT, async () => {
-      console.log(`[hypervisor] LIVE reference + IOI /api adapter on http://localhost:${PORT}`);
+      console.log(`[hypervisor] product-ui bundle + IOI /api adapter on http://localhost:${PORT}`);
       // #3 — rehydrate the run-registry cache from the daemon's durable agent-run-transcripts so the
       // Run Timeline + env→run resolvers survive a serve restart (durable truth lives in the daemon).
       const n = await hydrateRunsFromDaemon();
@@ -1856,7 +1856,7 @@ function waitForMirror(attempt = 0) {
   });
   probe.on("error", () => {
     if (attempt > 50) {
-      console.error("[hypervisor] mirror did not come up");
+      console.error("[hypervisor] productUi did not come up");
       process.exit(1);
     }
     setTimeout(() => waitForMirror(attempt + 1), 200);

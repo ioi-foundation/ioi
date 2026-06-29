@@ -1,16 +1,16 @@
-// IOI-owned API adapter for the live reference's IOI Connect-RPC surface.
+// IOI-owned API adapter for the product-ui bundle's IOI Connect-RPC surface.
 //
-// "Working backwards" from the live reference: endpoints here are backed by real IOI —
+// "Working backwards" from the product-ui bundle: endpoints here are backed by real IOI —
 // the hypervisor-daemon (governed objects), an IOI-persisted store (preferences), and the
 // EnvironmentProvider (lifecycle). handle() returns a response for endpoints we own and
 // null for the rest, so the serve layer transparently proxies anything not-yet-ported to
-// the live reference; if the daemon is unreachable we also return null (graceful fallback).
+// the product-ui bundle; if the daemon is unreachable we also return null (graceful fallback).
 //
 // Boundary discipline: daemon EXECUTES · wallet AUTHORIZES (crossings only) · agentgres
 // RECORDS. Projections live in ioi-projection.mjs and must not inflate any plane.
 //
 // Daemon: IOI_HYPERVISOR_DAEMON_URL (default http://127.0.0.1:8765).
-// Plan: apps/hypervisor/docs/reference-api-integration.md
+// Plan: apps/hypervisor/docs/product-ui-api-integration.md
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -174,7 +174,7 @@ const runnerFromProvider = (p = {}) => {
       variant: "RUNNER_VARIANT_STANDARD",
     },
     // status.capabilities gates env-class selectability and the Git-auth connect action. It must
-    // include AGENT_EXECUTION plus the local side capabilities this borrowed shell expects.
+    // include AGENT_EXECUTION plus the local side capabilities this seeded shell expects.
     status: {
       phase: active ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE",
       message: label,
@@ -289,7 +289,7 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.UserService/ListPreferences") {
     const store = loadStore();
-    // App-local preference defaults (config, not truth). The borrowed shell's onboarding gate is
+    // App-local preference defaults (config, not truth). The seeded shell's onboarding gate is
     // already satisfied by our org/user identity state, so no upstream onboarding flag is seeded.
     const seedTime = { createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt };
     const merged = {};
@@ -466,7 +466,7 @@ async function handleImpl(pathname, bodyText) {
         // stream so the pending turn reconciles (no duplicate prompt, "Thinking…" resolves).
         const clientBlockId = body.userInput?.id || body.input?.value?.id || body.input?.userInput?.id;
         const userInputBlockId = await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt, userInputBlockId: clientBlockId });
-        // The harvested SPA invalidates/refetches the execution immediately after this RPC
+        // The product-ui bundle invalidates/refetches the execution immediately after this RPC
         // completes. If we return while the local harness is still RUNNING, the conversation pane
         // keeps its optimistic "Thinking…" row even though the files and final reply arrive in our
         // run registry a moment later. Hold this local compose RPC until the run reaches a terminal
@@ -1087,7 +1087,7 @@ async function handleImpl(pathname, bodyText) {
     return json({ pagination: {} });
   }
 
-  // Not yet IOI-backed -> proxy to the live reference. Remaining (see reference-api-
+  // Not yet IOI-backed -> proxy to the product-ui bundle. Remaining (see reference-api-
   // integration.md): ProjectService (daemon needs a project-list GET), EventService
   // streaming bridge, approvals/reviews surfacing.
   return null;

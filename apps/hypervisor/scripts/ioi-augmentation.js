@@ -1,15 +1,15 @@
 // WS-I / WS-F — injected IOI-native surface (the IOI-native cockpit panel + owned Run Timeline).
 //
-// The borrowed reference cockpit has no slot for IOI-native objects (operator authority, environment
+// The seeded reference cockpit has no slot for IOI-native objects (operator authority, environment
 // lifecycle/isolation posture + services/tasks/ports, the WorkRun patch branch + its
 // model-driven turns, the scoped terminal, receipts). This vanilla script mounts an IOI-native
 // panel beside the cockpit (same mechanism as the brand boot-guard) that reads AND drives the
 // daemon via /api/ioi/*. It owns no truth — the daemon is the source.
 //
 // CANONICAL OWNERSHIP: Hypervisor owns its conversation surface. On the workbench we REPLACE the
-// borrowed transcript in-pane with our Run Timeline (mounted as an iframe to /__ioi/run-timeline,
+// seeded transcript in-pane with our Run Timeline (mounted as an iframe to /__ioi/run-timeline,
 // the owned governed-work surface), keeping the native composer so follow-ups still post through
-// the adapter. This is the one place we deliberately edit the borrowed SPA's DOM (the transcript region of
+// the adapter. This is the one place we deliberately edit the seeded SPA's DOM (the transcript region of
 // [data-testid=environment-agent-execution-conversation]); everything else stays hands-off.
 //
 // Boundary: daemon EXECUTES · wallet AUTHORIZES crossings · agentgres RECORDS (receipts).
@@ -17,7 +17,7 @@
   if (window.__ioiAugmentationMounted) return;
   window.__ioiAugmentationMounted = true;
 
-  // ---- Owned Run Timeline as the default workbench transcript (replaces the borrowed pane) ----
+  // ---- Owned Run Timeline as the default workbench transcript (replaces the seeded pane) ----
   const CONV_SEL = '[data-testid="environment-agent-execution-conversation"]';
   const runGate = {}; // envId -> { has, at } — throttled "does this env have a run yet" check
   function envHasRun(envId) {
@@ -53,7 +53,7 @@
     } else if (frame.getAttribute("src") !== want) {
       frame.setAttribute("src", want); // env changed (SPA nav) → repoint
     }
-    // Full replacement: hide ALL borrowed pane children (transcript + the SPA's empty-state hero +
+    // Full replacement: hide ALL seeded pane children (transcript + the SPA's empty-state hero +
     // its composer), leaving only our owned timeline. The owned surface carries its own follow-up
     // composer, so it owns the whole conversation (transcript + send). Re-applied each tick because
     // React re-creates these children on its own renders.
@@ -63,7 +63,7 @@
   }
 
   // ---- BYOA "Create & connect GitHub App" affordance on the Git authentications surface ----------
-  // The harvested SPA's native connect modal only knows PAT/OAuth; GitHub App is a method it can't
+  // The product-ui bundle's native connect modal only knows PAT/OAuth; GitHub App is a method it can't
   // render, so we add it ourselves — below the connections list, styled with the SPA's own design
   // tokens. It LAUNCHES IN A NEW TAB so the settings dialog stays put; the flow's success page tells
   // the user to close that tab. Idempotent + re-applied each tick (React re-renders the panel).

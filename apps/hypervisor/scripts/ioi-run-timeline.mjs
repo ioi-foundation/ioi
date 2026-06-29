@@ -1,7 +1,7 @@
 // Hypervisor's OWN transcript primitive: the Run / Activity Timeline projection.
 //
 // Hypervisor is a workbench for GOVERNED work, not a generic chat — so we own the conversation
-// surface instead of borrowing the harvested SPA's chat pane. This module projects a run (the
+// surface instead of borrowing the product-ui bundle's chat pane. This module projects a run (the
 // app-side view of a daemon execution) into a structured timeline whose every section is real
 // daemon/run truth (NO FAKES — absent data becomes a named empty state, never a placeholder):
 //

@@ -500,7 +500,7 @@ const hypervisorBrandMarkup = `<span class="hypervisor-activity-brand" aria-hidd
 const hypervisorMarkMarkup = hypervisorLogoSvg.replace('<svg ', '<svg class="hypervisor-activity-brand-mark" ');
 
 function brandText(value) {
-  return String(value).replace(/\bONA\b/g, 'Hypervisor').replace(/\bOna\b/g, 'Hypervisor');
+  return String(value);
 }
 
 function brandHtml(content) {

@@ -4,8 +4,8 @@
 reference for the product's visual + interaction language. It is *descriptive of the
 current UX*, not aspirational — every value here is extracted from the running app.
 
-> **The product UI _is_ the live reference.** It is served by
-> `apps/hypervisor/scripts/serve-live-reference.mjs` (the reference bundle + an IOI `/api`
+> **The product UI _is_ the product-ui bundle.** It is served by
+> `apps/hypervisor/scripts/serve-product-ui.mjs` (the reference bundle + an IOI `/api`
 > adapter), not by a hand-written React app. Treat the running app at **`:4173`** as the
 > source of truth; treat this doc as the index to it.
 
@@ -19,10 +19,10 @@ current UX*, not aspirational — every value here is extracted from the running
 - **Never hard-code raw colors.** Use the semantic tokens (`--surface-*`, `--content-*`,
   `--border-*`). They theme automatically (light/dark). Raw hex is a bug.
 - **Customize in the committed serve layer, not the snapshot.** The reference bundle lives
-  in a **gitignored mirror** — it is read-only. Product changes (e.g. the identity rename
-  `Levi Josman → John Doe`) go in `serve-live-reference.mjs` as response rewrites / an
-  `/api` adapter handler, so they're committed and survive mirror regeneration. See
-  [reference-api-integration.md](./reference-api-integration.md).
+  in a **committed product-ui bundle** — it is read-only. Product changes (e.g. the identity rename
+  `Levi Josman → John Doe`) go in `serve-product-ui.mjs` as response rewrites / an
+  `/api` adapter handler, so they're committed and survive product-ui bundle regeneration. See
+  [product-ui-api-integration.md](./product-ui-api-integration.md).
 - **System-aware theming is mandatory.** The app honors `prefers-color-scheme`; both
   themes must work. Never force a single theme.
 - **Verify against `:4173`** (both `colorScheme: dark` and `light`) before claiming a UX
@@ -168,7 +168,7 @@ Subtle, fast (Radix + tailwindcss-animate). Driven by `data-state`:
 
 1. Find it in the live app (`:4173`) and identify the tokens/classes it already uses.
 2. If it's a data/content change (names, copy, fixtures) → rewrite/adapter in
-   `serve-live-reference.mjs` (see the identity-rename pattern).
+   `serve-product-ui.mjs` (see the identity-rename pattern).
 3. If it's genuinely new UI → build it with the tokens + component patterns above so it's
    indistinguishable from the reference; both themes; the §7 motion; §8 a11y.
 4. Verify on `:4173` in **dark and light**, screenshot-diff against the reference, confirm
