@@ -338,6 +338,8 @@ function automationsShell(title, inner) {
   .grid dt{color:#878a93;font-size:12.5px}
   .grid dd{margin:0;color:#e6e7ea}
   code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
+  pre{background:#0e0f13;border:1px solid #24262d;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#cdd1d8;white-space:pre-wrap;word-break:break-all}
+  .reveal{color:#46c277;background:#11281b;border:1px solid #235c3b;border-radius:8px;padding:12px;font:12px ui-monospace,monospace;word-break:break-all}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;color:#878a93;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:6px 10px;border-bottom:1px solid #24262d}
   td{padding:8px 10px;border-bottom:1px solid #1b1d23}
@@ -373,7 +375,7 @@ function renderAutomationsList(automations, projectId, projectsById) {
   }).join("");
   return automationsShell("Automations", head + cards);
 }
-function renderAutomationDetail(a, runs, projectsById) {
+function renderAutomationDetail(a, runs, projectsById, webhook) {
   const id = a.automation_id;
   const enabled = a.enabled !== false;
   const pid = a.project_ref || a.project_id || "";
@@ -423,8 +425,30 @@ function renderAutomationDetail(a, runs, projectsById) {
     <dt>Runtime policy</dt><dd>${v(a.default_runtime_policy_ref)}</dd>
     <dt>Env class</dt><dd>${v(a.environment_class_id)}</dd>
   </dl>`;
+  // Webhook trigger section (authenticated inbound trigger; secret is hash-at-rest, shown once on rotate).
+  const wh = webhook || {};
+  const whUrl = a.webhook_url ? `${wh.baseUrl || ""}${a.webhook_url}` : "";
+  const evRows = (wh.events || []).slice(0, 10).map((e) => {
+    const acc = e.accepted === true;
+    return `<tr><td>${CX_ESC(e.received_at || "")}</td><td><span class="pill ${acc ? "ok" : "warn"}">${acc ? "accepted" : "rejected"}</span></td><td>${CX_ESC(e.reason || "")}</td><td>${e.run_ref ? `<a href="/__ioi/run-timeline/${encodeURIComponent(e.run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td></tr>`;
+  }).join("");
+  const webhookSection = a.webhook_url
+    ? `<h2>Webhook trigger</h2>
+       <dl class="grid">
+         <dt>Endpoint</dt><dd><code>POST ${CX_ESC(whUrl)}</code></dd>
+         <dt>Auth</dt><dd>header <code>X-IOI-Trigger-Token: &lt;secret&gt;</code> · secret shown once on rotate</dd>
+         <dt>Triggers</dt><dd>${wh.accepted || 0} accepted · ${wh.rejected || 0} rejected</dd>
+       </dl>
+       <div class="row"><form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/webhook-rotate"><button class="act ghost" type="submit">↻ Rotate secret</button></form></div>
+       <pre>curl -X POST ${CX_ESC(whUrl)} \\
+  -H "X-IOI-Trigger-Token: $TOKEN" \\
+  -H "content-type: application/json" \\
+  -d '{"event":"ping"}'</pre>
+       ${evRows ? `<table><thead><tr><th>Received</th><th>Result</th><th>Reason</th><th>Run</th></tr></thead><tbody>${evRows}</tbody></table>` : `<div class="empty">No trigger events yet.</div>`}`
+    : `<h2>Webhook trigger</h2><p class="sub">Trigger this automation from an external service with an authenticated webhook (the secret is sealed; only its hash is stored).</p>
+       <form class="inline" method="post" action="/__ioi/automations/${encodeURIComponent(id)}/webhook-rotate"><button class="act" type="submit">Enable webhook trigger</button></form>`;
   const inner = `${back}<h1>${CX_ESC(a.name || id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span></h1>
-    <p class="sub">${CX_ESC(a.description || "")}</p>${actions}${spec}${steps}<h2>Run history</h2>${runRows}`;
+    <p class="sub">${CX_ESC(a.description || "")}</p>${actions}${spec}${steps}<h2>Run history</h2>${runRows}${webhookSection}`;
   return automationsShell(a.name || "Automation", inner);
 }
 function renderAutomationNewForm(projectId, projects) {
@@ -1706,6 +1730,26 @@ const server = http.createServer((req, res) => {
         res.end();
         return;
       }
+      if (action === "webhook-rotate" && req.method === "POST") {
+        // Mint/rotate the trigger secret and reveal it ONCE (only its hash is persisted).
+        const r = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-rotate`, { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+        const token = r.webhook_token || "";
+        const url = `${publicBase(req)}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook`;
+        const reveal = token
+          ? `<p><a href="/__ioi/automations/${encodeURIComponent(id)}">← ${CX_ESC(id)}</a></p><h1>Webhook secret</h1>
+             <p class="sub">Copy this now — it is shown once and only its hash is stored. Send it on every call as the <code>X-IOI-Trigger-Token</code> header.</p>
+             <div class="reveal">${CX_ESC(token)}</div>
+             <h2>Example</h2>
+             <pre>curl -X POST ${CX_ESC(url)} \\
+  -H "X-IOI-Trigger-Token: ${CX_ESC(token)}" \\
+  -H "content-type: application/json" \\
+  -d '{"event":"ping"}'</pre>
+             <p><a class="act" href="/__ioi/automations/${encodeURIComponent(id)}">Done</a></p>`
+          : `<div class="empty">Could not rotate secret.</div><p><a href="/__ioi/automations/${encodeURIComponent(id)}">← back</a></p>`;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(automationsShell("Webhook secret", reveal));
+        return;
+      }
       if (action === "delete" && req.method === "POST") {
         const a = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
         const pid = a.automation && (a.automation.project_ref || a.automation.project_id);
@@ -1716,10 +1760,11 @@ const server = http.createServer((req, res) => {
       }
       if (!action && req.method === "GET") {
         try {
-          const [aRes, rRes, pRes] = await Promise.all([
+          const [aRes, rRes, pRes, wRes] = await Promise.all([
             fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
             fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`).then((r) => r.json()).catch(() => ({})),
             fetch(`${DAEMON}/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({})),
+            fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/webhook-events`).then((r) => r.json()).catch(() => ({})),
           ]);
           if (!aRes.automation) {
             res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
@@ -1728,8 +1773,9 @@ const server = http.createServer((req, res) => {
           }
           const projectsById = {};
           for (const p of pRes.projects || []) projectsById[p.project_id] = p;
+          const webhook = { events: wRes.events || [], accepted: wRes.accepted_count || 0, rejected: wRes.rejected_count || 0, baseUrl: publicBase(req) };
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-          res.end(renderAutomationDetail(aRes.automation, rRes.runs || [], projectsById));
+          res.end(renderAutomationDetail(aRes.automation, rRes.runs || [], projectsById, webhook));
         } catch (e) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(automationsShell("Automation", `<div class="empty">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</div>`));

@@ -10951,7 +10951,12 @@ pub(crate) async fn auth_gate(
         "/v1/hypervisor/auth/oidc/callback",
         "/v1/hypervisor/editor-targets",
     ];
-    let exempt = !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str());
+    // The webhook trigger endpoint authenticates by its own per-automation trigger token (verified
+    // in the handler), so it bypasses the session/principal gate — external senders have no session.
+    let is_webhook_trigger =
+        path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook");
+    let exempt =
+        !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str()) || is_webhook_trigger;
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);

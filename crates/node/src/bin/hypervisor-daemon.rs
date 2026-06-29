@@ -954,6 +954,20 @@ async fn async_main() -> anyhow::Result<()> {
             get(orchestration_routes::handle_automation_runs_list)
                 .post(orchestration_routes::handle_automation_start),
         )
+        // Webhook trigger surface: authenticated inbound trigger (own token, gate-exempt), token
+        // rotation, and the trigger-event audit feed.
+        .route(
+            "/v1/hypervisor/automations/:id/webhook",
+            post(orchestration_routes::handle_automation_webhook),
+        )
+        .route(
+            "/v1/hypervisor/automations/:id/webhook-rotate",
+            post(orchestration_routes::handle_automation_webhook_rotate),
+        )
+        .route(
+            "/v1/hypervisor/automations/:id/webhook-events",
+            get(orchestration_routes::handle_automation_webhook_events),
+        )
         .route(
             "/v1/hypervisor/automation-executions/:id",
             get(orchestration_routes::handle_automation_execution_get),
