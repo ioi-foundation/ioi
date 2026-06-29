@@ -3,11 +3,11 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-// The Hypervisor product UI is the LIVE REFERENCE, served + made functional by the IOI /api adapter
-// (work-backwards): `npm run serve:reference --workspace=@ioi/hypervisor-app`
-// (apps/hypervisor/scripts/serve-live-reference.mjs + ioi-api-adapter.mjs). See
-// internal-docs/implementation/hypervisor-reference-functional-master-guide.md. This Vite app only
-// hosts the workbench dev preview + runtime services; it is NOT a second product UI.
+// The canonical Hypervisor product UI is the tracked product-ui bundle + IOI /api adapter,
+// served by `npm run serve:product-ui --workspace=@ioi/hypervisor-app`
+// (apps/hypervisor/scripts/serve-product-ui.mjs + ioi-api-adapter.mjs → http://localhost:4173).
+// This Vite entry only hosts the workbench dev preview + runtime services; it is NOT a second
+// product UI — evolve the served app in place, never build a parallel runtime.
 import "@ioi/hypervisor-workbench/dist/style.css";
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css";
@@ -39,8 +39,8 @@ function ServedElsewhereNotice() {
     <div style={{ font: "14px/1.6 system-ui, sans-serif", padding: "2rem" }}>
       <h1 style={{ fontSize: "1.25rem", margin: "0 0 .5rem" }}>Hypervisor</h1>
       <p style={{ margin: 0 }}>
-        The product UI is the live reference, made functional by the IOI /api adapter. Run{" "}
-        <code>npm run serve:reference --workspace=@ioi/hypervisor-app</code> and open{" "}
+        The product UI is served by the IOI /api adapter. Run{" "}
+        <code>npm run serve:product-ui --workspace=@ioi/hypervisor-app</code> and open{" "}
         <code>http://localhost:4173</code>.
       </p>
     </div>

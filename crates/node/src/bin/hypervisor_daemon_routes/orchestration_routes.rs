@@ -15,11 +15,16 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::body::Bytes;
+use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
-use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
+use super::{
+    iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, AppError, DaemonState,
+};
 
 fn safe(seg: &str) -> String {
     seg.replace(
@@ -89,31 +94,148 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
 
 // ============================ K. AUTOMATION WORKFLOW ENGINE ======================================
 
-/// POST /v1/hypervisor/automations — create an AutomationWorkflow.
+/// Keep the project the durable container of its automations: add/remove an automation_id on the
+/// referenced project's `automation_refs`. Best-effort + idempotent (no-op if the project isn't a
+/// persisted record, e.g. a legacy free-form project_id). The project create planner seeds
+/// `automation_refs: []`, so the agent-automations plane writes back here.
+fn link_project_automation(data_dir: &str, project_id: &str, automation_id: &str, add: bool) {
+    if project_id.is_empty() {
+        return;
+    }
+    let Some(mut project) = load(data_dir, "projects", project_id) else {
+        return;
+    };
+    let mut refs: Vec<Value> = project
+        .get("automation_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    refs.retain(|r| r.as_str() != Some(automation_id)); // dedupe / removal
+    if add {
+        refs.push(json!(automation_id));
+    }
+    project["automation_refs"] = json!(refs);
+    project["updated_at"] = json!(iso_now());
+    let _ = persist_record(data_dir, "projects", project_id, &project);
+}
+
+/// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
+/// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
+/// a project. Returns 400 if absent. On success the project's `automation_refs` is updated.
 pub(crate) async fn handle_automation_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let project_id = body
+        .get("project_ref")
+        .and_then(|v| v.as_str())
+        .or_else(|| body.get("project_id").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let Some(project_id) = project_id else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": {
+                "code": "automation_project_ref_required",
+                "message": "An automation must declare a project_ref (the project is its durable container)."
+            } })),
+        );
+    };
     let id = format!("auto_{:x}", nanos());
-    let record = json!({
+    let now = iso_now();
+    let trigger = body
+        .get("trigger")
+        .cloned()
+        .unwrap_or_else(|| json!({ "kind": "manual" }));
+    let trigger_kind = body
+        .get("trigger_kind")
+        .and_then(|v| v.as_str())
+        .or_else(|| trigger.get("kind").and_then(|v| v.as_str()))
+        .unwrap_or("manual")
+        .to_string();
+    // Validate the schedule (cron expression / timezone) up front with a useful error.
+    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null)) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } })),
+        );
+    }
+    let mut record = json!({
         "schema_version": "ioi.hypervisor.automation-workflow.v1",
         "automation_id": id,
+        // Project linkage (durable container) — project_id kept for back-compat with the executor.
+        "project_id": project_id,
+        "project_ref": project_id,
         "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("automation"),
-        "trigger": body.get("trigger").cloned().unwrap_or_else(|| json!({ "kind": "manual" })),
+        "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+        "trigger": trigger,
+        "trigger_kind": trigger_kind,
+        "enabled": body.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
         "steps": body.get("steps").cloned().unwrap_or_else(|| json!([])),
+        "workflow_graph_ref": body.get("workflow_graph_ref").cloned().unwrap_or(Value::Null),
         "limits": body.get("limits").cloned().unwrap_or_else(|| json!({ "max_total": 100, "per_exec_seconds": 600, "budget": Value::Null })),
         "executor_identity": body.get("executor_identity").cloned().unwrap_or_else(|| json!({ "kind": "user", "ref": "operator" })),
         "environment_class_id": body.get("environment_class_id").and_then(|v| v.as_str()).unwrap_or("local-workspace-v0"),
         "recipe_ref": body.get("recipe_ref").cloned().unwrap_or(Value::Null),
-        "project_id": body.get("project_id").and_then(|v| v.as_str()).unwrap_or("automation"),
-        "created_at": iso_now()
+        // Agent/runtime config (the HypervisorAutomationSpec surface).
+        "agent_ref": body.get("agent_ref").cloned().unwrap_or(Value::Null),
+        "harness_profile_ref": body.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
+        "model": body.get("model").cloned().unwrap_or(Value::Null),
+        "reasoning": body.get("reasoning").cloned().unwrap_or(Value::Null),
+        "connector_refs": body.get("connector_refs").cloned().unwrap_or_else(|| json!([])),
+        "memory_profile_ref": body.get("memory_profile_ref").cloned().unwrap_or(Value::Null),
+        "default_runtime_policy_ref": body.get("default_runtime_policy_ref").cloned().unwrap_or(Value::Null),
+        "authority_policy_ref": body.get("authority_policy_ref").cloned().unwrap_or(Value::Null),
+        // Scheduling (background execution): schedule_spec drives the daemon scheduler when enabled.
+        // next_run_at is computed by the scheduler (null → it initializes to now+interval, so create
+        // never fires immediately). last_run_at is stamped after each scheduled fire.
+        "schedule_spec": body.get("schedule_spec").cloned().unwrap_or(Value::Null),
+        "next_run_at": Value::Null,
+        "last_run_at": Value::Null,
+        "catch_up_policy": body.get("catch_up_policy").and_then(|v| v.as_str()).unwrap_or("skip"),
+        "misfire_policy": body.get("misfire_policy").and_then(|v| v.as_str()).unwrap_or("skip"),
+        "max_concurrency": body.get("max_concurrency").and_then(|v| v.as_i64()).filter(|n| *n > 0).unwrap_or(1),
+        "failure_policy": body.get("failure_policy").and_then(|v| v.as_str()).unwrap_or("continue"),
+        "webhook_token_hash": Value::Null,
+        "webhook_url": Value::Null,
+        "created_at": now,
+        "updated_at": now
     });
+    // Webhook trigger: mint an opaque trigger token (hashed at rest; plaintext returned ONCE).
+    let mut fresh_token: Option<String> = None;
+    if trigger_kind == "webhook" {
+        let tok = new_webhook_token();
+        record["webhook_token_hash"] = json!(sha256_hex_str(&tok));
+        record["webhook_url"] = json!(format!("/v1/hypervisor/automations/{id}/webhook"));
+        fresh_token = Some(tok);
+    }
     let _ = persist_record(&st.data_dir, "automations", &id, &record);
-    Json(json!({ "ok": true, "automation": record }))
+    link_project_automation(&st.data_dir, project_id, &id, true);
+    let mut resp = json!({ "ok": true, "automation": record });
+    if let Some(tok) = fresh_token {
+        resp["webhook_token"] = json!(tok); // shown once — never persisted in plaintext
+    }
+    (StatusCode::CREATED, Json(resp))
 }
 
-pub(crate) async fn handle_automation_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "ok": true, "automations": read_record_dir(&st.data_dir, "automations") }))
+/// GET /v1/hypervisor/automations[?project_ref=…] — list specs, optionally scoped to one project.
+pub(crate) async fn handle_automation_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let mut items = read_record_dir(&st.data_dir, "automations");
+    if let Some(pid) = q
+        .get("project_ref")
+        .or_else(|| q.get("project_id"))
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        items.retain(|a| {
+            a.get("project_id").and_then(|v| v.as_str()) == Some(pid)
+                || a.get("project_ref").and_then(|v| v.as_str()) == Some(pid)
+        });
+    }
+    Json(json!({ "ok": true, "automations": items }))
 }
 pub(crate) async fn handle_automation_get(
     State(st): State<Arc<DaemonState>>,
@@ -134,7 +256,267 @@ pub(crate) async fn handle_automation_execution_get(
     }
 }
 
-/// POST /v1/hypervisor/automations/:id/start — run the workflow: fresh env → steps → outputs.
+/// PATCH /v1/hypervisor/automations/:id — update mutable spec fields (config-immutable:
+/// automation_id / project_id / environment_class_id are NOT reassigned here).
+pub(crate) async fn handle_automation_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(mut a) = load(&st.data_dir, "automations", &id) else {
+        return Json(json!({ "ok": false, "reason": "automation not found" }));
+    };
+    if let Some(spec) = body.get("schedule_spec") {
+        if let Err(e) = super::validate_schedule_spec(spec) {
+            return Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }));
+        }
+    }
+    for key in [
+        "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
+        "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
+        "reasoning", "connector_refs", "memory_profile_ref", "default_runtime_policy_ref",
+        "authority_policy_ref", "schedule_spec", "catch_up_policy", "misfire_policy",
+        "max_concurrency", "failure_policy",
+    ] {
+        if let Some(v) = body.get(key) {
+            a[key] = v.clone();
+        }
+    }
+    // Rescheduling or (re)enabling resets the next fire so the scheduler recomputes it cleanly
+    // (pause = enabled:false → scheduler skips; resume = enabled:true → fresh next_run_at).
+    if body.get("schedule_spec").is_some() || body.get("enabled").is_some() {
+        a["next_run_at"] = Value::Null;
+    }
+    a["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "automations", &id, &a);
+    Json(json!({ "ok": true, "automation": a }))
+}
+
+/// DELETE /v1/hypervisor/automations/:id — remove the spec + unlink it from the project's
+/// automation_refs. Returns {ok, removed} so a no-op delete is honest.
+pub(crate) async fn handle_automation_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let project_id = load(&st.data_dir, "automations", &id)
+        .and_then(|a| a.get("project_id").and_then(|v| v.as_str()).map(str::to_string));
+    let removed = remove_record(&st.data_dir, "automations", &id);
+    if let Some(pid) = project_id {
+        link_project_automation(&st.data_dir, &pid, &id, false);
+    }
+    Json(json!({ "ok": removed, "removed": removed, "automation_id": id }))
+}
+
+/// GET /v1/hypervisor/automations/:id/runs — the spec's run history (automation-execution records),
+/// newest first. Pairs with POST /:id/runs (manual run).
+pub(crate) async fn handle_automation_runs_list(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let mut runs: Vec<Value> = read_record_dir(&st.data_dir, "automation-executions")
+        .into_iter()
+        .filter(|e| e.get("automation_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+        .collect();
+    runs.sort_by(|a, b| {
+        b.get("started_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    Json(json!({ "ok": true, "runs": runs }))
+}
+
+/// GET /v1/hypervisor/cron-preview?cron=…&tz=…&n=3 — preview the next N cron fires (UTC). Pure
+/// helper (no data access) used by the create form; exempt from the auth gate.
+pub(crate) async fn handle_cron_preview(Query(q): Query<HashMap<String, String>>) -> Json<Value> {
+    let cron = q.get("cron").map(String::as_str).unwrap_or("");
+    let tz = q.get("tz").map(String::as_str).unwrap_or("UTC");
+    let n: usize = q.get("n").and_then(|s| s.parse().ok()).unwrap_or(3).min(10);
+    let mut runs: Vec<String> = Vec::new();
+    let mut from = iso_now();
+    for _ in 0..n {
+        match super::cron_next_run(cron, tz, &from) {
+            Ok(next) => {
+                runs.push(next.clone());
+                from = next;
+            }
+            Err(e) => return Json(json!({ "ok": false, "error": e })),
+        }
+    }
+    Json(json!({ "ok": true, "runs": runs }))
+}
+
+fn new_webhook_token() -> String {
+    format!(
+        "whk_{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+
+/// POST /v1/hypervisor/automations/:id/webhook-rotate — (re)mint the opaque trigger token (also
+/// enables webhook triggering on an existing automation). Hash stored at rest; plaintext returned ONCE.
+pub(crate) async fn handle_automation_webhook_rotate(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let Some(mut a) = load(&st.data_dir, "automations", &id) else {
+        return Json(json!({ "ok": false, "reason": "automation not found" }));
+    };
+    let tok = new_webhook_token();
+    a["webhook_token_hash"] = json!(sha256_hex_str(&tok));
+    a["webhook_url"] = json!(format!("/v1/hypervisor/automations/{id}/webhook"));
+    if a.get("trigger_kind").and_then(|v| v.as_str()) != Some("time") {
+        a["trigger_kind"] = json!("webhook"); // don't clobber an existing schedule
+    }
+    a["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, "automations", &id, &a);
+    Json(json!({ "ok": true, "webhook_token": tok, "webhook_url": a["webhook_url"] }))
+}
+
+/// GET /v1/hypervisor/automations/:id/webhook-events — recent inbound trigger events (audit trail)
+/// + accepted/rejected counts.
+pub(crate) async fn handle_automation_webhook_events(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let mut events: Vec<Value> = read_record_dir(&st.data_dir, "webhook-trigger-events")
+        .into_iter()
+        .filter(|e| e.get("automation_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+        .collect();
+    events.sort_by(|a, b| {
+        b.get("received_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("received_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    let accepted = events
+        .iter()
+        .filter(|e| e.get("accepted").and_then(|v| v.as_bool()) == Some(true))
+        .count();
+    let rejected = events.len() - accepted;
+    Json(json!({ "ok": true, "events": events, "accepted_count": accepted, "rejected_count": rejected }))
+}
+
+/// POST /v1/hypervisor/automations/:id/webhook — authenticated inbound trigger. Verifies the opaque
+/// trigger token, runs policy checks, records a WebhookTriggerReceipt (accepted OR rejected w/ reason),
+/// and on accept fires the SAME manual-run path (async) so the run shares the run history / state_root
+/// / transcript / timeline. Auth is the trigger token (NOT a session) → the auth gate exempts it.
+pub(crate) async fn handle_automation_webhook(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> (StatusCode, Json<Value>) {
+    const MAX_PAYLOAD: usize = 1_048_576; // 1 MiB
+    let received_at = iso_now();
+    let request_id = format!("whreq_{}", uuid::Uuid::new_v4().simple());
+    // Audit hashes — never store raw headers/payload.
+    let payload_hash = sha256_hex_str(&String::from_utf8_lossy(&body));
+    let mut header_pairs: Vec<String> = headers
+        .iter()
+        .map(|(k, v)| format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))
+        .collect();
+    header_pairs.sort();
+    let headers_hash = sha256_hex_str(&header_pairs.join("\n"));
+    let token = headers
+        .get("x-ioi-trigger-token")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            headers
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+        })
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+
+    // Record a trigger receipt (audit). Returns the receipt_id.
+    let record_event = |accepted: bool, reason: &str, run_ref: Value| -> String {
+        let rid = format!("whk_evt_{}", uuid::Uuid::new_v4().simple());
+        let ev = json!({
+            "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v1",
+            "receipt_id": rid, "automation_id": id, "request_id": request_id,
+            "received_at": received_at, "headers_hash": headers_hash, "payload_hash": payload_hash,
+            "payload_bytes": body.len(), "accepted": accepted, "reason": reason, "run_ref": run_ref,
+        });
+        let _ = persist_record(&st.data_dir, "webhook-trigger-events", &rid, &ev);
+        rid
+    };
+    let reject = |status: StatusCode, reason: &str| {
+        record_event(false, reason, Value::Null);
+        (status, Json(json!({ "ok": false, "reason": reason, "request_id": request_id })))
+    };
+
+    let Some(a) = load(&st.data_dir, "automations", &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id })));
+    };
+    // Token: compare hashes (reject if no token configured or mismatch).
+    let want = a.get("webhook_token_hash").and_then(|v| v.as_str()).unwrap_or("");
+    if want.is_empty() || token.is_empty() || sha256_hex_str(&token) != want {
+        return reject(StatusCode::UNAUTHORIZED, "invalid_token");
+    }
+    // Policy checks: kill switch, project exists, payload size, concurrency.
+    if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
+        return reject(StatusCode::FORBIDDEN, "automation_disabled");
+    }
+    let project_id = a.get("project_id").and_then(|v| v.as_str()).unwrap_or("");
+    if project_id.is_empty() || load(&st.data_dir, "projects", project_id).is_none() {
+        return reject(StatusCode::UNPROCESSABLE_ENTITY, "project_missing");
+    }
+    if body.len() > MAX_PAYLOAD {
+        return reject(StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large");
+    }
+    let max_conc = a
+        .get("max_concurrency")
+        .and_then(|v| v.as_i64())
+        .filter(|n| *n > 0)
+        .unwrap_or(1);
+    let running = read_record_dir(&st.data_dir, "automation-executions")
+        .iter()
+        .filter(|e| {
+            e.get("automation_id").and_then(|v| v.as_str()) == Some(id.as_str())
+                && e.get("status").and_then(|v| v.as_str()) == Some("running")
+        })
+        .count() as i64;
+    if running >= max_conc {
+        return reject(StatusCode::TOO_MANY_REQUESTS, "max_concurrency");
+    }
+    // Accept: record the receipt, then fire the manual-run path async; backfill run_ref when it starts.
+    let receipt_id = record_event(true, "accepted", Value::Null);
+    let base = st.base_url.clone();
+    let data_dir = st.data_dir.clone();
+    let id2 = id.clone();
+    let receipt = receipt_id.clone();
+    tokio::spawn(async move {
+        if let Ok(r) = call(
+            &base,
+            "POST",
+            &format!("/v1/hypervisor/automations/{id2}/runs"),
+            Some(json!({ "trigger": "webhook" })),
+        )
+        .await
+        {
+            if let Some(exec_id) = r
+                .get("execution")
+                .and_then(|e| e.get("execution_id"))
+                .and_then(|v| v.as_str())
+            {
+                if let Some(mut rec) = load(&data_dir, "webhook-trigger-events", &receipt) {
+                    rec["run_ref"] = json!(exec_id);
+                    let _ = persist_record(&data_dir, "webhook-trigger-events", &receipt, &rec);
+                }
+            }
+        }
+    });
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({ "ok": true, "accepted": true, "request_id": request_id, "receipt_id": receipt_id })),
+    )
+}
+
+/// POST /v1/hypervisor/automations/:id/start (and /:id/runs) — run the workflow: fresh env → steps
+/// → outputs, then record a tamper-evident run transcript for the Run Timeline / Work Ledger.
 pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -328,6 +710,31 @@ pub(crate) async fn handle_automation_start(
     exec["status"] = json!(if failed { "failed" } else { "done" });
     exec["finished_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+
+    // Record a durable, tamper-evident run transcript (the agent-run-transcript plane computes a
+    // state_root over it) so the manual run shows in the Run Timeline / Work Ledger with proof.
+    let transcript = json!({
+        "schema_version": "ioi.hypervisor.agent-run-transcript.v1",
+        "run_id": exec_id,
+        "kind": "automation-run",
+        "automation_id": id,
+        "automation_name": automation["name"],
+        "project_id": automation["project_id"],
+        "environment_id": exec["environment_id"],
+        "status": exec["status"],
+        "step_count": results.len(),
+        "counts": exec["counts"],
+        "step_results": exec["step_results"],
+        "started_at": exec["started_at"],
+        "finished_at": exec["finished_at"],
+    });
+    let _ = call(
+        &base,
+        "POST",
+        &format!("/v1/hypervisor/agent-run-transcripts/{exec_id}"),
+        Some(transcript),
+    )
+    .await;
     Ok(Json(json!({ "ok": !failed, "execution": exec })))
 }
 

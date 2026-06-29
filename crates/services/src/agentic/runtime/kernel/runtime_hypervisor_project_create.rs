@@ -62,6 +62,12 @@ impl RuntimeHypervisorProjectCreateCore {
             }
         }
         let environment_class_refs = string_list(request.get("environment_class_refs"));
+        // Automation-ready hooks (IOI-native): a project is the durable container the future
+        // agent-automations plane hangs from. Accept refs/policy on create (default empty/null);
+        // the automations plane writes `automation_refs` back here when an automation is bound.
+        let automation_refs = string_list(request.get("automation_refs"));
+        let default_runtime_policy_ref = optional_value(request.get("default_runtime_policy_ref"));
+        let authority_policy_ref = optional_value(request.get("authority_policy_ref"));
 
         let slug = repo_slug(&repository_url)
             .or_else(|| {
@@ -103,6 +109,10 @@ impl RuntimeHypervisorProjectCreateCore {
             "archive_ref": format!("artifact://agentgres/archive/{slug}/latest"),
             "restore_ref": format!("agentgres://restore/{slug}/latest"),
             "latest_receipt_refs": [format!("receipt://project/{slug}/state")],
+            // Automation-ready hooks (empty/null now; the agent-automations plane populates these).
+            "automation_refs": automation_refs,
+            "default_runtime_policy_ref": default_runtime_policy_ref.map(Value::String).unwrap_or(Value::Null),
+            "authority_policy_ref": authority_policy_ref.map(Value::String).unwrap_or(Value::Null),
         }))
     }
 }
@@ -259,6 +269,34 @@ mod tests {
             .plan(&json!({ "repository_url": "https://x/y" }), "now")
             .expect_err("blocked");
         assert_eq!(error.code, "project_create_project_name_required");
+    }
+
+    #[test]
+    fn carries_automation_ready_hooks() {
+        // Defaults: empty refs + null policy refs (the durable container the automations plane writes to).
+        let record = RuntimeHypervisorProjectCreateCore
+            .plan(&json!({ "repository_url": "https://x/y", "project_name": "y" }), "now")
+            .expect("planned");
+        assert_eq!(record["automation_refs"], json!([]));
+        assert_eq!(record["default_runtime_policy_ref"], Value::Null);
+        assert_eq!(record["authority_policy_ref"], Value::Null);
+
+        // Accepted on create when provided.
+        let record = RuntimeHypervisorProjectCreateCore
+            .plan(
+                &json!({
+                    "repository_url": "https://x/y",
+                    "project_name": "y",
+                    "automation_refs": ["automation:demo-loop"],
+                    "default_runtime_policy_ref": "runtime-policy:local-default",
+                    "authority_policy_ref": "authority-policy:operator",
+                }),
+                "now",
+            )
+            .expect("planned");
+        assert_eq!(record["automation_refs"], json!(["automation:demo-loop"]));
+        assert_eq!(record["default_runtime_policy_ref"], "runtime-policy:local-default");
+        assert_eq!(record["authority_policy_ref"], "authority-policy:operator");
     }
 
     #[test]

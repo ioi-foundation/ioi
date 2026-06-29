@@ -1,0 +1,8 @@
+{
+  "version": "0.20260605.11558300",
+  "commit": "02d5ad3ab9ff4df82abf405374dfde5191649701",
+  "release_date": "2026-06-05T16:06:06.531982618Z",
+  "vscode_desktop_extension_url": "https://releases.ioi.io/vscode/releases/0.20260605.11558300/vscode-desktop.vsix",
+  "vscode_remote_extension_url": "https://releases.ioi.io/vscode/releases/0.20260605.11558300/vscode-remote.vsix",
+  "vscode_web_extension_url": "https://releases.ioi.io/vscode/releases/0.20260605.11558300/vscode-web"
+}

@@ -1,0 +1,1 @@
+var e=`incident.io`,t=`pagerduty.com`;export{t as n,e as t};
