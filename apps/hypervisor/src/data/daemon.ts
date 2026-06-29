@@ -1,9 +1,9 @@
 // Typed Hypervisor daemon client — the IOI-native data boundary for source-owned surfaces.
 //
 // Source-owned React surfaces call the daemon's own /v1/hypervisor/* REST contracts directly
-// (proxied to the hypervisor-daemon by vite.config). No gitpod.v1 wire, no namespace bridge —
-// this is the "protocol-native" layer (cut 3): a surface that uses this never speaks the
-// upstream namespace, so the request-entry bridge does not exist for it.
+// (proxied to the hypervisor-daemon by vite.config). No upstream-namespace wire, no request-entry
+// bridge — this is the "protocol-native" layer (cut 3): a surface that uses this calls the
+// daemon's own contracts directly and never speaks the upstream Connect-RPC namespace.
 
 export class DaemonError extends Error {
   status: number;
@@ -14,8 +14,10 @@ export class DaemonError extends Error {
   }
 }
 
+// Base is /v1 — the daemon exposes both the hypervisor plane (/v1/hypervisor/*) and the
+// threads plane (/v1/threads), so callers pass the full sub-path after /v1.
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/v1/hypervisor${path}`, {
+  const res = await fetch(`/v1${path}`, {
     method,
     headers: body !== undefined ? { "content-type": "application/json" } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,

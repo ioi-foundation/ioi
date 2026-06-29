@@ -102,9 +102,9 @@ export function toolsLabel(c: Connector): string {
 
 export async function fetchConnections(): Promise<ConnectionsData> {
   const [c, s, l] = await Promise.all([
-    daemon.get<{ connectors?: Connector[] }>("/connectors").catch(() => ({})),
-    daemon.get<{ connectors?: ScmConnector[] }>("/scm-connectors").catch(() => ({})),
-    daemon.get<{ leases?: CapabilityLease[] }>("/capability-leases").catch(() => ({})),
+    daemon.get<{ connectors?: Connector[] }>("/hypervisor/connectors").catch(() => ({})),
+    daemon.get<{ connectors?: ScmConnector[] }>("/hypervisor/scm-connectors").catch(() => ({})),
+    daemon.get<{ leases?: CapabilityLease[] }>("/hypervisor/capability-leases").catch(() => ({})),
   ]);
   return {
     connectors: c.connectors || [],

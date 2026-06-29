@@ -20,7 +20,9 @@ import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
-// Source-owned surfaces (cut 4: migrating the product UI from the seed bundle into source).
+// Source-owned surfaces + shell (cut 4: migrating the product UI from the seed bundle into source).
+import { AppShell } from "./shell/AppShell";
+import { HomeView } from "./surfaces/Home/HomeView";
 import { ConnectionsView } from "./surfaces/Connections/ConnectionsView";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
@@ -36,14 +38,16 @@ function AppMetricsBeacon() {
   return null;
 }
 
-function ServedElsewhereNotice() {
+// Placeholder for rail routes whose source-owned surface is not yet extracted (cut 4 in
+// progress). Until extracted, the full surface remains available in the seed bundle at :4173.
+function SurfacePending({ name }: { name: string }) {
   return (
-    <div style={{ font: "14px/1.6 system-ui, sans-serif", padding: "2rem" }}>
-      <h1 style={{ fontSize: "1.25rem", margin: "0 0 .5rem" }}>Hypervisor</h1>
-      <p style={{ margin: 0 }}>
-        The product UI is served by the IOI /api adapter. Run{" "}
-        <code>npm run serve:product-ui --workspace=@ioi/hypervisor-app</code> and open{" "}
-        <code>http://localhost:4173</code>.
+    <div style={{ padding: "64px 32px", color: "#9a9da6", maxWidth: 640, margin: "0 auto" }}>
+      <h1 style={{ fontSize: "1.4rem", margin: "0 0 .5rem", color: "#e6e7ea" }}>{name}</h1>
+      <p style={{ margin: 0, lineHeight: 1.6 }}>
+        Source-owned surface extraction in progress. Until this surface is ported into
+        <code style={{ margin: "0 4px" }}>src/surfaces</code> it remains served from the seed
+        product-ui bundle.
       </p>
     </div>
   );
@@ -56,11 +60,19 @@ function renderHypervisorApp() {
         <AppMetricsBeacon />
         <Routes>
           <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          {/* Source-owned surfaces (cut 4). As surfaces land here, the vite app becomes the
+          {/* Source-owned shell + surfaces (cut 4). As surfaces land, the vite app becomes the
               canonical shell and the seed bundle is retired (cuts 5-6). */}
-          <Route path="/connections" element={<ConnectionsView />} />
-          <Route path="/__ioi/connections" element={<ConnectionsView />} />
-          <Route path="*" element={<ServedElsewhereNotice />} />
+          <Route element={<AppShell />}>
+            <Route index element={<HomeView />} />
+            <Route path="connections" element={<ConnectionsView />} />
+            <Route path="__ioi/connections" element={<ConnectionsView />} />
+            <Route path="projects" element={<SurfacePending name="Projects" />} />
+            <Route path="automations" element={<SurfacePending name="Automations" />} />
+            <Route path="applications" element={<SurfacePending name="Applications" />} />
+            <Route path="settings/*" element={<SurfacePending name="Settings" />} />
+            <Route path="sessions/:id" element={<SurfacePending name="Session" />} />
+            <Route path="*" element={<SurfacePending name="This surface" />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </React.StrictMode>,

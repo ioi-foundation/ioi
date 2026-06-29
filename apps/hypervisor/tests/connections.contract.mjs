@@ -48,8 +48,9 @@ await withPage(SAMPLE, async (page, seen) => {
   await page.waitForTimeout(500);
   const need = ["/v1/hypervisor/connectors", "/v1/hypervisor/scm-connectors", "/v1/hypervisor/capability-leases"];
   for (const n of need) (seen.some((s) => s.includes(n)) ? ok(`calls ${n}`) : bad(`calls ${n}`, "not requested"));
-  const bridged = seen.filter((s) => /\/api\/(gitpod|ona)\.|gitpod\.v1|ona\.v1/i.test(s));
-  bridged.length === 0 ? ok("no upstream-wire bridge (no /api/gitpod.* calls)") : bad("no upstream-wire bridge", bridged.join(","));
+  // A bridge call is any /api/<package>.vN/ request (the upstream Connect-RPC namespace).
+  const bridged = seen.filter((s) => /\/api\/[a-z][a-z0-9.]*\.v\d+\//i.test(s));
+  bridged.length === 0 ? ok("no upstream-wire bridge (no /api/<pkg>.vN/ calls)") : bad("no upstream-wire bridge", bridged.join(","));
 });
 
 // --- Test B: data → DOM landmarks (categories, cards, status pills, lease count) ---
