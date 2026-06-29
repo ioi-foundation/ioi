@@ -395,7 +395,11 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
     : `<div class="empty">No runs yet — use “Run now”.</div>`;
   const sched = a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null;
   const scheduleHuman = sched
-    ? (sched.every_hours ? `every ${sched.every_hours}h` : sched.every_minutes ? `every ${sched.every_minutes}m` : (sched.every_seconds || sched.interval_seconds) ? `every ${sched.every_seconds || sched.interval_seconds}s` : "scheduled")
+    ? ((sched.type === "cron" || sched.cron) ? `cron ${sched.cron} (${sched.timezone || "UTC"})`
+       : sched.every_hours ? `every ${sched.every_hours}h`
+       : sched.every_minutes ? `every ${sched.every_minutes}m`
+       : (sched.every_seconds || sched.interval_seconds) ? `every ${sched.every_seconds || sched.interval_seconds}s`
+       : "scheduled")
     : "manual (no schedule)";
   const back = `<p><a href="/__ioi/automations${pid ? `?project=${encodeURIComponent(pid)}` : ""}">← Automations</a></p>`;
   const pauseResume = sched
@@ -453,6 +457,8 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
 }
 function renderAutomationNewForm(projectId, projects) {
   const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
+  const tzOptions = ["UTC", "-08:00", "-07:00", "-06:00", "-05:00", "-04:00", "+01:00", "+02:00", "+05:30", "+08:00", "+09:00", "+10:00"]
+    .map((z) => `<option value="${z}">${z === "UTC" ? "UTC (+00:00)" : "UTC" + z}</option>`).join("");
   const projectField = projects && projects.length
     ? `<div class="field"><label>Project (required — the automation's durable container)</label><select name="project_ref" required>${opts}</select></div>`
     : `<div class="field"><label>Project</label><input name="project_ref" value="${CX_ESC(projectId)}" placeholder="project:my-app" required></div>`;
@@ -462,9 +468,25 @@ function renderAutomationNewForm(projectId, projects) {
       ${projectField}
       <div class="field"><label>Name</label><input name="name" placeholder="Nightly CONTRIBUTING note" required></div>
       <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
-      <div class="two">
-        <div class="field"><label>Run every (0 = manual only)</label><input name="interval_n" type="number" min="0" value="0"></div>
-        <div class="field"><label>Interval unit</label><select name="interval_unit"><option value="minutes">minutes</option><option value="hours">hours</option><option value="seconds">seconds</option></select></div>
+      <div class="field"><label>Schedule</label>
+        <select name="schedule_type" id="ioi-sched-type" onchange="ioiSchedToggle()">
+          <option value="manual">Manual only</option>
+          <option value="interval">Interval</option>
+          <option value="cron">Cron</option>
+        </select>
+      </div>
+      <div id="ioi-sched-interval" style="display:none">
+        <div class="two">
+          <div class="field"><label>Run every</label><input name="interval_n" type="number" min="0" value="15"></div>
+          <div class="field"><label>Unit</label><select name="interval_unit"><option value="minutes">minutes</option><option value="hours">hours</option><option value="seconds">seconds</option></select></div>
+        </div>
+      </div>
+      <div id="ioi-sched-cron" style="display:none">
+        <div class="two">
+          <div class="field"><label>Cron (min hour dom month dow)</label><input name="cron" id="ioi-cron-expr" placeholder="0 9 * * 1-5" oninput="ioiCronPreview()"></div>
+          <div class="field"><label>Timezone</label><select name="cron_tz" id="ioi-cron-tz" onchange="ioiCronPreview()">${tzOptions}</select></div>
+        </div>
+        <div class="field"><label>Next runs (UTC)</label><div id="ioi-cron-preview" class="sub" style="margin:0">enter a cron expression…</div></div>
       </div>
       <div class="two">
         <div class="field"><label>Model</label><input name="model" placeholder="qwen2.5:7b"></div>
@@ -485,7 +507,11 @@ function renderAutomationNewForm(projectId, projects) {
       </div>
       <div class="field"><label>Step body</label><textarea name="step_body" placeholder="e.g. Write a CONTRIBUTING.md for this repo."></textarea></div>
       <div class="row"><button class="act" type="submit">Create automation</button></div>
-    </form>`;
+    </form>
+    <script>
+      function ioiSchedToggle(){var t=document.getElementById('ioi-sched-type').value;document.getElementById('ioi-sched-interval').style.display=(t==='interval')?'block':'none';document.getElementById('ioi-sched-cron').style.display=(t==='cron')?'block':'none';}
+      function ioiCronPreview(){var c=document.getElementById('ioi-cron-expr').value.trim(),tz=document.getElementById('ioi-cron-tz').value,el=document.getElementById('ioi-cron-preview');if(!c){el.textContent='enter a cron expression…';return;}fetch('/__ioi/automations/cron-preview?cron='+encodeURIComponent(c)+'&tz='+encodeURIComponent(tz)+'&n=3').then(function(r){return r.json();}).then(function(d){el.textContent=d.ok?('next: '+d.runs.join('  ·  ')):('⚠ '+d.error);}).catch(function(){el.textContent='preview unavailable';});}
+    </script>`;
   return automationsShell("New automation", inner);
 }
 
@@ -1673,18 +1699,31 @@ const server = http.createServer((req, res) => {
       res.end(renderAutomationNewForm(projectId, pRes.projects || []));
       return;
     }
+    if (pathname === "/__ioi/automations/cron-preview" && req.method === "GET") {
+      // Proxy the daemon cron-preview (next-runs) for the create form's live preview.
+      const qs = new URL(req.url, "http://x").searchParams.toString();
+      const r = await fetch(`${DAEMON}/v1/hypervisor/cron-preview?${qs}`).then((x) => x.json()).catch(() => ({ ok: false, error: "daemon unavailable" }));
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(r));
+      return;
+    }
     if (pathname === "/__ioi/automations" && req.method === "POST") {
       const p = new URLSearchParams(body.toString());
       const stepBody = (p.get("step_body") || "").trim();
       const stepKind = p.get("step_kind") || "agent";
       const steps = stepBody ? [stepKind === "command" ? { kind: "command", command: stepBody } : { kind: "agent", prompt: stepBody }] : [];
       const connectorRefs = (p.get("connector_refs") || "").split(",").map((s) => s.trim()).filter(Boolean);
-      // Schedule: interval drives a time trigger (0 = manual only).
-      const intervalN = parseInt(p.get("interval_n") || "0", 10) || 0;
-      const intervalUnit = p.get("interval_unit") || "minutes";
-      const schedule_spec = intervalN > 0
-        ? (intervalUnit === "hours" ? { every_hours: intervalN } : intervalUnit === "seconds" ? { every_seconds: intervalN } : { every_minutes: intervalN })
-        : null;
+      // Schedule: type selector → interval | cron | manual (time trigger when scheduled).
+      const schedType = p.get("schedule_type") || "manual";
+      let schedule_spec = null;
+      if (schedType === "interval") {
+        const intervalN = parseInt(p.get("interval_n") || "0", 10) || 0;
+        const intervalUnit = p.get("interval_unit") || "minutes";
+        if (intervalN > 0) schedule_spec = intervalUnit === "hours" ? { every_hours: intervalN } : intervalUnit === "seconds" ? { every_seconds: intervalN } : { every_minutes: intervalN };
+      } else if (schedType === "cron") {
+        const cron = (p.get("cron") || "").trim();
+        if (cron) schedule_spec = { type: "cron", cron, timezone: p.get("cron_tz") || "UTC" };
+      }
       const payload = {
         project_ref: (p.get("project_ref") || "").trim(),
         name: (p.get("name") || "automation").trim(),

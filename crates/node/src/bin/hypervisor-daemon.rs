@@ -968,6 +968,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/automations/:id/webhook-events",
             get(orchestration_routes::handle_automation_webhook_events),
         )
+        // Cron next-runs preview (pure helper for the schedule form).
+        .route(
+            "/v1/hypervisor/cron-preview",
+            get(orchestration_routes::handle_cron_preview),
+        )
         .route(
             "/v1/hypervisor/automation-executions/:id",
             get(orchestration_routes::handle_automation_execution_get),
@@ -2258,6 +2263,163 @@ fn schedule_interval_secs(spec: &Value) -> Option<i64> {
     }
     None
 }
+
+// ---- Cron (5-field) support: minute hour day-of-month month day-of-week --------------------------
+// Hand-rolled (no cron crate available). Timezones are UTC offsets (no IANA tz DB on hand); named
+// zones are rejected with a useful error. next_run is brute-forced minute-by-minute (bounded 1yr).
+
+/// Parse one cron field into a presence bitset over [min,max]. Returns (set, is_star).
+/// Supports: `*`  `*/n`  `a`  `a-b`  `a-b/n`  `a/n`  and comma lists of those.
+fn parse_cron_field(spec: &str, min: u8, max: u8) -> Result<(Vec<bool>, bool), String> {
+    let spec = spec.trim();
+    if spec.is_empty() {
+        return Err("empty cron field".into());
+    }
+    let mut set = vec![false; max as usize + 1];
+    let is_star = spec == "*";
+    for part in spec.split(',') {
+        let part = part.trim();
+        let (range_part, step) = match part.split_once('/') {
+            Some((r, s)) => {
+                let step: u8 = s.parse().map_err(|_| format!("bad step '{s}'"))?;
+                if step == 0 {
+                    return Err("step cannot be 0".into());
+                }
+                (r, step)
+            }
+            None => (part, 1u8),
+        };
+        let (lo, hi) = if range_part == "*" {
+            (min, max)
+        } else if let Some((a, b)) = range_part.split_once('-') {
+            (
+                a.trim().parse::<u8>().map_err(|_| format!("bad range '{part}'"))?,
+                b.trim().parse::<u8>().map_err(|_| format!("bad range '{part}'"))?,
+            )
+        } else {
+            let a = range_part.parse::<u8>().map_err(|_| format!("bad value '{part}'"))?;
+            // A bare value with a step means "from a through max, step n".
+            if step > 1 { (a, max) } else { (a, a) }
+        };
+        if lo < min || hi > max || lo > hi {
+            return Err(format!("value out of range [{min},{max}] in '{part}'"));
+        }
+        let mut v = lo;
+        while v <= hi {
+            set[v as usize] = true;
+            v = v.saturating_add(step);
+        }
+    }
+    Ok((set, is_star))
+}
+
+/// UTC offset from a tz string: "UTC"/"Z"/"" → +00:00; "+HH:MM" / "-HH:MM" / "+HH" / "-HH".
+/// Named IANA zones aren't supported (no tz DB) and surface a useful error.
+fn parse_utc_offset(tz: &str) -> Result<time::UtcOffset, String> {
+    let t = tz.trim();
+    if t.is_empty() || t.eq_ignore_ascii_case("utc") || t == "Z" || t == "+00:00" {
+        return Ok(time::UtcOffset::UTC);
+    }
+    if t.contains('/') {
+        return Err(format!("named timezone '{t}' not supported yet — use a UTC offset like +02:00"));
+    }
+    let sign: i8 = match t.chars().next() {
+        Some('+') => 1,
+        Some('-') => -1,
+        _ => return Err(format!("bad timezone '{t}' (use +HH:MM / -HH:MM)")),
+    };
+    let (h, m) = match t[1..].split_once(':') {
+        Some((h, m)) => (h, m),
+        None => (&t[1..], "0"),
+    };
+    let h: i8 = h.parse().map_err(|_| format!("bad tz hours in '{t}'"))?;
+    let m: i8 = m.parse().map_err(|_| format!("bad tz minutes in '{t}'"))?;
+    time::UtcOffset::from_hms(sign * h, sign * m, 0).map_err(|e| format!("bad offset: {e}"))
+}
+
+/// Next cron fire strictly after `from_iso`, evaluated in `tz`, returned as a UTC RFC3339 string.
+pub(crate) fn cron_next_run(expr: &str, tz: &str, from_iso: &str) -> Result<String, String> {
+    use time::format_description::well_known::Rfc3339;
+    let fields: Vec<&str> = expr.split_whitespace().collect();
+    if fields.len() != 5 {
+        return Err(format!(
+            "cron needs 5 fields (min hour dom month dow), got {}",
+            fields.len()
+        ));
+    }
+    let (min_s, _) = parse_cron_field(fields[0], 0, 59)?;
+    let (hour_s, _) = parse_cron_field(fields[1], 0, 23)?;
+    let (dom_s, dom_star) = parse_cron_field(fields[2], 1, 31)?;
+    let (mon_s, _) = parse_cron_field(fields[3], 1, 12)?;
+    let (dow_s, dow_star) = parse_cron_field(fields[4], 0, 7)?; // 0 and 7 both = Sunday
+    let offset = parse_utc_offset(tz)?;
+    let from = time::OffsetDateTime::parse(from_iso, &Rfc3339)
+        .map_err(|e| format!("bad from time: {e}"))?
+        .to_offset(offset);
+    let mut c = from
+        .replace_second(0)
+        .map_err(|e| e.to_string())?
+        .replace_nanosecond(0)
+        .map_err(|e| e.to_string())?
+        + time::Duration::minutes(1);
+    for _ in 0..(366 * 24 * 60) {
+        let dow = c.weekday().number_days_from_sunday(); // 0=Sun..6=Sat
+        let dow_ok = dow_s[dow as usize] || (dow == 0 && dow_s[7]);
+        let dom_ok = dom_s[c.day() as usize];
+        // Standard cron: when BOTH dom and dow are restricted the match is OR'd.
+        let day_ok = match (dom_star, dow_star) {
+            (false, false) => dom_ok || dow_ok,
+            (false, true) => dom_ok,
+            (true, false) => dow_ok,
+            (true, true) => true,
+        };
+        if min_s[c.minute() as usize]
+            && hour_s[c.hour() as usize]
+            && mon_s[u8::from(c.month()) as usize]
+            && day_ok
+        {
+            return c
+                .to_offset(time::UtcOffset::UTC)
+                .format(&Rfc3339)
+                .map_err(|e| e.to_string());
+        }
+        c += time::Duration::minutes(1);
+    }
+    Err("no cron match within a year".into())
+}
+
+fn is_cron_spec(spec: &Value) -> bool {
+    spec.is_object()
+        && (spec.get("type").and_then(|v| v.as_str()) == Some("cron") || spec.get("cron").is_some())
+}
+fn schedule_is_active(spec: &Value) -> bool {
+    is_cron_spec(spec) || schedule_interval_secs(spec).is_some()
+}
+/// Next fire (UTC RFC3339) for ANY schedule_spec, computed from `from_iso`. None if not a schedule.
+fn schedule_next_run(spec: &Value, from_iso: &str) -> Option<String> {
+    if is_cron_spec(spec) {
+        let cron = spec.get("cron").and_then(|v| v.as_str()).unwrap_or("");
+        let tz = spec.get("timezone").and_then(|v| v.as_str()).unwrap_or("UTC");
+        return cron_next_run(cron, tz, from_iso).ok();
+    }
+    schedule_interval_secs(spec).map(|s| iso_add_secs(from_iso, s))
+}
+/// Validate a schedule_spec; Err(msg) for an invalid cron expression / timezone.
+pub(crate) fn validate_schedule_spec(spec: &Value) -> Result<(), String> {
+    if spec.is_null() {
+        return Ok(());
+    }
+    if is_cron_spec(spec) {
+        let cron = spec
+            .get("cron")
+            .and_then(|v| v.as_str())
+            .ok_or("cron schedule requires a 'cron' expression")?;
+        let tz = spec.get("timezone").and_then(|v| v.as_str()).unwrap_or("UTC");
+        cron_next_run(cron, tz, &iso_now())?; // parse + validate + ensure a next run exists
+    }
+    Ok(())
+}
+
 fn load_record(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     let safe = id.replace(
         |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
@@ -2296,15 +2458,17 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
         if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
             continue; // paused / disabled
         }
-        let Some(interval) =
-            schedule_interval_secs(a.get("schedule_spec").unwrap_or(&Value::Null))
-        else {
-            continue; // not an interval-scheduled automation
-        };
+        let spec = a.get("schedule_spec").cloned().unwrap_or(Value::Null);
+        if !schedule_is_active(&spec) {
+            continue; // not a scheduled automation (interval or cron)
+        }
+        // next fire from now (interval → now+interval; cron → next matching slot). Fallback +1h.
+        let next_target =
+            || schedule_next_run(&spec, &now).unwrap_or_else(|| iso_add_secs(&now, 3600));
         // First sight (or after reschedule/resume) → initialize the next fire; never fire on create.
         let Some(next_ts) = a.get("next_run_at").and_then(|v| v.as_str()).and_then(epoch_of) else {
             let mut up = a.clone();
-            up["next_run_at"] = json!(iso_add_secs(&now, interval));
+            up["next_run_at"] = json!(next_target());
             let _ = persist_record(data_dir, "automations", id, &up);
             continue;
         };
@@ -2313,7 +2477,7 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
         }
         // Due. Advance next_run_at FIRST so a slow run can't be double-fired on the next tick.
         let mut up = a.clone();
-        up["next_run_at"] = json!(iso_add_secs(&now, interval));
+        up["next_run_at"] = json!(next_target());
         // Concurrency guard (misfire = skip this occurrence when at the cap).
         let max_conc = a
             .get("max_concurrency")
@@ -5867,4 +6031,52 @@ async fn handle_session_turn(
         }
     }
     ([(header::CONTENT_TYPE, "text/event-stream")], sse)
+}
+
+#[cfg(test)]
+mod cron_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn daily_same_day_then_next_day() {
+        // 09:00 daily: from 08:00 → today 09:00; from 10:00 (past it) → tomorrow 09:00.
+        assert_eq!(cron_next_run("0 9 * * *", "UTC", "2026-06-29T08:00:00Z").unwrap(), "2026-06-29T09:00:00Z");
+        assert_eq!(cron_next_run("0 9 * * *", "UTC", "2026-06-29T10:00:00Z").unwrap(), "2026-06-30T09:00:00Z");
+    }
+    #[test]
+    fn timezone_shifts_the_utc_instant() {
+        // 12:00 local in +05:00 == 07:00Z.
+        assert_eq!(cron_next_run("0 12 * * *", "+05:00", "2026-06-29T00:00:00Z").unwrap(), "2026-06-29T07:00:00Z");
+    }
+    #[test]
+    fn step_minutes() {
+        assert_eq!(cron_next_run("*/15 0 * * *", "UTC", "2026-06-29T00:02:00Z").unwrap(), "2026-06-29T00:15:00Z");
+    }
+    #[test]
+    fn weekday_list_skips_to_saturday() {
+        // 2026-06-29 is a Monday; Sat(6)/Sun(0) at 09:00 → next Saturday 2026-07-04.
+        assert_eq!(cron_next_run("0 9 * * 6,0", "UTC", "2026-06-29T00:00:00Z").unwrap(), "2026-07-04T09:00:00Z");
+    }
+    #[test]
+    fn invalid_expressions_rejected() {
+        assert!(cron_next_run("99 9 * * *", "UTC", "2026-06-29T00:00:00Z").is_err()); // minute out of range
+        assert!(cron_next_run("0 9 * *", "UTC", "2026-06-29T00:00:00Z").is_err());    // only 4 fields
+        assert!(cron_next_run("0 9 * * 8", "UTC", "2026-06-29T00:00:00Z").is_err());  // dow > 7
+        assert!(cron_next_run("0 9 * * 7", "UTC", "2026-06-29T00:00:00Z").is_ok());   // 7 == Sunday
+    }
+    #[test]
+    fn offset_parsing() {
+        assert_eq!(parse_utc_offset("UTC").unwrap(), time::UtcOffset::UTC);
+        assert_eq!(parse_utc_offset("+05:30").unwrap(), time::UtcOffset::from_hms(5, 30, 0).unwrap());
+        assert_eq!(parse_utc_offset("-08:00").unwrap(), time::UtcOffset::from_hms(-8, 0, 0).unwrap());
+        assert!(parse_utc_offset("America/New_York").is_err()); // named zones unsupported
+    }
+    #[test]
+    fn validate_and_dispatch() {
+        assert!(validate_schedule_spec(&json!({"type":"cron","cron":"0 9 * * *","timezone":"UTC"})).is_ok());
+        assert!(validate_schedule_spec(&json!({"type":"cron","cron":"0 9 * * 8"})).is_err());
+        assert!(schedule_next_run(&json!({"every_minutes": 5}), "2026-06-29T00:00:00Z").is_some());
+        assert!(schedule_next_run(&Value::Null, "2026-06-29T00:00:00Z").is_none());
+    }
 }

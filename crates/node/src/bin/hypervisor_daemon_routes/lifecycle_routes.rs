@@ -10950,6 +10950,7 @@ pub(crate) async fn auth_gate(
         "/v1/hypervisor/auth/oidc/start",
         "/v1/hypervisor/auth/oidc/callback",
         "/v1/hypervisor/editor-targets",
+        "/v1/hypervisor/cron-preview",
     ];
     // The webhook trigger endpoint authenticates by its own per-automation trigger token (verified
     // in the handler), so it bypasses the session/principal gate — external senders have no session.

@@ -153,6 +153,13 @@ pub(crate) async fn handle_automation_create(
         .or_else(|| trigger.get("kind").and_then(|v| v.as_str()))
         .unwrap_or("manual")
         .to_string();
+    // Validate the schedule (cron expression / timezone) up front with a useful error.
+    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null)) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } })),
+        );
+    }
     let mut record = json!({
         "schema_version": "ioi.hypervisor.automation-workflow.v1",
         "automation_id": id,
@@ -259,6 +266,11 @@ pub(crate) async fn handle_automation_patch(
     let Some(mut a) = load(&st.data_dir, "automations", &id) else {
         return Json(json!({ "ok": false, "reason": "automation not found" }));
     };
+    if let Some(spec) = body.get("schedule_spec") {
+        if let Err(e) = super::validate_schedule_spec(spec) {
+            return Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }));
+        }
+    }
     for key in [
         "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
         "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
@@ -311,6 +323,26 @@ pub(crate) async fn handle_automation_runs_list(
             .unwrap_or("")
             .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
     });
+    Json(json!({ "ok": true, "runs": runs }))
+}
+
+/// GET /v1/hypervisor/cron-preview?cron=…&tz=…&n=3 — preview the next N cron fires (UTC). Pure
+/// helper (no data access) used by the create form; exempt from the auth gate.
+pub(crate) async fn handle_cron_preview(Query(q): Query<HashMap<String, String>>) -> Json<Value> {
+    let cron = q.get("cron").map(String::as_str).unwrap_or("");
+    let tz = q.get("tz").map(String::as_str).unwrap_or("UTC");
+    let n: usize = q.get("n").and_then(|s| s.parse().ok()).unwrap_or(3).min(10);
+    let mut runs: Vec<String> = Vec::new();
+    let mut from = iso_now();
+    for _ in 0..n {
+        match super::cron_next_run(cron, tz, &from) {
+            Ok(next) => {
+                runs.push(next.clone());
+                from = next;
+            }
+            Err(e) => return Json(json!({ "ok": false, "error": e })),
+        }
+    }
     Json(json!({ "ok": true, "runs": runs }))
 }
 
