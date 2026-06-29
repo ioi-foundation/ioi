@@ -12,6 +12,7 @@ export type Thread = {
   created_at?: string;
   updated_at?: string;
   workspace?: string;
+  workspace_root?: string;
 };
 
 export type Session = {

@@ -46,8 +46,10 @@ async function serveStatic(res, fsPath, fallbackOk = true) {
 
 const server = http.createServer((req, res) => {
   const pathname = (req.url || "/").split("?")[0];
-  // Daemon plane — proxied straight through (the only backend the source app speaks).
-  if (pathname.startsWith("/v1/")) return proxyDaemon(req, res);
+  // Daemon plane — proxied straight through (the only backend the source app speaks). /v1 is the
+  // hypervisor/threads/terminals spine; /supervisor is the env-ops file/git plane the session
+  // workbench reads/writes the real scoped workspace through.
+  if (pathname.startsWith("/v1/") || pathname.startsWith("/supervisor/")) return proxyDaemon(req, res);
   // Static assets, else SPA fallback to index.html for client-side routes.
   const rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
   serveStatic(res, join(DIST, rel === "/" ? "index.html" : rel));

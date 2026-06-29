@@ -1,150 +1,28 @@
 // Session detail / Workspace — source-owned React (cut 4). Route: /sessions/:id.
 //
-// Source-derived from the product-ui working surface: a split between the agent conversation /
-// run-timeline (left) and the workspace — files / editor / terminal (right). The conversation
-// renders the daemon's REAL turns, folded from its runtime event stream (GET /v1/threads/:id/events).
-// The workspace mounts the source-owned VS Code-like workbench (@ioi/workspace-substrate WorkspaceHost),
-// reused exactly as the dev preview mounts it. Wiring the workbench to this session's live
-// environment workspace is a deeper follow-on (see TODO below) — for now it renders in its preview
-// form within the session layout, while the timeline is fully wired to real daemon data.
-import { useEffect, useState } from "react";
+// A split between the agent conversation / run-timeline (left) and the workspace — files / editor /
+// terminal (right). The conversation renders the daemon's REAL turns, folded from its runtime event
+// stream (GET /v1/threads/:id/events). The workspace mounts the source-owned VS Code-like workbench
+// (@ioi/workspace-substrate WorkspaceHost) bound to the session's LIVE environment via the daemon's
+// own env-ops contracts (daemonWorkspaceAdapter): real files, real editor, a real openpty terminal.
+// When the thread carries no environment, the workspace shows an honest "no environment bound"
+// state instead of a scaffold. Both panes are wired to real daemon data.
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MessageSquare, Layers, User, Bot, Cog, Circle, RefreshCw } from "lucide-react";
-import {
-  WorkspaceHost,
-  type WorkspaceAdapter,
-  type WorkspaceDeleteResult,
-  type WorkspaceFileDocument,
-  type WorkspaceLanguageServiceSnapshot,
-  type WorkspaceNode,
-  type WorkspacePathMutationResult,
-  type WorkspaceSnapshot,
-  type WorkspaceSourceControlState,
-  type WorkspaceTerminalReadResult,
-  type WorkspaceTerminalSession,
-} from "@ioi/workspace-substrate";
+import { WorkspaceHost } from "@ioi/workspace-substrate";
 import "./Session.css";
-import { relativeTime } from "../../data/threads";
+import { relativeTime, type Thread } from "../../data/threads";
+import { daemonWorkspaceAdapter } from "../../data/workspaceAdapter";
 import { fetchSessionTimeline, type SessionTimeline, type Turn } from "./sessionModel";
 
-// ── Workbench preview adapter (reused pattern from the source-owned dev preview) ─────────────────
-// TODO(session-workspace): bind this WorkspaceHost to the session's live environment workspace
-// (env-files / terminals daemon contracts) instead of this in-memory preview scaffold. The
-// substrate + adapter contract is the wiring point; the conversation/timeline above is already
-// fully wired to real /v1/threads/:id data.
-const WS_ROOT = "/workspace";
-const WS_NODE = "WORKSPACE";
-
-const WS_TREE: WorkspaceNode[] = [
-  {
-    name: WS_NODE,
-    path: WS_NODE,
-    kind: "directory",
-    hasChildren: true,
-    children: [
-      { name: "src", path: `${WS_NODE}/src`, kind: "directory", hasChildren: false, children: [] },
-      { name: "README.md", path: `${WS_NODE}/README.md`, kind: "file", hasChildren: false, children: [] },
-    ],
-  },
-];
-
-const WS_SNAPSHOT: WorkspaceSnapshot = {
-  rootPath: WS_ROOT,
-  displayName: "workspace",
-  git: { isRepo: true, branch: "main", dirty: false, lastCommit: "Session workspace" },
-  tree: WS_TREE,
-};
-
-const WS_LANG: WorkspaceLanguageServiceSnapshot = {
-  generatedAtMs: Date.now(),
-  workspaceRoot: WS_ROOT,
-  path: `${WS_NODE}/README.md`,
-  languageId: "markdown",
-  availability: "ready",
-  statusLabel: "Ready",
-  serviceLabel: "Language Service",
-  serverLabel: "Language Service",
-  detail: null,
-  diagnostics: [],
-  symbols: [],
-};
-
-const WS_SCM: WorkspaceSourceControlState = { git: WS_SNAPSHOT.git, entries: [] };
-
-function wsFile(path: string): WorkspaceFileDocument {
-  const name = path.split("/").pop() ?? path;
-  return {
-    name,
-    path,
-    absolutePath: `${WS_ROOT}/${path}`,
-    languageHint: name.endsWith(".md") ? "markdown" : "plaintext",
-    content: `# ${name}\n\nThis session's workspace will mount here.\n`,
-    sizeBytes: 64,
-    modifiedAtMs: Date.now(),
-    isBinary: false,
-    isTooLarge: false,
-    readOnly: true,
-  };
+// Resolve the session's bound environment id from the daemon thread record. The thread's workspace
+// field carries the environment id when the session is bound to one (e.g. "env_…"); anything else
+// (a plain ".", a path, or absent) means no environment is bound to this session.
+function resolveEnvironmentId(thread: Thread | undefined): string | null {
+  const candidate = (thread?.workspace || thread?.workspace_root || "").trim();
+  return /^env_[A-Za-z0-9_-]+$/.test(candidate) ? candidate : null;
 }
-
-const noMutation = (path: string): Promise<WorkspacePathMutationResult> => Promise.resolve({ path });
-
-const workspaceAdapter: WorkspaceAdapter = {
-  inspectWorkspace: async () => WS_SNAPSHOT,
-  listDirectory: async (_root, path) => (path === WS_NODE ? WS_TREE[0].children : []),
-  readFile: async (_root, path) => wsFile(path),
-  getLanguageServiceSnapshot: async () => WS_LANG,
-  getLanguageDefinition: async () => [],
-  getLanguageReferences: async () => [],
-  getLanguageCodeActions: async () => [],
-  writeFile: async (_root, path, content) => ({ ...wsFile(path), content, sizeBytes: content.length }),
-  createFile: async (_root, path) => wsFile(path),
-  createDirectory: async (_root, path) => noMutation(path),
-  statPath: async (_root, path) => ({
-    kind: path.includes(".") ? "file" : "directory",
-    sizeBytes: 64,
-    modifiedAtMs: Date.now(),
-    readOnly: true,
-  }),
-  renamePath: async (_root, _from, to) => noMutation(to),
-  deletePath: async (_root, path) => ({ deletedPath: path } as WorkspaceDeleteResult),
-  searchText: async (_root, query) => ({ query, totalMatches: 0, files: [] }),
-  getSourceControlState: async () => WS_SCM,
-  getDiff: async (_root, path) => ({
-    id: `diff:${path}`,
-    path,
-    title: path,
-    originalLabel: "HEAD",
-    modifiedLabel: "Working Tree",
-    originalContent: "",
-    modifiedContent: "",
-    languageHint: "plaintext",
-    isBinary: false,
-  }),
-  commitChanges: async () => ({
-    state: WS_SCM,
-    committedFileCount: 0,
-    remainingChangeCount: 0,
-    commitSummary: "",
-  }),
-  stagePaths: async () => WS_SCM,
-  unstagePaths: async () => WS_SCM,
-  discardPaths: async () => WS_SCM,
-  createTerminalSession: async () =>
-    ({
-      sessionId: "session-terminal",
-      shell: "/bin/bash",
-      rootPath: WS_ROOT,
-      startedAtMs: Date.now(),
-      cols: 80,
-      rows: 24,
-    }) as WorkspaceTerminalSession,
-  readTerminalSession: async () =>
-    ({ sessionId: "session-terminal", chunks: [], cursor: 0, running: false, exitCode: null }) as WorkspaceTerminalReadResult,
-  writeTerminalSession: async () => undefined,
-  resizeTerminalSession: async () => undefined,
-  closeTerminalSession: async () => undefined,
-};
 
 // ── Conversation / run-timeline ──────────────────────────────────────────────────────────────────
 function ActorIcon({ actor }: { actor: string }) {
@@ -213,6 +91,9 @@ export function SessionView() {
 
   const session = data?.session;
   const turns = data?.turns ?? [];
+  const envId = resolveEnvironmentId(data?.thread);
+  // Build the live env-ops adapter once per bound environment (it owns the env's capability lease).
+  const adapter = useMemo(() => (envId ? daemonWorkspaceAdapter(envId) : null), [envId]);
 
   return (
     <div className="se">
@@ -257,28 +138,38 @@ export function SessionView() {
           </div>
         </section>
 
-        {/* Workspace — source-owned workbench (files / editor / terminal) */}
+        {/* Workspace — source-owned workbench bound to the session's live environment */}
         <section className="se-pane se-workspace" data-testid="session-workspace">
           <div className="se-panehead">
             <Layers size={15} /> Workspace
+            {envId && <code className="se-workenv" data-testid="session-workspace-env">{envId}</code>}
           </div>
           <div className="se-workhost">
-            <WorkspaceHost
-              adapter={workspaceAdapter}
-              root={WS_ROOT}
-              title="Session workspace"
-              showHeader={false}
-              showBottomPanel={false}
-              initialSnapshot={WS_SNAPSHOT}
-              initialState={{
-                activePane: "files",
-                activeBottomPanel: "output",
-                bottomPanelOpen: false,
-                expandedPaths: { [WS_NODE]: true },
-                documents: [],
-                activeDocumentPath: null,
-              }}
-            />
+            {adapter && envId ? (
+              <WorkspaceHost
+                key={envId}
+                adapter={adapter}
+                root={envId}
+                title={`Workspace · ${envId}`}
+                showHeader={false}
+                showBottomPanel
+                terminalAutoStart
+                initialState={{
+                  activePane: "files",
+                  activeBottomPanel: "terminal",
+                  bottomPanelOpen: true,
+                  // Expand the workspace root so the env's real files are visible on open.
+                  expandedPaths: { ".": true },
+                  documents: [],
+                  activeDocumentPath: null,
+                }}
+              />
+            ) : (
+              <div className="se-state" data-testid="session-no-env">
+                No environment bound to this session. Bind a running environment to open its files
+                and terminal here.
+              </div>
+            )}
           </div>
         </section>
       </div>

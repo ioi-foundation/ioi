@@ -32,6 +32,9 @@ export default defineConfig(async () => ({
     // local hypervisor-daemon so the typed client's /v1/* calls resolve in dev.
     proxy: {
       "/v1": { target: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765", changeOrigin: true },
+      // The env-ops file/git plane lives at /supervisor/:env/supervisor.v1.EnvironmentOpsService/*
+      // (the session workbench reads/writes the real scoped workspace through it).
+      "/supervisor": { target: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765", changeOrigin: true },
       "/api/ioi": { target: process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765", changeOrigin: true },
     },
   },
