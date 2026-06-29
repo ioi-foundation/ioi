@@ -112,25 +112,28 @@
     });
   }
 
-  // ---- "Connections" top-level nav → the owned cockpit for the whole connector estate -----------
-  // Connections is the full-control surface (MCP + communication + OAuth + bearer + cloud + service
-  // accounts); Settings > Integrations are thin projections. Clone a sibling nav item so it matches.
-  function mountConnectionsNav() {
-    if (document.querySelector(".ioi-connections-nav")) return; // already in the nav (re-added if React drops it)
-    // The nav links + the sessions list share one container, so insert RIGHT AFTER the on-screen
-    // Automations link (not appendChild, which lands at the container's end below all sessions).
-    const sib = Array.prototype.find.call(
-      document.querySelectorAll('a[href="/automations"]'),
-      (s) => { const r = s.getBoundingClientRect(); return r.width > 0 && r.top > 0 && r.top < 1500; },
+  // ---- Developer & Integrations IA: Connections is DEMOTED from the permanent rail and re-homed as
+  // the "Developer & Integrations" surface inside the Applications estate. The "Applications" rail
+  // launcher (#applications) opens the owned estate at /__ioi/applications, where Developer &
+  // Integrations routes to the existing Connections cockpit (/__ioi/connections) — NOT rebuilt.
+  // (Settings > Integrations projections + git-auth wiring below are untouched.) ----
+  function removeConnectionsNav() {
+    document.querySelectorAll(".ioi-connections-nav").forEach((e) => e.remove()); // drop the old permanent rail item
+  }
+  function wireApplicationsLauncher() {
+    if (window.__ioiAppsLauncherWired) return;
+    window.__ioiAppsLauncherWired = true;
+    document.addEventListener(
+      "click",
+      (e) => {
+        const a = e.target && e.target.closest && e.target.closest('a[href="#applications"], [data-hypervisor-applications-launcher]');
+        if (!a) return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.assign("/__ioi/applications"); // owned 11-surface estate (replaces the empty native modal)
+      },
+      true, // capture — beat the SPA's native (empty) Applications modal
     );
-    if (!sib) return;
-    const item = sib.cloneNode(true);
-    item.classList.add("ioi-connections-nav");
-    item.setAttribute("href", "/__ioi/connections");
-    item.removeAttribute("aria-current");
-    const label = Array.prototype.find.call(item.querySelectorAll("div"), (d) => d.children.length === 0 && d.textContent.trim());
-    if (label) label.textContent = "Connections";
-    sib.insertAdjacentElement("afterend", item);
   }
 
   let activeEnvId = null;
@@ -396,9 +399,11 @@
     // Route native Integrations "Connect" clicks through the OAuth-native launcher.
     setInterval(wireIntegrationConnect, 700);
     wireIntegrationConnect();
-    // Surface the owned Connections cockpit as a top-level nav item.
-    setInterval(mountConnectionsNav, 700);
-    mountConnectionsNav();
+    // Developer & Integrations IA: demote the old permanent Connections rail item and route the
+    // Applications launcher to the owned 11-surface estate (Connections lives there as Developer & Integrations).
+    removeConnectionsNav();
+    setInterval(removeConnectionsNav, 1400);
+    wireApplicationsLauncher();
     // Route the top-nav "Automations" to the owned project-first surface; mount a project's
     // automations panel on its detail page.
     wireAutomationsNav();
