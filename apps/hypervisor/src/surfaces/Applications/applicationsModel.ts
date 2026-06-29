@@ -4,7 +4,7 @@
 // browser (category rail → grouped rows → detail). The data boundary differs:
 //
 // The Hypervisor daemon owns NO applications/favorites plane yet (GET /v1/applications,
-// /v1/hypervisor/applications etc. all 404). So the catalog is a static, IOI-owned mirror of the
+// /v1/hypervisor/applications etc. all 404). So the catalog is a static, IOI-owned snapshot of the
 // surface's app inventory, and "favorites" is honest client-only state persisted to localStorage —
 // no rows are fabricated against a daemon that doesn't serve them. When a daemon applications plane
 // lands, swap CATALOG/loadFavorites for typed daemon clients (see src/data/daemon.ts), exactly as
@@ -32,7 +32,7 @@ export const CATEGORIES = [
   "Support",
 ] as const;
 
-// Static catalog — the application inventory the workspace can launch. IOI-owned mirror of the
+// Static catalog — the application inventory the workspace can launch. IOI-owned snapshot of the
 // surface's app set; not fetched from a daemon plane (none exists yet).
 export const CATALOG: AppEntry[] = [
   { id: "control-panel", name: "Control Panel", category: "Administration", description: "Manage critical platform operations for an enrollment or organization.", color: "#48607d", glyph: "C" },

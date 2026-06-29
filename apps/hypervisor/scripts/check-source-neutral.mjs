@@ -34,7 +34,9 @@ const AUTHORED = [
 function grep(flags, pattern, pathspecs) {
   const ps = [...pathspecs, `:(exclude)${SELF}`].map((p) => `'${p}'`).join(" ");
   try {
-    return execSync(`git -C ${ROOT} grep -nI ${flags} -e '${pattern}' -- ${ps}`, { encoding: "utf8" });
+    // --untracked: also scan new, not-yet-committed files (e.g. freshly extracted surfaces)
+    // so the gate catches regressions before they are committed, not only tracked content.
+    return execSync(`git -C ${ROOT} grep --untracked -nI ${flags} -e '${pattern}' -- ${ps}`, { encoding: "utf8" });
   } catch (e) {
     if (e.status === 1) return ""; // no match
     throw e;

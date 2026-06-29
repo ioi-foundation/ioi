@@ -35,7 +35,7 @@ async function withPage(mocks, fn) {
 const json = (obj) => ({ status: 200, contentType: "application/json", body: JSON.stringify(obj) });
 const SAMPLE = {
   "/hypervisor/projects": json({ projects: [
-    { project_id: "project:gitpodmirror", name: "Repo Mirror", repository_url: "https://github.com/teamioitest/repomirror.git", repository_branch: "main", environment: "No environment yet", environment_class_refs: ["local-workspace-v0"], prebuilds_enabled: true, restore_state: "active", created_at: new Date(Date.now() - 3600e3).toISOString() },
+    { project_id: "project:repo-archive", name: "Repo Archive", repository_url: "https://github.com/teamioitest/repoarchive.git", repository_branch: "main", environment: "No environment yet", environment_class_refs: ["local-workspace-v0"], prebuilds_enabled: true, restore_state: "active", created_at: new Date(Date.now() - 3600e3).toISOString() },
     { project_id: "project:demo", name: "Demo Service", repository_url: "https://github.com/teamioitest/demo.git", repository_branch: "develop", environment: "No environment yet", environment_class_refs: [], prebuilds_enabled: false, restore_state: "active", created_at: new Date(Date.now() - 86400e3).toISOString() },
     { project_id: "project:noname", name: "", repository_url: "https://github.com/teamioitest/archived.git", restore_state: "archived", created_at: new Date(Date.now() - 7 * 86400e3).toISOString() },
   ] }),
@@ -74,8 +74,8 @@ await withPage(SAMPLE, async (page) => {
   m.search ? ok("search box present") : bad("search box");
   m.newBtn ? ok("New project button present") : bad("New project button");
   m.cards === 3 ? ok("renders 3 project cards") : bad("project cards", `got ${m.cards}`);
-  m.firstName === "Repo Mirror" ? ok("newest-first ordering + name rendered") : bad("first card name", m.firstName);
-  m.repoLabels.includes("teamioitest/repomirror") ? ok("repo label derived (owner/repo)") : bad("repo label", m.repoLabels.join(","));
+  m.firstName === "Repo Archive" ? ok("newest-first ordering + name rendered") : bad("first card name", m.firstName);
+  m.repoLabels.includes("teamioitest/repoarchive") ? ok("repo label derived (owner/repo)") : bad("repo label", m.repoLabels.join(","));
   m.prebuilds ? ok("prebuilds flag rendered") : bad("prebuilds flag");
   m.archived ? ok("archived pill rendered") : bad("archived pill");
   m.nameFallback ? ok("blank name falls back to repo label") : bad("name fallback");

@@ -1,0 +1,49 @@
+/* Session detail / Workspace — source-owned, source-derived from the product-ui working surface. */
+.se { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #0e0f13; color: #e6e7ea; }
+
+/* Header */
+.se-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #1a1c22; flex: 0 0 auto; }
+.se-headmain { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.se-headdot { width: 8px; height: 8px; border-radius: 50%; background: #4a4d55; flex: 0 0 auto; }
+.se-headdot.is-running { background: #46c277; box-shadow: 0 0 0 3px #46c27722; }
+.se-title { font-size: 16px; font-weight: 500; letter-spacing: -0.01em; margin: 0; color: #f3f4f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-status { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #878a93; border: 1px solid #24262d; border-radius: 6px; padding: 2px 7px; }
+.se-headmeta { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.se-updated { color: #6f7280; font-size: 12.5px; }
+.se-refresh { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #24262d; border-radius: 8px; background: transparent; color: #c4c7cd; cursor: pointer; }
+.se-refresh:hover { border-color: #3a3d45; color: #fff; }
+
+/* Split layout */
+.se-split { display: flex; flex: 1 1 auto; min-height: 0; }
+.se-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.se-convo { flex: 0 0 42%; max-width: 560px; border-right: 1px solid #1a1c22; }
+.se-workspace { flex: 1 1 auto; }
+.se-panehead { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 12.5px; color: #878a93; border-bottom: 1px solid #16181d; flex: 0 0 auto; }
+
+/* Timeline */
+.se-timeline { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.se-state { color: #6f7280; font-size: 13px; padding: 18px 4px; }
+
+.se-turn { border: 1px solid #1d1f26; border-radius: 12px; background: #131519; overflow: hidden; }
+.se-turnhead { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #16181d; }
+.se-turnno { font-size: 12px; color: #9a9da5; font-weight: 500; }
+.se-turnstatus { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; text-transform: capitalize; color: #6f7280; }
+.se-turnstatus.is-running { color: #d8a23a; }
+.se-turnstatus.is-completed { color: #46c277; }
+
+.se-msg { display: flex; gap: 10px; padding: 12px; }
+.se-msg.is-user { background: #121419; }
+.se-msg.is-agent { border-top: 1px solid #16181d; }
+.se-msgicon { width: 24px; height: 24px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; background: #1d1f26; color: #c4c7cd; }
+.se-msg.is-agent .se-msgicon { background: #1a2230; color: #6ea8fe; }
+.se-msgbody { flex: 1; font-size: 13.5px; line-height: 1.55; color: #e6e7ea; white-space: pre-wrap; word-break: break-word; }
+
+.se-activity { list-style: none; margin: 0; padding: 6px 12px; display: flex; flex-direction: column; gap: 6px; }
+.se-act { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; color: #9a9da5; }
+.se-acticon { color: #5f636b; display: inline-flex; align-items: center; transform: translateY(2px); }
+.se-actkind { color: #c4c7cd; text-transform: capitalize; flex: 0 0 auto; }
+.se-acttext { color: #878a93; overflow: hidden; text-overflow: ellipsis; }
+
+/* Workspace host */
+.se-workhost { flex: 1 1 auto; min-height: 0; position: relative; }
+.se-workhost > * { position: absolute; inset: 0; }

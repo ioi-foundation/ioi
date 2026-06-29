@@ -27,6 +27,8 @@ import { ConnectionsView } from "./surfaces/Connections/ConnectionsView";
 import { ProjectsView } from "./surfaces/Projects/ProjectsView";
 import { AutomationsView } from "./surfaces/Automations/AutomationsView";
 import { ApplicationsView } from "./surfaces/Applications/ApplicationsView";
+import { SettingsView } from "./surfaces/Settings/SettingsView";
+import { SessionView } from "./surfaces/Session/SessionView";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -72,8 +74,8 @@ function renderHypervisorApp() {
             <Route path="projects" element={<ProjectsView />} />
             <Route path="automations" element={<AutomationsView />} />
             <Route path="applications" element={<ApplicationsView />} />
-            <Route path="settings/*" element={<SurfacePending name="Settings" />} />
-            <Route path="sessions/:id" element={<SurfacePending name="Session" />} />
+            <Route path="settings/*" element={<SettingsView />} />
+            <Route path="sessions/:id" element={<SessionView />} />
             <Route path="*" element={<SurfacePending name="This surface" />} />
           </Route>
         </Routes>
