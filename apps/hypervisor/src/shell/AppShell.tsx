@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Home, FolderGit2, Workflow, LayoutGrid, Plug, Plus, Settings, ChevronsUpDown,
-  ExternalLink, MessageSquare, LogOut, Check,
+  ExternalLink, MessageSquare, LogOut, Check, Bell, X,
 } from "lucide-react";
 import "./AppShell.css";
 import { createSession, listSessions, type Session } from "../data/threads";
@@ -77,12 +77,46 @@ function AccountMenu({ account, orgs, onClose }: { account: Account | null; orgs
   );
 }
 
+// Source-owned "What's new" entry — a static, honest single note (no daemon plane).
+const WHATS_NEW = {
+  title: "Premium loading & interaction polish",
+  date: "June 27, 2026",
+  body:
+    "Every surface now shows shaped loading skeletons instead of bare text, and nav items, " +
+    "buttons, cards, and rows carry consistent ~120ms transitions with designed focus rings. " +
+    "The workspace rail gains this changelog so release notes live where you work.",
+  href: "https://ioi.com/docs",
+};
+
+function ChangelogPopover({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="sh-news" role="dialog" aria-label="What's new" data-testid="changelog-popover">
+      <div className="sh-news-head">
+        <span className="sh-news-title">What's new</span>
+        <button className="sh-news-x" aria-label="Dismiss" onClick={onClose}>
+          <X size={13} />
+        </button>
+      </div>
+      <div className="sh-news-body">
+        <div className="sh-news-entrytitle">{WHATS_NEW.title}</div>
+        <div className="sh-news-date">{WHATS_NEW.date}</div>
+        <p className="sh-news-text">{WHATS_NEW.body}</p>
+        <a className="sh-news-cta" href={WHATS_NEW.href} target="_blank" rel="noopener" onClick={onClose}>
+          Learn more <ExternalLink size={13} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
   const footerRef = useRef<HTMLDivElement>(null);
+  const newsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -101,6 +135,15 @@ export function AppShell() {
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!newsOpen) return;
+    const onDoc = (e: MouseEvent) => { if (newsRef.current && !newsRef.current.contains(e.target as Node)) setNewsOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setNewsOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [newsOpen]);
 
   async function newSession() {
     try { const { id } = await createSession(); if (id) navigate(`/sessions/${id}`); } catch { /* daemon down */ }
@@ -144,16 +187,33 @@ export function AppShell() {
 
         <div className="sh-foot" ref={footerRef}>
           <NavLink to="/settings" className="sh-footitem"><Settings size={16} /> Organization settings</NavLink>
-          <div className="sh-ws-wrap">
-            {menuOpen && <AccountMenu account={account} orgs={orgs} onClose={() => setMenuOpen(false)} />}
-            <button className={"sh-ws" + (menuOpen ? " is-open" : "")} onClick={() => setMenuOpen((o) => !o)} data-testid="workspace-switcher">
-              <span className="sh-wsmark">{initials(orgs[0]?.name || "IOI Workspace")}</span>
-              <span className="sh-wsmeta">
-                <span className="sh-wsname">{orgs[0]?.name || "IOI Workspace"}</span>
-                <span className="sh-wsuser">{account?.name || ""}</span>
-              </span>
-              <ChevronsUpDown size={14} className="sh-wschev" />
-            </button>
+          <div className="sh-ws-row">
+            <div className="sh-ws-wrap">
+              {menuOpen && <AccountMenu account={account} orgs={orgs} onClose={() => setMenuOpen(false)} />}
+              <button className={"sh-ws" + (menuOpen ? " is-open" : "")} onClick={() => setMenuOpen((o) => !o)} data-testid="workspace-switcher">
+                <span className="sh-wsmark">{initials(orgs[0]?.name || "IOI Workspace")}</span>
+                <span className="sh-wsmeta">
+                  <span className="sh-wsname">{orgs[0]?.name || "IOI Workspace"}</span>
+                  <span className="sh-wsuser">{account?.name || ""}</span>
+                </span>
+                <ChevronsUpDown size={14} className="sh-wschev" />
+              </button>
+            </div>
+            <div className="sh-news-wrap" ref={newsRef}>
+              {newsOpen && <ChangelogPopover onClose={() => setNewsOpen(false)} />}
+              <button
+                className={"sh-bell" + (newsOpen ? " is-open" : "")}
+                onClick={() => setNewsOpen((o) => !o)}
+                aria-label="What's new"
+                aria-haspopup="dialog"
+                aria-expanded={newsOpen}
+                title="What's new"
+                data-testid="changelog-bell"
+              >
+                <Bell size={17} />
+                <span className="sh-bell-dot" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>

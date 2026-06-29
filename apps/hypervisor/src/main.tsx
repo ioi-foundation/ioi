@@ -25,10 +25,13 @@ import { AppShell } from "./shell/AppShell";
 import { HomeView } from "./surfaces/Home/HomeView";
 import { ConnectionsView } from "./surfaces/Connections/ConnectionsView";
 import { ProjectsView } from "./surfaces/Projects/ProjectsView";
+import { ProjectDetailView } from "./surfaces/Projects/ProjectDetailView";
 import { AutomationsView } from "./surfaces/Automations/AutomationsView";
+import { AutomationNewView } from "./surfaces/Automations/AutomationNewView";
 import { ApplicationsView } from "./surfaces/Applications/ApplicationsView";
 import { SettingsView } from "./surfaces/Settings/SettingsView";
 import { SessionView } from "./surfaces/Session/SessionView";
+import { ConnectionAddView } from "./surfaces/Connections/ConnectionAddView";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -67,8 +70,12 @@ function renderHypervisorApp() {
             <Route index element={<HomeView />} />
             <Route path="connections" element={<ConnectionsView />} />
             <Route path="__ioi/connections" element={<ConnectionsView />} />
+            <Route path="connections/add" element={<ConnectionAddView />} />
+            <Route path="__ioi/connections/add" element={<ConnectionAddView />} />
             <Route path="projects" element={<ProjectsView />} />
+            <Route path="projects/:id" element={<ProjectDetailView />} />
             <Route path="automations" element={<AutomationsView />} />
+            <Route path="automations/new" element={<AutomationNewView />} />
             <Route path="applications" element={<ApplicationsView />} />
             <Route path="settings/*" element={<SettingsView />} />
             <Route path="sessions/:id" element={<SessionView />} />

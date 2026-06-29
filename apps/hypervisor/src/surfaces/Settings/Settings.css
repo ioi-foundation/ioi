@@ -27,7 +27,9 @@
   margin-bottom: 18px;
   border-radius: 7px;
 }
+.st-nav-back { transition: color .12s ease, background .12s ease; }
 .st-nav-back:hover { color: #e6e7ea; background: #15171c; }
+.st-nav-back:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
 .st-nav-group { margin-bottom: 18px; }
 .st-nav-grouphead {
   font-size: 11px;
@@ -54,10 +56,12 @@
   width: 100%;
   text-align: left;
   font: inherit;
+  transition: background .12s ease, color .12s ease;
 }
 .st-nav-item:hover { background: #15171c; color: #fff; }
 .st-nav-item.is-active { background: #1a1d23; color: #fff; }
-.st-nav-item svg { color: #878a93; flex: 0 0 auto; }
+.st-nav-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
+.st-nav-item svg { color: #878a93; flex: 0 0 auto; transition: color .12s ease; }
 .st-nav-item.is-active svg { color: #cfd2d8; }
 .st-nav-stub { color: #5f636b; }
 .st-nav-stub:hover { color: #9a9da6; }
@@ -81,8 +85,10 @@
   height: 34px; padding: 0 14px; border-radius: 9px; border: 0;
   background: #fff; color: #111; font: inherit; font-weight: 600;
   text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
 }
 .st-btn:hover { background: #eee; }
+.st-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px #0a0b0e, 0 0 0 4px #3a82f6; }
 .st-btn.st-ghost { background: transparent; color: #c4c7cd; border: 1px solid #2a2c33; }
 .st-btn.st-ghost:hover { color: #fff; border-color: #3a3d45; }
 .st-btn.st-danger { background: transparent; color: #d65a5a; border: 1px solid #4a2a2a; }
@@ -94,7 +100,7 @@
   text-align: left; font-size: 11.5px; letter-spacing: 0.03em; text-transform: uppercase;
   color: #878a93; font-weight: 600; padding: 8px 12px; border-bottom: 1px solid #1f2127;
 }
-.st-table td { padding: 12px; border-bottom: 1px solid #16181d; vertical-align: middle; }
+.st-table td { padding: 12px; border-bottom: 1px solid #16181d; vertical-align: middle; transition: background .12s ease; }
 .st-table tr:hover td { background: #101216; }
 .st-cell-strong { color: #fff; font-weight: 500; }
 .st-cell-mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: #aab; }
@@ -127,6 +133,14 @@
 .st-meter-bar-fill { height: 100%; background: #46c277; border-radius: 99px; }
 
 .st-section-h2 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: #878a93; margin: 0 0 12px; font-weight: 600; }
+
+/* ---- loading skeletons ---- */
+.st-skel-table { display: flex; flex-direction: column; }
+.st-skel-row { display: flex; align-items: center; gap: 24px; padding: 14px 12px; border-bottom: 1px solid #16181d; }
+.st-skel-row > * { flex: 1 1 0; min-width: 0; max-width: 220px; }
+.st-skel-head { padding: 8px 12px; border-bottom: 1px solid #1f2127; }
+.st-skel-card { display: flex; flex-direction: column; gap: 12px; }
+.st-skel-metervalue { margin-top: 4px; }
 
 /* ---- states ---- */
 .st-state { color: #6f7280; padding: 18px; border: 1px dashed #24262d; border-radius: 12px; }

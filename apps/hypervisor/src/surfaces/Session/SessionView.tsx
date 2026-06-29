@@ -12,6 +12,7 @@ import { useParams } from "react-router-dom";
 import { MessageSquare, Layers, User, Bot, Cog, Circle, RefreshCw } from "lucide-react";
 import { WorkspaceHost } from "@ioi/workspace-substrate";
 import "./Session.css";
+import { Skeleton } from "../../components/Skeleton";
 import { relativeTime, type Thread } from "../../data/threads";
 import { daemonWorkspaceAdapter } from "../../data/workspaceAdapter";
 import { fetchSessionTimeline, type SessionTimeline, type Turn } from "./sessionModel";
@@ -125,8 +126,30 @@ export function SessionView() {
               </div>
             )}
             {!error && data === null && (
-              <div className="se-state" data-testid="session-loading">
-                Loading conversation…
+              <div data-testid="session-loading" role="status" aria-label="Loading conversation" aria-busy="true">
+                {[0, 1].map((i) => (
+                  <article className="se-turn se-turn-skel" key={i} aria-hidden="true">
+                    <header className="se-turnhead">
+                      <Skeleton w={52} h={11} r={5} />
+                      <Skeleton w={64} h={11} r={5} />
+                    </header>
+                    <div className="se-msg is-user">
+                      <Skeleton w={24} h={24} r={7} />
+                      <div className="se-skel-lines">
+                        <Skeleton w="86%" h={12} />
+                        <Skeleton w="54%" h={12} />
+                      </div>
+                    </div>
+                    <div className="se-msg is-agent">
+                      <Skeleton w={24} h={24} r={7} />
+                      <div className="se-skel-lines">
+                        <Skeleton w="92%" h={12} />
+                        <Skeleton w="78%" h={12} />
+                        <Skeleton w="40%" h={12} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
             {!error && data !== null && turns.length === 0 && (

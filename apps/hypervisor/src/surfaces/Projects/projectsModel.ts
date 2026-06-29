@@ -79,6 +79,81 @@ export async function listProjects(): Promise<Project[]> {
     .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
 }
 
+// The slug the daemon's environment specs key by (env spec.project_id is the bare slug, while a
+// project record's id is "project:<slug>") — match a project against its environments by either.
+export function projectSlug(id: string): string {
+  return id.replace(/^project:/, "");
+}
+
+// Fetch one project by id. The daemon list is the source of truth (there is no per-project GET);
+// we resolve the record from the persisted project-state plane. Returns null if not found.
+export async function getProject(id: string): Promise<Project | null> {
+  const all = await listProjects();
+  const wantSlug = projectSlug(id);
+  return all.find((p) => p.id === id || projectSlug(p.id) === wantSlug) || null;
+}
+
+// An environment record as projected by the daemon (GET /v1/hypervisor/environments). Only the
+// fields the project-detail surface reads are typed; the spec.project_id binds it to a project.
+export type EnvironmentRecord = {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+  spec?: {
+    project_id?: string | null;
+    environment_class_id?: string;
+    desired_phase?: string;
+    declared_ports?: { port?: number }[];
+  } | null;
+  status?: {
+    phase?: string;
+    message?: string;
+    deleted?: boolean;
+    ports?: { port?: number }[];
+  } | null;
+};
+
+export type ProjectEnvironment = {
+  id: string;
+  phase: string;
+  classId: string;
+  createdAt?: string;
+  running: boolean;
+};
+
+export function envIsLive(e: EnvironmentRecord): boolean {
+  const phase = e.status?.phase || "";
+  return !e.status?.deleted && phase !== "deleted";
+}
+
+export function toProjectEnvironment(e: EnvironmentRecord): ProjectEnvironment {
+  const phase = e.status?.phase || "unknown";
+  return {
+    id: e.id || "",
+    phase,
+    classId: e.spec?.environment_class_id || "—",
+    createdAt: e.created_at,
+    running: phase === "running",
+  };
+}
+
+// List the live environments bound to a project (env spec.project_id == project slug). Newest first.
+export async function listProjectEnvironments(projectId: string): Promise<ProjectEnvironment[]> {
+  const r = await daemon
+    .get<{ environments?: EnvironmentRecord[] }>("/hypervisor/environments")
+    .catch(() => ({}) as { environments?: EnvironmentRecord[] });
+  const wantSlug = projectSlug(projectId);
+  return (r.environments || [])
+    .filter(envIsLive)
+    .filter((e) => {
+      const pid = e.spec?.project_id || "";
+      return pid === projectId || projectSlug(pid) === wantSlug;
+    })
+    .map(toProjectEnvironment)
+    .filter((e) => e.id)
+    .sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""));
+}
+
 export function filterProjects(projects: Project[], query: string): Project[] {
   const q = query.trim().toLowerCase();
   if (!q) return projects;

@@ -5,15 +5,18 @@
 .sh-railhead { display: flex; align-items: center; height: 32px; padding: 0 6px; margin-bottom: 6px; }
 .sh-brand { color: #cfd2d8; display: inline-flex; }
 
-.sh-new { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; margin-bottom: 10px; border: 1px solid #24262d; border-radius: 9px; background: #15171c; color: #e6e7ea; font: inherit; font-weight: 500; cursor: pointer; }
+.sh-new { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; margin-bottom: 10px; border: 1px solid #24262d; border-radius: 9px; background: #15171c; color: #e6e7ea; font: inherit; font-weight: 500; cursor: pointer; transition: border-color .12s ease, background .12s ease, color .12s ease; }
 .sh-new:hover { border-color: #3a3d45; background: #191b21; }
+.sh-new:focus-visible { outline: none; border-color: #3a82f6; box-shadow: 0 0 0 2px #3a82f633; }
 .sh-new span { flex: 1; text-align: left; }
 .sh-kbd { font-size: 10.5px; color: #878a93; border: 1px solid #2a2c33; border-radius: 5px; padding: 1px 5px; }
 
 .sh-nav { display: flex; flex-direction: column; gap: 1px; }
-.sh-navitem { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #c4c7cd; text-decoration: none; font-weight: 450; }
+.sh-navitem { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #c4c7cd; text-decoration: none; font-weight: 450; transition: background .12s ease, color .12s ease; }
 .sh-navitem:hover { background: #15171c; color: #fff; }
 .sh-navitem.is-active { background: #1a1d23; color: #fff; }
+.sh-navitem:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
+.sh-navitem svg { transition: color .12s ease; }
 
 .sh-sec { margin-top: 14px; padding-top: 12px; border-top: 1px solid #16181d; }
 .sh-sechead { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #878a93; padding: 0 10px; margin-bottom: 6px; }
@@ -22,19 +25,22 @@
 .sh-sessions { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 12px; }
 .sh-sessionhead { text-transform: none; }
 .sh-sesslist { overflow-y: auto; min-height: 0; }
-.sh-sess { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 7px; color: #b7bac1; text-decoration: none; }
+.sh-sess { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 7px; color: #b7bac1; text-decoration: none; transition: background .12s ease, color .12s ease; }
 .sh-sess:hover { background: #15171c; color: #fff; }
 .sh-sess.is-active { background: #1a1d23; color: #fff; }
-.sh-dot { width: 7px; height: 7px; border-radius: 50%; background: #4a4d55; flex: 0 0 auto; }
+.sh-sess:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
+.sh-dot { width: 7px; height: 7px; border-radius: 50%; background: #4a4d55; flex: 0 0 auto; transition: background .12s ease, box-shadow .12s ease; }
 .sh-dot.is-running { background: #46c277; box-shadow: 0 0 0 3px #46c27722; }
 .sh-sesstitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 
 .sh-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid #16181d; }
-.sh-footitem { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #c4c7cd; text-decoration: none; font-size: 13px; }
+.sh-footitem { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: #c4c7cd; text-decoration: none; font-size: 13px; transition: background .12s ease, color .12s ease; }
 .sh-footitem:hover { background: #15171c; color: #fff; }
+.sh-footitem:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
 .sh-ws-wrap { position: relative; }
-.sh-ws { display: flex; align-items: center; gap: 9px; width: 100%; height: 48px; padding: 0 8px; margin-top: 4px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.sh-ws { display: flex; align-items: center; gap: 9px; width: 100%; height: 48px; padding: 0 8px; margin-top: 4px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; transition: background .12s ease; }
 .sh-ws:hover, .sh-ws.is-open { background: #15171c; }
+.sh-ws:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
 .sh-wsmark { width: 28px; height: 28px; border-radius: 7px; background: #6b4bd6; color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
 .sh-wsmark-sm { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
 .sh-wsmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
@@ -50,22 +56,52 @@
 .sh-menu-id { flex: 1; min-width: 0; }
 .sh-menu-name { font-size: 13px; font-weight: 600; color: #fff; }
 .sh-menu-email { font-size: 12px; color: #878a93; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-menu-gear { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #2a2c33; border-radius: 7px; background: transparent; color: #c4c7cd; cursor: pointer; }
+.sh-menu-gear { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #2a2c33; border-radius: 7px; background: transparent; color: #c4c7cd; cursor: pointer; transition: color .12s ease, border-color .12s ease; }
 .sh-menu-gear:hover { color: #fff; border-color: #3a3d45; }
+.sh-menu-gear:focus-visible { outline: none; box-shadow: 0 0 0 2px #3a82f6; }
 .sh-menu-sec { border-top: 1px solid #1f2127; padding: 8px 0 6px; }
 .sh-menu-label { font-size: 11px; color: #6f7280; padding: 2px 12px 6px; }
 .sh-menu-org { display: flex; align-items: center; gap: 9px; padding: 6px 12px; }
 .sh-menu-orgname { flex: 1; font-size: 13px; font-weight: 500; color: #e6e7ea; }
 .sh-menu-tier { font-size: 10.5px; color: #c4c7cd; background: #24262d; border-radius: 5px; padding: 1px 6px; }
 .sh-menu-check { color: #46c277; }
-.sh-menu-join { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 12px; border: 0; background: transparent; color: #6f8fff; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; }
+.sh-menu-join { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 12px; border: 0; background: transparent; color: #6f8fff; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; transition: background .12s ease, color .12s ease; }
 .sh-menu-join:hover { background: #191b21; }
+.sh-menu-join:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
 .sh-menu-div { height: 1px; background: #1f2127; margin: 2px 0; }
-.sh-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 12px; border: 0; background: transparent; color: #d6d8dd; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; text-decoration: none; }
+.sh-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 12px; border: 0; background: transparent; color: #d6d8dd; font: inherit; font-size: 13px; cursor: pointer; border-radius: 7px; text-align: left; text-decoration: none; transition: background .12s ease, color .12s ease; }
 .sh-menu-item:hover { background: #191b21; color: #fff; }
+.sh-menu-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1px #3a82f6; }
 .sh-menu-static { cursor: default; }
 .sh-menu-static:hover { background: transparent; color: #d6d8dd; }
+.sh-menu-static:focus-visible { box-shadow: none; }
 .sh-menu-trail { margin-left: auto; color: #878a93; }
 .sh-sessskel { padding: 4px 10px; }
+
+/* workspace switcher row + changelog bell */
+.sh-ws-row { display: flex; align-items: center; gap: 6px; }
+.sh-ws-row .sh-ws-wrap { flex: 1; min-width: 0; }
+.sh-news-wrap { position: relative; flex: 0 0 auto; }
+.sh-bell { position: relative; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: #9a9da6; cursor: pointer; transition: color .12s ease, background .12s ease; }
+.sh-bell:hover { background: #15171c; color: #e6e7ea; }
+.sh-bell.is-open { background: #15171c; color: #fff; }
+.sh-bell:focus-visible { outline: none; box-shadow: 0 0 0 2px #0c0d10, 0 0 0 3px #3a82f6; }
+.sh-bell-dot { position: absolute; top: 9px; right: 10px; width: 6px; height: 6px; border-radius: 50%; background: #6f9bff; box-shadow: 0 0 0 2px #0c0d10; }
+
+/* "What's new" popover — reuses the account-menu surface vocabulary */
+.sh-news { position: absolute; bottom: calc(100% + 8px); right: 0; width: 300px; background: #15171c; border: 1px solid #2a2c33; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.5); z-index: 50; overflow: hidden; transform-origin: bottom right; animation: sh-menu-in .12s ease-out; }
+@media (prefers-reduced-motion: reduce) { .sh-news { animation: none; } }
+.sh-news-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #1f2127; }
+.sh-news-title { font-size: 13px; font-weight: 600; color: #fff; }
+.sh-news-x { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 7px; background: transparent; color: #878a93; cursor: pointer; transition: color .12s ease, background .12s ease; }
+.sh-news-x:hover { color: #fff; background: #1f2127; }
+.sh-news-x:focus-visible { outline: none; box-shadow: 0 0 0 2px #3a82f6; }
+.sh-news-body { padding: 12px 14px 14px; }
+.sh-news-entrytitle { font-size: 13.5px; font-weight: 600; color: #f3f4f6; }
+.sh-news-date { font-size: 11.5px; color: #6f7280; margin-top: 2px; }
+.sh-news-text { font-size: 12.5px; line-height: 1.55; color: #b7bac1; margin: 10px 0 12px; }
+.sh-news-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: #6f9bff; text-decoration: none; transition: color .12s ease; }
+.sh-news-cta:hover { color: #9bc0ff; }
+.sh-news-cta:focus-visible { outline: none; box-shadow: 0 0 0 2px #3a82f6; border-radius: 5px; }
 
 .sh-main { flex: 1; min-width: 0; overflow: auto; background: #0a0b0e; }

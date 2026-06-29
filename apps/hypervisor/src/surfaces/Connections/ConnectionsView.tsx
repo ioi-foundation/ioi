@@ -3,6 +3,7 @@
 // is the data boundary: typed daemon clients (connectionsModel.fetchConnections).
 import { useEffect, useState } from "react";
 import "./Connections.css";
+import { Skeleton } from "../../components/Skeleton";
 import {
   CATEGORY_ORDER,
   authDescriptor,
@@ -78,13 +79,26 @@ export function ConnectionsView() {
       </p>
 
       <div className="cx-add">
-        <a href="/__ioi/connections/add?type=mcp">+ MCP server</a>
+        <a href="/connections/add?type=mcp" data-testid="connections-add-mcp">+ MCP server</a>
         <a href="/__ioi/slack/setup">+ Connect Slack</a>
-        <a href="/__ioi/connections/add?type=bearer">+ API key / service</a>
+        <a href="/connections/add?type=bearer" data-testid="connections-add-bearer">+ API key / service</a>
       </div>
 
       {error && <div className="cx-empty" data-testid="connections-error">Daemon unavailable: {error}</div>}
-      {!error && data === null && <div className="cx-empty" data-testid="connections-loading">Loading connections…</div>}
+      {!error && data === null && (
+        <div className="cx-skel" data-testid="connections-loading" role="status" aria-label="Loading connections" aria-busy="true">
+          <Skeleton w={150} h={13} className="cx-skel-h2" />
+          {[0, 1, 2].map((i) => (
+            <div className="cx-card cx-card-skel" key={i} aria-hidden="true">
+              <div className="cx-main">
+                <Skeleton w={`${42 + i * 12}%`} h={14} />
+                <Skeleton w={`${64 - i * 8}%`} h={11} r={5} className="cx-skel-meta" />
+              </div>
+              <Skeleton w={84} h={28} r={8} />
+            </div>
+          ))}
+        </div>
+      )}
       {!error && data !== null && !hasAny && (
         <div className="cx-empty" data-testid="connections-empty">No connections yet — add one above.</div>
       )}

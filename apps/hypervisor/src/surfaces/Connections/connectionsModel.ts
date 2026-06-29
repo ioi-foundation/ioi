@@ -100,6 +100,69 @@ export function toolsLabel(c: Connector): string {
     : (c.allowed_tools || []).map((t) => t.name).filter(Boolean).join(", ") || "—";
 }
 
+// ---- Add-connection create contracts (daemon-owned, native /v1/hypervisor/connectors) ----
+// Follow the connector estate's register pipeline: POST /connectors registers the binding, then
+// either /oauth/discover (MCP: auto-discover tools + Dynamic Client Registration on connect) or
+// /credential (bearer: seal the token in the daemon — it never reaches a session). The created
+// record is the daemon's own; we never fabricate it.
+type ConnectorCreateResponse = { ok?: boolean; connector?: Connector; reason?: string };
+
+async function registerConnector(body: Record<string, unknown>): Promise<Connector> {
+  const r = await daemon.post<ConnectorCreateResponse>("/hypervisor/connectors", body);
+  if (!r.ok || !r.connector?.connector_id) {
+    throw new Error(r.reason || "Daemon did not return a registered connector");
+  }
+  return r.connector;
+}
+
+export type McpDraft = { name: string; url: string };
+
+export async function addMcpConnector(draft: McpDraft): Promise<Connector> {
+  const connector = await registerConnector({
+    service: "mcp",
+    kind: "mcp",
+    name: draft.name.trim(),
+    base_url: draft.url.trim(),
+  });
+  // Best-effort auto-discovery + DCR so the daemon self-configures (no vendor app needed). A
+  // discovery failure does not unregister the connector — it just defers OAuth to Connect.
+  await daemon
+    .post(`/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/oauth/discover`, {})
+    .catch(() => undefined);
+  return connector;
+}
+
+export type BearerDraft = {
+  name: string;
+  baseUrl: string;
+  tool: string;
+  toolPath?: string;
+  token: string;
+};
+
+export async function addBearerConnector(draft: BearerDraft): Promise<Connector> {
+  const service = draft.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || "service";
+  const connector = await registerConnector({
+    service,
+    kind: "http",
+    name: draft.name.trim(),
+    base_url: draft.baseUrl.trim(),
+    allowed_tools: [
+      { name: draft.tool.trim(), method: "POST", path: (draft.toolPath || "").trim() || `/${draft.tool.trim()}` },
+    ],
+  });
+  // Seal the bearer token in the daemon (binds the connector). Fail loudly: a sealed-token failure
+  // leaves the connector unbound, so surface it rather than reporting a false success.
+  const sealed = await daemon.post<{ ok?: boolean; reason?: string }>(
+    `/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/credential`,
+    { token: draft.token },
+  );
+  if (sealed && sealed.ok === false) {
+    throw new Error(sealed.reason || "Daemon could not seal the credential");
+  }
+  return connector;
+}
+
 export async function fetchConnections(): Promise<ConnectionsData> {
   const [c, s, l] = await Promise.all([
     daemon.get<{ connectors?: Connector[] }>("/hypervisor/connectors").catch(() => null),

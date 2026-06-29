@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FolderGit2, Search, Plus, GitBranch, Box, Zap } from "lucide-react";
 import "./Projects.css";
+import { Skeleton } from "../../components/Skeleton";
 import {
   filterProjects,
   listProjects,
@@ -106,8 +107,20 @@ export function ProjectsView() {
       )}
 
       {loading && (
-        <div className="pj-state" data-testid="projects-loading">
-          Loading projects…
+        <div className="pj-grid" data-testid="projects-loading" role="status" aria-label="Loading projects" aria-busy="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div className="pj-card pj-card-skel" key={i} aria-hidden="true">
+              <div className="pj-card-head">
+                <Skeleton w={26} h={26} r={8} />
+                <Skeleton w={`${40 + ((i * 11) % 30)}%`} h={14} />
+              </div>
+              <Skeleton w={`${55 + ((i * 7) % 25)}%`} h={11} r={5} />
+              <div className="pj-card-meta">
+                <Skeleton w={70} h={11} r={5} />
+                <Skeleton w={54} h={11} r={5} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

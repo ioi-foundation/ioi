@@ -5,6 +5,7 @@
 // fabricated row.
 import { useEffect, useState } from "react";
 import { Users, Server, GitBranch, KeyRound, Ticket, Construction } from "lucide-react";
+import { Skeleton } from "../../components/Skeleton";
 import {
   fetchMetering,
   fmtDate,
@@ -56,14 +57,25 @@ function PaneHead({ title, sub }: { title: string; sub: string }) {
   );
 }
 
+// Column width templates so the table skeleton echoes each pane's real columns.
+const SKEL_COLS: Record<string, string[]> = {
+  members: ["46%", "32%", "44px", "38%"],
+  runners: ["48%", "34%", "40%", "44px"],
+  gitauth: ["40%", "30%", "38%", "44px"],
+  secrets: ["44%", "32%", "30%"],
+  tokens: ["40%", "60px", "30%", "30%", "30%"],
+};
+
 function StateRows({
   pane,
   error,
   loading,
+  shape = "table",
 }: {
   pane: string;
   error: string | null;
   loading: boolean;
+  shape?: "table" | "cards";
 }) {
   if (error)
     return (
@@ -71,13 +83,35 @@ function StateRows({
         Daemon unavailable: {error}
       </div>
     );
-  if (loading)
+  if (!loading) return null;
+  if (shape === "cards")
     return (
-      <div className="st-state" data-testid={`${pane}-loading`}>
-        Loading…
+      <div className="st-meter-grid" data-testid={`${pane}-loading`} role="status" aria-label="Loading" aria-busy="true">
+        {[0, 1, 2, 3].map((i) => (
+          <div className="st-meter-card st-skel-card" key={i} aria-hidden="true">
+            <Skeleton w="50%" h={11} r={5} />
+            <Skeleton w={84} h={24} className="st-skel-metervalue" />
+          </div>
+        ))}
       </div>
     );
-  return null;
+  const cols = SKEL_COLS[pane] || ["44%", "32%", "30%"];
+  return (
+    <div className="st-skel-table" data-testid={`${pane}-loading`} role="status" aria-label="Loading" aria-busy="true">
+      <div className="st-skel-row st-skel-head" aria-hidden="true">
+        {cols.map((w, c) => (
+          <Skeleton key={c} w={w} h={10} r={4} />
+        ))}
+      </div>
+      {[0, 1, 2, 3].map((r) => (
+        <div className="st-skel-row" key={r} aria-hidden="true">
+          {cols.map((w, c) => (
+            <Skeleton key={c} w={w} h={13} r={5} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ---------------- Members ----------------
@@ -349,7 +383,7 @@ export function MeteringPane() {
   return (
     <div data-testid="settings-pane" data-pane="metering">
       <PaneHead title="Metering & Cost" sub="Compute Units (OCU) consumed from real execution receipts, against the wallet-funded budget. Not SaaS billing — the daemon's own economic plane." />
-      <StateRows pane="metering" error={error} loading={loading} />
+      <StateRows pane="metering" error={error} loading={loading} shape="cards" />
       {!error && data && (
         <>
           <div className="st-meter-grid" data-testid="metering-summary">

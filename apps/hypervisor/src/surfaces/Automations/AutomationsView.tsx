@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, Hand, Workflow, Plus, Play } from "lucide-react";
 import "./Automations.css";
+import { Skeleton } from "../../components/Skeleton";
 import {
   computeStats,
   fetchAutomations,
@@ -97,8 +98,27 @@ export function AutomationsView() {
         </div>
       )}
       {!error && data === null && (
-        <div className="au-empty" data-testid="automations-loading">
-          Loading automations…
+        <div data-testid="automations-loading" role="status" aria-label="Loading automations" aria-busy="true">
+          <div className="au-stats" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div className="au-stat au-stat-skel" key={i}>
+                <Skeleton w="55%" h={11} r={5} />
+                <Skeleton w={44} h={22} className="au-skel-statvalue" />
+              </div>
+            ))}
+          </div>
+          <section className="au-list" aria-hidden="true">
+            {[0, 1, 2, 3].map((i) => (
+              <div className="au-row au-row-skel" key={i}>
+                <Skeleton w={30} h={30} r={8} />
+                <div className="au-rowmain">
+                  <Skeleton w={`${36 + ((i * 9) % 28)}%`} h={13} />
+                  <Skeleton w={`${52 + ((i * 6) % 22)}%`} h={11} r={5} className="au-skel-meta" />
+                </div>
+                <Skeleton w={62} h={28} r={8} />
+              </div>
+            ))}
+          </section>
         </div>
       )}
 

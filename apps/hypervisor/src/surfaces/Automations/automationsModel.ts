@@ -100,6 +100,39 @@ export function computeStats(automations: Automation[]): AutomationStat[] {
   ];
 }
 
+// Create form input (the /automations/new route's fields). trigger.kind drives which trigger
+// detail is sent (cron for schedule, event for event); steps are the ordered workflow actions.
+export type AutomationDraft = {
+  name: string;
+  trigger: AutomationTrigger;
+  steps: AutomationStep[];
+  project_id?: string;
+  environment_class_id?: string;
+};
+
+// Native create contract (daemon-owned): POST /v1/hypervisor/automations -> { ok, automation }.
+// Mirrors handle_automation_create (name/trigger/steps/project_id/environment_class_id). The
+// daemon fills limits/executor_identity/recipe_ref defaults; we never fabricate the created record.
+export async function createAutomation(draft: AutomationDraft): Promise<Automation> {
+  const kind = draft.trigger.kind || "manual";
+  const trigger: AutomationTrigger = { kind };
+  if (kind === "schedule" && draft.trigger.cron) trigger.cron = draft.trigger.cron;
+  if (kind === "event" && draft.trigger.event) trigger.event = draft.trigger.event;
+  const body: Record<string, unknown> = {
+    name: draft.name.trim(),
+    trigger,
+    steps: draft.steps,
+  };
+  if (draft.project_id?.trim()) body.project_id = draft.project_id.trim();
+  if (draft.environment_class_id?.trim()) body.environment_class_id = draft.environment_class_id.trim();
+  const r = await daemon.post<{ ok?: boolean; automation?: Automation; reason?: string }>(
+    "/hypervisor/automations",
+    body,
+  );
+  if (!r.ok || !r.automation) throw new Error(r.reason || "Daemon did not return a created automation");
+  return r.automation;
+}
+
 export async function fetchAutomations(): Promise<AutomationsData> {
   const r = await daemon
     .get<{ automations?: Automation[] }>("/hypervisor/automations")
