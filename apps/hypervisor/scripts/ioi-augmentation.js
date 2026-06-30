@@ -124,7 +124,7 @@
   // single "Open Application" slot — an iframe positioned right of the rail. /__ioi/applications stays
   // a deep-link fallback. Live entries open owned surfaces; planned/contextual shown honestly.
   const IOI_APPS = [
-    { icon: "🧰", name: "Workbench", desc: "Code editor, terminal, ports & tasks.", status: "contextual" },
+    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
     { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
@@ -243,11 +243,11 @@
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : "Developer & Integrations";
+          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : "Developer & Integrations";
           openApplication(href, name);
           return;
         }

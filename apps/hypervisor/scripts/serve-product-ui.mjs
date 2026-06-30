@@ -623,7 +623,7 @@ function renderAutomationNewForm(projectId, projects) {
 // rest are "planned" / "in a session" (no fabricated routes).
 function renderApplications() {
   const SURFACES = [
-    { icon: "🧰", name: "Workbench", desc: "Code editor, terminal, ports & tasks for a running session.", status: "contextual" },
+    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
     { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
@@ -804,6 +804,34 @@ function renderEnvironments(envs, classes) {
   const note = live.length > cap ? `<p class="sub">Showing ${cap} of ${live.length} active environments.</p>` : "";
   const table = `<h2>Active environments</h2>${note}<table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>`;
   return automationsShell("Environments", head + posture + table);
+}
+
+// ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
+// It lists active envs with an "Open Workbench" entry that navigates top-level to /workspaces/:id
+// (the real console; NOT iframed here). No owned terminal/editor — relies on the existing machinery.
+function renderWorkbench(envs) {
+  const enc = encodeURIComponent;
+  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a></p>`;
+  const live = (envs || []).filter((e) => !(e.status && e.status.deleted) && (e.status || {}).phase !== "deleted");
+  if (!live.length) {
+    return automationsShell("Workbench", head + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>`);
+  }
+  const cap = 60;
+  const shown = live.slice(0, cap);
+  const phasePill = (p) => (p === "running" ? "ok" : (p === "failed" || p === "blocked") ? "warn" : "muted");
+  const count = (x) => (Array.isArray(x) ? x.length : (x && typeof x === "object" ? Object.keys(x).length : 0));
+  const rows = shown.map((e) => {
+    const st = e.status || {}, sp = e.spec || {}, id = e.id || "";
+    return `<tr>
+      <td><code>${CX_ESC(id)}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(sp.project_id || "—")} · ${CX_ESC(sp.environment_class_id || "")}</div></td>
+      <td><span class="pill ${phasePill(st.phase)}">${CX_ESC(st.phase || "—")}</span> ${CX_ESC((st.readiness || {}).mode || "")}</td>
+      <td>${count(st.ports)}p · ${count(st.services)}s · ${count(st.tasks)}t</td>
+      <td><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a> <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+    </tr>`;
+  }).join("");
+  const note = live.length > cap ? `<p class="sub">Showing ${cap} of ${live.length} active environments.</p>` : "";
+  const table = `${note}<table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return automationsShell("Workbench", head + table);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -2150,6 +2178,13 @@ const server = http.createServer((req, res) => {
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderEnvironments(eRes.environments || [], cRes.environmentClasses || []));
+      return;
+    }
+    // ---- Workbench — launcher into an environment's live console (estate surface).
+    if (pathname === "/__ioi/workbench" && req.method === "GET") {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/environments`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderWorkbench(r.environments || []));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
