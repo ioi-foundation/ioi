@@ -380,7 +380,9 @@
     el.innerHTML =
       `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;font-weight:600"><span>⚙ Project automations</span><a href="/__ioi/automations?project=${encodeURIComponent(projectId)}" style="color:${t.accent};text-decoration:none;font-size:11px">open →</a></div>` +
       list +
-      `<div style="padding:9px 12px;border-top:1px solid ${t.line}"><a href="/__ioi/automations/new?project=${encodeURIComponent(projectId)}" style="display:inline-block;padding:6px 12px;border-radius:7px;background:${t.accent};color:#fff;text-decoration:none;font-weight:600">+ New automation</a></div>`;
+      // Footer: create an automation + jump to this project's Work Ledger (the proof stream scoped
+      // to this project) — closes the loop Project → Automations → Runs → Ledger → Timeline.
+      `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid ${t.line}"><a href="/__ioi/automations/new?project=${encodeURIComponent(projectId)}" style="display:inline-block;padding:6px 12px;border-radius:7px;background:${t.accent};color:#fff;text-decoration:none;font-weight:600">+ New automation</a><a href="/__ioi/work-ledger?project=${encodeURIComponent(projectId)}" style="color:${t.accent};text-decoration:none;font-size:11px;white-space:nowrap">📒 Work Ledger →</a></div>`;
   }
 
   function mount() {
