@@ -625,7 +625,7 @@ function renderApplications() {
   const SURFACES = [
     { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
-    { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
+    { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, and activity.", href: "/__ioi/agent-studio", status: "live" },
     { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
     { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
     { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
@@ -840,6 +840,129 @@ function renderWorkbench(summary) {
   const pager = envPager("/__ioi/workbench", summary);
   const table = `${pager}<table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
   return automationsShell("Workbench", head + table);
+}
+
+// ---- Agent Studio — the live agent INVENTORY + CONFIGURATION + ACTIVITY cockpit (estate #3).
+// Daemon-backed and honest: agents from /v1/agents, the platform harness adapters from
+// /v1/hypervisor/agent-runner-profiles, model routing from /v1/model-mount/{routes,providers},
+// and recent activity from /v1/hypervisor/agentops/conversations + /agent-run-transcripts. It does
+// NOT fabricate Foundry/marketplace/package/training state, and it does NOT claim a per-agent
+// conversation/run join the daemon does not record — that activity is labelled workspace-wide.
+const agentShort = (id) => { const m = String(id || "").match(/^agent_([0-9a-f]{8})/); return m ? `agent_${m[1]}` : (id || "agent"); };
+const pickv = (o, ...keys) => { for (const k of keys) { if (o && o[k] != null && o[k] !== "") return o[k]; } return undefined; };
+function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q) {
+  const enc = encodeURIComponent;
+  agents = Array.isArray(agents) ? agents : [];
+  profiles = Array.isArray(profiles) ? profiles : [];
+  routes = Array.isArray(routes) ? routes : [];
+  providers = Array.isArray(providers) ? providers : [];
+  conversations = Array.isArray(conversations) ? conversations : [];
+  runs = Array.isArray(runs) ? runs : [];
+  const qn = String(q || "").trim().toLowerCase();
+  const filtered = qn
+    ? agents.filter((a) => `${a.id || ""} ${pickv(a, "model_id", "modelId") || ""}`.toLowerCase().includes(qn))
+    : agents;
+  const activeCount = agents.filter((a) => (a.status || "") === "active").length;
+  const head = `<h1>Agent Studio</h1><p class="sub">The agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
+  const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
+  if (!agents.length) {
+    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>`);
+  }
+  // Selected agent (query ?agent=, else first of the filtered list).
+  const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
+  const qsfx = qn ? `&q=${enc(q)}` : "";
+  const list = filtered.length
+    ? filtered.map((a) => {
+        const on = sel && a.id === sel.id ? " sel" : "";
+        const st = (a.status || "") === "active" ? "ok" : "muted";
+        return `<a class="asrow${on}" href="/__ioi/agent-studio?agent=${enc(a.id || "")}${qsfx}"><div class="nm">${CX_ESC(agentShort(a.id))} <span class="pill ${st}">${CX_ESC(a.status || "—")}</span></div><div class="ml">${CX_ESC(pickv(a, "model_id", "modelId") || "—")}</div></a>`;
+      }).join("")
+    : `<div class="empty">No agents match “${CX_ESC(q)}”.</div>`;
+  const left = `<div><form method="get" action="/__ioi/agent-studio"><input class="asearch" name="q" value="${CX_ESC(q || "")}" placeholder="Search agents by id or model…"></form><div class="aslist">${list}</div></div>`;
+
+  // ---- Selected agent: configuration + runner posture + primary actions.
+  const a = sel || {};
+  const dec = a.model_route_decision || a.modelRouteDecision || {};
+  const rc = a.runtime_controls || a.runtimeControls || {};
+  const rcm = rc.model || {};
+  const subs = (a.options && (a.options.subagentNames || a.options.subagent_names)) || [];
+  const receipts = a.receipt_refs || a.receiptRefs || [];
+  const mcp = pickv(a, "mcpRegistry", "mcp_registry");
+  const cfg = (label, val) => `<dt>${label}</dt><dd>${val}</dd>`;
+  const code = (v) => v ? `<code>${CX_ESC(v)}</code>` : "—";
+  const grid = `<dl class="grid">
+    ${cfg("Agent id", code(a.id))}
+    ${cfg("Status", `<span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span>`)}
+    ${cfg("Model", code(pickv(a, "model_id", "modelId")))}
+    ${cfg("Selected model", code(pickv(rcm, "selected_model") || pickv(a, "requestedModelId", "requested_model_id")))}
+    ${cfg("Mode · approval", `${CX_ESC(rc.mode || "—")} · ${CX_ESC(rc.approval_mode || "—")}`)}
+    ${cfg("Reasoning effort", CX_ESC(pickv(rcm, "reasoning_effort") || pickv(rc, "reasoning_effort") || "default"))}
+    ${cfg("Working dir", code(a.cwd))}
+    ${cfg("MCP registry", mcp ? code(mcp) : `<span class="sub" style="margin:0">none bound</span>`)}
+    ${cfg("Subagents", subs.length ? subs.map((s) => `<code>${CX_ESC(s)}</code>`).join(" ") : `<span class="sub" style="margin:0">none</span>`)}
+    ${cfg("Created · updated", `${CX_ESC(pickv(a, "created_at", "createdAt") || "—")}<br><span class="sub" style="margin:0">${CX_ESC(pickv(a, "updated_at", "updatedAt") || "")}</span>`)}
+  </dl>`;
+  // Runner posture is grounded in the agent's own model-route decision (real fields, not inferred).
+  const postureChips = `<div class="chips"><span class="chiplabel">Runner posture</span>
+    <span class="pill muted">runtime: ${CX_ESC(a.runtime || pickv(dec, "local_remote_placement") || "—")}</span>
+    <span class="pill muted">provider: ${CX_ESC(pickv(dec, "provider_kind") || "—")}</span>
+    <span class="pill ${pickv(dec, "privacy_posture") === "local_only" ? "ok" : "muted"}">privacy: ${CX_ESC(pickv(dec, "privacy_posture") || "—")}</span>
+    <span class="pill muted">capability: ${CX_ESC(dec.capability || "—")}</span>
+    ${pickv(dec, "never_send_auto_upstream") === true ? `<span class="pill ok">never auto-upstream</span>` : ""}
+  </div>`;
+  const routeGrid = `<dl class="grid">
+    ${cfg("Route", code(pickv(a, "model_route_id", "modelRouteId")))}
+    ${cfg("Endpoint", code(pickv(a, "model_route_endpoint_id", "modelRouteEndpointId")))}
+    ${cfg("Provider", code(pickv(a, "model_route_provider_id", "modelRouteProviderId")))}
+    ${cfg("Route receipt", code(pickv(a, "model_route_receipt_id", "modelRouteReceiptId")))}
+    ${cfg("Proof receipts", receipts.length ? `${receipts.length} ref(s)` : "—")}
+  </dl>`;
+  // Primary actions — workspace-honest. "Use in Automation" is the agent-scoped action; the
+  // conversation/run links are the most-recent workspace activity (no per-agent join is recorded).
+  const latestRun = runs.slice().sort((x, y) => String(pickv(y, "recorded_at", "started_at") || "").localeCompare(String(pickv(x, "recorded_at", "started_at") || "")))[0];
+  const recentConv = conversations[0];
+  const actions = `<div class="row">
+    <a class="act" href="/__ioi/automations/new">Use in Automation →</a>
+    ${recentConv && recentConv.environment_id ? `<a class="act ghost" href="/details/${enc(recentConv.environment_id)}" target="_top">Open recent conversation →</a>` : ""}
+    ${latestRun && latestRun.run_id ? `<a class="act ghost" href="/__ioi/run-timeline/${enc(latestRun.run_id)}" target="_blank" rel="noopener">Open latest run timeline ↗</a>` : ""}
+  </div>`;
+
+  // ---- Platform harness adapters (global runner matrix) from agent-runner-profiles.
+  const profRows = profiles.map((p) => `<tr>
+    <td><b>${CX_ESC(p.display_name || p.harness || "—")}</b>${p.default ? ` <span class="pill ok">default</span>` : ""}<div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(p.harness || "")}</code></div></td>
+    <td>${(p.modes || []).map((m) => CX_ESC(m)).join(" · ") || "—"}</td>
+    <td>${(p.models || []).map((m) => `<code>${CX_ESC(m)}</code>`).join(" ") || "—"}</td>
+    <td>${(p.reasoning || []).map(CX_ESC).join("/") || "—"}</td>
+    <td>${(p.speed || []).map(CX_ESC).join("/") || "—"}</td>
+    <td>${p.tool_use ? "✓" : "—"} · ${p.image_input ? "img" : "—"}</td>
+    <td><span class="pill ${String(p.provider_trust || "").startsWith("remote") ? "warn" : "ok"}">${CX_ESC(p.provider_trust || "—")}</span></td>
+  </tr>`).join("");
+  const matrix = profiles.length
+    ? `<h2>Platform harness adapters</h2><p class="sub" style="margin:-4px 0 12px">The runner profiles every agent can be operated on — modes, models, reasoning, speed, tool-use and provider trust.</p><table><thead><tr><th>Harness</th><th>Modes</th><th>Models</th><th>Reasoning</th><th>Speed</th><th>Tools</th><th>Trust</th></tr></thead><tbody>${profRows}</tbody></table>`
+    : "";
+
+  // ---- Model routing (global model-mount posture).
+  const routeRows = routes.map((r) => `<span class="pill ${(r.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(r.id || "")} · ${CX_ESC(r.role || "")} · ${CX_ESC(r.status || "")}</span>`).join(" ");
+  const provChips = providers.slice(0, 16).map((p) => `<span class="pill muted">${CX_ESC(p.id || p.provider_ref || "")} · ${CX_ESC(p.driver || p.provider_kind || "")}</span>`).join(" ");
+  const routing = `<h2>Model routing</h2><div class="chips"><span class="chiplabel">Routes</span>${routeRows || `<span class="sub" style="margin:0">none</span>`}</div><div class="chips"><span class="chiplabel">Providers (${providers.length})</span>${provChips || `<span class="sub" style="margin:0">none</span>`}</div>`;
+
+  // ---- Recent activity (workspace-wide; honest label — not a per-agent join).
+  const convRows = conversations.slice(0, 8).map((c) => {
+    const env = c.environment_id || "";
+    const st = /^(active|open|running)$/.test(c.status || "") ? "ok" : "muted";
+    return `<tr><td>${CX_ESC(c.title || c.conversation_id || "—")}</td><td><span class="pill ${st}">${CX_ESC(c.status || "—")}</span></td><td>${CX_ESC(String(c.turn_count == null ? "—" : c.turn_count))}</td><td>${env ? `<a href="/details/${enc(env)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(env)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td></tr>`;
+  }).join("");
+  const runRows = runs.slice().sort((x, y) => String(pickv(y, "recorded_at", "started_at") || "").localeCompare(String(pickv(x, "recorded_at", "started_at") || ""))).slice(0, 8).map((r) => {
+    const st = r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted";
+    return `<tr><td>${CX_ESC(r.automation_name || r.kind || "—")}</td><td><span class="pill ${st}">${CX_ESC(r.status || "—")}</span></td><td>${CX_ESC(pickv(r, "started_at", "recorded_at") || "")}</td><td>${r.run_id ? `<a href="/__ioi/run-timeline/${enc(r.run_id)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td></tr>`;
+  }).join("");
+  const activity = `<h2>Recent activity <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— workspace-wide (per-agent linkage is not recorded yet)</span></h2>
+    <h3 style="margin:8px 0 6px;font-size:12px;color:#878a93">Conversations (${conversations.length})</h3>${conversations.length ? `<table><thead><tr><th>Title</th><th>Status</th><th>Turns</th><th>Open</th></tr></thead><tbody>${convRows}</tbody></table>` : `<div class="empty">No conversations recorded.</div>`}
+    <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Runs (${runs.length})</h3>${runs.length ? `<table><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runRows}</tbody></table>` : `<div class="empty">No runs recorded.</div>`}`;
+
+  const right = `<div><div class="row" style="margin-bottom:14px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}${matrix}${routing}${activity}</div>`;
+  const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
+  return automationsShell("Agent Studio", styles + head + body);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -2195,6 +2318,33 @@ const server = http.createServer((req, res) => {
       const sRes = await fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderWorkbench(sRes));
+      return;
+    }
+    // ---- Agent Studio — agent inventory + configuration + activity cockpit (estate surface #3).
+    if (pathname === "/__ioi/agent-studio" && req.method === "GET") {
+      const sp = new URL(req.url, "http://x").searchParams;
+      const selId = sp.get("agent") || "";
+      const q = sp.get("q") || "";
+      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const [ag, pr, ro, pv, cv, tr] = await Promise.all([
+        J("/v1/agents"),
+        J("/v1/hypervisor/agent-runner-profiles"),
+        J("/v1/model-mount/routes"),
+        J("/v1/model-mount/providers"),
+        J("/v1/hypervisor/agentops/conversations"),
+        J("/v1/hypervisor/agent-run-transcripts"),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderAgentStudio(
+        Array.isArray(ag) ? ag : (ag.agents || []),
+        pr.profiles || [],
+        Array.isArray(ro) ? ro : (ro.routes || []),
+        Array.isArray(pv) ? pv : (pv.providers || []),
+        cv.conversations || [],
+        tr.runs || [],
+        selId,
+        q,
+      ));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
