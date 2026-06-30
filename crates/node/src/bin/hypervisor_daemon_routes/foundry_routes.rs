@@ -24,7 +24,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 
-use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 
 const SPEC_KIND: &str = "foundry-specs";
 const RUN_PLAN_KIND: &str = "foundry-run-plans";
@@ -527,6 +527,37 @@ pub(crate) async fn handle_foundry_run_plan_create(
         StatusCode::CREATED,
         Json(json!({ "ok": true, "run_plan": record })),
     )
+}
+
+/// GET /v1/hypervisor/foundry/run-plans/:id — fetch one FoundryRunPlan.
+pub(crate) async fn handle_foundry_run_plan_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    match load(&st.data_dir, RUN_PLAN_KIND, &id) {
+        Some(p) => Json(json!({ "ok": true, "run_plan": p })),
+        None => Json(json!({ "ok": false, "reason": "foundry run plan not found" })),
+    }
+}
+
+/// DELETE /v1/hypervisor/foundry/specs/:id — remove a DRAFT spec. Everything in this plane is a
+/// draft; there is no promoted/immutable state to protect, so a draft delete is honest (not a
+/// promotion/registry mutation). Returns {ok, removed} so a no-op delete is honest.
+pub(crate) async fn handle_foundry_spec_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, SPEC_KIND, &id);
+    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+}
+
+/// DELETE /v1/hypervisor/foundry/run-plans/:id — remove a DRAFT run plan.
+pub(crate) async fn handle_foundry_run_plan_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let removed = remove_record(&st.data_dir, RUN_PLAN_KIND, &id);
+    Json(json!({ "ok": removed, "removed": removed, "id": id }))
 }
 
 #[cfg(test)]

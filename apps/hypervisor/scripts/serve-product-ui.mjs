@@ -626,7 +626,7 @@ function renderApplications() {
     { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, and activity.", href: "/__ioi/agent-studio", status: "live" },
-    { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
+    { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews over real model substrate.", href: "/__ioi/foundry", status: "live" },
     { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
     { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
@@ -963,6 +963,151 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const right = `<div><div class="row" style="margin-bottom:14px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}${matrix}${routing}${activity}</div>`;
   const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
   return automationsShell("Agent Studio", styles + head + body);
+}
+
+// ---- Foundry — a CONTROLLED BUILDER over the daemon Foundry object plane (estate surface #4).
+// Serve-owned UI over the real /v1/hypervisor/foundry/* plane: draft FoundrySpec + FoundryRunPlan
+// authoring, bound only to REAL model-mount substrate. It renders the plane's hard boundary plainly:
+// draft-only — no training/eval execution, no inference serving, no promotion or registry mutation,
+// no authority bypass. Promotion is shown as a PREVIEW (would_promote:false), never applied.
+const FOUNDRY_KINDS = ["model_eval", "model_tune", "tool_build", "inference_endpoint", "ontology"];
+async function foundryCatalog() {
+  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => null);
+  const [ro, pv, bk, ep] = await Promise.all([
+    J("/v1/model-mount/routes"), J("/v1/model-mount/providers"),
+    J("/v1/model-mount/backends"), J("/v1/model-mount/endpoints"),
+  ]);
+  const ids = (v, keys) => {
+    const arr = Array.isArray(v) ? v : (v && (v.routes || v.providers || v.backends || v.endpoints)) || [];
+    const out = [];
+    for (const it of arr) { for (const k of keys) { if (it && it[k]) { out.push(it[k]); break; } } }
+    return [...new Set(out)];
+  };
+  return {
+    routes: ids(ro, ["id"]),
+    providers: ids(pv, ["id", "provider_ref"]),
+    backends: ids(bk, ["backend_id", "id"]),
+    endpoints: ids(ep, ["endpoint_id", "id"]),
+  };
+}
+// Build a FoundrySpec payload from a create/edit form (shared by POST create + POST patch).
+function foundrySpecPayloadFromForm(p) {
+  const list = (k) => p.getAll(k).map((s) => s.trim()).filter(Boolean);
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const inputs = {};
+  const obj = (p.get("in_objective") || "").trim(); if (obj) inputs.objective = obj;
+  const bm = (p.get("in_base_model") || "").trim(); if (bm) inputs.base_model = bm;
+  const es = (p.get("in_eval_suite") || "").trim(); if (es) inputs.eval_suite = es;
+  const ds = csv("in_dataset_refs"); if (ds.length) inputs.dataset_refs = ds;
+  const payload = {
+    name: (p.get("name") || "foundry-spec").trim(),
+    description: (p.get("description") || "").trim(),
+    kind: (p.get("kind") || "model_eval").trim(),
+    model_route_refs: list("model_route_refs"),
+    provider_refs: list("provider_refs"),
+    backend_refs: list("backend_refs"),
+    endpoint_refs: list("endpoint_refs"),
+    evidence_refs: csv("evidence_refs"),
+    inputs,
+  };
+  const apr = (p.get("authority_policy_ref") || "").trim(); if (apr) payload.authority_policy_ref = apr;
+  return payload;
+}
+function renderFoundryLanding(overview, specs, runPlans) {
+  const enc = encodeURIComponent;
+  const o = overview || {}; const sub = o.substrate || {}; const fc = o.foundry || {};
+  const note = o.status_note || "Draft-only: no training/eval execution, no promotion or registry mutation in this plane.";
+  const head = `<h1>Foundry</h1><p class="sub">The capability factory — author draft specs and run plans over real model substrate, then preview promotion. Nothing here trains, evaluates, serves, or promotes.</p>`;
+  const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
+  const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
+  const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Model routes", sub.model_routes)}${stat("Providers", sub.providers)}${stat("Endpoints", sub.endpoints)}${stat("Backends", sub.backends)}${stat("Receipts", sub.model_mount_receipts)}${stat("Transcripts", sub.agent_transcripts)}${stat("Ledger", sub.work_ledger_entries)}</div>`;
+  const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
+  const planCard = (p) => `<a class="card" href="/__ioi/foundry/run-plans/${enc(p.id || "")}"><div class="main"><div class="name">${CX_ESC(p.name || p.id || "run plan")} <span class="pill warn">${CX_ESC(p.status || "draft")}</span></div><div class="meta">spec <code>${CX_ESC(p.spec_ref || "")}</code> · target ${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</div></div><span class="act ghost">Open →</span></a>`;
+  const specsSec = `<h2 style="display:flex;justify-content:space-between;align-items:center">Specs (${specs.length}) <a class="act" href="/__ioi/foundry/specs/new">+ New spec</a></h2>${specs.length ? specs.map(specCard).join("") : `<div class="empty">No FoundrySpec drafts yet. Create one bound to a real model route or provider.</div>`}`;
+  const plansSec = `<h2>Run plans (${runPlans.length})</h2>${runPlans.length ? runPlans.map(planCard).join("") : `<div class="empty">No FoundryRunPlan drafts yet. Open a spec and draft a run plan from it.</div>`}`;
+  return automationsShell("Foundry", head + banner + stats + specsSec + plansSec);
+}
+function renderFoundrySpecForm(catalog, existing) {
+  const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/foundry/specs/${enc(ex.id)}/patch` : `/__ioi/foundry/specs`;
+  const checks = (label, name, ids, current) => `<div class="field"><label>${label}</label>${ids.length ? ids.map((id) => `<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:3px 0"><input type="checkbox" name="${name}" value="${CX_ESC(id)}" ${(current || []).includes(id) ? "checked" : ""} style="width:auto"> <code>${CX_ESC(id)}</code></label>`).join("") : `<span class="sub" style="margin:0">none available</span>`}</div>`;
+  const kindOpts = FOUNDRY_KINDS.map((k) => `<option value="${k}" ${ex.kind === k ? "selected" : ""}>${k}</option>`).join("");
+  const inputs = ex.inputs || {};
+  const inner = `<p><a href="/__ioi/foundry">← Foundry</a></p><h1>${isEdit ? "Edit" : "New"} FoundrySpec</h1>
+    <p class="sub">A draft specification bound to <b>real</b> model substrate. Nothing here is executed or promoted.${isEdit ? ` Editing <code>${CX_ESC(ex.id)}</code>.` : ""}</p>
+    <form method="post" action="${action}">
+      <div class="two"><div class="field"><label>Name</label><input name="name" value="${CX_ESC(ex.name || "")}" placeholder="local-first eval baseline"></div>
+        <div class="field"><label>Kind</label><select name="kind">${kindOpts}</select></div></div>
+      <div class="field"><label>Description</label><textarea name="description" placeholder="What this spec captures (no execution).">${CX_ESC(ex.description || "")}</textarea></div>
+      <p class="sub" style="margin:6px 0">Bind to real substrate — at least one model route or provider is required:</p>
+      <div class="two">${checks("Model routes", "model_route_refs", catalog.routes, ex.model_route_refs)}${checks("Providers", "provider_refs", catalog.providers, ex.provider_refs)}</div>
+      <div class="two">${checks("Backends", "backend_refs", catalog.backends, ex.backend_refs)}${checks("Endpoints", "endpoint_refs", catalog.endpoints, ex.endpoint_refs)}</div>
+      <h2>Inputs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— named references, not uploads</span></h2>
+      <div class="two"><div class="field"><label>Objective</label><input name="in_objective" value="${CX_ESC(inputs.objective || "")}" placeholder="baseline-quality"></div>
+        <div class="field"><label>Base model (named)</label><input name="in_base_model" value="${CX_ESC(inputs.base_model || "")}" placeholder="hypervisor:native-local"></div></div>
+      <div class="two"><div class="field"><label>Eval suite (named)</label><input name="in_eval_suite" value="${CX_ESC(inputs.eval_suite || "")}" placeholder="smoke"></div>
+        <div class="field"><label>Dataset refs (comma-sep, named)</label><input name="in_dataset_refs" value="${CX_ESC((inputs.dataset_refs || []).join(", "))}" placeholder="ds.alpha, ds.beta"></div></div>
+      <div class="field"><label>Evidence refs (comma-sep — transcript / receipt / ledger ids)</label><input name="evidence_refs" value="${CX_ESC((ex.evidence_refs || []).join(", "))}" placeholder="run_..., receipt_..."></div>
+      <div class="field"><label>Authority policy ref (named-only — never enforced or bypassed here)</label><input name="authority_policy_ref" value="${CX_ESC(ex.authority_policy_ref || "")}" placeholder="policy.foundry.default"></div>
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft spec"}</button> <a class="act ghost" href="/__ioi/foundry">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} FoundrySpec`, inner);
+}
+function renderFoundrySpecDetail(spec, plans) {
+  const enc = encodeURIComponent; const s = spec || {};
+  const refList = (label, arr) => `<dt>${label}</dt><dd>${arr && arr.length ? arr.map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") : "—"}</dd>`;
+  const inputs = s.inputs || {};
+  const inputBlock = Object.keys(inputs).length ? `<pre>${CX_ESC(JSON.stringify(inputs, null, 2))}</pre>` : `<span class="sub" style="margin:0">none</span>`;
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(s.id || "")}</code></dd>
+    <dt>Kind</dt><dd>${CX_ESC(s.kind || "—")}</dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(s.status || "draft")}</span></dd>
+    <dt>Description</dt><dd>${CX_ESC(s.description || "—")}</dd>
+    ${refList("Model routes", s.model_route_refs)}${refList("Providers", s.provider_refs)}
+    ${refList("Backends", s.backend_refs)}${refList("Endpoints", s.endpoint_refs)}
+    ${refList("Evidence refs", s.evidence_refs)}
+    <dt>Authority policy</dt><dd>${s.authority_policy_ref ? `<code>${CX_ESC(s.authority_policy_ref)}</code> <span class="sub" style="margin:0">(named-only)</span>` : "—"}</dd>
+    <dt>Created · updated</dt><dd>${CX_ESC(s.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(s.updated_at || "")}</span></dd>
+  </dl><h2>Inputs</h2>${inputBlock}`;
+  const planRows = (plans || []).map((p) => `<tr><td><a href="/__ioi/foundry/run-plans/${enc(p.id || "")}">${CX_ESC(p.name || p.id || "")}</a></td><td><span class="pill warn">${CX_ESC(p.status || "draft")}</span></td><td>${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</td></tr>`).join("");
+  const plansSec = `<h2>Run plans from this spec</h2>${plans && plans.length ? `<table><thead><tr><th>Plan</th><th>Status</th><th>Target</th></tr></thead><tbody>${planRows}</tbody></table>` : `<div class="empty">No run plans yet.</div>`}`;
+  const actions = `<div class="row"><a class="act" href="/__ioi/foundry/run-plans/new?spec=${enc(s.id || "")}">+ New run plan</a> <a class="act ghost" href="/__ioi/foundry/specs/${enc(s.id || "")}/edit">Edit draft</a> <form class="inline" method="post" action="/__ioi/foundry/specs/${enc(s.id || "")}/delete" onsubmit="return confirm('Delete this draft spec?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
+  return automationsShell(s.name || "FoundrySpec", `<p><a href="/__ioi/foundry">← Foundry</a></p><h1>${CX_ESC(s.name || s.id || "")}</h1><p class="sub">FoundrySpec · draft. No execution or promotion.</p>${actions}${grid}${plansSec}`);
+}
+function renderFoundryRunPlanForm(spec, catalog) {
+  const enc = encodeURIComponent; const s = spec || {};
+  const sr = s.model_route_refs || []; const sp = s.provider_refs || [];
+  const opt = (id, firstSel, inSpec) => `<option value="${CX_ESC(id)}" ${firstSel ? "selected" : ""}>${CX_ESC(id)}${inSpec ? " (from spec)" : ""}</option>`;
+  const routeOpts = (catalog.routes || []).map((r) => opt(r, sr[0] === r, sr.includes(r))).join("");
+  const provOpts = (catalog.providers || []).map((r) => opt(r, sp[0] === r, sp.includes(r))).join("");
+  const inner = `<p><a href="/__ioi/foundry/specs/${enc(s.id || "")}">← ${CX_ESC(s.name || s.id || "")}</a></p><h1>New FoundryRunPlan</h1>
+    <p class="sub">A draft plan from <code>${CX_ESC(s.id || "")}</code>. It records a target plus a promotion <b>preview</b> — nothing is dispatched or promoted.</p>
+    <form method="post" action="/__ioi/foundry/run-plans"><input type="hidden" name="spec_ref" value="${CX_ESC(s.id || "")}">
+      <div class="field"><label>Name</label><input name="name" placeholder="baseline eval plan"></div>
+      <div class="field"><label>Description</label><textarea name="description"></textarea></div>
+      <div class="two"><div class="field"><label>Target route</label><select name="target_route_ref"><option value="">— none —</option>${routeOpts}</select></div>
+        <div class="field"><label>Target provider</label><select name="target_provider_ref"><option value="">— none —</option>${provOpts}</select></div></div>
+      <div class="field"><label>Planned steps (comma-sep phase names — opaque, not dispatched)</label><input name="steps" placeholder="prepare, evaluate, report"></div>
+      <div class="row"><button class="act" type="submit">Create draft run plan</button> <a class="act ghost" href="/__ioi/foundry/specs/${enc(s.id || "")}">Cancel</a></div>
+    </form>`;
+  return automationsShell("New FoundryRunPlan", inner);
+}
+function renderFoundryRunPlanDetail(plan, spec) {
+  const enc = encodeURIComponent; const p = plan || {}; const pp = p.promotion_preview || {};
+  const steps = Array.isArray(p.steps) ? p.steps : [];
+  const stepList = steps.length ? steps.map((st) => `<code>${CX_ESC(typeof st === "string" ? st : (st.phase || JSON.stringify(st)))}</code>`).join(" → ") : `<span class="sub" style="margin:0">none</span>`;
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(p.id || "")}</code></dd>
+    <dt>Spec</dt><dd><a href="/__ioi/foundry/specs/${enc(p.spec_ref || "")}">${CX_ESC((spec && spec.name) || p.spec_ref || "")}</a></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(p.status || "draft")}</span></dd>
+    <dt>Target route</dt><dd>${p.target_route_ref ? `<code>${CX_ESC(p.target_route_ref)}</code>` : "—"}</dd>
+    <dt>Target provider</dt><dd>${p.target_provider_ref ? `<code>${CX_ESC(p.target_provider_ref)}</code>` : "—"}</dd>
+    <dt>Planned steps</dt><dd>${stepList}</dd>
+    <dt>Created · updated</dt><dd>${CX_ESC(p.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(p.updated_at || "")}</span></dd>
+  </dl>`;
+  const preview = `<h2>Promotion preview</h2><div class="reveal" style="color:#d6a13a;background:#28220f;border-color:#5c4a23">would_promote: <b>${pp.would_promote === true ? "true" : "false"}</b> · no mutation performed<br>${CX_ESC(pp.note || "preview only — no promotion, registry alias, or model mutation")}</div>`;
+  const actions = `<div class="row"><form class="inline" method="post" action="/__ioi/foundry/run-plans/${enc(p.id || "")}/delete" onsubmit="return confirm('Delete this draft run plan?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
+  return automationsShell(p.name || "FoundryRunPlan", `<p><a href="/__ioi/foundry">← Foundry</a></p><h1>${CX_ESC(p.name || p.id || "")}</h1><p class="sub">FoundryRunPlan · draft. No execution.</p>${actions}${grid}${preview}`);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -2346,6 +2491,100 @@ const server = http.createServer((req, res) => {
         q,
       ));
       return;
+    }
+    // ---- Foundry — controlled builder over the daemon Foundry object plane (estate surface #4).
+    const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };
+    if (pathname === "/__ioi/foundry" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [ov, sp, rp] = await Promise.all([
+        J("/v1/hypervisor/foundry/overview"),
+        J("/v1/hypervisor/foundry/specs"),
+        J("/v1/hypervisor/foundry/run-plans"),
+      ]);
+      res.writeHead(200, HTMLH);
+      res.end(renderFoundryLanding(ov, sp.specs || [], rp.run_plans || []));
+      return;
+    }
+    if (pathname === "/__ioi/foundry/specs/new" && req.method === "GET") {
+      res.writeHead(200, HTMLH);
+      res.end(renderFoundrySpecForm(await foundryCatalog(), null));
+      return;
+    }
+    if (pathname === "/__ioi/foundry/specs" && req.method === "POST") {
+      const payload = foundrySpecPayloadFromForm(new URLSearchParams(body.toString()));
+      const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(r.spec.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+      res.writeHead(200, HTMLH);
+      res.end(automationsShell("New FoundrySpec", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/new">← back</a></p>`));
+      return;
+    }
+    if (pathname.startsWith("/__ioi/foundry/specs/")) {
+      const [rawId, action] = pathname.slice("/__ioi/foundry/specs/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      if (action === "edit" && req.method === "GET") {
+        const [cat, sres] = await Promise.all([foundryCatalog(), fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}))]);
+        res.writeHead(200, HTMLH);
+        res.end(sres.ok ? renderFoundrySpecForm(cat, sres.spec) : automationsShell("Not found", `<div class="empty">Spec not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
+        return;
+      }
+      if (action === "patch" && req.method === "POST") {
+        const payload = foundrySpecPayloadFromForm(new URLSearchParams(body.toString()));
+        const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+        res.writeHead(200, HTMLH);
+        res.end(automationsShell("Edit FoundrySpec", `<div class="empty">Save failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        return;
+      }
+      if (action === "delete" && req.method === "POST") {
+        await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        res.writeHead(302, { Location: "/__ioi/foundry", "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (req.method === "GET") {
+        const [sres, rp] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans?spec_ref=${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({})),
+        ]);
+        res.writeHead(200, HTMLH);
+        res.end(sres.ok ? renderFoundrySpecDetail(sres.spec, rp.run_plans || []) : automationsShell("Not found", `<div class="empty">Spec not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
+        return;
+      }
+    }
+    if (pathname === "/__ioi/foundry/run-plans/new" && req.method === "GET") {
+      const specId = new URL(req.url, "http://x").searchParams.get("spec") || "";
+      const [cat, sres] = await Promise.all([foundryCatalog(), fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(specId)}`).then((r) => r.json()).catch(() => ({}))]);
+      res.writeHead(200, HTMLH);
+      res.end(sres.ok ? renderFoundryRunPlanForm(sres.spec, cat) : automationsShell("New run plan", `<div class="empty">Pick a spec first.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
+      return;
+    }
+    if (pathname === "/__ioi/foundry/run-plans" && req.method === "POST") {
+      const p = new URLSearchParams(body.toString());
+      const steps = (p.get("steps") || "").split(",").map((s) => s.trim()).filter(Boolean).map((phase) => ({ phase }));
+      const payload = { spec_ref: (p.get("spec_ref") || "").trim(), name: (p.get("name") || "foundry-run-plan").trim(), description: (p.get("description") || "").trim(), steps };
+      const tr = (p.get("target_route_ref") || "").trim(); if (tr) payload.target_route_ref = tr;
+      const tp = (p.get("target_provider_ref") || "").trim(); if (tp) payload.target_provider_ref = tp;
+      const r = await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/run-plans/${encodeURIComponent(r.run_plan.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+      res.writeHead(200, HTMLH);
+      res.end(automationsShell("New FoundryRunPlan", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
+      return;
+    }
+    if (pathname.startsWith("/__ioi/foundry/run-plans/")) {
+      const [rawId, action] = pathname.slice("/__ioi/foundry/run-plans/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      if (action === "delete" && req.method === "POST") {
+        await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        res.writeHead(302, { Location: "/__ioi/foundry", "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (req.method === "GET") {
+        const pres = await fetch(`${DAEMON}/v1/hypervisor/foundry/run-plans/${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => ({}));
+        if (!pres.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Run plan not found.</div><p><a href="/__ioi/foundry">← Foundry</a></p>`)); return; }
+        const sres = await fetch(`${DAEMON}/v1/hypervisor/foundry/specs/${encodeURIComponent(pres.run_plan.spec_ref || "")}`).then((r) => r.json()).catch(() => ({}));
+        res.writeHead(200, HTMLH);
+        res.end(renderFoundryRunPlanDetail(pres.run_plan, sres.spec || null));
+        return;
+      }
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {

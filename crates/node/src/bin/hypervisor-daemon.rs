@@ -1005,12 +1005,18 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/foundry/specs/:id",
             get(foundry_routes::handle_foundry_spec_get)
-                .patch(foundry_routes::handle_foundry_spec_patch),
+                .patch(foundry_routes::handle_foundry_spec_patch)
+                .delete(foundry_routes::handle_foundry_spec_delete),
         )
         .route(
             "/v1/hypervisor/foundry/run-plans",
             get(foundry_routes::handle_foundry_run_plans_list)
                 .post(foundry_routes::handle_foundry_run_plan_create),
+        )
+        .route(
+            "/v1/hypervisor/foundry/run-plans/:id",
+            get(foundry_routes::handle_foundry_run_plan_get)
+                .delete(foundry_routes::handle_foundry_run_plan_delete),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
