@@ -631,7 +631,7 @@ function renderApplications() {
     { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
-    { icon: "⚙", name: "Operations", desc: "DevOps, issues, jobs, notifications, and resources.", status: "planned" },
+    { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
     { icon: "📒", name: "Work Ledger", desc: "Unified proof stream — runs, trigger receipts, state roots, timeline links.", href: "/__ioi/work-ledger", status: "live" },
     { icon: "🛒", name: "Marketplace", desc: "Apps, training, and walkthroughs.", status: "planned" },
   ];
@@ -719,6 +719,58 @@ function renderWorkLedger(entries, scopedProject) {
     }
   </script>`;
   return automationsShell("Work Ledger", head + filters + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
+}
+
+// ---- Operations — the first real Operations estate card: execution health over the automation
+// substrate (scheduler · run health · needs-attention · webhook health). Real records only;
+// drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
+function renderOperations(ops) {
+  ops = ops || {};
+  const sch = ops.scheduler || { automations: [] };
+  const runs = ops.runs || {};
+  const wh = ops.webhooks || {};
+  const enc = encodeURIComponent;
+  const schedHuman = (s) => {
+    if (!s || typeof s !== "object") return "—";
+    if (s.type === "cron" || s.cron) return `cron ${CX_ESC(s.cron || "")} (${CX_ESC(s.timezone || "UTC")})`;
+    if (s.every_hours) return `every ${s.every_hours}h`;
+    if (s.every_minutes) return `every ${s.every_minutes}m`;
+    if (s.every_seconds || s.interval_seconds) return `every ${s.every_seconds || s.interval_seconds}s`;
+    return "scheduled";
+  };
+  const stat = (cls, label) => `<span class="pill ${cls}">${label}</span>`;
+  // Scheduler
+  const schedRows = (sch.automations || []).map((a) => {
+    const en = a.enabled !== false;
+    return `<tr><td><a href="/__ioi/automations/${enc(a.automation_id)}">${CX_ESC(a.name || a.automation_id)}</a></td><td>${CX_ESC(a.project_id || "—")}</td><td><span class="pill ${en ? "ok" : "muted"}">${en ? "active" : "paused"}</span></td><td>${schedHuman(a.schedule_spec)}</td><td>${CX_ESC(a.next_run_at || "—")}</td><td>${CX_ESC(a.last_run_at || "—")}</td><td>${CX_ESC(String(a.max_concurrency || 1))} · ${CX_ESC(a.failure_policy || "continue")}</td></tr>`;
+  }).join("");
+  const schedSection = (sch.automations || []).length
+    ? `<table><thead><tr><th>Automation</th><th>Project</th><th>State</th><th>Schedule</th><th>Next run</th><th>Last run</th><th>Concurrency · on-fail</th></tr></thead><tbody>${schedRows}</tbody></table>`
+    : `<div class="empty">No scheduled automations yet. Add a time/cron schedule to an automation to populate scheduler health.</div>`;
+  // Run health
+  const runStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("muted", "total " + (runs.total || 0))}${stat("ok", "done " + (runs.done || 0))}${stat("warn", "failed " + (runs.failed || 0))}${stat("muted", "running " + (runs.running || 0))}</div>`;
+  const runRow = (r) => `<tr><td><a href="/__ioi/automations/${enc(r.automation_id)}">${CX_ESC(r.name || "—")}</a></td><td>${CX_ESC(r.project_id || "—")}</td><td><span class="pill ${r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted"}">${CX_ESC(r.status || "")}</span></td><td>${CX_ESC(r.started_at || "")}</td><td><a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
+  const runSection = (runs.total || 0)
+    ? runStat + `<table><thead><tr><th>Automation</th><th>Project</th><th>Status</th><th>Started</th><th>Proof</th></tr></thead><tbody>${(runs.recent || []).map(runRow).join("")}</tbody></table>`
+    : `<div class="empty">No runs yet. Run an automation to populate run health.</div>`;
+  // Needs attention (failures)
+  const attnSection = (runs.failures || []).length
+    ? `<table><thead><tr><th>Automation</th><th>Project</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runs.failures.map((r) => `<tr><td><a href="/__ioi/automations/${enc(r.automation_id)}">${CX_ESC(r.name || "—")}</a></td><td>${CX_ESC(r.project_id || "—")}</td><td>${CX_ESC(r.started_at || "")}</td><td><a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">Nothing needs attention — no failed runs.</div>`;
+  // Webhook health
+  const reasons = wh.rejections_by_reason || {};
+  const reasonPills = Object.keys(reasons).map((k) => stat("warn", CX_ESC(k) + " " + reasons[k])).join(" ");
+  const whStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("ok", "accepted " + (wh.accepted || 0))}${stat("warn", "rejected " + (wh.rejected || 0))} ${reasonPills}</div>`;
+  const whRow = (e) => `<tr><td>${CX_ESC(e.automation_id || "—")}</td><td><span class="pill ${e.accepted ? "ok" : "warn"}">${e.accepted ? "accepted" : "rejected"}</span></td><td>${CX_ESC(e.reason || "")}</td><td><code>${CX_ESC((e.payload_hash || "").slice(0, 18))}</code></td><td>${CX_ESC(e.received_at || "")}</td></tr>`;
+  const whSection = ((wh.accepted || 0) + (wh.rejected || 0))
+    ? whStat + `<table><thead><tr><th>Automation</th><th>Result</th><th>Reason</th><th>Payload</th><th>Received</th></tr></thead><tbody>${(wh.recent || []).map(whRow).join("")}</tbody></table>`
+    : `<div class="empty">No webhook triggers yet. Enable a webhook on an automation to populate webhook health.</div>`;
+  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — grounded in the automation substrate. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
+    <h2>Scheduler</h2>${schedSection}
+    <h2>Run health</h2>${runSection}
+    <h2>Needs attention</h2>${attnSection}
+    <h2>Webhook health</h2>${whSection}`;
+  return automationsShell("Operations", inner);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -2048,6 +2100,13 @@ const server = http.createServer((req, res) => {
       const r = await fetch(`${DAEMON}/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderWorkLedger(r.entries || [], projectId));
+      return;
+    }
+    // ---- Operations — execution health over the automation substrate (estate surface #9).
+    if (pathname === "/__ioi/operations" && req.method === "GET") {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderOperations(r));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------

@@ -346,6 +346,101 @@ pub(crate) async fn handle_cron_preview(Query(q): Query<HashMap<String, String>>
     Json(json!({ "ok": true, "runs": runs }))
 }
 
+/// GET /v1/hypervisor/operations — the execution-health projection over the automation substrate:
+/// what is scheduled, what fired, what failed, what needs attention. Real records only (honest-empty).
+pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let g = |v: &Value, k: &str| v.get(k).cloned().unwrap_or(Value::Null);
+    let automations = read_record_dir(&st.data_dir, "automations");
+    let mut amap: HashMap<String, Value> = HashMap::new();
+    for a in &automations {
+        if let Some(id) = a.get("automation_id").and_then(|v| v.as_str()) {
+            amap.insert(id.to_string(), a.clone());
+        }
+    }
+    let mut by_run: HashMap<String, Value> = HashMap::new();
+    for t in read_record_dir(&st.data_dir, "agent-run-transcripts") {
+        if let Some(rid) = t.get("run_id").and_then(|v| v.as_str()) {
+            by_run.insert(rid.to_string(), t);
+        }
+    }
+    // Scheduler: automations carrying a schedule_spec (enabled/paused, trigger, next/last, policy).
+    let mut scheduled: Vec<Value> = Vec::new();
+    for a in &automations {
+        if !a.get("schedule_spec").map(|s| s.is_object()).unwrap_or(false) {
+            continue;
+        }
+        scheduled.push(json!({
+            "automation_id": g(a, "automation_id"), "name": g(a, "name"), "project_id": g(a, "project_id"),
+            "enabled": a.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+            "trigger_kind": g(a, "trigger_kind"), "schedule_spec": g(a, "schedule_spec"),
+            "next_run_at": g(a, "next_run_at"), "last_run_at": g(a, "last_run_at"),
+            "max_concurrency": g(a, "max_concurrency"), "failure_policy": g(a, "failure_policy"),
+        }));
+    }
+    // Run health.
+    let execs = read_record_dir(&st.data_dir, "automation-executions");
+    let (mut done, mut failed, mut running) = (0i64, 0i64, 0i64);
+    let mut runs: Vec<Value> = Vec::new();
+    for e in &execs {
+        match e.get("status").and_then(|v| v.as_str()) {
+            Some("done") => done += 1,
+            Some("failed") => failed += 1,
+            Some("running") => running += 1,
+            _ => {}
+        }
+        let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("");
+        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let t = by_run.get(exec_id);
+        let name = t
+            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
+            .or_else(|| amap.get(aid).and_then(|a| a.get("name")).and_then(|v| v.as_str()))
+            .unwrap_or("automation");
+        let project = t
+            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
+            .or_else(|| amap.get(aid).and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
+            .unwrap_or("");
+        runs.push(json!({
+            "execution_id": exec_id, "automation_id": aid, "name": name, "project_id": project,
+            "status": g(e, "status"), "started_at": g(e, "started_at"), "finished_at": g(e, "finished_at"),
+            "timeline_ref": format!("/__ioi/run-timeline/{exec_id}"),
+        }));
+    }
+    runs.sort_by(|a, b| {
+        b.get("started_at").and_then(|v| v.as_str()).unwrap_or("")
+            .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    let failures: Vec<Value> = runs.iter().filter(|r| r.get("status").and_then(|v| v.as_str()) == Some("failed")).take(10).cloned().collect();
+    let recent: Vec<Value> = runs.iter().take(10).cloned().collect();
+    // Webhook health.
+    let mut events = read_record_dir(&st.data_dir, "webhook-trigger-events");
+    let (mut accepted, mut rejected) = (0i64, 0i64);
+    let mut reasons: HashMap<String, i64> = HashMap::new();
+    for ev in &events {
+        if ev.get("accepted").and_then(|v| v.as_bool()) == Some(true) {
+            accepted += 1;
+        } else {
+            rejected += 1;
+            *reasons.entry(ev.get("reason").and_then(|v| v.as_str()).unwrap_or("rejected").to_string()).or_insert(0) += 1;
+        }
+    }
+    events.sort_by(|a, b| {
+        b.get("received_at").and_then(|v| v.as_str()).unwrap_or("")
+            .cmp(a.get("received_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    let recent_ev: Vec<Value> = events.into_iter().take(10).map(|ev| json!({
+        "receipt_id": g(&ev, "receipt_id"), "automation_id": g(&ev, "automation_id"),
+        "accepted": g(&ev, "accepted"), "reason": g(&ev, "reason"),
+        "payload_hash": g(&ev, "payload_hash"), "received_at": g(&ev, "received_at"), "run_ref": g(&ev, "run_ref"),
+    })).collect();
+    let reasons_v = serde_json::to_value(&reasons).unwrap_or_else(|_| json!({}));
+    Json(json!({
+        "ok": true,
+        "scheduler": { "count": scheduled.len(), "automations": scheduled },
+        "runs": { "total": execs.len(), "done": done, "failed": failed, "running": running, "recent": recent, "failures": failures },
+        "webhooks": { "accepted": accepted, "rejected": rejected, "rejections_by_reason": reasons_v, "recent": recent_ev },
+    }))
+}
+
 /// GET /v1/hypervisor/work-ledger[?project=…] — a unified, newest-first PROOF STREAM across all
 /// projects/automations: automation runs (enriched with the tamper-evident state_root captured in
 /// their transcript) + webhook trigger receipts. Real records only — no fabricated rows.
