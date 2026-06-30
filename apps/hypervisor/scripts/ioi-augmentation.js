@@ -145,9 +145,42 @@
     const el = document.getElementById("ioi-open-app");
     if (el && el.style.display !== "none") el.style.left = railRight() + "px";
   }
+  function appIconFor(name) {
+    const a = IOI_APPS.find((x) => x.name === name);
+    return a ? a.icon : "◳";
+  }
+  function findAppsNavItem() {
+    return Array.prototype.find.call(
+      document.querySelectorAll('a[href="#applications"]'),
+      (s) => { const r = s.getBoundingClientRect(); return r.width > 0 && r.top > 0 && r.top < 1500; },
+    );
+  }
+  // Render ONE active "Open Application" rail row right after Applications (no pinned region).
+  function updateOpenAppRail() {
+    const el = document.getElementById("ioi-open-app");
+    const isOpen = !!el && el.style.display !== "none";
+    let row = document.getElementById("ioi-openapp-rail");
+    if (!isOpen) { if (row) row.remove(); return; }
+    const sib = findAppsNavItem();
+    if (!sib) { if (row) row.remove(); return; }
+    const name = el.getAttribute("data-app-name") || "Application";
+    const icon = el.getAttribute("data-app-icon") || "◳";
+    if (!row) {
+      row = document.createElement("a");
+      row.id = "ioi-openapp-rail";
+      row.className = "ioi-openapp-rail";
+      row.setAttribute("href", "#open-application");
+    }
+    if (row.previousElementSibling !== sib) sib.insertAdjacentElement("afterend", row); // keep right after Applications
+    if (row.getAttribute("data-name") !== name) {
+      row.setAttribute("data-name", name);
+      row.innerHTML = '<span class="ioi-oar-ico">' + icon + '</span><span class="ioi-oar-txt"><span class="ioi-oar-l">Open Application</span><span class="ioi-oar-n">' + esc(name) + '</span></span><button class="ioi-oar-x" title="Close">✕</button>';
+    }
+  }
   function closeApplication() {
     const el = document.getElementById("ioi-open-app");
     if (el) el.style.display = "none";
+    updateOpenAppRail();
   }
   function openApplication(href, title) {
     let el = document.getElementById("ioi-open-app");
@@ -159,10 +192,13 @@
       el.querySelector(".ioi-oa-close").addEventListener("click", closeApplication);
     }
     el.querySelector(".ioi-oa-title").textContent = title || "Application";
+    el.setAttribute("data-app-name", title || "Application");
+    el.setAttribute("data-app-icon", appIconFor(title));
     const f = el.querySelector("iframe");
-    if (f.getAttribute("src") !== href) f.setAttribute("src", href); // singular slot: reuse, replace src
+    if (f.getAttribute("src") !== href) f.setAttribute("src", href); // singular slot: reuse, replace src (no reload if same href)
     el.style.display = "block";
     positionOpenApp();
+    updateOpenAppRail();
   }
   function appsModal() {
     let el = document.getElementById("ioi-apps-modal");
@@ -194,6 +230,14 @@
       (e) => {
         const t = e.target;
         if (!t || !t.closest) return;
+        // Active "Open Application" rail row: ✕ closes; the row refocuses the slot WITHOUT reloading.
+        const oar = t.closest("#ioi-openapp-rail");
+        if (oar) {
+          e.preventDefault(); e.stopPropagation();
+          if (t.closest(".ioi-oar-x")) { closeApplication(); }
+          else { const el = document.getElementById("ioi-open-app"); if (el) { el.style.display = "block"; positionOpenApp(); } }
+          return;
+        }
         // Applications launcher (rail #applications, the SPA's native launcher attr, or the estate deep-link) → MODAL.
         if (t.closest('a[href="#applications"], [data-hypervisor-applications-launcher], a[href="/__ioi/applications"]')) {
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
@@ -254,6 +298,14 @@
   #ioi-apps-modal .ioi-mname{font-weight:600;color:#fff;}
   #ioi-apps-modal .ioi-mdesc{color:#878a93;font-size:12px;}
   #ioi-apps-modal .ioi-mpill{margin-left:auto;font-size:11px;border:1px solid #2a2c33;border-radius:999px;padding:1px 9px;color:#9a9da6;white-space:nowrap;}
+  /* Active "Open Application" rail row (one only; no pinned region). */
+  .ioi-openapp-rail{display:flex;align-items:center;gap:8px;margin:2px 8px;padding:6px 10px;border-radius:8px;background:#15315c;border:1px solid #3a82f6;color:#fff;text-decoration:none;font:600 12px system-ui,sans-serif;cursor:pointer;}
+  .ioi-openapp-rail .ioi-oar-ico{flex:0 0 auto;font-size:14px;}
+  .ioi-openapp-rail .ioi-oar-txt{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25;}
+  .ioi-openapp-rail .ioi-oar-l{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.65;font-weight:600;}
+  .ioi-openapp-rail .ioi-oar-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ioi-openapp-rail .ioi-oar-x{flex:0 0 auto;background:transparent;border:0;color:#cbd0da;cursor:pointer;font:inherit;padding:0 2px;}
+  .ioi-openapp-rail .ioi-oar-x:hover{color:#fff;}
   `;
   const theme = () =>
     isDark()
@@ -480,32 +532,34 @@
       `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid ${t.line}"><a href="/__ioi/automations/new?project=${encodeURIComponent(projectId)}" style="display:inline-block;padding:6px 12px;border-radius:7px;background:${t.accent};color:#fff;text-decoration:none;font-weight:600">+ New automation</a><a href="/__ioi/work-ledger?project=${encodeURIComponent(projectId)}" style="color:${t.accent};text-decoration:none;font-size:11px;white-space:nowrap">📒 Work Ledger →</a></div>`;
   }
 
+  // Route-scoped, idempotent wiring. Runs on DOM mutations (debounced) + SPA route changes — NOT on
+  // a fixed 700ms poll — so it costs nothing when the shell is idle. Each affordance is guarded to
+  // the route where its controls exist; all are idempotent (existence/route checks), so re-applying
+  // on a re-render never duplicates or leaks.
+  function applyAugmentation() {
+    const p = location.pathname;
+    if (/\/details\//.test(p)) mountTimelineInWorkbench(); // workbench timeline only on /details/*
+    mountProjectAutomations(); // self-guards /projects/:id + self-removes its panel off-route
+    if (/\/settings\//.test(p)) { mountGitAppButton(); wireIntegrationConnect(); } // settings only
+    updateOpenAppRail(); // reflect the Open Application slot state in the rail
+  }
   function mount() {
     style();
-    // (The bottom-right "IOI" cockpit launcher was removed — the Run Timeline mounts directly in the
-    // workbench, so the floating button was redundant. The augmentation now only injects in-surface
-    // affordances: the workbench timeline, the Git-auth GitHub-App button, and Integrations Connect.)
     matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", style);
-    // Keep the owned Run Timeline mounted as the workbench transcript across SPA navigation + the
-    // SPA's own re-renders (cheap idempotent re-apply; the SPA is a client-router, no full reloads).
-    setInterval(mountTimelineInWorkbench, 700);
-    mountTimelineInWorkbench();
-    // Keep the BYOA GitHub App affordance present on the Git authentications surface.
-    setInterval(mountGitAppButton, 700);
-    mountGitAppButton();
-    // Route native Integrations "Connect" clicks through the OAuth-native launcher.
-    setInterval(wireIntegrationConnect, 700);
-    wireIntegrationConnect();
-    // Developer & Integrations IA: demote the old permanent Connections rail item and route the
-    // Applications launcher to the owned 11-surface estate (Connections lives there as Developer & Integrations).
+    // One-time, self-guarded installers: demote the old rail item + the click interceptors.
     removeConnectionsNav();
-    setInterval(removeConnectionsNav, 1400);
     wireApplicationsLauncher();
-    // Route the top-nav "Automations" to the owned project-first surface; mount a project's
-    // automations panel on its detail page.
     wireAutomationsNav();
-    setInterval(mountProjectAutomations, 1000);
-    mountProjectAutomations();
+    // Event-driven apply: a debounced MutationObserver + SPA route hooks replace the old polling loops.
+    let pending = null;
+    const schedule = () => { if (pending) return; pending = setTimeout(() => { pending = null; applyAugmentation(); }, 250); };
+    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    ["pushState", "replaceState"].forEach((m) => {
+      const orig = history[m];
+      if (typeof orig === "function") history[m] = function () { const r = orig.apply(this, arguments); schedule(); return r; };
+    });
+    window.addEventListener("popstate", schedule);
+    applyAugmentation(); // initial
   }
 
   if (document.body) mount();
