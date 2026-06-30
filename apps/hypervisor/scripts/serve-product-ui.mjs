@@ -652,10 +652,17 @@ function renderApplications() {
 // ---- Work Ledger — one chronological PROOF STREAM (runs + webhook receipts) with faceted filters.
 // What happened · under whose authority · with which artifacts · how to replay it. Real records only;
 // no fabricated rows. Row click opens a right proof drawer. Data comes from GET /v1/hypervisor/work-ledger.
-function renderWorkLedger(entries) {
-  const head = `<h1>Work Ledger</h1><p class="sub">One chronological proof stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>`;
+function renderWorkLedger(entries, scopedProject) {
+  // Same surface, optionally scoped to one project (light copy only — NOT a forked per-project UI).
+  const scope = scopedProject
+    ? `<p class="sub" style="margin:-10px 0 16px"><span class="pill ok">project: ${CX_ESC(scopedProject)}</span> · <a href="/__ioi/work-ledger">view all projects →</a></p>`
+    : "";
+  const head = `<h1>Work Ledger</h1><p class="sub">One chronological proof stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>${scope}`;
   if (!entries.length) {
-    return automationsShell("Work Ledger", head + `<div class="empty">No admitted work yet. Run an automation to create ledger evidence.</div>`);
+    const msg = scopedProject
+      ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
+      : "No admitted work yet. Run an automation to create ledger evidence.";
+    return automationsShell("Work Ledger", head + `<div class="empty">${msg}</div>`);
   }
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
@@ -2040,7 +2047,7 @@ const server = http.createServer((req, res) => {
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
       const r = await fetch(`${DAEMON}/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkLedger(r.entries || []));
+      res.end(renderWorkLedger(r.entries || [], projectId));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
