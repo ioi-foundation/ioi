@@ -48,6 +48,8 @@ mod foundry_routes;
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/odk_routes.rs"]
+mod odk_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
@@ -1017,6 +1019,68 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/foundry/run-plans/:id",
             get(foundry_routes::handle_foundry_run_plan_get)
                 .delete(foundry_routes::handle_foundry_run_plan_delete),
+        )
+        // ODK (Ontology Development Kit) object plane (foundation) — draft DomainOntology /
+        // DataRecipe / OntologyDevelopmentKitManifest / OntologySurfaceDescriptor + overview.
+        // Draft-only: no transformation runs, no generated UI, no Domain App creation, no execution.
+        .route(
+            "/v1/hypervisor/odk/overview",
+            get(odk_routes::handle_odk_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/domain-ontologies",
+            get(odk_routes::handle_odk_ontology_list).post(odk_routes::handle_odk_ontology_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/domain-ontologies/:id",
+            get(odk_routes::handle_odk_ontology_get)
+                .patch(odk_routes::handle_odk_ontology_patch)
+                .delete(odk_routes::handle_odk_ontology_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/data-recipes",
+            get(odk_routes::handle_odk_recipe_list).post(odk_routes::handle_odk_recipe_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/data-recipes/:id",
+            get(odk_routes::handle_odk_recipe_get)
+                .patch(odk_routes::handle_odk_recipe_patch)
+                .delete(odk_routes::handle_odk_recipe_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/manifests",
+            get(odk_routes::handle_odk_manifest_list).post(odk_routes::handle_odk_manifest_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/manifests/:id",
+            get(odk_routes::handle_odk_manifest_get)
+                .patch(odk_routes::handle_odk_manifest_patch)
+                .delete(odk_routes::handle_odk_manifest_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/surface-descriptors",
+            get(odk_routes::handle_odk_descriptor_list)
+                .post(odk_routes::handle_odk_descriptor_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/surface-descriptors/:id",
+            get(odk_routes::handle_odk_descriptor_get)
+                .patch(odk_routes::handle_odk_descriptor_patch)
+                .delete(odk_routes::handle_odk_descriptor_delete),
+        )
+        // Compatibility list aliases for the previously-404 top-level paths (GET only). No
+        // /domain-apps or /blueprints alias — those stay 404 until they have real planes.
+        .route(
+            "/v1/hypervisor/ontologies",
+            get(odk_routes::handle_odk_ontology_list),
+        )
+        .route(
+            "/v1/hypervisor/data-recipes",
+            get(odk_routes::handle_odk_recipe_list),
+        )
+        .route(
+            "/v1/hypervisor/surface-descriptors",
+            get(odk_routes::handle_odk_descriptor_list),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
