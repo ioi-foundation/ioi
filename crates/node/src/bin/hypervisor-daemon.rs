@@ -42,6 +42,8 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
+#[path = "hypervisor_daemon_routes/foundry_routes.rs"]
+mod foundry_routes;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
@@ -987,6 +989,28 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/operations",
             get(orchestration_routes::handle_operations),
+        )
+        // Foundry object plane (foundation) — draft FoundrySpec / FoundryRunPlan objects + an
+        // overview projection over the real model-mount catalog. Draft-only: no training/eval
+        // execution, no promotion or registry mutation, no authority crossing.
+        .route(
+            "/v1/hypervisor/foundry/overview",
+            get(foundry_routes::handle_foundry_overview),
+        )
+        .route(
+            "/v1/hypervisor/foundry/specs",
+            get(foundry_routes::handle_foundry_specs_list)
+                .post(foundry_routes::handle_foundry_spec_create),
+        )
+        .route(
+            "/v1/hypervisor/foundry/specs/:id",
+            get(foundry_routes::handle_foundry_spec_get)
+                .patch(foundry_routes::handle_foundry_spec_patch),
+        )
+        .route(
+            "/v1/hypervisor/foundry/run-plans",
+            get(foundry_routes::handle_foundry_run_plans_list)
+                .post(foundry_routes::handle_foundry_run_plan_create),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
