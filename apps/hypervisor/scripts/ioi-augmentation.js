@@ -120,19 +120,96 @@
   function removeConnectionsNav() {
     document.querySelectorAll(".ioi-connections-nav").forEach((e) => e.remove()); // drop the old permanent rail item
   }
+  // Applications = a MODAL launcher; an opened application renders IN-SHELL (left rail intact) in a
+  // single "Open Application" slot — an iframe positioned right of the rail. /__ioi/applications stays
+  // a deep-link fallback. Live entries open owned surfaces; planned/contextual shown honestly.
+  const IOI_APPS = [
+    { icon: "🧰", name: "Workbench", desc: "Code editor, terminal, ports & tasks.", status: "contextual" },
+    { icon: "🖥", name: "Environments", desc: "Provision and operate dev environments.", status: "contextual" },
+    { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
+    { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
+    { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
+    { icon: "🧩", name: "Domain Apps", desc: "Vertical app surfaces.", status: "planned" },
+    { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, credentials, dev tools.", href: "/__ioi/connections", status: "live" },
+    { icon: "🛡", name: "Governance", desc: "Permissions, controls, release gates.", status: "planned" },
+    { icon: "⚙", name: "Operations", desc: "DevOps, issues, jobs, resources.", status: "planned" },
+    { icon: "📒", name: "Work Ledger", desc: "Runs, receipts, state roots, timelines.", href: "/__ioi/work-ledger", status: "live" },
+    { icon: "🛒", name: "Marketplace", desc: "Apps, training, walkthroughs.", status: "planned" },
+  ];
+  function railRight() {
+    const s = document.querySelector('[data-testid="sidebar"]');
+    if (s) { const r = s.getBoundingClientRect(); if (r.width > 0 && r.left < 40) return Math.round(r.right); }
+    return 0;
+  }
+  function positionOpenApp() {
+    const el = document.getElementById("ioi-open-app");
+    if (el && el.style.display !== "none") el.style.left = railRight() + "px";
+  }
+  function closeApplication() {
+    const el = document.getElementById("ioi-open-app");
+    if (el) el.style.display = "none";
+  }
+  function openApplication(href, title) {
+    let el = document.getElementById("ioi-open-app");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ioi-open-app";
+      el.innerHTML = '<div class="ioi-oa-bar"><span class="ioi-oa-title"></span><button class="ioi-oa-close" title="Close">Close ✕</button></div><iframe title="application"></iframe>';
+      document.body.appendChild(el);
+      el.querySelector(".ioi-oa-close").addEventListener("click", closeApplication);
+    }
+    el.querySelector(".ioi-oa-title").textContent = title || "Application";
+    const f = el.querySelector("iframe");
+    if (f.getAttribute("src") !== href) f.setAttribute("src", href); // singular slot: reuse, replace src
+    el.style.display = "block";
+    positionOpenApp();
+  }
+  function appsModal() {
+    let el = document.getElementById("ioi-apps-modal");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ioi-apps-modal";
+      const rows = IOI_APPS.map((a) => {
+        const pill = a.status === "live" ? "open" : a.status === "contextual" ? "in a session" : "planned";
+        const live = a.status === "live";
+        return '<div class="ioi-mrow' + (live ? "" : " disabled") + '"' + (live ? ' data-href="' + a.href + '" data-name="' + esc(a.name) + '"' : "") +
+          '><span>' + a.icon + '</span><span><div class="ioi-mname">' + esc(a.name) + '</div><div class="ioi-mdesc">' + esc(a.desc) + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
+      }).join("");
+      el.innerHTML = '<div class="ioi-modal"><div class="ioi-mh"><span>Applications</span><button title="Close">✕</button></div>' + rows + "</div>";
+      document.body.appendChild(el);
+      el.addEventListener("click", (e) => {
+        if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; } // backdrop / ✕
+        const row = e.target.closest(".ioi-mrow[data-href]");
+        if (row) { el.classList.remove("open"); openApplication(row.getAttribute("data-href"), row.getAttribute("data-name")); }
+      });
+    }
+    el.classList.add("open");
+  }
   function wireApplicationsLauncher() {
     if (window.__ioiAppsLauncherWired) return;
     window.__ioiAppsLauncherWired = true;
+    window.addEventListener("resize", positionOpenApp);
     document.addEventListener(
       "click",
       (e) => {
-        const a = e.target && e.target.closest && e.target.closest('a[href="#applications"], [data-hypervisor-applications-launcher]');
-        if (!a) return;
-        e.preventDefault();
-        e.stopPropagation();
-        window.location.assign("/__ioi/applications"); // owned 11-surface estate (replaces the empty native modal)
+        const t = e.target;
+        if (!t || !t.closest) return;
+        // Applications launcher (rail #applications, the SPA's native launcher attr, or the estate deep-link) → MODAL.
+        if (t.closest('a[href="#applications"], [data-hypervisor-applications-launcher], a[href="/__ioi/applications"]')) {
+          e.preventDefault(); e.stopPropagation(); appsModal(); return;
+        }
+        // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"]');
+        if (appLink) {
+          e.preventDefault(); e.stopPropagation();
+          const href = appLink.getAttribute("href");
+          openApplication(href, /work-ledger/.test(href) ? "Work Ledger" : "Developer & Integrations");
+          return;
+        }
+        // Any other left-rail nav (Home/Projects/Automations) → close the open app, let the SPA navigate.
+        if (t.closest('[data-testid="sidebar"] a')) closeApplication();
       },
-      true, // capture — beat the SPA's native (empty) Applications modal
+      true, // capture — beat the SPA's native (empty) Applications modal + client router
     );
   }
 
@@ -159,6 +236,23 @@
   #ioi-aug-panel pre.term{margin:6px 0 0;padding:8px;border-radius:6px;border:1px solid;max-height:160px;overflow:auto;
     font:11px/1.45 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;}
   #ioi-aug-panel .mini{font-size:11px;}
+  /* Applications: in-shell "Open Application" slot (right of the rail) + the modal launcher. */
+  #ioi-open-app{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483600;display:none;background:#0c0d10;}
+  #ioi-open-app .ioi-oa-bar{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#15171c;border-bottom:1px solid #2a2c33;color:#e6e7ea;font:600 13px system-ui,sans-serif;}
+  #ioi-open-app .ioi-oa-close{background:transparent;border:1px solid #2a2c33;color:#cbd0da;border-radius:6px;cursor:pointer;padding:3px 10px;font:inherit;}
+  #ioi-open-app .ioi-oa-close:hover{color:#fff;border-color:#3a3d45;}
+  #ioi-open-app iframe{width:100%;height:calc(100% - 40px);border:0;background:#0c0d10;display:block;}
+  #ioi-apps-modal{position:fixed;inset:0;z-index:2147483640;display:none;align-items:flex-start;justify-content:center;background:rgba(0,0,0,.55);}
+  #ioi-apps-modal.open{display:flex;}
+  #ioi-apps-modal .ioi-modal{margin-top:8vh;width:560px;max-width:92vw;max-height:80vh;overflow:auto;background:#101216;border:1px solid #24262d;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);font:13px/1.5 system-ui,sans-serif;color:#e6e7ea;}
+  #ioi-apps-modal .ioi-mh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #24262d;font-weight:600;font-size:15px;color:#fff;}
+  #ioi-apps-modal .ioi-mh button{background:transparent;border:1px solid #2a2c33;color:#cbd0da;border-radius:6px;cursor:pointer;padding:3px 10px;font:inherit;}
+  #ioi-apps-modal .ioi-mrow{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #1b1d23;cursor:pointer;}
+  #ioi-apps-modal .ioi-mrow.disabled{opacity:.5;cursor:default;}
+  #ioi-apps-modal .ioi-mrow:not(.disabled):hover{background:#15171c;}
+  #ioi-apps-modal .ioi-mname{font-weight:600;color:#fff;}
+  #ioi-apps-modal .ioi-mdesc{color:#878a93;font-size:12px;}
+  #ioi-apps-modal .ioi-mpill{margin-left:auto;font-size:11px;border:1px solid #2a2c33;border-radius:999px;padding:1px 9px;color:#9a9da6;white-space:nowrap;}
   `;
   const theme = () =>
     isDark()
