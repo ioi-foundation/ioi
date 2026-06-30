@@ -346,6 +346,84 @@ pub(crate) async fn handle_cron_preview(Query(q): Query<HashMap<String, String>>
     Json(json!({ "ok": true, "runs": runs }))
 }
 
+/// GET /v1/hypervisor/work-ledger[?project=…] — a unified, newest-first PROOF STREAM across all
+/// projects/automations: automation runs (enriched with the tamper-evident state_root captured in
+/// their transcript) + webhook trigger receipts. Real records only — no fabricated rows.
+pub(crate) async fn handle_work_ledger(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let g = |v: &Value, k: &str| v.get(k).cloned().unwrap_or(Value::Null);
+    // run_id -> transcript (state_root + durable name/project captured at run time).
+    let mut by_run: HashMap<String, Value> = HashMap::new();
+    for t in read_record_dir(&st.data_dir, "agent-run-transcripts") {
+        if let Some(rid) = t.get("run_id").and_then(|v| v.as_str()) {
+            by_run.insert(rid.to_string(), t);
+        }
+    }
+    let mut amap: HashMap<String, Value> = HashMap::new();
+    for a in read_record_dir(&st.data_dir, "automations") {
+        if let Some(aid) = a.get("automation_id").and_then(|v| v.as_str()) {
+            amap.insert(aid.to_string(), a);
+        }
+    }
+    let mut entries: Vec<Value> = Vec::new();
+    // Runs (the canonical execution records).
+    for e in read_record_dir(&st.data_dir, "automation-executions") {
+        let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let t = by_run.get(&exec_id);
+        let a = amap.get(aid);
+        let name = t
+            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
+            .or_else(|| a.and_then(|a| a.get("name")).and_then(|v| v.as_str()))
+            .unwrap_or("automation");
+        let project = t
+            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
+            .or_else(|| a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
+            .unwrap_or("");
+        let trigger = a.and_then(|a| a.get("trigger_kind")).and_then(|v| v.as_str()).unwrap_or("manual");
+        let state_root = t.and_then(|t| t.get("state_root")).and_then(|v| v.as_str()).unwrap_or("");
+        entries.push(json!({
+            "id": exec_id, "kind": "run", "timestamp": g(&e, "started_at"),
+            "automation_id": aid, "automation_name": name, "project_id": project,
+            "status": g(&e, "status"), "trigger_kind": trigger,
+            "state_root": state_root, "run_ref": exec_id,
+            "timeline_ref": format!("/__ioi/run-timeline/{exec_id}"),
+            "authority": g(&e, "executor_identity"), "counts": g(&e, "counts"),
+            "environment_id": g(&e, "environment_id"), "finished_at": g(&e, "finished_at"),
+            "step_results": g(&e, "step_results"),
+        }));
+    }
+    // Webhook trigger receipts (accepted/rejected proofs).
+    for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
+        let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let a = amap.get(aid);
+        let name = a.and_then(|a| a.get("name")).and_then(|v| v.as_str()).unwrap_or("automation");
+        let project = a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()).unwrap_or("");
+        let accepted = ev.get("accepted").and_then(|v| v.as_bool()) == Some(true);
+        let run_ref = ev.get("run_ref").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+        let run_ref_v = match run_ref { Some(s) => json!(s), None => Value::Null };
+        let timeline_v = match run_ref { Some(r) => json!(format!("/__ioi/run-timeline/{r}")), None => Value::Null };
+        entries.push(json!({
+            "id": g(&ev, "receipt_id"), "kind": "trigger", "timestamp": g(&ev, "received_at"),
+            "automation_id": aid, "automation_name": name, "project_id": project,
+            "status": if accepted { "accepted" } else { "rejected" }, "trigger_kind": "webhook",
+            "reason": g(&ev, "reason"), "state_root": g(&ev, "payload_hash"),
+            "payload_hash": g(&ev, "payload_hash"), "headers_hash": g(&ev, "headers_hash"),
+            "request_id": g(&ev, "request_id"), "run_ref": run_ref_v, "timeline_ref": timeline_v,
+        }));
+    }
+    entries.sort_by(|a, b| {
+        b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("")
+            .cmp(a.get("timestamp").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    if let Some(pid) = q.get("project").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        entries.retain(|e| e.get("project_id").and_then(|v| v.as_str()) == Some(pid));
+    }
+    Json(json!({ "ok": true, "entries": entries }))
+}
+
 fn new_webhook_token() -> String {
     format!(
         "whk_{}{}",
