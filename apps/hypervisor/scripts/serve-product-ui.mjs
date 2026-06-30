@@ -624,7 +624,7 @@ function renderAutomationNewForm(projectId, projects) {
 function renderApplications() {
   const SURFACES = [
     { icon: "🧰", name: "Workbench", desc: "Code editor, terminal, ports & tasks for a running session.", status: "contextual" },
-    { icon: "🖥", name: "Environments", desc: "Provision and operate dev environments.", status: "contextual" },
+    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Author, tune, and evaluate agents.", status: "planned" },
     { icon: "🏗", name: "Foundry", desc: "Build and publish models and tools.", status: "planned" },
     { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
@@ -771,6 +771,39 @@ function renderOperations(ops) {
     <h2>Needs attention</h2>${attnSection}
     <h2>Webhook health</h2>${whSection}`;
   return automationsShell("Operations", inner);
+}
+
+// ---- Environments — where work runs: env lifecycle, readiness, services/ports/tasks, substrate
+// posture, and drilldowns into Sessions / Workbench / Run Timeline. Projection over the existing
+// /v1/hypervisor/environments + /environment-classes records (real-only; deleted envs excluded).
+function renderEnvironments(envs, classes) {
+  const enc = encodeURIComponent;
+  const head = `<h1>Environments</h1><p class="sub">Where work runs — environment lifecycle, readiness, services/ports/tasks, and substrate posture. Open a session or workbench, or jump to its run timeline.</p>`;
+  const posture = `<h2>Substrate posture</h2><div class="chips">${(classes || []).map((c) => `<span class="pill ${c.enabled !== false ? "ok" : "muted"}">${CX_ESC(c.id || "")} · ${CX_ESC(c.substrate_class || "")}${c.enabled === false ? " · disabled" : ""}</span>`).join("")}</div>`;
+  const live = (envs || []).filter((e) => !(e.status && e.status.deleted) && (e.status || {}).phase !== "deleted");
+  if (!live.length) {
+    return automationsShell("Environments", head + posture + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
+  }
+  const cap = 60;
+  const shown = live.slice(0, cap);
+  const phasePill = (p) => (p === "running" ? "ok" : (p === "failed" || p === "blocked") ? "warn" : "muted");
+  const count = (x) => (Array.isArray(x) ? x.length : (x && typeof x === "object" ? Object.keys(x).length : 0));
+  const rows = shown.map((e) => {
+    const st = e.status || {}, sp = e.spec || {}, id = e.id || "";
+    const ready = (st.readiness || {}).mode || "—";
+    return `<tr>
+      <td><code>${CX_ESC(id)}</code></td>
+      <td><span class="pill ${phasePill(st.phase)}">${CX_ESC(st.phase || "—")}</span></td>
+      <td>${CX_ESC(ready)}</td>
+      <td>${CX_ESC(sp.project_id || "—")}</td>
+      <td>${CX_ESC(sp.environment_class_id || "—")} · ${CX_ESC(st.substrate || "")}</td>
+      <td>${count(st.ports)}p · ${count(st.services)}s · ${count(st.tasks)}t</td>
+      <td><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+    </tr>`;
+  }).join("");
+  const note = live.length > cap ? `<p class="sub">Showing ${cap} of ${live.length} active environments.</p>` : "";
+  const table = `<h2>Active environments</h2>${note}<table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return automationsShell("Environments", head + posture + table);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -2107,6 +2140,16 @@ const server = http.createServer((req, res) => {
       const r = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderOperations(r));
+      return;
+    }
+    // ---- Environments — execution substrate (estate surface), projection over the env records.
+    if (pathname === "/__ioi/environments" && req.method === "GET") {
+      const [eRes, cRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/environments`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderEnvironments(eRes.environments || [], cRes.environmentClasses || []));
       return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
