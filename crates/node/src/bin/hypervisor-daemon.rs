@@ -820,6 +820,11 @@ async fn async_main() -> anyhow::Result<()> {
             get(environment_routes::handle_environments_list)
                 .post(environment_routes::handle_environment_create),
         )
+        // Read projection: global counts + a filtered, paged slice of slim env records.
+        .route(
+            "/v1/hypervisor/environments-summary",
+            get(environment_routes::handle_environments_summary),
+        )
         .route(
             "/v1/hypervisor/environments/:id",
             get(environment_routes::handle_environment_get),

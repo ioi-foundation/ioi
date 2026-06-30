@@ -6,9 +6,10 @@
 //! trusted-operator and is NOT a cross-tenant isolation boundary — per the Dev Env Substrate
 //! Doctrine, VM/microVM/HypervisorOS are the isolation claim for untrusted/cross-tenant work
 //! (modeled in the class catalog, disabled in v0). Honest labels travel on `status`.
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use ioi_types::app::agentic::InferenceOptions;
@@ -1524,6 +1525,195 @@ pub(crate) async fn handle_environment_classes(State(_st): State<Arc<DaemonState
 /// GET /v1/hypervisor/environments
 pub(crate) async fn handle_environments_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     Json(json!({ "environments": read_record_dir(&st.data_dir, "environments") }))
+}
+
+/// GET /v1/hypervisor/environments-summary — a READ PROJECTION over the env records: global counts
+/// + a filtered, paged slice of SLIM records (so callers stop pulling the full env list). Does NOT
+/// mutate the /environments full-record contract and adds NO durable object.
+/// Params: limit, offset, phase=running|stopped|deleted|live|all, project, class, include_deleted.
+pub(crate) async fn handle_environments_summary(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    Json(environments_summary(&read_record_dir(&st.data_dir, "environments"), &q))
+}
+
+/// Pure projection (unit-tested): global counts + filtered, paged slim slice over env records.
+pub(crate) fn environments_summary(all: &[Value], q: &HashMap<String, String>) -> Value {
+    let qs = |k: &str| q.get(k).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let phase = qs("phase").unwrap_or_default();
+    let include_deleted = q.get("include_deleted").map(|s| s == "true").unwrap_or(false);
+    let want_project = qs("project");
+    let want_class = qs("class");
+    let limit: usize = q.get("limit").and_then(|s| s.parse().ok()).unwrap_or(60).clamp(1, 500);
+    let offset: usize = q.get("offset").and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    let dphase = |e: &Value| e["status"]["phase"].as_str().unwrap_or("").to_string();
+    let is_deleted = |e: &Value| e["status"]["deleted"].as_bool().unwrap_or(false) || dphase(e) == "deleted";
+    let cnt = |v: &Value| v.as_array().map(|a| a.len()).or_else(|| v.as_object().map(|o| o.len())).unwrap_or(0);
+
+    // Global inventory counts (over ALL records).
+    let mut by_phase: BTreeMap<String, i64> = BTreeMap::new();
+    let mut by_class: BTreeMap<String, i64> = BTreeMap::new();
+    let mut by_substrate: BTreeMap<String, i64> = BTreeMap::new();
+    let mut by_readiness: BTreeMap<String, i64> = BTreeMap::new();
+    let (mut live, mut deleted) = (0i64, 0i64);
+    for e in all {
+        *by_phase.entry(dphase(e)).or_insert(0) += 1;
+        if is_deleted(e) {
+            deleted += 1;
+            continue;
+        }
+        live += 1;
+        if let Some(c) = e["spec"]["environment_class_id"].as_str() {
+            *by_class.entry(c.to_string()).or_insert(0) += 1;
+        }
+        if let Some(s) = e["status"]["substrate"].as_str() {
+            *by_substrate.entry(s.to_string()).or_insert(0) += 1;
+        }
+        if let Some(r) = e["status"]["readiness"]["mode"].as_str() {
+            *by_readiness.entry(r.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    // Active filter (default = live unless include_deleted).
+    let mut matching: Vec<&Value> = all
+        .iter()
+        .filter(|e| {
+            let del = is_deleted(e);
+            let pass = match phase.as_str() {
+                "" => include_deleted || !del,
+                "all" => true,
+                "live" => !del,
+                "deleted" => del,
+                other => dphase(e) == other,
+            };
+            if !pass {
+                return false;
+            }
+            if let Some(p) = &want_project {
+                if e["spec"]["project_id"].as_str() != Some(p.as_str()) {
+                    return false;
+                }
+            }
+            if let Some(c) = &want_class {
+                if e["spec"]["environment_class_id"].as_str() != Some(c.as_str()) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    // Live-first, then newest-first.
+    matching.sort_by(|a, b| {
+        is_deleted(a)
+            .cmp(&is_deleted(b))
+            .then_with(|| b["updated_at"].as_str().unwrap_or("").cmp(a["updated_at"].as_str().unwrap_or("")))
+    });
+    let total_matching = matching.len();
+    let page: Vec<Value> = matching
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|e| {
+            let stt = &e["status"];
+            let sp = &e["spec"];
+            json!({
+                "id": e["id"], "created_at": e["created_at"], "updated_at": e["updated_at"],
+                "project_id": sp["project_id"], "environment_class_id": sp["environment_class_id"],
+                "phase": stt["phase"], "deleted": is_deleted(e),
+                "readiness_mode": stt["readiness"]["mode"], "blocked_reason": stt["blocked_reason"],
+                "provider": stt["provider"], "substrate": stt["substrate"], "workspace_root": stt["workspace_root"],
+                "ports_count": cnt(&stt["ports"]), "services_count": cnt(&stt["services"]),
+                "tasks_count": cnt(&stt["tasks"]), "components_count": cnt(&stt["components"]),
+                "last_activity": stt["last_activity"],
+            })
+        })
+        .collect();
+    let has_more = offset + page.len() < total_matching;
+    json!({
+        "schema_version": "ioi.hypervisor.environments-summary.v1",
+        "total_environments": all.len(),
+        "total_matching": total_matching,
+        "limit": limit,
+        "offset": offset,
+        "has_more": has_more,
+        "counts": {
+            "by_phase": serde_json::to_value(&by_phase).unwrap_or_else(|_| json!({})),
+            "live": live,
+            "deleted": deleted,
+            "by_class": serde_json::to_value(&by_class).unwrap_or_else(|_| json!({})),
+            "by_substrate": serde_json::to_value(&by_substrate).unwrap_or_else(|_| json!({})),
+            "by_readiness": serde_json::to_value(&by_readiness).unwrap_or_else(|_| json!({})),
+        },
+        "environments": page,
+    })
+}
+
+#[cfg(test)]
+mod environments_summary_tests {
+    use super::environments_summary;
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
+
+    fn env(id: &str, phase: &str, deleted: bool, project: &str, class: &str, updated: &str) -> Value {
+        json!({
+            "id": id, "updated_at": updated,
+            "spec": { "project_id": project, "environment_class_id": class },
+            "status": { "phase": phase, "deleted": deleted, "substrate": "local_host",
+                        "readiness": { "mode": if deleted { "blocked" } else { "full" } },
+                        "ports": [], "services": [], "tasks": [] },
+        })
+    }
+    fn p(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    #[test]
+    fn default_excludes_deleted_and_counts_globally() {
+        let all = vec![
+            env("a", "running", false, "p1", "local-workspace-v0", "2026-06-30T03:00:00Z"),
+            env("b", "stopped", false, "p1", "local-workspace-v0", "2026-06-30T02:00:00Z"),
+            env("c", "deleted", true, "p2", "microvm", "2026-06-30T01:00:00Z"),
+        ];
+        let s = environments_summary(&all, &p(&[]));
+        assert_eq!(s["total_environments"], 3);
+        assert_eq!(s["total_matching"], 2); // deleted excluded by default
+        assert_eq!(s["counts"]["live"], 2);
+        assert_eq!(s["counts"]["deleted"], 1);
+        assert_eq!(s["counts"]["by_phase"]["running"], 1);
+        assert_eq!(s["environments"].as_array().unwrap().len(), 2);
+        // slim shape
+        assert_eq!(s["environments"][0]["id"], "a");
+        assert_eq!(s["environments"][0]["readiness_mode"], "full");
+    }
+    #[test]
+    fn phase_and_filter_params() {
+        let all = vec![
+            env("a", "running", false, "p1", "local-workspace-v0", "z"),
+            env("b", "stopped", false, "p2", "microvm", "z"),
+            env("c", "deleted", true, "p1", "local-workspace-v0", "z"),
+        ];
+        assert_eq!(environments_summary(&all, &p(&[("phase", "running")]))["total_matching"], 1);
+        assert_eq!(environments_summary(&all, &p(&[("phase", "deleted")]))["total_matching"], 1);
+        assert_eq!(environments_summary(&all, &p(&[("phase", "all")]))["total_matching"], 3);
+        assert_eq!(environments_summary(&all, &p(&[("phase", "live")]))["total_matching"], 2);
+        assert_eq!(environments_summary(&all, &p(&[("project", "p1")]))["total_matching"], 1); // p1 live only
+        assert_eq!(environments_summary(&all, &p(&[("class", "microvm")]))["total_matching"], 1);
+    }
+    #[test]
+    fn pagination_limit_offset_has_more() {
+        let all: Vec<Value> = (0..5)
+            .map(|i| env(&format!("e{i}"), "running", false, "p", "local-workspace-v0", "z"))
+            .collect();
+        let s = environments_summary(&all, &p(&[("limit", "2"), ("offset", "0")]));
+        assert_eq!(s["total_matching"], 5);
+        assert_eq!(s["environments"].as_array().unwrap().len(), 2);
+        assert_eq!(s["has_more"], true);
+        let s2 = environments_summary(&all, &p(&[("limit", "2"), ("offset", "4")]));
+        assert_eq!(s2["environments"].as_array().unwrap().len(), 1);
+        assert_eq!(s2["has_more"], false);
+    }
 }
 
 /// POST /v1/hypervisor/environments — create (admit spec; phase stopped).
