@@ -132,7 +132,7 @@
     { icon: "🧩", name: "Domain Apps", desc: "Vertical app surfaces.", status: "planned" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, credentials, dev tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, release gates.", status: "planned" },
-    { icon: "⚙", name: "Operations", desc: "DevOps, issues, jobs, resources.", status: "planned" },
+    { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
     { icon: "📒", name: "Work Ledger", desc: "Runs, receipts, state roots, timelines.", href: "/__ioi/work-ledger", status: "live" },
     { icon: "🛒", name: "Marketplace", desc: "Apps, training, walkthroughs.", status: "planned" },
   ];
@@ -199,11 +199,12 @@
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          openApplication(href, /work-ledger/.test(href) ? "Work Ledger" : "Developer & Integrations");
+          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : "Developer & Integrations";
+          openApplication(href, name);
           return;
         }
         // Any other left-rail nav (Home/Projects/Automations) → close the open app, let the SPA navigate.

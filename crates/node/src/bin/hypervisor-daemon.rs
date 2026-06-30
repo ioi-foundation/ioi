@@ -978,6 +978,11 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/work-ledger",
             get(orchestration_routes::handle_work_ledger),
         )
+        // Operations — execution health (scheduler + run + webhook) over the automation substrate.
+        .route(
+            "/v1/hypervisor/operations",
+            get(orchestration_routes::handle_operations),
+        )
         .route(
             "/v1/hypervisor/automation-executions/:id",
             get(orchestration_routes::handle_automation_execution_get),
