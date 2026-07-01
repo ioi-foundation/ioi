@@ -630,7 +630,7 @@ function renderApplications() {
     { icon: "📦", name: "ODK", desc: "Ontology Development Kit — draft ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
     { icon: "🧩", name: "Domain Apps", desc: "Draft app candidates over ODK domain_app descriptors (no runtime yet).", href: "/__ioi/domain-apps", status: "live" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
-    { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
+    { icon: "🛡", name: "Governance", desc: "Control lens — authority, identity, leases, revocation, release/improvement candidates, gaps.", href: "/__ioi/governance", status: "live" },
     { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
     { icon: "📒", name: "Work Ledger", desc: "Unified proof stream — runs, trigger receipts, state roots, timeline links.", href: "/__ioi/work-ledger", status: "live" },
     { icon: "🛒", name: "Marketplace", desc: "Apps, training, and walkthroughs.", status: "planned" },
@@ -1436,6 +1436,118 @@ function renderDomainAppsLanding(ov, apps) {
     : `<a class="act" href="/__ioi/domain-apps/new">+ New domain app</a>`;
   const section = `<h2 style="display:flex;justify-content:space-between;align-items:center">Domain Apps (${apps.length}) ${newBtn}</h2>${apps.length ? apps.map(domainAppCard).join("") : `<div class="empty">No DomainApp candidates yet.${noDescriptors ? " First author a <code>domain_app</code> surface descriptor in ODK." : ""}</div>`}`;
   return automationsShell("Domain Apps", head + banner + stats + visChips + section);
+}
+
+// ---- Governance — a read-only CONTROL LENS over the daemon governance projection (estate #7).
+// Renders GET /v1/hypervisor/governance/overview: the eight posture/candidate sections + a policy-
+// ref coverage strip + first-class governance-gap rows. It is a projection only — no approval/
+// kill-switch/release CRUD, no policy store, no Marketplace, no runtime mount, and it never shows a
+// gap as "resolved". Outward links route to the owned surfaces that carry the underlying records.
+function renderGovernance(ov) {
+  const o = ov || {};
+  const sub = o.summary || {};
+  const ap = o.authority_posture || {};
+  const ip = o.identity_posture || {};
+  const lp = o.lease_posture || {};
+  const aa = o.approval_and_admission_posture || {};
+  const prc = o.policy_ref_coverage || {};
+  const rc = o.release_control_candidates || {};
+  const rt = o.revocation_targets || {};
+  const ig = o.improvement_gate_candidates || {};
+  const gaps = o.governance_gaps || [];
+  const boolPill = (v, onLabel, offLabel) => `<span class="pill ${v === true ? "ok" : "muted"}">${v === true ? (onLabel || "yes") : (offLabel || "no")}</span>`;
+  const histChips = (obj, cls) => { const e = Object.entries(obj || {}); return e.length ? e.map(([k, n]) => `<span class="pill ${cls || "muted"}">${CX_ESC(k)}: ${CX_ESC(String(n))}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`; };
+  const stat = (label, val) => `<div style="flex:1;min-width:112px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
+
+  const head = `<h1>Governance</h1><p class="sub">A horizontal control lens over real authority, identity, lease and admission substrate. It surfaces posture, what can be revoked, what a release/improvement gate would govern, and — plainly — the controls that do not exist yet. It reads only; it mutates nothing.</p>`;
+  const banner = `<div class="chips"><span class="pill muted">projection-only</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "Read projection; creates and mutates nothing.")}</span></div>`;
+  const summary = `<div class="row" style="gap:10px;align-items:stretch">
+    ${stat("Grants active", `${sub.authority_grants_active ?? "—"} / ${sub.authority_grants_total ?? "—"}`)}
+    ${stat("Leases active", `${sub.capability_leases_active ?? "—"} / ${sub.capability_leases_total ?? "—"}`)}
+    ${stat("Wallet-gated crossings", sub.wallet_required_crossings)}
+    ${stat("Auth enforced", sub.auth_enforced === true ? "yes" : "no")}
+    ${stat("Connectors", sub.connectors)}
+    ${stat("Governance gaps", sub.governance_gaps)}
+  </div>`;
+
+  // 1. Authority posture
+  const authGrid = `<dl class="grid">
+    <dt>Mode</dt><dd>${CX_ESC(ap.mode || "—")} <span class="sub" style="margin:0">(${CX_ESC(ap.provider || "")})</span></dd>
+    <dt>Wallet network</dt><dd>${boolPill(ap.wallet_network_live, "live", "offline")}</dd>
+    <dt>Grants</dt><dd>active ${CX_ESC(String((ap.grants || {}).active ?? "—"))} · granted ${CX_ESC(String((ap.grants || {}).granted ?? "—"))} · revoked ${CX_ESC(String((ap.grants || {}).revoked ?? "—"))} · total ${CX_ESC(String((ap.grants || {}).total ?? "—"))}</dd>
+    <dt>Standing grants</dt><dd>${(ap.standing_grants || []).length ? (ap.standing_grants || []).map((g) => `<span class="pill ok">${CX_ESC(g.scope || g.ref || "")}</span>`).join(" ") : "—"}</dd>
+    <dt>Providers</dt><dd>${(ap.providers || []).map((p) => `<span class="pill ${p.live ? "ok" : "muted"}">${CX_ESC(p.provider_ref || p.mode || "")}${p.status ? " · " + CX_ESC(p.status) : ""}</span>`).join(" ") || "—"}</dd>
+    <dt>Wallet-gated crossings</dt><dd>${(ap.wallet_required_crossings || []).map((c) => `<span class="pill warn">${CX_ESC(c)}</span>`).join(" ") || "—"}</dd>
+  </dl>`;
+
+  // 2. Identity posture
+  const pol = ip.policy || {}; const cp = ip.current_principal || {};
+  const idGrid = `<dl class="grid">
+    <dt>Enforcement</dt><dd>${boolPill(ip.effective_enforced, "enforced", "not enforced")} · exposed ${boolPill(ip.exposed, "yes", "no")} · login ${boolPill(ip.login_possible, "possible", "off")}</dd>
+    <dt>Policy</dt><dd>mode ${CX_ESC(pol.mode || "—")} · require_auth ${CX_ESC(String(pol.require_authentication ?? "—"))}${(pol.allowed_methods || []).length ? " · methods " + (pol.allowed_methods || []).map((m) => `<code>${CX_ESC(m)}</code>`).join(" ") : ""}</dd>
+    <dt>Current principal</dt><dd>authenticated ${boolPill(cp.authenticated, "yes", "no")}${cp.role ? " · role <code>" + CX_ESC(cp.role) + "</code>" : ""}${cp.status ? " · " + CX_ESC(cp.status) : ""}</dd>
+  </dl>`;
+
+  // 3. Lease posture
+  const leaseGrid = `<dl class="grid">
+    <dt>Leases</dt><dd>active ${CX_ESC(String(lp.active ?? "—"))} · revoked ${CX_ESC(String(lp.revoked ?? "—"))} · receipt-required ${CX_ESC(String(lp.receipt_required ?? "—"))} · total ${CX_ESC(String(lp.total ?? "—"))}</dd>
+    <dt>By backing provider</dt><dd>${histChips(lp.by_backing_provider)}</dd>
+  </dl>`;
+
+  // 4. Approval & admission
+  const admGrid = `<dl class="grid">
+    <dt>Admission-gated crossings</dt><dd>${CX_ESC(String(aa.admission_gated_crossings_count ?? "—"))} (require wallet authority)</dd>
+    <dt>Authority decisions</dt><dd>${histChips(aa.authority_decisions)} · <a href="/__ioi/work-ledger">proof stream →</a></dd>
+    <dt>Connectors requiring credential</dt><dd>${CX_ESC(String(aa.connectors_requiring_credential ?? "—"))} · <a href="/__ioi/connections">Developer &amp; Integrations →</a></dd>
+  </dl><p class="sub" style="margin:6px 0 0">${CX_ESC(aa.note || "")}</p>`;
+
+  // policy_ref coverage strip
+  const cov = (label, got, total) => `<span class="pill ${(got || 0) > 0 ? "ok" : "muted"}">${label}: ${CX_ESC(String(got ?? 0))}/${CX_ESC(String(total ?? 0))}</span>`;
+  const coverage = `<div class="chips"><span class="chiplabel">Policy-ref coverage</span>${cov("automations", prc.automations_with_authority_or_runtime_policy, prc.automations_total)} ${cov("foundry specs", prc.foundry_specs_with_authority_policy, prc.foundry_specs_total)} ${cov("domain apps", prc.domain_apps_with_authority_requirements, prc.domain_apps_total)} ${cov("odk manifests", prc.odk_manifests_with_operator_contracts, prc.odk_manifests_total)}</div>`;
+
+  // 5. Release control candidates
+  const relGrid = `<dl class="grid">
+    <dt>Foundry run plans</dt><dd>${CX_ESC(String(rc.foundry_run_plans ?? "—"))} <span class="pill muted">candidate</span> · <a href="/__ioi/foundry">Foundry →</a></dd>
+    <dt>Domain App candidates</dt><dd>${CX_ESC(String(rc.domain_app_candidates ?? "—"))} <span class="pill muted">candidate</span> · <a href="/__ioi/domain-apps">Domain Apps →</a></dd>
+    <dt>SCM publish connectors</dt><dd>${CX_ESC(String(rc.scm_publish_connectors ?? "—"))} · <a href="/__ioi/connections">Connections →</a></dd>
+  </dl><p class="sub" style="margin:6px 0 0">${CX_ESC(rc.note || "")}</p>`;
+
+  // 6. Revocation targets
+  const revGrid = `<dl class="grid">
+    <dt>Active authority grants</dt><dd>${CX_ESC(String(rt.active_authority_grants ?? "—"))} <span class="pill ok">revocable</span></dd>
+    <dt>Active capability leases</dt><dd>${CX_ESC(String(rt.active_capability_leases ?? "—"))} <span class="pill ok">revocable</span></dd>
+    <dt>Connectors · SCM</dt><dd>${CX_ESC(String(rt.connectors ?? "—"))} · ${CX_ESC(String(rt.scm_connectors ?? "—"))} <span class="pill ok">disconnectable</span> · <a href="/__ioi/connections">Connections →</a></dd>
+  </dl><p class="sub" style="margin:6px 0 0">${CX_ESC(rt.note || "")}</p>`;
+
+  // 7. Improvement gate candidates
+  const impGrid = `<dl class="grid">
+    <dt>Foundry specs by kind</dt><dd>${histChips(ig.foundry_specs_by_kind)}</dd>
+    <dt>Foundry run plans</dt><dd>${CX_ESC(String(ig.foundry_run_plans ?? "—"))} · <a href="/__ioi/foundry">Foundry →</a></dd>
+  </dl><p class="sub" style="margin:6px 0 0">${CX_ESC(ig.note || "")}</p>`;
+
+  // 8. Governance gaps — first-class rows (missing control vs substrate-inactive), never "resolved".
+  const gapRows = gaps.map((g) => {
+    const pill = g.has_substrate === true
+      ? `<span class="pill warn">substrate inactive</span>`
+      : `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">missing control</span>`;
+    return `<tr><td>${pill}</td><td><b>${CX_ESC(g.title || g.id || "")}</b><div class="meta" style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(g.detail || "")}</div></td></tr>`;
+  }).join("");
+  const gapsTable = gaps.length
+    ? `<table><thead><tr><th style="width:150px">Status</th><th>Gap</th></tr></thead><tbody>${gapRows}</tbody></table>`
+    : `<div class="empty">No governance gaps reported.</div>`;
+
+  const inner = head + banner + summary
+    + `<h2>Authority posture</h2>${authGrid}`
+    + `<h2>Identity posture</h2>${idGrid}`
+    + `<h2>Lease posture</h2>${leaseGrid}`
+    + `<h2>Approval &amp; admission</h2>${admGrid}`
+    + coverage
+    + `<h2>Release control candidates</h2>${relGrid}`
+    + `<h2>Revocation targets</h2>${revGrid}`
+    + `<h2>Improvement gate candidates</h2>${impGrid}`
+    + `<h2>Governance gaps <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— what is not yet governed (no fabricated controls, never shown resolved)</span></h2>${gapsTable}`
+    + `<p class="sub" style="margin-top:20px">Related: <a href="/__ioi/operations">Operations</a> · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/connections">Developer &amp; Integrations</a></p>`;
+  return automationsShell("Governance", inner);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -3043,6 +3155,13 @@ const server = http.createServer((req, res) => {
         res.end(app.ok ? renderDomainAppDetail(app.domain_app) : automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`));
         return;
       }
+    }
+    // ---- Governance — read-only control lens over the daemon governance projection (estate #7).
+    if (pathname === "/__ioi/governance" && req.method === "GET") {
+      const ov = await fetch(`${DAEMON}/v1/hypervisor/governance/overview`).then((r) => r.json()).catch(() => ({}));
+      res.writeHead(200, HTMLH);
+      res.end(renderGovernance(ov));
+      return;
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
