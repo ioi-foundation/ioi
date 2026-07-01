@@ -129,7 +129,7 @@
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, activity.", href: "/__ioi/agent-studio", status: "live" },
     { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews.", href: "/__ioi/foundry", status: "live" },
     { icon: "📦", name: "ODK", desc: "Ontology Development Kit — ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
-    { icon: "🧩", name: "Domain Apps", desc: "Vertical app surfaces.", status: "planned" },
+    { icon: "🧩", name: "Domain Apps", desc: "Draft app candidates over ODK domain_app descriptors (no runtime yet).", href: "/__ioi/domain-apps", status: "live" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, credentials, dev tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, release gates.", status: "planned" },
     { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
@@ -243,11 +243,11 @@
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/odk"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/odk"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Agent Studio" : /foundry/.test(href) ? "Foundry" : /\/__ioi\/odk/.test(href) ? "ODK" : "Developer & Integrations";
+          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Agent Studio" : /foundry/.test(href) ? "Foundry" : /domain-apps/.test(href) ? "Domain Apps" : /\/__ioi\/odk/.test(href) ? "ODK" : "Developer & Integrations";
           openApplication(href, name);
           return;
         }
