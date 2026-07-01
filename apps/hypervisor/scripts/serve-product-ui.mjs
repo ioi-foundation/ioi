@@ -627,7 +627,7 @@ function renderApplications() {
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, and activity.", href: "/__ioi/agent-studio", status: "live" },
     { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews over real model substrate.", href: "/__ioi/foundry", status: "live" },
-    { icon: "📦", name: "ODK", desc: "Operational data kits and recipes.", status: "planned" },
+    { icon: "📦", name: "ODK", desc: "Ontology Development Kit — draft ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
     { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
@@ -1109,6 +1109,232 @@ function renderFoundryRunPlanDetail(plan, spec) {
   const actions = `<div class="row"><form class="inline" method="post" action="/__ioi/foundry/run-plans/${enc(p.id || "")}/delete" onsubmit="return confirm('Delete this draft run plan?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
   return automationsShell(p.name || "FoundryRunPlan", `<p><a href="/__ioi/foundry">← Foundry</a></p><h1>${CX_ESC(p.name || p.id || "")}</h1><p class="sub">FoundryRunPlan · draft. No execution.</p>${actions}${grid}${preview}`);
 }
+
+// ---- ODK — a CONTROLLED BUILDER over the daemon ODK object plane (estate surface #5).
+// Serve-owned UI over /v1/hypervisor/odk/*: author draft DomainOntology / DataRecipe /
+// OntologySurfaceDescriptor / ODKManifest, bound only to real ODK records. Hard boundary rendered
+// plainly: draft-only semantic builder — no transformation runs, no generated app runtime, no
+// Domain App creation, no training/eval execution, no authority crossing. `domain_app` is offered
+// as a descriptor pattern but is labelled descriptor-only (NOT a live Domain App).
+const odkJoin = (arr) => (arr || []).map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(", ");
+const odkField = (label, name, val, ph) => `<div class="field"><label>${label}</label><input name="${name}" value="${CX_ESC(val || "")}" placeholder="${CX_ESC(ph || "")}"></div>`;
+const odkArea = (label, name, val, ph) => `<div class="field"><label>${label}</label><textarea name="${name}" placeholder="${CX_ESC(ph || "")}">${CX_ESC(val || "")}</textarea></div>`;
+const odkCsvField = (label, name, arr, ph) => `<div class="field"><label>${label}</label><input name="${name}" value="${CX_ESC(odkJoin(arr))}" placeholder="${CX_ESC(ph || "")}"></div>`;
+const odkSelectField = (label, name, opts, cur, emptyMsg) => `<div class="field"><label>${label}</label>${opts.length ? `<select name="${name}">${opts.map((o) => `<option value="${CX_ESC(o.v)}" ${o.v === cur ? "selected" : ""}>${CX_ESC(o.l)}</option>`).join("")}</select>` : `<div class="sub" style="margin:0">${CX_ESC(emptyMsg || "none available")}</div>`}</div>`;
+const odkChecks = (label, name, opts, current) => `<div class="field"><label>${label}</label>${opts.length ? opts.map((o) => `<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:3px 0"><input type="checkbox" name="${name}" value="${CX_ESC(o.v)}" ${(current || []).includes(o.v) ? "checked" : ""} style="width:auto"> ${CX_ESC(o.l)} <code style="opacity:.55">${CX_ESC(o.v)}</code></label>`).join("") : `<span class="sub" style="margin:0">none available — create one first</span>`}</div>`;
+// Map an ODK ref (scheme://id) to its detail page link.
+function odkRefLink(ref) {
+  const m = String(ref || "").match(/^([a-z-]+):\/\/(.+)$/);
+  if (!m) return ref ? `<code>${CX_ESC(ref)}</code>` : "—";
+  const fam = { ontology: "ontologies", recipe: "data-recipes", "surface-descriptor": "surface-descriptors", odk: "manifests" }[m[1]];
+  return fam ? `<a href="/__ioi/odk/${fam}/${encodeURIComponent(m[2])}"><code>${CX_ESC(ref)}</code></a>` : `<code>${CX_ESC(ref)}</code>`;
+}
+async function odkPickers() {
+  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+  const [o, r, d] = await Promise.all([
+    J("/v1/hypervisor/odk/domain-ontologies"), J("/v1/hypervisor/odk/data-recipes"), J("/v1/hypervisor/odk/surface-descriptors"),
+  ]);
+  const opt = (rec, nameKey) => ({ v: rec.ref, l: rec[nameKey] || rec.name || rec.id });
+  return {
+    ontologies: (o.ontologies || []).map((x) => opt(x, "domain")),
+    recipes: (r.data_recipes || []).map((x) => opt(x, "name")),
+    descriptors: (d.surface_descriptors || []).map((x) => opt(x, "name")),
+  };
+}
+// ---- payload builders (form -> daemon JSON), shared by create + patch.
+function odkOntologyPayload(p) {
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return {
+    domain: (p.get("domain") || "").trim(), version: (p.get("version") || "0.1.0").trim(), description: (p.get("description") || "").trim(),
+    canonical_object_model: { objects: csv("com_objects"), actions: csv("com_actions"), events: csv("com_events"), states: csv("com_states"), roles: csv("com_roles") },
+  };
+}
+function odkRecipePayload(p) {
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return {
+    name: (p.get("name") || "data-recipe").trim(), description: (p.get("description") || "").trim(),
+    ontology_ref: (p.get("ontology_ref") || "").trim(), output_kind: (p.get("output_kind") || "ontology_objects").trim(),
+    source_refs: csv("source_refs"), connector_mappings: csv("connector_mappings"), policy_bound_views: csv("policy_bound_views"),
+    projection_refs: csv("projection_refs"), evaluation_dataset_refs: csv("evaluation_dataset_refs"),
+    worker_plan_refs: csv("worker_plan_refs"), workflow_schema_refs: csv("workflow_schema_refs"),
+  };
+}
+function odkDescriptorPayload(p) {
+  return {
+    name: (p.get("name") || "surface-descriptor").trim(), description: (p.get("description") || "").trim(),
+    composition_pattern: (p.get("composition_pattern") || "list_detail").trim(),
+    ontology_ref: (p.get("ontology_ref") || "").trim(),
+    recipe_refs: p.getAll("recipe_refs").map((s) => s.trim()).filter(Boolean),
+  };
+}
+function odkManifestPayload(p) {
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return {
+    name: (p.get("name") || "odk-manifest").trim(), description: (p.get("description") || "").trim(),
+    ontology_refs: p.getAll("ontology_refs").map((s) => s.trim()).filter(Boolean),
+    recipe_refs: p.getAll("recipe_refs").map((s) => s.trim()).filter(Boolean),
+    surface_descriptor_refs: p.getAll("surface_descriptor_refs").map((s) => s.trim()).filter(Boolean),
+    eval_refs: csv("eval_refs"), worker_plan_refs: csv("worker_plan_refs"), mcp_operator_contracts: csv("mcp_operator_contracts"),
+  };
+}
+function odkDetailActions(family, id) {
+  const e = encodeURIComponent;
+  return `<div class="row"><a class="act ghost" href="/__ioi/odk/${family}/${e(id)}/edit">Edit draft</a> <form class="inline" method="post" action="/__ioi/odk/${family}/${e(id)}/delete" onsubmit="return confirm('Delete this draft?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
+}
+// ---- forms
+function renderOdkOntologyForm(existing) {
+  const ex = existing || {}; const isEdit = !!existing; const com = ex.canonical_object_model || {};
+  const action = isEdit ? `/__ioi/odk/ontologies/${encodeURIComponent(ex.id)}/patch` : `/__ioi/odk/ontologies`;
+  const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Domain Ontology</h1>
+    <p class="sub">The semantic root. Draft-only; nothing is generated or executed.</p>
+    <form method="post" action="${action}">
+      <div class="two">${odkField("Domain", "domain", ex.domain, "lending")}${odkField("Version", "version", ex.version || "0.1.0")}</div>
+      ${odkArea("Description", "description", ex.description)}
+      <h2>Canonical object model <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— comma-separated</span></h2>
+      <div class="two">${odkCsvField("Objects", "com_objects", com.objects, "Loan, Borrower")}${odkCsvField("Actions", "com_actions", com.actions, "approve, fund")}</div>
+      <div class="two">${odkCsvField("Events", "com_events", com.events, "Funded")}${odkCsvField("States", "com_states", com.states, "draft, funded")}</div>
+      ${odkCsvField("Roles", "com_roles", com.roles, "officer")}
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft ontology"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} Domain Ontology`, inner);
+}
+function renderOdkRecipeForm(existing, pk, outputKinds) {
+  const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/odk/data-recipes/${encodeURIComponent(ex.id)}/patch` : `/__ioi/odk/data-recipes`;
+  const okOpts = (outputKinds || []).map((k) => ({ v: k, l: k }));
+  const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Data Recipe</h1>
+    <p class="sub">A repeatable transformation recipe bound to an ontology. Draft-only — no transformation runs.</p>
+    <form method="post" action="${action}">
+      ${odkField("Name", "name", ex.name, "loan-ingest")}
+      ${odkArea("Description", "description", ex.description)}
+      <div class="two">${odkSelectField("Ontology (required)", "ontology_ref", pk.ontologies, ex.ontology_ref, "no ontologies yet — create one first")}${odkSelectField("Output kind", "output_kind", okOpts, ex.output_kind || "ontology_objects")}</div>
+      ${odkCsvField("Source refs (comma-sep, named)", "source_refs", ex.source_refs, "s3://…, trace-…")}
+      <div class="two">${odkCsvField("Connector mappings (named)", "connector_mappings", ex.connector_mappings)}${odkCsvField("Policy-bound views (named)", "policy_bound_views", ex.policy_bound_views)}</div>
+      <h2>Named output refs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— resolved only when ODK-local</span></h2>
+      <div class="two">${odkCsvField("Projection refs", "projection_refs", ex.projection_refs)}${odkCsvField("Evaluation dataset refs", "evaluation_dataset_refs", ex.evaluation_dataset_refs)}</div>
+      <div class="two">${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}${odkCsvField("Workflow schema refs", "workflow_schema_refs", ex.workflow_schema_refs)}</div>
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft recipe"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} Data Recipe`, inner);
+}
+function renderOdkDescriptorForm(existing, pk, patterns) {
+  const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/odk/surface-descriptors/${encodeURIComponent(ex.id)}/patch` : `/__ioi/odk/surface-descriptors`;
+  const patOpts = (patterns || []).map((p) => ({ v: p, l: p === "domain_app" ? "domain_app — descriptor-only (not a live Domain App)" : p }));
+  const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Surface Descriptor</h1>
+    <p class="sub">A descriptor for a domain surface. <b>domain_app is descriptor-only</b> — this plane creates no live Domain App.</p>
+    <form method="post" action="${action}">
+      ${odkField("Name", "name", ex.name, "loan list")}
+      ${odkArea("Description", "description", ex.description)}
+      <div class="two">${odkSelectField("Ontology (required)", "ontology_ref", pk.ontologies, ex.ontology_ref, "create an ontology first")}${odkSelectField("Composition pattern", "composition_pattern", patOpts, ex.composition_pattern || "list_detail")}</div>
+      ${odkChecks("Recipe refs (optional)", "recipe_refs", pk.recipes, ex.recipe_refs)}
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft descriptor"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} Surface Descriptor`, inner);
+}
+function renderOdkManifestForm(existing, pk) {
+  const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/odk/manifests/${encodeURIComponent(ex.id)}/patch` : `/__ioi/odk/manifests`;
+  const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} ODK Manifest</h1>
+    <p class="sub">A builder/conformance bundle. Requires at least one ontology. Draft-only.</p>
+    <form method="post" action="${action}">
+      ${odkField("Name", "name", ex.name, "lending odk")}
+      ${odkArea("Description", "description", ex.description)}
+      ${odkChecks("Ontology refs (required)", "ontology_refs", pk.ontologies, ex.ontology_refs)}
+      ${odkChecks("Recipe refs", "recipe_refs", pk.recipes, ex.recipe_refs)}
+      ${odkChecks("Surface descriptor refs", "surface_descriptor_refs", pk.descriptors, ex.surface_descriptor_refs)}
+      <h2>Named contract refs</h2>
+      <div class="two">${odkCsvField("Eval refs", "eval_refs", ex.eval_refs)}${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}</div>
+      ${odkCsvField("MCP / operator contracts", "mcp_operator_contracts", ex.mcp_operator_contracts)}
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft manifest"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} ODK Manifest`, inner);
+}
+// ---- detail pages
+function renderOdkOntologyDetail(o) {
+  const chips = (arr) => (arr && arr.length) ? arr.map((x) => `<span class="pill muted">${CX_ESC(x)}</span>`).join(" ") : "—";
+  const com = o.canonical_object_model || {};
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(o.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(o.ref)}</code></dd>
+    <dt>Domain · version</dt><dd>${CX_ESC(o.domain)} · ${CX_ESC(o.version || "")}</dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(o.status || "draft")}</span></dd>
+    <dt>Description</dt><dd>${CX_ESC(o.description || "—")}</dd>
+    <dt>Objects</dt><dd>${chips(com.objects)}</dd><dt>Actions</dt><dd>${chips(com.actions)}</dd>
+    <dt>Events</dt><dd>${chips(com.events)}</dd><dt>States</dt><dd>${chips(com.states)}</dd><dt>Roles</dt><dd>${chips(com.roles)}</dd>
+    <dt>Created · updated</dt><dd>${CX_ESC(o.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(o.updated_at || "")}</span></dd>
+  </dl>`;
+  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}`);
+}
+function renderOdkRecipeDetail(r) {
+  const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
+  const strrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(typeof x === "string" ? x : JSON.stringify(x))}</code>`).join(" ") : "—"}</dd>`;
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(r.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(r.ref)}</code></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(r.status || "draft")}</span></dd>
+    <dt>Ontology</dt><dd>${odkRefLink(r.ontology_ref)}</dd>
+    <dt>Output kind</dt><dd>${CX_ESC(r.output_kind || "—")}</dd>
+    ${strrow("Source refs", r.source_refs)}${strrow("Connector mappings", r.connector_mappings)}${strrow("Policy-bound views", r.policy_bound_views)}
+    ${refrow("Projection refs", r.projection_refs)}${refrow("Evaluation dataset refs", r.evaluation_dataset_refs)}
+    ${refrow("Worker plan refs", r.worker_plan_refs)}${refrow("Workflow schema refs", r.workflow_schema_refs)}
+    <dt>Created · updated</dt><dd>${CX_ESC(r.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(r.updated_at || "")}</span></dd>
+  </dl>`;
+  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${grid}`);
+}
+function renderOdkDescriptorDetail(d) {
+  const isDA = d.composition_pattern === "domain_app";
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(d.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(d.ref)}</code></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(d.status || "draft")}</span></dd>
+    <dt>Composition pattern</dt><dd><span class="pill ${isDA ? "warn" : "muted"}">${CX_ESC(d.composition_pattern || "—")}</span>${isDA ? ` <span class="sub" style="margin:0">descriptor-only — not a live Domain App</span>` : ""}</dd>
+    <dt>Ontology</dt><dd>${odkRefLink(d.ontology_ref)}</dd>
+    <dt>Recipe refs</dt><dd>${(d.recipe_refs && d.recipe_refs.length) ? d.recipe_refs.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>
+    <dt>Created · updated</dt><dd>${CX_ESC(d.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(d.updated_at || "")}</span></dd>
+  </dl>`;
+  return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}`);
+}
+function renderOdkManifestDetail(m) {
+  const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
+  const strrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(typeof x === "string" ? x : JSON.stringify(x))}</code>`).join(" ") : "—"}</dd>`;
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(m.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(m.ref)}</code></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(m.status || "draft")}</span></dd>
+    ${refrow("Ontology refs", m.ontology_refs)}${refrow("Recipe refs", m.recipe_refs)}${refrow("Surface descriptor refs", m.surface_descriptor_refs)}
+    ${strrow("Eval refs", m.eval_refs)}${strrow("Worker plan refs", m.worker_plan_refs)}${strrow("MCP / operator contracts", m.mcp_operator_contracts)}
+    <dt>Created · updated</dt><dd>${CX_ESC(m.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(m.updated_at || "")}</span></dd>
+  </dl>`;
+  return automationsShell(m.name || "ODK Manifest", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(m.name || m.id)}</h1><p class="sub">OntologyDevelopmentKitManifest · draft.</p>${odkDetailActions("manifests", m.id)}${grid}`);
+}
+function odkCard(family, rec, nameKey) {
+  const e = encodeURIComponent;
+  const sub = family === "surface-descriptors" ? `pattern ${CX_ESC(rec.composition_pattern || "")}`
+    : family === "data-recipes" ? `→ ${CX_ESC(rec.ontology_ref || "")}`
+    : family === "manifests" ? `${(rec.ontology_refs || []).length} ont · ${(rec.recipe_refs || []).length} rec · ${(rec.surface_descriptor_refs || []).length} sd`
+    : (rec.ref ? CX_ESC(rec.ref) : "");
+  return `<a class="card" href="/__ioi/odk/${family}/${e(rec.id)}"><div class="main"><div class="name">${CX_ESC(rec[nameKey] || rec.name || rec.id)} <span class="pill warn">${CX_ESC(rec.status || "draft")}</span></div><div class="meta">${sub}</div></div><span class="act ghost">Open →</span></a>`;
+}
+function renderOdkLanding(ov, lists) {
+  const o = ov || {}; const sub = o.substrate || {};
+  const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
+  const head = `<h1>ODK</h1><p class="sub">Ontology Development Kit — the semantic builder. Author draft ontologies, data recipes, surface descriptors, and manifests over real substrate. Nothing here transforms data or generates a running app.</p>`;
+  const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
+  const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
+  const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Env classes", sub.environment_classes)}${stat("Foundry specs", sub.foundry_specs)}${stat("Foundry plans", sub.foundry_run_plans)}${stat("Ledger", sub.work_ledger_entries)}${stat("Connectors", sub.connectors)}</div>`;
+  const patterns = `<div class="chips"><span class="chiplabel">Composition patterns</span>${(o.composition_patterns || []).map((p) => `<span class="pill ${p === "domain_app" ? "warn" : "muted"}">${CX_ESC(p)}</span>`).join("")}</div>`;
+  const outkinds = `<div class="chips"><span class="chiplabel">Recipe output kinds</span>${(o.recipe_output_kinds || []).map((k) => `<span class="pill muted">${CX_ESC(k)}</span>`).join("")}</div>`;
+  const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
+  return automationsShell("ODK", head + banner + stats + patterns + outkinds
+    + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
+    + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe")
+    + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
+    + section("ODK Manifests", "manifests", lists.manifests, "name", "New manifest"));
+}
+// Family dispatch config: api path segment, single response key, form + detail + payload.
+const ODK_UI = {
+  "ontologies": { api: "domain-ontologies", key: "ontology", label: "Domain Ontology", payload: odkOntologyPayload, form: (ex) => renderOdkOntologyForm(ex), detail: (rec) => renderOdkOntologyDetail(rec) },
+  "data-recipes": { api: "data-recipes", key: "data_recipe", label: "Data Recipe", payload: odkRecipePayload, form: (ex, pk, ov) => renderOdkRecipeForm(ex, pk, ov.recipe_output_kinds || []), detail: (rec) => renderOdkRecipeDetail(rec) },
+  "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec) => renderOdkDescriptorDetail(rec) },
+  "manifests": { api: "manifests", key: "manifest", label: "ODK Manifest", payload: odkManifestPayload, form: (ex, pk) => renderOdkManifestForm(ex, pk), detail: (rec) => renderOdkManifestDetail(rec) },
+};
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
@@ -2584,6 +2810,84 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, HTMLH);
         res.end(renderFoundryRunPlanDetail(pres.run_plan, sres.spec || null));
         return;
+      }
+    }
+    // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
+    if (pathname === "/__ioi/odk" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [ov, o, r, d, m] = await Promise.all([
+        J("/v1/hypervisor/odk/overview"),
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/odk/data-recipes"),
+        J("/v1/hypervisor/odk/surface-descriptors"),
+        J("/v1/hypervisor/odk/manifests"),
+      ]);
+      res.writeHead(200, HTMLH);
+      res.end(renderOdkLanding(ov, {
+        ontologies: o.ontologies || [],
+        data_recipes: r.data_recipes || [],
+        surface_descriptors: d.surface_descriptors || [],
+        manifests: m.manifests || [],
+      }));
+      return;
+    }
+    if (pathname.startsWith("/__ioi/odk/")) {
+      const segs = pathname.slice("/__ioi/odk/".length).split("/").filter((s) => s.length);
+      const family = segs[0];
+      const cfg = ODK_UI[family];
+      if (cfg) {
+        const api = `/v1/hypervisor/odk/${cfg.api}`;
+        const seg1 = segs[1] || "";
+        const seg2 = segs[2] || "";
+        // new form
+        if (seg1 === "new" && req.method === "GET") {
+          const [pk, ov] = await Promise.all([odkPickers(), fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({}))]);
+          res.writeHead(200, HTMLH);
+          res.end(cfg.form(null, pk, ov));
+          return;
+        }
+        // create (POST to family root)
+        if (!seg1 && req.method === "POST") {
+          const payload = cfg.payload(new URLSearchParams(body.toString()));
+          const rr = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+          if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(rr[cfg.key].id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+          res.writeHead(200, HTMLH);
+          res.end(automationsShell(`New ${cfg.label}`, `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/new">← back</a></p>`));
+          return;
+        }
+        // item-scoped (seg1 = id)
+        if (seg1) {
+          const id = decodeURIComponent(seg1);
+          if (seg2 === "edit" && req.method === "GET") {
+            const [pk, ov, rec] = await Promise.all([
+              odkPickers(),
+              fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({})),
+              fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
+            ]);
+            res.writeHead(200, HTMLH);
+            res.end(rec.ok ? cfg.form(rec[cfg.key], pk, ov) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
+            return;
+          }
+          if (seg2 === "patch" && req.method === "POST") {
+            const payload = cfg.payload(new URLSearchParams(body.toString()));
+            const rr = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+            if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+            res.writeHead(200, HTMLH);
+            res.end(automationsShell(`Edit ${cfg.label}`, `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/${encodeURIComponent(id)}/edit">← back</a></p>`));
+            return;
+          }
+          if (seg2 === "delete" && req.method === "POST") {
+            await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+            res.writeHead(302, { Location: "/__ioi/odk", "Cache-Control": "no-cache" });
+            return res.end();
+          }
+          if (!seg2 && req.method === "GET") {
+            const rec = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+            res.writeHead(200, HTMLH);
+            res.end(rec.ok ? cfg.detail(rec[cfg.key]) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
+            return;
+          }
+        }
       }
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
