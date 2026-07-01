@@ -633,7 +633,7 @@ function renderApplications() {
     { icon: "🛡", name: "Governance", desc: "Control lens — authority, identity, leases, revocation, release/improvement candidates, gaps.", href: "/__ioi/governance", status: "live" },
     { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
     { icon: "📒", name: "Work Ledger", desc: "Unified proof stream — runs, trigger receipts, state roots, timeline links.", href: "/__ioi/work-ledger", status: "live" },
-    { icon: "🛒", name: "Marketplace", desc: "Apps, training, and walkthroughs.", status: "planned" },
+    { icon: "🛒", name: "Marketplace", desc: "Catalog & admission — list agents/apps/packs/capabilities, run publish candidates & admission reviews (admission-only).", href: "/__ioi/marketplace", status: "live" },
   ];
   const pillFor = (s) => s.status === "live"
     ? `<span class="pill ok">open</span>`
@@ -1548,6 +1548,145 @@ function renderGovernance(ov) {
     + `<h2>Governance gaps <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— what is not yet governed (no fabricated controls, never shown resolved)</span></h2>${gapsTable}`
     + `<p class="sub" style="margin-top:20px">Related: <a href="/__ioi/operations">Operations</a> · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/connections">Developer &amp; Integrations</a></p>`;
   return automationsShell("Governance", inner);
+}
+
+// ---- Marketplace — a source-grafted CATALOG / DETAIL / ADMISSION surface (estate #8, last card).
+// Grafts the reference Marketplace+Now composition shape (store-framed catalog -> product detail ->
+// install/admission state -> resource-graph handoff) onto the daemon marketplace plane. It is a
+// composition amplifier, not an admin table. admission_only_until_runtime_backing is honored end to
+// end: the "install/publish/hire" affordances are transformed into "Create candidate / Submit review
+// / Create offer / View governance blockers" — NO publish, hire, install, settle, or instantiate.
+const MP_STORES = [
+  { kind: "agent", label: "Agents Store", icon: "🤖", desc: "Configured agents offered as products." },
+  { kind: "domain_app", label: "Domain Apps Store", icon: "🧩", desc: "Domain app candidates over ODK descriptors." },
+  { kind: "ontology_pack", label: "ODK Packs Store", icon: "📦", desc: "Ontology development kits." },
+  { kind: "data_recipe", label: "Data Recipes Store", icon: "🧪", desc: "Repeatable transformation recipes." },
+  { kind: "foundry_capability", label: "Foundry Capabilities Store", icon: "🏗", desc: "Model / tool capability specs & run plans." },
+];
+const mpStoreOf = (kind) => MP_STORES.find((s) => s.kind === kind) || { label: kind, icon: "◳" };
+function marketplaceSubjectLink(kind, ref) {
+  const enc = encodeURIComponent; const r = String(ref || "");
+  const m = r.match(/^([a-z-]+):\/\/(.+)$/);
+  if (kind === "agent") return `<a href="/__ioi/agent-studio?agent=${enc(r)}">${CX_ESC(r)} ↗</a>`;
+  if (kind === "domain_app" && m) return `<a href="/__ioi/domain-apps/${enc(m[2])}">${CX_ESC(r)} ↗</a>`;
+  if (kind === "ontology_pack" && m) return `<a href="/__ioi/odk/manifests/${enc(m[2])}">${CX_ESC(r)} ↗</a>`;
+  if (kind === "data_recipe" && m) return `<a href="/__ioi/odk/data-recipes/${enc(m[2])}">${CX_ESC(r)} ↗</a>`;
+  if (kind === "foundry_capability") { const fam = r.startsWith("frun_") ? "run-plans" : "specs"; return `<a href="/__ioi/foundry/${fam}/${enc(r)}">${CX_ESC(r)} ↗</a>`; }
+  return r ? `<code>${CX_ESC(r)}</code>` : "—";
+}
+async function marketplaceSubjectOptions() {
+  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => null);
+  const [ag, da, man, rec, fs, fr] = await Promise.all([
+    J("/v1/agents"), J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/odk/manifests"),
+    J("/v1/hypervisor/odk/data-recipes"), J("/v1/hypervisor/foundry/specs"), J("/v1/hypervisor/foundry/run-plans"),
+  ]);
+  const opts = [];
+  for (const a of (Array.isArray(ag) ? ag : [])) opts.push({ kind: "agent", v: a.id, l: `${(a.id || "").slice(0, 20)} · ${a.model_id || a.modelId || "agent"}` });
+  for (const d of ((da && da.domain_apps) || [])) opts.push({ kind: "domain_app", v: d.domain_app_ref, l: d.name || d.domain_app_id });
+  for (const m of ((man && man.manifests) || [])) opts.push({ kind: "ontology_pack", v: m.ref, l: m.name || m.id });
+  for (const r of ((rec && rec.data_recipes) || [])) opts.push({ kind: "data_recipe", v: r.ref, l: r.name || r.id });
+  for (const s of ((fs && fs.specs) || [])) opts.push({ kind: "foundry_capability", v: s.id, l: `${s.name || s.id} (spec)` });
+  for (const p of ((fr && fr.run_plans) || [])) opts.push({ kind: "foundry_capability", v: p.id, l: `${p.name || p.id} (run-plan)` });
+  return opts;
+}
+function marketplacePayloadFromForm(p) {
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return {
+    name: (p.get("name") || "marketplace-listing").trim(),
+    description: (p.get("description") || "").trim(),
+    listing_kind: (p.get("listing_kind") || "agent").trim(),
+    subject_ref: (p.get("subject_ref") || "").trim(),
+    evidence_refs: csv("evidence_refs"),
+  };
+}
+function renderMarketplaceHome(ov, listings, q, storeFilter) {
+  const enc = encodeURIComponent;
+  const o = ov || {}; const sub = o.substrate || {}; const mk = o.marketplace || {};
+  const byKind = mk.listings_by_kind || {};
+  const qn = String(q || "").trim().toLowerCase();
+  let shown = listings.filter((l) => !storeFilter || l.listing_kind === storeFilter);
+  if (qn) shown = shown.filter((l) => `${l.name || ""} ${l.subject_ref || ""} ${l.listing_kind || ""}`.toLowerCase().includes(qn));
+  const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid #24262d;border-radius:12px;background:#15171c;text-decoration:none;color:inherit}.mpstore:hover{border-color:#3a82f6}.mpstore.on{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.mpstore .sn{font-weight:600;color:#fff}.mpstore .sc{color:#878a93;font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}</style>`;
+  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here.</p>`;
+  const banner = `<div class="chips"><span class="pill warn">admission_only_until_runtime_backing</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "Draft listings + admission review only; no runtime backing.")}</span></div>`;
+  const storeCards = MP_STORES.map((s) => `<a class="mpstore${storeFilter === s.kind ? " on" : ""}" href="/__ioi/marketplace?store=${enc(s.kind)}"><div class="sn">${s.icon} ${CX_ESC(s.label)} <span class="pill muted">${byKind[s.kind] || 0}</span></div><div class="sc">${CX_ESC(s.desc)}</div></a>`).join("");
+  const stores = `<h2>Stores${storeFilter ? ` · <a href="/__ioi/marketplace">show all</a>` : ""}</h2><div class="mpstores">${storeCards}</div>`;
+  const card = (l) => {
+    const st = mpStoreOf(l.listing_kind);
+    return `<a class="card" href="/__ioi/marketplace/listings/${enc(l.id || "")}" style="align-items:flex-start"><div class="main"><div class="name">${st.icon} ${CX_ESC(l.name || l.id || "listing")}</div><div class="meta"><span class="pill muted">${CX_ESC(l.listing_kind || "")}</span> <span class="pill warn">${CX_ESC(l.status || "draft")}</span> <span class="pill muted">unlisted</span></div><div class="meta" style="margin-top:6px;word-break:break-all">${CX_ESC(l.subject_ref || "")}</div></div><span class="act ghost">Open →</span></a>`;
+  };
+  const catalog = `<h2 style="display:flex;justify-content:space-between;align-items:center">Listings (${shown.length}) <a class="act" href="/__ioi/marketplace/listings/new">+ Draft listing</a></h2>
+    <form method="get" action="/__ioi/marketplace" style="margin:0 0 14px">${storeFilter ? `<input type="hidden" name="store" value="${CX_ESC(storeFilter)}">` : ""}<input class="mpsearch" name="q" value="${CX_ESC(q || "")}" placeholder="Search listings by name, subject, or kind…"></form>
+    ${shown.length ? `<div class="mpgrid">${shown.map(card).join("")}</div>` : `<div class="empty">No listings${storeFilter ? ` in ${CX_ESC(mpStoreOf(storeFilter).label)}` : ""} yet. Draft one over a real agent, domain app, ODK pack, recipe, or Foundry capability.</div>`}`;
+  const activity = `<h2>Admission activity</h2><div class="chips"><span class="pill muted">publish candidates: ${mk.publish_candidates || 0}</span> <span class="pill muted">admission reviews: ${mk.admission_reviews || 0}</span> <span class="pill muted">managed offers: ${mk.managed_instance_offers || 0}</span> <span class="pill ok">published: ${mk.published || 0}</span></div><p class="sub" style="margin:6px 0 0">Substrate: ${sub.agents || 0} agents · ${sub.domain_apps_marketplace_candidates || 0} domain-app candidates · ${sub.foundry_specs || 0} foundry specs. <a href="/__ioi/governance">Governance posture →</a></p>`;
+  return automationsShell("Marketplace", styles + head + banner + stores + catalog + activity);
+}
+function renderMarketplaceListingForm(existing, opts) {
+  const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/marketplace/listings/${enc(ex.id)}/patch` : `/__ioi/marketplace/listings`;
+  const kindOpts = MP_STORES.map((s) => `<option value="${s.kind}" ${ex.listing_kind === s.kind ? "selected" : ""}>${CX_ESC(s.label)}</option>`).join("");
+  const subjOpts = opts.map((o) => `<option value="${CX_ESC(o.v)}" data-kind="${o.kind}" ${ex.subject_ref === o.v ? "selected" : ""}>${CX_ESC(o.l)}</option>`).join("");
+  const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${isEdit ? "Edit" : "Draft"} listing</h1>
+    <p class="sub">List a real subject as a marketplace product. It stays a draft (<code>unlisted</code>) — nothing is published here.</p>
+    <form method="post" action="${action}">
+      ${odkField("Name", "name", ex.name, "Coder agent")}
+      ${odkArea("Description", "description", ex.description)}
+      <div class="two">
+        <div class="field"><label>Store / listing kind</label><select id="mp-kind" name="listing_kind">${kindOpts}</select></div>
+        <div class="field"><label>Subject (real substrate)</label><select id="mp-subject" name="subject_ref">${subjOpts || `<option value="">— none available —</option>`}</select></div>
+      </div>
+      ${odkCsvField("Evidence refs (comma-sep — receipts / eval / state-root / local scheme refs)", "evidence_refs", ex.evidence_refs)}
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft listing"}</button> <a class="act ghost" href="/__ioi/marketplace">Cancel</a></div>
+    </form>
+    <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
+  return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner);
+}
+function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov) {
+  const enc = encodeURIComponent; const l = listing || {};
+  const lid = l.id || ""; const st = mpStoreOf(l.listing_kind);
+  const govChips = (g) => g ? `<span class="pill ${g.auth_enforced ? "ok" : "muted"}">auth ${g.auth_enforced ? "enforced" : "not enforced"}</span> <span class="pill ${(g.governance_gaps || 0) > 0 ? "warn" : "ok"}">gaps: ${g.governance_gaps ?? "—"}</span>` : "—";
+  const meta = `<dl class="grid">
+    <dt>Store</dt><dd>${st.icon} ${CX_ESC(st.label)}</dd>
+    <dt>Listing kind</dt><dd><span class="pill muted">${CX_ESC(l.listing_kind || "")}</span></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(l.status || "draft")}</span> <span class="pill muted">public_state: ${CX_ESC(l.public_state || "unlisted")}</span></dd>
+    <dt>Subject</dt><dd>${marketplaceSubjectLink(l.listing_kind, l.subject_ref)}</dd>
+    <dt>Evidence</dt><dd>${(l.evidence_refs || []).length ? (l.evidence_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") : "—"}</dd>
+    <dt>Created · updated</dt><dd>${CX_ESC(l.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(l.updated_at || "")}</span></dd>
+  </dl>`;
+  const listingActions = `<div class="row"><a class="act ghost" href="/__ioi/marketplace/listings/${enc(lid)}/edit">Edit</a> <form class="inline" method="post" action="/__ioi/marketplace/listings/${enc(lid)}/delete" onsubmit="return confirm('Delete this listing draft?')"><button class="act danger" type="submit">Delete</button></form></div>`;
+
+  // Admission column — the install/publish analog, transformed to admission-only.
+  const candBlocks = candidates.map((c) => {
+    const reviews = reviewsByCandidate[c.ref] || [];
+    const reasons = (c.blocked_reasons || []).map((r) => `<span class="pill ${r === "admission_only_until_runtime_backing" ? "warn" : "danger"}" ${r !== "admission_only_until_runtime_backing" ? 'style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212"' : ""}>${CX_ESC(r)}</span>`).join(" ");
+    const g = c.governance_posture_snapshot || {};
+    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span>${rv.decision === "admitted" ? ` <span class="sub" style="margin:0">admitted, not published</span>` : ""}</td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+    return `<div class="card" style="display:block">
+      <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> <span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">publishable: false</span></div>
+        <form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form></div>
+      <div class="chips" style="margin:0 0 8px"><span class="chiplabel">Blocked reasons</span>${reasons || `<span class="sub" style="margin:0">none</span>`}</div>
+      <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>
+      <h4 style="margin:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93">Admission reviews</h4>
+      ${reviews.length ? `<table><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
+      <form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px"><input type="hidden" name="listing_id" value="${enc(lid)}">
+        <select name="decision" style="padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
+        <button class="act" type="submit">Submit admission review</button></form>
+    </div>`;
+  }).join("");
+  const admission = `<h2>Publish admission <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— admission-only; no publish action exists</span></h2>
+    ${candidates.length ? candBlocks : `<div class="empty">No publish candidate yet.</div>`}
+    <form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/candidates" style="margin-top:10px"><button class="act" type="submit">Create publish candidate</button></form>`;
+
+  // Managed instance offers (agent / domain_app only) — always uninstantiated.
+  const offerable = l.listing_kind === "agent" || l.listing_kind === "domain_app";
+  const offerRows = offers.map((o) => `<tr><td><code>${CX_ESC(o.id)}</code> ${CX_ESC(o.name || "")}</td><td><span class="pill muted">instantiated: ${o.runtime_posture && o.runtime_posture.instantiated ? "true" : "false"}</span></td><td><form class="inline" method="post" action="/__ioi/marketplace/offers/${enc(o.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+  const offersSection = `<h2>Managed instance offers <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— draft offers; never instantiated/hired</span></h2>
+    ${offers.length ? `<table><tbody>${offerRows}</tbody></table>` : `<div class="empty">No managed offers.</div>`}
+    ${offerable ? `<form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/offers" style="margin-top:10px"><button class="act" type="submit">Create managed offering (draft)</button></form>` : `<p class="sub" style="margin:8px 0 0">Managed offerings apply to agent / domain_app listings only.</p>`}`;
+
+  const handoffs = `<p class="sub" style="margin-top:20px">Resource graph: ${marketplaceSubjectLink(l.listing_kind, l.subject_ref)} · <a href="/__ioi/governance">Governance blockers</a> · <a href="/__ioi/work-ledger">Work Ledger (proof)</a></p>`;
+  const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${st.icon} ${CX_ESC(l.name || lid)}</h1><p class="sub">Marketplace listing · draft. ${CX_ESC(l.description || "")}</p>${listingActions}${meta}${admission}${offersSection}${handoffs}`;
+  return automationsShell(l.name || "Marketplace listing", inner);
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -3162,6 +3301,114 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, HTMLH);
       res.end(renderGovernance(ov));
       return;
+    }
+    // ---- Marketplace — source-grafted catalog/detail/admission surface (estate #8, last card).
+    if (pathname === "/__ioi/marketplace" && req.method === "GET") {
+      const u = new URL(req.url, "http://x");
+      const [ov, ls] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/marketplace/overview`).then((r) => r.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, HTMLH);
+      res.end(renderMarketplaceHome(ov, ls.listings || [], u.searchParams.get("q") || "", u.searchParams.get("store") || ""));
+      return;
+    }
+    if (pathname === "/__ioi/marketplace/listings/new" && req.method === "GET") {
+      res.writeHead(200, HTMLH);
+      res.end(renderMarketplaceListingForm(null, await marketplaceSubjectOptions()));
+      return;
+    }
+    if (pathname === "/__ioi/marketplace/listings" && req.method === "POST") {
+      const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
+      const rr = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(rr.listing.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+      res.writeHead(200, HTMLH);
+      res.end(automationsShell("Draft listing", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/new">← back</a></p>`));
+      return;
+    }
+    if (pathname.startsWith("/__ioi/marketplace/listings/")) {
+      const [rawId, action] = pathname.slice("/__ioi/marketplace/listings/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      const listingApi = `/v1/hypervisor/marketplace/listings/${encodeURIComponent(id)}`;
+      if (action === "edit" && req.method === "GET") {
+        const [lr, opts] = await Promise.all([fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({})), marketplaceSubjectOptions()]);
+        res.writeHead(200, HTMLH);
+        res.end(lr.ok ? renderMarketplaceListingForm(lr.listing, opts) : automationsShell("Not found", `<div class="empty">Listing not found.</div><p><a href="/__ioi/marketplace">← Marketplace</a></p>`));
+        return;
+      }
+      if (action === "patch" && req.method === "POST") {
+        const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
+        const rr = await fetch(`${DAEMON}${listingApi}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+        res.writeHead(200, HTMLH);
+        res.end(automationsShell("Edit listing", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        return;
+      }
+      if (action === "delete" && req.method === "POST") {
+        await fetch(`${DAEMON}${listingApi}`, { method: "DELETE" }).catch(() => {});
+        res.writeHead(302, { Location: "/__ioi/marketplace", "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (action === "candidates" && req.method === "POST") {
+        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        if (lr.ok) await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ listing_ref: lr.listing.ref }) }).catch(() => {});
+        res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (action === "offers" && req.method === "POST") {
+        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        if (lr.ok) await fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer_kind: lr.listing.listing_kind, subject_ref: lr.listing.subject_ref, listing_ref: lr.listing.ref, name: `${lr.listing.name || "offer"} (offer)` }) }).catch(() => {});
+        res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (!action && req.method === "GET") {
+        const lr = await fetch(`${DAEMON}${listingApi}`).then((x) => x.json()).catch(() => ({}));
+        if (!lr.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Listing not found.</div><p><a href="/__ioi/marketplace">← Marketplace</a></p>`)); return; }
+        const listing = lr.listing;
+        const [cRes, rRes, oRes, gRes] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/marketplace/overview`).then((x) => x.json()).catch(() => ({})),
+        ]);
+        const candidates = (cRes.publish_candidates || []).filter((c) => c.listing_ref === listing.ref);
+        const reviewsByCandidate = {};
+        for (const rv of (rRes.admission_reviews || [])) { (reviewsByCandidate[rv.candidate_ref] = reviewsByCandidate[rv.candidate_ref] || []).push(rv); }
+        const offers = (oRes.managed_instance_offers || []).filter((o) => o.subject_ref === listing.subject_ref);
+        const gov = (gRes.governance_posture) || null;
+        res.writeHead(200, HTMLH);
+        res.end(renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov));
+        return;
+      }
+    }
+    if (pathname.startsWith("/__ioi/marketplace/candidates/") && req.method === "POST") {
+      const [rawId, action] = pathname.slice("/__ioi/marketplace/candidates/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      const p = new URLSearchParams(body.toString());
+      const back = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
+      if (action === "delete") {
+        await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      } else if (action === "reviews") {
+        await fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
+      }
+      res.writeHead(302, { Location: back, "Cache-Control": "no-cache" });
+      return res.end();
+    }
+    if (pathname.startsWith("/__ioi/marketplace/reviews/") && req.method === "POST") {
+      const [rawId] = pathname.slice("/__ioi/marketplace/reviews/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      const p = new URLSearchParams(body.toString());
+      await fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
+      return res.end();
+    }
+    if (pathname.startsWith("/__ioi/marketplace/offers/") && req.method === "POST") {
+      const [rawId] = pathname.slice("/__ioi/marketplace/offers/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      const p = new URLSearchParams(body.toString());
+      await fetch(`${DAEMON}/v1/hypervisor/marketplace/instance-offers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
+      return res.end();
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
