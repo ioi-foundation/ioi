@@ -46,6 +46,8 @@ mod endgame_routes;
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
 mod foundry_routes;
+#[path = "hypervisor_daemon_routes/governance_routes.rs"]
+mod governance_routes;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
@@ -1101,6 +1103,12 @@ async fn async_main() -> anyhow::Result<()> {
             get(domain_apps_routes::handle_domain_apps_get)
                 .patch(domain_apps_routes::handle_domain_apps_patch)
                 .delete(domain_apps_routes::handle_domain_apps_delete),
+        )
+        // Governance object plane (foundation) — a READ PROJECTION aggregating real authority /
+        // identity / lease / admission substrate + naming missing controls. No CRUD, no mutation.
+        .route(
+            "/v1/hypervisor/governance/overview",
+            get(governance_routes::handle_governance_overview),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
