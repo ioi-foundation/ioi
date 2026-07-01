@@ -50,6 +50,8 @@ mod foundry_routes;
 mod governance_routes;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
+mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
@@ -1109,6 +1111,52 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/governance/overview",
             get(governance_routes::handle_governance_overview),
+        )
+        // Marketplace object plane (foundation) — draft listings / publish candidates / admission
+        // reviews / managed-instance offers over real substrate. admission_only_until_runtime_backing:
+        // nothing is published, hired, instantiated, settled, or routed.
+        .route(
+            "/v1/hypervisor/marketplace/overview",
+            get(marketplace_routes::handle_marketplace_overview),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/listings",
+            get(marketplace_routes::handle_listing_list).post(marketplace_routes::handle_listing_create),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/listings/:id",
+            get(marketplace_routes::handle_listing_get)
+                .patch(marketplace_routes::handle_listing_patch)
+                .delete(marketplace_routes::handle_listing_delete),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/publish-candidates",
+            get(marketplace_routes::handle_candidate_list).post(marketplace_routes::handle_candidate_create),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/publish-candidates/:id",
+            get(marketplace_routes::handle_candidate_get)
+                .delete(marketplace_routes::handle_candidate_delete),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/admission-reviews",
+            get(marketplace_routes::handle_review_list).post(marketplace_routes::handle_review_create),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/admission-reviews/:id",
+            get(marketplace_routes::handle_review_get)
+                .patch(marketplace_routes::handle_review_patch)
+                .delete(marketplace_routes::handle_review_delete),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/instance-offers",
+            get(marketplace_routes::handle_offer_list).post(marketplace_routes::handle_offer_create),
+        )
+        .route(
+            "/v1/hypervisor/marketplace/instance-offers/:id",
+            get(marketplace_routes::handle_offer_get)
+                .patch(marketplace_routes::handle_offer_patch)
+                .delete(marketplace_routes::handle_offer_delete),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
