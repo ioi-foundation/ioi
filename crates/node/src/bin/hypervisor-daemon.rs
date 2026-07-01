@@ -1112,6 +1112,49 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/governance/overview",
             get(governance_routes::handle_governance_overview),
         )
+        // Governance control objects (foundation, record-only — transitions record state, never
+        // execute revoke/kill/release/publish/mount). ApprovalRequest / ReleaseControl / KillSwitch /
+        // ImprovementGate.
+        .route(
+            "/v1/hypervisor/governance/approval-requests",
+            get(governance_routes::handle_approval_list).post(governance_routes::handle_approval_create),
+        )
+        .route(
+            "/v1/hypervisor/governance/approval-requests/:id",
+            get(governance_routes::handle_approval_get)
+                .patch(governance_routes::handle_approval_patch)
+                .delete(governance_routes::handle_approval_delete),
+        )
+        .route(
+            "/v1/hypervisor/governance/release-controls",
+            get(governance_routes::handle_release_list).post(governance_routes::handle_release_create),
+        )
+        .route(
+            "/v1/hypervisor/governance/release-controls/:id",
+            get(governance_routes::handle_release_get)
+                .patch(governance_routes::handle_release_patch)
+                .delete(governance_routes::handle_release_delete),
+        )
+        .route(
+            "/v1/hypervisor/governance/kill-switches",
+            get(governance_routes::handle_kill_list).post(governance_routes::handle_kill_create),
+        )
+        .route(
+            "/v1/hypervisor/governance/kill-switches/:id",
+            get(governance_routes::handle_kill_get)
+                .patch(governance_routes::handle_kill_patch)
+                .delete(governance_routes::handle_kill_delete),
+        )
+        .route(
+            "/v1/hypervisor/governance/improvement-gates",
+            get(governance_routes::handle_gate_list).post(governance_routes::handle_gate_create),
+        )
+        .route(
+            "/v1/hypervisor/governance/improvement-gates/:id",
+            get(governance_routes::handle_gate_get)
+                .patch(governance_routes::handle_gate_patch)
+                .delete(governance_routes::handle_gate_delete),
+        )
         // Marketplace object plane (foundation) — draft listings / publish candidates / admission
         // reviews / managed-instance offers over real substrate. admission_only_until_runtime_backing:
         // nothing is published, hired, instantiated, settled, or routed.

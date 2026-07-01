@@ -16,11 +16,14 @@
 use std::sync::Arc;
 
 use axum::extract::State;
+use axum::extract::{Path as AxumPath, Query};
+use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::path::Path;
 
-use super::{read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 
 async fn gj(base: &str, path: &str) -> Value {
     match reqwest::Client::new().get(format!("{base}{path}")).send().await {
@@ -237,14 +240,34 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
     // exists but is not governed/exposed here; else the control object itself is missing.
     let enforced = authpol.get("effective_enforced").and_then(|v| v.as_bool()).unwrap_or(false);
     let wallet_live = posture.get("wallet_network_live").and_then(|v| v.as_bool()).unwrap_or(false);
+
+    // ---- Control objects (Option A: durable governance truth; record-only, enforcement deferred).
+    let approvals = read_record_dir(&st.data_dir, KIND_APPROVAL);
+    let releases = read_record_dir(&st.data_dir, KIND_RELEASE);
+    let killswitches = read_record_dir(&st.data_dir, KIND_KILL);
+    let gates = read_record_dir(&st.data_dir, KIND_GATE);
+    let control_objects = json!({
+        "approval_requests": { "total": approvals.len(), "by_status": serde_json::to_value(histogram(&approvals, "status")).unwrap_or_else(|_| json!({})) },
+        "release_controls": { "total": releases.len(), "by_state": serde_json::to_value(histogram(&releases, "state")).unwrap_or_else(|_| json!({})) },
+        "kill_switches": { "total": killswitches.len(), "by_state": serde_json::to_value(histogram(&killswitches, "state")).unwrap_or_else(|_| json!({})) },
+        "improvement_gates": { "total": gates.len(), "by_state": serde_json::to_value(histogram(&gates, "state")).unwrap_or_else(|_| json!({})) }
+    });
+    // The four control-object gaps FLIP from missing-control to present/control-empty now that the
+    // plane exists; enforcement is still deferred (record-only). The genuinely-open gaps that remain
+    // are the substrate-inactive ones (auth enforcement, wallet network). summary.governance_gaps
+    // counts only the still-open gaps, so downstream blocked_reasons stays honest.
+    let present = |n: usize| if n > 0 { "present" } else { "control_empty" };
+    let pending_approvals = approvals.iter().filter(|a| a.get("status").and_then(|v| v.as_str()) == Some("pending")).count();
+    let tripped = killswitches.iter().filter(|k| k.get("state").and_then(|v| v.as_str()) == Some("tripped")).count();
     let governance_gaps = json!([
-        { "id": "approval_request_object", "title": "No persisted ApprovalRequest object", "detail": "Approvals live implicitly as authority grants/receipts; there is no standalone approval-request record to list, route, or resolve.", "has_substrate": false },
-        { "id": "release_control_object", "title": "No ReleaseControl object or release-gate mutation", "detail": "Foundry promotion and Domain App mount are preview/draft only; nothing gates or performs a release.", "has_substrate": false },
-        { "id": "kill_switch_object", "title": "No KillSwitch object or kill-switch mutation path", "detail": "There is no persisted kill-switch control or mutation endpoint.", "has_substrate": false },
-        { "id": "improvement_gate_object", "title": "No formal bounded-improvement gate object", "detail": "Foundry tune/eval work exists but no improvement-gate record bounds/approves it.", "has_substrate": false },
-        { "id": "auth_enforcement_inactive", "title": "Identity enforcement present but not active", "detail": format!("The IdP/enforcement ring exists but effective_enforced={enforced} in this deployment."), "has_substrate": true },
-        { "id": "wallet_network_offline", "title": "Wallet authority network not live", "detail": format!("local_operator mode; wallet_network_live={wallet_live} — portable/delegated authority is not live."), "has_substrate": true }
+        { "id": "approval_request_object", "title": "ApprovalRequest control present", "status": present(approvals.len()), "count": approvals.len(), "detail": format!("{} approval request(s) recorded ({} pending). Records only — approval does not execute the action.", approvals.len(), pending_approvals), "has_substrate": true },
+        { "id": "release_control_object", "title": "ReleaseControl present", "status": present(releases.len()), "count": releases.len(), "detail": format!("{} release control(s) recorded. Records only — opening a gate does not perform a release.", releases.len()), "has_substrate": true },
+        { "id": "kill_switch_object", "title": "KillSwitch present", "status": present(killswitches.len()), "count": killswitches.len(), "detail": format!("{} kill switch(es) recorded ({} tripped). Records only — tripping does not revoke/kill yet.", killswitches.len(), tripped), "has_substrate": true },
+        { "id": "improvement_gate_object", "title": "ImprovementGate present", "status": present(gates.len()), "count": gates.len(), "detail": format!("{} improvement gate(s) recorded. Records only — bounds are captured, not enforced.", gates.len()), "has_substrate": true },
+        { "id": "auth_enforcement_inactive", "title": "Identity enforcement present but not active", "status": "open", "detail": format!("The IdP/enforcement ring exists but effective_enforced={enforced} in this deployment."), "has_substrate": true },
+        { "id": "wallet_network_offline", "title": "Wallet authority network not live", "status": "open", "detail": format!("local_operator mode; wallet_network_live={wallet_live} — portable/delegated authority is not live."), "has_substrate": true }
     ]);
+    let open_gaps = governance_gaps.as_array().map(|a| a.iter().filter(|g| g.get("status").and_then(|v| v.as_str()) == Some("open")).count()).unwrap_or(0);
 
     Json(json!({
         "ok": true,
@@ -260,7 +283,8 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
             "connectors": connectors.len() + scm.len(),
             "automations": automations.len(),
             "odk_manifests": odk_manifests.len(),
-            "governance_gaps": 6
+            "governance_gaps": open_gaps,
+            "control_objects_total": approvals.len() + releases.len() + killswitches.len() + gates.len()
         },
         "authority_posture": authority_posture,
         "identity_posture": identity_posture,
@@ -270,13 +294,429 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
         "release_control_candidates": release_control_candidates,
         "revocation_targets": revocation_targets,
         "improvement_gate_candidates": improvement_gate_candidates,
+        "control_objects": control_objects,
         "governance_gaps": governance_gaps
     }))
+}
+
+// ============================ CONTROL OBJECTS (Option A: record-only) ===========================
+//
+// Durable governance control objects. State transitions record governance TRUTH only — they never
+// call authority/revoke, lease revoke, connector disconnect, release/apply, publish, mount, rollback,
+// or kill endpoints. Each object may carry enforcement_preview / would_call / required_authority_refs
+// naming what a later authority-gated crossing WOULD do, but this plane executes none of it.
+
+const KIND_APPROVAL: &str = "governance-approval-requests";
+const KIND_RELEASE: &str = "governance-release-controls";
+const KIND_KILL: &str = "governance-kill-switches";
+const KIND_GATE: &str = "governance-improvement-gates";
+
+fn safe(seg: &str) -> String {
+    seg.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+}
+fn nanos() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+}
+fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
+    serde_json::from_slice(
+        &std::fs::read(Path::new(data_dir).join(kind).join(format!("{}.json", safe(id)))).ok()?,
+    )
+    .ok()
+}
+fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+fn split_ref(r: &str) -> Option<(&str, &str)> {
+    r.split_once("://").filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
+}
+fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
+    body.get(key).and_then(|v| v.as_str()).map(str::trim).unwrap_or("")
+}
+fn str_refs(body: &Value, key: &str) -> Vec<String> {
+    body.get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).filter(|s| !s.is_empty()).map(str::to_string).collect())
+        .unwrap_or_default()
+}
+/// A control target ref is REQUIRED (non-empty). If it LOOKS local (a foundry id or a known local
+/// scheme) it must resolve to a real record; otherwise it is an allowed named ref (authority action,
+/// connector id, lease id, model route, external target, …).
+fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String)> {
+    if r.is_empty() {
+        return Err(("governance_ref_required".into(), "a target ref is required".into()));
+    }
+    let unresolved = |scheme: &str| Err(("governance_ref_unresolved".into(), format!("local ref '{r}' does not resolve to a {scheme} record")));
+    if r.starts_with("fspec_") {
+        return if load(data_dir, "foundry-specs", r).is_some() { Ok(()) } else { unresolved("foundry-spec") };
+    }
+    if r.starts_with("frun_") {
+        return if load(data_dir, "foundry-run-plans", r).is_some() { Ok(()) } else { unresolved("foundry-run-plan") };
+    }
+    if let Some((scheme, id)) = split_ref(r) {
+        let kind = match scheme {
+            "marketplace-publish" => Some("marketplace-publish-candidates"),
+            "marketplace-listing" => Some("marketplace-listings"),
+            "marketplace-admission" => Some("marketplace-admission-reviews"),
+            "managed-instance-offer" => Some("marketplace-instance-offers"),
+            "domain-app" => Some("domain-apps"),
+            "surface-descriptor" => Some("odk-surface-descriptors"),
+            "odk" => Some("odk-manifests"),
+            "recipe" => Some("odk-data-recipes"),
+            "ontology" => Some("odk-domain-ontologies"),
+            "approval-request" => Some(KIND_APPROVAL),
+            "release-control" => Some(KIND_RELEASE),
+            "kill-switch" => Some(KIND_KILL),
+            "improvement-gate" => Some(KIND_GATE),
+            _ => None, // authority-action:// / connector:// / lease:// / route:// / http:// → named
+        };
+        if let Some(k) = kind {
+            if load(data_dir, k, id).is_none() {
+                return unresolved(scheme);
+            }
+        }
+    }
+    Ok(())
+}
+
+// ---- pure state machines (record-only; unit-tested) --------------------------------------------
+fn next_approval_status(cur: &str, t: &str) -> Result<&'static str, String> {
+    match (cur, t) {
+        ("pending", "approve") => Ok("approved"),
+        ("pending", "reject") => Ok("rejected"),
+        ("approved", "revoke") => Ok("revoked"),
+        _ => Err(format!("invalid transition '{t}' from '{cur}' (pending->approve|reject, approved->revoke)")),
+    }
+}
+fn next_kill_state(cur: &str, t: &str) -> Result<&'static str, String> {
+    match (cur, t) {
+        ("armed", "trip") => Ok("tripped"),
+        ("tripped", "rearm") => Ok("armed"),
+        _ => Err(format!("invalid transition '{t}' from '{cur}' (armed->trip, tripped->rearm)")),
+    }
+}
+fn next_gate_state(cur: &str, t: &str) -> Result<&'static str, String> {
+    match (cur, t) {
+        ("open", "bound") => Ok("bounded"),
+        ("bounded", "close") => Ok("closed"),
+        ("bounded", "reopen") | ("closed", "reopen") => Ok("open"),
+        _ => Err(format!("invalid transition '{t}' from '{cur}' (open->bound, bounded->close, ->reopen)")),
+    }
+}
+/// Release transitions: open/close change state; request_rollback/request_recall set a flag (Ok(None)).
+fn next_release_state(cur: &str, t: &str) -> Result<Option<&'static str>, String> {
+    match (cur, t) {
+        ("closed", "open") => Ok(Some("open")),
+        ("open", "close") => Ok(Some("closed")),
+        (_, "request_rollback") | (_, "request_recall") => Ok(None),
+        _ => Err(format!("invalid transition '{t}' from '{cur}' (closed->open, open->close, request_rollback|request_recall)")),
+    }
+}
+
+fn g_list(data_dir: &str, kind: &str, key: &str) -> Json<Value> {
+    let mut items = read_record_dir(data_dir, kind);
+    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    Json(json!({ "ok": true, key: items }))
+}
+fn g_get(data_dir: &str, kind: &str, key: &str, id: &str) -> Json<Value> {
+    match load(data_dir, kind, id) {
+        Some(r) => Json(json!({ "ok": true, key: r })),
+        None => Json(json!({ "ok": false, "reason": format!("{key} not found") })),
+    }
+}
+fn g_del(data_dir: &str, kind: &str, id: &str) -> Json<Value> {
+    let removed = remove_record(data_dir, kind, id);
+    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+}
+/// Common optional control fields (enforcement is NAMED, never executed).
+fn control_common(body: &Value) -> Value {
+    json!({
+        "enforcement_preview": body.get("enforcement_preview").cloned().unwrap_or(Value::Null),
+        "would_call": body.get("would_call").cloned().unwrap_or_else(|| json!([])),
+        "required_authority_refs": str_refs(body, "required_authority_refs")
+    })
+}
+
+// ---- ApprovalRequest ---------------------------------------------------------------------------
+pub(crate) async fn handle_approval_list(State(st): State<Arc<DaemonState>>, Query(q): Query<HashMap<String, String>>) -> Json<Value> {
+    let mut items = read_record_dir(&st.data_dir, KIND_APPROVAL);
+    if let Some(s) = q.get("status").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        items.retain(|a| a.get("status").and_then(|v| v.as_str()) == Some(s));
+    }
+    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    Json(json!({ "ok": true, "approval_requests": items }))
+}
+pub(crate) async fn handle_approval_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let subject_ref = str_field(&body, "subject_ref");
+    if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
+        return bad(&c, &m);
+    }
+    let id = format!("appr_{:x}", nanos());
+    let now = iso_now();
+    let mut record = json!({
+        "schema_version": "ioi.hypervisor.governance.approval-request.v1",
+        "object": "ioi.hypervisor.governance.approval_request",
+        "id": id, "ref": format!("approval-request://{id}"),
+        "subject_ref": subject_ref,
+        "request_kind": body.get("request_kind").and_then(|v| v.as_str()).unwrap_or(""),
+        "reason": body.get("reason").and_then(|v| v.as_str()).unwrap_or(""),
+        "status": "pending",
+        "reviewer_ref": Value::Null,
+        "decided_at": Value::Null,
+        "created_at": now, "updated_at": now
+    });
+    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "approval_request": record })))
+}
+pub(crate) async fn handle_approval_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_get(&st.data_dir, KIND_APPROVAL, "approval_request", &id)
+}
+pub(crate) async fn handle_approval_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut a) = load(&st.data_dir, KIND_APPROVAL, &id) else {
+        return Json(json!({ "ok": false, "reason": "approval_request not found" }));
+    };
+    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
+        let cur = a.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
+        match next_approval_status(cur, t) {
+            Ok(next) => {
+                a["status"] = json!(next);
+                a["decided_at"] = json!(iso_now());
+                if let Some(rv) = body.get("reviewer_ref") { a["reviewer_ref"] = rv.clone(); }
+            }
+            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+        }
+    }
+    for key in ["request_kind", "reason", "reviewer_ref", "enforcement_preview", "would_call", "required_authority_refs"] {
+        if let Some(v) = body.get(key) { a[key] = v.clone(); }
+    }
+    a["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &a);
+    Json(json!({ "ok": true, "approval_request": a }))
+}
+pub(crate) async fn handle_approval_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_del(&st.data_dir, KIND_APPROVAL, &id)
+}
+
+// ---- ReleaseControl ----------------------------------------------------------------------------
+pub(crate) async fn handle_release_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    g_list(&st.data_dir, KIND_RELEASE, "release_controls")
+}
+pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let target = str_field(&body, "release_target_ref");
+    if let Err((c, m)) = resolve_governance_ref(&st.data_dir, target) {
+        return bad(&c, &m);
+    }
+    let id = format!("rel_{:x}", nanos());
+    let now = iso_now();
+    let mut record = json!({
+        "schema_version": "ioi.hypervisor.governance.release-control.v1",
+        "object": "ioi.hypervisor.governance.release_control",
+        "id": id, "ref": format!("release-control://{id}"),
+        "release_target_ref": target,
+        "state": "closed",
+        "rollback_requested": false,
+        "recall_requested": false,
+        "canary": body.get("canary").cloned().unwrap_or(Value::Null),
+        "cohort": body.get("cohort").cloned().unwrap_or(Value::Null),
+        "created_at": now, "updated_at": now
+    });
+    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "release_control": record })))
+}
+pub(crate) async fn handle_release_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_get(&st.data_dir, KIND_RELEASE, "release_control", &id)
+}
+pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut r) = load(&st.data_dir, KIND_RELEASE, &id) else {
+        return Json(json!({ "ok": false, "reason": "release_control not found" }));
+    };
+    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
+        let cur = r.get("state").and_then(|v| v.as_str()).unwrap_or("closed");
+        match next_release_state(cur, t) {
+            Ok(Some(next)) => r["state"] = json!(next),
+            Ok(None) => { if t == "request_rollback" { r["rollback_requested"] = json!(true); } else { r["recall_requested"] = json!(true); } }
+            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+        }
+    }
+    for key in ["canary", "cohort", "enforcement_preview", "would_call", "required_authority_refs"] {
+        if let Some(v) = body.get(key) { r[key] = v.clone(); }
+    }
+    r["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &r);
+    Json(json!({ "ok": true, "release_control": r }))
+}
+pub(crate) async fn handle_release_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_del(&st.data_dir, KIND_RELEASE, &id)
+}
+
+// ---- KillSwitch --------------------------------------------------------------------------------
+pub(crate) async fn handle_kill_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    g_list(&st.data_dir, KIND_KILL, "kill_switches")
+}
+pub(crate) async fn handle_kill_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let subject_ref = str_field(&body, "subject_ref");
+    if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
+        return bad(&c, &m);
+    }
+    let id = format!("kill_{:x}", nanos());
+    let now = iso_now();
+    let mut record = json!({
+        "schema_version": "ioi.hypervisor.governance.kill-switch.v1",
+        "object": "ioi.hypervisor.governance.kill_switch",
+        "id": id, "ref": format!("kill-switch://{id}"),
+        "subject_ref": subject_ref,
+        // The revoke/disable path this switch WOULD call at enforcement time (named, not called).
+        "revoke_path": body.get("revoke_path").and_then(|v| v.as_str()).unwrap_or(""),
+        "state": "armed",
+        "trip_reason": Value::Null,
+        "tripped_at": Value::Null,
+        "created_at": now, "updated_at": now
+    });
+    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "kill_switch": record })))
+}
+pub(crate) async fn handle_kill_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_get(&st.data_dir, KIND_KILL, "kill_switch", &id)
+}
+pub(crate) async fn handle_kill_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut k) = load(&st.data_dir, KIND_KILL, &id) else {
+        return Json(json!({ "ok": false, "reason": "kill_switch not found" }));
+    };
+    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
+        let cur = k.get("state").and_then(|v| v.as_str()).unwrap_or("armed");
+        match next_kill_state(cur, t) {
+            Ok(next) => {
+                k["state"] = json!(next);
+                if next == "tripped" {
+                    k["tripped_at"] = json!(iso_now());
+                    k["trip_reason"] = json!(body.get("trip_reason").and_then(|v| v.as_str()).unwrap_or(""));
+                } else {
+                    k["tripped_at"] = Value::Null;
+                    k["trip_reason"] = Value::Null;
+                }
+            }
+            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+        }
+    }
+    for key in ["subject_ref", "revoke_path", "enforcement_preview", "would_call", "required_authority_refs"] {
+        if let Some(v) = body.get(key) { k[key] = v.clone(); }
+    }
+    k["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
+    Json(json!({ "ok": true, "kill_switch": k }))
+}
+pub(crate) async fn handle_kill_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_del(&st.data_dir, KIND_KILL, &id)
+}
+
+// ---- ImprovementGate ---------------------------------------------------------------------------
+pub(crate) async fn handle_gate_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    g_list(&st.data_dir, KIND_GATE, "improvement_gates")
+}
+pub(crate) async fn handle_gate_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let subject_ref = str_field(&body, "subject_ref");
+    if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
+        return bad(&c, &m);
+    }
+    let id = format!("impg_{:x}", nanos());
+    let now = iso_now();
+    let bounds = body.get("bounds").cloned().unwrap_or_else(|| {
+        json!({
+            "max_iterations": body.get("max_iterations").cloned().unwrap_or(Value::Null),
+            "eval_threshold": body.get("eval_threshold").cloned().unwrap_or(Value::Null),
+            "privacy_posture": body.get("privacy_posture").cloned().unwrap_or(Value::Null),
+            "rollback_ref": body.get("rollback_ref").cloned().unwrap_or(Value::Null),
+            "promotion_policy_ref": body.get("promotion_policy_ref").cloned().unwrap_or(Value::Null)
+        })
+    });
+    let mut record = json!({
+        "schema_version": "ioi.hypervisor.governance.improvement-gate.v1",
+        "object": "ioi.hypervisor.governance.improvement_gate",
+        "id": id, "ref": format!("improvement-gate://{id}"),
+        "subject_ref": subject_ref,
+        "state": "open",
+        "bounds": bounds,
+        "created_at": now, "updated_at": now
+    });
+    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "improvement_gate": record })))
+}
+pub(crate) async fn handle_gate_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_get(&st.data_dir, KIND_GATE, "improvement_gate", &id)
+}
+pub(crate) async fn handle_gate_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut g) = load(&st.data_dir, KIND_GATE, &id) else {
+        return Json(json!({ "ok": false, "reason": "improvement_gate not found" }));
+    };
+    if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
+        let cur = g.get("state").and_then(|v| v.as_str()).unwrap_or("open");
+        match next_gate_state(cur, t) {
+            Ok(next) => g["state"] = json!(next),
+            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+        }
+    }
+    for key in ["bounds", "enforcement_preview", "would_call", "required_authority_refs"] {
+        if let Some(v) = body.get(key) { g[key] = v.clone(); }
+    }
+    g["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_GATE, &id, &g);
+    Json(json!({ "ok": true, "improvement_gate": g }))
+}
+pub(crate) async fn handle_gate_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_del(&st.data_dir, KIND_GATE, &id)
 }
 
 #[cfg(test)]
 mod governance_tests {
     use super::*;
+
+    #[test]
+    fn approval_transitions_valid_and_invalid() {
+        assert_eq!(next_approval_status("pending", "approve").unwrap(), "approved");
+        assert_eq!(next_approval_status("pending", "reject").unwrap(), "rejected");
+        assert_eq!(next_approval_status("approved", "revoke").unwrap(), "revoked");
+        assert!(next_approval_status("approved", "approve").is_err());
+        assert!(next_approval_status("rejected", "revoke").is_err());
+        assert!(next_approval_status("pending", "publish").is_err());
+    }
+
+    #[test]
+    fn kill_and_gate_and_release_transitions() {
+        assert_eq!(next_kill_state("armed", "trip").unwrap(), "tripped");
+        assert_eq!(next_kill_state("tripped", "rearm").unwrap(), "armed");
+        assert!(next_kill_state("armed", "rearm").is_err());
+        assert_eq!(next_gate_state("open", "bound").unwrap(), "bounded");
+        assert_eq!(next_gate_state("bounded", "close").unwrap(), "closed");
+        assert_eq!(next_gate_state("closed", "reopen").unwrap(), "open");
+        assert!(next_gate_state("open", "close").is_err());
+        assert_eq!(next_release_state("closed", "open").unwrap(), Some("open"));
+        assert_eq!(next_release_state("open", "close").unwrap(), Some("closed"));
+        assert_eq!(next_release_state("open", "request_rollback").unwrap(), None); // flag, no state change
+        assert!(next_release_state("closed", "close").is_err());
+    }
+
+    #[test]
+    fn resolve_governance_ref_named_vs_local() {
+        // named refs (no scheme / unknown scheme) are allowed without resolution
+        assert!(resolve_governance_ref("/nonexistent", "authority-action://spend").is_ok());
+        assert!(resolve_governance_ref("/nonexistent", "connector:conn_123").is_ok());
+        assert!(resolve_governance_ref("/nonexistent", "lease_abc").is_ok());
+        // required (empty) rejected
+        assert_eq!(resolve_governance_ref("/nonexistent", "").unwrap_err().0, "governance_ref_required");
+        // local-looking (foundry id / known scheme) must resolve -> unresolved in an empty dir
+        assert_eq!(resolve_governance_ref("/nonexistent", "frun_x").unwrap_err().0, "governance_ref_unresolved");
+        assert_eq!(resolve_governance_ref("/nonexistent", "domain-app://dapp_x").unwrap_err().0, "governance_ref_unresolved");
+        assert_eq!(resolve_governance_ref("/nonexistent", "marketplace-publish://mpub_x").unwrap_err().0, "governance_ref_unresolved");
+    }
 
     #[test]
     fn grant_stats_counts_granted_revoked_active() {
