@@ -32,6 +32,8 @@ mod agentops_routes;
 mod authority_routes;
 #[path = "hypervisor_daemon_routes/binding_routes.rs"]
 mod binding_routes;
+#[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
+mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -1081,6 +1083,24 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/surface-descriptors",
             get(odk_routes::handle_odk_descriptor_list),
+        )
+        // Domain Apps object plane (foundation) — draft DomainApp candidates over an ODK domain_app
+        // surface descriptor. Draft-only: no generated/mounted runtime, no domain-action execution,
+        // no marketplace publish. /blueprints stays 404.
+        .route(
+            "/v1/hypervisor/domain-apps/overview",
+            get(domain_apps_routes::handle_domain_apps_overview),
+        )
+        .route(
+            "/v1/hypervisor/domain-apps",
+            get(domain_apps_routes::handle_domain_apps_list)
+                .post(domain_apps_routes::handle_domain_apps_create),
+        )
+        .route(
+            "/v1/hypervisor/domain-apps/:id",
+            get(domain_apps_routes::handle_domain_apps_get)
+                .patch(domain_apps_routes::handle_domain_apps_patch)
+                .delete(domain_apps_routes::handle_domain_apps_delete),
         )
         .route(
             "/v1/hypervisor/automation-executions/:id",
