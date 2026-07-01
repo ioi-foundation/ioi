@@ -628,7 +628,7 @@ function renderApplications() {
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, and activity.", href: "/__ioi/agent-studio", status: "live" },
     { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews over real model substrate.", href: "/__ioi/foundry", status: "live" },
     { icon: "📦", name: "ODK", desc: "Ontology Development Kit — draft ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
-    { icon: "🧩", name: "Domain Apps", desc: "Vertical, form-factored app surfaces.", status: "planned" },
+    { icon: "🧩", name: "Domain Apps", desc: "Draft app candidates over ODK domain_app descriptors (no runtime yet).", href: "/__ioi/domain-apps", status: "live" },
     { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
     { icon: "🛡", name: "Governance", desc: "Permissions, controls, and release gates.", status: "planned" },
     { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
@@ -1335,6 +1335,108 @@ const ODK_UI = {
   "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec) => renderOdkDescriptorDetail(rec) },
   "manifests": { api: "manifests", key: "manifest", label: "ODK Manifest", payload: odkManifestPayload, form: (ex, pk) => renderOdkManifestForm(ex, pk), detail: (rec) => renderOdkManifestDetail(rec) },
 };
+
+// ---- Domain Apps — a CONTROLLED BUILDER over the daemon Domain Apps object plane (estate #6).
+// Serve-owned UI over /v1/hypervisor/domain-apps: author draft DomainApp candidates over an ODK
+// domain_app surface descriptor. Hard boundary rendered plainly: draft candidate only — NO generated/
+// mounted runtime, no app iframe/route mounting, no widget execution, no domain-action execution, no
+// marketplace publish, no authority crossing. runtime_posture is shown read-only as mounted:false.
+const DOMAIN_APP_VIS = ["private", "org", "marketplace_candidate"];
+async function domainAppPickers(descriptorRefForManifestFilter) {
+  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+  const [sd, man] = await Promise.all([J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests")]);
+  const descriptors = (sd.surface_descriptors || [])
+    .filter((d) => d.composition_pattern === "domain_app")
+    .map((d) => ({ v: d.ref, l: d.name || d.id }));
+  let manifests = man.manifests || [];
+  if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
+  return { descriptors, manifests: manifests.map((m) => ({ v: m.ref, l: m.name || m.id })) };
+}
+function domainAppPayload(p) {
+  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const payload = {
+    name: (p.get("name") || "domain-app").trim(),
+    description: (p.get("description") || "").trim(),
+    surface_descriptor_ref: (p.get("surface_descriptor_ref") || "").trim(),
+    odk_manifest_ref: (p.get("odk_manifest_ref") || "").trim(),
+    visibility: (p.get("visibility") || "private").trim(),
+    authority_requirement_refs: csv("authority_requirement_refs"),
+    operator_contract_refs: csv("operator_contract_refs"),
+    receipt_obligations: csv("receipt_obligations"),
+    generated_artifact_refs: csv("generated_artifact_refs"),
+  };
+  const pr = (p.get("project_ref") || "").trim(); if (pr) payload.project_ref = pr;
+  const or = (p.get("owner_ref") || "").trim(); if (or) payload.owner_ref = or;
+  return payload;
+}
+function renderDomainAppForm(existing, pk) {
+  const ex = existing || {}; const isEdit = !!existing;
+  const action = isEdit ? `/__ioi/domain-apps/${encodeURIComponent(ex.domain_app_id)}/patch` : `/__ioi/domain-apps`;
+  const visOpts = DOMAIN_APP_VIS.map((v) => ({ v, l: v }));
+  const manOpts = [{ v: "", l: "— none —" }, ...pk.manifests];
+  const descriptorField = pk.descriptors.length
+    ? odkSelectField("Surface descriptor (required — composition_pattern: domain_app)", "surface_descriptor_ref", pk.descriptors, ex.surface_descriptor_ref)
+    : `<div class="field"><label>Surface descriptor (required)</label><div class="sub" style="margin:0">No <code>domain_app</code> surface descriptors yet — <a href="/__ioi/odk/surface-descriptors/new">create one in ODK</a> first.</div></div>`;
+  const inner = `<p><a href="/__ioi/domain-apps">← Domain Apps</a></p><h1>${isEdit ? "Edit" : "New"} Domain App</h1>
+    <p class="sub">A draft <b>candidate</b> over an ODK <code>domain_app</code> descriptor. No runtime is generated or mounted.</p>
+    <form method="post" action="${action}">
+      ${odkField("Name", "name", ex.name, "Lending App")}
+      ${odkArea("Description", "description", ex.description)}
+      <div class="two">${descriptorField}${odkSelectField("Visibility", "visibility", visOpts, ex.visibility || "private")}</div>
+      <div class="two">${odkSelectField("ODK manifest (optional)", "odk_manifest_ref", manOpts, ex.odk_manifest_ref || "")}${odkField("Project ref (optional)", "project_ref", ex.project_ref)}</div>
+      ${odkField("Owner ref (optional)", "owner_ref", ex.owner_ref)}
+      <h2>Author-named refs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— comma-separated; not resolved here</span></h2>
+      <div class="two">${odkCsvField("Authority requirement refs", "authority_requirement_refs", ex.authority_requirement_refs)}${odkCsvField("Operator contract refs", "operator_contract_refs", ex.operator_contract_refs)}</div>
+      <div class="two">${odkCsvField("Receipt obligations", "receipt_obligations", ex.receipt_obligations)}${odkCsvField("Generated artifact refs", "generated_artifact_refs", ex.generated_artifact_refs)}</div>
+      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft candidate"}</button> <a class="act ghost" href="/__ioi/domain-apps">Cancel</a></div>
+    </form>`;
+  return automationsShell(`${isEdit ? "Edit" : "New"} Domain App`, inner);
+}
+function renderDomainAppDetail(a) {
+  const rp = a.runtime_posture || {};
+  const derived = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
+  const named = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(x)}</code>`).join(" ") : "—"}</dd>`;
+  const grid = `<dl class="grid">
+    <dt>Id</dt><dd><code>${CX_ESC(a.domain_app_id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(a.domain_app_ref)}</code></dd>
+    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(a.status || "draft")}</span></dd>
+    <dt>Visibility</dt><dd><span class="pill muted">${CX_ESC(a.visibility || "private")}</span></dd>
+    <dt>Surface descriptor</dt><dd>${odkRefLink(a.surface_descriptor_ref)} <span class="sub" style="margin:0">(composition_pattern: domain_app)</span></dd>
+    <dt>ODK manifest</dt><dd>${a.odk_manifest_ref ? odkRefLink(a.odk_manifest_ref) : "—"}</dd>
+    <dt>Project · owner</dt><dd>${a.project_ref ? `<code>${CX_ESC(a.project_ref)}</code>` : "—"} · ${a.owner_ref ? `<code>${CX_ESC(a.owner_ref)}</code>` : "—"}</dd>
+  </dl>
+  <h2>Derived provenance <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— read-only snapshot from the descriptor / manifest</span></h2>
+  <dl class="grid">
+    ${derived("Ontology refs", a.ontology_refs)}${derived("Data recipe refs", a.data_recipe_refs)}${derived("MCP contract refs", a.mcp_contract_refs)}
+  </dl>
+  <h2>Author-named refs</h2>
+  <dl class="grid">
+    ${named("Authority requirements", a.authority_requirement_refs)}${named("Operator contracts", a.operator_contract_refs)}
+    ${named("Receipt obligations", a.receipt_obligations)}${named("Generated artifacts", a.generated_artifact_refs)}
+  </dl>`;
+  const runtime = `<h2>Runtime posture</h2><div class="reveal" style="color:#9a9da6;background:#101216;border-color:#24262d">mounted: <b>${rp.mounted === true ? "true" : "false"}</b> · route: ${rp.route ? CX_ESC(rp.route) : "null"}<br>${CX_ESC(rp.note || "draft object only; no generated runtime mounted")}</div>`;
+  const actions = `<div class="row"><a class="act ghost" href="/__ioi/domain-apps/${encodeURIComponent(a.domain_app_id)}/edit">Edit draft</a> <form class="inline" method="post" action="/__ioi/domain-apps/${encodeURIComponent(a.domain_app_id)}/delete" onsubmit="return confirm('Delete this draft?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
+  return automationsShell(a.name || "Domain App", `<p><a href="/__ioi/domain-apps">← Domain Apps</a></p><h1>${CX_ESC(a.name || a.domain_app_id)}</h1><p class="sub">DomainApp · draft candidate. No generated runtime is mounted.</p>${actions}${grid}${runtime}`);
+}
+function domainAppCard(a) {
+  const e = encodeURIComponent;
+  return `<a class="card" href="/__ioi/domain-apps/${e(a.domain_app_id)}"><div class="main"><div class="name">${CX_ESC(a.name || a.domain_app_id)} <span class="pill warn">${CX_ESC(a.status || "draft")}</span> <span class="pill muted">${CX_ESC(a.visibility || "private")}</span></div><div class="meta">→ ${CX_ESC(a.surface_descriptor_ref || "")} · mounted:false</div></div><span class="act ghost">Open →</span></a>`;
+}
+function renderDomainAppsLanding(ov, apps) {
+  const o = ov || {}; const sub = o.substrate || {}; const dm = o.domain_apps || {};
+  const note = o.status_note || "Domain Apps are draft candidates over ODK descriptors. No generated runtime is mounted.";
+  const head = `<h1>Domain Apps</h1><p class="sub">Draft app <b>candidates</b> over ODK <code>domain_app</code> descriptors — bind a descriptor, optionally a manifest, and set visibility. Nothing here generates or mounts a running app. <a href="/__ioi/odk">Open ODK →</a></p>`;
+  const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
+  const stat = (label, val) => `<div style="flex:1;min-width:120px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
+  const stats = `<h2>Substrate (ODK)</h2><div class="row" style="gap:10px;align-items:stretch">${stat("domain_app descriptors", sub.odk_domain_app_descriptors)}${stat("Surface descriptors", sub.odk_surface_descriptors)}${stat("Ontologies", sub.odk_domain_ontologies)}${stat("Data recipes", sub.odk_data_recipes)}${stat("Manifests", sub.odk_manifests)}</div>`;
+  const byVis = dm.by_visibility || {};
+  const visChips = `<div class="chips"><span class="chiplabel">Visibility</span>${DOMAIN_APP_VIS.map((v) => `<span class="pill muted">${v}: ${byVis[v] || 0}</span>`).join("")}</div>`;
+  const noDescriptors = (sub.odk_domain_app_descriptors || 0) === 0;
+  const newBtn = noDescriptors
+    ? `<a class="act ghost" href="/__ioi/odk/surface-descriptors/new">Create a domain_app descriptor in ODK first →</a>`
+    : `<a class="act" href="/__ioi/domain-apps/new">+ New domain app</a>`;
+  const section = `<h2 style="display:flex;justify-content:space-between;align-items:center">Domain Apps (${apps.length}) ${newBtn}</h2>${apps.length ? apps.map(domainAppCard).join("") : `<div class="empty">No DomainApp candidates yet.${noDescriptors ? " First author a <code>domain_app</code> surface descriptor in ODK." : ""}</div>`}`;
+  return automationsShell("Domain Apps", head + banner + stats + visChips + section);
+}
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
 function githubAppShell(title, inner) {
@@ -2888,6 +2990,58 @@ const server = http.createServer((req, res) => {
             return;
           }
         }
+      }
+    }
+    // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).
+    if (pathname === "/__ioi/domain-apps" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [ov, list] = await Promise.all([J("/v1/hypervisor/domain-apps/overview"), J("/v1/hypervisor/domain-apps")]);
+      res.writeHead(200, HTMLH);
+      res.end(renderDomainAppsLanding(ov, list.domain_apps || []));
+      return;
+    }
+    if (pathname === "/__ioi/domain-apps/new" && req.method === "GET") {
+      res.writeHead(200, HTMLH);
+      res.end(renderDomainAppForm(null, await domainAppPickers()));
+      return;
+    }
+    if (pathname === "/__ioi/domain-apps" && req.method === "POST") {
+      const payload = domainAppPayload(new URLSearchParams(body.toString()));
+      const rr = await fetch(`${DAEMON}/v1/hypervisor/domain-apps`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+      if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(rr.domain_app.domain_app_id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+      res.writeHead(200, HTMLH);
+      res.end(automationsShell("New Domain App", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/new">← back</a></p>`));
+      return;
+    }
+    if (pathname.startsWith("/__ioi/domain-apps/")) {
+      const [rawId, action] = pathname.slice("/__ioi/domain-apps/".length).split("/");
+      const id = decodeURIComponent(rawId);
+      if (action === "edit" && req.method === "GET") {
+        const app = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
+        const pk = await domainAppPickers(app.domain_app.surface_descriptor_ref);
+        res.writeHead(200, HTMLH);
+        res.end(renderDomainAppForm(app.domain_app, pk));
+        return;
+      }
+      if (action === "patch" && req.method === "POST") {
+        const payload = domainAppPayload(new URLSearchParams(body.toString()));
+        const rr = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+        res.writeHead(200, HTMLH);
+        res.end(automationsShell("Edit Domain App", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        return;
+      }
+      if (action === "delete" && req.method === "POST") {
+        await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        res.writeHead(302, { Location: "/__ioi/domain-apps", "Cache-Control": "no-cache" });
+        return res.end();
+      }
+      if (!action && req.method === "GET") {
+        const app = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        res.writeHead(200, HTMLH);
+        res.end(app.ok ? renderDomainAppDetail(app.domain_app) : automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`));
+        return;
       }
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
