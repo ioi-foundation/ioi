@@ -850,7 +850,57 @@ function renderWorkbench(summary) {
 // conversation/run join the daemon does not record — that activity is labelled workspace-wide.
 const agentShort = (id) => { const m = String(id || "").match(/^agent_([0-9a-f]{8})/); return m ? `agent_${m[1]}` : (id || "agent"); };
 const pickv = (o, ...keys) => { for (const k of keys) { if (o && o[k] != null && o[k] !== "") return o[k]; } return undefined; };
-function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q) {
+// ---- Model routes (the daemon REGISTRY — declared routes, honest availability posture, admitted
+// lifecycle controls). Execute-vs-admit is a visible product state: an `active` route can still be
+// `credentials_missing`/`unreachable` — the lifecycle and availability chips render independently.
+// Every effectful control opens a confirm panel naming the admission, the receipt it will mint,
+// and the rollback posture BEFORE firing.
+function renderModelRouteRegistry(modelRoutes) {
+  const enc = encodeURIComponent;
+  modelRoutes = Array.isArray(modelRoutes) ? modelRoutes : [];
+  const availPill = (r) => {
+    const av = r.availability || {};
+    const state = av.state || "declared";
+    const cls = state === "available" ? "ok" : state === "declared" ? "muted" : "warn";
+    const stale = av.stale ? ` <span class="pill muted">stale</span>` : "";
+    return `<span class="pill ${cls}">${CX_ESC(state)}</span>${stale}`;
+  };
+  const mrConfirm = (r, act, label, admission, rollback, danger) => {
+    const rid = r.route_id || "";
+    return `<details class="mrc"><summary class="act ghost${danger ? " danger" : ""}">${label}</summary><div class="mrcbody">
+      <div class="sub" style="margin:0 0 6px">${admission}<br>Receipt: <code>agentgres://model-route-receipt/*</code> will be minted; the op records a transcript with a state_root.<br>Rollback: ${rollback}</div>
+      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(rid)}/${act}"><button class="act${danger ? " danger" : ""}" type="submit">Confirm ${label}</button></form>
+    </details>`;
+  };
+  const mrRows = modelRoutes.map((r) => {
+    const lc = (r.lifecycle || {}).status || "declared";
+    const pb = r.provider_binding || {};
+    const probeDesc = pb.transport === "openai_compatible"
+      ? "No admission (evidence-gathering only); POSTURE-ONLY — reports whether the declared credential env key resolves. The daemon never sends a secret to the route's base_url, so this transport never reports <code>available</code>."
+      : "No admission (evidence-gathering only); the live upstream is asked for its real catalog.";
+    const controls = [
+      mrConfirm(r, "probe", "Probe", probeDesc, "none needed — probing only updates availability evidence"),
+      lc === "active"
+        ? mrConfirm(r, "disable", "Disable", `Admission: <code>disable_route</code> under <code>scope:model.route.mutate</code> (relaxed lane).`, "re-enable via the admitted <code>enable_route</code> lane", true)
+        : mrConfirm(r, "enable", "Enable", `Admission: <code>enable_route</code> under <code>scope:model.route.mutate</code> + custody + privacy posture refs (planner-validated, fail-closed).`, "disable via the admitted <code>disable_route</code> lane"),
+      r.default_route ? "" : mrConfirm(r, "select-default", "Set default", `Admission: <code>select_route</code> under <code>scope:model.route.mutate</code>; the previous default is atomically cleared (exactly-one invariant).`, "select the previous default again"),
+    ].filter(Boolean).join(" ");
+    return `<tr>
+      <td><b>${CX_ESC(r.display_name || r.route_id || "—")}</b>${r.default_route ? ` <span class="pill ok">default</span>` : ""}<div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(r.route_ref || "")}</code> · ${CX_ESC(r.origin || "")}</div></td>
+      <td><code>${CX_ESC((r.model || {}).model_id || "—")}</code></td>
+      <td><span class="pill muted">${CX_ESC(pb.transport || "—")}</span> <span class="pill muted">${CX_ESC(pb.provider_kind || "—")}</span><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(pb.base_url || "")}</div></td>
+      <td><span class="pill ${lc === "active" ? "ok" : "muted"}">${CX_ESC(lc)}</span></td>
+      <td>${availPill(r)}</td>
+      <td><span class="pill muted">${CX_ESC(r.credential_posture || "—")}</span></td>
+      <td>${controls}</td>
+    </tr>`;
+  }).join("");
+  const mrStyles = `<style>.mrc{display:inline-block;position:relative}.mrc summary{list-style:none;cursor:pointer}.mrc summary::-webkit-details-marker{display:none}.mrc[open] .mrcbody{position:absolute;right:0;z-index:30;min-width:340px;background:#15171c;border:1px solid #3a82f6;border-radius:10px;padding:12px;margin-top:6px;box-shadow:0 8px 28px rgba(0,0,0,.5)}</style>`;
+  return `<h2 id="model-routes">Model routes</h2><p class="sub" style="margin:-4px 0 12px">The daemon model-route registry — declared routes with probed availability. A route is <b>available</b> only when a live probe matched its model on the real upstream; enable/disable/default are planner-admitted, receipted mutations.</p>${mrStyles}
+    ${modelRoutes.length ? `<table><thead><tr><th>Route</th><th>Model</th><th>Binding</th><th>Lifecycle</th><th>Availability</th><th>Credential</th><th>Controls</th></tr></thead><tbody>${mrRows}</tbody></table>` : `<div class="empty">No model routes registered. The daemon seeds the env-default route on first read of <code>/v1/hypervisor/model-routes</code>.</div>`}`;
+}
+
+function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes) {
   const enc = encodeURIComponent;
   agents = Array.isArray(agents) ? agents : [];
   profiles = Array.isArray(profiles) ? profiles : [];
@@ -858,6 +908,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   providers = Array.isArray(providers) ? providers : [];
   conversations = Array.isArray(conversations) ? conversations : [];
   runs = Array.isArray(runs) ? runs : [];
+  modelRoutes = Array.isArray(modelRoutes) ? modelRoutes : [];
   const qn = String(q || "").trim().toLowerCase();
   const filtered = qn
     ? agents.filter((a) => `${a.id || ""} ${pickv(a, "model_id", "modelId") || ""}`.toLowerCase().includes(qn))
@@ -866,7 +917,8 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const head = `<h1>Agent Studio</h1><p class="sub">The agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
-    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>`);
+    // Registry truth still renders without agents — routes exist independently of the agent estate.
+    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -928,10 +980,13 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   </div>`;
 
   // ---- Platform harness adapters (global runner matrix) from agent-runner-profiles.
+  // Honest annotation: a profile model string with no registry route is marked, never joined.
+  const registeredModelIds = new Set(modelRoutes.map((r) => (r.model || {}).model_id).filter(Boolean));
+  const profModel = (m) => `<code>${CX_ESC(m)}</code>${registeredModelIds.has(m) ? "" : ` <span class="pill muted" title="no model-route registry entry declares this model">unregistered</span>`}`;
   const profRows = profiles.map((p) => `<tr>
     <td><b>${CX_ESC(p.display_name || p.harness || "—")}</b>${p.default ? ` <span class="pill ok">default</span>` : ""}<div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(p.harness || "")}</code></div></td>
     <td>${(p.modes || []).map((m) => CX_ESC(m)).join(" · ") || "—"}</td>
-    <td>${(p.models || []).map((m) => `<code>${CX_ESC(m)}</code>`).join(" ") || "—"}</td>
+    <td>${(p.models || []).map(profModel).join(" ") || "—"}</td>
     <td>${(p.reasoning || []).map(CX_ESC).join("/") || "—"}</td>
     <td>${(p.speed || []).map(CX_ESC).join("/") || "—"}</td>
     <td>${p.tool_use ? "✓" : "—"} · ${p.image_input ? "img" : "—"}</td>
@@ -941,10 +996,12 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     ? `<h2>Platform harness adapters</h2><p class="sub" style="margin:-4px 0 12px">The runner profiles every agent can be operated on — modes, models, reasoning, speed, tool-use and provider trust.</p><table><thead><tr><th>Harness</th><th>Modes</th><th>Models</th><th>Reasoning</th><th>Speed</th><th>Tools</th><th>Trust</th></tr></thead><tbody>${profRows}</tbody></table>`
     : "";
 
-  // ---- Model routing (global model-mount posture).
+  const registry = renderModelRouteRegistry(modelRoutes);
+
+  // ---- Model-mount substrate (evidence line, demoted — the registry above is the product surface).
   const routeRows = routes.map((r) => `<span class="pill ${(r.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(r.id || "")} · ${CX_ESC(r.role || "")} · ${CX_ESC(r.status || "")}</span>`).join(" ");
   const provChips = providers.slice(0, 16).map((p) => `<span class="pill muted">${CX_ESC(p.id || p.provider_ref || "")} · ${CX_ESC(p.driver || p.provider_kind || "")}</span>`).join(" ");
-  const routing = `<h2>Model routing</h2><div class="chips"><span class="chiplabel">Routes</span>${routeRows || `<span class="sub" style="margin:0">none</span>`}</div><div class="chips"><span class="chiplabel">Providers (${providers.length})</span>${provChips || `<span class="sub" style="margin:0">none</span>`}</div>`;
+  const routing = registry + `<div class="chips" style="margin-top:10px"><span class="chiplabel">Mount substrate</span>${routeRows || `<span class="sub" style="margin:0">none</span>`}</div><div class="chips"><span class="chiplabel">Providers (${providers.length})</span>${provChips || `<span class="sub" style="margin:0">none</span>`}</div>`;
 
   // ---- Recent activity (workspace-wide; honest label — not a per-agent join).
   const convRows = conversations.slice(0, 8).map((c) => {
@@ -3202,13 +3259,14 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
         J("/v1/model-mount/providers"),
         J("/v1/hypervisor/agentops/conversations"),
         J("/v1/hypervisor/agent-run-transcripts"),
+        J("/v1/hypervisor/model-routes"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -3220,8 +3278,29 @@ const server = http.createServer((req, res) => {
         tr.runs || [],
         selId,
         q,
+        mr.routes || [],
       ));
       return;
+    }
+    // ---- Agent Studio model-route registry controls: proxy the effectful daemon routes
+    // (probe / enable / disable / select-default), then return to the registry section.
+    {
+      const mrAction = pathname.match(/^\/__ioi\/agent-studio\/model-routes\/([^/]+)\/(probe|enable|disable|select-default)$/);
+      if (mrAction && req.method === "POST") {
+        const [, mrId, act] = mrAction;
+        const r = await fetch(`${DAEMON}/v1/hypervisor/model-routes/${encodeURIComponent(mrId)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
+          const msg = (j.error && j.error.message) || "";
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Model routes", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#model-routes">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#model-routes", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
     }
     // ---- Foundry — controlled builder over the daemon Foundry object plane (estate surface #4).
     const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };

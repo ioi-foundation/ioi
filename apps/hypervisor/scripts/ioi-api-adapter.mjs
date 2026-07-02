@@ -262,6 +262,9 @@ async function handleImpl(pathname, bodyText) {
       "snapshots": "/v1/hypervisor/snapshots",
       "incidents": "/v1/hypervisor/incidents",
       "recovery-attempts": "/v1/hypervisor/recovery-attempts",
+      // Model-route registry — daemon truth for model routes + availability posture.
+      "model-routes": "/v1/hypervisor/model-routes",
+      "model-routes-overview": "/v1/hypervisor/model-routes/overview",
     };
     if (!map[sub]) return json({ error: "unknown ioi endpoint" });
     try {

@@ -54,6 +54,8 @@ mod lifecycle_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/model_routes.rs"]
+mod model_routes;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
@@ -144,6 +146,10 @@ pub(crate) struct DaemonState {
     pub(crate) editor_runtimes: Mutex<HashMap<String, editor_host::EditorRuntime>>,
     // WS-4 — live lease-authenticated proxies fronting editor runtimes, keyed by editor service_id.
     pub(crate) editor_proxies: Mutex<HashMap<String, editor_proxy::EditorProxy>>,
+    // Serializes model-route registry read-modify-write sections so the exactly-one-default
+    // invariant and per-record updates are not lost under concurrent axum handlers. Guards only the
+    // synchronous file mutation regions in model_routes.rs — never held across a network probe.
+    pub(crate) model_route_lock: Mutex<()>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -297,6 +303,7 @@ async fn async_main() -> anyhow::Result<()> {
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
+        model_route_lock: Mutex::new(()),
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
@@ -1246,6 +1253,49 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/automation-executions/:id/cancel",
             post(orchestration_routes::handle_automation_cancel),
+        )
+        // Model-route REGISTRY — daemon truth for model routes, availability posture, and
+        // session bindings (the resource substrate the model selector consumes). Distinct from
+        // /v1/model-mount/* (mount substrate) and /v1/hypervisor/model-route-mutation-admissions
+        // (the pure planner this family composes).
+        .route(
+            "/v1/hypervisor/model-routes",
+            get(model_routes::handle_model_routes_list)
+                .post(model_routes::handle_model_route_create),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/overview",
+            get(model_routes::handle_model_routes_overview),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id",
+            get(model_routes::handle_model_route_get)
+                .patch(model_routes::handle_model_route_patch)
+                .delete(model_routes::handle_model_route_delete),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/probe",
+            post(model_routes::handle_model_route_probe),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/enable",
+            post(model_routes::handle_model_route_enable),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/disable",
+            post(model_routes::handle_model_route_disable),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/select-default",
+            post(model_routes::handle_model_route_select_default),
+        )
+        .route(
+            "/v1/hypervisor/model-routes/:id/session-bindings",
+            post(model_routes::handle_model_route_bind_session),
+        )
+        .route(
+            "/v1/hypervisor/model-route-session-bindings",
+            get(model_routes::handle_model_route_bindings_list),
         )
         .route(
             "/v1/hypervisor/placement/resolve",
