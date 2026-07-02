@@ -114,6 +114,16 @@ async function run() {
     ok("created session exists in the daemon with the recorded harness binding", false, "no session ref parsed");
   }
 
+  // 4. The binding surfaces on the estate: daemon sessions LIST projection + the Workbench panel
+  //    (harness selection lives in Workbench/session details as daemon truth, not UI state).
+  const daemonBase = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+  const slist = await fetch(`${daemonBase}/v1/hypervisor/sessions`).then((r) => r.json()).catch(() => ({}));
+  const bound = (slist.sessions || []).find((s) => s.harness_binding?.profile_ref === "harness-profile:hp_hypervisor_worker");
+  ok("sessions list projection carries the admitted binding", slist.schema_version === "ioi.hypervisor.sessions-list.v1" && !!bound && String(bound.harness_binding.admission_id || "").startsWith("harness-profile-mutation-admission:"), bound?.session_ref);
+  const wbHtml = await fetch(`${SHELL}/__ioi/workbench`).then((r) => r.text()).catch(() => "");
+  ok("Workbench sessions panel shows the binding as daemon truth", /id="sessions"/.test(wbHtml) && /hypervisor_worker/.test(wbHtml) && /model-route:/.test(wbHtml));
+  ok("Workbench names the no-binding posture plainly", /execute-time default/.test(wbHtml));
+
   const shot = process.env.IOI_NS_SCREENSHOT;
   if (shot) await page.screenshot({ path: shot, fullPage: false });
   ok("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));

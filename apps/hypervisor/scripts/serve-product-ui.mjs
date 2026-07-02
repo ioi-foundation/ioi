@@ -820,7 +820,7 @@ function renderEnvironments(summary, classes) {
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
 // Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
 // /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
-function renderWorkbench(summary, editorTargets) {
+function renderWorkbench(summary, editorTargets, sessionsRes) {
   summary = summary || {};
   const enc = encodeURIComponent;
   const envs = summary.environments || [];
@@ -849,7 +849,7 @@ function renderWorkbench(summary, editorTargets) {
     ? `<h2 id="editor-targets">Editors</h2><p class="sub" style="margin:-4px 0 12px">The daemon editor-target registry — every way to open a workspace, with its probed open posture and lease/revocation contract. Only an <b>openable</b> target is offered on environments below.</p><table><thead><tr><th>Editor</th><th>Open kind</th><th>Open posture</th><th>Lease / revocation</th></tr></thead><tbody>${etRows}</tbody></table>`
     : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>`);
+    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes));
   }
   const rows = envs.map((e) => {
     const id = e.id || "";
@@ -865,7 +865,28 @@ function renderWorkbench(summary, editorTargets) {
   }).join("");
   const pager = envPager("/__ioi/workbench", summary);
   const table = `${pager}<table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
-  return automationsShell("Workbench", head + editorsPanel + table);
+  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes));
+}
+
+// Sessions panel — the daemon session records with their ADMITTED harness bindings (selection is
+// session truth, not UI state). A session without a binding says so plainly (execute-time default).
+function renderWorkbenchSessions(sessionsRes) {
+  const sessions = (sessionsRes && sessionsRes.sessions) || [];
+  if (!sessions.length) return "";
+  const rows = sessions.slice(0, 12).map((s) => {
+    const hb = s.harness_binding;
+    const envId = String(s.environment_ref || "").replace(/^environment:/, "");
+    const binding = hb && hb.profile_ref
+      ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span> <code style="font-size:11px">${CX_ESC(hb.model_route_ref || "")}</code><div class="meta" style="color:#878a93;font-size:11px;margin-top:2px" title="${CX_ESC(hb.admission_id || "")}">admitted · <code>${CX_ESC(String(hb.admission_id || "").slice(0, 58))}…</code></div>`
+      : `<span class="pill muted" title="no harness binding recorded at create; execution uses the daemon's Lane A default">execute-time default</span>`;
+    return `<tr>
+      <td><code>${CX_ESC(s.session_ref || "")}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(s.project_ref || "—")} · ${CX_ESC(s.created_at || "")}</div></td>
+      <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
+      <td>${binding}</td>
+      <td>${envId ? `<a class="act ghost" href="/workspaces/${encodeURIComponent(envId)}" target="_top">Open</a>` : "—"}</td>
+    </tr>`;
+  }).join("");
+  return `<h2 id="sessions">Sessions</h2><p class="sub" style="margin:-4px 0 12px">Daemon session records (newest first) with their admitted harness bindings — the selection made at create is receipted daemon truth, shown here, never UI-only state.</p><table><thead><tr><th>Session</th><th>Lifecycle</th><th>Harness binding</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // ---- Agent Studio — the live agent INVENTORY + CONFIGURATION + ACTIVITY cockpit (estate #3).
@@ -3303,12 +3324,13 @@ const server = http.createServer((req, res) => {
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, etRes] = await Promise.all([
+      const [sRes, etRes, sessRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkbench(sRes, etRes));
+      res.end(renderWorkbench(sRes, etRes, sessRes));
       return;
     }
     // ---- New Session launcher (02-new-session graft) — the owned rail-modal's daemon-backed

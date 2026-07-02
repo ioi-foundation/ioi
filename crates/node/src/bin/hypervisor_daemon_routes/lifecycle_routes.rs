@@ -14748,6 +14748,54 @@ pub(crate) async fn handle_session_ports_revoke(
 /// listener, remove the provisioned workspace from disk (only under the sessions
 /// root), mark the session `torn_down` with its ports cleared, and emit a
 /// teardown receipt. 404 if the session is unknown.
+/// GET /v1/hypervisor/sessions — slim list projection of the persisted session records (newest
+/// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
+/// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
+pub(crate) async fn handle_sessions_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
+    let mut sessions: Vec<Value> = read_record_dir(&st.data_dir, "sessions")
+        .into_iter()
+        .map(|r| {
+            let hb = r.get("harness_binding").cloned().unwrap_or(Value::Null);
+            let slim_hb = if hb.is_null() {
+                Value::Null
+            } else {
+                json!({
+                    "profile_ref": hb.get("profile_ref"),
+                    "harness": hb.get("harness"),
+                    "model_route_ref": hb.get("model_route_ref"),
+                    "admission_id": hb.get("admission_id"),
+                    "receipt_ref": hb.get("receipt_ref"),
+                })
+            };
+            json!({
+                "session_ref": r.get("session_ref"),
+                "project_ref": r.get("project_ref"),
+                "environment_ref": r.get("environment_ref"),
+                "lifecycle_state": r.get("lifecycle_state"),
+                "workspace_root": r.get("workspace_root"),
+                "harness_binding": slim_hb,
+                "latest_receipt_refs": r.get("latest_receipt_refs"),
+                "created_at": r.get("created_at"),
+            })
+        })
+        .collect();
+    sessions.sort_by(|a, b| {
+        let ca = a.get("created_at").and_then(Value::as_str).unwrap_or("");
+        let cb = b.get("created_at").and_then(Value::as_str).unwrap_or("");
+        cb.cmp(ca)
+    });
+    let total = sessions.len();
+    sessions.truncate(50);
+    Json(json!({
+        "schema_version": "ioi.hypervisor.sessions-list.v1",
+        "total": total,
+        "sessions": sessions,
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}
+
 /// GET /v1/hypervisor/sessions/:id — read projection of one persisted session record (the
 /// daemon-owned truth the create wrote: provisioned workspace, environment status, and the
 /// admitted harness binding when a selection was made). Accepts the ref with or without the
