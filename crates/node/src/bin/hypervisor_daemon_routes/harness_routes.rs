@@ -824,58 +824,73 @@ pub(crate) async fn handle_harness_profile_bind_session(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     ensure_seed(&st.data_dir);
-    let Some(profile) = load_profile_record(&st.data_dir, &id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "not_found", "profile": id } })),
-        );
-    };
     let Some(session_ref) = body.get("session_ref").and_then(|v| v.as_str()) else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": { "code": "session_ref_required" } })),
         );
     };
+    let model_route_ref = body.get("model_route_ref").and_then(|v| v.as_str());
+    match bind_profile_for_session(&st, &id, session_ref, model_route_ref).await {
+        Ok(response) => (StatusCode::CREATED, Json(response)),
+        Err((status, body)) => (status, Json(body)),
+    }
+}
+
+/// The bind core, shared by the route handler above and session creation (which fail-closes the
+/// whole create when a requested harness selection cannot be admitted). Returns the response
+/// object carrying `binding` + `transcript_recorded` on success.
+pub(crate) async fn bind_profile_for_session(
+    st: &Arc<DaemonState>,
+    id: &str,
+    session_ref: &str,
+    model_route_ref: Option<&str>,
+) -> Result<Value, (StatusCode, Value)> {
+    ensure_seed(&st.data_dir);
+    let Some(profile) = load_profile_record(&st.data_dir, id) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            json!({ "error": { "code": "not_found", "profile": id } }),
+        ));
+    };
     if ps(&profile, "/lifecycle/status", "declared") != "active" {
-        return (
+        return Err((
             StatusCode::PRECONDITION_FAILED,
-            Json(json!({ "error": {
+            json!({ "error": {
                 "code": "harness_profile_not_active",
                 "message": "Only an active (admitted-enabled) harness profile binds to a session.",
                 "lifecycle_status": ps(&profile, "/lifecycle/status", "declared")
-            } })),
-        );
+            } }),
+        ));
     }
     let wiring = ps(&profile, "/adapter/execution_wiring", "adapter_slot_unwired");
     if wiring != "lane_a_host_spawn" {
-        return (
+        return Err((
             StatusCode::CONFLICT,
-            Json(json!({ "error": {
+            json!({ "error": {
                 "code": "harness_execution_lane_unsupported",
                 "message": "Session execution bindings drive the Lane A host-spawn path today; terminal and adapter-slot profiles are not execution-bindable.",
                 "execution_wiring": wiring
-            } })),
-        );
+            } }),
+        ));
     }
     // LIVE runnability at bind time — persisted so the registry reflects what the bind saw.
     let runnability = probe_profile(&profile);
     let run_state = ps(&runnability, "/state", "not_probed");
     let mut profile =
-        persist_runnability_locked(&st, &id, runnability.clone(), None).unwrap_or(profile);
+        persist_runnability_locked(st, id, runnability.clone(), None).unwrap_or(profile);
     if run_state != "runnable" {
-        return (
+        return Err((
             StatusCode::PRECONDITION_FAILED,
-            Json(json!({ "error": {
+            json!({ "error": {
                 "code": "harness_profile_not_runnable",
                 "message": "The live runnability probe did not pass; the profile cannot bind for execution.",
                 "runnability": runnability
-            } })),
-        );
+            } }),
+        ));
     }
     // Cross-registry truth: the model route must be an active+available registry record.
-    let route_ref = body
-        .get("model_route_ref")
-        .and_then(|v| v.as_str())
+    let route_ref = model_route_ref
         .map(str::to_string)
         .unwrap_or_else(|| {
             super::model_routes::ensure_seed(&st.data_dir);
@@ -887,23 +902,23 @@ pub(crate) async fn handle_harness_profile_bind_session(
         });
     let route_id = route_ref.strip_prefix("model-route:").unwrap_or(&route_ref);
     let Some(route) = super::model_routes::load_route_record(&st.data_dir, route_id) else {
-        return (
+        return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({ "error": { "code": "model_route_ref_unresolved", "model_route_ref": route_ref } })),
-        );
+            json!({ "error": { "code": "model_route_ref_unresolved", "model_route_ref": route_ref } }),
+        ));
     };
     let route_active = ps(&route, "/lifecycle/status", "declared") == "active";
     let route_available = ps(&route, "/availability/state", "declared") == "available";
     if !route_active || !route_available {
-        return (
+        return Err((
             StatusCode::PRECONDITION_FAILED,
-            Json(json!({ "error": {
+            json!({ "error": {
                 "code": "model_route_not_available",
                 "message": "The harness executes over a model route; it must be active and probe-available.",
                 "lifecycle_status": ps(&route, "/lifecycle/status", "declared"),
                 "availability_state": ps(&route, "/availability/state", "declared")
-            } })),
-        );
+            } }),
+        ));
     }
     match compose_mutation_admission(
         &profile,
@@ -948,7 +963,7 @@ pub(crate) async fn handle_harness_profile_bind_session(
                     .harness_profile_lock
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
-                if let Some(mut fresh) = load_profile_record(&st.data_dir, &id) {
+                if let Some(mut fresh) = load_profile_record(&st.data_dir, id) {
                     stamp_admission(&mut fresh, &admission);
                     if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
                         refs.push(json!(receipt.clone()));
@@ -960,18 +975,15 @@ pub(crate) async fn handle_harness_profile_bind_session(
             let _ = &profile;
             let transcript_run =
                 post_op_transcript(&st.base_url, "bind_session", &profile_ref, &binding).await;
-            (
-                StatusCode::CREATED,
-                Json(json!({
-                    "binding": binding,
-                    "transcript_recorded": transcript_run.is_some(),
-                })),
-            )
+            Ok(json!({
+                "binding": binding,
+                "transcript_recorded": transcript_run.is_some(),
+            }))
         }
-        Err((status, body)) => (
+        Err((status, body)) => Err((
             StatusCode::from_u16(status).unwrap_or(StatusCode::FORBIDDEN),
-            Json(body),
-        ),
+            body,
+        )),
     }
 }
 
