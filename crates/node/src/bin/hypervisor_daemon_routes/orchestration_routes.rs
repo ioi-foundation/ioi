@@ -509,6 +509,34 @@ pub(crate) async fn handle_work_ledger(
             "request_id": g(&ev, "request_id"), "run_ref": run_ref_v, "timeline_ref": timeline_v,
         }));
     }
+    // Governed-lifecycle proofs — domain-app mount/serve/unmount/kill, marketplace publish, and
+    // KillSwitch enforcement receipts. These are real state-root proofs; surface them in the ledger so
+    // the whole governed lifecycle is reachable from one proof stream (not just automation runs).
+    for r in read_record_dir(&st.data_dir, "domain-app-mount-receipts") {
+        entries.push(json!({
+            "id": g(&r, "id"), "kind": "domain_app_runtime", "timestamp": g(&r, "at"),
+            "status": g(&r, "action"), "action": g(&r, "action"), "state_root": g(&r, "state_root"),
+            "domain_app_ref": g(&r, "domain_app_ref"), "approval_request_ref": g(&r, "approval_request_ref"),
+            "release_control_ref": g(&r, "release_control_ref"), "receipt_ref": g(&r, "ref"),
+        }));
+    }
+    for r in read_record_dir(&st.data_dir, "marketplace-publish-receipts") {
+        entries.push(json!({
+            "id": g(&r, "id"), "kind": "marketplace_publish", "timestamp": g(&r, "at"),
+            "status": "published", "state_root": g(&r, "state_root"),
+            "candidate_ref": g(&r, "candidate_ref"), "listing_id": g(&r, "listing_id"),
+            "published_runtime_ref": g(&r, "published_runtime_ref"), "admission_review_ref": g(&r, "admission_review_ref"),
+            "release_control_ref": g(&r, "release_control_ref"), "receipt_ref": g(&r, "ref"),
+        }));
+    }
+    for r in read_record_dir(&st.data_dir, "governance-kill-enforcement-receipts") {
+        entries.push(json!({
+            "id": g(&r, "id"), "kind": "kill_enforcement", "timestamp": g(&r, "at"),
+            "status": g(&r, "enforcement_state"), "state_root": g(&r, "state_root"),
+            "kill_switch_ref": g(&r, "kill_switch_ref"), "subject_ref": g(&r, "subject_ref"),
+            "affected_runtime_refs": g(&r, "affected_runtime_refs"), "receipt_ref": g(&r, "ref"),
+        }));
+    }
     entries.sort_by(|a, b| {
         b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("")
             .cmp(a.get("timestamp").and_then(|v| v.as_str()).unwrap_or(""))
