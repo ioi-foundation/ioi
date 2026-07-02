@@ -740,6 +740,75 @@ pub(crate) async fn handle_domain_app_stop_serving(
     (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
 }
 
+// ---- KillSwitch enforcement helpers (shared with governance_routes) ----------------------------
+// These let the Governance KillSwitch enforce path stop/unmount Domain-App runtimes using the SAME
+// receipt + state posture as the normal transitions, so enforcement is auditable and consistent.
+
+/// Resolve the ACTIVE (mounted OR serving) runtimes a KillSwitch subject_ref targets. Supports
+/// `domain-app-runtime://<id>` (one runtime) and `domain-app://<id>` (all active runtimes for the app).
+pub(crate) fn runtimes_for_kill_target(data_dir: &str, subject_ref: &str) -> Vec<Value> {
+    let active = |rt: &Value| {
+        rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
+            || rt.get("serving").and_then(|v| v.as_bool()) == Some(true)
+    };
+    match split_ref(subject_ref) {
+        Some(("domain-app-runtime", id)) => load(data_dir, KIND_RUNTIME, id)
+            .filter(active)
+            .into_iter()
+            .collect(),
+        Some(("domain-app", _)) => read_record_dir(data_dir, KIND_RUNTIME)
+            .into_iter()
+            .filter(|rt| rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject_ref) && active(rt))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Enforce a kill on ONE runtime: stop serving (if serving) + unmount (if mounted), forcing
+/// serving:false and mounted:false, appending receipts (same kinds as the governed transitions plus
+/// kill-specific actions), setting state "killed", and resetting the DomainApp backlink. Returns the
+/// receipt refs emitted. Effectful — used only from the governance enforce path.
+pub(crate) fn kill_enforce_runtime(data_dir: &str, runtime: &Value) -> Vec<String> {
+    let mut rt = runtime.clone();
+    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let dref = rt.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let approval = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let release = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let now = iso_now();
+    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut emitted: Vec<String> = Vec::new();
+    if rt.get("serving").and_then(|v| v.as_bool()) == Some(true) {
+        let (r, _) = write_mount_receipt(data_dir, "domain_app.kill_stop_serving", &dref, &approval, &release);
+        refs.push(json!(r.clone()));
+        emitted.push(r);
+        rt["serving"] = json!(false);
+        rt["internal_route_ref"] = Value::Null;
+        rt["serve_stopped_at"] = json!(now);
+    }
+    if rt.get("mounted").and_then(|v| v.as_bool()) == Some(true) {
+        let (r, _) = write_mount_receipt(data_dir, "domain_app.kill_unmount", &dref, &approval, &release);
+        refs.push(json!(r.clone()));
+        emitted.push(r);
+        rt["mounted"] = json!(false);
+        rt["unmounted_at"] = json!(now);
+    }
+    rt["state"] = json!("killed");
+    rt["killed"] = json!(true);
+    rt["killed_at"] = json!(now);
+    rt["receipt_refs"] = json!(refs);
+    rt["updated_at"] = json!(now);
+    let _ = persist_record(data_dir, KIND_RUNTIME, &rid, &rt);
+    // Reset the DomainApp backlink so its posture reflects the kill.
+    if let Some((_, dapp_id)) = split_ref(&dref) {
+        if let Some(mut dapp) = load(data_dir, KIND_DAPP, dapp_id) {
+            dapp["runtime_posture"] = json!({ "mounted": false, "serving": false, "route": Value::Null, "note": "killed by KillSwitch enforcement" });
+            dapp["updated_at"] = json!(now);
+            let _ = persist_record(data_dir, KIND_DAPP, dapp_id, &dapp);
+        }
+    }
+    emitted
+}
+
 #[cfg(test)]
 mod domain_apps_tests {
     use super::*;

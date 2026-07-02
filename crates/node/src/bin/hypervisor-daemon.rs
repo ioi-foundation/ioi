@@ -1173,6 +1173,11 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(governance_routes::handle_kill_patch)
                 .delete(governance_routes::handle_kill_delete),
         )
+        // KillSwitch enforcement (effectful, AFTER trip; domain-app runtimes only this cut).
+        .route(
+            "/v1/hypervisor/governance/kill-switches/:id/enforce",
+            post(governance_routes::handle_kill_enforce),
+        )
         .route(
             "/v1/hypervisor/governance/improvement-gates",
             get(governance_routes::handle_gate_list).post(governance_routes::handle_gate_create),

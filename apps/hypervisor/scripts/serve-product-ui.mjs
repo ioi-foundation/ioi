@@ -1524,11 +1524,20 @@ function govReleaseCard(r) {
 }
 function govKillCard(k) {
   const id = k.id || ""; const tripped = k.state === "tripped";
-  const actions = tripped ? govTform("kill-switches", id, "rearm", "Re-arm", "ghost") : govTform("kill-switches", id, "trip", "Trip", "danger", `<input name="trip_reason" placeholder="reason" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`);
-  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Kill switch</b> <span class="pill ${tripped ? "warn" : "muted"}">${CX_ESC(k.state || "armed")}</span> <code>${CX_ESC(id)}</code></div>${govDform("kill-switches", id)}</div>
-    <dl class="wlgrid"><dt class="wlk">Subject</dt><dd class="wlv">${CX_ESC(k.subject_ref || "—")}</dd><dt class="wlk">Revoke path</dt><dd class="wlv">${k.revoke_path ? `<code>${CX_ESC(k.revoke_path)}</code>` : "—"}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(k.trip_reason || "—")}${k.tripped_at ? " · " + CX_ESC(k.tripped_at) : ""}</dd></dl>
-    <p class="sub" style="margin:6px 0 0">Record-only — tripping records the kill decision; it does not revoke yet.</p>
-    <div class="row" style="margin-top:8px">${actions}</div></div>`;
+  const enfState = k.enforcement_state || null;
+  const trans = tripped ? govTform("kill-switches", id, "rearm", "Re-arm", "ghost") : govTform("kill-switches", id, "trip", "Trip", "danger", `<input name="trip_reason" placeholder="reason" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`);
+  // Enforce is a SEPARATE effectful step, only available once tripped.
+  const enforceBtn = tripped
+    ? `<form class="inline" method="post" action="/__ioi/governance/kill-switches/${encodeURIComponent(id)}/enforce" onsubmit="return confirm('Enforce this kill switch? This stops/unmounts the target domain-app runtime(s).')"><button class="act danger" type="submit">Enforce</button></form>`
+    : "";
+  const enfPill = enfState ? `<span class="pill ${enfState === "enforced" ? "ok" : enfState === "failed" ? "warn" : "muted"}">enforcement: ${CX_ESC(enfState)}</span>` : "";
+  const enfBlock = enfState
+    ? `<dl class="wlgrid" style="margin:8px 0 0"><dt class="wlk">Enforced</dt><dd class="wlv">${CX_ESC(k.enforced_at || "")} · ${CX_ESC(k.enforcement_result || "")}</dd><dt class="wlk">Affected</dt><dd class="wlv">${(k.affected_runtime_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd><dt class="wlk">Receipts</dt><dd class="wlv">${(k.enforcement_receipt_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd></dl>`
+    : "";
+  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Kill switch</b> <span class="pill ${tripped ? "warn" : "muted"}">${CX_ESC(k.state || "armed")}</span> ${enfPill} <code>${CX_ESC(id)}</code></div>${govDform("kill-switches", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Subject</dt><dd class="wlv">${CX_ESC(k.subject_ref || "—")}</dd><dt class="wlk">Revoke path</dt><dd class="wlv">${k.revoke_path ? `<code>${CX_ESC(k.revoke_path)}</code>` : "—"}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(k.trip_reason || "—")}${k.tripped_at ? " · " + CX_ESC(k.tripped_at) : ""}</dd></dl>${enfBlock}
+    <p class="sub" style="margin:6px 0 0">Trip records the kill decision; Enforce mutates eligible domain-app runtime targets (stop serving + unmount). Enforce is available only after trip.</p>
+    <div class="row" style="margin-top:8px">${trans} ${enforceBtn}</div></div>`;
 }
 function govGateCard(g) {
   const id = g.id || ""; const b = g.bounds || {}; const stp = g.state === "closed" ? "ok" : g.state === "bounded" ? "warn" : "muted";
@@ -3528,6 +3537,12 @@ const server = http.createServer((req, res) => {
         }
         if (action === "delete") {
           await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+          res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
+        }
+        // Effectful KillSwitch enforcement (after trip).
+        if (action === "enforce" && fam === "kill-switches") {
+          const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
+          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${back}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
       }
