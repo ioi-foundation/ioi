@@ -596,10 +596,12 @@ async function handleImpl(pathname, bodyText) {
     const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
     try {
       const r = await daemon("GET", "/v1/hypervisor/editor-targets");
-      let active = r.active_targets || [];
-      // Surface vscode-browser first (the working one); ensure it's present even if the registry shifts.
-      if (!active.includes("vscode-browser")) active = ["vscode-browser", ...active];
-      active = ["vscode-browser", ...active.filter((t) => t !== "vscode-browser")];
+      // Offer ONLY targets whose PROBED open posture passed (openable_targets) — a listed editor
+      // that cannot actually open is a dropdown lie. The owned Workbench panel shows the full
+      // registry with disabled-with-reason rows.
+      const openable = r.openable_targets || r.active_targets || [];
+      let active = openable.filter((t) => t !== "workbench-native"); // the SPA console IS the native surface
+      active = ["vscode-browser", ...active.filter((t) => t !== "vscode-browser")].filter((t) => openable.includes(t));
       const editors = active.map((t) => ({ id: t, name: labels[t] || t, alias: t, urlTemplate: URL_TEMPLATES[t] || "", installationInstructions: "" }));
       return json({ editors });
     } catch {
