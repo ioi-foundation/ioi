@@ -92,7 +92,7 @@ fn profile_receipt(
 /// Post an agent-run-transcript for an effectful registry op so the transcript plane computes a
 /// tamper-evident state_root and the op surfaces in Run Timeline / Work Ledger. Best-effort; the
 /// outcome (`transcript_recorded`) is reported honestly on the response.
-async fn post_op_transcript(
+pub(crate) async fn post_op_transcript(
     base: &str,
     op: &str,
     profile_ref: &str,
@@ -170,13 +170,37 @@ fn probe_profile(profile: &Value) -> Value {
                 json!({ "required_binary": if binary.is_empty() { "bash".to_string() } else { binary.clone() } }),
             ),
         },
-        _ => match binary_on_path(&binary) {
-            Some(path) => ("runnable", json!({ "binary_path": path })),
-            None => (
-                "binary_missing",
-                json!({ "required_binary": binary }),
-            ),
-        },
+        _ => {
+            let wiring = ps(profile, "/adapter/execution_wiring", "adapter_slot_unwired");
+            match binary_on_path(&binary) {
+                None => ("binary_missing", json!({ "required_binary": binary })),
+                Some(path) if wiring == "lane_a_host_spawn" => {
+                    // A WIRED cli driver needs its full execution substrate, honestly probed:
+                    // the adapter binary, node + the driver shim, the bwrap sandbox, and a
+                    // reachable model upstream.
+                    let shim_rel = ps(profile, "/adapter/shim_path", "");
+                    let shim_ok = !shim_rel.is_empty()
+                        && std::env::current_dir()
+                            .map(|cwd| cwd.join(&shim_rel).is_file())
+                            .unwrap_or(false);
+                    if binary_on_path("node").is_none() {
+                        ("binary_missing", json!({ "required_binary": "node", "note": "the driver shim runs through node" }))
+                    } else if binary_on_path("bwrap").is_none() {
+                        ("binary_missing", json!({ "required_binary": "bwrap", "note": "adapter drivers refuse to spawn unconfined" }))
+                    } else if !shim_ok {
+                        ("shim_missing", json!({ "required_shim": shim_rel }))
+                    } else if !model_route_reachable() {
+                        ("model_route_unreachable", json!({ "note": "adapter binary + driver resolve but the configured model upstream did not accept a TCP connection" }))
+                    } else {
+                        (
+                            "runnable",
+                            json!({ "binary_path": path, "driver_shim": shim_rel, "sandbox": "bwrap", "model_upstream_reachable": true }),
+                        )
+                    }
+                }
+                Some(path) => ("runnable", json!({ "binary_path": path })),
+            }
+        }
     };
     json!({
         "state": state,
@@ -296,7 +320,15 @@ fn seed_profile(
             "adapter_kind": adapter_kind,
             "execution_wiring": execution_wiring,
             "binary": binary,
-            "shim_path": if adapter_kind == "native_worker" { json!("packages/hypervisor-harness-shims/generic-cli-local.mjs") } else { Value::Null },
+            "shim_path": if adapter_kind == "native_worker" {
+                json!("packages/hypervisor-harness-shims/generic-cli-local.mjs")
+            } else {
+                match harness {
+                    "opencode" => json!("packages/hypervisor-harness-shims/opencode-driver.mjs"),
+                    "deepseek_tui" => json!("packages/hypervisor-harness-shims/deepseek-tui-driver.mjs"),
+                    _ => Value::Null,
+                }
+            },
             "provider_trust": provider_trust
         },
         "capabilities": {
@@ -360,9 +392,9 @@ fn seed_profiles() -> Vec<Value> {
             "hp_opencode",
             "opencode",
             "OpenCode",
-            "OpenCode CLI adapter slot — probed for host presence; execution wiring is not yet built.",
+            "OpenCode CLI execution driver — daemon-spawned via `opencode run` (bwrap-confined, hermetic Ollama provider config), streaming normalized adapter events.",
             "cli_binary",
-            "adapter_slot_unwired",
+            "lane_a_host_spawn",
             "opencode",
             "local",
             json!(["hypervisor:native-local"]),
@@ -378,9 +410,9 @@ fn seed_profiles() -> Vec<Value> {
             "hp_deepseek_tui",
             "deepseek_tui",
             "DeepSeek TUI",
-            "DeepSeek terminal UI adapter slot — probed for host presence; execution wiring is not yet built.",
+            "DeepSeek TUI execution driver — daemon-spawned via `deepseek exec` over the TUI's native ollama provider (bwrap-confined, hermetic config), streaming normalized adapter events.",
             "cli_binary",
-            "adapter_slot_unwired",
+            "lane_a_host_spawn",
             "deepseek",
             "local",
             json!(["deepseek:local"]),
@@ -437,7 +469,24 @@ fn seed_profiles() -> Vec<Value> {
 pub(crate) fn ensure_seed(data_dir: &str) {
     for mut record in seed_profiles() {
         let id = s(&record, "profile_id", "");
-        if load_profile_record(data_dir, &id).is_some() {
+        if let Some(mut existing) = load_profile_record(data_dir, &id) {
+            // Reconcile SEEDED records whose adapter contract evolved in code (e.g. an adapter
+            // slot gaining a wired execution driver). Only code-owned descriptive fields move;
+            // lifecycle/default/receipts/admissions — the record's admitted history — stay.
+            if s(&existing, "origin", "") == "seeded"
+                && (existing.get("adapter") != record.get("adapter")
+                    || existing.get("summary") != record.get("summary"))
+            {
+                existing["adapter"] = record["adapter"].clone();
+                existing["summary"] = record["summary"].clone();
+                let profile_ref = s(&existing, "profile_ref", "");
+                let receipt = profile_receipt(data_dir, &profile_ref, "seed_reconciled", "ok", None);
+                if let Some(refs) = existing["receipt_refs"].as_array_mut() {
+                    refs.push(json!(receipt));
+                }
+                let mut fresh = existing;
+                save_profile(data_dir, &mut fresh);
+            }
             continue;
         }
         if id == DEFAULT_PROFILE_ID {
@@ -1050,9 +1099,17 @@ mod harness_profile_tests {
     }
 
     #[test]
-    fn adapter_slots_are_declared_unwired_and_remote_trust_is_explicit() {
+    fn adapter_wiring_is_honest_and_remote_trust_is_explicit() {
         let seeds = seed_profiles();
-        for key in ["opencode", "deepseek_tui", "claude_code", "codex"] {
+        // OpenCode + DeepSeek TUI have REAL execution drivers (wired lane A, driver shims);
+        // Codex + Claude Code stay auth/provider-trust-gated adapter slots (unwired).
+        for key in ["opencode", "deepseek_tui"] {
+            let p = seeds.iter().find(|p| s(p, "harness", "") == key).unwrap();
+            assert_eq!(ps(p, "/adapter/execution_wiring", ""), "lane_a_host_spawn");
+            assert!(ps(p, "/adapter/shim_path", "").ends_with("-driver.mjs"));
+            assert_eq!(ps(p, "/lifecycle/status", ""), "declared");
+        }
+        for key in ["claude_code", "codex"] {
             let p = seeds.iter().find(|p| s(p, "harness", "") == key).unwrap();
             assert_eq!(ps(p, "/adapter/execution_wiring", ""), "adapter_slot_unwired");
             assert_eq!(ps(p, "/lifecycle/status", ""), "declared");
@@ -1092,14 +1149,14 @@ mod harness_profile_tests {
     #[test]
     fn unwired_profile_bind_is_planner_rejected() {
         let seeds = seed_profiles();
-        let mut opencode = seeds
+        let mut codex = seeds
             .iter()
-            .find(|p| s(p, "harness", "") == "opencode")
+            .find(|p| s(p, "harness", "") == "codex")
             .unwrap()
             .clone();
-        opencode["runnability"] = json!({ "state": "runnable" });
+        codex["runnability"] = json!({ "state": "runnable" });
         let err = compose_mutation_admission(
-            &opencode,
+            &codex,
             "bind_session_profile",
             Some("session:hyp-x"),
             Some("model-route:mrt_local_default"),

@@ -7647,7 +7647,18 @@ fn resolve_host_harness_argv(model: &str, workspace_root: &str) -> Option<Vec<St
 }
 
 const HARNESS_RESULT_SENTINEL: &str = "__HYPERVISOR_HARNESS_RESULT__";
-const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 180;
+/// Normalized HarnessAdapterEvent lines streamed by adapter drivers (opencode / deepseek_tui).
+const ADAPTER_EVENT_SENTINEL: &str = "__HYPERVISOR_ADAPTER_EVENT__";
+/// Cap on persisted adapter events per run (stream truth stays in the terminal transcript).
+const ADAPTER_EVENT_CAP: usize = 400;
+
+fn nanos_now() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+}
+const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 300;
 
 /// Outcome of one real host-spawn lane run (truthful — failure reflects reality).
 struct HostLaneOutcome {
@@ -7660,6 +7671,88 @@ struct HostLaneOutcome {
     files_written: Vec<String>,
     /// (stream, line) transcript in emission order.
     transcript: Vec<(String, String)>,
+    /// Normalized HarnessAdapterEvent records streamed by an adapter driver (empty for the
+    /// generic shim, which predates the event protocol).
+    adapter_events: Vec<Value>,
+    /// The driver's ImplementationResultPayload (ioi.hypervisor.implementation-result.v1).
+    implementation_result: Option<Value>,
+}
+
+/// Resolve the wired execution driver for the session's ADMITTED harness binding.
+/// `Ok(None)` = no binding (or the native worker) — the legacy generic Lane A path applies,
+/// byte-identical. `Ok(Some((harness, argv)))` = a real adapter driver, bwrap-CONFINED: the
+/// whole filesystem read-only except the session workspace, the adapter's own state dirs, and
+/// a private /tmp (the workspace is re-bound inside it) — a small local model mangling a path
+/// cannot write outside the admitted boundary. `Err` = the binding names an adapter whose
+/// substrate is missing RIGHT NOW (binary / driver shim / sandbox) — fail closed, no spawn.
+fn resolve_adapter_driver(
+    record: &Value,
+    model: &str,
+    workspace_root: &str,
+    endpoint: Option<&str>,
+) -> Result<Option<(String, Vec<String>)>, (&'static str, String)> {
+    let harness = record
+        .pointer("/harness_binding/harness")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let shim_rel = match harness {
+        "opencode" => "packages/hypervisor-harness-shims/opencode-driver.mjs",
+        "deepseek_tui" => "packages/hypervisor-harness-shims/deepseek-tui-driver.mjs",
+        // No binding / the native worker -> generic Lane A (unchanged legacy path).
+        "" | "hypervisor_worker" => return Ok(None),
+        other => {
+            return Err((
+                "harness_execution_lane_unsupported",
+                format!("harness '{other}' has no wired execution driver; only admitted lane-A drivers execute"),
+            ));
+        }
+    };
+    let adapter_binary = if harness == "opencode" { "opencode" } else { "deepseek" };
+    if binary_on_path(adapter_binary).is_none() {
+        return Err((
+            "adapter_binary_missing",
+            format!("required adapter binary '{adapter_binary}' is not on PATH"),
+        ));
+    }
+    let Some(node) = binary_on_path("node") else {
+        return Err(("adapter_binary_missing", "node is not on PATH".to_string()));
+    };
+    if binary_on_path("bwrap").is_none() {
+        return Err((
+            "adapter_sandbox_missing",
+            "bubblewrap (bwrap) is required to confine adapter drivers; refusing to spawn unconfined".to_string(),
+        ));
+    }
+    let shim = std::env::current_dir().unwrap_or_default().join(shim_rel);
+    if !shim.is_file() {
+        return Err(("adapter_driver_missing", format!("driver shim absent: {shim_rel}")));
+    }
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    // Adapter state dirs must exist before bwrap binds them read-write.
+    for sub in [".local/share/opencode", ".deepseek", ".cache"] {
+        let _ = std::fs::create_dir_all(std::path::Path::new(&home).join(sub));
+    }
+    let mut argv: Vec<String> = vec![
+        "bwrap".into(),
+        "--ro-bind".into(), "/".into(), "/".into(),
+        "--dev".into(), "/dev".into(),
+        "--proc".into(), "/proc".into(),
+        "--tmpfs".into(), "/tmp".into(),
+        "--bind".into(), workspace_root.into(), workspace_root.into(),
+        "--bind".into(), format!("{home}/.local/share/opencode"), format!("{home}/.local/share/opencode"),
+        "--bind".into(), format!("{home}/.deepseek"), format!("{home}/.deepseek"),
+        "--bind".into(), format!("{home}/.cache"), format!("{home}/.cache"),
+        "--die-with-parent".into(),
+        node,
+        shim.to_string_lossy().into_owned(),
+        "--model".into(), model.into(),
+        "--cd".into(), workspace_root.into(),
+    ];
+    if let Some(endpoint) = endpoint {
+        argv.push("--model-endpoint".into());
+        argv.push(endpoint.into());
+    }
+    Ok(Some((harness.to_string(), argv)))
 }
 
 /// Run one real Lane A execution: spawn the admitted host harness over its
@@ -7710,6 +7803,8 @@ async fn run_host_spawn_lane(
                 summary: String::new(),
                 files_written: Vec::new(),
                 transcript: Vec::new(),
+                adapter_events: Vec::new(),
+                implementation_result: None,
             };
         }
     };
@@ -7732,6 +7827,7 @@ async fn run_host_spawn_lane(
 
     let mut transcript: Vec<(String, String)> = Vec::new();
     let mut result_json: Option<Value> = None;
+    let mut adapter_events: Vec<Value> = Vec::new();
 
     let drive = async {
         let Some(stdout) = stdout else { return };
@@ -7739,6 +7835,14 @@ async fn run_host_spawn_lane(
         let mut intent_sent = false;
         while let Ok(Some(line)) = lines.next_line().await {
             transcript.push(("stdout".to_string(), line.clone()));
+            if let Some(rest) = line.strip_prefix(ADAPTER_EVENT_SENTINEL) {
+                if adapter_events.len() < ADAPTER_EVENT_CAP {
+                    if let Ok(event) = serde_json::from_str::<Value>(rest.trim()) {
+                        adapter_events.push(event);
+                    }
+                }
+                continue;
+            }
             if let Some(rest) = line.strip_prefix(HARNESS_RESULT_SENTINEL) {
                 result_json = serde_json::from_str(rest.trim()).ok();
                 if let Some(stdin) = stdin.as_mut() {
@@ -7807,12 +7911,18 @@ async fn run_host_spawn_lane(
         Some(result_error.unwrap_or_else(|| "harness_lane_incomplete".to_string()))
     };
 
+    let implementation_result = result_json
+        .as_ref()
+        .and_then(|value| value.get("implementation_result"))
+        .cloned();
     HostLaneOutcome {
         ok,
         exit_code,
         timed_out,
         spawn_error: None,
         error,
+        adapter_events,
+        implementation_result,
         summary,
         files_written,
         transcript,
@@ -14466,21 +14576,53 @@ pub(crate) async fn handle_session_execute(
                 None,
             ),
         };
-    let Some(argv) = resolve_host_harness_argv(&model, &workspace_root) else {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({
-                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
-                "session_ref": session_id,
-                "decision": "blocked",
-                "reason": "harness_unavailable",
-                "message": "Host harness argv could not be resolved (node / shim missing).",
-                "changed_file_groups": [],
-                "terminal_events": [],
-                "runtimeTruthSource": "daemon-runtime",
-            })),
-        );
+    // Adapter driver lane: a session whose ADMITTED harness binding names a wired adapter
+    // (opencode / deepseek_tui) executes through that driver — bwrap-confined, event-streaming.
+    // Substrate gaps fail closed BEFORE any spawn; no binding keeps the legacy path byte-identical.
+    let driver = match resolve_adapter_driver(&record, &model, &workspace_root, model_endpoint.as_deref()) {
+        Ok(driver) => driver,
+        Err((reason, message)) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                    "session_ref": session_id,
+                    "decision": "blocked",
+                    "reason": reason,
+                    "message": message,
+                    "harness": record.pointer("/harness_binding/harness").cloned().unwrap_or(Value::Null),
+                    "changed_file_groups": [],
+                    "terminal_events": [],
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            );
+        }
     };
+    let (harness_label, argv) = match driver {
+        Some((harness, argv)) => (harness, argv),
+        None => {
+            let Some(argv) = resolve_host_harness_argv(&model, &workspace_root) else {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                        "session_ref": session_id,
+                        "decision": "blocked",
+                        "reason": "harness_unavailable",
+                        "message": "Host harness argv could not be resolved (node / shim missing).",
+                        "changed_file_groups": [],
+                        "terminal_events": [],
+                        "runtimeTruthSource": "daemon-runtime",
+                    })),
+                );
+            };
+            ("hypervisor_worker".to_string(), argv)
+        }
+    };
+    let harness_profile_ref = record
+        .pointer("/harness_binding/profile_ref")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let started_at = iso_now();
     let outcome =
         run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
@@ -14518,6 +14660,24 @@ pub(crate) async fn handle_session_execute(
         }
     }
 
+    // Persist the driver's normalized adapter events as daemon records (Run Timeline /
+    // Work Ledger evidence). The full raw stream stays in terminal_events.
+    let run_tag = format!("{}_{:x}", safe_session_tag(&session_id), nanos_now());
+    let mut adapter_event_refs: Vec<String> = Vec::new();
+    for (index, event) in outcome.adapter_events.iter().enumerate() {
+        let event_id = event
+            .get("event_id")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("hae_{run_tag}_{index}"));
+        let mut stored = event.clone();
+        stored["session_ref"] = json!(session_id);
+        stored["run_tag"] = json!(run_tag);
+        stored["sequence"] = json!(index + 1);
+        let _ = persist_record(&st.data_dir, "harness-adapter-events", &event_id, &stored);
+        adapter_event_refs.push(format!("agentgres://harness-adapter-event/{event_id}"));
+    }
+
     // Real lane execution receipt.
     let exit_status = if outcome.ok { "success" } else { "failure" };
     let lane_receipt_ref = format!(
@@ -14528,6 +14688,11 @@ pub(crate) async fn handle_session_execute(
         "id": lane_receipt_ref,
         "kind": "hypervisor.session.execute",
         "session_ref": session_id,
+        "harness": harness_label,
+        "harness_profile_ref": harness_profile_ref,
+        "adapter_event_count": outcome.adapter_events.len(),
+        "adapter_event_refs": adapter_event_refs,
+        "implementation_result": outcome.implementation_result,
         "model": model,
         "model_source": model_source,
         "model_route_ref": model_route_ref,
@@ -14590,6 +14755,27 @@ pub(crate) async fn handle_session_execute(
     }
     let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
 
+    // Adapter runs post an agent-run-transcript so the run carries a tamper-evident
+    // state_root in Run Timeline / Work Ledger (best-effort; outcome reported honestly).
+    let mut adapter_transcript_run: Option<String> = None;
+    if harness_label != "hypervisor_worker" {
+        adapter_transcript_run = super::harness_routes::post_op_transcript(
+            &st.base_url,
+            "adapter_execute",
+            harness_profile_ref.as_deref().unwrap_or(&harness_label),
+            &json!({
+                "session_ref": session_id,
+                "harness": harness_label,
+                "exit_status": exit_status,
+                "files_written": outcome.files_written,
+                "adapter_event_count": outcome.adapter_events.len(),
+                "implementation_result": outcome.implementation_result,
+                "receipt_ref": lane_receipt_ref,
+            }),
+        )
+        .await;
+    }
+
     let status_code = if outcome.spawn_error.is_some() {
         StatusCode::BAD_GATEWAY
     } else {
@@ -14601,7 +14787,14 @@ pub(crate) async fn handle_session_execute(
             "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
             "session_ref": session_id,
             "decision": if outcome.ok { "executed" } else { "failed" },
-            "lane": "host_spawn_session",
+            "lane": if harness_label == "hypervisor_worker" { "host_spawn_session".to_string() } else { format!("adapter_driver_session:{harness_label}") },
+            "harness": harness_label,
+            "harness_profile_ref": harness_profile_ref,
+            "adapter_events": outcome.adapter_events,
+            "adapter_event_refs": adapter_event_refs,
+            "implementation_result": outcome.implementation_result,
+            "adapter_transcript_recorded": adapter_transcript_run.is_some(),
+            "adapter_transcript_run_id": adapter_transcript_run,
             "model": model,
             "exit_status": exit_status,
             "exit_code": outcome.exit_code,

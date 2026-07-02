@@ -43,10 +43,14 @@ async function run() {
   ok("exactly one default profile", profiles.filter((p) => p.default_profile === true).length === 1, list.j?.default_profile_ref);
   const worker = byHarness("hypervisor_worker");
   ok("native worker is the seed default and seed-enabled with admission linkage", worker?.default_profile === true && worker?.lifecycle?.status === "active" && String(worker?.admission?.last_admission_id || "").startsWith("harness-profile-mutation-admission:"), worker?.admission?.last_admission_id);
-  for (const h of ["opencode", "deepseek_tui", "claude_code", "codex"]) {
+  for (const h of ["opencode", "deepseek_tui"]) {
     const p = byHarness(h);
-    // declared at seed; a prior verifier run may have left the admitted `disabled` posture —
-    // both are honest non-active states. Never `active` without an admitted enable.
+    // These adapters have REAL execution drivers now (wired lane A + driver shim); non-active
+    // until an admitted enable. (declared at seed; a prior run may leave admitted `disabled`.)
+    ok(`wired adapter driver, non-active until admitted enable: ${h}`, ["declared", "disabled"].includes(p?.lifecycle?.status) && p?.adapter?.execution_wiring === "lane_a_host_spawn" && String(p?.adapter?.shim_path || "").endsWith("-driver.mjs"), `${p?.lifecycle?.status} ${p?.adapter?.execution_wiring}`);
+  }
+  for (const h of ["claude_code", "codex"]) {
+    const p = byHarness(h);
     ok(`adapter slot is non-active + unwired (no fake execution): ${h}`, ["declared", "disabled"].includes(p?.lifecycle?.status) && p?.adapter?.execution_wiring === "adapter_slot_unwired", p?.lifecycle?.status);
   }
 
@@ -98,10 +102,11 @@ async function run() {
   const bindShell = await jd("POST", `/v1/hypervisor/harness-profiles/${shell.profile_id}/session-bindings`, { session_ref: "sess_verify_hpr" });
   ok("binding a terminal-lane profile for execution fails closed (409)", bindShell.status === 409 && bindShell.j?.error?.code === "harness_execution_lane_unsupported", bindShell.j?.error?.code);
   await jd("POST", `/v1/hypervisor/harness-profiles/${shell.profile_id}/disable`);
-  const enOc = await jd("POST", `/v1/hypervisor/harness-profiles/${byHarness("opencode").profile_id}/enable`);
-  const bindOc = await jd("POST", `/v1/hypervisor/harness-profiles/${byHarness("opencode").profile_id}/session-bindings`, { session_ref: "sess_verify_hpr" });
-  ok("binding an unwired adapter slot fails closed (409)", enOc.status === 200 && bindOc.status === 409 && bindOc.j?.error?.code === "harness_execution_lane_unsupported", bindOc.j?.error?.code);
-  await jd("POST", `/v1/hypervisor/harness-profiles/${byHarness("opencode").profile_id}/disable`);
+  const cdx = byHarness("codex");
+  const enCdx = await jd("POST", `/v1/hypervisor/harness-profiles/${cdx.profile_id}/enable`, { provider_trust_acceptance_ref: "approval://provider-trust/codex-verify" });
+  const bindCdx = await jd("POST", `/v1/hypervisor/harness-profiles/${cdx.profile_id}/session-bindings`, { session_ref: "sess_verify_hpr" });
+  ok("binding an unwired adapter slot fails closed (409)", enCdx.status === 200 && bindCdx.status === 409 && bindCdx.j?.error?.code === "harness_execution_lane_unsupported", bindCdx.j?.error?.code);
+  await jd("POST", `/v1/hypervisor/harness-profiles/${cdx.profile_id}/disable`);
 
   // 6b. Positive lane (only when the local substrate is really runnable + route available).
   const wp2 = await jd("POST", `/v1/hypervisor/harness-profiles/${worker.profile_id}/probe`);
