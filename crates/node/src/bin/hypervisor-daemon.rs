@@ -1106,6 +1106,25 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(domain_apps_routes::handle_domain_apps_patch)
                 .delete(domain_apps_routes::handle_domain_apps_delete),
         )
+        // Domain-App runtime mount (effectful cut A: governed mount admission, NOT serving). Mount
+        // requires an approved ApprovalRequest + open ReleaseControl targeting the domain app; emits a
+        // receipt + durable DomainAppRuntime record (mounted:true). No process/URL/ingress/publish.
+        .route(
+            "/v1/hypervisor/domain-apps/:id/mount",
+            post(domain_apps_routes::handle_domain_app_mount),
+        )
+        .route(
+            "/v1/hypervisor/domain-apps/:id/unmount",
+            post(domain_apps_routes::handle_domain_app_unmount),
+        )
+        .route(
+            "/v1/hypervisor/domain-app-runtimes",
+            get(domain_apps_routes::handle_domain_app_runtime_list),
+        )
+        .route(
+            "/v1/hypervisor/domain-app-runtimes/:id",
+            get(domain_apps_routes::handle_domain_app_runtime_get),
+        )
         // Governance object plane (foundation) — a READ PROJECTION aggregating real authority /
         // identity / lease / admission substrate + naming missing controls. No CRUD, no mutation.
         .route(
