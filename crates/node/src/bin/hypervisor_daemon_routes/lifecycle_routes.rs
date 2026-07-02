@@ -14411,7 +14411,30 @@ pub(crate) async fn handle_session_execute(
 
     // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
     // the intent. The harness drives the local model and edits the workspace.
-    let model = resolve_harness_model();
+    // Model-route binding consumption: a session bound to an admitted, active registry route
+    // executes with that route's model + endpoint (receipt names the route + binding); with no
+    // binding, model/endpoint resolution is byte-identical to the env-var default path.
+    let route_binding =
+        super::model_routes::resolve_session_route_binding(&st.data_dir, &session_id);
+    let (model, model_endpoint, model_source, model_route_ref, model_route_binding_id) =
+        match &route_binding {
+            Some((model_id, endpoint, route_ref, binding_id)) => (
+                model_id.clone(),
+                Some(endpoint.clone()),
+                "session_binding",
+                Some(route_ref.clone()),
+                Some(binding_id.clone()),
+            ),
+            None => (
+                resolve_harness_model(),
+                std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+                    .ok()
+                    .filter(|value| !value.is_empty()),
+                "env_default",
+                None,
+                None,
+            ),
+        };
     let Some(argv) = resolve_host_harness_argv(&model, &workspace_root) else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -14427,9 +14450,6 @@ pub(crate) async fn handle_session_execute(
             })),
         );
     };
-    let model_endpoint = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
-        .ok()
-        .filter(|value| !value.is_empty());
     let started_at = iso_now();
     let outcome =
         run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
@@ -14478,6 +14498,9 @@ pub(crate) async fn handle_session_execute(
         "kind": "hypervisor.session.execute",
         "session_ref": session_id,
         "model": model,
+        "model_source": model_source,
+        "model_route_ref": model_route_ref,
+        "model_route_binding_id": model_route_binding_id,
         "exit_status": exit_status,
         "exit_code": outcome.exit_code,
         "files_written": outcome.files_written,
