@@ -1117,6 +1117,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/domain-apps/:id/unmount",
             post(domain_apps_routes::handle_domain_app_unmount),
         )
+        // Domain-App runtime serving (internal, descriptor-driven; reuses the mount's governance).
+        .route(
+            "/v1/hypervisor/domain-apps/:id/serve",
+            post(domain_apps_routes::handle_domain_app_serve),
+        )
+        .route(
+            "/v1/hypervisor/domain-apps/:id/stop-serving",
+            post(domain_apps_routes::handle_domain_app_stop_serving),
+        )
         .route(
             "/v1/hypervisor/domain-app-runtimes",
             get(domain_apps_routes::handle_domain_app_runtime_list),

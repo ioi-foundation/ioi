@@ -631,6 +631,115 @@ pub(crate) async fn handle_domain_app_runtime_get(
     }
 }
 
+// ---- SERVING (internal, descriptor-driven; reuses the mount's governance) -----------------------
+// serve is a sub-step of the same governed mount — it reuses the mount's approved ApprovalRequest and
+// open ReleaseControl (re-validated live), assigns an INTERNAL route only, and emits serve receipts.
+// Still no process, public ingress, publish, connector action, or object mutation.
+
+/// Precheck the runtime for a serve transition (pure): must be mounted and not already serving.
+fn serve_precheck(runtime: &Value) -> Result<(), (String, String)> {
+    if runtime.get("mounted").and_then(|v| v.as_bool()) != Some(true) {
+        return Err(("domain_app_not_mounted".into(), "runtime must be mounted before it can serve".into()));
+    }
+    if runtime.get("serving").and_then(|v| v.as_bool()) == Some(true) {
+        return Err(("domain_app_already_serving".into(), "runtime is already serving".into()));
+    }
+    Ok(())
+}
+
+/// POST /v1/hypervisor/domain-apps/:id/serve — start internal, descriptor-driven serving.
+pub(crate) async fn handle_domain_app_serve(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(_body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+        return bad("domain_app_not_found", "domain app not found");
+    };
+    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+    };
+    if let Err((c, m)) = serve_precheck(&rt) {
+        return bad(&c, &m);
+    }
+    // Re-validate the mount's governance is STILL valid (approval approved, release open, right subject).
+    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let Some(approval) = load_scheme(&st.data_dir, &approval_ref, "approval-request", KIND_APPROVAL) else {
+        return bad("serve_approval_missing", "the mount's ApprovalRequest no longer resolves");
+    };
+    let Some(release) = load_scheme(&st.data_dir, &release_ref, "release-control", KIND_RELEASE) else {
+        return bad("serve_release_missing", "the mount's ReleaseControl no longer resolves");
+    };
+    if let Err((c, m)) = approval_admits(&approval, &domain_app_ref) {
+        return bad(&c, &m);
+    }
+    if let Err((c, m)) = release_admits(&release, &domain_app_ref) {
+        return bad(&c, &m);
+    }
+    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.serve_start", &domain_app_ref, &approval_ref, &release_ref);
+    let route = format!("/__ioi/domain-app-runtime/{rid}");
+    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    refs.push(json!(receipt_ref));
+    rt["serving"] = json!(true);
+    rt["state"] = json!("serving");
+    rt["internal_route_ref"] = json!(route);
+    rt["serve_started_at"] = json!(iso_now());
+    rt["receipt_refs"] = json!(refs);
+    rt["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
+    // Backlink: DomainApp runtime_posture now serving on the INTERNAL route (still no external ingress).
+    let mut posture = dapp.get("runtime_posture").cloned().unwrap_or_else(|| json!({}));
+    posture["serving"] = json!(true);
+    posture["route"] = json!(route);
+    posture["note"] = json!("internally served (descriptor-driven, read-only); no external ingress");
+    dapp["runtime_posture"] = posture;
+    dapp["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+}
+
+/// POST /v1/hypervisor/domain-apps/:id/stop-serving — stop serving; return to mounted, receipted.
+pub(crate) async fn handle_domain_app_stop_serving(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(_body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+        return bad("domain_app_not_found", "domain app not found");
+    };
+    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+    };
+    if rt.get("serving").and_then(|v| v.as_bool()) != Some(true) {
+        return bad("domain_app_not_serving", "runtime is not serving");
+    }
+    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.serve_stop", &domain_app_ref, &approval_ref, &release_ref);
+    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    refs.push(json!(receipt_ref));
+    rt["serving"] = json!(false);
+    rt["state"] = json!("mounted");
+    rt["internal_route_ref"] = Value::Null;
+    rt["serve_stopped_at"] = json!(iso_now());
+    rt["receipt_refs"] = json!(refs);
+    rt["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
+    let mut posture = dapp.get("runtime_posture").cloned().unwrap_or_else(|| json!({}));
+    posture["serving"] = json!(false);
+    posture["route"] = Value::Null;
+    posture["note"] = json!("mounted (governed); serving stopped");
+    dapp["runtime_posture"] = posture;
+    dapp["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+}
+
 #[cfg(test)]
 mod domain_apps_tests {
     use super::*;
@@ -650,6 +759,13 @@ mod domain_apps_tests {
         assert_eq!(release_admits(&json!({ "state": "closed", "release_target_ref": dref }), dref).unwrap_err().0, "mount_release_not_open");
         // release open but wrong target -> err
         assert_eq!(release_admits(&json!({ "state": "open", "release_target_ref": "domain-app://other" }), dref).unwrap_err().0, "mount_control_wrong_subject");
+    }
+
+    #[test]
+    fn serve_precheck_requires_mounted_not_already_serving() {
+        assert!(serve_precheck(&json!({ "mounted": true, "serving": false })).is_ok());
+        assert_eq!(serve_precheck(&json!({ "mounted": false, "serving": false })).unwrap_err().0, "domain_app_not_mounted");
+        assert_eq!(serve_precheck(&json!({ "mounted": true, "serving": true })).unwrap_err().0, "domain_app_already_serving");
     }
 
     #[test]
