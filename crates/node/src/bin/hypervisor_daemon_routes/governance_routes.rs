@@ -23,7 +23,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
 async fn gj(base: &str, path: &str) -> Value {
     match reqwest::Client::new().get(format!("{base}{path}")).send().await {
@@ -615,6 +615,74 @@ pub(crate) async fn handle_kill_patch(State(st): State<Arc<DaemonState>>, AxumPa
 }
 pub(crate) async fn handle_kill_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
     g_del(&st.data_dir, KIND_KILL, &id)
+}
+
+const KIND_KILL_ENFORCE_RECEIPT: &str = "governance-kill-enforcement-receipts";
+
+/// POST /v1/hypervisor/governance/kill-switches/:id/enforce — effectful enforcement (AFTER trip).
+/// This cut enforces ONLY domain-app runtime targets: it stops serving + unmounts the matching
+/// runtime(s) via the shared runtime logic (consistent receipts/state), records the outcome on the
+/// KillSwitch, and emits an enforcement receipt even for a no-op. It does NOT revoke wallet grants,
+/// leases, connectors, environments, workers, or anything outside the Domain-App runtime target.
+pub(crate) async fn handle_kill_enforce(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut k) = load(&st.data_dir, KIND_KILL, &id) else {
+        return bad("kill_switch_not_found", "kill switch not found");
+    };
+    if k.get("state").and_then(|v| v.as_str()) != Some("tripped") {
+        return bad("kill_switch_not_tripped", "KillSwitch must be tripped before it can be enforced");
+    }
+    let subject = k.get("subject_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let supported = subject.starts_with("domain-app-runtime://") || subject.starts_with("domain-app://");
+    if !supported {
+        return bad(
+            "kill_target_unsupported",
+            "this enforcement cut supports only 'domain-app-runtime://' or 'domain-app://' targets",
+        );
+    }
+    let runtimes = super::domain_apps_routes::runtimes_for_kill_target(&st.data_dir, &subject);
+    let now = iso_now();
+    let mut affected: Vec<String> = Vec::new();
+    let mut receipt_refs: Vec<String> = Vec::new();
+    for rt in &runtimes {
+        if let Some(r) = rt.get("ref").and_then(|v| v.as_str()) {
+            affected.push(r.to_string());
+        }
+        receipt_refs.extend(super::domain_apps_routes::kill_enforce_runtime(&st.data_dir, rt));
+    }
+    let enforcement_state = if runtimes.is_empty() { "noop" } else { "enforced" };
+    // Emit a governance enforcement receipt even for a no-op (proof, never silent).
+    let erid = format!("kille_{:x}", nanos());
+    let state_root = sha256_hex_str(&format!("kill_enforce|{}|{subject}|{}|{now}", k.get("ref").and_then(|v| v.as_str()).unwrap_or(""), affected.join(",")));
+    let ereceipt = json!({
+        "schema_version": "ioi.hypervisor.governance.kill-enforcement-receipt.v1",
+        "object": "ioi.hypervisor.governance.kill_enforcement_receipt",
+        "id": erid, "ref": format!("kill-enforcement-receipt://{erid}"),
+        "kill_switch_ref": k.get("ref").cloned().unwrap_or(Value::Null),
+        "subject_ref": subject,
+        "enforcement_state": enforcement_state,
+        "affected_runtime_refs": affected.clone(),
+        "state_root": format!("sha256:{state_root}"),
+        "at": now
+    });
+    let _ = persist_record(&st.data_dir, KIND_KILL_ENFORCE_RECEIPT, &erid, &ereceipt);
+    receipt_refs.push(format!("kill-enforcement-receipt://{erid}"));
+    let result = if enforcement_state == "enforced" {
+        format!("stopped/unmounted {} runtime(s)", runtimes.len())
+    } else {
+        "no active runtime for target".to_string()
+    };
+    k["enforced_at"] = json!(now);
+    k["enforcement_state"] = json!(enforcement_state);
+    k["enforcement_result"] = json!(result);
+    k["affected_runtime_refs"] = json!(affected);
+    k["enforcement_receipt_refs"] = json!(receipt_refs);
+    k["last_enforcement_error"] = Value::Null;
+    k["updated_at"] = json!(now);
+    let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "kill_switch": k, "enforcement_receipt": ereceipt })))
 }
 
 // ---- ImprovementGate ---------------------------------------------------------------------------
