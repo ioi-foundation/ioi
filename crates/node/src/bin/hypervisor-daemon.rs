@@ -1784,7 +1784,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/sessions/:id",
-            delete(lifecycle_routes::handle_session_teardown),
+            get(lifecycle_routes::handle_session_get)
+                .delete(lifecycle_routes::handle_session_teardown),
         )
         // Phase 5A — RuntimeAgentService host substrate (lifecycle/state/events only).
         .route(

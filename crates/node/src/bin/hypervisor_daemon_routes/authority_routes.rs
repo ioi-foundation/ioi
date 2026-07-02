@@ -390,6 +390,7 @@ pub(crate) async fn handle_harness_binding_create(
         "authority_posture": "local_operator",
         "budget": body.get("budget").cloned().unwrap_or(Value::Null),
         "privacy": pick("privacy", "local_private"),
+        "session_ref": pick("session_ref", ""),
         "admitted": true,
         "evidence_ref": format!("agentgres://harness-binding/{id}"),
         "created_at": now

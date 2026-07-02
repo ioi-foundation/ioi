@@ -14748,6 +14748,31 @@ pub(crate) async fn handle_session_ports_revoke(
 /// listener, remove the provisioned workspace from disk (only under the sessions
 /// root), mark the session `torn_down` with its ports cleared, and emit a
 /// teardown receipt. 404 if the session is unknown.
+/// GET /v1/hypervisor/sessions/:id — read projection of one persisted session record (the
+/// daemon-owned truth the create wrote: provisioned workspace, environment status, and the
+/// admitted harness binding when a selection was made). Accepts the ref with or without the
+/// `session:` prefix.
+pub(crate) async fn handle_session_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let want = if id.starts_with("session:") {
+        id.clone()
+    } else {
+        format!("session:{id}")
+    };
+    match read_record_dir(&st.data_dir, "sessions")
+        .into_iter()
+        .find(|r| r.get("session_ref").and_then(Value::as_str) == Some(want.as_str()))
+    {
+        Some(record) => (StatusCode::OK, Json(json!({ "session": record }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "session": want } })),
+        ),
+    }
+}
+
 pub(crate) async fn handle_session_teardown(
     State(st): State<Arc<DaemonState>>,
     AxumPath(session_id): AxumPath<String>,
