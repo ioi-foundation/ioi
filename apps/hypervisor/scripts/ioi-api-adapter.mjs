@@ -265,6 +265,9 @@ async function handleImpl(pathname, bodyText) {
       // Model-route registry — daemon truth for model routes + availability posture.
       "model-routes": "/v1/hypervisor/model-routes",
       "model-routes-overview": "/v1/hypervisor/model-routes/overview",
+      // Harness-profile registry — daemon truth for selectable harnesses + probed runnability.
+      "harness-profiles": "/v1/hypervisor/harness-profiles",
+      "harness-profiles-overview": "/v1/hypervisor/harness-profiles/overview",
     };
     if (!map[sub]) return json({ error: "unknown ioi endpoint" });
     try {
