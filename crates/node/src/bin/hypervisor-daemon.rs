@@ -54,6 +54,8 @@ mod lifecycle_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/harness_routes.rs"]
+mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
 mod model_routes;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
@@ -150,6 +152,9 @@ pub(crate) struct DaemonState {
     // invariant and per-record updates are not lost under concurrent axum handlers. Guards only the
     // synchronous file mutation regions in model_routes.rs — never held across a network probe.
     pub(crate) model_route_lock: Mutex<()>,
+    // Same discipline for the harness-profile registry: serializes its read-modify-write sections
+    // (probe persist, lifecycle flips, exactly-one-default). Never held across a probe/network op.
+    pub(crate) harness_profile_lock: Mutex<()>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -304,6 +309,7 @@ async fn async_main() -> anyhow::Result<()> {
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
         model_route_lock: Mutex::new(()),
+        harness_profile_lock: Mutex::new(()),
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
@@ -1296,6 +1302,39 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/model-route-session-bindings",
             get(model_routes::handle_model_route_bindings_list),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles",
+            get(harness_routes::handle_harness_profiles_list),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/overview",
+            get(harness_routes::handle_harness_profiles_overview),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id",
+            get(harness_routes::handle_harness_profile_get),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id/probe",
+            post(harness_routes::handle_harness_profile_probe),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id/enable",
+            post(harness_routes::handle_harness_profile_enable),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id/disable",
+            post(harness_routes::handle_harness_profile_disable),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id/select-default",
+            post(harness_routes::handle_harness_profile_select_default),
+        )
+        .route(
+            "/v1/hypervisor/harness-profiles/:id/session-bindings",
+            post(harness_routes::handle_harness_profile_bind_session)
+                .get(harness_routes::handle_harness_profile_bindings_list),
         )
         .route(
             "/v1/hypervisor/placement/resolve",

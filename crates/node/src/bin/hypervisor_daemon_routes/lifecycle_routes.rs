@@ -7542,7 +7542,7 @@ impl ExecutionSubstrate {
 
 /// Honest reachability probe: can we TCP-connect to the configured model upstream
 /// (Ollama / OpenAI-compatible) within a short timeout? Offline → false (no fake).
-fn model_route_reachable() -> bool {
+pub(crate) fn model_route_reachable() -> bool {
     use std::net::{TcpStream, ToSocketAddrs};
     let upstream = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
         .ok()
@@ -7577,7 +7577,7 @@ fn parse_host_port(upstream: &str) -> (String, u16) {
 }
 
 /// `which`-style PATH lookup for an executable (no process spawn). None if absent.
-fn binary_on_path(name: &str) -> Option<String> {
+pub(crate) fn binary_on_path(name: &str) -> Option<String> {
     let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         let candidate = dir.join(name);
@@ -7602,7 +7602,7 @@ fn binary_on_path(name: &str) -> Option<String> {
 /// Resolve the `generic-cli-local` harness shim (a node script shipped in the repo).
 /// `IOI_HYPERVISOR_HARNESS_SHIM` overrides; otherwise it is the well-known path
 /// relative to the daemon's working directory. None when the file is absent.
-fn generic_cli_local_shim_path() -> Option<String> {
+pub(crate) fn generic_cli_local_shim_path() -> Option<String> {
     if let Some(explicit) = std::env::var("IOI_HYPERVISOR_HARNESS_SHIM")
         .ok()
         .filter(|value| !value.trim().is_empty())

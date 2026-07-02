@@ -32,7 +32,7 @@ const ROUTE_SCHEMA: &str = "ioi.hypervisor.model-route.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.model-route-receipt.v1";
 const BINDING_SCHEMA: &str = "ioi.hypervisor.model-route-session-binding.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.model-routes-overview.v1";
-const RECORD_DIR: &str = "model-route-registry";
+pub(crate) const RECORD_DIR: &str = "model-route-registry";
 const RECEIPT_DIR: &str = "model-route-registry-receipts";
 const BINDING_DIR: &str = "model-route-session-bindings";
 const SEED_ROUTE_ID: &str = "mrt_local_default";
@@ -68,7 +68,7 @@ fn normalize_base_url(url: &str) -> String {
         .to_string()
 }
 
-fn load_route_record(data_dir: &str, id: &str) -> Option<Value> {
+pub(crate) fn load_route_record(data_dir: &str, id: &str) -> Option<Value> {
     read_record_dir(data_dir, RECORD_DIR)
         .into_iter()
         .find(|r| r.get("route_id").and_then(|v| v.as_str()) == Some(id))
@@ -639,7 +639,7 @@ fn seed_route_record() -> Value {
 
 /// Ensure the seeded local-default route exists (and is fully admitted). Idempotent; called from
 /// read handlers so the registry never presents an empty world that hides the real env route.
-fn ensure_seed(data_dir: &str) {
+pub(crate) fn ensure_seed(data_dir: &str) {
     if load_route_record(data_dir, SEED_ROUTE_ID).is_some() {
         return;
     }

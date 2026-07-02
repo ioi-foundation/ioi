@@ -269,57 +269,27 @@ pub(crate) async fn handle_authority_posture(State(_st): State<Arc<DaemonState>>
     }))
 }
 
-/// Cut D — AgentRunnerProfile catalog: the REAL capability matrix per harness. Session controls are
-/// admitted against this (no universal dropdown lies — only show/accept what the route supports).
-fn agent_runner_profiles() -> Value {
-    json!([
-        { "harness": "hypervisor_worker", "display_name": "Hypervisor Worker (native)",
-          "models": ["hypervisor:native-local"], "modes": ["agent", "plan", "goal", "spec"],
-          "reasoning": ["low", "medium", "high"], "speed": ["fast", "balanced", "thorough"],
-          "service_tier": ["standard"], "tool_use": true, "image_input": false,
-          "provider_trust": "local", "default": true },
-        { "harness": "shell", "display_name": "Shell / tmux",
-          "models": ["hypervisor:native-local"], "modes": ["agent"],
-          "reasoning": ["medium"], "speed": ["balanced"],
-          "service_tier": ["standard"], "tool_use": true, "image_input": false,
-          "provider_trust": "local", "default": false },
-        { "harness": "claude_code", "display_name": "Claude Code",
-          "models": ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
-          "modes": ["agent", "plan", "goal", "spec"], "reasoning": ["low", "medium", "high"],
-          "speed": ["fast", "balanced", "thorough"], "service_tier": ["standard", "priority"],
-          "tool_use": true, "image_input": true, "provider_trust": "remote_attested", "default": false },
-        { "harness": "codex", "display_name": "Codex",
-          "models": ["gpt-5-codex"], "modes": ["agent", "plan"], "reasoning": ["medium", "high"],
-          "speed": ["balanced", "thorough"], "service_tier": ["standard"], "tool_use": true,
-          "image_input": false, "provider_trust": "remote", "default": false },
-        { "harness": "opencode", "display_name": "OpenCode",
-          "models": ["hypervisor:native-local"], "modes": ["agent"], "reasoning": ["medium"],
-          "speed": ["balanced"], "service_tier": ["standard"], "tool_use": true,
-          "image_input": false, "provider_trust": "local", "default": false }
-    ])
-}
-
 /// GET /v1/hypervisor/agent-runner-profiles — the capability matrix the session composer reads so it
 /// only offers capabilities the chosen harness actually supports.
 pub(crate) async fn handle_agent_runner_profiles(
-    State(_st): State<Arc<DaemonState>>,
+    State(st): State<Arc<DaemonState>>,
 ) -> Json<Value> {
-    Json(
-        json!({ "schema_version": "ioi.hypervisor.agent-runner-profiles.v1", "profiles": agent_runner_profiles() }),
-    )
+    // Cut D projection, now REGISTRY-derived: the harness-profile registry is the one truth for
+    // the capability matrix; this keeps the legacy response shape for the session composer.
+    Json(json!({
+        "schema_version": "ioi.hypervisor.agent-runner-profiles.v1",
+        "profiles": super::harness_routes::registry_runner_profiles(&st.data_dir)
+    }))
 }
 
 /// Admit a requested control against the chosen harness's capability matrix. Returns the offending
 /// (field, value) on a violation — the basis for fail-closed "no dropdown lies".
-fn admit_controls(req: &Value) -> Result<Value, (String, String)> {
+fn admit_controls(req: &Value, profiles: &[Value]) -> Result<Value, (String, String)> {
     let harness = req
         .get("harness")
         .and_then(|v| v.as_str())
         .unwrap_or("hypervisor_worker");
-    let profiles = agent_runner_profiles();
     let profile = profiles
-        .as_array()
-        .unwrap()
         .iter()
         .find(|p| p["harness"].as_str() == Some(harness))
         .ok_or_else(|| ("harness".to_string(), harness.to_string()))?
@@ -372,8 +342,9 @@ pub(crate) async fn handle_harness_binding_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
-    // Admit the requested controls against the harness capability matrix before compiling.
-    let admitted = match admit_controls(&body) {
+    // Admit the requested controls against the REGISTRY-derived harness capability matrix.
+    let profiles = super::harness_routes::registry_runner_profiles(&st.data_dir);
+    let admitted = match admit_controls(&body, &profiles) {
         Ok(a) => a,
         Err((field, value)) => {
             return Json(json!({ "ok": false, "admitted": false, "fail_closed": true,
