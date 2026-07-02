@@ -258,36 +258,81 @@ function connectionsShell(inner) {
   .act.ghost:hover{color:#e6e7ea;border-color:#3a3d45}
   code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
   .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
+  .cnwrap{display:grid;grid-template-columns:1fr 380px;gap:18px;align-items:start}
+  .cncard{cursor:pointer}
+  .cncard:hover{border-color:#3a82f6}
+  .cncard.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}
+  .cndrawer{position:sticky;top:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}
+  .cndrawer h3{margin:0 0 8px;font-size:14px}
+  .cndrawer h4{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93}
+  .cngrid{display:grid;grid-template-columns:110px 1fr;gap:5px 12px}
+  .cnk{color:#878a93}
+  .cnv{color:#e6e7ea;word-break:break-word}
+  .cndrawer table{width:100%;border-collapse:collapse;font-size:12px}
+  .cndrawer th{text-align:left;color:#878a93;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding:4px 6px;border-bottom:1px solid #24262d}
+  .cndrawer td{padding:5px 6px;border-bottom:1px solid #1b1d23;word-break:break-all}
+  @media(max-width:1100px){.cnwrap{grid-template-columns:1fr}.cndrawer{position:static}}
 </style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div><h1>Connections</h1>
 <p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session.</p>
 ${inner}</div></body></html>`;
 }
 function renderConnectionsCockpit(connectors, scmConnectors, leases) {
-  const leaseCount = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id)).length;
+  const leasesFor = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id));
   const groups = {};
   const push = (cat, html) => { (groups[cat] = groups[cat] || []).push(html); };
+  // Registry embedded for the detail drawer (source shape: connector/tool registry WITH per-connector
+  // drilldown — tool/scope contracts, auth posture, and the actual leases issued against it).
+  // SANITIZED: only named fields are serialized — sealed credentials/auth_profile secrets never leave
+  // the daemon-side render.
+  const reg = [];
+  const leaseSlim = (l) => ({
+    lease_id: l.lease_id, issued_at: l.issued_at, expires_at: l.expires_at,
+    allowed_tools: l.allowed_tools || [], receipt_required: l.receipt_required === true,
+    revocation_ref: l.revocation_ref || "", grant_ref: l.grant_ref || "",
+    credential_source: l.credential_source || "", authority_provider_ref: l.authority_provider_ref || "",
+  });
   for (const c of connectors || []) {
     const bound = c.auth_posture === "token-lease:bound" || c.auth_posture === "open";
     const risk = (c.org_policy && c.org_policy.risk_posture) || "standard";
     const tools = c.kind === "mcp" ? "tools discovered on connect" : ((c.allowed_tools || []).map((t) => t.name).join(", ") || "—");
-    const lc = leaseCount(c.connector_id);
+    const myLeases = leasesFor(c.connector_id);
     // Connect target: Slack w/o a client → its setup; OAuth-profile → launcher; else manage.
     const slackNoClient = c.service === "slack" && !(c.auth_profile && c.auth_profile.client_id);
     const connectHref = slackNoClient ? "/__ioi/slack/setup" : `/__ioi/integrations/connect/${encodeURIComponent(c.connector_id)}`;
     const action = bound
       ? `<span class="pill ok">connected</span>`
-      : `<a class="act" href="${connectHref}" target="_blank" rel="noopener">Connect ↗</a>`;
-    push(connectionCategory(c), `<div class="card"><div class="main">
+      : `<a class="act" href="${connectHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Connect ↗</a>`;
+    const i = reg.length;
+    reg.push({
+      t: "connector", connector_id: c.connector_id, name: c.name || c.service, service: c.service || "",
+      kind: c.kind || "", base_url: c.base_url || "", auth: authDescriptor(c), auth_posture: c.auth_posture || "",
+      bound, risk, requires_credential: c.requires_credential !== false,
+      scopes: (c.auth_profile && c.auth_profile.scopes) || [],
+      allowed_tools: (c.allowed_tools || []).map((t) => ({ name: t.name, method: t.method || "", path: t.path || "" })),
+      org_allowed_tools: (c.org_policy && c.org_policy.allowed_tools) || null,
+      connect_href: bound ? "" : connectHref,
+      leases: myLeases.map(leaseSlim),
+    });
+    push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span></div>
-      <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${lc ? ` · ${lc} lease${lc > 1 ? "s" : ""} issued` : ""}</div>
+      <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} lease${myLeases.length > 1 ? "s" : ""} issued` : ""}</div>
       </div>${action}</div>`);
   }
   for (const c of scmConnectors || []) {
     const bound = c.auth_posture === "token-lease:bound";
-    push("Code / SCM", `<div class="card"><div class="main">
+    const i = reg.length;
+    reg.push({
+      t: "scm", connector_id: c.connector_id || c.kind, name: c.name || c.kind, service: c.kind || "",
+      kind: c.kind || "", base_url: c.host || c.remote_url || "", auth: "sealed host token (git-auth)",
+      auth_posture: c.auth_posture || "", bound, risk: "standard", requires_credential: true,
+      scopes: [], allowed_tools: [], org_allowed_tools: null,
+      connected_login: c.connected_login || "", connect_href: bound ? "" : "/settings/runners?user-settings=git-authentications",
+      leases: leasesFor(c.connector_id || "").map(leaseSlim),
+    });
+    push("Code / SCM", `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.kind)}${bound ? "" : '<span class="pill warn">needs auth</span>'}</div>
       <div class="meta">${CX_ESC(c.kind)} · <code>${CX_ESC(c.host || c.remote_url || "")}</code>${c.connected_login ? ` · @${CX_ESC(c.connected_login)}` : ""}</div>
-      </div>${bound ? '<span class="pill ok">connected</span>' : '<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank">Git authentications ↗</a>'}</div>`);
+      </div>${bound ? '<span class="pill ok">connected</span>' : '<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank" onclick="event.stopPropagation()">Git authentications ↗</a>'}</div>`);
   }
   const order = ["MCP servers", "Communication channels", "Cloud roles", "Service accounts", "APIs & services", "Code / SCM"];
   const cats = Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -299,7 +344,30 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases) {
     <a href="/__ioi/slack/setup">+ Connect Slack</a>
     <a href="/__ioi/connections/add?type=bearer">+ API key / service</a>
   </div>`;
-  return connectionsShell(add + body);
+  const drawer = `<div class="cndrawer" id="cn-drawer"><div class="empty" style="padding:12px">Select a connection to inspect its tool contracts, auth posture, and the capability leases issued against it.</div></div>`;
+  const script = `<script>
+    var CN_REG=${JSON.stringify(reg)};
+    function cnEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function cnRow(k,v){return v?'<div class="cnk">'+cnEsc(k)+'</div><div class="cnv">'+v+'</div>':'';}
+    function cnWhen(v){if(!v)return '';if(typeof v==='number'){try{return new Date(v).toISOString();}catch(e){return String(v);}}return String(v);}
+    document.querySelectorAll('.cncard').forEach(function(card){card.addEventListener('click',function(){
+      var c=CN_REG[parseInt(card.getAttribute('data-cn'),10)];if(!c)return;
+      document.querySelectorAll('.cncard').forEach(function(x){x.classList.toggle('sel',x===card);});
+      var d=document.getElementById('cn-drawer');
+      var h='<h3>'+cnEsc(c.name)+' <span class="pill '+(c.bound?'ok':'warn')+'">'+(c.bound?'connected':'needs auth')+'</span></h3>';
+      h+='<h4>Binding</h4><div class="cngrid">'+cnRow('Connector','<code>'+cnEsc(c.connector_id)+'</code>')+cnRow('Kind',cnEsc(c.kind)+(c.service&&c.service!==c.kind?' · '+cnEsc(c.service):''))+cnRow('Endpoint','<code>'+cnEsc(c.base_url)+'</code>')+cnRow('Auth',cnEsc(c.auth))+cnRow('Posture','<code>'+cnEsc(c.auth_posture)+'</code>')+cnRow('Risk',cnEsc(c.risk))+(c.connected_login?cnRow('Identity','@'+cnEsc(c.connected_login)):'')+(c.scopes.length?cnRow('Scopes',cnEsc(c.scopes.join(', '))):'')+'</div>';
+      h+='<div class="cnv" style="margin-top:8px;color:#6f7280;font-size:11.5px">Credential sealed in the daemon — never serialized to this page or any session.</div>';
+      h+='<h4>Tool contracts ('+c.allowed_tools.length+')</h4>';
+      if(c.allowed_tools.length){h+='<table><thead><tr><th>Tool</th><th>Method</th><th>Path</th></tr></thead><tbody>'+c.allowed_tools.map(function(t){return '<tr><td><code>'+cnEsc(t.name)+'</code></td><td>'+cnEsc(t.method)+'</td><td>'+cnEsc(t.path)+'</td></tr>';}).join('')+'</tbody></table><div style="color:#6f7280;font-size:11px;margin-top:4px">Only these declared tools are invokable through the lease gateway'+(c.org_allowed_tools?' (org policy further restricts to: '+cnEsc(c.org_allowed_tools.join(', '))+')':'')+'.</div>';}
+      else{h+='<div style="color:#6f7280">'+(c.kind==='mcp'?'Tools are discovered from the MCP server on connect.':(c.t==='scm'?'SCM lanes (publish / PR / revoke) are wallet-authorized crossings, not free-form tools.':'No tools declared — nothing is invokable.'))+'</div>';}
+      h+='<h4>Capability leases issued ('+c.leases.length+')</h4>';
+      if(c.leases.length){h+=c.leases.slice(0,8).map(function(l){return '<div style="border:1px solid #1b1d23;border-radius:8px;padding:8px;margin:0 0 6px"><div><code>'+cnEsc(l.lease_id)+'</code>'+(l.receipt_required?' <span class="pill ok">receipted</span>':'')+'</div><div class="cngrid" style="margin-top:4px">'+cnRow('Tools',cnEsc((l.allowed_tools||[]).join(', ')))+cnRow('Issued',cnEsc(cnWhen(l.issued_at)))+cnRow('Expires',cnEsc(cnWhen(l.expires_at)))+cnRow('Authority',cnEsc(l.authority_provider_ref))+cnRow('Revocation','<code>'+cnEsc(l.revocation_ref)+'</code>')+'</div></div>';}).join('')+(c.leases.length>8?'<div style="color:#6f7280;font-size:11px">… '+(c.leases.length-8)+' more</div>':'');}
+      else{h+='<div style="color:#6f7280">No leases issued against this binding yet.</div>';}
+      if(c.connect_href){h+='<h4>Actions</h4><a class="act" href="'+cnEsc(c.connect_href)+'" target="_blank" rel="noopener">Connect ↗</a>';}
+      d.innerHTML=h;
+    });});
+  </script>`;
+  return connectionsShell(add + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
 }
 
 // ---- Automations cockpit — the owned, PROJECT-FIRST surface for HypervisorAutomationSpec ----------
@@ -377,6 +445,10 @@ function automationsShell(title, inner) {
   .wlk{color:#878a93}
   .wlv{color:#e6e7ea;word-break:break-word}
   .wldrawer ul{margin:4px 0 0;padding-left:18px}
+  .wlbl{list-style:none;padding-left:0;margin:4px 0 0}
+  .wlbl li{padding:3px 0;border-bottom:1px solid #16181d;font-size:12px}
+  .wlbl a{color:#7fb0ff;text-decoration:none;word-break:break-all}
+  .wlbl a:hover{text-decoration:underline}
   .field{margin:0 0 14px}
   .field label{display:block;color:#c7c9cf;font-size:12.5px;margin-bottom:5px}
   .field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}
@@ -721,6 +793,23 @@ function renderWorkLedger(entries, scopedProject) {
         if(e.implementation_result){h+=row('Adapter',e.implementation_result.adapter)+row('Model',e.implementation_result.model)+row('Exit code',e.implementation_result.exit_code);}}
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
+      // Backlinks — this ledger entry is an executable cross-reference map: every cross-object
+      // ref it names is rendered as a navigable link into the surface that owns that object, so
+      // the whole governed lifecycle is traversable from one proof (crosswalk: cross-reference map).
+      function bl(label,ref,href){return ref?('<li>'+wesc(label)+': <a href="'+href+'" target="_top">'+wesc(ref)+' ↗</a></li>'):'';}
+      var links='';
+      if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
+      if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
+      if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
+      if(e.candidate_ref){links+=bl('Publish candidate',e.candidate_ref,'/__ioi/marketplace');}
+      if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
+      if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
+      if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
+      if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
+      if(e.subject_ref){links+=bl('Subject',e.subject_ref,'/__ioi/governance');}
+      if(e.receipt_ref){links+=bl('Receipt',e.receipt_ref,'/__ioi/work-ledger');}
+      if(e.timeline_ref){links+='<li>Run Timeline: <a href="'+e.timeline_ref+'" target="_blank" rel="noopener">open ↗</a></li>';}
+      if(links){h+='<h4>Backlinks</h4><ul class="wlbl">'+links+'</ul>';}
       var arts=(e.step_results||[]).filter(function(s){return s&&(s.kind==='proposal'||(s.output&&(s.output.command||s.output.file_changed)));});
       h+='<h4>Artifacts</h4>'+(arts.length?('<ul>'+arts.map(function(s){return '<li>'+wesc(s.kind||'step')+': '+wesc(JSON.stringify(s.output).slice(0,140))+'</li>';}).join('')+'</ul>'):'<div class="sub" style="margin:0">—</div>');
       if(e.timeline_ref){h+='<p><a class="act ghost" href="'+e.timeline_ref+'" target="_blank" rel="noopener">Open Run Timeline ↗</a></p>';}
@@ -758,15 +847,24 @@ function renderOperations(ops) {
   const schedSection = (sch.automations || []).length
     ? `<table><thead><tr><th>Automation</th><th>Project</th><th>State</th><th>Schedule</th><th>Next run</th><th>Last run</th><th>Concurrency · on-fail</th></tr></thead><tbody>${schedRows}</tbody></table>`
     : `<div class="empty">No scheduled automations yet. Add a time/cron schedule to an automation to populate scheduler health.</div>`;
+  // Operate console (source shape: job console = queue/list + selectable status detail + remediation
+  // + in-surface proof, not a monitor-only table). Rows select into a sticky drawer that joins the
+  // run to its scheduler record IN-PAYLOAD (both come from the one /operations projection) and
+  // carries remediation (re-run / pause / resume via the existing automation lanes) + the proof ref.
+  const opRuns = [];
+  const opRunRow = (r, kind) => {
+    const i = opRuns.length;
+    opRuns.push({ ...r, kind });
+    return `<tr class="wlrow oprow" data-i="${i}"><td>${CX_ESC(r.name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(r.execution_id || "")}</code></div></td><td>${CX_ESC(r.project_id || "—")}</td><td><span class="pill ${r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted"}">${CX_ESC(r.status || "")}</span></td><td>${CX_ESC(r.started_at || "")}</td></tr>`;
+  };
   // Run health
   const runStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("muted", "total " + (runs.total || 0))}${stat("ok", "done " + (runs.done || 0))}${stat("warn", "failed " + (runs.failed || 0))}${stat("muted", "running " + (runs.running || 0))}</div>`;
-  const runRow = (r) => `<tr><td><a href="/__ioi/automations/${enc(r.automation_id)}">${CX_ESC(r.name || "—")}</a></td><td>${CX_ESC(r.project_id || "—")}</td><td><span class="pill ${r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted"}">${CX_ESC(r.status || "")}</span></td><td>${CX_ESC(r.started_at || "")}</td><td><a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
   const runSection = (runs.total || 0)
-    ? runStat + `<table><thead><tr><th>Automation</th><th>Project</th><th>Status</th><th>Started</th><th>Proof</th></tr></thead><tbody>${(runs.recent || []).map(runRow).join("")}</tbody></table>`
+    ? runStat + `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${(runs.recent || []).map((r) => opRunRow(r, "recent")).join("")}</tbody></table>`
     : `<div class="empty">No runs yet. Run an automation to populate run health.</div>`;
   // Needs attention (failures)
   const attnSection = (runs.failures || []).length
-    ? `<table><thead><tr><th>Automation</th><th>Project</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runs.failures.map((r) => `<tr><td><a href="/__ioi/automations/${enc(r.automation_id)}">${CX_ESC(r.name || "—")}</a></td><td>${CX_ESC(r.project_id || "—")}</td><td>${CX_ESC(r.started_at || "")}</td><td><a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`).join("")}</tbody></table>`
+    ? `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${runs.failures.map((r) => opRunRow(r, "failure")).join("")}</tbody></table>`
     : `<div class="empty">Nothing needs attention — no failed runs.</div>`;
   // Webhook health
   const reasons = wh.rejections_by_reason || {};
@@ -776,11 +874,39 @@ function renderOperations(ops) {
   const whSection = ((wh.accepted || 0) + (wh.rejected || 0))
     ? whStat + `<table><thead><tr><th>Automation</th><th>Result</th><th>Reason</th><th>Payload</th><th>Received</th></tr></thead><tbody>${(wh.recent || []).map(whRow).join("")}</tbody></table>`
     : `<div class="empty">No webhook triggers yet. Enable a webhook on an automation to populate webhook health.</div>`;
-  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — grounded in the automation substrate. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
+  // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
+  // drawer join needs no client re-implementation of cron/interval rendering.
+  const autosById = {};
+  for (const a of sch.automations || []) autosById[a.automation_id] = { ...a, schedule_human: schedHuman(a.schedule_spec).replace(/<[^>]*>/g, "") };
+  const drawer = `<div class="wldrawer" id="ops-drawer"><div class="sub" style="margin:0">Select a run to inspect its status detail, scheduler posture, proof, and remediation.</div></div>`;
+  const script = `<script>
+    var OPS_RUNS=${JSON.stringify(opRuns)};var OPS_AUTOS=${JSON.stringify(autosById)};
+    function opsEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function opsRow(k,v){return v?'<div class="wlk">'+opsEsc(k)+'</div><div class="wlv">'+v+'</div>':'';}
+    document.querySelectorAll('.oprow').forEach(function(tr){tr.addEventListener('click',function(){
+      var r=OPS_RUNS[parseInt(tr.getAttribute('data-i'),10)];if(!r)return;
+      document.querySelectorAll('.oprow').forEach(function(x){x.classList.toggle('selrow',x===tr);});
+      var a=OPS_AUTOS[r.automation_id]||null;var d=document.getElementById('ops-drawer');
+      var dur='';
+      if(r.started_at&&r.finished_at){var ms=new Date(r.finished_at)-new Date(r.started_at);if(ms>=0)dur=(ms/1000).toFixed(2)+'s';}
+      var h='<h3>'+opsEsc(r.name||r.automation_id)+' <span class="pill '+(r.status==='done'?'ok':r.status==='failed'?'warn':'muted')+'">'+opsEsc(r.status||'')+'</span></h3>';
+      h+='<h4>Run</h4><div class="wlgrid">'+opsRow('Execution','<code>'+opsEsc(r.execution_id)+'</code>')+opsRow('Automation','<a href="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'">'+opsEsc(r.automation_id)+'</a>')+opsRow('Project',opsEsc(r.project_id))+opsRow('Started',opsEsc(r.started_at))+opsRow('Finished',opsEsc(r.finished_at))+opsRow('Duration',opsEsc(dur))+'</div>';
+      h+='<h4>Scheduler posture</h4>'+(a?('<div class="wlgrid">'+opsRow('State','<span class="pill '+(a.enabled!==false?'ok':'muted')+'">'+(a.enabled!==false?'active':'paused')+'</span>')+opsRow('Schedule',opsEsc(a.schedule_human))+opsRow('Next run',opsEsc(a.next_run_at))+opsRow('Last run',opsEsc(a.last_run_at))+opsRow('Concurrency',opsEsc(String(a.max_concurrency||1)))+opsRow('On failure',opsEsc(a.failure_policy||'continue'))+'</div>'):'<div class="sub" style="margin:0">No schedule — this automation runs on manual/webhook triggers only.</div>');
+      h+='<h4>Proof</h4><div class="wlgrid">'+opsRow('Run Timeline',r.timeline_ref?('<a href="'+r.timeline_ref+'" target="_blank" rel="noopener">open transcript ↗</a>'):'—')+opsRow('Ledger','<a href="/__ioi/work-ledger">proof stream →</a>')+'</div>';
+      h+='<h4>Remediation</h4><div style="display:flex;gap:8px;flex-wrap:wrap">';
+      h+='<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/run?back=ops"><button class="act" type="submit">▶ Re-run now</button></form>';
+      if(a){h+=(a.enabled!==false)?'<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/pause?back=ops"><button class="act ghost" type="submit">⏸ Pause schedule</button></form>':'<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/resume?back=ops"><button class="act" type="submit">▶ Resume schedule</button></form>';}
+      h+='</div>';
+      d.innerHTML=h;
+    });});
+  </script>`;
+  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — grounded in the automation substrate. Select a run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
     <h2>Scheduler</h2>${schedSection}
-    <h2>Run health</h2>${runSection}
+    <div class="wlwrap"><div>
+    <h2 style="margin-top:0">Run health</h2>${runSection}
     <h2>Needs attention</h2>${attnSection}
-    <h2>Webhook health</h2>${whSection}`;
+    </div>${drawer}</div>
+    <h2>Webhook health</h2>${whSection}${script}`;
   return automationsShell("Operations", inner);
 }
 
@@ -811,21 +937,57 @@ function renderEnvironments(summary, classes) {
   if (!(summary.total_matching || 0)) {
     return automationsShell("Environments", head + posture + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
   }
-  const rows = envs.map((e) => {
+  // Master-detail lifecycle console (source shape: providers-and-environments is a lifecycle
+  // CONSOLE, not a flat list): rows select into a right-hand detail drawer that loads the full
+  // daemon env record (component phases, lifecycle observations, ports/services/tasks, isolation,
+  // connectivity, restore posture). The drawer fetches the real /v1 record client-side (proxied).
+  const rows = envs.map((e, i) => {
     const id = e.id || "";
-    return `<tr>
+    return `<tr class="envrow" data-id="${CX_ESC(id)}" data-i="${i}" onclick="envOpen(this)">
       <td><code>${CX_ESC(id)}</code></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span></td>
       <td>${CX_ESC(e.readiness_mode || "—")}</td>
       <td>${CX_ESC(e.project_id || "—")}</td>
       <td>${CX_ESC(e.environment_class_id || "—")} · ${CX_ESC(e.substrate || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
-  const table = `<h2>Active environments</h2>${pager}<table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
-  return automationsShell("Environments", head + posture + table);
+  const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record.</p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
+  const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #24262d;border-radius:12px;background:#0c0d10;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#15171c}.envrow:hover{background:#121317}.envd-k{color:#878a93;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #16181d}.envd-obs{border-left:2px solid #2a2c33;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}</style>`;
+  const script = `<script>
+    function envEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    function envPhaseCls(p){return p==='ready'||p==='running'?'ok':p==='failed'||p==='blocked'?'warn':'muted';}
+    function envOpen(row){
+      var id=row.getAttribute('data-id');var d=document.getElementById('env-drawer');
+      document.querySelectorAll('.envrow').forEach(function(r){r.classList.toggle('selrow',r===row);});
+      d.innerHTML='<div class="sub" style="margin:0">Loading '+envEsc(id)+'…</div>';
+      fetch('/v1/hypervisor/environments/'+encodeURIComponent(id)).then(function(r){return r.json();}).then(function(j){
+        var e=j.environment||j;var st=e.status||{};var comps=st.components||{};
+        var h='<h3 style="margin:0 0 2px">'+envEsc(id)+'</h3><div class="meta" style="color:#878a93;margin-bottom:8px">'+envEsc(st.phase||'')+' · '+envEsc((st.provider&&st.provider.substrate_class)||e.spec&&e.spec.environment_class_id||'')+'</div>';
+        if(st.blocked_reason){h+='<div class="pill warn">blocked: '+envEsc(st.blocked_reason)+'</div>';}
+        h+='<div class="envd-k">Component phases</div>';
+        var order=['recipe','provisioner','workspace_content','connectivity','sandbox','resource_isolation','secrets','model_mount','harness','automations','agent_work'];
+        var keys=Object.keys(comps).sort(function(a,b){var ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
+        keys.forEach(function(k){var c=comps[k]||{};h+='<div class="envd-comp"><span>'+envEsc(k)+(c.detail?' <span style="color:#6b6e77">· '+envEsc(c.detail)+'</span>':'')+'</span><span class="pill '+envPhaseCls(c.phase)+'">'+envEsc(c.phase||'—')+'</span></div>';});
+        var ports=st.ports||[];var svcs=st.services||[];var tasks=st.tasks||[];
+        h+='<div class="envd-k">Ports · Services · Tasks</div>';
+        if(ports.length||svcs.length||tasks.length){
+          h+='<div>'+ports.map(function(p){return '<span class="pill muted">:'+envEsc(p.port||p.container_port||p)+(p.exposed?' exposed':'')+'</span>';}).join(' ')+'</div>';
+          h+='<div style="margin-top:4px">'+svcs.map(function(s){return '<span class="pill muted">'+envEsc(s.name||s.id||'svc')+'</span>';}).join(' ')+'</div>';
+        } else { h+='<div class="sub" style="margin:0">none exposed</div>'; }
+        h+='<div class="envd-k">Isolation · connectivity</div><div>'+envEsc(st.isolation_claim||st.minimum_isolation||'process-scoped')+(st.connectivity_profile?' · '+envEsc(st.connectivity_profile.egress_policy||st.connectivity_profile.connectivity_profile_ref||''):'')+'</div>';
+        var obs=(e.lifecycle_observations||[]).slice(-8).reverse();
+        h+='<div class="envd-k">Lifecycle observations ('+(e.lifecycle_observations||[]).length+')</div>';
+        h+=obs.map(function(o){return '<div class="envd-obs"><span class="pill '+envPhaseCls(o.condition_kind==='admitted'||o.condition_kind==='ready'?'ready':o.condition_kind)+'">'+envEsc(o.component||'')+' · '+envEsc(o.condition_kind||'')+'</span><div style="color:#9a9da6;margin-top:2px">'+envEsc(o.message||'')+'</div><div style="color:#5f626b;font-size:11px">'+envEsc(o.at||'')+'</div></div>';}).join('')||'<div class="sub" style="margin:0">—</div>';
+        h+='<div class="envd-k">Open</div><div><a class="act" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Workbench</a> <a class="act ghost" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
+        h+='<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Raw record (advanced)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">'+envEsc(JSON.stringify(e,null,2).slice(0,4000))+'</pre></details>';
+        d.innerHTML=h;
+      }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
+    }
+  </script>`;
+  return automationsShell("Environments", styles + head + posture + table + script);
 }
 
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
@@ -862,21 +1024,71 @@ function renderWorkbench(summary, editorTargets, sessionsRes) {
   if (!(summary.total_matching || 0)) {
     return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes));
   }
-  const rows = envs.map((e) => {
+  // Master-detail working shell (source shape: Workbench is the composition container, not a flat
+  // launcher): environment rows select into a detail pane composed ENTIRELY from the three
+  // projections already fetched — the env slice, the sessions bound to it (admitted harness
+  // bindings), and the probed editor-target open matrix. No fabricated IDE panes: files/terminal/
+  // ports live in the real console this pane launches into.
+  const rows = envs.map((e, i) => {
     const id = e.id || "";
     const vbLink = vbOpenable
-      ? ` <a class="act ghost" href="/__ioi/editor/open?environmentId=${enc(id)}" target="_blank" rel="noopener">VS Code Browser ↗</a>`
+      ? ` <a class="act ghost" href="/__ioi/editor/open?environmentId=${enc(id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">VS Code Browser ↗</a>`
       : ` <span class="pill muted" title="pinned openvscode runtime not installed on this host — the open lane is fail-closed">VS Code Browser unavailable</span>`;
-    return `<tr>
+    return `<tr class="wlrow wbrow" data-i="${i}">
       <td><code>${CX_ESC(id)}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(e.project_id || "—")} · ${CX_ESC(e.environment_class_id || "")}</div></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span> ${CX_ESC(e.readiness_mode || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/workbench", summary);
-  const table = `${pager}<table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
-  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes));
+  const slimEnvs = envs.map((e) => ({
+    id: e.id || "", phase: e.phase || "", readiness_mode: e.readiness_mode || "", project_id: e.project_id || "",
+    environment_class_id: e.environment_class_id || "", substrate: e.substrate || "",
+    ports_count: e.ports_count || 0, services_count: e.services_count || 0, tasks_count: e.tasks_count || 0,
+  }));
+  const slimSessions = ((sessionsRes && sessionsRes.sessions) || []).map((s) => ({
+    session_ref: s.session_ref || "", lifecycle_state: s.lifecycle_state || "", created_at: s.created_at || "",
+    project_ref: s.project_ref || "", env_id: String(s.environment_ref || "").replace(/^environment:/, ""),
+    harness: (s.harness_binding && s.harness_binding.profile_ref) ? {
+      harness: s.harness_binding.harness || "harness", model_route_ref: s.harness_binding.model_route_ref || "",
+      profile_ref: s.harness_binding.profile_ref || "", admission_id: s.harness_binding.admission_id || "",
+    } : null,
+  }));
+  const slimTargets = targets.map((t) => {
+    const op = t.open_posture || {};
+    return {
+      target_id: t.target_id, name: (t.profile && t.profile.displayName) || t.target_id,
+      open_kind: op.open_kind || "", openable: op.openable === true,
+      reason: op.openable ? "" : ((op.probe && op.probe.evidence && (op.probe.evidence.note || (op.probe.evidence.required_binary ? op.probe.evidence.required_binary + " not on PATH" : ""))) || "probe failed"),
+      lease_posture: op.lease_posture || "",
+    };
+  });
+  const drawer = `<div class="wldrawer" id="wb-drawer"><div class="sub" style="margin:0">Select an environment to compose its working context — bound sessions, admitted harness bindings, and every editor lane that can open it.</div></div>`;
+  const script = `<script>
+    var WB_ENVS=${JSON.stringify(slimEnvs)};var WB_SESS=${JSON.stringify(slimSessions)};var WB_TGT=${JSON.stringify(slimTargets)};
+    function wbEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function wbRow(k,v){return v?'<div class="wlk">'+wbEsc(k)+'</div><div class="wlv">'+v+'</div>':'';}
+    document.querySelectorAll('.wbrow').forEach(function(tr){tr.addEventListener('click',function(){
+      var e=WB_ENVS[parseInt(tr.getAttribute('data-i'),10)];if(!e)return;
+      document.querySelectorAll('.wbrow').forEach(function(x){x.classList.toggle('selrow',x===tr);});
+      var d=document.getElementById('wb-drawer');var id=e.id;
+      var h='<h3><code>'+wbEsc(id)+'</code> <span class="pill '+(e.phase==='running'?'ok':(e.phase==='failed'||e.phase==='blocked')?'warn':'muted')+'">'+wbEsc(e.phase)+'</span></h3>';
+      h+='<h4>Context</h4><div class="wlgrid">'+wbRow('Project',wbEsc(e.project_id))+wbRow('Class',wbEsc(e.environment_class_id)+(e.substrate?' · '+wbEsc(e.substrate):''))+wbRow('Readiness',wbEsc(e.readiness_mode))+wbRow('Surface',e.ports_count+' ports · '+e.services_count+' services · '+e.tasks_count+' tasks')+'</div>';
+      var sess=WB_SESS.filter(function(s){return s.env_id===id;});
+      h+='<h4>Sessions bound ('+sess.length+')</h4>';
+      h+=sess.length?sess.map(function(s){return '<div style="border:1px solid #1b1d23;border-radius:8px;padding:8px;margin:0 0 6px"><div><code>'+wbEsc(s.session_ref)+'</code> <span class="pill muted">'+wbEsc(s.lifecycle_state)+'</span></div><div style="color:#878a93;font-size:11.5px;margin-top:3px">'+(s.harness?('<span class="pill ok">'+wbEsc(s.harness.harness)+'</span> <code style="font-size:10.5px">'+wbEsc(s.harness.model_route_ref)+'</code><div style="margin-top:2px" title="'+wbEsc(s.harness.admission_id)+'">admitted harness binding</div>'):'execute-time default harness')+'</div></div>';}).join(''):'<div class="sub" style="margin:0">No session bound to this environment yet.</div>';
+      h+='<h4>Open with</h4>'+WB_TGT.map(function(t){
+        if(t.target_id==='workbench-native'){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span><a class="act" style="padding:4px 10px" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Open</a></div>';}
+        if(t.target_id==='vscode-browser'&&t.openable){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span><a class="act ghost" style="padding:4px 10px" href="/__ioi/editor/open?environmentId='+encodeURIComponent(id)+'" target="_blank" rel="noopener">Open ↗</a></div>';}
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span>'+(t.openable?'<span class="pill ok" title="opens from the environment session surface">'+wbEsc(t.open_kind||'openable')+'</span>':'<span class="pill muted" title="'+wbEsc(t.reason)+'">not openable</span>')+'</div>';
+      }).join('');
+      h+='<h4>Proof</h4><div class="wlgrid">'+wbRow('Run Timeline','<a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">open transcript ↗</a>')+wbRow('Session detail','<a href="/details/'+encodeURIComponent(id)+'" target="_top">open →</a>')+'</div>';
+      d.innerHTML=h;
+    });});
+  </script>`;
+  const table = `${pager}<div class="wlwrap"><div><table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div>${drawer}</div>`;
+  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + script);
 }
 
 // Sessions panel — the daemon session records with their ADMITTED harness bindings (selection is
@@ -1104,7 +1316,33 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     <h3 style="margin:8px 0 6px;font-size:12px;color:#878a93">Conversations (${conversations.length})</h3>${conversations.length ? `<table><thead><tr><th>Title</th><th>Status</th><th>Turns</th><th>Open</th></tr></thead><tbody>${convRows}</tbody></table>` : `<div class="empty">No conversations recorded.</div>`}
     <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Runs (${runs.length})</h3>${runs.length ? `<table><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runRows}</tbody></table>` : `<div class="empty">No runs recorded.</div>`}`;
 
-  const right = `<div><div class="row" style="margin-bottom:14px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}${matrix}${routing}${activity}</div>`;
+  // ---- Editor-with-tabs shell (source shape: the studio detail is a tabbed edit builder, not one
+  // scrolling pane). Pure recomposition of the data already fetched — each tab is a panel over the
+  // same daemon truth; #harness-profiles / #model-routes deep-links (Work Ledger backlinks) land on
+  // their tab. No create/publish/eval tabs are fabricated: those lanes have no daemon plane yet.
+  const tabBar = `<div class="tabs" id="astabs">
+    <button class="tab active" data-astab="config" type="button">Configuration</button>
+    <button class="tab" data-astab="harness-profiles" type="button">Harness profiles</button>
+    <button class="tab" data-astab="model-routes" type="button">Model routes</button>
+    <button class="tab" data-astab="activity" type="button">Activity</button>
+  </div>`;
+  const panel = (name, on, inner) => `<div class="aspanel${on ? " on" : ""}" data-aspanel="${name}">${inner}</div>`;
+  const panels = panel("config", true, `${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}`)
+    + panel("harness-profiles", false, matrix || `<div class="empty">No harness profiles registered.</div>`)
+    + panel("model-routes", false, routing)
+    + panel("activity", false, activity);
+  const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
+    function asTab(name){
+      var found=false;
+      document.querySelectorAll('#astabs .tab').forEach(function(b){var on=b.getAttribute('data-astab')===name;b.classList.toggle('active',on);if(on)found=true;});
+      if(!found)return asTab('config');
+      document.querySelectorAll('.aspanel').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-aspanel')===name);});
+    }
+    document.querySelectorAll('#astabs .tab').forEach(function(b){b.addEventListener('click',function(){var n=b.getAttribute('data-astab');asTab(n);history.replaceState(null,'','#'+n);});});
+    function asFromHash(){var h=(location.hash||'').replace(/^#/,'');if(h)asTab(h);}
+    window.addEventListener('hashchange',asFromHash);asFromHash();
+  </script>`;
+  const right = `<div><div class="row" style="margin-bottom:2px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${tabBar}${panels}${tabScript}</div>`;
   const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
   return automationsShell("Agent Studio", styles + head + body);
 }
@@ -1394,8 +1632,32 @@ function renderOdkManifestForm(existing, pk) {
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} ODK Manifest`, inner);
 }
+// Reverse lineage (source shape: the ontology workbench demands a LINEAGE view — from any semantic
+// node you can trace what references it, not only what it references). Computed in-memory from the
+// four family lists the plane already serves — no new daemon endpoint; a record with no inbound
+// refs says so plainly instead of hiding the section.
+function odkReferencedBy(rec, lists, family) {
+  if (!rec || !lists) return "";
+  const ref = rec.ref || "";
+  const has = (arr, v) => Array.isArray(arr) && arr.includes(v);
+  const hits = [];
+  if (family === "ontologies") {
+    for (const r of lists.data_recipes || []) if (r.ontology_ref === ref) hits.push(["Data Recipe", "data-recipes", r]);
+    for (const d of lists.surface_descriptors || []) if (d.ontology_ref === ref) hits.push(["Surface Descriptor", "surface-descriptors", d]);
+    for (const m of lists.manifests || []) if (has(m.ontology_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
+  } else if (family === "data-recipes") {
+    for (const d of lists.surface_descriptors || []) if (has(d.recipe_refs, ref)) hits.push(["Surface Descriptor", "surface-descriptors", d]);
+    for (const m of lists.manifests || []) if (has(m.recipe_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
+  } else if (family === "surface-descriptors") {
+    for (const m of lists.manifests || []) if (has(m.surface_descriptor_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
+  } else {
+    return "";
+  }
+  const rows = hits.map(([kind, fam, x]) => `<a class="card" href="/__ioi/odk/${fam}/${encodeURIComponent(x.id)}"><div class="main"><div class="name" style="font-size:13px">${CX_ESC(x.name || x.domain || x.id)} <span class="pill muted">${kind}</span></div><div class="meta"><code>${CX_ESC(x.ref || "")}</code></div></div><span class="act ghost">Open →</span></a>`);
+  return `<h2>Referenced by (${hits.length})</h2>` + (hits.length ? rows.join("") : `<div class="empty">No other ODK draft references this record yet.</div>`);
+}
 // ---- detail pages
-function renderOdkOntologyDetail(o) {
+function renderOdkOntologyDetail(o, lists) {
   const chips = (arr) => (arr && arr.length) ? arr.map((x) => `<span class="pill muted">${CX_ESC(x)}</span>`).join(" ") : "—";
   const com = o.canonical_object_model || {};
   const grid = `<dl class="grid">
@@ -1407,9 +1669,9 @@ function renderOdkOntologyDetail(o) {
     <dt>Events</dt><dd>${chips(com.events)}</dd><dt>States</dt><dd>${chips(com.states)}</dd><dt>Roles</dt><dd>${chips(com.roles)}</dd>
     <dt>Created · updated</dt><dd>${CX_ESC(o.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(o.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}`);
+  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}${odkReferencedBy(o, lists, "ontologies")}`);
 }
-function renderOdkRecipeDetail(r) {
+function renderOdkRecipeDetail(r, lists) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
   const strrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(typeof x === "string" ? x : JSON.stringify(x))}</code>`).join(" ") : "—"}</dd>`;
   const grid = `<dl class="grid">
@@ -1422,9 +1684,9 @@ function renderOdkRecipeDetail(r) {
     ${refrow("Worker plan refs", r.worker_plan_refs)}${refrow("Workflow schema refs", r.workflow_schema_refs)}
     <dt>Created · updated</dt><dd>${CX_ESC(r.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(r.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${grid}`);
+  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${grid}${odkReferencedBy(r, lists, "data-recipes")}`);
 }
-function renderOdkDescriptorDetail(d) {
+function renderOdkDescriptorDetail(d, lists) {
   const isDA = d.composition_pattern === "domain_app";
   const grid = `<dl class="grid">
     <dt>Id</dt><dd><code>${CX_ESC(d.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(d.ref)}</code></dd>
@@ -1434,7 +1696,7 @@ function renderOdkDescriptorDetail(d) {
     <dt>Recipe refs</dt><dd>${(d.recipe_refs && d.recipe_refs.length) ? d.recipe_refs.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>
     <dt>Created · updated</dt><dd>${CX_ESC(d.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(d.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}`);
+  return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}${odkReferencedBy(d, lists, "surface-descriptors")}`);
 }
 function renderOdkManifestDetail(m) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
@@ -1474,9 +1736,9 @@ function renderOdkLanding(ov, lists) {
 }
 // Family dispatch config: api path segment, single response key, form + detail + payload.
 const ODK_UI = {
-  "ontologies": { api: "domain-ontologies", key: "ontology", label: "Domain Ontology", payload: odkOntologyPayload, form: (ex) => renderOdkOntologyForm(ex), detail: (rec) => renderOdkOntologyDetail(rec) },
-  "data-recipes": { api: "data-recipes", key: "data_recipe", label: "Data Recipe", payload: odkRecipePayload, form: (ex, pk, ov) => renderOdkRecipeForm(ex, pk, ov.recipe_output_kinds || []), detail: (rec) => renderOdkRecipeDetail(rec) },
-  "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec) => renderOdkDescriptorDetail(rec) },
+  "ontologies": { api: "domain-ontologies", key: "ontology", label: "Domain Ontology", payload: odkOntologyPayload, form: (ex) => renderOdkOntologyForm(ex), detail: (rec, lists) => renderOdkOntologyDetail(rec, lists) },
+  "data-recipes": { api: "data-recipes", key: "data_recipe", label: "Data Recipe", payload: odkRecipePayload, form: (ex, pk, ov) => renderOdkRecipeForm(ex, pk, ov.recipe_output_kinds || []), detail: (rec, lists) => renderOdkRecipeDetail(rec, lists) },
+  "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec, lists) => renderOdkDescriptorDetail(rec, lists) },
   "manifests": { api: "manifests", key: "manifest", label: "ODK Manifest", payload: odkManifestPayload, form: (ex, pk) => renderOdkManifestForm(ex, pk), detail: (rec) => renderOdkManifestDetail(rec) },
 };
 
@@ -1981,7 +2243,13 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
     ${offerable ? `<form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/offers" style="margin-top:10px"><button class="act" type="submit">Create managed offering (draft)</button></form>` : `<p class="sub" style="margin:8px 0 0">Managed offerings apply to agent / domain_app listings only.</p>`}`;
 
   const handoffs = `<p class="sub" style="margin-top:20px">Resource graph: ${marketplaceSubjectLink(l.listing_kind, l.subject_ref)} · <a href="/__ioi/governance">Governance blockers</a> · <a href="/__ioi/work-ledger">Work Ledger (proof)</a></p>`;
-  const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${st.icon} ${CX_ESC(l.name || lid)}</h1><p class="sub">Marketplace listing · draft. ${CX_ESC(l.description || "")}</p>${listingActions}${meta}${admission}${offersSection}${handoffs}`;
+  // Listing-level admission readiness (source shape: the product detail carries its install/
+  // admission-state posture up front, not only after a candidate exists). Rendered from the
+  // marketplace overview's live governance posture — the same shape candidates snapshot at candidacy.
+  const readiness = gov
+    ? `<div class="chips" style="margin:0 0 16px"><span class="chiplabel">Admission readiness</span>${govChips(gov)}<span class="sub" style="margin:0">live governance posture — snapshotted onto each publish candidate at candidacy</span></div>`
+    : "";
+  const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${st.icon} ${CX_ESC(l.name || lid)}</h1><p class="sub">Marketplace listing · draft. ${CX_ESC(l.description || "")}</p>${listingActions}${meta}${readiness}${admission}${offersSection}${handoffs}`;
   return automationsShell(l.name || "Marketplace listing", inner);
 }
 
@@ -3225,17 +3493,20 @@ const server = http.createServer((req, res) => {
       const rest = pathname.slice("/__ioi/automations/".length);
       const [rawId, action] = rest.split("/");
       const id = decodeURIComponent(rawId);
+      // Remediation fired from the Operations console (?back=ops) returns the operator there.
+      const backTo = new URL(req.url, "http://x").searchParams.get("back") === "ops"
+        ? "/__ioi/operations" : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
         await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => {});
-        res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
       if ((action === "pause" || action === "resume") && req.method === "POST") {
         // Pause/resume the schedule = PATCH enabled (the daemon scheduler skips disabled specs).
         await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: action === "resume" }) }).catch(() => {});
-        res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: backTo, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
@@ -3651,9 +3922,22 @@ const server = http.createServer((req, res) => {
             return res.end();
           }
           if (!seg2 && req.method === "GET") {
-            const rec = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+            // Detail also loads the sibling family lists (same endpoints the landing uses) so the
+            // renderer can compute REVERSE lineage — which drafts reference this record.
+            const J2 = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+            const [rec, oL, rL, dL, mL] = await Promise.all([
+              fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
+              J2("/v1/hypervisor/odk/domain-ontologies"),
+              J2("/v1/hypervisor/odk/data-recipes"),
+              J2("/v1/hypervisor/odk/surface-descriptors"),
+              J2("/v1/hypervisor/odk/manifests"),
+            ]);
+            const lists = {
+              ontologies: oL.ontologies || [], data_recipes: rL.data_recipes || [],
+              surface_descriptors: dL.surface_descriptors || [], manifests: mL.manifests || [],
+            };
             res.writeHead(200, HTMLH);
-            res.end(rec.ok ? cfg.detail(rec[cfg.key]) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
+            res.end(rec.ok ? cfg.detail(rec[cfg.key], lists) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
             return;
           }
         }
