@@ -1768,7 +1768,8 @@ async fn async_main() -> anyhow::Result<()> {
         // fail-closed honest gates. The positive execution loop is Cut #2.
         .route(
             "/v1/hypervisor/sessions",
-            post(lifecycle_routes::handle_session_create),
+            get(lifecycle_routes::handle_sessions_list)
+                .post(lifecycle_routes::handle_session_create),
         )
         .route(
             "/v1/hypervisor/sessions/:id/events",
