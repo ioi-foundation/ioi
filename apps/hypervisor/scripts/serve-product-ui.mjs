@@ -1740,7 +1740,7 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
   if (qn) shown = shown.filter((l) => `${l.name || ""} ${l.subject_ref || ""} ${l.listing_kind || ""}`.toLowerCase().includes(qn));
   const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid #24262d;border-radius:12px;background:#15171c;text-decoration:none;color:inherit}.mpstore:hover{border-color:#3a82f6}.mpstore.on{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.mpstore .sn{font-weight:600;color:#fff}.mpstore .sc{color:#878a93;font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}</style>`;
   const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here.</p>`;
-  const banner = `<div class="chips"><span class="pill warn">admission_only_until_runtime_backing</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "Draft listings + admission review only; no runtime backing.")}</span></div>`;
+  const banner = `<div class="chips"><span class="pill warn">publish = admitted review + open release + serving runtime</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "A domain_app publishes only with runtime backing; published = read-only distribution metadata.")}</span></div>`;
   const storeCards = MP_STORES.map((s) => `<a class="mpstore${storeFilter === s.kind ? " on" : ""}" href="/__ioi/marketplace?store=${enc(s.kind)}"><div class="sn">${s.icon} ${CX_ESC(s.label)} <span class="pill muted">${byKind[s.kind] || 0}</span></div><div class="sc">${CX_ESC(s.desc)}</div></a>`).join("");
   const stores = `<h2>Stores${storeFilter ? ` · <a href="/__ioi/marketplace">show all</a>` : ""}</h2><div class="mpstores">${storeCards}</div>`;
   const card = (l) => {
@@ -1790,24 +1790,35 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
   // Admission column — the install/publish analog, transformed to admission-only.
   const candBlocks = candidates.map((c) => {
     const reviews = reviewsByCandidate[c.ref] || [];
-    const reasons = (c.blocked_reasons || []).map((r) => `<span class="pill ${r === "admission_only_until_runtime_backing" ? "warn" : "danger"}" ${r !== "admission_only_until_runtime_backing" ? 'style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212"' : ""}>${CX_ESC(r)}</span>`).join(" ");
+    const published = c.publish_state === "published";
+    const reasons = (c.blocked_reasons || []).map((r) => `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">${CX_ESC(r)}</span>`).join(" ");
     const g = c.governance_posture_snapshot || {};
-    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span>${rv.decision === "admitted" ? ` <span class="sub" style="margin:0">admitted, not published</span>` : ""}</td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+    const revRows = reviews.map((rv) => `<tr><td><span class="pill ${rv.decision === "admitted" ? "ok" : rv.decision === "rejected" ? "warn" : "muted"}">${CX_ESC(rv.decision || "")}</span></td><td>${(rv.findings || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td><td><form class="inline" method="post" action="/__ioi/marketplace/reviews/${enc(rv.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
+    const pubPill = published
+      ? `<span class="pill ok">published</span>`
+      : c.publishable ? `<span class="pill ok">publishable</span>` : `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">not publishable</span>`;
+    const runtimeRoute = c.published_runtime_ref ? String(c.published_runtime_ref).replace(/^domain-app-runtime:\/\//, "/__ioi/domain-app-runtime/") : "";
+    const publishedBlock = published
+      ? `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">Published</span><span class="pill muted">at ${CX_ESC(c.published_at || "")}</span> ${runtimeRoute ? `<a class="act" href="${runtimeRoute}">Open app →</a>` : ""}</div>
+         <dl class="wlgrid" style="margin:0 0 8px"><dt class="wlk">Runtime</dt><dd class="wlv"><code>${CX_ESC(c.published_runtime_ref || "")}</code></dd><dt class="wlk">Release</dt><dd class="wlv"><code>${CX_ESC(c.release_control_ref || "")}</code></dd><dt class="wlk">Admission</dt><dd class="wlv"><code>${CX_ESC(c.admission_review_ref || "")}</code></dd><dt class="wlk">Receipts</dt><dd class="wlv">${(c.publish_receipt_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd></dl>`
+      : `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">Blocked reasons</span>${reasons || `<span class="sub" style="margin:0">none — ready to publish</span>`}</div>
+         <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>`;
+    const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px"><input type="hidden" name="listing_id" value="${enc(lid)}">
+        <select name="decision" style="padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
+        <button class="act ghost" type="submit">Submit admission review</button></form>`;
+    const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
     return `<div class="card" style="display:block">
-      <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> <span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">publishable: false</span></div>
-        <form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form></div>
-      <div class="chips" style="margin:0 0 8px"><span class="chiplabel">Blocked reasons</span>${reasons || `<span class="sub" style="margin:0">none</span>`}</div>
-      <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>
+      <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> ${pubPill}</div>
+        ${published ? "" : `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form>`}</div>
+      ${publishedBlock}
       <h4 style="margin:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93">Admission reviews</h4>
       ${reviews.length ? `<table><tbody>${revRows}</tbody></table>` : `<div class="sub" style="margin:0 0 8px">No reviews yet.</div>`}
-      <form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px"><input type="hidden" name="listing_id" value="${enc(lid)}">
-        <select name="decision" style="padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
-        <button class="act" type="submit">Submit admission review</button></form>
+      <div class="row" style="margin-top:8px;gap:8px">${publishBtn}</div>${reviewForm}
     </div>`;
   }).join("");
-  const admission = `<h2>Publish admission <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— admission-only; no publish action exists</span></h2>
+  const admission = `<h2>Publish admission <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— publishes only with admitted review + open ReleaseControl + a mounted&amp;serving runtime</span></h2>
     ${candidates.length ? candBlocks : `<div class="empty">No publish candidate yet.</div>`}
-    <form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/candidates" style="margin-top:10px"><button class="act" type="submit">Create publish candidate</button></form>`;
+    <form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/candidates" style="margin-top:10px"><button class="act ghost" type="submit">Create publish candidate</button></form>`;
 
   // Managed instance offers (agent / domain_app only) — always uninstantiated.
   const offerable = l.listing_kind === "agent" || l.listing_kind === "domain_app";
@@ -3609,6 +3620,14 @@ const server = http.createServer((req, res) => {
         await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
       } else if (action === "reviews") {
         await fetch(`${DAEMON}/v1/hypervisor/marketplace/admission-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidate_ref: `marketplace-publish://${id}`, decision: (p.get("decision") || "pending").trim() }) }).catch(() => {});
+      } else if (action === "publish") {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
+        if (r && r.ok === false && r.error) {
+          const reasons = (r.error.blocked_reasons || []).join(", ");
+          res.writeHead(200, HTMLH);
+          res.end(automationsShell("Marketplace", `<div class="empty">Publish blocked: ${CX_ESC(r.error.message || "")}${reasons ? " — " + CX_ESC(reasons) : ""}</div><p><a href="${back}">← back</a></p>`));
+          return;
+        }
       }
       res.writeHead(302, { Location: back, "Cache-Control": "no-cache" });
       return res.end();

@@ -1,17 +1,19 @@
-//! Marketplace object plane — FOUNDATION cut (daemon-first, draft-only).
+//! Marketplace object plane (daemon-first). Draft listings/candidates/reviews/offers over REAL
+//! agent / Domain App / ODK / Foundry substrate.
 //!
-//! The Marketplace substrate is `admission_only_until_runtime_backing`: it can draft listings,
-//! nominate publish candidates, and record admission reviews over REAL agent / Domain App / ODK /
-//! Foundry substrate — but nothing is ever published, hired, instantiated, settled, or routed here.
+//! PUBLISH INVARIANT (sharpened): the old absolute "nothing publishes" rule is retired and replaced
+//! by a precise one — a `domain_app` listing publishes ONLY when it has an admitted
+//! MarketplaceAdmissionReview, an OPEN ReleaseControl targeting the candidate/listing, AND a backing
+//! DomainAppRuntime that is `mounted:true` and `serving:true`. Publishing sets read-only distribution
+//! metadata (`public_state: published`) with runtime backing — it is NOT a commercial install/hire flow.
 //!
-//! Four durable DRAFT objects: MarketplaceListingDraft · MarketplacePublishCandidate ·
+//! Four durable objects: MarketplaceListingDraft · MarketplacePublishCandidate ·
 //! MarketplaceAdmissionReview · ManagedInstanceOffer. Cross-references use canonical prefixed URIs.
 //!
 //! Hard boundaries (enforced, not decorative):
 //!   * NO payments, settlement, routing marketplace, install/hire runtime, managed-instance
-//!     instantiation, or sas.xyz delivery loop.
-//!   * NO "published" state — a candidate never leaves publish_state "candidate"; even an
-//!     admission review that ADMITS does not publish (admission != published).
+//!     instantiation, external ingress, or sas.xyz delivery loop.
+//!   * `published` means read-only discoverable metadata WITH runtime backing — not a hire/install.
 //!   * A ManagedInstanceOffer stays runtime_posture {instantiated:false} — no instance lifecycle.
 
 use std::path::Path;
@@ -23,12 +25,16 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
 const KIND_LISTING: &str = "marketplace-listings";
 const KIND_CANDIDATE: &str = "marketplace-publish-candidates";
 const KIND_REVIEW: &str = "marketplace-admission-reviews";
 const KIND_OFFER: &str = "marketplace-instance-offers";
+const KIND_PUBLISH_RECEIPT: &str = "marketplace-publish-receipts";
+const KIND_DOMAIN_APP: &str = "domain-apps";
+const KIND_RUNTIME: &str = "domain-app-runtimes";
+const KIND_RELEASE: &str = "governance-release-controls";
 
 /// What a listing may offer — each maps to a real substrate plane for subject resolution.
 const LISTING_KINDS: &[&str] = &[
@@ -217,33 +223,88 @@ async fn governance_snapshot(base: &str) -> Value {
         "at": iso_now()
     })
 }
-/// Why a candidate is not publishable — combining current governance + admission + the structural
-/// `admission_only_until_runtime_backing` reason that always blocks publish in this plane.
-fn derive_blocked_reasons(gov: &Value, has_admission_admitted: bool) -> Vec<String> {
+/// Pure: the sharpened publish invariant — the reasons a candidate cannot publish, given resolved
+/// facts. Empty => publishable. domain_app-only; requires admitted review + open release + serving
+/// runtime.
+fn publish_reasons(kind: &str, dapp_ok: bool, has_admitted: bool, has_open_release: bool, has_serving: bool) -> Vec<String> {
     let mut r = Vec::new();
-    if !has_admission_admitted {
+    if kind != "domain_app" {
+        r.push("listing_not_domain_app".to_string());
+    }
+    if !dapp_ok {
+        r.push("domain_app_unresolved".to_string());
+    }
+    if !has_admitted {
         r.push("no_admitted_admission_review".to_string());
     }
-    if gov.get("governance_gaps").and_then(|v| v.as_i64()).unwrap_or(1) > 0 {
-        r.push("governance_gaps_present".to_string());
+    if !has_open_release {
+        r.push("no_open_release_control".to_string());
     }
-    if !gov.get("auth_enforced").and_then(|v| v.as_bool()).unwrap_or(false) {
-        r.push("auth_not_enforced".to_string());
+    if kind == "domain_app" && !has_serving {
+        r.push("no_serving_runtime".to_string());
     }
-    // Structural: this plane has no runtime backing, so nothing publishes regardless.
-    r.push("admission_only_until_runtime_backing".to_string());
     r
 }
-/// Does this candidate have a linked admission review that ADMITTED it? (drives blocked_reasons)
-fn candidate_admitted(data_dir: &str, candidate: &Value) -> bool {
-    let Some(rref) = candidate.get("admission_review_ref").and_then(|v| v.as_str()) else {
-        return false;
+/// The resolved publish backing for a candidate (reasons + the refs that satisfied each gate).
+#[derive(Default)]
+struct PublishBacking {
+    reasons: Vec<String>,
+    listing_id: String,
+    subject_ref: String,
+    admission_review_ref: Option<String>,
+    release_control_ref: Option<String>,
+    runtime_ref: Option<String>,
+    runtime_route: Option<String>,
+}
+/// Resolve the publish gates for a candidate against real substrate (listing kind, admitted review,
+/// open ReleaseControl targeting candidate/listing, serving DomainAppRuntime for the subject).
+fn publish_gates(data_dir: &str, candidate: &Value) -> PublishBacking {
+    let mut b = PublishBacking::default();
+    let cand_ref = candidate.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let listing_ref = candidate.get("listing_ref").and_then(|v| v.as_str()).unwrap_or("");
+    let listing = match split_ref(listing_ref) {
+        Some(("marketplace-listing", id)) => load(data_dir, KIND_LISTING, id),
+        _ => None,
     };
-    let Some((_, id)) = split_ref(rref) else { return false };
-    load(data_dir, KIND_REVIEW, id)
-        .and_then(|r| r.get("decision").and_then(|v| v.as_str()).map(str::to_string))
-        .map(|d| d == "admitted")
-        .unwrap_or(false)
+    let Some(listing) = listing else {
+        b.reasons.push("listing_unresolved".to_string());
+        return b;
+    };
+    b.listing_id = listing.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let kind = listing.get("listing_kind").and_then(|v| v.as_str()).unwrap_or("");
+    let subject = listing.get("subject_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    b.subject_ref = subject.clone();
+    // domain app resolves?
+    let dapp_ok = match split_ref(&subject) {
+        Some(("domain-app", id)) => load(data_dir, KIND_DOMAIN_APP, id).is_some(),
+        _ => false,
+    };
+    // admitted review for this candidate?
+    if let Some(rv) = read_record_dir(data_dir, KIND_REVIEW).into_iter().find(|r| {
+        r.get("candidate_ref").and_then(|v| v.as_str()) == Some(cand_ref.as_str())
+            && r.get("decision").and_then(|v| v.as_str()) == Some("admitted")
+    }) {
+        b.admission_review_ref = rv.get("ref").and_then(|v| v.as_str()).map(str::to_string);
+    }
+    // open ReleaseControl targeting the candidate OR the listing?
+    if let Some(rc) = read_record_dir(data_dir, KIND_RELEASE).into_iter().find(|r| {
+        r.get("state").and_then(|v| v.as_str()) == Some("open")
+            && matches!(r.get("release_target_ref").and_then(|v| v.as_str()), Some(t) if t == cand_ref || t == listing_ref)
+    }) {
+        b.release_control_ref = rc.get("ref").and_then(|v| v.as_str()).map(str::to_string);
+    }
+    // serving DomainAppRuntime for the subject?
+    if let Some(rt) = read_record_dir(data_dir, KIND_RUNTIME).into_iter().find(|rt| {
+        rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject.as_str())
+            && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
+            && rt.get("serving").and_then(|v| v.as_bool()) == Some(true)
+            && rt.get("internal_route_ref").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false)
+    }) {
+        b.runtime_route = rt.get("internal_route_ref").and_then(|v| v.as_str()).map(str::to_string);
+        b.runtime_ref = rt.get("ref").and_then(|v| v.as_str()).map(str::to_string);
+    }
+    b.reasons = publish_reasons(kind, dapp_ok, b.admission_review_ref.is_some(), b.release_control_ref.is_some(), b.runtime_ref.is_some());
+    b
 }
 
 // ===================================== OVERVIEW =================================================
@@ -285,7 +346,7 @@ pub(crate) async fn handle_marketplace_overview(State(st): State<Arc<DaemonState
     Json(json!({
         "ok": true,
         "schema_version": "ioi.hypervisor.marketplace-overview.v1",
-        "status_note": "Marketplace foundation: admission_only_until_runtime_backing. Listings/candidates/reviews/offers are drafts. Nothing is published, hired, instantiated, settled, or routed.",
+        "status_note": "Marketplace: a domain_app listing publishes ONLY with an admitted review, an open ReleaseControl, and a mounted&serving DomainAppRuntime. Published = read-only, runtime-backed distribution metadata — never hired, instantiated, settled, or routed.",
         "substrate": {
             "agents": agents_len,
             "domain_apps_total": domain_apps.len(),
@@ -302,7 +363,7 @@ pub(crate) async fn handle_marketplace_overview(State(st): State<Arc<DaemonState
             "admission_reviews": reviews.len(),
             "admission_reviews_by_decision": serde_json::to_value(histogram(&reviews, "decision")).unwrap_or_else(|_| json!({})),
             "managed_instance_offers": offers.len(),
-            "published": 0
+            "published": listings.iter().filter(|l| l.get("public_state").and_then(|v| v.as_str()) == Some("published")).count()
         },
         "governance_posture": gov,
         "listing_kinds": LISTING_KINDS,
@@ -427,19 +488,20 @@ pub(crate) async fn handle_listing_delete(
 
 // ============================ PUBLISH CANDIDATE ================================================
 
-fn candidate_view(data_dir: &str, gov: &Value, c: &Value) -> Value {
-    let admitted = candidate_admitted(data_dir, c);
+fn candidate_view(data_dir: &str, c: &Value) -> Value {
+    let published = c.get("publish_state").and_then(|v| v.as_str()) == Some("published");
+    let b = publish_gates(data_dir, c);
     let mut c = c.clone();
-    c["blocked_reasons"] = json!(derive_blocked_reasons(gov, admitted));
-    c["publishable"] = json!(false); // never publishable in this plane
+    c["blocked_reasons"] = if published { json!([]) } else { json!(b.reasons) };
+    // Publishable only under the sharpened invariant (admitted review + open release + serving runtime).
+    c["publishable"] = json!(!published && b.reasons.is_empty());
     c
 }
 
 pub(crate) async fn handle_candidate_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let gov = governance_snapshot(&st.base_url).await;
     let mut items: Vec<Value> = read_record_dir(&st.data_dir, KIND_CANDIDATE)
         .iter()
-        .map(|c| candidate_view(&st.data_dir, &gov, c))
+        .map(|c| candidate_view(&st.data_dir, c))
         .collect();
     items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
     Json(json!({ "ok": true, "publish_candidates": items }))
@@ -475,8 +537,7 @@ pub(crate) async fn handle_candidate_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_CANDIDATE, &id, &record);
-    let gov_now = governance_snapshot(&st.base_url).await;
-    (StatusCode::CREATED, Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &gov_now, &record) })))
+    (StatusCode::CREATED, Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &record) })))
 }
 
 pub(crate) async fn handle_candidate_get(
@@ -484,12 +545,83 @@ pub(crate) async fn handle_candidate_get(
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
     match load(&st.data_dir, KIND_CANDIDATE, &id) {
-        Some(c) => {
-            let gov = governance_snapshot(&st.base_url).await;
-            Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &gov, &c) }))
-        }
+        Some(c) => Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &c) })),
         None => Json(json!({ "ok": false, "reason": "publish candidate not found" })),
     }
+}
+
+/// POST /v1/hypervisor/marketplace/publish-candidates/:id/publish — the ONE governed publish path.
+/// Publishes a domain_app listing iff: admitted review + open ReleaseControl (targeting candidate or
+/// listing) + a mounted&serving DomainAppRuntime backing the subject. Sets read-only published
+/// distribution metadata (NOT a hire/install). Emits a publish receipt.
+pub(crate) async fn handle_candidate_publish(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut candidate) = load(&st.data_dir, KIND_CANDIDATE, &id) else {
+        return bad("marketplace_candidate_not_found", "publish candidate not found");
+    };
+    if candidate.get("publish_state").and_then(|v| v.as_str()) == Some("published") {
+        return bad("marketplace_already_published", "this candidate is already published");
+    }
+    let b = publish_gates(&st.data_dir, &candidate);
+    if !b.reasons.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_publish_blocked",
+                "message": "publish requires: domain_app listing + admitted review + open ReleaseControl + mounted&serving runtime",
+                "blocked_reasons": b.reasons
+            } })),
+        );
+    }
+    let now = iso_now();
+    let admission_review_ref = b.admission_review_ref.clone().unwrap_or_default();
+    let release_control_ref = b.release_control_ref.clone().unwrap_or_default();
+    let published_runtime_ref = b.runtime_ref.clone().unwrap_or_default();
+    let cand_ref = candidate.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    // Publish receipt (real proof: sha256 state_root over the backing tuple).
+    let prid = format!("pubr_{:x}", nanos());
+    let state_root = sha256_hex_str(&format!("publish|{cand_ref}|{admission_review_ref}|{release_control_ref}|{published_runtime_ref}|{now}"));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.marketplace-publish-receipt.v1",
+        "object": "ioi.hypervisor.marketplace_publish_receipt",
+        "id": prid, "ref": format!("marketplace-publish-receipt://{prid}"),
+        "candidate_ref": cand_ref,
+        "listing_id": b.listing_id,
+        "admission_review_ref": admission_review_ref,
+        "release_control_ref": release_control_ref,
+        "published_runtime_ref": published_runtime_ref,
+        "state_root": format!("sha256:{state_root}"),
+        "at": now
+    });
+    let _ = persist_record(&st.data_dir, KIND_PUBLISH_RECEIPT, &prid, &receipt);
+    let receipt_ref = format!("marketplace-publish-receipt://{prid}");
+    // Flip the candidate -> published (read-only distribution metadata, runtime-backed).
+    candidate["publish_state"] = json!("published");
+    candidate["published_at"] = json!(now);
+    candidate["published_runtime_ref"] = json!(published_runtime_ref);
+    candidate["release_control_ref"] = json!(release_control_ref);
+    candidate["admission_review_ref"] = json!(admission_review_ref);
+    candidate["publish_receipt_refs"] = json!([receipt_ref]);
+    candidate["state_root"] = json!(format!("sha256:{state_root}"));
+    candidate["updated_at"] = json!(now);
+    let _ = persist_record(&st.data_dir, KIND_CANDIDATE, &id, &candidate);
+    // Flip the listing public_state -> published.
+    if let Some(mut listing) = load(&st.data_dir, KIND_LISTING, &b.listing_id) {
+        listing["public_state"] = json!("published");
+        listing["published_at"] = json!(now);
+        listing["published_runtime_ref"] = json!(published_runtime_ref);
+        listing["release_control_ref"] = json!(release_control_ref);
+        listing["admission_review_ref"] = json!(admission_review_ref);
+        listing["publish_receipt_refs"] = json!([receipt_ref.clone()]);
+        listing["updated_at"] = json!(now);
+        let _ = persist_record(&st.data_dir, KIND_LISTING, &b.listing_id, &listing);
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &candidate), "receipt": receipt })),
+    )
 }
 
 pub(crate) async fn handle_candidate_delete(
@@ -737,27 +869,22 @@ mod marketplace_tests {
     }
 
     #[test]
-    fn blocked_reasons_always_includes_runtime_backing_and_publish_is_impossible() {
-        // Clean governance + admitted review: still blocked structurally.
-        let gov = json!({ "governance_gaps": 0, "auth_enforced": true });
-        let r = derive_blocked_reasons(&gov, true);
-        assert!(r.contains(&"admission_only_until_runtime_backing".to_string()));
-        assert!(!r.contains(&"no_admitted_admission_review".to_string()));
-        assert!(!r.contains(&"governance_gaps_present".to_string()));
-        assert!(!r.contains(&"auth_not_enforced".to_string()));
-        // Even in the best case there is at least the structural reason -> never publishable.
-        assert!(!r.is_empty());
+    fn publish_reasons_empty_only_when_all_gates_pass() {
+        // domain_app + resolvable + admitted + open release + serving -> publishable (no reasons).
+        assert!(publish_reasons("domain_app", true, true, true, true).is_empty());
     }
 
     #[test]
-    fn blocked_reasons_accumulate_when_gates_fail() {
-        let gov = json!({ "governance_gaps": 6, "auth_enforced": false });
-        let r = derive_blocked_reasons(&gov, false);
-        assert!(r.contains(&"no_admitted_admission_review".to_string()));
-        assert!(r.contains(&"governance_gaps_present".to_string()));
-        assert!(r.contains(&"auth_not_enforced".to_string()));
-        assert!(r.contains(&"admission_only_until_runtime_backing".to_string()));
-        assert_eq!(r.len(), 4);
+    fn publish_reasons_flag_each_missing_gate() {
+        // non-domain_app is rejected up front.
+        assert!(publish_reasons("agent", true, true, true, true).contains(&"listing_not_domain_app".to_string()));
+        // each missing gate names itself.
+        assert!(publish_reasons("domain_app", true, false, true, true).contains(&"no_admitted_admission_review".to_string()));
+        assert!(publish_reasons("domain_app", true, true, false, true).contains(&"no_open_release_control".to_string()));
+        assert!(publish_reasons("domain_app", true, true, true, false).contains(&"no_serving_runtime".to_string()));
+        assert!(publish_reasons("domain_app", false, true, true, true).contains(&"domain_app_unresolved".to_string()));
+        // all failing -> all reasons present.
+        assert_eq!(publish_reasons("domain_app", false, false, false, false).len(), 4);
     }
 
     #[test]
