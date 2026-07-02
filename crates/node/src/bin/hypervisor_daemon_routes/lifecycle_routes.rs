@@ -7542,7 +7542,7 @@ impl ExecutionSubstrate {
 
 /// Honest reachability probe: can we TCP-connect to the configured model upstream
 /// (Ollama / OpenAI-compatible) within a short timeout? Offline → false (no fake).
-fn model_route_reachable() -> bool {
+pub(crate) fn model_route_reachable() -> bool {
     use std::net::{TcpStream, ToSocketAddrs};
     let upstream = std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
         .ok()
@@ -7577,7 +7577,7 @@ fn parse_host_port(upstream: &str) -> (String, u16) {
 }
 
 /// `which`-style PATH lookup for an executable (no process spawn). None if absent.
-fn binary_on_path(name: &str) -> Option<String> {
+pub(crate) fn binary_on_path(name: &str) -> Option<String> {
     let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         let candidate = dir.join(name);
@@ -7602,7 +7602,7 @@ fn binary_on_path(name: &str) -> Option<String> {
 /// Resolve the `generic-cli-local` harness shim (a node script shipped in the repo).
 /// `IOI_HYPERVISOR_HARNESS_SHIM` overrides; otherwise it is the well-known path
 /// relative to the daemon's working directory. None when the file is absent.
-fn generic_cli_local_shim_path() -> Option<String> {
+pub(crate) fn generic_cli_local_shim_path() -> Option<String> {
     if let Some(explicit) = std::env::var("IOI_HYPERVISOR_HARNESS_SHIM")
         .ok()
         .filter(|value| !value.trim().is_empty())
@@ -8306,6 +8306,35 @@ pub(crate) async fn handle_session_create(
             let seed = format!("{}:{now}", project_ref.as_deref().unwrap_or("session"));
             format!("session:hyp-{}", short_hash(&seed))
         });
+    // Optional harness selection (the New Session / Agent Studio axis): a requested
+    // harness_profile_ref is admitted through the harness-profile registry BEFORE any workspace
+    // side effect — planner/registry rejections abort the create (fail-closed). Absent selection
+    // keeps the legacy behavior byte-identical (no binding, Lane A default at execute time).
+    let mut harness_binding = Value::Null;
+    if let Some(profile_ref) = body
+        .get("harness_profile_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        let profile_id = profile_ref
+            .strip_prefix("harness-profile:")
+            .unwrap_or(profile_ref);
+        let model_route_ref = body.get("model_route_ref").and_then(Value::as_str);
+        match super::harness_routes::bind_profile_for_session(
+            &st,
+            profile_id,
+            &session_ref,
+            model_route_ref,
+        )
+        .await
+        {
+            Ok(response) => {
+                harness_binding = response.get("binding").cloned().unwrap_or(Value::Null);
+            }
+            Err((status, error_body)) => return (status, Json(error_body)),
+        }
+    }
+
     // A session may bind to an EXISTING started environment's workspace so agent execution and
     // the editor host operate on the SAME files (the app's compose→run→open-editor loop).
     let bound_env_id = body
@@ -8395,6 +8424,7 @@ pub(crate) async fn handle_session_create(
         "component_phases": provision.component_phases,
         "realized_specs": provision.realized_specs,
         "environment_status": environment_status,
+        "harness_binding": harness_binding,
         "latest_receipt_refs": [receipt_ref],
         "created_at": now,
         "runtimeTruthSource": "daemon-runtime",
@@ -8409,6 +8439,7 @@ pub(crate) async fn handle_session_create(
             "environment_ref": environment_ref,
             "environment_status": environment_status,
             "workspace_initializer": provision.initializer,
+            "harness_binding": record.get("harness_binding").cloned().unwrap_or(Value::Null),
             "receipt_ref": receipt_ref,
             "runtimeTruthSource": "daemon-runtime",
         })),

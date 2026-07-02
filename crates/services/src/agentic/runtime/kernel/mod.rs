@@ -41,6 +41,7 @@ pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_doctor_report;
+pub mod runtime_harness_profile_mutation_admission;
 pub mod runtime_harness_session_binding_admission;
 pub mod runtime_harness_session_terminal_attach_admission;
 pub mod runtime_hypervisor_approved_operation_admission;
@@ -719,6 +720,22 @@ impl RuntimeKernelService {
         runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionError,
     > {
         runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionCore
+            .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a harness-profile-mutation governance admission (pure: asserts the
+    /// harness authority scope, adapter posture, provider-trust acceptance for non-local trust,
+    /// and — for session binding — a wired execution lane, passing runnability probe, and model
+    /// route are bound).
+    pub fn admit_harness_profile_mutation(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<
+        serde_json::Value,
+        runtime_harness_profile_mutation_admission::RuntimeHarnessProfileMutationAdmissionError,
+    > {
+        runtime_harness_profile_mutation_admission::RuntimeHarnessProfileMutationAdmissionCore
             .admit(request, now_iso)
     }
 

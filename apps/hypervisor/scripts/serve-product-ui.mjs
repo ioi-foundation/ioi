@@ -979,21 +979,50 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     ${latestRun && latestRun.run_id ? `<a class="act ghost" href="/__ioi/run-timeline/${enc(latestRun.run_id)}" target="_blank" rel="noopener">Open latest run timeline ↗</a>` : ""}
   </div>`;
 
-  // ---- Platform harness adapters (global runner matrix) from agent-runner-profiles.
+  // ---- Harness profiles — the daemon REGISTRY (selectable runtime harnesses with probed
+  // runnability + explicit execution wiring). Runnable ≠ execution-bindable: an adapter-slot
+  // profile can be host-present yet unwired; both axes render honestly and independently.
   // Honest annotation: a profile model string with no registry route is marked, never joined.
   const registeredModelIds = new Set(modelRoutes.map((r) => (r.model || {}).model_id).filter(Boolean));
   const profModel = (m) => `<code>${CX_ESC(m)}</code>${registeredModelIds.has(m) ? "" : ` <span class="pill muted" title="no model-route registry entry declares this model">unregistered</span>`}`;
-  const profRows = profiles.map((p) => `<tr>
-    <td><b>${CX_ESC(p.display_name || p.harness || "—")}</b>${p.default ? ` <span class="pill ok">default</span>` : ""}<div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(p.harness || "")}</code></div></td>
+  const hpId = (p) => String(p.profile_ref || "").replace(/^harness-profile:/, "");
+  const runPill = (state) => `<span class="pill ${state === "runnable" ? "ok" : state === "not_probed" ? "muted" : "warn"}">${CX_ESC(state || "not_probed")}</span>`;
+  const wirePill = (w) => w === "lane_a_host_spawn"
+    ? `<span class="pill ok" title="executes through the daemon's Lane A host-spawn path">lane A</span>`
+    : w === "terminal_pty"
+      ? `<span class="pill muted" title="drives the daemon terminal PTY lane; not an execution binding target">terminal</span>`
+      : `<span class="pill warn" title="selectable metadata; execution wiring not yet built — session binding is rejected fail-closed">adapter slot (unwired)</span>`;
+  const hpConfirm = (p, act, label, admission, rollback, danger) => {
+    const remote = String(p.provider_trust || "").startsWith("remote");
+    const needsAcceptance = remote && (act === "enable" || act === "select-default");
+    return `<details class="mrc"><summary class="act ghost${danger ? " danger" : ""}">${label}</summary><div class="mrcbody">
+      <div class="sub" style="margin:0 0 6px">${admission}<br>Receipt: <code>agentgres://harness-profile-receipt/*</code> will be minted; the op records a transcript with a state_root.<br>Rollback: ${rollback}</div>
+      <form class="inline" method="post" action="/__ioi/agent-studio/harness-profiles/${enc(hpId(p))}/${act}">${needsAcceptance ? `<div class="field" style="margin:0 0 6px"><label>provider_trust_acceptance_ref (required for ${CX_ESC(p.provider_trust)})</label><input name="provider_trust_acceptance_ref" placeholder="approval://provider-trust/…" style="width:100%"></div>` : ""}<button class="act${danger ? " danger" : ""}" type="submit">Confirm ${label}</button></form>
+    </details>`;
+  };
+  const profRows = profiles.map((p) => {
+    const lc = p.lifecycle_status || "declared";
+    const controls = [
+      hpConfirm(p, "probe", "Probe", "No admission (evidence-gathering only); host presence is probed — binary on PATH, shim + node, model-upstream reachability. Never fabricated.", "none needed — probing only updates runnability evidence"),
+      lc === "active"
+        ? hpConfirm(p, "disable", "Disable", `Admission: <code>disable_profile</code> under <code>scope:harness.profile.mutate</code> (relaxed lane).`, "re-enable via the admitted <code>enable_profile</code> lane", true)
+        : hpConfirm(p, "enable", "Enable", `Admission: <code>enable_profile</code> under <code>scope:harness.profile.mutate</code>; non-local provider trust requires an explicit provider-trust acceptance (planner-validated, fail-closed).`, "disable via the admitted <code>disable_profile</code> lane"),
+      p.default ? "" : hpConfirm(p, "select-default", "Set default", `Admission: <code>select_profile</code> under <code>scope:harness.profile.mutate</code>; the previous default is atomically cleared (exactly-one invariant).`, "select the previous default again"),
+    ].filter(Boolean).join(" ");
+    return `<tr>
+    <td><b>${CX_ESC(p.display_name || p.harness || "—")}</b>${p.default ? ` <span class="pill ok">default</span>` : ""}<div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(p.profile_ref || p.harness || "")}</code></div></td>
     <td>${(p.modes || []).map((m) => CX_ESC(m)).join(" · ") || "—"}</td>
     <td>${(p.models || []).map(profModel).join(" ") || "—"}</td>
     <td>${(p.reasoning || []).map(CX_ESC).join("/") || "—"}</td>
-    <td>${(p.speed || []).map(CX_ESC).join("/") || "—"}</td>
     <td>${p.tool_use ? "✓" : "—"} · ${p.image_input ? "img" : "—"}</td>
     <td><span class="pill ${String(p.provider_trust || "").startsWith("remote") ? "warn" : "ok"}">${CX_ESC(p.provider_trust || "—")}</span></td>
-  </tr>`).join("");
+    <td><span class="pill ${lc === "active" ? "ok" : "muted"}">${CX_ESC(lc)}</span></td>
+    <td>${runPill(p.runnability_state)} ${wirePill(p.execution_wiring)}</td>
+    <td>${controls}</td>
+  </tr>`;
+  }).join("");
   const matrix = profiles.length
-    ? `<h2>Platform harness adapters</h2><p class="sub" style="margin:-4px 0 12px">The runner profiles every agent can be operated on — modes, models, reasoning, speed, tool-use and provider trust.</p><table><thead><tr><th>Harness</th><th>Modes</th><th>Models</th><th>Reasoning</th><th>Speed</th><th>Tools</th><th>Trust</th></tr></thead><tbody>${profRows}</tbody></table>`
+    ? `<h2 id="harness-profiles">Harness profiles</h2><p class="sub" style="margin:-4px 0 12px">The daemon harness-profile registry — every selectable runtime harness with its capability matrix, probed runnability, and execution wiring. <b>runnable</b> means the adapter's host requirements resolve; only a <b>lane A</b> wired profile is execution-bindable today. Enable/disable/default are planner-admitted, receipted mutations.</p><table><thead><tr><th>Harness</th><th>Modes</th><th>Models</th><th>Reasoning</th><th>Tools</th><th>Trust</th><th>Lifecycle</th><th>Runnability</th><th>Controls</th></tr></thead><tbody>${profRows}</tbody></table>`
     : "";
 
   const registry = renderModelRouteRegistry(modelRoutes);
@@ -3298,6 +3327,30 @@ const server = http.createServer((req, res) => {
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#model-routes", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    // ---- Agent Studio harness-profile registry controls: proxy the effectful daemon routes
+    // (probe / enable / disable / select-default); a provider-trust acceptance ref from the
+    // confirm panel is forwarded so the planner can admit non-local-trust enables.
+    {
+      const hpAction = pathname.match(/^\/__ioi\/agent-studio\/harness-profiles\/([^/]+)\/(probe|enable|disable|select-default)$/);
+      if (hpAction && req.method === "POST") {
+        const [, hpIdRaw, act] = hpAction;
+        const raw = await new Promise((resolve) => { let b = ""; req.on("data", (c) => { b += c; }); req.on("end", () => resolve(b)); req.on("error", () => resolve("")); });
+        const acceptance = new URLSearchParams(raw).get("provider_trust_acceptance_ref");
+        const payload = acceptance ? JSON.stringify({ provider_trust_acceptance_ref: acceptance }) : "{}";
+        const r = await fetch(`${DAEMON}/v1/hypervisor/harness-profiles/${encodeURIComponent(hpIdRaw)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: payload }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
+          const msg = (j.error && j.error.message) || "";
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Harness profiles", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#harness-profiles">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#harness-profiles", "Cache-Control": "no-cache" });
         res.end();
         return;
       }
