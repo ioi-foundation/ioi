@@ -1209,6 +1209,11 @@ async fn async_main() -> anyhow::Result<()> {
             get(marketplace_routes::handle_candidate_get)
                 .delete(marketplace_routes::handle_candidate_delete),
         )
+        // The one governed publish path: domain_app + admitted review + open release + serving runtime.
+        .route(
+            "/v1/hypervisor/marketplace/publish-candidates/:id/publish",
+            post(marketplace_routes::handle_candidate_publish),
+        )
         .route(
             "/v1/hypervisor/marketplace/admission-reviews",
             get(marketplace_routes::handle_review_list).post(marketplace_routes::handle_review_create),
