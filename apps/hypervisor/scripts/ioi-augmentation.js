@@ -301,6 +301,11 @@
       const label = (r.display_name || r.route_ref) + " · " + (r.model_id || "?") + (r.default_route ? " · default" : "") + (reason ? " — " + reason : " — available");
       return '<option value="' + esc(r.route_ref) + '"' + (reason ? " disabled" : "") + (r.default_route && !reason ? " selected" : "") + ">" + esc(label) + "</option>";
     }).join("");
+    const editors = nsCtx.editor_targets || [];
+    const etOpts = editors.map((t) => {
+      const label = t.display_name + " — " + (t.openable ? (t.open_kind || "").replace(/_/g, " ") : ("unavailable" + (t.reason ? " · " + t.reason : "")));
+      return '<option value="editor-target:' + esc(t.target_id) + '"' + (t.openable ? "" : " disabled") + (t.target_id === "workbench-native" ? " selected" : "") + ">" + esc(label) + "</option>";
+    }).join("");
     body.innerHTML =
       '<div class="ioi-ns-tabs"><button class="ioi-ns-tab" data-ns-branch="project">Start from project</button><button class="ioi-ns-tab" data-ns-branch="url">Start from URL</button><button class="ioi-ns-tab" data-ns-branch="scratch">Start from scratch</button></div>' +
       '<div class="ioi-ns-pane project"><div class="ioi-ns-field"><label>Project</label><select id="ioi-ns-project">' + projOpts + "</select></div></div>" +
@@ -309,6 +314,7 @@
       '<div class="ioi-ns-grid">' +
       '<div class="ioi-ns-field"><label>Harness profile (daemon registry)</label><select id="ioi-ns-harness">' + hpOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Model route (daemon registry)</label><select id="ioi-ns-model">' + mrOpts + "</select></div>" +
+      '<div class="ioi-ns-field"><label>Editor target (daemon registry)</label><select id="ioi-ns-editor">' + etOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Reasoning</label><select id="ioi-ns-reasoning"></select></div>' +
       '<div class="ioi-ns-field"><label>Speed</label><select id="ioi-ns-speed"></select></div>' +
       "</div>" +
@@ -359,6 +365,9 @@
         : ((document.getElementById("ioi-ns-env") || {}).value ? "bound environment " + document.getElementById("ioi-ns-env").value + " (session shares its workspace)" : "fresh isolated workspace");
     lines.push('<span class="nsp-k">Creates</span> a governed session record (<code>session:hyp-…</code>) with a daemon-provisioned workspace — ' + esc(intake));
     lines.push('<span class="nsp-k">Isolation</span> process-scoped sandbox under the daemon data dir; no external ingress');
+    var editorSel = document.getElementById("ioi-ns-editor");
+    var editor = (nsCtx.editor_targets || []).find(function (t) { return "editor-target:" + t.target_id === (editorSel && editorSel.value); });
+    if (editor) lines.push('<span class="nsp-k">Editor</span> <b>' + esc(editor.display_name) + "</b> · " + esc((editor.open_kind || "").replace(/_/g, " ")) + " (validated openable at create)");
     if (p) {
       lines.push('<span class="nsp-k">Harness</span> <b>' + esc(p.display_name || p.harness) + "</b> · " + esc(p.provider_trust) + " trust · lane A execution over <b>" + esc(route ? (route.display_name || route.route_ref) : "(no route selected)") + "</b>");
       lines.push('<span class="nsp-k">Admission</span> <code>bind_session_profile</code> under <code>scope:harness.profile.mutate</code> (pure planner) + a LIVE runnability probe at bind — the create fails closed if either rejects; knobs compile a capability-admitted binding');
@@ -389,6 +398,8 @@
       const envId = (document.getElementById("ioi-ns-env") || {}).value || "";
       if (envId) body.environment_id = envId;
     }
+    var editorSel = document.getElementById("ioi-ns-editor");
+    if (editorSel && editorSel.value) body.editor_target_ref = editorSel.value;
     const p = nsProfile();
     if (p) {
       body.harness_profile_ref = p.profile_ref;
@@ -416,6 +427,7 @@
           '<span class="nsp-k">Session</span> <code>' + esc(j.session_ref || "?") + "</code><br>" +
           '<span class="nsp-k">Environment</span> <code>' + esc(j.environment_ref || "?") + "</code><br>" +
           '<span class="nsp-k">Receipt</span> <code>' + esc(j.receipt_ref || "?") + "</code><br>" +
+          (j.editor_target_ref ? '<span class="nsp-k">Editor</span> <code>' + esc(j.editor_target_ref) + "</code><br>" : "") +
           (hb ? '<span class="nsp-k">Harness</span> <code>' + esc(hb.profile_ref || "") + "</code> admitted <code>" + esc(hb.admission_id || "") + "</code><br>" : '<span class="nsp-k">Harness</span> no binding (execute-time default)<br>') +
           (kb ? '<span class="nsp-k">Knobs</span> reasoning <b>' + esc(kb.reasoning) + "</b> · speed <b>" + esc(kb.speed) + "</b> · <code>" + esc(kb.evidence_ref || "") + "</code><br>" : "") +
           (kbFail ? '<span class="nsp-k nsp-warn">Knobs</span> <span class="nsp-warn">rejected fail-closed: ' + esc(j.knob_binding.reason || "capability violation") + "</span><br>" : "") +

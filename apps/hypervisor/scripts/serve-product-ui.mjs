@@ -667,20 +667,27 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "trigger", "Trigger events")}
-    <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "failed", "Failed")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
+  const title = (e) => e.kind === "harness_execution"
+    ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
+    : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
+    : e.kind === "kill_enforcement" ? `kill ${CX_ESC(e.subject_ref || "")}`
+    : e.kind === "domain_app_runtime" ? `${CX_ESC(e.action || "runtime")} ${CX_ESC(e.domain_app_ref || "")}`
+    : CX_ESC(e.automation_name || "—");
   const rows = entries.map((e, i) => {
     const st = e.status || "";
-    const pill = (st === "done" || st === "accepted") ? "ok" : (st === "failed" || st === "rejected") ? "warn" : "muted";
+    const pill = (st === "done" || st === "accepted" || st === "success" || st === "published") ? "ok" : (st === "failed" || st === "rejected" || st === "failure") ? "warn" : "muted";
     const proof = (e.state_root || "").slice(0, 20) || "—";
     return `<tr class="wlrow" data-kind="${CX_ESC(e.kind)}" data-status="${CX_ESC(st)}" data-project="${CX_ESC(e.project_id || "")}" data-i="${i}" onclick="wlOpen(${i})">
-      <td>${icon(e.kind)} ${CX_ESC(e.automation_name || "—")}</td>
+      <td>${icon(e.kind)} ${title(e)}</td>
       <td>${CX_ESC(e.project_id || "—")}</td>
       <td><span class="pill ${pill}">${CX_ESC(st)}</span></td>
-      <td>${CX_ESC(e.trigger_kind || "")}</td>
+      <td>${CX_ESC(e.trigger_kind || e.kind || "")}</td>
       <td>${CX_ESC(e.timestamp || "")}</td>
       <td><code>${CX_ESC(proof)}</code></td>
     </tr>`;
@@ -705,9 +712,13 @@ function renderWorkLedger(entries, scopedProject) {
     function wlOpen(i){
       var e=WL[i];if(!e)return;
       function row(k,v){return (v===0||v)?('<div class="wlk">'+k+'</div><div class="wlv">'+wesc(v)+'</div>'):'';}
-      var h='<h3>'+(e.kind==='run'?'▶':'🪝')+' '+wesc(e.automation_name||'—')+'</h3><div class="wlgrid">';
-      h+=row('Kind',e.kind)+row('Project',e.project_id)+row('Status',e.status)+row('Trigger',e.trigger_kind)+row('When',e.timestamp);
+      var titles={run:'▶',harness_execution:'🤖',marketplace_publish:'🛒',domain_app_runtime:'🧩',kill_enforcement:'🛑'};
+      var hd=e.kind==='harness_execution'?((e.harness||'harness')+' → '+(e.session_ref||'session')):(e.automation_name||e.listing_id||e.subject_ref||e.domain_app_ref||'—');
+      var h='<h3>'+(titles[e.kind]||'🪝')+' '+wesc(hd)+'</h3><div class="wlgrid">';
+      h+=row('Kind',e.kind)+row('Project',e.project_id)+row('Status',e.status)+row('Trigger',e.trigger_kind||e.kind)+row('When',e.timestamp);
       if(e.kind==='run'){h+=row('Environment',e.environment_id)+row('Authority',e.authority?JSON.stringify(e.authority):'')+row('Steps',e.counts?JSON.stringify(e.counts):'');}
+      if(e.kind==='harness_execution'){h+=row('Harness',e.harness)+row('Session',e.session_ref)+row('Profile',e.profile_ref)+row('Files changed',(e.files_written||[]).join(', '))+row('Receipt',e.receipt_ref);
+        if(e.implementation_result){h+=row('Adapter',e.implementation_result.adapter)+row('Model',e.implementation_result.model)+row('Exit code',e.implementation_result.exit_code);}}
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
       var arts=(e.step_results||[]).filter(function(s){return s&&(s.kind==='proposal'||(s.output&&(s.output.command||s.output.file_changed)));});
@@ -3340,11 +3351,12 @@ const server = http.createServer((req, res) => {
     // capability-admitted knob binding (WS-D) so reasoning/speed are daemon objects, not UI state.
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr] = await Promise.all([
+      const [pj, envs, arp, mr, et] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
+        J("/v1/hypervisor/editor-targets"),
       ]);
       const environments = (envs.environments || [])
         .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
@@ -3370,13 +3382,20 @@ const server = http.createServer((req, res) => {
           default_route: r.default_route === true,
         })),
         default_route_ref: mr.default_route_ref || null,
+        editor_targets: (et.targets || []).map((t) => ({
+          target_id: t.target_id,
+          display_name: (t.profile || {}).displayName || t.target_id,
+          open_kind: (t.open_posture || {}).open_kind,
+          openable: (t.open_posture || {}).openable === true,
+          reason: (t.open_posture || {}).probe?.evidence?.note || ((t.open_posture || {}).probe?.evidence?.required_binary ? `${(t.open_posture || {}).probe.evidence.required_binary} not on PATH` : ""),
+        })),
       }));
       return;
     }
     if (pathname === "/__ioi/api/new-session/launch" && req.method === "POST") {
       let b = {}; try { b = JSON.parse(body.toString() || "{}"); } catch { /* fail-closed below */ }
       const sessionBody = {};
-      for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "session_ref"]) {
+      for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "editor_target_ref", "session_ref"]) {
         if (b[k]) sessionBody[k] = b[k];
       }
       const r = await fetch(`${DAEMON}/v1/hypervisor/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionBody) }).catch(() => null);

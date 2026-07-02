@@ -183,6 +183,23 @@ fn target_open_posture(target_id: &str) -> Value {
     }
 }
 
+/// Is `target_id` a REAL, currently-openable editor target? `workbench-native` always is; the
+/// others reflect their probed open posture. Used to validate a session's editor selection
+/// fail-closed (no session may name an editor that cannot open on this host right now).
+pub(crate) fn editor_target_openable(target_id: &str) -> bool {
+    if target_id == "workbench-native" {
+        return true;
+    }
+    let (_m, profiles) = load_registry();
+    if !profiles.iter().any(|p| p.get("target_id").and_then(|v| v.as_str()) == Some(target_id)) {
+        return false;
+    }
+    target_open_posture(target_id)
+        .pointer("/openable")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 /// GET /v1/hypervisor/editor-targets — the editor-target registry (manifest + resolved profiles),
 /// each with PROBED open posture, plus the owned in-shell workbench as a first-class target (the
 /// goal's native-workbench editor option is registry truth, not a UI assumption).
