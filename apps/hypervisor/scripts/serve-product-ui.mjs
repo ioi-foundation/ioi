@@ -820,26 +820,52 @@ function renderEnvironments(summary, classes) {
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
 // Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
 // /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
-function renderWorkbench(summary) {
+function renderWorkbench(summary, editorTargets) {
   summary = summary || {};
   const enc = encodeURIComponent;
   const envs = summary.environments || [];
+  const targets = (editorTargets && editorTargets.targets) || [];
+  const vb = targets.find((t) => t.target_id === "vscode-browser");
+  const vbOpenable = vb?.open_posture?.openable === true;
   const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a></p>`;
+  // Editor targets — the daemon registry with PROBED open posture. An editor that cannot open on
+  // this host renders disabled WITH the probe's reason (never hidden, never a dead link).
+  const etRows = targets.map((t) => {
+    const op = t.open_posture || {};
+    const kind = op.open_kind === "in_shell_surface" ? `<span class="pill ok">in-shell surface</span>`
+      : op.open_kind === "daemon_hosted_browser_ide" ? `<span class="pill ok">daemon-hosted browser IDE</span>`
+      : `<span class="pill muted">external host adapter</span>`;
+    const openPill = op.openable
+      ? `<span class="pill ok">openable</span>`
+      : `<span class="pill warn" title="${CX_ESC(JSON.stringify(op.probe?.evidence || {}))}">not openable — ${CX_ESC(op.probe?.evidence?.note || (op.probe?.evidence?.required_binary ? `${op.probe.evidence.required_binary} not on PATH` : "probe failed"))}</span>`;
+    return `<tr>
+      <td><b>${CX_ESC(t.profile?.displayName || t.target_id)}</b><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(t.target_id)}</code></div></td>
+      <td>${kind}</td>
+      <td>${openPill}</td>
+      <td style="font-size:11.5px;color:#878a93">${CX_ESC(op.lease_posture || "—")}</td>
+    </tr>`;
+  }).join("");
+  const editorsPanel = targets.length
+    ? `<h2 id="editor-targets">Editors</h2><p class="sub" style="margin:-4px 0 12px">The daemon editor-target registry — every way to open a workspace, with its probed open posture and lease/revocation contract. Only an <b>openable</b> target is offered on environments below.</p><table><thead><tr><th>Editor</th><th>Open kind</th><th>Open posture</th><th>Lease / revocation</th></tr></thead><tbody>${etRows}</tbody></table>`
+    : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Workbench", head + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>`);
+    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>`);
   }
   const rows = envs.map((e) => {
     const id = e.id || "";
+    const vbLink = vbOpenable
+      ? ` <a class="act ghost" href="/__ioi/editor/open?environmentId=${enc(id)}" target="_blank" rel="noopener">VS Code Browser ↗</a>`
+      : ` <span class="pill muted" title="pinned openvscode runtime not installed on this host — the open lane is fail-closed">VS Code Browser unavailable</span>`;
     return `<tr>
       <td><code>${CX_ESC(id)}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(e.project_id || "—")} · ${CX_ESC(e.environment_class_id || "")}</div></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span> ${CX_ESC(e.readiness_mode || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a> <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/workbench", summary);
   const table = `${pager}<table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
-  return automationsShell("Workbench", head + table);
+  return automationsShell("Workbench", head + editorsPanel + table);
 }
 
 // ---- Agent Studio — the live agent INVENTORY + CONFIGURATION + ACTIVITY cockpit (estate #3).
@@ -3277,9 +3303,12 @@ const server = http.createServer((req, res) => {
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const sRes = await fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({}));
+      const [sRes, etRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
+      ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkbench(sRes));
+      res.end(renderWorkbench(sRes, etRes));
       return;
     }
     // ---- New Session launcher (02-new-session graft) — the owned rail-modal's daemon-backed

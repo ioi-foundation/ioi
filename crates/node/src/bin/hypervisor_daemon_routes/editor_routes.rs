@@ -109,12 +109,121 @@ fn load_registry() -> (Value, Vec<Value>) {
     (manifest, profiles)
 }
 
-/// GET /v1/hypervisor/editor-targets — the editor-target registry (manifest + resolved profiles).
+/// PROBED open posture for one editor target — host truth, never fabricated. Three explicit
+/// open kinds: the owned in-shell surface (always openable while the daemon serves its env-ops),
+/// the daemon-hosted browser IDE (openable only when the pinned runtime is really installed;
+/// opened through the capability-lease chain), and external host adapters (a deep link into an
+/// electron host on this machine — probed by launch binary, opened under the adapter launch-plan
+/// admission, never a daemon runtime claim).
+fn target_open_posture(target_id: &str) -> Value {
+    match target_id {
+        "workbench-native" => json!({
+            "open_kind": "in_shell_surface",
+            "openable": true,
+            "open_route": "/__ioi/workbench",
+            "lease_posture": "serve-session over daemon env-ops; file/terminal effects stay wallet/authority-gated at the daemon (no separate editor lease)",
+            "probe": { "kind": "daemon_self", "at": iso_now(), "evidence": { "env_ops_backing": "this daemon serves the workbench's files/terminal/ports routes" } }
+        }),
+        "vscode-browser" => {
+            let present = super::editor_host::oss_runtime_present();
+            json!({
+                "open_kind": "daemon_hosted_browser_ide",
+                "openable": present,
+                "open_route": if present { json!("editor-services chain: create service → capability lease → start → expose → open_url") } else { Value::Null },
+                "lease_posture": "capability_lease_ref issued per open; expose binds a lease-authenticated proxy; revoking the lease severs access",
+                "probe": { "kind": "host_presence", "at": iso_now(), "evidence": {
+                    "pinned_runtime_present": present,
+                    "runtime_bin": super::editor_host::oss_server_bin().to_string_lossy(),
+                    "note": if present { "reproducible pinned runtime installed" } else { "pinned openvscode runtime not installed (WS-2 provisioner); open is fail-closed" }
+                } }
+            })
+        }
+        other => {
+            let bin = match other {
+                "vscode" => "code",
+                "vscode-insiders" => "code-insiders",
+                "cursor" => "cursor",
+                "windsurf" => "windsurf",
+                "intellij" => "idea",
+                "goland" => "goland",
+                "pycharm" => "pycharm",
+                "phpstorm" => "phpstorm",
+                "rubymine" => "rubymine",
+                "webstorm" => "webstorm",
+                "clion" => "clion",
+                "rustrover" => "rustrover",
+                "rider" => "rider",
+                "ssh" => "ssh",
+                _ => "",
+            };
+            let path = if bin.is_empty() {
+                None
+            } else {
+                super::lifecycle_routes::binary_on_path(bin)
+            };
+            let note = if bin.is_empty() {
+                "no local launch binary is defined for this target; open posture cannot be probed on this host"
+            } else if path.is_some() {
+                "launch binary resolves on this host"
+            } else {
+                "launch binary not on PATH"
+            };
+            json!({
+                "open_kind": "external_host_adapter",
+                "openable": path.is_some(),
+                "open_route": path.as_ref().map(|_| format!("deep link into the local {other} host (adapter extension)")),
+                "lease_posture": "code-editor-adapter launch-plan admission; the external host claims no runtime truth and receives no durable secret",
+                "probe": { "kind": "host_presence", "at": iso_now(), "evidence": {
+                    "required_binary": bin,
+                    "binary_path": path,
+                    "note": note,
+                } }
+            })
+        }
+    }
+}
+
+/// GET /v1/hypervisor/editor-targets — the editor-target registry (manifest + resolved profiles),
+/// each with PROBED open posture, plus the owned in-shell workbench as a first-class target (the
+/// goal's native-workbench editor option is registry truth, not a UI assumption).
 pub(crate) async fn handle_editor_targets_list(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
     let (manifest, profiles) = load_registry();
-    let active: Vec<String> = profiles
+    let mut targets: Vec<Value> = vec![json!({
+        "target_id": "workbench-native",
+        "family": "hypervisor-native",
+        "status": "active",
+        "profile": {
+            "schemaVersion": "ioi.hypervisor.editor_target_profile.v1",
+            "target": "workbench-native",
+            "displayName": "Native Workbench (in-shell)",
+            "family": "hypervisor_native",
+            "runtimeVariant": "owned_shell_surface",
+            "licensePosture": "source_owned",
+            "notes": "The owned in-shell environment console — files, terminal, ports, tasks — served over the daemon's env-ops routes. Always available while the daemon runs."
+        },
+        "open_posture": target_open_posture("workbench-native"),
+    })];
+    for mut p in profiles {
+        let id = p
+            .get("target_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        p["open_posture"] = target_open_posture(&id);
+        targets.push(p);
+    }
+    let active: Vec<String> = targets
         .iter()
         .filter(|p| p.get("status").and_then(|v| v.as_str()) == Some("active"))
+        .filter_map(|p| {
+            p.get("target_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
+        .collect();
+    let openable: Vec<String> = targets
+        .iter()
+        .filter(|p| p.pointer("/open_posture/openable").and_then(|v| v.as_bool()) == Some(true))
         .filter_map(|p| {
             p.get("target_id")
                 .and_then(|v| v.as_str())
@@ -125,7 +234,8 @@ pub(crate) async fn handle_editor_targets_list(State(_st): State<Arc<DaemonState
         "schema_version": "ioi.hypervisor.editor-targets.v1",
         "default_editor": manifest.get("defaultEditorId"),
         "active_targets": active,
-        "targets": profiles,
+        "openable_targets": openable,
+        "targets": targets,
         "locked_decisions": manifest.get("lockedDecisions"),
         "at": iso_now()
     }))
