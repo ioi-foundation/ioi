@@ -1558,7 +1558,7 @@ function govControlTab(fam, records) {
   const list = records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
   return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
     <h2>${CX_ESC(label)} (${records.length})</h2>${list}
-    <p class="sub" style="margin-top:14px">Record-only control plane — transitions update durable governance records; they do not revoke, publish, mount, release, or kill. Enforcement is a later authority-gated crossing.</p>`;
+    <p class="sub" style="margin-top:14px">Transitions record durable governance state. Effectful enforcement exists today for <b>KillSwitch</b> (Enforce, after trip) over domain-app runtimes; other control effects (lease/grant/connector/env revocation) remain later authority-gated crossings.</p>`;
 }
 function renderGovernance(ov, controls, tab) {
   const o = ov || {};
