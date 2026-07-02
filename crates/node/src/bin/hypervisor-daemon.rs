@@ -146,6 +146,10 @@ pub(crate) struct DaemonState {
     pub(crate) editor_runtimes: Mutex<HashMap<String, editor_host::EditorRuntime>>,
     // WS-4 — live lease-authenticated proxies fronting editor runtimes, keyed by editor service_id.
     pub(crate) editor_proxies: Mutex<HashMap<String, editor_proxy::EditorProxy>>,
+    // Serializes model-route registry read-modify-write sections so the exactly-one-default
+    // invariant and per-record updates are not lost under concurrent axum handlers. Guards only the
+    // synchronous file mutation regions in model_routes.rs — never held across a network probe.
+    pub(crate) model_route_lock: Mutex<()>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -299,6 +303,7 @@ async fn async_main() -> anyhow::Result<()> {
         boot_id: format!("boot_{}", uuid::Uuid::new_v4()),
         vault_bound: Mutex::new(HashSet::new()),
         preview_servers: Mutex::new(HashMap::new()),
+        model_route_lock: Mutex::new(()),
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),

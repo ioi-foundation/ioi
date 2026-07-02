@@ -4,7 +4,9 @@
 // Drives the model-route registry plane against the running daemon (:8765) and asserts:
 // seed honesty (env-default route, real probe), fail-closed create (unresolved substrate refs,
 // plaintext-secret rejection), receipt + admission linkage on every mutation, honest availability
-// postures (available / model_not_present / unreachable / credentials_missing — never fabricated),
+// postures (available / model_not_present / unreachable / credentials_missing /
+// credentials_present — never fabricated; openai_compatible is POSTURE-ONLY: the daemon never
+// resolves an environment secret and sends it to a caller-supplied base_url),
 // planner-composed enable/disable/select-default with the exactly-one-default invariant,
 // fail-closed session binding (412 non-available, 409 non-ollama transport), transcript proof
 // (model-route ops appear in the agent-run-transcript plane with a state_root), and no shadowing
@@ -81,7 +83,17 @@ async function run() {
   const credId = cred.j?.route?.route_id;
   cleanup.push(credId);
   const p4 = await jd("POST", `/v1/hypervisor/model-routes/${credId}/probe`);
-  ok("missing credential probes to credentials_missing without a network call", p4.j?.availability?.state === "credentials_missing" && /probe skipped/.test(JSON.stringify(p4.j?.availability?.probe?.evidence || {})), p4.j?.availability?.state);
+  ok("missing credential probes to credentials_missing without a network call", p4.j?.availability?.state === "credentials_missing" && /no network call/.test(JSON.stringify(p4.j?.availability?.probe?.evidence || {})), p4.j?.availability?.state);
+
+  // 5b. openai_compatible is POSTURE-ONLY: a resolvable env key reports credentials_present —
+  //     never `available`, and never an authenticated request to the caller-supplied base_url
+  //     (that would be a secret-exfiltration primitive).
+  const credOk = await jd("POST", "/v1/hypervisor/model-routes", { model_id: "any", transport: "openai_compatible", base_url: "https://example.invalid/v1", env_key_name: "PATH", credential_posture: "provider_vault_token" });
+  const credOkId = credOk.j?.route?.route_id;
+  cleanup.push(credOkId);
+  const p5 = await jd("POST", `/v1/hypervisor/model-routes/${credOkId}/probe`);
+  ok("resolvable credential reports credentials_present, never available (posture-only)", p5.j?.availability?.state === "credentials_present" && p5.j?.availability?.probe?.kind === "openai_compatible_posture", p5.j?.availability?.state);
+  ok("posture-only probe names the deferral honestly (no secret sent to caller URL)", /never sends a secret/.test(JSON.stringify(p5.j?.availability?.probe?.evidence || {})), JSON.stringify(p5.j?.availability?.probe?.evidence || {}).slice(0, 120));
 
   // 6. Admission composition: enable round-trips the real planner; a credentialed posture without
   //    a lease is REJECTED by the planner and the record stays unchanged on disk.

@@ -875,8 +875,11 @@ function renderModelRouteRegistry(modelRoutes) {
   const mrRows = modelRoutes.map((r) => {
     const lc = (r.lifecycle || {}).status || "declared";
     const pb = r.provider_binding || {};
+    const probeDesc = pb.transport === "openai_compatible"
+      ? "No admission (evidence-gathering only); POSTURE-ONLY — reports whether the declared credential env key resolves. The daemon never sends a secret to the route's base_url, so this transport never reports <code>available</code>."
+      : "No admission (evidence-gathering only); the live upstream is asked for its real catalog.";
     const controls = [
-      mrConfirm(r, "probe", "Probe", "No admission (evidence-gathering only); the live upstream is asked for its real catalog.", "none needed — probing only updates availability evidence"),
+      mrConfirm(r, "probe", "Probe", probeDesc, "none needed — probing only updates availability evidence"),
       lc === "active"
         ? mrConfirm(r, "disable", "Disable", `Admission: <code>disable_route</code> under <code>scope:model.route.mutate</code> (relaxed lane).`, "re-enable via the admitted <code>enable_route</code> lane", true)
         : mrConfirm(r, "enable", "Enable", `Admission: <code>enable_route</code> under <code>scope:model.route.mutate</code> + custody + privacy posture refs (planner-validated, fail-closed).`, "disable via the admitted <code>disable_route</code> lane"),

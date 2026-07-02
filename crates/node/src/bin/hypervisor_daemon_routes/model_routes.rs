@@ -216,9 +216,19 @@ async fn validate_substrate_refs(
 // honest availability probe
 // ---------------------------------------------------------------------------
 
+/// A tag `qwen2.5-coder` and its `:latest` resolution are the SAME model to Ollama (native +
+/// OpenAI-compat APIs both resolve the untagged name to `:latest`), while `/api/tags` only ever
+/// returns fully-qualified names. Match on either form so an untagged declared model_id (including
+/// the code-default seed `qwen2.5-coder`) is not falsely reported absent.
+fn tag_matches(model_id: &str, tag: &str) -> bool {
+    tag == model_id
+        || tag == format!("{model_id}:latest")
+        || (!model_id.contains(':') && tag.strip_suffix(":latest") == Some(model_id))
+}
+
 /// Decide availability from a fetched Ollama tag catalog. Pure — unit tested.
 fn ollama_availability(model_id: &str, tags: &[String]) -> (&'static str, Value) {
-    if tags.iter().any(|t| t == model_id) {
+    if tags.iter().any(|t| tag_matches(model_id, t)) {
         (
             "available",
             json!({ "matched_model": model_id, "catalog_count": tags.len() }),
@@ -231,9 +241,17 @@ fn ollama_availability(model_id: &str, tags: &[String]) -> (&'static str, Value)
     }
 }
 
-/// Run the REAL availability probe for one route record. Never fabricates: connect failures are
-/// `unreachable`, an unresolvable credential is `credentials_missing` (no network call), a live
-/// catalog without the tag is `model_not_present`.
+/// Run the REAL availability probe for one route record. Never fabricates: connect failures and
+/// non-2xx responses are `unreachable`, an unresolvable credential is `credentials_missing`
+/// (no network call), a live catalog without the tag is `model_not_present`.
+///
+/// SECURITY: the probe NEVER resolves a daemon environment secret and sends it to the route's
+/// caller-supplied `base_url` — that would turn the registry into a secret-exfiltration primitive
+/// (any local caller could name IOI_WALLET_SECRET_PASS as env_key_name and point base_url at a
+/// listener). `openai_compatible` routes therefore stay POSTURE-ONLY: `credentials_missing` when
+/// the declared env key is absent, `credentials_present` when it resolves — never `available`, and
+/// never an authenticated outbound request. Real authenticated catalog probing waits for a future
+/// branch that binds the endpoint to admitted/trusted substrate (see overview governance_gaps).
 async fn probe_route(route: &Value) -> Value {
     let transport = route
         .pointer("/provider_binding/transport")
@@ -262,6 +280,11 @@ async fn probe_route(route: &Value) -> Value {
                 .send()
                 .await
             {
+                Ok(resp) if !resp.status().is_success() => (
+                    "unreachable",
+                    "ollama_tags",
+                    json!({ "error": format!("upstream returned HTTP {}", resp.status().as_u16()) }),
+                ),
                 Ok(resp) => match resp.json::<Value>().await {
                     Ok(body) => {
                         let tags: Vec<String> = body
@@ -295,7 +318,7 @@ async fn probe_route(route: &Value) -> Value {
             }
         }
         "openai_compatible" => {
-            // Resolve the credential POSTURE first — no key, no network call (honest, no leak).
+            // POSTURE-ONLY — never send a secret to the caller-supplied base_url (see fn doc).
             let env_key = route
                 .pointer("/credential_binding/env_key_name")
                 .and_then(|v| v.as_str())
@@ -305,65 +328,23 @@ async fn probe_route(route: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .map(|p| p != "no_credentials_required")
                 .unwrap_or(true);
-            let key = if env_key.is_empty() {
-                None
-            } else {
-                std::env::var(env_key).ok().filter(|v| !v.trim().is_empty())
-            };
-            if needs_key && key.is_none() {
+            let key_present = !env_key.is_empty()
+                && std::env::var(env_key)
+                    .ok()
+                    .map(|v| !v.trim().is_empty())
+                    .unwrap_or(false);
+            if needs_key && !key_present {
                 (
                     "credentials_missing",
-                    "openai_compatible_models",
-                    json!({ "env_key_name": env_key, "note": "credential not resolvable; probe skipped without a network call" }),
+                    "openai_compatible_posture",
+                    json!({ "env_key_name": env_key, "note": "declared credential env key absent; no network call made" }),
                 )
             } else {
-                let url = format!("{base_url}/v1/models");
-                let mut req = client
-                    .get(&url)
-                    .timeout(Duration::from_millis(PROBE_TIMEOUT_MS));
-                if let Some(k) = key {
-                    req = req.bearer_auth(k);
-                }
-                match req.send().await {
-                    Ok(resp) => match resp.json::<Value>().await {
-                        Ok(body) => {
-                            let ids: Vec<String> = body
-                                .get("data")
-                                .and_then(|v| v.as_array())
-                                .map(|a| {
-                                    a.iter()
-                                        .filter_map(|m| {
-                                            m.get("id").and_then(|v| v.as_str()).map(str::to_string)
-                                        })
-                                        .collect()
-                                })
-                                .unwrap_or_default();
-                            if ids.iter().any(|i| i == &model_id) {
-                                (
-                                    "available",
-                                    "openai_compatible_models",
-                                    json!({ "matched_model": model_id, "catalog_count": ids.len() }),
-                                )
-                            } else {
-                                (
-                                    "model_not_present",
-                                    "openai_compatible_models",
-                                    json!({ "requested_model": model_id, "catalog_count": ids.len() }),
-                                )
-                            }
-                        }
-                        Err(e) => (
-                            "unreachable",
-                            "openai_compatible_models",
-                            json!({ "error": format!("model catalog unparsable: {e}") }),
-                        ),
-                    },
-                    Err(e) => (
-                        "unreachable",
-                        "openai_compatible_models",
-                        json!({ "error": e.to_string() }),
-                    ),
-                }
+                (
+                    "credentials_present",
+                    "openai_compatible_posture",
+                    json!({ "env_key_name": env_key, "note": "credential env key resolves; authenticated catalog probing is deferred (the daemon never sends a secret to a caller-supplied URL) — not bindable for execution" }),
+                )
             }
         }
         other => (
@@ -714,6 +695,32 @@ fn save_route(data_dir: &str, route: &mut Value) {
     }
 }
 
+/// Persist a fresh availability probe onto a route WITHOUT clobbering a concurrent edit: under the
+/// registry lock, RE-LOAD the record, set only `availability` (plus an optional receipt ref), save,
+/// and return the reloaded+updated record. The lock is held only across the synchronous
+/// reload-mutate-save — never across the network probe that produced `availability`. Returns None
+/// if the record vanished between probe and persist.
+fn persist_availability_locked(
+    st: &Arc<DaemonState>,
+    id: &str,
+    availability: Value,
+    receipt: Option<&str>,
+) -> Option<Value> {
+    let _guard = st
+        .model_route_lock
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let mut route = load_route_record(&st.data_dir, id)?;
+    route["availability"] = availability;
+    if let Some(r) = receipt {
+        if let Some(refs) = route["receipt_refs"].as_array_mut() {
+            refs.push(json!(r));
+        }
+    }
+    save_route(&st.data_dir, &mut route);
+    Some(route)
+}
+
 fn with_staleness(mut route: Value) -> Value {
     let stale = probe_is_stale(&route["availability"]);
     route["availability"]["stale"] = json!(stale);
@@ -737,11 +744,12 @@ pub(crate) async fn handle_model_routes_list(
     routes.sort_by(|a, b| s(a, "route_id", "").cmp(&s(b, "route_id", "")));
     if live {
         let mut refreshed = Vec::with_capacity(routes.len());
-        for mut r in routes {
+        for r in routes {
+            let id = s(&r, "route_id", "");
             let availability = probe_route(&r).await;
-            r["availability"] = availability;
-            save_route(&st.data_dir, &mut r);
-            refreshed.push(with_staleness(r));
+            // Reload-under-lock so a concurrent PATCH/mutation in the probe window is not clobbered.
+            let updated = persist_availability_locked(&st, &id, availability, None).unwrap_or(r);
+            refreshed.push(with_staleness(updated));
         }
         routes = refreshed;
     } else {
@@ -1123,24 +1131,21 @@ pub(crate) async fn handle_model_route_probe(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     ensure_seed(&st.data_dir);
-    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+    let Some(route) = load_route_record(&st.data_dir, &id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "route": id } })),
         );
     };
-    let availability = probe_route(&route).await;
-    route["availability"] = availability.clone();
     let route_ref = s(&route, "route_ref", "");
+    let availability = probe_route(&route).await;
     let state = availability
         .get("state")
         .and_then(|v| v.as_str())
         .unwrap_or("declared");
     let receipt = route_receipt(&st.data_dir, &route_ref, "probed", state, None);
-    if let Some(refs) = route["receipt_refs"].as_array_mut() {
-        refs.push(json!(receipt));
-    }
-    save_route(&st.data_dir, &mut route);
+    // Reload-under-lock so a PATCH that landed during the network probe is not clobbered.
+    persist_availability_locked(&st, &id, availability.clone(), Some(&receipt));
     let transcript_run = post_op_transcript(&st.base_url, "probe", &route_ref, &availability).await;
     (
         StatusCode::OK,
@@ -1160,7 +1165,7 @@ async fn lifecycle_flip(
     mutation_kind: &str,
     new_status: &str,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut route) = load_route_record(&st.data_dir, id) else {
+    let Some(route) = load_route_record(&st.data_dir, id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "route": id } })),
@@ -1168,8 +1173,6 @@ async fn lifecycle_flip(
     };
     match compose_mutation_admission(&route, mutation_kind, None, None) {
         Ok(admission) => {
-            route["lifecycle"]["status"] = json!(new_status);
-            stamp_admission(&mut route, &admission);
             let route_ref = s(&route, "route_ref", "");
             let receipt = route_receipt(
                 &st.data_dir,
@@ -1178,10 +1181,21 @@ async fn lifecycle_flip(
                 "ok",
                 admission.get("admission_id").and_then(|v| v.as_str()),
             );
-            if let Some(refs) = route["receipt_refs"].as_array_mut() {
-                refs.push(json!(receipt));
-            }
-            save_route(&st.data_dir, &mut route);
+            // Reload-under-lock and apply the flip on fresh state so a concurrent mutation isn't lost.
+            let route = {
+                let _guard = st
+                    .model_route_lock
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                let mut fresh = load_route_record(&st.data_dir, id).unwrap_or(route);
+                fresh["lifecycle"]["status"] = json!(new_status);
+                stamp_admission(&mut fresh, &admission);
+                if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
+                    refs.push(json!(receipt));
+                }
+                save_route(&st.data_dir, &mut fresh);
+                fresh
+            };
             let transcript_run = post_op_transcript(
                 &st.base_url,
                 mutation_kind,
@@ -1230,7 +1244,7 @@ pub(crate) async fn handle_model_route_select_default(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     ensure_seed(&st.data_dir);
-    let Some(mut route) = load_route_record(&st.data_dir, &id) else {
+    let Some(route) = load_route_record(&st.data_dir, &id) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "route": id } })),
@@ -1238,19 +1252,6 @@ pub(crate) async fn handle_model_route_select_default(
     };
     match compose_mutation_admission(&route, "select_route", None, None) {
         Ok(admission) => {
-            // Atomically clear the previous default (single-writer daemon; record-per-file).
-            for mut other in read_record_dir(&st.data_dir, RECORD_DIR) {
-                if other.get("default_route").and_then(|v| v.as_bool()) == Some(true)
-                    && s(&other, "route_id", "") != id
-                {
-                    other["default_route"] = json!(false);
-                    let other_ref = s(&other, "route_ref", "");
-                    route_receipt(&st.data_dir, &other_ref, "default_cleared", "ok", None);
-                    save_route(&st.data_dir, &mut other);
-                }
-            }
-            route["default_route"] = json!(true);
-            stamp_admission(&mut route, &admission);
             let route_ref = s(&route, "route_ref", "");
             let receipt = route_receipt(
                 &st.data_dir,
@@ -1259,10 +1260,33 @@ pub(crate) async fn handle_model_route_select_default(
                 "ok",
                 admission.get("admission_id").and_then(|v| v.as_str()),
             );
-            if let Some(refs) = route["receipt_refs"].as_array_mut() {
-                refs.push(json!(receipt));
-            }
-            save_route(&st.data_dir, &mut route);
+            // Hold the registry lock across clear-others + set-self so two concurrent
+            // select-default calls cannot each observe the old default and both win (the
+            // exactly-one invariant). No .await inside the guarded region.
+            let route = {
+                let _guard = st
+                    .model_route_lock
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                for mut other in read_record_dir(&st.data_dir, RECORD_DIR) {
+                    if other.get("default_route").and_then(|v| v.as_bool()) == Some(true)
+                        && s(&other, "route_id", "") != id
+                    {
+                        other["default_route"] = json!(false);
+                        let other_ref = s(&other, "route_ref", "");
+                        route_receipt(&st.data_dir, &other_ref, "default_cleared", "ok", None);
+                        save_route(&st.data_dir, &mut other);
+                    }
+                }
+                let mut fresh = load_route_record(&st.data_dir, &id).unwrap_or(route);
+                fresh["default_route"] = json!(true);
+                stamp_admission(&mut fresh, &admission);
+                if let Some(refs) = fresh["receipt_refs"].as_array_mut() {
+                    refs.push(json!(receipt));
+                }
+                save_route(&st.data_dir, &mut fresh);
+                fresh
+            };
             let transcript_run =
                 post_op_transcript(&st.base_url, "select_default", &route_ref, &json!({})).await;
             (
@@ -1482,14 +1506,29 @@ mod model_route_tests {
     }
 
     #[test]
-    fn ollama_availability_is_exact_tag_match() {
-        let tags = vec!["qwen2.5:7b".to_string(), "llama3.2:3b".to_string()];
-        let (state, evidence) = ollama_availability("qwen2.5:7b", &tags);
-        assert_eq!(state, "available");
-        assert_eq!(evidence["matched_model"], "qwen2.5:7b");
+    fn ollama_availability_matches_tag_and_latest_forms() {
+        let tags = vec![
+            "qwen2.5:7b".to_string(),
+            "qwen2.5-coder:latest".to_string(),
+            "llama3.2:3b".to_string(),
+        ];
+        // Exact tagged match.
+        assert_eq!(ollama_availability("qwen2.5:7b", &tags).0, "available");
+        // Untagged declared id resolves to the catalog's `:latest` entry (the seed-default case).
+        assert_eq!(ollama_availability("qwen2.5-coder", &tags).0, "available");
+        // A genuinely absent tag stays model_not_present with an honest catalog count.
         let (state, evidence) = ollama_availability("qwen2.5:14b", &tags);
         assert_eq!(state, "model_not_present");
-        assert_eq!(evidence["catalog_count"], 2);
+        assert_eq!(evidence["catalog_count"], 3);
+    }
+
+    #[test]
+    fn tag_matches_handles_latest_equivalence_both_directions() {
+        assert!(tag_matches("qwen2.5-coder", "qwen2.5-coder:latest"));
+        assert!(tag_matches("qwen2.5-coder:latest", "qwen2.5-coder:latest"));
+        assert!(tag_matches("qwen2.5:7b", "qwen2.5:7b"));
+        // An untagged id must NOT match a different explicit tag.
+        assert!(!tag_matches("qwen2.5", "qwen2.5:7b"));
     }
 
     #[test]
