@@ -21,7 +21,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
 const KIND_DAPP: &str = "domain-apps";
 const KIND_SD: &str = "odk-surface-descriptors";
@@ -446,9 +446,211 @@ pub(crate) async fn handle_domain_apps_delete(
     Json(json!({ "ok": removed, "removed": removed, "id": id }))
 }
 
+// ============================ DOMAIN-APP RUNTIME MOUNT (effectful cut A) =========================
+//
+// A GOVERNED mount admission — effectful but NOT serving. Mount requires a real domain-app plus an
+// APPROVED ApprovalRequest and an OPEN ReleaseControl that both target this domain app; on success the
+// daemon admits the mount, writes a durable DomainAppRuntime record (mounted:true), emits an admission
+// receipt (hashed state_root), backlinks the DomainApp runtime_posture, and stores the governance +
+// authority refs that permitted it. It does NOT start a process, expose a URL, create ingress, publish,
+// run connectors, or generate app code — that is the later serving cut. Unmount is a governed, receipted
+// state transition.
+
+const KIND_RUNTIME: &str = "domain-app-runtimes";
+const KIND_MOUNT_RECEIPT: &str = "domain-app-mount-receipts";
+const KIND_APPROVAL: &str = "governance-approval-requests";
+const KIND_RELEASE: &str = "governance-release-controls";
+
+/// The ApprovalRequest must be `approved` AND target this domain app (subject_ref == domain_app_ref).
+fn approval_admits(approval: &Value, domain_app_ref: &str) -> Result<(), (String, String)> {
+    if approval.get("status").and_then(|v| v.as_str()) != Some("approved") {
+        return Err(("mount_approval_not_approved".into(), "approval_request_ref must reference an ApprovalRequest with status 'approved'".into()));
+    }
+    if approval.get("subject_ref").and_then(|v| v.as_str()) != Some(domain_app_ref) {
+        return Err(("mount_control_wrong_subject".into(), "approval_request.subject_ref must target this domain app".into()));
+    }
+    Ok(())
+}
+/// The ReleaseControl must be `open` AND target this domain app (release_target_ref == domain_app_ref).
+fn release_admits(release: &Value, domain_app_ref: &str) -> Result<(), (String, String)> {
+    if release.get("state").and_then(|v| v.as_str()) != Some("open") {
+        return Err(("mount_release_not_open".into(), "release_control_ref must reference a ReleaseControl with state 'open'".into()));
+    }
+    if release.get("release_target_ref").and_then(|v| v.as_str()) != Some(domain_app_ref) {
+        return Err(("mount_control_wrong_subject".into(), "release_control.release_target_ref must target this domain app".into()));
+    }
+    Ok(())
+}
+/// Load a scheme-prefixed local ref (`scheme://id`) from `kind`, requiring the given scheme.
+fn load_scheme(data_dir: &str, r: &str, scheme: &str, kind: &str) -> Option<Value> {
+    match split_ref(r) {
+        Some((s, id)) if s == scheme => load(data_dir, kind, id),
+        _ => None,
+    }
+}
+fn current_runtime(data_dir: &str, domain_app_ref: &str) -> Option<Value> {
+    read_record_dir(data_dir, KIND_RUNTIME)
+        .into_iter()
+        .find(|rt| rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(domain_app_ref) && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true))
+}
+fn write_mount_receipt(data_dir: &str, kind_action: &str, domain_app_ref: &str, approval_ref: &str, release_ref: &str) -> (String, Value) {
+    let id = format!("mrcpt_{:x}", nanos());
+    let now = iso_now();
+    let state_root = sha256_hex_str(&format!("{kind_action}|{domain_app_ref}|{approval_ref}|{release_ref}|{now}"));
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.domain-app-mount-receipt.v1",
+        "object": "ioi.hypervisor.domain_app_mount_receipt",
+        "id": id, "ref": format!("mount-receipt://{id}"),
+        "action": kind_action,
+        "domain_app_ref": domain_app_ref,
+        "approval_request_ref": approval_ref,
+        "release_control_ref": release_ref,
+        "state_root": format!("sha256:{state_root}"),
+        "at": now
+    });
+    let _ = persist_record(data_dir, KIND_MOUNT_RECEIPT, &id, &receipt);
+    (format!("mount-receipt://{id}"), receipt)
+}
+
+/// POST /v1/hypervisor/domain-apps/:id/mount — governed mount admission (effectful, not serving).
+pub(crate) async fn handle_domain_app_mount(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+        return bad("domain_app_not_found", "domain app not found");
+    };
+    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if dapp.get("runtime_posture").and_then(|p| p.get("mounted")).and_then(|v| v.as_bool()) == Some(true) {
+        return bad("domain_app_already_mounted", "this domain app already has a mounted runtime; unmount first");
+    }
+    let approval_ref = str_field(&body, "approval_request_ref");
+    let release_ref = str_field(&body, "release_control_ref");
+    let Some(approval) = load_scheme(&st.data_dir, approval_ref, "approval-request", KIND_APPROVAL) else {
+        return bad("mount_approval_unresolved", "approval_request_ref must be an 'approval-request://' ref that resolves");
+    };
+    let Some(release) = load_scheme(&st.data_dir, release_ref, "release-control", KIND_RELEASE) else {
+        return bad("mount_release_unresolved", "release_control_ref must be a 'release-control://' ref that resolves");
+    };
+    if let Err((c, m)) = approval_admits(&approval, &domain_app_ref) {
+        return bad(&c, &m);
+    }
+    if let Err((c, m)) = release_admits(&release, &domain_app_ref) {
+        return bad(&c, &m);
+    }
+    // Admission granted by the control plane. Emit a receipt + durable runtime record (mounted:true).
+    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.mount", &domain_app_ref, approval_ref, release_ref);
+    let authority_refs = approval.get("required_authority_refs").cloned().unwrap_or_else(|| json!([]));
+    let rid = format!("dartm_{:x}", nanos());
+    let now = iso_now();
+    let runtime = json!({
+        "schema_version": "ioi.hypervisor.domain-app-runtime.v1",
+        "object": "ioi.hypervisor.domain_app_runtime",
+        "id": rid, "ref": format!("domain-app-runtime://{rid}"),
+        "domain_app_ref": domain_app_ref,
+        "mounted": true,
+        "state": "mounted",
+        "serving": false,
+        "route": Value::Null,
+        "approval_request_ref": approval_ref,
+        "release_control_ref": release_ref,
+        "authority_refs": authority_refs,
+        "receipt_refs": [receipt_ref],
+        "rollback": { "unmountable": true, "note": "governed unmount available; no process/ingress to tear down (not serving)" },
+        "note": "governed mount admission; effectful but NOT serving — no process, URL, ingress, publish, or connector action",
+        "mounted_at": now,
+        "unmounted_at": Value::Null,
+        "created_at": now, "updated_at": now
+    });
+    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &runtime);
+    // Backlink the DomainApp runtime_posture to the mounted runtime.
+    let mut dapp = dapp;
+    dapp["runtime_posture"] = json!({
+        "mounted": true, "route": Value::Null, "serving": false,
+        "mount_ref": format!("domain-app-runtime://{rid}"),
+        "approval_request_ref": approval_ref, "release_control_ref": release_ref,
+        "note": "governed mount admission; not serving"
+    });
+    dapp["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": runtime, "receipt": receipt })))
+}
+
+/// POST /v1/hypervisor/domain-apps/:id/unmount — governed, receipted unmount state transition.
+pub(crate) async fn handle_domain_app_unmount(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
+        return bad("domain_app_not_found", "domain app not found");
+    };
+    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
+        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+    };
+    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.unmount", &domain_app_ref, &approval_ref, &release_ref);
+    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    refs.push(json!(receipt_ref));
+    rt["mounted"] = json!(false);
+    rt["state"] = json!("unmounted");
+    rt["unmounted_at"] = json!(iso_now());
+    rt["unmount_reason"] = json!(body.get("reason").and_then(|v| v.as_str()).unwrap_or(""));
+    rt["receipt_refs"] = json!(refs);
+    rt["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
+    dapp["runtime_posture"] = json!({ "mounted": false, "route": Value::Null, "serving": false, "note": "unmounted (governed)" });
+    dapp["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+}
+
+/// GET /v1/hypervisor/domain-app-runtimes[?domain_app_ref=…] — the mounted-runtime resource list.
+pub(crate) async fn handle_domain_app_runtime_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let mut items = read_record_dir(&st.data_dir, KIND_RUNTIME);
+    if let Some(dref) = q.get("domain_app_ref").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        items.retain(|r| r.get("domain_app_ref").and_then(|v| v.as_str()) == Some(dref));
+    }
+    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    Json(json!({ "ok": true, "runtimes": items }))
+}
+pub(crate) async fn handle_domain_app_runtime_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    match load(&st.data_dir, KIND_RUNTIME, &id) {
+        Some(r) => Json(json!({ "ok": true, "runtime": r })),
+        None => Json(json!({ "ok": false, "reason": "domain app runtime not found" })),
+    }
+}
+
 #[cfg(test)]
 mod domain_apps_tests {
     use super::*;
+
+    #[test]
+    fn mount_gating_requires_approved_and_open_and_right_subject() {
+        let dref = "domain-app://dapp_1";
+        // approved + targets subject -> ok
+        assert!(approval_admits(&json!({ "status": "approved", "subject_ref": dref }), dref).is_ok());
+        // not approved -> err
+        assert_eq!(approval_admits(&json!({ "status": "pending", "subject_ref": dref }), dref).unwrap_err().0, "mount_approval_not_approved");
+        // approved but wrong subject -> err
+        assert_eq!(approval_admits(&json!({ "status": "approved", "subject_ref": "domain-app://other" }), dref).unwrap_err().0, "mount_control_wrong_subject");
+        // release open + targets subject -> ok
+        assert!(release_admits(&json!({ "state": "open", "release_target_ref": dref }), dref).is_ok());
+        // release closed -> err
+        assert_eq!(release_admits(&json!({ "state": "closed", "release_target_ref": dref }), dref).unwrap_err().0, "mount_release_not_open");
+        // release open but wrong target -> err
+        assert_eq!(release_admits(&json!({ "state": "open", "release_target_ref": "domain-app://other" }), dref).unwrap_err().0, "mount_control_wrong_subject");
+    }
 
     #[test]
     fn split_ref_and_prefixes() {
