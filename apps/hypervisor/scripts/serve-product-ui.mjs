@@ -1443,8 +1443,67 @@ function renderDomainAppsLanding(ov, apps) {
 // ref coverage strip + first-class governance-gap rows. It is a projection only — no approval/
 // kill-switch/release CRUD, no policy store, no Marketplace, no runtime mount, and it never shows a
 // gap as "resolved". Outward links route to the owned surfaces that carry the underlying records.
-function renderGovernance(ov) {
+// ---- Governance control cockpit helpers (Approvals inbox / Rules posture / Release-Controls lifecycle).
+const GOV_FAMS = {
+  "approvals": { api: "approval-requests", key: "approval_request", listKey: "approval_requests", label: "Approval Requests" },
+  "releases": { api: "release-controls", key: "release_control", listKey: "release_controls", label: "Release Controls" },
+  "kill-switches": { api: "kill-switches", key: "kill_switch", listKey: "kill_switches", label: "Kill Switches" },
+  "gates": { api: "improvement-gates", key: "improvement_gate", listKey: "improvement_gates", label: "Improvement Gates" },
+};
+const govTabBar = (tab) => `<div class="tabs">${[["overview", "Overview"], ["approvals", "Approval Requests"], ["releases", "Release Controls"], ["kill-switches", "Kill Switches"], ["gates", "Improvement Gates"]].map(([k, l]) => `<a class="tab${tab === k ? " active" : ""}" href="/__ioi/governance?tab=${k}" style="text-decoration:none">${l}</a>`).join("")}</div>`;
+const GOV_INP = 'style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"';
+const govTform = (fam, id, transition, label, cls, extra) => `<form class="inline" method="post" action="/__ioi/governance/${fam}/${encodeURIComponent(id)}/transition"><input type="hidden" name="transition" value="${transition}">${extra || ""}<button class="act ${cls || "ghost"}" type="submit">${label}</button></form>`;
+const govDform = (fam, id) => `<form class="inline" method="post" action="/__ioi/governance/${fam}/${encodeURIComponent(id)}/delete" onsubmit="return confirm('Delete this control record?')"><button class="act danger" type="submit">Delete</button></form>`;
+const govRefs = (arr) => (arr && arr.length) ? arr.map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") : "—";
+function govApprovalCard(a) {
+  const id = a.id || ""; const stp = a.status === "approved" ? "ok" : a.status === "pending" ? "warn" : "muted";
+  const actions = a.status === "pending"
+    ? govTform("approvals", id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`) + " " + govTform("approvals", id, "reject", "Reject", "ghost")
+    : a.status === "approved" ? govTform("approvals", id, "revoke", "Revoke", "ghost") : "";
+  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>${CX_ESC(a.request_kind || "approval")}</b> <span class="pill ${stp}">${CX_ESC(a.status || "")}</span> <code>${CX_ESC(id)}</code></div>${govDform("approvals", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(a.subject_ref || "—")}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(a.reason || "—")}</dd><dt class="wlk">Reviewer</dt><dd class="wlv">${CX_ESC(a.reviewer_ref || "—")}${a.decided_at ? " · " + CX_ESC(a.decided_at) : ""}</dd><dt class="wlk">Authority refs</dt><dd class="wlv">${govRefs(a.required_authority_refs)}</dd></dl>
+    <div class="row" style="margin-top:8px">${actions || `<span class="sub" style="margin:0">terminal state</span>`}</div></div>`;
+}
+function govReleaseCard(r) {
+  const id = r.id || ""; const open = r.state === "open";
+  const actions = (open ? govTform("releases", id, "close", "Close gate", "ghost") : govTform("releases", id, "open", "Open gate", "")) + " " + govTform("releases", id, "request_rollback", "Request rollback", "ghost") + " " + govTform("releases", id, "request_recall", "Request recall", "ghost");
+  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Release gate</b> <span class="pill ${open ? "ok" : "muted"}">${CX_ESC(r.state || "closed")}</span> <code>${CX_ESC(id)}</code></div>${govDform("releases", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(r.release_target_ref || "—")}</dd><dt class="wlk">Flags</dt><dd class="wlv">${r.rollback_requested ? `<span class="pill warn">rollback requested</span>` : ""} ${r.recall_requested ? `<span class="pill warn">recall requested</span>` : ""} ${!r.rollback_requested && !r.recall_requested ? "—" : ""}</dd><dt class="wlk">Canary · cohort</dt><dd class="wlv">${r.canary ? `<code>${CX_ESC(JSON.stringify(r.canary))}</code>` : "—"} · ${r.cohort ? `<code>${CX_ESC(JSON.stringify(r.cohort))}</code>` : "—"}</dd></dl>
+    <div class="row" style="margin-top:8px">${actions}</div></div>`;
+}
+function govKillCard(k) {
+  const id = k.id || ""; const tripped = k.state === "tripped";
+  const actions = tripped ? govTform("kill-switches", id, "rearm", "Re-arm", "ghost") : govTform("kill-switches", id, "trip", "Trip", "danger", `<input name="trip_reason" placeholder="reason" style="width:120px;padding:6px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-right:6px">`);
+  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Kill switch</b> <span class="pill ${tripped ? "warn" : "muted"}">${CX_ESC(k.state || "armed")}</span> <code>${CX_ESC(id)}</code></div>${govDform("kill-switches", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Subject</dt><dd class="wlv">${CX_ESC(k.subject_ref || "—")}</dd><dt class="wlk">Revoke path</dt><dd class="wlv">${k.revoke_path ? `<code>${CX_ESC(k.revoke_path)}</code>` : "—"}</dd><dt class="wlk">Reason</dt><dd class="wlv">${CX_ESC(k.trip_reason || "—")}${k.tripped_at ? " · " + CX_ESC(k.tripped_at) : ""}</dd></dl>
+    <p class="sub" style="margin:6px 0 0">Record-only — tripping records the kill decision; it does not revoke yet.</p>
+    <div class="row" style="margin-top:8px">${actions}</div></div>`;
+}
+function govGateCard(g) {
+  const id = g.id || ""; const b = g.bounds || {}; const stp = g.state === "closed" ? "ok" : g.state === "bounded" ? "warn" : "muted";
+  const actions = g.state === "open" ? govTform("gates", id, "bound", "Set bounded", "") : g.state === "bounded" ? govTform("gates", id, "close", "Close", "ghost") + " " + govTform("gates", id, "reopen", "Reopen", "ghost") : govTform("gates", id, "reopen", "Reopen", "ghost");
+  return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Improvement gate</b> <span class="pill ${stp}">${CX_ESC(g.state || "open")}</span> <code>${CX_ESC(id)}</code></div>${govDform("gates", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Subject</dt><dd class="wlv">${CX_ESC(g.subject_ref || "—")}</dd><dt class="wlk">Bounds</dt><dd class="wlv">max_iter ${CX_ESC(String(b.max_iterations ?? "—"))} · eval≥ ${CX_ESC(String(b.eval_threshold ?? "—"))} · privacy ${CX_ESC(String(b.privacy_posture ?? "—"))}</dd><dt class="wlk">Rollback · promotion</dt><dd class="wlv">${b.rollback_ref ? `<code>${CX_ESC(b.rollback_ref)}</code>` : "—"} · ${b.promotion_policy_ref ? `<code>${CX_ESC(b.promotion_policy_ref)}</code>` : "—"}</dd></dl>
+    <div class="row" style="margin-top:8px">${actions}</div></div>`;
+}
+function govControlTab(fam, records) {
+  const forms = {
+    "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="marketplace-publish://… · domain-app://… · frun_… · authority-action://…"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
+    "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" ${GOV_INP} placeholder="frun_… · domain-app://… · marketplace-publish://… · model-route:…"></div><div class="two"><div class="field"><label>Canary (note)</label><input name="canary" ${GOV_INP}></div><div class="field"><label>Cohort (note)</label><input name="cohort" ${GOV_INP}></div></div>`,
+    "kill-switches": `<div class="two"><div class="field"><label>Revocable subject ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="lease:… · connector:… · agent id · domain-app://…"></div><div class="field"><label>Revoke path (named, not called)</label><input name="revoke_path" ${GOV_INP} placeholder="/v1/hypervisor/authority/revoke"></div></div>`,
+    "gates": `<div class="field"><label>Subject ref (required — Foundry spec/run-plan or named)</label><input name="subject_ref" ${GOV_INP} placeholder="fspec_… · frun_… · eval://…"></div><div class="two"><div class="field"><label>Max iterations</label><input name="max_iterations" ${GOV_INP}></div><div class="field"><label>Eval threshold</label><input name="eval_threshold" ${GOV_INP}></div></div><div class="field"><label>Privacy posture</label><input name="privacy_posture" ${GOV_INP} placeholder="local_only"></div>`,
+  };
+  const cardFn = { "approvals": govApprovalCard, "releases": govReleaseCard, "kill-switches": govKillCard, "gates": govGateCard }[fam];
+  const label = GOV_FAMS[fam].label;
+  const list = records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
+  return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
+    <h2>${CX_ESC(label)} (${records.length})</h2>${list}
+    <p class="sub" style="margin-top:14px">Record-only control plane — transitions update durable governance records; they do not revoke, publish, mount, release, or kill. Enforcement is a later authority-gated crossing.</p>`;
+}
+function renderGovernance(ov, controls, tab) {
   const o = ov || {};
+  tab = tab || "overview";
+  controls = controls || {};
   const sub = o.summary || {};
   const ap = o.authority_posture || {};
   const ip = o.identity_posture || {};
@@ -1525,18 +1584,33 @@ function renderGovernance(ov) {
     <dt>Foundry run plans</dt><dd>${CX_ESC(String(ig.foundry_run_plans ?? "—"))} · <a href="/__ioi/foundry">Foundry →</a></dd>
   </dl><p class="sub" style="margin:6px 0 0">${CX_ESC(ig.note || "")}</p>`;
 
-  // 8. Governance gaps — first-class rows (missing control vs substrate-inactive), never "resolved".
+  // 8. Governance gaps — four distinct states (no vague amber substrate-inactive for present controls).
+  const gapPill = (g) => {
+    const s = g.status || (g.has_substrate ? "open" : "missing");
+    if (s === "present") return `<span class="pill ok">control present${g.count != null ? " · " + g.count : ""}</span>`;
+    if (s === "control_empty") return `<span class="pill muted">control present · empty</span>`;
+    if (s === "open") return `<span class="pill warn">open gap</span>`;
+    return `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">missing control</span>`;
+  };
+  const famForGap = { approval_request_object: "approvals", release_control_object: "releases", kill_switch_object: "kill-switches", improvement_gate_object: "gates" };
   const gapRows = gaps.map((g) => {
-    const pill = g.has_substrate === true
-      ? `<span class="pill warn">substrate inactive</span>`
-      : `<span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">missing control</span>`;
-    return `<tr><td>${pill}</td><td><b>${CX_ESC(g.title || g.id || "")}</b><div class="meta" style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(g.detail || "")}</div></td></tr>`;
+    const fam = famForGap[g.id];
+    const manage = fam ? ` · <a href="/__ioi/governance?tab=${fam}">manage →</a>` : "";
+    return `<tr><td style="white-space:nowrap">${gapPill(g)}</td><td><b>${CX_ESC(g.title || g.id || "")}</b>${manage}<div class="meta" style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(g.detail || "")}</div></td></tr>`;
   }).join("");
+  const legend = `<div class="chips" style="margin:0 0 10px"><span class="chiplabel">Legend</span><span class="pill ok">control present</span><span class="pill muted">control present · empty</span><span class="pill warn">open gap</span><span class="pill" style="color:#e06a6a;border-color:#5c2a2a;background:#2a1212">missing control</span></div>`;
   const gapsTable = gaps.length
-    ? `<table><thead><tr><th style="width:150px">Status</th><th>Gap</th></tr></thead><tbody>${gapRows}</tbody></table>`
+    ? legend + `<table><thead><tr><th style="width:190px">Status</th><th>Gap / control</th></tr></thead><tbody>${gapRows}</tbody></table>`
     : `<div class="empty">No governance gaps reported.</div>`;
 
-  const inner = head + banner + summary
+  // Actionable candidates — real candidates awaiting a control object (a distinct, honest state).
+  const candPill = (n, label) => `<span class="pill" style="color:#8ab4ff;border-color:#2a4a7c;background:#111a2c">${CX_ESC(String(n || 0))} ${label}</span>`;
+  const actionable = `<h2>Actionable candidates <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— awaiting a control object</span></h2><div class="chips">${candPill(rc.foundry_run_plans, "foundry run-plans")} ${candPill(rc.domain_app_candidates, "domain-app candidates")} ${candPill(rc.scm_publish_connectors, "scm publish")} ${candPill((ig.foundry_run_plans || 0), "improvement targets")} · <a href="/__ioi/governance?tab=releases">create release control →</a> · <a href="/__ioi/governance?tab=approvals">create approval →</a></div>`;
+
+  const co = o.control_objects || {};
+  const coStrip = `<div class="chips"><span class="chiplabel">Control objects</span>${["approval_requests", "release_controls", "kill_switches", "improvement_gates"].map((k) => `<span class="pill ${(co[k] && co[k].total) ? "ok" : "muted"}">${k.replace(/_/g, " ")}: ${(co[k] && co[k].total) || 0}</span>`).join(" ")}</div>`;
+
+  const overviewBody = coStrip
     + `<h2>Authority posture</h2>${authGrid}`
     + `<h2>Identity posture</h2>${idGrid}`
     + `<h2>Lease posture</h2>${leaseGrid}`
@@ -1545,8 +1619,15 @@ function renderGovernance(ov) {
     + `<h2>Release control candidates</h2>${relGrid}`
     + `<h2>Revocation targets</h2>${revGrid}`
     + `<h2>Improvement gate candidates</h2>${impGrid}`
-    + `<h2>Governance gaps <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— what is not yet governed (no fabricated controls, never shown resolved)</span></h2>${gapsTable}`
+    + actionable
+    + `<h2>Governance gaps &amp; controls <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— present controls, empty controls, and still-open gaps, distinctly</span></h2>${gapsTable}`
     + `<p class="sub" style="margin-top:20px">Related: <a href="/__ioi/operations">Operations</a> · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/connections">Developer &amp; Integrations</a></p>`;
+
+  const body = (tab !== "overview" && GOV_FAMS[tab])
+    ? govControlTab(tab, controls[GOV_FAMS[tab].listKey] || [])
+    : overviewBody;
+
+  const inner = head + banner + summary + govTabBar(tab) + body;
   return automationsShell("Governance", inner);
 }
 
@@ -3295,12 +3376,64 @@ const server = http.createServer((req, res) => {
         return;
       }
     }
-    // ---- Governance — read-only control lens over the daemon governance projection (estate #7).
+    // ---- Governance — control cockpit over the daemon governance projection + control objects (#7).
     if (pathname === "/__ioi/governance" && req.method === "GET") {
-      const ov = await fetch(`${DAEMON}/v1/hypervisor/governance/overview`).then((r) => r.json()).catch(() => ({}));
+      const tab = new URL(req.url, "http://x").searchParams.get("tab") || "overview";
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [ov, ap, rl, ks, ig] = await Promise.all([
+        J("/v1/hypervisor/governance/overview"),
+        J("/v1/hypervisor/governance/approval-requests"),
+        J("/v1/hypervisor/governance/release-controls"),
+        J("/v1/hypervisor/governance/kill-switches"),
+        J("/v1/hypervisor/governance/improvement-gates"),
+      ]);
       res.writeHead(200, HTMLH);
-      res.end(renderGovernance(ov));
+      res.end(renderGovernance(ov, {
+        approval_requests: ap.approval_requests || [],
+        release_controls: rl.release_controls || [],
+        kill_switches: ks.kill_switches || [],
+        improvement_gates: ig.improvement_gates || [],
+      }, tab));
       return;
+    }
+    // Governance control-object mutations (record-only; the daemon executes no enforcement).
+    if (pathname.startsWith("/__ioi/governance/")) {
+      const segs = pathname.slice("/__ioi/governance/".length).split("/");
+      const fam = segs[0];
+      const cfg = GOV_FAMS[fam];
+      if (cfg && req.method === "POST") {
+        const api = `/v1/hypervisor/governance/${cfg.api}`;
+        const p = new URLSearchParams(body.toString());
+        const back = `/__ioi/governance?tab=${fam}`;
+        // create (POST to family root)
+        if (!segs[1]) {
+          const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+          let payload = {};
+          if (fam === "approvals") payload = { subject_ref: (p.get("subject_ref") || "").trim(), request_kind: (p.get("request_kind") || "").trim(), reason: (p.get("reason") || "").trim(), required_authority_refs: csv("required_authority_refs") };
+          else if (fam === "releases") { payload = { release_target_ref: (p.get("release_target_ref") || "").trim() }; const c = (p.get("canary") || "").trim(); if (c) payload.canary = { note: c }; const co = (p.get("cohort") || "").trim(); if (co) payload.cohort = { note: co }; }
+          else if (fam === "kill-switches") payload = { subject_ref: (p.get("subject_ref") || "").trim(), revoke_path: (p.get("revoke_path") || "").trim() };
+          else if (fam === "gates") { const bounds = {}; const mi = (p.get("max_iterations") || "").trim(); if (mi) bounds.max_iterations = parseInt(mi, 10) || mi; const et = (p.get("eval_threshold") || "").trim(); if (et) bounds.eval_threshold = parseFloat(et) || et; const pp = (p.get("privacy_posture") || "").trim(); if (pp) bounds.privacy_posture = pp; payload = { subject_ref: (p.get("subject_ref") || "").trim(), bounds }; }
+          const r = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+          if (r && r.ok) { res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end(); }
+          res.writeHead(200, HTMLH);
+          res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="${back}">← back</a></p>`));
+          return;
+        }
+        const id = decodeURIComponent(segs[1]);
+        const action = segs[2] || "";
+        if (action === "transition") {
+          const patch = { transition: (p.get("transition") || "").trim() };
+          const rv = (p.get("reviewer_ref") || "").trim(); if (rv) patch.reviewer_ref = rv;
+          const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
+          const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
+          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${back}">← back</a></p>`)); return; }
+          res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
+        }
+        if (action === "delete") {
+          await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+          res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
+        }
+      }
     }
     // ---- Marketplace — source-grafted catalog/detail/admission surface (estate #8, last card).
     if (pathname === "/__ioi/marketplace" && req.method === "GET") {
