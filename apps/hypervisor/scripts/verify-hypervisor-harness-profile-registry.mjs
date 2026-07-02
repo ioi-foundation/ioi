@@ -45,7 +45,9 @@ async function run() {
   ok("native worker is the seed default and seed-enabled with admission linkage", worker?.default_profile === true && worker?.lifecycle?.status === "active" && String(worker?.admission?.last_admission_id || "").startsWith("harness-profile-mutation-admission:"), worker?.admission?.last_admission_id);
   for (const h of ["opencode", "deepseek_tui", "claude_code", "codex"]) {
     const p = byHarness(h);
-    ok(`adapter slot is declared + unwired (no fake execution): ${h}`, p?.lifecycle?.status === "declared" && p?.adapter?.execution_wiring === "adapter_slot_unwired");
+    // declared at seed; a prior verifier run may have left the admitted `disabled` posture —
+    // both are honest non-active states. Never `active` without an admitted enable.
+    ok(`adapter slot is non-active + unwired (no fake execution): ${h}`, ["declared", "disabled"].includes(p?.lifecycle?.status) && p?.adapter?.execution_wiring === "adapter_slot_unwired", p?.lifecycle?.status);
   }
 
   // 2. Legacy projection derives from the registry (one truth; deepseek_tui joins the matrix).
@@ -68,10 +70,11 @@ async function run() {
 
   // 4. Admitted mutations: non-local trust fails closed without acceptance; admits with it.
   const codex = byHarness("codex");
+  const codexStatusBefore = codex?.lifecycle?.status;
   const en1 = await jd("POST", `/v1/hypervisor/harness-profiles/${codex.profile_id}/enable`);
   ok("remote-trust enable without acceptance rejected by planner (403)", en1.status === 403 && en1.j?.error?.code === "harness_profile_mutation_provider_trust_acceptance_required", en1.j?.error?.code);
   const after1 = await jd("GET", `/v1/hypervisor/harness-profiles/${codex.profile_id}`);
-  ok("rejected mutation left record unchanged", after1.j?.profile?.lifecycle?.status === "declared");
+  ok("rejected mutation left record unchanged", after1.j?.profile?.lifecycle?.status === codexStatusBefore, `${codexStatusBefore} -> ${after1.j?.profile?.lifecycle?.status}`);
   const en2 = await jd("POST", `/v1/hypervisor/harness-profiles/${codex.profile_id}/enable`, { provider_trust_acceptance_ref: "approval://provider-trust/codex-verify" });
   ok("remote-trust enable with acceptance is planner-admitted", en2.status === 200 && String(en2.j?.admission_id || "").startsWith("harness-profile-mutation-admission:") && en2.j?.profile?.lifecycle?.status === "active", en2.j?.admission_id);
   const dis = await jd("POST", `/v1/hypervisor/harness-profiles/${codex.profile_id}/disable`);

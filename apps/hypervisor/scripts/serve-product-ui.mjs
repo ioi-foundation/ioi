@@ -3282,6 +3282,69 @@ const server = http.createServer((req, res) => {
       res.end(renderWorkbench(sRes));
       return;
     }
+    // ---- New Session launcher (02-new-session graft) — the owned rail-modal's daemon-backed
+    // context + launch lane. Context is REAL registry/estate truth (projects, recent envs,
+    // registry-derived harness matrix, model routes); launch forwards to the daemon session
+    // create (harness selection admitted BEFORE provisioning, fail-closed) and then compiles the
+    // capability-admitted knob binding (WS-D) so reasoning/speed are daemon objects, not UI state.
+    if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const [pj, envs, arp, mr] = await Promise.all([
+        J("/v1/hypervisor/projects"),
+        J("/v1/hypervisor/environments"),
+        J("/v1/hypervisor/agent-runner-profiles"),
+        J("/v1/hypervisor/model-routes"),
+      ]);
+      const environments = (envs.environments || [])
+        .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
+        .slice(0, 15)
+        .map((e) => ({
+          id: e.id,
+          updated_at: e.updated_at,
+          provisioner_phase: e.status?.components?.provisioner?.phase || "unknown",
+          workspace_phase: e.status?.components?.workspace_content?.phase || "unknown",
+        }));
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify({
+        projects: (pj.projects || []).map((p) => ({ project_id: p.project_id, name: p.name, repository_url: p.repository_url })),
+        environments,
+        harness_profiles: arp.profiles || [],
+        model_routes: (mr.routes || []).map((r) => ({
+          route_ref: r.route_ref,
+          display_name: r.display_name,
+          model_id: (r.model || {}).model_id,
+          transport: (r.provider_binding || {}).transport,
+          lifecycle: (r.lifecycle || {}).status,
+          availability: (r.availability || {}).state,
+          default_route: r.default_route === true,
+        })),
+        default_route_ref: mr.default_route_ref || null,
+      }));
+      return;
+    }
+    if (pathname === "/__ioi/api/new-session/launch" && req.method === "POST") {
+      let b = {}; try { b = JSON.parse(body.toString() || "{}"); } catch { /* fail-closed below */ }
+      const sessionBody = {};
+      for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "session_ref"]) {
+        if (b[k]) sessionBody[k] = b[k];
+      }
+      const r = await fetch(`${DAEMON}/v1/hypervisor/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sessionBody) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { error: { code: "daemon_unavailable", message: "the daemon did not answer" } };
+      let knobBinding = null;
+      if (r && r.status < 400 && b.harness_key) {
+        // Compile the capability-admitted per-session knob binding (fail-closed on violations;
+        // the rejection is reported honestly alongside the created session).
+        const kb = await fetch(`${DAEMON}/v1/hypervisor/harness-bindings`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ harness: b.harness_key, model: b.matrix_model, reasoning: b.reasoning, speed: b.speed, session_ref: j.session_ref }),
+        }).catch(() => null);
+        knobBinding = kb ? await kb.json().catch(() => null) : null;
+      }
+      res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify({ ...j, knob_binding: knobBinding }));
+      return;
+    }
     // ---- Agent Studio — agent inventory + configuration + activity cockpit (estate surface #3).
     if (pathname === "/__ioi/agent-studio" && req.method === "GET") {
       const sp = new URL(req.url, "http://x").searchParams;
@@ -3338,8 +3401,7 @@ const server = http.createServer((req, res) => {
       const hpAction = pathname.match(/^\/__ioi\/agent-studio\/harness-profiles\/([^/]+)\/(probe|enable|disable|select-default)$/);
       if (hpAction && req.method === "POST") {
         const [, hpIdRaw, act] = hpAction;
-        const raw = await new Promise((resolve) => { let b = ""; req.on("data", (c) => { b += c; }); req.on("end", () => resolve(b)); req.on("error", () => resolve("")); });
-        const acceptance = new URLSearchParams(raw).get("provider_trust_acceptance_ref");
+        const acceptance = new URLSearchParams(body.toString()).get("provider_trust_acceptance_ref");
         const payload = acceptance ? JSON.stringify({ provider_trust_acceptance_ref: acceptance }) : "{}";
         const r = await fetch(`${DAEMON}/v1/hypervisor/harness-profiles/${encodeURIComponent(hpIdRaw)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: payload }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
