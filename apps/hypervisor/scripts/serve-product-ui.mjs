@@ -1392,30 +1392,81 @@ function renderDomainAppForm(existing, pk) {
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} Domain App`, inner);
 }
-function renderDomainAppDetail(a) {
-  const rp = a.runtime_posture || {};
+function renderDomainAppDetail(a, runtime, approvals, releases) {
+  const enc = encodeURIComponent; const did = a.domain_app_id || "";
+  const rt = runtime || null;
   const derived = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
   const named = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(x)}</code>`).join(" ") : "—"}</dd>`;
   const grid = `<dl class="grid">
-    <dt>Id</dt><dd><code>${CX_ESC(a.domain_app_id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(a.domain_app_ref)}</code></dd>
+    <dt>Id</dt><dd><code>${CX_ESC(did)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(a.domain_app_ref)}</code></dd>
     <dt>Status</dt><dd><span class="pill warn">${CX_ESC(a.status || "draft")}</span></dd>
     <dt>Visibility</dt><dd><span class="pill muted">${CX_ESC(a.visibility || "private")}</span></dd>
     <dt>Surface descriptor</dt><dd>${odkRefLink(a.surface_descriptor_ref)} <span class="sub" style="margin:0">(composition_pattern: domain_app)</span></dd>
     <dt>ODK manifest</dt><dd>${a.odk_manifest_ref ? odkRefLink(a.odk_manifest_ref) : "—"}</dd>
-    <dt>Project · owner</dt><dd>${a.project_ref ? `<code>${CX_ESC(a.project_ref)}</code>` : "—"} · ${a.owner_ref ? `<code>${CX_ESC(a.owner_ref)}</code>` : "—"}</dd>
-  </dl>
-  <h2>Derived provenance <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— read-only snapshot from the descriptor / manifest</span></h2>
-  <dl class="grid">
-    ${derived("Ontology refs", a.ontology_refs)}${derived("Data recipe refs", a.data_recipe_refs)}${derived("MCP contract refs", a.mcp_contract_refs)}
-  </dl>
-  <h2>Author-named refs</h2>
-  <dl class="grid">
-    ${named("Authority requirements", a.authority_requirement_refs)}${named("Operator contracts", a.operator_contract_refs)}
-    ${named("Receipt obligations", a.receipt_obligations)}${named("Generated artifacts", a.generated_artifact_refs)}
   </dl>`;
-  const runtime = `<h2>Runtime posture</h2><div class="reveal" style="color:#9a9da6;background:#101216;border-color:#24262d">mounted: <b>${rp.mounted === true ? "true" : "false"}</b> · route: ${rp.route ? CX_ESC(rp.route) : "null"}<br>${CX_ESC(rp.note || "draft object only; no generated runtime mounted")}</div>`;
-  const actions = `<div class="row"><a class="act ghost" href="/__ioi/domain-apps/${encodeURIComponent(a.domain_app_id)}/edit">Edit draft</a> <form class="inline" method="post" action="/__ioi/domain-apps/${encodeURIComponent(a.domain_app_id)}/delete" onsubmit="return confirm('Delete this draft?')"><button class="act danger" type="submit">Delete draft</button></form></div>`;
-  return automationsShell(a.name || "Domain App", `<p><a href="/__ioi/domain-apps">← Domain Apps</a></p><h1>${CX_ESC(a.name || a.domain_app_id)}</h1><p class="sub">DomainApp · draft candidate. No generated runtime is mounted.</p>${actions}${grid}${runtime}`);
+  // ---- Runtime cockpit: mount admission -> internal serving, all governed & receipted.
+  const mounted = rt && rt.mounted === true;
+  const serving = rt && rt.serving === true;
+  const statePill = serving ? `<span class="pill ok">serving</span>` : mounted ? `<span class="pill warn">mounted</span>` : `<span class="pill muted">not mounted</span>`;
+  let runtimeBody;
+  if (!mounted) {
+    const okApprovals = (approvals || []).filter((x) => x.status === "approved" && x.subject_ref === a.domain_app_ref);
+    const okReleases = (releases || []).filter((x) => x.state === "open" && x.release_target_ref === a.domain_app_ref);
+    if (okApprovals.length && okReleases.length) {
+      runtimeBody = `<p class="sub" style="margin:0 0 8px">Mount requires an approved ApprovalRequest and an open ReleaseControl targeting this app.</p>
+        <form method="post" action="/__ioi/domain-apps/${enc(did)}/mount"><div class="two">
+          <div class="field"><label>Approval request (approved)</label><select name="approval_request_ref">${okApprovals.map((x) => `<option value="${CX_ESC(x.ref)}">${CX_ESC(x.request_kind || "approval")} · ${CX_ESC(x.id)}</option>`).join("")}</select></div>
+          <div class="field"><label>Release control (open)</label><select name="release_control_ref">${okReleases.map((x) => `<option value="${CX_ESC(x.ref)}">${CX_ESC(x.id)}</option>`).join("")}</select></div>
+        </div><div class="row"><button class="act" type="submit">Mount (governed admission)</button></div></form>`;
+    } else {
+      runtimeBody = `<div class="empty">To mount, first create an <b>approved</b> ApprovalRequest and an <b>open</b> ReleaseControl targeting <code>${CX_ESC(a.domain_app_ref)}</code> in <a href="/__ioi/governance?tab=approvals">Governance</a>.</div>`;
+    }
+  } else {
+    const rid = rt.id || "";
+    const backlinks = `<dl class="wlgrid" style="margin:8px 0"><dt class="wlk">Runtime</dt><dd class="wlv"><code>${CX_ESC(rt.ref || "")}</code></dd><dt class="wlk">Approval</dt><dd class="wlv">${odkGovLink(rt.approval_request_ref)}</dd><dt class="wlk">Release</dt><dd class="wlv">${odkGovLink(rt.release_control_ref)}</dd><dt class="wlk">Receipts</dt><dd class="wlv">${(rt.receipt_refs || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"}</dd><dt class="wlk">Route</dt><dd class="wlv">${rt.internal_route_ref ? `<code>${CX_ESC(rt.internal_route_ref)}</code>` : "—"} <span class="sub" style="margin:0">(internal only)</span></dd></dl>`;
+    const openBtn = serving && rt.internal_route_ref ? `<a class="act" href="${rt.internal_route_ref}">Open app →</a> ` : "";
+    const serveBtn = serving
+      ? `<form class="inline" method="post" action="/__ioi/domain-apps/${enc(did)}/stop-serving"><button class="act ghost" type="submit">Stop serving</button></form>`
+      : `<form class="inline" method="post" action="/__ioi/domain-apps/${enc(did)}/serve"><button class="act" type="submit">Start serving</button></form>`;
+    const unmountBtn = `<form class="inline" method="post" action="/__ioi/domain-apps/${enc(did)}/unmount" onsubmit="return confirm('Unmount this runtime?')"><button class="act danger" type="submit">Unmount</button></form>`;
+    runtimeBody = backlinks + `<div class="row">${openBtn}${serveBtn} ${unmountBtn}</div><p class="sub" style="margin:8px 0 0">Internally served, descriptor-rendered, read-only — no external ingress, no process, no publish, no connector/object execution.</p>`;
+  }
+  const runtimeSection = `<h2>Runtime ${statePill}</h2>${runtimeBody}`;
+  const provenance = `<h2>Derived provenance</h2><dl class="grid">${derived("Ontology refs", a.ontology_refs)}${derived("Data recipe refs", a.data_recipe_refs)}${derived("MCP contract refs", a.mcp_contract_refs)}</dl>
+    <h2>Author-named refs</h2><dl class="grid">${named("Authority requirements", a.authority_requirement_refs)}${named("Operator contracts", a.operator_contract_refs)}${named("Receipt obligations", a.receipt_obligations)}${named("Generated artifacts", a.generated_artifact_refs)}</dl>`;
+  const actions = `<div class="row"><a class="act ghost" href="/__ioi/domain-apps/${enc(did)}/edit">Edit draft</a> ${mounted ? "" : `<form class="inline" method="post" action="/__ioi/domain-apps/${enc(did)}/delete" onsubmit="return confirm('Delete this draft?')"><button class="act danger" type="submit">Delete draft</button></form>`}</div>`;
+  return automationsShell(a.name || "Domain App", `<p><a href="/__ioi/domain-apps">← Domain Apps</a></p><h1>${CX_ESC(a.name || did)}</h1><p class="sub">DomainApp · governed mount → internal serving. ${mounted ? "" : "No runtime mounted."}</p>${actions}${runtimeSection}${grid}${provenance}`);
+}
+// Link an approval-request:// / release-control:// ref to the Governance tab that manages it.
+function odkGovLink(ref) {
+  const m = String(ref || "").match(/^(approval-request|release-control):\/\//);
+  const tab = m && m[1] === "release-control" ? "releases" : "approvals";
+  return ref ? `<a href="/__ioi/governance?tab=${tab}"><code>${CX_ESC(ref)}</code></a>` : "—";
+}
+// The internally-served, descriptor-driven, READ-ONLY generated app view.
+function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology) {
+  const enc = encodeURIComponent;
+  const d = dapp || {}; const desc = descriptor || {}; const ont = ontology || {};
+  const com = ont.canonical_object_model || {};
+  const pattern = desc.composition_pattern || "domain_app";
+  const serving = rt && rt.serving === true;
+  const chips = (arr, cls) => (arr && arr.length) ? arr.map((x) => `<span class="pill ${cls || "muted"}">${CX_ESC(x)}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`;
+  const head = `<div class="brand">IOI Hypervisor · generated domain app (read-only)</div><h1>${CX_ESC(d.name || "Domain App")}</h1>`;
+  const banner = `<div class="chips"><span class="pill ${serving ? "ok" : "warn"}">${serving ? "serving" : "not serving"}</span> <span class="pill muted">pattern: ${CX_ESC(pattern)}</span> <span class="sub" style="margin:0">Internally served from the ODK surface descriptor + ontology. Read-only — object actions do not execute; no external ingress.</span></div>`;
+  if (!serving) {
+    return automationsShell(d.name || "Domain App", `${head}${banner}<div class="empty">This runtime is not serving. Start serving from the Domain App detail.</div><p><a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`);
+  }
+  const objects = com.objects || [];
+  const objList = objects.length
+    ? `<table><thead><tr><th>Object</th><th>Available actions (read-only)</th></tr></thead><tbody>${objects.map((o) => `<tr><td><b>${CX_ESC(o)}</b></td><td>${(com.actions || []).map((ac) => `<button class="act ghost" disabled style="opacity:.5;cursor:not-allowed">${CX_ESC(ac)}</button>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">The ontology declares no objects yet. Add objects to <code>${CX_ESC(ont.domain || "the ontology")}</code> in ODK.</div>`;
+  const model = `<h2>Domain: ${CX_ESC(ont.domain || "—")} <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">v${CX_ESC(ont.version || "")}</span></h2>
+    <div class="chips"><span class="chiplabel">States</span>${chips(com.states)}</div>
+    <div class="chips"><span class="chiplabel">Events</span>${chips(com.events)}</div>
+    <div class="chips"><span class="chiplabel">Roles</span>${chips(com.roles)}</div>
+    <h2>Objects</h2>${objList}`;
+  const footer = `<p class="sub" style="margin-top:20px">Runtime <code>${CX_ESC(rt.ref || "")}</code> · descriptor <code>${CX_ESC(d.surface_descriptor_ref || "")}</code> · governed by ${odkGovLink(rt.approval_request_ref)} + ${odkGovLink(rt.release_control_ref)} · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`;
+  return automationsShell(d.name || "Domain App", head + banner + model + footer);
 }
 function domainAppCard(a) {
   const e = encodeURIComponent;
@@ -3324,6 +3375,24 @@ const server = http.createServer((req, res) => {
         }
       }
     }
+    // ---- Domain-App runtime — the internal, descriptor-driven, read-only served app view.
+    if (pathname.startsWith("/__ioi/domain-app-runtime/") && req.method === "GET") {
+      const rid = decodeURIComponent(pathname.slice("/__ioi/domain-app-runtime/".length).split("/")[0]);
+      const rtRes = await fetch(`${DAEMON}/v1/hypervisor/domain-app-runtimes/${encodeURIComponent(rid)}`).then((x) => x.json()).catch(() => ({}));
+      if (!rtRes.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">Runtime not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
+      const rt = rtRes.runtime;
+      const dappId = String(rt.domain_app_ref || "").replace(/^domain-app:\/\//, "");
+      const dRes = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}`).then((x) => x.json()).catch(() => ({}));
+      const dapp = dRes.domain_app || {};
+      const sdId = String(dapp.surface_descriptor_ref || "").replace(/^surface-descriptor:\/\//, "");
+      const descRes = sdId ? await fetch(`${DAEMON}/v1/hypervisor/odk/surface-descriptors/${encodeURIComponent(sdId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      const descriptor = descRes.surface_descriptor || {};
+      const ontId = String(descriptor.ontology_ref || "").replace(/^ontology:\/\//, "");
+      const ontRes = ontId ? await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      res.writeHead(200, HTMLH);
+      res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}));
+      return;
+    }
     // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).
     if (pathname === "/__ioi/domain-apps" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
@@ -3369,10 +3438,27 @@ const server = http.createServer((req, res) => {
         res.writeHead(302, { Location: "/__ioi/domain-apps", "Cache-Control": "no-cache" });
         return res.end();
       }
+      // Governed runtime lifecycle: mount admission -> internal serving. Daemon enforces the gates.
+      if (["mount", "unmount", "serve", "stop-serving"].includes(action) && req.method === "POST") {
+        const p = new URLSearchParams(body.toString());
+        const payload = action === "mount" ? { approval_request_ref: (p.get("approval_request_ref") || "").trim(), release_control_ref: (p.get("release_control_ref") || "").trim() } : {};
+        const r = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
+        if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">${CX_ESC(action)} failed: ${CX_ESC(r.error.message || "error")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}">← back</a></p>`)); return; }
+        res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
+        return res.end();
+      }
       if (!action && req.method === "GET") {
         const app = await fetch(`${DAEMON}/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
+        const dref = app.domain_app.domain_app_ref;
+        const [rtRes, apRes, relRes] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(dref)}`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests?status=approved`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/governance/release-controls`).then((x) => x.json()).catch(() => ({})),
+        ]);
+        const rt = (rtRes.runtimes || []).find((x) => x.mounted === true) || null;
         res.writeHead(200, HTMLH);
-        res.end(app.ok ? renderDomainAppDetail(app.domain_app) : automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`));
+        res.end(renderDomainAppDetail(app.domain_app, rt, apRes.approval_requests || [], relRes.release_controls || []));
         return;
       }
     }
