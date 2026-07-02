@@ -75,6 +75,11 @@ async function run() {
   ok("runnable lane-A worker is selectable and preselected as default", workerOpt && workerOpt.d === false && (await page.locator("#ioi-ns-harness").inputValue()) === workerOpt.v, workerOpt?.t);
 
   // Knob options come from the chosen harness's registry capability matrix.
+  // Editor target select (the New Session editor axis) — registry-fed, disabled-with-reason.
+  const etOptions = await page.locator("#ioi-ns-editor option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent, d: o.disabled })));
+  ok("editor target select lists the registry (native workbench selectable)", etOptions.length >= 3 && etOptions.some((o) => /Native Workbench/.test(o.t) && !o.d), `${etOptions.length} options`);
+  ok("unavailable editor shown disabled WITH reason (not hidden)", etOptions.some((o) => o.d && /unavailable/i.test(o.t)) || etOptions.every((o) => !o.d), etOptions.find((o) => o.d)?.t);
+
   const reasoningOpts = await page.locator("#ioi-ns-reasoning option").allTextContents();
   const speedOpts = await page.locator("#ioi-ns-speed option").allTextContents();
   ok("reasoning options = worker capability matrix", reasoningOpts.join(",") === "low,medium,high", reasoningOpts.join(","));

@@ -509,6 +509,33 @@ pub(crate) async fn handle_work_ledger(
             "request_id": g(&ev, "request_id"), "run_ref": run_ref_v, "timeline_ref": timeline_v,
         }));
     }
+    // Harness execution runs — the adapter drivers (opencode / deepseek_tui) posted an
+    // agent-run-transcript per run with a tamper-evident state_root; surface each as a
+    // first-class proof so a real harness execution is reachable from the ledger, with its
+    // session, files changed, and receipt.
+    for t in by_run.values() {
+        if t.get("op").and_then(|v| v.as_str()) != Some("adapter_execute") {
+            continue;
+        }
+        let out = t
+            .get("step_results")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .and_then(|s| s.get("output"))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let run_id = t.get("run_id").and_then(|v| v.as_str()).unwrap_or("");
+        entries.push(json!({
+            "id": run_id, "kind": "harness_execution", "timestamp": g(t, "recorded_at"),
+            "status": g(&out, "exit_status"), "harness": g(&out, "harness"),
+            "session_ref": g(&out, "session_ref"), "profile_ref": g(t, "profile_ref"),
+            "files_written": g(&out, "files_written"),
+            "state_root": g(t, "state_root"), "run_ref": run_id,
+            "timeline_ref": format!("/__ioi/run-timeline/{run_id}"),
+            "receipt_ref": g(&out, "receipt_ref"),
+            "implementation_result": g(&out, "implementation_result"),
+        }));
+    }
     // Governed-lifecycle proofs — domain-app mount/serve/unmount/kill, marketplace publish, and
     // KillSwitch enforcement receipts. These are real state-root proofs; surface them in the ledger so
     // the whole governed lifecycle is reachable from one proof stream (not just automation runs).

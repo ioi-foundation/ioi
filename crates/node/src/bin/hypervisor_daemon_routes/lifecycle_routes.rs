@@ -8445,6 +8445,28 @@ pub(crate) async fn handle_session_create(
         }
     }
 
+    // Optional editor-target selection (the New Session editor axis): the chosen editor must be a
+    // REAL currently-openable registry target — a session may not name an editor that cannot open
+    // on this host (fail-closed, before provisioning). Absent selection defaults to the always-
+    // openable native workbench.
+    let editor_target_id = body
+        .get("editor_target_ref")
+        .and_then(Value::as_str)
+        .map(|v| v.strip_prefix("editor-target:").unwrap_or(v).trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "workbench-native".to_string());
+    if !super::editor_routes::editor_target_openable(&editor_target_id) {
+        return (
+            StatusCode::PRECONDITION_FAILED,
+            Json(json!({ "error": {
+                "code": "editor_target_not_openable",
+                "message": "The selected editor target is not currently openable on this host.",
+                "editor_target": editor_target_id
+            } })),
+        );
+    }
+    let editor_target_ref = format!("editor-target:{editor_target_id}");
+
     // A session may bind to an EXISTING started environment's workspace so agent execution and
     // the editor host operate on the SAME files (the app's compose→run→open-editor loop).
     let bound_env_id = body
@@ -8535,6 +8557,7 @@ pub(crate) async fn handle_session_create(
         "realized_specs": provision.realized_specs,
         "environment_status": environment_status,
         "harness_binding": harness_binding,
+        "editor_target_ref": editor_target_ref,
         "latest_receipt_refs": [receipt_ref],
         "created_at": now,
         "runtimeTruthSource": "daemon-runtime",
@@ -8550,6 +8573,7 @@ pub(crate) async fn handle_session_create(
             "environment_status": environment_status,
             "workspace_initializer": provision.initializer,
             "harness_binding": record.get("harness_binding").cloned().unwrap_or(Value::Null),
+            "editor_target_ref": record.get("editor_target_ref").cloned().unwrap_or(Value::Null),
             "receipt_ref": receipt_ref,
             "runtimeTruthSource": "daemon-runtime",
         })),
@@ -14968,6 +14992,7 @@ pub(crate) async fn handle_sessions_list(
                 "environment_ref": r.get("environment_ref"),
                 "lifecycle_state": r.get("lifecycle_state"),
                 "workspace_root": r.get("workspace_root"),
+                "editor_target_ref": r.get("editor_target_ref"),
                 "harness_binding": slim_hb,
                 "latest_receipt_refs": r.get("latest_receipt_refs"),
                 "created_at": r.get("created_at"),
