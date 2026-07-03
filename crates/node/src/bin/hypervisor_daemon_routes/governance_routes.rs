@@ -310,6 +310,7 @@ const KIND_APPROVAL: &str = "governance-approval-requests";
 const KIND_RELEASE: &str = "governance-release-controls";
 const KIND_KILL: &str = "governance-kill-switches";
 const KIND_GATE: &str = "governance-improvement-gates";
+pub(crate) const KIND_COHORT: &str = "governance-cohorts";
 
 fn safe(seg: &str) -> String {
     seg.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
@@ -373,6 +374,7 @@ fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String
             "release-control" => Some(KIND_RELEASE),
             "kill-switch" => Some(KIND_KILL),
             "improvement-gate" => Some(KIND_GATE),
+            "cohort" => Some(KIND_COHORT),
             "improvement-proposal" => Some("improvement-proposals"),
             "simulation-report" => Some("simulation-reports"),
             _ => None, // authority-action:// / connector:// / lease:// / route:// / http:// → named
@@ -525,6 +527,10 @@ pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Js
     if rollout_mode == "cohort" && str_refs(&body, "cohort_refs").is_empty() {
         return bad("governance_cohort_refs_required", "cohort rollout needs cohort_refs");
     }
+    let (cohort_refs, deprecated_raw) = match partition_cohort_refs(&st.data_dir, &str_refs(&body, "cohort_refs")) {
+        Ok(parts) => parts,
+        Err((code, message)) => return bad(&code, &message),
+    };
     let id = format!("rel_{:x}", nanos());
     let now = iso_now();
     let mut record = json!({
@@ -535,7 +541,9 @@ pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Js
         "state": "closed",
         "rollout_mode": rollout_mode,
         "canary_percent": canary_percent.map(|v| json!(v)).unwrap_or(Value::Null),
-        "cohort_refs": str_refs(&body, "cohort_refs"),
+        "cohort_refs": cohort_refs,
+        "deprecated_raw_cohort_refs": deprecated_raw.clone(),
+        "cohort_refs_deprecation": if deprecated_raw.is_empty() { Value::Null } else { json!("raw member refs in cohort_refs are DEPRECATED — create a cohort:// object and reference it") },
         "starts_at": body.get("starts_at").cloned().unwrap_or(Value::Null),
         "ends_at": body.get("ends_at").cloned().unwrap_or(Value::Null),
         "rollback_state": Value::Null,
@@ -566,7 +574,17 @@ pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, Axu
             Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
         }
     }
-    for key in ["canary", "cohort", "rollout_mode", "canary_percent", "cohort_refs", "starts_at", "ends_at", "enforcement_preview", "would_call", "required_authority_refs"] {
+    if body.get("cohort_refs").is_some() {
+        match partition_cohort_refs(&st.data_dir, &str_refs(&body, "cohort_refs")) {
+            Ok((cohort_refs, deprecated_raw)) => {
+                r["cohort_refs"] = json!(cohort_refs);
+                r["deprecated_raw_cohort_refs"] = json!(deprecated_raw.clone());
+                r["cohort_refs_deprecation"] = if deprecated_raw.is_empty() { Value::Null } else { json!("raw member refs in cohort_refs are DEPRECATED — create a cohort:// object and reference it") };
+            }
+            Err((code, message)) => return Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        }
+    }
+    for key in ["canary", "cohort", "rollout_mode", "canary_percent", "starts_at", "ends_at", "enforcement_preview", "would_call", "required_authority_refs"] {
         if let Some(v) = body.get(key) { r[key] = v.clone(); }
     }
     r["updated_at"] = json!(iso_now());
@@ -575,6 +593,111 @@ pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, Axu
 }
 pub(crate) async fn handle_release_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
     g_del(&st.data_dir, KIND_RELEASE, &id)
+}
+
+// ---- Cohorts -----------------------------------------------------------------------------------
+//
+// Durable rollout audiences. A cohort names WHO a canary/cohort ReleaseControl applies to via
+// resolvable member refs (principal:// project:// org:// environment:// ioi-agent-policy://).
+// Eligibility is evaluated against DAEMON-DERIVED context, never trusted caller text.
+
+const COHORT_MEMBER_SCHEMES: &[&str] = &["principal", "project", "org", "environment", "ioi-agent-policy"];
+
+/// Split ReleaseControl cohort_refs into (all refs kept as given, deprecated raw member refs).
+/// cohort:// entries must resolve; anything else is a DEPRECATED raw member ref (still honored).
+fn partition_cohort_refs(data_dir: &str, entries: &[String]) -> Result<(Vec<String>, Vec<String>), (String, String)> {
+    let mut deprecated: Vec<String> = Vec::new();
+    for entry in entries {
+        if let Some(id) = entry.strip_prefix("cohort://") {
+            if load(data_dir, KIND_COHORT, id).is_none() {
+                return Err(("governance_cohort_unresolved".into(), format!("'{entry}' does not resolve to a recorded cohort")));
+            }
+        } else {
+            deprecated.push(entry.clone());
+        }
+    }
+    Ok((entries.to_vec(), deprecated))
+}
+
+fn validate_cohort_members(entries: &[String]) -> Result<(), (String, String)> {
+    for entry in entries {
+        let scheme = split_ref(entry).map(|(s, _)| s).unwrap_or("");
+        if !COHORT_MEMBER_SCHEMES.contains(&scheme) {
+            return Err(("governance_cohort_member_ref_invalid".into(), format!("'{entry}' — member refs must use principal:// project:// org:// environment:// ioi-agent-policy://")));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) async fn handle_cohort_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    g_list(&st.data_dir, KIND_COHORT, "cohorts")
+}
+pub(crate) async fn handle_cohort_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+    let display_name = str_field(&body, "display_name");
+    if display_name.is_empty() {
+        return bad("governance_cohort_name_required", "a cohort needs a display_name");
+    }
+    let scope = { let s = str_field(&body, "scope"); if s.is_empty() { "project" } else { s } };
+    if !["personal", "project", "org"].contains(&scope) {
+        return bad("governance_cohort_scope_invalid", "scope must be personal | project | org");
+    }
+    let members = str_refs(&body, "member_refs");
+    if let Err((code, message)) = validate_cohort_members(&members) {
+        return bad(&code, &message);
+    }
+    let id = format!("coh_{:x}", nanos());
+    let now = iso_now();
+    let record = json!({
+        "schema_version": "ioi.hypervisor.governance.cohort.v1",
+        "object": "ioi.hypervisor.governance.cohort",
+        "id": id, "ref": format!("cohort://{id}"),
+        "display_name": display_name,
+        "description": str_field(&body, "description"),
+        "scope": scope,
+        "member_refs": members,
+        "status": "active",
+        "evidence_refs": str_refs(&body, "evidence_refs"),
+        "created_at": now, "updated_at": now
+    });
+    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "cohort": record })))
+}
+pub(crate) async fn handle_cohort_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_get(&st.data_dir, KIND_COHORT, "cohort", &id)
+}
+pub(crate) async fn handle_cohort_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+    let Some(mut c) = load(&st.data_dir, KIND_COHORT, &id) else {
+        return Json(json!({ "ok": false, "reason": "cohort not found" }));
+    };
+    if let Some(t) = body.get("transition").and_then(Value::as_str) {
+        match t {
+            "enable" => c["status"] = json!("active"),
+            "disable" => c["status"] = json!("disabled"),
+            other => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": format!("invalid cohort transition '{other}' (enable | disable)") } })),
+        }
+    }
+    if let Some(status) = body.get("status").and_then(Value::as_str) {
+        if !["active", "disabled"].contains(&status) {
+            return Json(json!({ "ok": false, "error": { "code": "governance_cohort_status_invalid", "message": "status must be active | disabled" } }));
+        }
+        c["status"] = json!(status);
+    }
+    if body.get("member_refs").is_some() {
+        let members = str_refs(&body, "member_refs");
+        if let Err((code, message)) = validate_cohort_members(&members) {
+            return Json(json!({ "ok": false, "error": { "code": code, "message": message } }));
+        }
+        c["member_refs"] = json!(members);
+    }
+    for key in ["display_name", "description", "evidence_refs"] {
+        if let Some(v) = body.get(key) { c[key] = v.clone(); }
+    }
+    c["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &c);
+    Json(json!({ "ok": true, "cohort": c }))
+}
+pub(crate) async fn handle_cohort_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+    g_del(&st.data_dir, KIND_COHORT, &id)
 }
 
 // ---- KillSwitch --------------------------------------------------------------------------------

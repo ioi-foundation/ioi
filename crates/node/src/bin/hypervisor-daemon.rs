@@ -1362,6 +1362,16 @@ async fn async_main() -> anyhow::Result<()> {
                 .delete(governance_routes::handle_approval_delete),
         )
         .route(
+            "/v1/hypervisor/governance/cohorts",
+            get(governance_routes::handle_cohort_list).post(governance_routes::handle_cohort_create),
+        )
+        .route(
+            "/v1/hypervisor/governance/cohorts/:id",
+            get(governance_routes::handle_cohort_get)
+                .patch(governance_routes::handle_cohort_patch)
+                .delete(governance_routes::handle_cohort_delete),
+        )
+        .route(
             "/v1/hypervisor/governance/release-controls",
             get(governance_routes::handle_release_list).post(governance_routes::handle_release_create),
         )

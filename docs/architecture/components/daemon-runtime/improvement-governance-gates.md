@@ -83,3 +83,29 @@ sha256(context:release_id) → 0..99 bucketing), `cohort_refs`, `starts_at`/`end
   proposal/simulation/approval/release evidence is deleted.
 - Both lanes mint `receipt://hypervisor/policy-rollout/*` receipts citing the full chain;
   the Work Ledger indexes them as `policy_rollout` entries with backlinks.
+
+## Principal-derived rollout context + cohort objects
+
+Rollout eligibility derives from DAEMON-KNOWN truth, never arbitrary caller text:
+
+- Context priority: **authenticated principal** (real login session via the identity ring)
+  → **daemon-known project** (a named project counts only when it resolves to a project
+  record) → **explicit override** (`rollout_context_ref` — kept for test/dev, but labeled
+  `override: true` and sourced `explicit_override`; it can never masquerade as
+  authenticated identity) → **anonymous** (deterministic `principal://local-operator`
+  posture, honestly noted when identity enforcement is inactive).
+- Preview/launch expose `rollout_context_source` + `rollout_context` (refs with sources,
+  seed, posture note); applied overlays name `matched_ref`, source, and the matched
+  cohort; non-applied variants are explained via `policy_rollout_skipped` reason codes
+  (`rollout_cohort_no_match | rollout_cohort_disabled | rollout_canary_bucket_miss:* |
+  rollout_window_inactive | release_control_not_open`).
+- **Cohorts** are durable governance objects (`cohort://coh_*`: display_name, scope
+  personal|project|org, validated member refs principal://project://org://environment://
+  ioi-agent-policy://, status active|disabled, evidence refs). ReleaseControl
+  `cohort_refs` must resolve to cohort objects; raw member refs remain honored for
+  backward compatibility but are recorded in `deprecated_raw_cohort_refs` with an explicit
+  deprecation note. Disabled cohorts never match.
+- Canary bucketing hashes the DERIVED stable seed (`sha256(derived_ref:release_id)`), so a
+  principal's bucket is stable across calls and cannot be steered by request text.
+- Rollout receipts and Work Ledger `policy_rollout` entries cite `cohort_refs` +
+  `rollout_mode` alongside the proposal/simulation/approval/release chain.

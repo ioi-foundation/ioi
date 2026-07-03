@@ -27,6 +27,7 @@
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use axum::http::HeaderMap;
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -34,7 +35,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::goalrun_routes::{fact_from_profile, live_profiles, profile_by_harness, route_fact};
-use super::lifecycle_routes::load_session_record;
+use super::lifecycle_routes::{auth_enforced, load_session_record, resolve_principal};
 use super::{iso_now, persist_record, read_record_dir, sha256_hex_str, DaemonState};
 
 const LAUNCH_KIND: &str = "ioi-agent-launches";
@@ -423,11 +424,66 @@ fn canary_bucket(seed: &str, release_id: &str) -> u64 {
     u64::from_str_radix(digest.get(..8).unwrap_or("0"), 16).unwrap_or(0) % 100
 }
 
-/// Resolve the rollout variant (if any) that should replace `base` for THIS request context.
-/// Returns (variant_policy, explanation_note).
-fn resolve_policy_rollout(st: &DaemonState, base: &Value, body: &Value) -> Option<(Value, Value)> {
+/// The rollout identity of THIS request, derived from daemon-known truth — never trusted from
+/// arbitrary caller text. Priority: authenticated principal > daemon-known project >
+/// explicit test/dev override (kept, but LABELED) > deterministic local-operator posture.
+pub(crate) struct RolloutContext {
+    /// (canonical ref, source) pairs, priority-ordered.
+    refs: Vec<(String, &'static str)>,
+    source: &'static str,
+    seed: String,
+    posture_note: String,
+}
+
+fn derive_rollout_context(st: &DaemonState, headers: &HeaderMap, body: &Value) -> RolloutContext {
+    let mut refs: Vec<(String, &'static str)> = Vec::new();
+    let authenticated = resolve_principal(&st.data_dir, headers);
+    if let Some(principal) = &authenticated {
+        let pid = text(principal, "principal_id");
+        if !pid.is_empty() {
+            refs.push((format!("principal://{pid}"), "authenticated_principal"));
+        }
+    }
+    // A project counts as DERIVED context only when it resolves to a daemon project record.
+    if let Some(requested) = body.get("project_ref").and_then(Value::as_str).map(str::trim).filter(|r| !r.is_empty()) {
+        let candidate = requested.strip_prefix("project://").unwrap_or(requested);
+        if let Some(project) = read_record_dir(&st.data_dir, "projects")
+            .into_iter()
+            .find(|record| text(record, "project_id") == candidate)
+        {
+            refs.push((format!("project://{}", text(&project, "project_id")), "project"));
+        }
+    }
+    if let Some(explicit) = body.get("rollout_context_ref").and_then(Value::as_str).map(str::trim).filter(|r| !r.is_empty()) {
+        refs.push((explicit.to_string(), "explicit_override"));
+    }
+    let posture_note = if authenticated.is_none() && !auth_enforced(&st.data_dir, headers) {
+        "identity enforcement inactive — deterministic local wallet-holder posture".to_string()
+    } else {
+        String::new()
+    };
+    if refs.is_empty() {
+        refs.push(("principal://local-operator".to_string(), "anonymous"));
+    }
+    let (seed, source) = (refs[0].0.clone(), refs[0].1);
+    RolloutContext { refs, source, seed, posture_note }
+}
+
+fn rollout_context_fact(ctx: &RolloutContext) -> Value {
+    json!({
+        "source": ctx.source,
+        "refs": ctx.refs.iter().map(|(r, src)| json!({ "ref": r, "source": src })).collect::<Vec<Value>>(),
+        "seed": ctx.seed,
+        "posture_note": if ctx.posture_note.is_empty() { Value::Null } else { json!(ctx.posture_note) },
+    })
+}
+
+/// Resolve the rollout variant (if any) that should replace `base` for THIS derived context.
+/// Returns (Some((variant, explanation)) when applied, per-variant skip explanations otherwise).
+fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) -> (Option<(Value, Value)>, Vec<Value>) {
+    let mut skipped: Vec<Value> = Vec::new();
     if base.is_null() {
-        return None;
+        return (None, skipped);
     }
     let base_ref = text(base, "policy_ref").to_string();
     let now = iso_now();
@@ -441,14 +497,15 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, body: &Value) -> Optio
         })
         .collect();
     variants.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    let context_refs: Vec<String> = ["project_ref", "principal_ref", "rollout_context_ref"]
-        .iter()
-        .filter_map(|key| body.get(*key).and_then(Value::as_str))
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .collect();
     for variant in variants {
+        let variant_ref = text(&variant, "policy_ref").to_string();
+        let mut skip = |reason: String| {
+            skipped.push(json!({
+                "variant_policy_ref": variant_ref,
+                "base_policy_ref": base_ref,
+                "reason_code": reason,
+            }));
+        };
         let control_ref = variant
             .pointer("/rollout/release_control_ref")
             .and_then(Value::as_str)
@@ -459,14 +516,17 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, body: &Value) -> Optio
             .into_iter()
             .find(|r| text(r, "id") == control_id)
         else {
+            skip("release_control_unresolved".to_string());
             continue;
         };
         if text(&control, "state") != "open" {
-            continue; // gate closed → base behavior, no overlay
+            skip("release_control_not_open".to_string()); // gate closed → base behavior
+            continue;
         }
         let starts = text(&control, "starts_at").to_string();
         let ends = text(&control, "ends_at").to_string();
         if (!starts.is_empty() && now < starts) || (!ends.is_empty() && now > ends) {
+            skip("rollout_window_inactive".to_string());
             continue;
         }
         let promoted = variant.pointer("/rollout/state").and_then(Value::as_str) == Some("promoted");
@@ -474,40 +534,100 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, body: &Value) -> Optio
             let m = text(&control, "rollout_mode");
             if m.is_empty() { "full".to_string() } else { m.to_string() }
         };
-        let (eligible, reason) = if promoted {
-            (true, "rollout_promoted_full".to_string())
+        // (eligible?, reason, matched ref/source, matched cohort object)
+        let mut matched: Option<(String, &'static str, Option<Value>, String)> = None;
+        let mut miss_reason = String::new();
+        if promoted {
+            matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_promoted_full".to_string()));
         } else if mode == "full" {
-            (true, "rollout_full".to_string())
+            matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_full".to_string()));
         } else if mode == "cohort" {
-            let cohort: Vec<String> = control
+            let entries: Vec<String> = control
                 .get("cohort_refs")
                 .and_then(Value::as_array)
                 .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
                 .unwrap_or_default();
-            match context_refs.iter().find(|c| cohort.contains(c)) {
-                Some(hit) => (true, format!("rollout_cohort_match:{hit}")),
-                None => (false, "rollout_cohort_no_match".to_string()),
+            let mut any_active_cohort = false;
+            let mut any_disabled_cohort = false;
+            for entry in &entries {
+                if let Some(cohort_id) = entry.strip_prefix("cohort://") {
+                    let Some(cohort) = read_record_dir(&st.data_dir, "governance-cohorts")
+                        .into_iter()
+                        .find(|c| text(c, "id") == cohort_id)
+                    else {
+                        continue;
+                    };
+                    if text(&cohort, "status") != "active" {
+                        any_disabled_cohort = true;
+                        continue; // disabled cohorts never match
+                    }
+                    any_active_cohort = true;
+                    let members: Vec<String> = cohort
+                        .get("member_refs")
+                        .and_then(Value::as_array)
+                        .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                        .unwrap_or_default();
+                    if let Some((context_ref, source)) = ctx.refs.iter().find(|(r, _)| members.contains(r)) {
+                        matched = Some((
+                            context_ref.clone(),
+                            source,
+                            Some(cohort.clone()),
+                            format!("rollout_cohort_match:{entry}"),
+                        ));
+                        break;
+                    }
+                } else {
+                    // DEPRECATED raw member ref (pre-cohort-object controls) — still honored, marked.
+                    if let Some((context_ref, source)) = ctx.refs.iter().find(|(r, _)| r == entry) {
+                        matched = Some((
+                            context_ref.clone(),
+                            source,
+                            None,
+                            format!("rollout_cohort_match_deprecated_raw:{entry}"),
+                        ));
+                        break;
+                    }
+                }
+            }
+            if matched.is_none() {
+                miss_reason = if any_disabled_cohort && !any_active_cohort {
+                    "rollout_cohort_disabled".to_string()
+                } else {
+                    "rollout_cohort_no_match".to_string()
+                };
             }
         } else {
+            // canary: bucket the DERIVED stable seed, never arbitrary request text.
             let percent = control.get("canary_percent").and_then(Value::as_u64).unwrap_or(0).min(100);
-            let seed = context_refs.first().cloned().unwrap_or_else(|| "anonymous-local".to_string());
-            let bucket = canary_bucket(&seed, &control_id);
-            (bucket < percent, format!("rollout_canary_bucket:{bucket}/{percent}"))
-        };
-        if eligible {
-            let note = json!({
-                "variant_policy_ref": text(&variant, "policy_ref"),
-                "base_policy_ref": base_ref,
-                "release_control_ref": control_ref,
-                "rollout_mode": mode,
-                "rollout_state": variant.pointer("/rollout/state").cloned().unwrap_or(Value::Null),
-                "reason_code": reason,
-                "proposal_ref": variant.pointer("/rollout/proposal_ref").cloned().unwrap_or(Value::Null),
-            });
-            return Some((variant, note));
+            let bucket = canary_bucket(&ctx.seed, &control_id);
+            if bucket < percent {
+                matched = Some((ctx.seed.clone(), ctx.source, None, format!("rollout_canary_bucket:{bucket}/{percent}")));
+            } else {
+                miss_reason = format!("rollout_canary_bucket_miss:{bucket}/{percent}");
+            }
+        }
+        match matched {
+            Some((matched_ref, matched_source, cohort, reason)) => {
+                let note = json!({
+                    "variant_policy_ref": variant_ref,
+                    "base_policy_ref": base_ref,
+                    "release_control_ref": control_ref,
+                    "rollout_mode": mode,
+                    "rollout_state": variant.pointer("/rollout/state").cloned().unwrap_or(Value::Null),
+                    "reason_code": reason,
+                    "matched_ref": matched_ref,
+                    "rollout_context_source": matched_source,
+                    "override": matched_source == "explicit_override",
+                    "cohort_ref": cohort.as_ref().map(|c| text(c, "ref").to_string()),
+                    "cohort_display_name": cohort.as_ref().map(|c| text(c, "display_name").to_string()),
+                    "proposal_ref": variant.pointer("/rollout/proposal_ref").cloned().unwrap_or(Value::Null),
+                });
+                return (Some((variant, note)), skipped);
+            }
+            None => skip(miss_reason),
         }
     }
-    None
+    (None, skipped)
 }
 
 /// Bind rollout provenance onto a (just-cloned) learned policy variant. Called by the
@@ -524,6 +644,11 @@ fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
     let policy_id = text(policy, "policy_id");
     let receipt_ref = format!("receipt://hypervisor/policy-rollout/{policy_id}-{action}");
     let rollout = policy.get("rollout").cloned().unwrap_or(json!({}));
+    let control = rollout
+        .get("release_control_ref")
+        .and_then(Value::as_str)
+        .map(|r| r.trim_start_matches("release-control://").to_string())
+        .and_then(|id| read_record_dir(&st.data_dir, GOV_RELEASE_KIND).into_iter().find(|r| text(r, "id") == id));
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.policy-rollout",
@@ -534,6 +659,8 @@ fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
         "proposal_ref": rollout.get("proposal_ref").cloned().unwrap_or(Value::Null),
         "simulation_ref": rollout.get("simulation_ref").cloned().unwrap_or(Value::Null),
         "approval_request_ref": rollout.get("approval_request_ref").cloned().unwrap_or(Value::Null),
+        "cohort_refs": control.as_ref().and_then(|c| c.get("cohort_refs")).cloned().unwrap_or(json!([])),
+        "rollout_mode": control.as_ref().and_then(|c| c.get("rollout_mode")).cloned().unwrap_or(Value::Null),
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
@@ -603,7 +730,7 @@ pub(crate) async fn handle_policy_rollout_rollback(
 }
 
 /// Gather LIVE facts and run the pure strategy planner. Shared by preview + launch.
-async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
+async fn plan(st: &DaemonState, headers: &HeaderMap, body: &Value) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
     let goal = text(body, "goal").trim().to_string();
     // Durable policy resolution (fail-closed): an unknown or disabled policy never launches.
     ensure_policy_seed(st);
@@ -627,8 +754,11 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
         }
         None => Value::Null,
     };
-    // Learned-policy rollout overlay: an eligible context is upgraded to the variant here.
-    let (policy, rollout_note) = match resolve_policy_rollout(st, &policy, body) {
+    // Learned-policy rollout overlay: eligibility derives from daemon-known identity/project,
+    // never from arbitrary caller text (explicit overrides stay possible but LABELED).
+    let rollout_ctx = derive_rollout_context(st, headers, body);
+    let (applied_rollout, rollout_skipped) = resolve_policy_rollout(st, &policy, &rollout_ctx);
+    let (policy, rollout_note) = match applied_rollout {
         Some((variant, note)) => (variant, note),
         None => (policy, Value::Null),
     };
@@ -682,12 +812,15 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
         "route_local": route_local,
         "policy": policy,
         "policy_rollout": rollout_note,
+        "policy_rollout_skipped": rollout_skipped,
+        "rollout_context": rollout_context_fact(&rollout_ctx),
     });
     Ok((selection, facts))
 }
 
 pub(crate) async fn handle_ioi_agent_launch_preview(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if text(&body, "goal").trim().len() < 4 {
@@ -697,7 +830,7 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "Tell IOI Agent what to do (a few words at least).",
         );
     }
-    let (selection, facts) = match plan(&st, &body).await {
+    let (selection, facts) = match plan(&st, &headers, &body).await {
         Ok(planned) => planned,
         Err(rejection) => return rejection,
     };
@@ -789,6 +922,9 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "remote_slots_disabled": selection.get("remote_slots_disabled").cloned().unwrap_or(json!(false)),
             "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
             "policy_rollout": facts.get("policy_rollout").cloned().unwrap_or(Value::Null),
+            "policy_rollout_skipped": facts.get("policy_rollout_skipped").cloned().unwrap_or(json!([])),
+            "rollout_context_source": facts.pointer("/rollout_context/source").cloned().unwrap_or(Value::Null),
+            "rollout_context": facts.get("rollout_context").cloned().unwrap_or(Value::Null),
             "policy_effective_summary": if policy.is_null() { Value::Null } else { json!(format!(
                 "{} · strategy {} · {} · fallback {}",
                 text(&policy, "display_name"),
@@ -822,6 +958,7 @@ fn load_launch(st: &DaemonState, launch_id: &str) -> Option<Value> {
 
 pub(crate) async fn handle_ioi_agent_launch(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let grant = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
@@ -1030,7 +1167,7 @@ pub(crate) async fn handle_ioi_agent_launch(
             "Tell IOI Agent what to do (a few words at least).",
         );
     }
-    let (selection, facts) = match plan(&st, &body).await {
+    let (selection, facts) = match plan(&st, &headers, &body).await {
         Ok(planned) => planned,
         Err(rejection) => return rejection,
     };
@@ -1194,6 +1331,7 @@ pub(crate) async fn handle_ioi_agent_launch(
         "model_route_ref": route_ref,
         "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
         "policy_rollout": facts.get("policy_rollout").cloned().unwrap_or(Value::Null),
+        "rollout_context": facts.get("rollout_context").cloned().unwrap_or(Value::Null),
         "memory_projection_refs": projection_refs,
         "delivered_intent": delivered_intent,
         "privacy_posture": text(&selection, "privacy_posture"),

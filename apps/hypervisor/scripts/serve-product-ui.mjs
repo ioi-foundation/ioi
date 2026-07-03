@@ -1524,7 +1524,7 @@ function renderLaunchPolicies(policies, profiles) {
     return `<div class="card lpcard" data-policy="${CX_ESC(p.policy_id)}"><div class="main">
       <div class="name">${CX_ESC(p.display_name || p.policy_id)}${p.protected ? ' <span class="pill muted" title="seeded default — clone to customize">protected</span>' : ""}${active ? ' <span class="pill ok">active</span>' : ' <span class="pill muted">disabled</span>'}</div>
       <div class="meta"><code>${CX_ESC(p.policy_ref || "")}</code> · ${CX_ESC(p.description || "")}</div>
-      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}${ro ? chip(ro.state === "active" ? "warn" : ro.state === "promoted" ? "ok" : "muted", `${ro.mode || "?"} rollout · ${ro.state}`) : ""}${ro ? chip("muted", "base " + String(ro.base_policy_ref || "").replace("ioi-agent-policy://", "")) : ""}${ro && ro.proposal_ref ? chip("muted", "learned") : ""}</div>
+      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}${ro ? chip(ro.state === "active" ? "warn" : ro.state === "promoted" ? "ok" : "muted", `${ro.mode || "?"} rollout · ${ro.state}`) : ""}${ro ? chip("muted", "base " + String(ro.base_policy_ref || "").replace("ioi-agent-policy://", "")) : ""}${ro && ro.proposal_ref ? chip("muted", "learned") : ""}${(p.rollout_display?.cohort_names || []).map((n) => chip("warn", "cohort: " + n)).join("")}${p.rollout_display?.canary_percent != null ? chip("warn", p.rollout_display.canary_percent + "% canary") : ""}${p.rollout_display?.deprecated_raw ? chip("muted", "deprecated raw refs") : ""}</div>
       </div><div>${acts}</div></div>`;
   }).join("");
   const hpOpts = (profiles || []).map((p) => `${p.profile_ref || ""}`).filter(Boolean);
@@ -2296,8 +2296,9 @@ const GOV_FAMS = {
   "releases": { api: "release-controls", key: "release_control", listKey: "release_controls", label: "Release Controls" },
   "kill-switches": { api: "kill-switches", key: "kill_switch", listKey: "kill_switches", label: "Kill Switches" },
   "gates": { api: "improvement-gates", key: "improvement_gate", listKey: "improvement_gates", label: "Improvement Gates" },
+  "cohorts": { api: "cohorts", key: "cohort", listKey: "cohorts", label: "Cohorts" },
 };
-const govTabBar = (tab) => `<div class="tabs">${[["overview", "Overview"], ["approvals", "Approval Requests"], ["releases", "Release Controls"], ["kill-switches", "Kill Switches"], ["gates", "Improvement Gates"]].map(([k, l]) => `<a class="tab${tab === k ? " active" : ""}" href="/__ioi/governance?tab=${k}" style="text-decoration:none">${l}</a>`).join("")}</div>`;
+const govTabBar = (tab) => `<div class="tabs">${[["overview", "Overview"], ["approvals", "Approval Requests"], ["releases", "Release Controls"], ["kill-switches", "Kill Switches"], ["gates", "Improvement Gates"], ["cohorts", "Cohorts"]].map(([k, l]) => `<a class="tab${tab === k ? " active" : ""}" href="/__ioi/governance?tab=${k}" style="text-decoration:none">${l}</a>`).join("")}</div>`;
 const GOV_INP = 'style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"';
 const govTform = (fam, id, transition, label, cls, extra) => `<form class="inline" method="post" action="/__ioi/governance/${fam}/${encodeURIComponent(id)}/transition"><input type="hidden" name="transition" value="${transition}">${extra || ""}<button class="act ${cls || "ghost"}" type="submit">${label}</button></form>`;
 const govDform = (fam, id) => `<form class="inline" method="post" action="/__ioi/governance/${fam}/${encodeURIComponent(id)}/delete" onsubmit="return confirm('Delete this control record?')"><button class="act danger" type="submit">Delete</button></form>`;
@@ -2315,7 +2316,7 @@ function govReleaseCard(r) {
   const id = r.id || ""; const open = r.state === "open";
   const actions = (open ? govTform("releases", id, "close", "Close gate", "ghost") : govTform("releases", id, "open", "Open gate", "")) + " " + govTform("releases", id, "request_rollback", "Request rollback", "ghost") + " " + govTform("releases", id, "request_recall", "Request recall", "ghost");
   return `<div class="card" style="display:block"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Release gate</b> <span class="pill ${open ? "ok" : "muted"}">${CX_ESC(r.state || "closed")}</span> <code>${CX_ESC(id)}</code></div>${govDform("releases", id)}</div>
-    <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(r.release_target_ref || "—")}</dd><dt class="wlk">Flags</dt><dd class="wlv">${r.rollback_requested ? `<span class="pill warn">rollback requested</span>` : ""} ${r.recall_requested ? `<span class="pill warn">recall requested</span>` : ""} ${!r.rollback_requested && !r.recall_requested ? "—" : ""}</dd><dt class="wlk">Canary · cohort</dt><dd class="wlv">${r.canary ? `<code>${CX_ESC(JSON.stringify(r.canary))}</code>` : "—"} · ${r.cohort ? `<code>${CX_ESC(JSON.stringify(r.cohort))}</code>` : "—"}</dd></dl>
+    <dl class="wlgrid"><dt class="wlk">Target</dt><dd class="wlv">${CX_ESC(r.release_target_ref || "—")}</dd><dt class="wlk">Rollout</dt><dd class="wlv"><span class="pill ${r.rollout_mode === "full" || !r.rollout_mode ? "muted" : "warn"}">${CX_ESC(r.rollout_mode || "full")}</span>${r.canary_percent != null ? ` <span class="pill muted">${CX_ESC(String(r.canary_percent))}%</span>` : ""}${(r.cohort_refs || []).map((x) => ` <code>${CX_ESC(x)}</code>`).join("")}${(r.deprecated_raw_cohort_refs || []).length ? ` <span class="pill warn" title="${CX_ESC(r.cohort_refs_deprecation || "")}">deprecated raw refs</span>` : ""}${r.promoted_at ? ` <span class="pill ok">promoted</span>` : ""}${r.rollback_state ? ` <span class="pill muted">${CX_ESC(r.rollback_state)}</span>` : ""}</dd><dt class="wlk">Flags</dt><dd class="wlv">${r.rollback_requested ? `<span class="pill warn">rollback requested</span>` : ""} ${r.recall_requested ? `<span class="pill warn">recall requested</span>` : ""} ${!r.rollback_requested && !r.recall_requested ? "—" : ""}</dd></dl>
     <div class="row" style="margin-top:8px">${actions}</div></div>`;
 }
 function govKillCard(k) {
@@ -2342,14 +2343,25 @@ function govGateCard(g) {
     <dl class="wlgrid"><dt class="wlk">Subject</dt><dd class="wlv">${CX_ESC(g.subject_ref || "—")}</dd><dt class="wlk">Bounds</dt><dd class="wlv">max_iter ${CX_ESC(String(b.max_iterations ?? "—"))} · eval≥ ${CX_ESC(String(b.eval_threshold ?? "—"))} · privacy ${CX_ESC(String(b.privacy_posture ?? "—"))}</dd><dt class="wlk">Rollback · promotion</dt><dd class="wlv">${b.rollback_ref ? `<code>${CX_ESC(b.rollback_ref)}</code>` : "—"} · ${b.promotion_policy_ref ? `<code>${CX_ESC(b.promotion_policy_ref)}</code>` : "—"}</dd></dl>
     <div class="row" style="margin-top:8px">${actions}</div></div>`;
 }
-function govControlTab(fam, records) {
+function govCohortCard(c) {
+  const id = c.id || ""; const active = c.status === "active";
+  const actions = active ? govTform("cohorts", id, "disable", "Disable", "ghost") : govTform("cohorts", id, "enable", "Enable", "");
+  return `<div class="card" style="display:block" data-cohort="${CX_ESC(id)}"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>${CX_ESC(c.display_name || "cohort")}</b> <span class="pill ${active ? "ok" : "muted"}">${CX_ESC(c.status || "")}</span> <span class="pill muted">${CX_ESC(c.scope || "")}</span> <code>${CX_ESC(c.ref || id)}</code></div>${govDform("cohorts", id)}</div>
+    <dl class="wlgrid"><dt class="wlk">Members</dt><dd class="wlv">${govRefs(c.member_refs)}</dd><dt class="wlk">Description</dt><dd class="wlv">${CX_ESC(c.description || "—")}</dd><dt class="wlk">Evidence</dt><dd class="wlv">${govRefs(c.evidence_refs)}</dd></dl>
+    <p class="sub" style="margin:6px 0 0">Rollout eligibility matches member refs against DAEMON-DERIVED context (authenticated principal · known project) — never arbitrary caller text. Disabled cohorts never match.</p>
+    <div class="row" style="margin-top:8px">${actions}</div></div>`;
+}
+function govControlTab(fam, records, cohorts) {
   const forms = {
     "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="marketplace-publish://… · domain-app://… · frun_… · authority-action://…"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
-    "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" ${GOV_INP} placeholder="frun_… · domain-app://… · marketplace-publish://… · model-route:…"></div><div class="two"><div class="field"><label>Canary (note)</label><input name="canary" ${GOV_INP}></div><div class="field"><label>Cohort (note)</label><input name="cohort" ${GOV_INP}></div></div>`,
+    "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" ${GOV_INP} placeholder="frun_… · improvement-proposal://… · domain-app://… · marketplace-publish://…"></div>
+      <div class="two"><div class="field"><label>Rollout mode</label><select name="rollout_mode" ${GOV_INP}><option value="full">full — everyone behind the gate</option><option value="canary">canary — deterministic percentage</option><option value="cohort">cohort — named cohort objects</option></select></div><div class="field"><label>Canary percent (0–100)</label><input name="canary_percent" ${GOV_INP} placeholder="25"></div></div>
+      <div class="field"><label>Cohorts (rollout audience — durable cohort:// objects)</label><select name="cohort_refs" multiple size="3" ${GOV_INP}>${(cohorts || []).map((c) => `<option value="${CX_ESC(c.ref)}">${CX_ESC(c.display_name)} · ${CX_ESC(c.scope)} · ${CX_ESC(c.status)}</option>`).join("")}</select>${(cohorts || []).length ? "" : `<div class="sub" style="margin:4px 0 0">No cohorts yet — create one in the Cohorts tab.</div>`}</div>`,
     "kill-switches": `<div class="two"><div class="field"><label>Revocable subject ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="lease:… · connector:… · agent id · domain-app://…"></div><div class="field"><label>Revoke path (named, not called)</label><input name="revoke_path" ${GOV_INP} placeholder="/v1/hypervisor/authority/revoke"></div></div>`,
+    "cohorts": `<div class="two"><div class="field"><label>Display name (required)</label><input name="display_name" ${GOV_INP} placeholder="Canary team"></div><div class="field"><label>Scope</label><select name="scope" ${GOV_INP}><option value="project">project</option><option value="personal">personal</option><option value="org">org</option></select></div></div><div class="field"><label>Member refs (comma-sep: principal:// · project:// · org:// · environment:// · ioi-agent-policy://)</label><input name="member_refs" ${GOV_INP} placeholder="principal://usr_… , project://project:…"></div><div class="field"><label>Description</label><input name="description" ${GOV_INP}></div>`,
     "gates": `<div class="field"><label>Subject ref (required — Foundry spec/run-plan or named)</label><input name="subject_ref" ${GOV_INP} placeholder="fspec_… · frun_… · eval://…"></div><div class="two"><div class="field"><label>Max iterations</label><input name="max_iterations" ${GOV_INP}></div><div class="field"><label>Eval threshold</label><input name="eval_threshold" ${GOV_INP}></div></div><div class="field"><label>Privacy posture</label><input name="privacy_posture" ${GOV_INP} placeholder="local_only"></div>`,
   };
-  const cardFn = { "approvals": govApprovalCard, "releases": govReleaseCard, "kill-switches": govKillCard, "gates": govGateCard }[fam];
+  const cardFn = { "approvals": govApprovalCard, "releases": govReleaseCard, "kill-switches": govKillCard, "gates": govGateCard, "cohorts": govCohortCard }[fam];
   const label = GOV_FAMS[fam].label;
   const list = records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
   return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
@@ -2480,7 +2492,7 @@ function renderGovernance(ov, controls, tab) {
     + `<p class="sub" style="margin-top:20px">Related: <a href="/__ioi/operations">Operations</a> · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/connections">Developer &amp; Integrations</a></p>`;
 
   const body = (tab !== "overview" && GOV_FAMS[tab])
-    ? govControlTab(tab, controls[GOV_FAMS[tab].listKey] || [])
+    ? govControlTab(tab, controls[GOV_FAMS[tab].listKey] || [], controls.cohorts || [])
     : overviewBody;
 
   const inner = head + banner + summary + govTabBar(tab) + body;
@@ -4139,7 +4151,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp, rcl, coh] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -4158,7 +4170,20 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/intelligence/review-queue"),
         J("/v1/hypervisor/intelligence/outcome-mining"),
         J("/v1/hypervisor/intelligence/improvement-proposals"),
+        J("/v1/hypervisor/governance/release-controls"),
+        J("/v1/hypervisor/governance/cohorts"),
       ]);
+      // Decorate rollout-bound learned variants with their control's cohort names + mode so
+      // the policy card can say WHO the rollout applies to.
+      for (const pol of (lp.policies || [])) {
+        if (!pol.rollout) continue;
+        const control = ((rcl || {}).release_controls || []).find((r) => r.ref === pol.rollout.release_control_ref);
+        const names = (control?.cohort_refs || []).map((ref) => {
+          const c = ((coh || {}).cohorts || []).find((x) => x.ref === ref);
+          return c ? `${c.display_name}${c.status !== "active" ? " (disabled)" : ""}` : ref;
+        });
+        pol.rollout_display = { mode: control?.rollout_mode || pol.rollout.mode, cohort_names: names, canary_percent: control?.canary_percent ?? null, deprecated_raw: (control?.deprecated_raw_cohort_refs || []).length > 0 };
+      }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
         Array.isArray(ag) ? ag : (ag.agents || []),
@@ -4874,12 +4899,13 @@ const server = http.createServer((req, res) => {
     if (pathname === "/__ioi/governance" && req.method === "GET") {
       const tab = new URL(req.url, "http://x").searchParams.get("tab") || "overview";
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, ap, rl, ks, ig] = await Promise.all([
+      const [ov, ap, rl, ks, ig, co] = await Promise.all([
         J("/v1/hypervisor/governance/overview"),
         J("/v1/hypervisor/governance/approval-requests"),
         J("/v1/hypervisor/governance/release-controls"),
         J("/v1/hypervisor/governance/kill-switches"),
         J("/v1/hypervisor/governance/improvement-gates"),
+        J("/v1/hypervisor/governance/cohorts"),
       ]);
       res.writeHead(200, HTMLH);
       res.end(renderGovernance(ov, {
@@ -4887,6 +4913,7 @@ const server = http.createServer((req, res) => {
         release_controls: rl.release_controls || [],
         kill_switches: ks.kill_switches || [],
         improvement_gates: ig.improvement_gates || [],
+        cohorts: co.cohorts || [],
       }, tab));
       return;
     }
@@ -4904,7 +4931,8 @@ const server = http.createServer((req, res) => {
           const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
           let payload = {};
           if (fam === "approvals") payload = { subject_ref: (p.get("subject_ref") || "").trim(), request_kind: (p.get("request_kind") || "").trim(), reason: (p.get("reason") || "").trim(), required_authority_refs: csv("required_authority_refs") };
-          else if (fam === "releases") { payload = { release_target_ref: (p.get("release_target_ref") || "").trim() }; const c = (p.get("canary") || "").trim(); if (c) payload.canary = { note: c }; const co = (p.get("cohort") || "").trim(); if (co) payload.cohort = { note: co }; }
+          else if (fam === "releases") { payload = { release_target_ref: (p.get("release_target_ref") || "").trim(), rollout_mode: (p.get("rollout_mode") || "full").trim() }; const cp = (p.get("canary_percent") || "").trim(); if (cp) payload.canary_percent = parseInt(cp, 10); const refs = p.getAll("cohort_refs").map((x) => x.trim()).filter(Boolean); if (refs.length) payload.cohort_refs = refs; }
+          else if (fam === "cohorts") payload = { display_name: (p.get("display_name") || "").trim(), scope: (p.get("scope") || "project").trim(), description: (p.get("description") || "").trim(), member_refs: csv("member_refs") };
           else if (fam === "kill-switches") payload = { subject_ref: (p.get("subject_ref") || "").trim(), revoke_path: (p.get("revoke_path") || "").trim() };
           else if (fam === "gates") { const bounds = {}; const mi = (p.get("max_iterations") || "").trim(); if (mi) bounds.max_iterations = parseInt(mi, 10) || mi; const et = (p.get("eval_threshold") || "").trim(); if (et) bounds.eval_threshold = parseFloat(et) || et; const pp = (p.get("privacy_posture") || "").trim(); if (pp) bounds.privacy_posture = pp; payload = { subject_ref: (p.get("subject_ref") || "").trim(), bounds }; }
           const r = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
