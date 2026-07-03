@@ -127,7 +127,7 @@ async fn self_post(url: &str, body: &Value) -> (u16, Value) {
 }
 
 /// Live harness fact for the kernel planner — from the registry's own live probe projection.
-fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &str) -> Value {
+pub(crate) fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &str) -> Value {
     json!({
         "profile_ref": text(profile, "profile_ref"),
         "harness": text(profile, "harness"),
@@ -142,7 +142,7 @@ fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &str) -> Val
 
 /// The selected model route's (ref, availability state, model_id, endpoint) — the explicit ref
 /// or the registry default. Read from the persisted registry (availability is probe truth).
-fn route_fact(st: &DaemonState, explicit_ref: Option<&str>) -> (String, String, String, String) {
+pub(crate) fn route_fact(st: &DaemonState, explicit_ref: Option<&str>) -> (String, String, String, String) {
     let routes = read_record_dir(&st.data_dir, "model-route-registry");
     let route = routes.iter().find(|route| match explicit_ref {
         Some(wanted) => text(route, "route_ref") == wanted,
@@ -171,14 +171,14 @@ fn route_fact(st: &DaemonState, explicit_ref: Option<&str>) -> (String, String, 
     }
 }
 
-async fn live_profiles(st: &DaemonState) -> Vec<Value> {
+pub(crate) async fn live_profiles(st: &DaemonState) -> Vec<Value> {
     self_get(&format!("{}/v1/hypervisor/harness-profiles?live=1", st.base_url))
         .await
         .and_then(|body| body.get("profiles").and_then(Value::as_array).cloned())
         .unwrap_or_default()
 }
 
-fn profile_by_harness<'a>(profiles: &'a [Value], harness: &str) -> Option<&'a Value> {
+pub(crate) fn profile_by_harness<'a>(profiles: &'a [Value], harness: &str) -> Option<&'a Value> {
     profiles
         .iter()
         .find(|profile| text(profile, "harness") == harness)

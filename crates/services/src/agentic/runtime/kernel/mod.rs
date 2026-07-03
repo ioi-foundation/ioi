@@ -724,6 +724,15 @@ impl RuntimeKernelService {
             .admit(request, now_iso)
     }
 
+    /// IOI Agent strategy planner (pure, deterministic v1): decides direct vs goal_run for a
+    /// launch, with eligible/excluded harnesses and reason codes.
+    pub fn select_ioi_agent_execution(
+        &self,
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.select_ioi_agent_execution(request)
+    }
+
     /// Validate + canonicalize a GoalRun creation admission (pure: bounded invocation budget,
     /// real session/project binding, the orchestrate scope, receipts required).
     pub fn admit_goal_run(

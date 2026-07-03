@@ -36,6 +36,8 @@ mod binding_routes;
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
+#[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
+mod ioi_agent_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -1106,6 +1108,24 @@ async fn async_main() -> anyhow::Result<()> {
         // Domain Apps object plane (foundation) — draft DomainApp candidates over an ODK domain_app
         // surface descriptor. Draft-only: no generated/mounted runtime, no domain-action execution,
         // no marketplace publish. /blueprints stays 404.
+        // IOI Agent launch plane — the user-facing product mode; strategy planner decides
+        // direct vs internal GoalRun. Two-phase launch relays the wallet challenge.
+        .route(
+            "/v1/hypervisor/ioi-agent/launch-preview",
+            post(ioi_agent_routes::handle_ioi_agent_launch_preview),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launch",
+            post(ioi_agent_routes::handle_ioi_agent_launch),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launches",
+            get(ioi_agent_routes::handle_ioi_agent_launches_list),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launches/:id",
+            get(ioi_agent_routes::handle_ioi_agent_launch_get),
+        )
         // GoalRun plane — daemon-owned multi-harness orchestration (create → wallet-gated
         // start → deterministic verify → admitted reconcile). Static sub-paths registered
         // implicitly distinct from :id (axum matches deeper literals first).

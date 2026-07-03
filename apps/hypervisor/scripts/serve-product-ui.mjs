@@ -26,6 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
+import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -739,7 +740,7 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "GoalRuns")}${chip("kind", "goal_run_invocation", "GoalRun invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
@@ -747,9 +748,9 @@ function renderWorkLedger(entries, scopedProject) {
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
-    : e.kind === "goal_run" ? `goal · ${CX_ESC(String(e.normalized_goal || "").slice(0, 56))}`
-    : e.kind === "goal_run_invocation" ? `${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")} → ${CX_ESC(e.goal_run_ref || "")}`
-    : e.kind === "goal_run_reconciliation" ? `reconcile · ${CX_ESC(e.merge_strategy || "")} → ${CX_ESC(e.goal_run_ref || "")}`
+    : e.kind === "goal_run" ? `IOI Agent coordination · ${CX_ESC(String(e.normalized_goal || "").slice(0, 48))}`
+    : e.kind === "goal_run_invocation" ? `IOI Agent · ${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")}`
+    : e.kind === "goal_run_reconciliation" ? `IOI Agent reconcile · ${CX_ESC(e.merge_strategy || "")}`
     : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
     : e.kind === "kill_enforcement" ? `kill ${CX_ESC(e.subject_ref || "")}`
     : e.kind === "domain_app_runtime" ? `${CX_ESC(e.action || "runtime")} ${CX_ESC(e.domain_app_ref || "")}`
@@ -1033,6 +1034,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
     : `<div class="empty">Not reconciled yet — candidate artifacts stay isolated until an admitted reconciliation.</div>`;
   const briefs = (g.task_briefs || []).map((b) => `<li><code>${CX_ESC(b.task_brief_id || "")}</code> — ${CX_ESC(b.objective_class || "")} · output contract: changed_files ${b.output_contract && b.output_contract.changed_files_required ? "required" : "optional"}</li>`).join("");
   const proof = grid([
+    ["GoalRun ref (internal)", code(g.goal_ref)],
     ["Admission", code((g.admission || {}).admission_id)],
     ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
     ["Capability lease", code(g.capability_lease_ref)],
@@ -1040,8 +1042,8 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
     ["Ledger", `<a href="/__ioi/work-ledger">proof stream →</a>`],
   ]);
   const inner = `<p><a href="/__ioi/work-ledger">← Work Ledger</a></p>
-    <h1>🎯 GoalRun <code style="font-size:15px">${CX_ESC(g.goal_run_id || "")}</code> ${stPill(g.status)}</h1>
-    <p class="sub">${CX_ESC(g.orchestration_policy || "")} · ${CX_ESC(g.active_loop_phase || "")} · target <code>${CX_ESC(g.target_session_ref || "")}</code></p>
+    <h1>🎯 IOI Agent coordination ${stPill(g.status)}</h1>
+    <p class="sub">${CX_ESC(g.orchestration_policy || "")} · ${CX_ESC(g.active_loop_phase || "")} · target <code>${CX_ESC(g.target_session_ref || "")}</code> · <span title="internal orchestration object">GoalRun <code>${CX_ESC(g.goal_run_id || "")}</code></span></p>
     <h2>Goal</h2><div class="grid" style="display:block;padding:14px 16px">${CX_ESC(g.normalized_goal || "")}</div>
     <h2>Roles</h2>${roles}
     <h2>Task briefs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the durable contract (rendered prompts are adapter-private)</span></h2><ul>${briefs || "<li>—</li>"}</ul>
@@ -1071,8 +1073,8 @@ function renderWorkbenchGoalRuns(goalRuns) {
   }).join("");
   const body = (goalRuns || []).length
     ? `<table><thead><tr><th>Goal</th><th>Status</th><th>Implementers</th><th>Final files</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table>`
-    : `<div class="empty">No GoalRuns yet. Create one over a session to orchestrate multiple harnesses under one governed run.</div>`;
-  return `<h2 id="goal-runs">GoalRuns</h2><p class="sub" style="margin:-4px 0 12px">Daemon-orchestrated multi-harness work — parallel implementer cells over isolated candidate workspaces, verifier-admitted reconciliation into the session workspace.</p>${body}`;
+    : `<div class="empty">No IOI Agent runs yet. Start one from New Session — IOI Agent coordinates the harnesses under one governed run.</div>`;
+  return `<h2 id="goal-runs">IOI Agent runs</h2><p class="sub" style="margin:-4px 0 12px">IOI Agent–coordinated work — parallel implementer cells over isolated candidate workspaces, verifier-admitted reconciliation into the session workspace. GoalRun refs are the internal proof objects.</p>${body}`;
 }
 
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
@@ -3720,6 +3722,39 @@ const server = http.createServer((req, res) => {
     // registry-derived harness matrix, model routes); launch forwards to the daemon session
     // create (harness selection admitted BEFORE provisioning, fail-closed) and then compiles the
     // capability-admitted knob binding (WS-D) so reasoning/speed are daemon objects, not UI state.
+    // ---- IOI Agent launch lane (the user-facing product mode). Preview is a straight
+    // daemon proxy; launch composes the daemon's two-phase wallet contract with THIS host's
+    // wallet signer (the same local wallet-holder pattern as the /ai agent-run lane): phase A
+    // provisions + returns the authority challenge, serve mints the grant, phase B executes.
+    if (pathname === "/__ioi/api/ioi-agent/preview" && req.method === "POST") {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
+      res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(j));
+      return;
+    }
+    if (pathname === "/__ioi/api/ioi-agent/launch" && req.method === "POST") {
+      const phaseA = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
+      const a = phaseA ? await phaseA.json().catch(() => ({})) : { error: { code: "daemon_unavailable" } };
+      if (!phaseA || (phaseA.status !== 403 && phaseA.status >= 400) || a.reason !== "execution_authority_required") {
+        res.writeHead(phaseA ? phaseA.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify(a));
+        return;
+      }
+      let grant = null;
+      try {
+        grant = mintApprovalGrant({ policyHash: a.approval.policy_hash, requestHash: a.approval.request_hash });
+      } catch (e) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: { code: "wallet_grant_mint_failed", message: String(e?.message || e) } }));
+        return;
+      }
+      const phaseB = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ launch_id: a.launch_id, wallet_approval_grant: grant }) }).catch(() => null);
+      const b = phaseB ? await phaseB.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
+      res.writeHead(phaseB ? phaseB.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(b));
+      return;
+    }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
       const [pj, envs, arp, mr, et] = await Promise.all([
@@ -4384,7 +4419,58 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/timeline")) {
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
       const run = getRun(runId);
-      if (!run) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, reason: "run not found" })); return; }
+      if (!run) {
+        // Transcript-plane fallback: adapter/goal-run ops post agent-run transcripts (hpo_*)
+        // rather than registry runs; project the durable transcript into the timeline shape so
+        // proof links from Work Ledger / IOI Agent results open a real page (never a 404).
+        // Real fields only — request/activity/artifacts come straight off the transcript.
+        try {
+          const tRes = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`).then((x) => x.json()).catch(() => null);
+          const tr = tRes?.run || (tRes?.run_id ? tRes : null);
+          if (tr && tr.run_id === runId) {
+            const out = (tr.step_results || [])[0]?.output || {};
+            const isAgentRun = String(tr.op || "").startsWith("goal_run");
+            const files = out.files_written || out.final_changed_files || [];
+            const timeline = {
+              schema_version: "ioi.hypervisor.run-timeline.v1",
+              runId,
+              environmentId: null,
+              sessionRef: out.session_ref || null,
+              title: isAgentRun ? "IOI Agent coordination" : `Harness run · ${out.harness || tr.profile_ref || ""}`,
+              status: tr.status || "done",
+              phase: tr.status === "failed" ? "AGENT_EXECUTION_PHASE_FAILED" : "AGENT_EXECUTION_PHASE_STOPPED",
+              activeStatus: null,
+              stateRoot: tr.state_root || null,
+              durable: !!tr.state_root,
+              createdAt: tr.started_at,
+              updatedAt: tr.recorded_at || tr.finished_at,
+              turns: [{
+                id: `${runId}-t1`,
+                request: null,
+                activity: [{ kind: "step", text: `${tr.op || "run"} · ${out.harness || tr.profile_ref || ""} · ${out.exit_status || tr.status || ""}`, at: tr.recorded_at }],
+                response: { text: out.exit_status === "failure" ? "Run failed." : "Run complete.", at: tr.recorded_at, failed: out.exit_status === "failure" },
+                artifacts: { files: (files || []).map((f) => ({ path: f })), drafts: [], terminals: [] },
+                proof: {
+                  authority: null,
+                  receipts: [],
+                  leaseRef: null,
+                  proposalRefs: [],
+                  publishReceipts: [],
+                  stateRoot: tr.state_root || null,
+                  note: out.receipt_ref ? `Receipt: ${out.receipt_ref}` : null,
+                },
+                followUps: [],
+              }],
+            };
+            res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+            res.end(JSON.stringify(timeline));
+            return;
+          }
+        } catch { /* fall through to 404 */ }
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, reason: "run not found" }));
+        return;
+      }
       // merge the daemon governance audit trail (authority receipts) — real records, never fabricated
       let authorityReceipts = [];
       try { const r = await djson("GET", "/v1/hypervisor/authority/receipts"); authorityReceipts = r.body?.receipts || []; } catch { /* daemon transient — empty trail */ }

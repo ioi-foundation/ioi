@@ -250,7 +250,7 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "ioi-ns-modal";
-      el.innerHTML = '<div class="ioi-modal ioi-ns"><div class="ioi-mh"><span>New Session</span><button title="Close">✕</button></div><div id="ioi-ns-body"><div class="ioi-ns-empty">Loading daemon context…</div></div></div>';
+      el.innerHTML = '<div class="ioi-modal ioi-ns"><div class="ioi-mh"><span>New Session — IOI Agent</span><button title="Close">✕</button></div><div id="ioi-ns-body"><div class="ioi-ns-empty">Loading daemon context…</div></div></div>';
       document.body.appendChild(el);
       el.addEventListener("click", (e) => {
         if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; }
@@ -262,10 +262,10 @@
       });
       el.addEventListener("change", (e) => {
         if (!e.target || !e.target.id) return;
-        if (e.target.id === "ioi-ns-harness") renderNsKnobs();
+        if (e.target.id === "ioi-ns-harness") { nsHarnessTouched = true; renderNsKnobs(); }
         if (e.target.id.indexOf("ioi-ns-") === 0) renderNsPreview();
       });
-      el.addEventListener("input", (e) => { if (e.target && e.target.id === "ioi-ns-url") renderNsPreview(); });
+      el.addEventListener("input", (e) => { if (e.target && (e.target.id === "ioi-ns-url" || e.target.id === "ioi-ns-goal")) renderNsPreview(); });
     }
     if (!el.getAttribute("data-branch")) el.setAttribute("data-branch", "project");
     el.classList.add("open");
@@ -307,24 +307,35 @@
       return '<option value="editor-target:' + esc(t.target_id) + '"' + (t.openable ? "" : " disabled") + (t.target_id === "workbench-native" ? " selected" : "") + ">" + esc(label) + "</option>";
     }).join("");
     body.innerHTML =
+      '<div class="ioi-ns-field"><label>What should IOI Agent do?</label><textarea id="ioi-ns-goal" rows="2" placeholder="Describe the goal — IOI Agent will coordinate the work. Leave empty to only create a session."></textarea></div>' +
+      '<div class="ioi-ns-grid" style="grid-template-columns:1fr 1fr">' +
+      '<div class="ioi-ns-field"><label>Execution strategy</label><select id="ioi-ns-strategy">' +
+      '<option value="auto" selected>Auto — IOI Agent decides</option>' +
+      '<option value="direct">Direct — one harness</option>' +
+      '<option value="compare">Compare — multiple harnesses, reconciled</option>' +
+      '<option value="private_local">Private local — local models and harnesses only</option>' +
+      "</select></div>" +
+      '<div class="ioi-ns-field"><label>On failure</label><select id="ioi-ns-failure"><option value="continue_partial" selected>Continue with explicit partial result</option><option value="block">Block and report</option></select></div>' +
+      "</div>" +
       '<div class="ioi-ns-tabs"><button class="ioi-ns-tab" data-ns-branch="project">Start from project</button><button class="ioi-ns-tab" data-ns-branch="url">Start from URL</button><button class="ioi-ns-tab" data-ns-branch="scratch">Start from scratch</button></div>' +
       '<div class="ioi-ns-pane project"><div class="ioi-ns-field"><label>Project</label><select id="ioi-ns-project">' + projOpts + "</select></div></div>" +
       '<div class="ioi-ns-pane url"><div class="ioi-ns-field"><label>Repository / PR / issue URL</label><input id="ioi-ns-url" placeholder="https://…"></div></div>' +
       '<div class="ioi-ns-pane scratch"><div class="ioi-ns-field"><label>Workspace</label><select id="ioi-ns-env">' + envOpts + "</select></div></div>" +
       '<div class="ioi-ns-grid">' +
-      '<div class="ioi-ns-field"><label>Harness profile (daemon registry)</label><select id="ioi-ns-harness">' + hpOpts + "</select></div>" +
+      '<div class="ioi-ns-field"><label>Preferred harness (advanced · daemon registry)</label><select id="ioi-ns-harness">' + hpOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Model route (daemon registry)</label><select id="ioi-ns-model">' + mrOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Editor target (daemon registry)</label><select id="ioi-ns-editor">' + etOpts + "</select></div>" +
       '<div class="ioi-ns-field"><label>Reasoning</label><select id="ioi-ns-reasoning"></select></div>' +
       '<div class="ioi-ns-field"><label>Speed</label><select id="ioi-ns-speed"></select></div>' +
       "</div>" +
       '<div class="ioi-ns-preview" id="ioi-ns-preview"></div>' +
-      '<button class="ioi-ns-btn" id="ioi-ns-launch">Launch session</button>' +
+      '<button class="ioi-ns-btn" id="ioi-ns-launch">Start with IOI Agent</button>' +
       '<div id="ioi-ns-result" style="display:none"></div>';
     // Preselect the registry default profile when it is actually selectable.
     const hp = document.getElementById("ioi-ns-harness");
     const def = profiles.find((p) => p.default && !nsHarnessReason(p));
     if (def) hp.value = def.profile_ref;
+    nsHarnessTouched = false;
     renderNsKnobs();
   }
   function renderNsKnobs() {
@@ -349,10 +360,54 @@
     }
     renderNsPreview();
   }
+  var nsPreviewTimer = null;
+  var nsPreviewSeq = 0;
+  // The preferred-harness select auto-preselects the registry default for the legacy
+  // create-session path; that is NOT a user preference for IOI Agent (it would silently
+  // force direct-native and starve Auto/Compare). Only an explicit user selection counts.
+  var nsHarnessTouched = false;
+  function nsGoal() { var g = document.getElementById("ioi-ns-goal"); return g ? g.value.trim() : ""; }
+  function nsStrategy() { var sel = document.getElementById("ioi-ns-strategy"); return sel && sel.value ? sel.value : "auto"; }
+  function renderNsAgentPreview() {
+    // Daemon-backed IOI Agent preview — the plan (direct vs internal coordination), eligible/
+    // excluded harnesses with reasons, isolation and receipt classes. Never fabricated locally.
+    var box = document.getElementById("ioi-ns-preview");
+    if (!box) return;
+    var seq = ++nsPreviewSeq;
+    var payload = { goal: nsGoal(), strategy: nsStrategy() };
+    var routeSel = document.getElementById("ioi-ns-model");
+    if (routeSel && routeSel.value) payload.model_route_ref = routeSel.value;
+    var hp = nsProfile();
+    if (nsHarnessTouched && hp) payload.preferred_harness_refs = [hp.profile_ref];
+    fetch("/__ioi/api/ioi-agent/preview", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (seq !== nsPreviewSeq) return;
+        if (j.error) { box.innerHTML = '<span class="nsp-k nsp-warn">Preview</span> <span class="nsp-warn">' + esc(j.error.code || "unavailable") + (j.error.message ? " — " + esc(j.error.message) : "") + "</span>"; return; }
+        var lines = [];
+        lines.push('<span class="nsp-k">IOI Agent</span> <b>' + esc(j.coordination || "IOI Agent will coordinate this work") + "</b>");
+        lines.push('<span class="nsp-k">Plan</span> strategy <b>' + esc(j.strategy) + "</b> → " + (j.planned_execution_kind === "goal_run" ? "<b>compare across harnesses, verified and reconciled</b>" : "<b>direct — one admitted harness</b>") + ' <span style="color:#6f7280">(' + esc((j.reason_codes || []).join(", ")) + ")</span>");
+        lines.push('<span class="nsp-k">Harnesses</span> ' + (j.eligible_harnesses || []).map(function (r) { return "<code>" + esc(String(r).replace("harness-profile:hp_", "")) + "</code>"; }).join(" ") + ((j.excluded_harnesses || []).length ? ' · excluded: ' + j.excluded_harnesses.map(function (x) { return '<span class="nsp-warn">' + esc(x.harness || x.profile_ref || "") + " (" + esc(x.reason_code || "") + ")</span>"; }).join(", ") : ""));
+        lines.push('<span class="nsp-k">Model route</span> <code>' + esc(j.model_route_ref || "") + "</code> · " + esc(j.model_route_state || ""));
+        if (j.remote_slots_disabled) lines.push('<span class="nsp-k">Privacy</span> private local — remote/provider-gated slots disabled');
+        lines.push('<span class="nsp-k">Isolation</span> ' + esc(j.expected_isolation || ""));
+        lines.push('<span class="nsp-k">Receipts</span> ' + (j.expected_receipt_refs || []).map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
+        lines.push('<span class="nsp-k">Admission</span> ' + esc(((j.admission_preview || {}).kinds || []).join(" · ")) + " — " + esc((j.admission_preview || {}).authority || ""));
+        box.innerHTML = lines.join("<br>");
+      })
+      .catch(function () { if (seq === nsPreviewSeq) box.innerHTML = '<span class="nsp-k nsp-warn">Preview</span> <span class="nsp-warn">daemon unavailable</span>'; });
+  }
   function renderNsPreview() {
     const box = document.getElementById("ioi-ns-preview");
     const el = document.getElementById("ioi-ns-modal");
     if (!box || !el) return;
+    if (nsGoal().length >= 4) {
+      // IOI Agent path: the preview is DAEMON truth (debounced).
+      if (nsPreviewTimer) clearTimeout(nsPreviewTimer);
+      box.innerHTML = '<span class="nsp-k">IOI Agent</span> planning…';
+      nsPreviewTimer = setTimeout(renderNsAgentPreview, 250);
+      return;
+    }
     const branch = el.getAttribute("data-branch") || "project";
     const p = nsProfile();
     const routeSel = document.getElementById("ioi-ns-model");
@@ -380,11 +435,67 @@
     lines.push('<span class="nsp-k">Restore</span> the session persists in the daemon estate; reopen it from Workbench — nothing here is UI-only state');
     box.innerHTML = lines.join("<br>");
   }
+  function nsAgentLaunch(result, btn) {
+    // IOI Agent launch: serve composes the daemon's two-phase wallet contract (challenge →
+    // grant → execute) and returns the coordinated result with proof links.
+    var el = document.getElementById("ioi-ns-modal");
+    var branch = el.getAttribute("data-branch") || "project";
+    var body = { goal: nsGoal(), strategy: nsStrategy() };
+    if (branch === "project") { var pv = (document.getElementById("ioi-ns-project") || {}).value; if (pv) body.project_ref = pv; }
+    if (branch === "url") {
+      var u = ((document.getElementById("ioi-ns-url") || {}).value || "").trim();
+      if (u && !/^https?:\/\/.+/.test(u)) { result.style.display = "block"; result.innerHTML = '<div class="ioi-ns-err">Enter a valid http(s) repository / PR / issue URL.</div>'; return; }
+      if (u) body.context_url = u;
+    }
+    if (branch === "scratch") { var ev = (document.getElementById("ioi-ns-env") || {}).value; if (ev) body.environment_id = ev; }
+    var etSel = document.getElementById("ioi-ns-editor");
+    if (etSel && etSel.value) body.editor_target_ref = etSel.value;
+    var routeSel = document.getElementById("ioi-ns-model");
+    if (routeSel && routeSel.value) body.model_route_ref = routeSel.value;
+    var hp = nsProfile();
+    if (nsHarnessTouched && hp) body.preferred_harness_refs = [hp.profile_ref];
+    var failSel = document.getElementById("ioi-ns-failure");
+    if (failSel && failSel.value) body.failure_policy = failSel.value;
+    if (btn) { btn.disabled = true; btn.textContent = "IOI Agent working…"; }
+    fetch("/__ioi/api/ioi-agent/launch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
+      .then(function (rr) {
+        var j = rr.j || {};
+        result.style.display = "block";
+        if (rr.status >= 400 || (j.error && j.error.code)) {
+          var err = j.error || {};
+          result.innerHTML = '<div class="ioi-ns-err"><b>Launch rejected fail-closed</b> — <code>' + esc(err.code || "HTTP " + rr.status) + "</code>" + (err.message ? "<br>" + esc(err.message) : "") + "</div>";
+          return;
+        }
+        var files = (j.final_changed_files || []).map(function (f) { return "<code>" + esc(f) + "</code>"; }).join(" ") || "—";
+        var adv = j.advanced || {};
+        result.innerHTML =
+          '<div class="ioi-ns-ok"><b>' + esc(j.headline || "IOI Agent coordinated this work") + "</b>" +
+          (j.partial_result ? ' <span class="nsp-warn">(explicit partial — see blockers in proof)</span>' : "") +
+          "<br>Changed files: " + files +
+          '<br><a href="' + esc((j.links || {}).workbench_url || "/__ioi/workbench") + '" target="_top">Open Workbench →</a> · ' +
+          '<a href="' + esc((j.links || {}).run_timeline_url || "#") + '" target="_blank" rel="noopener">Run Timeline ↗</a> · ' +
+          '<a href="' + esc((j.links || {}).work_ledger_url || "/__ioi/work-ledger") + '" target="_top">Work Ledger →</a>' +
+          '<details style="margin-top:8px"><summary style="cursor:pointer">Advanced / proof details</summary>' +
+          '<div style="font-size:12px;margin-top:6px">execution: <code>' + esc(j.execution_kind || "") + "</code> · strategy <code>" + esc(j.strategy || "") + "</code>" +
+          "<br>session: <code>" + esc(j.session_ref || "") + "</code>" +
+          (adv.goal_run_ref ? "<br>GoalRun (internal orchestration): <code>" + esc(adv.goal_run_ref) + "</code>" : "") +
+          (adv.harness_profile_ref ? "<br>harness: <code>" + esc(adv.harness_profile_ref) + "</code>" : "") +
+          (adv.model_route_ref ? "<br>model route: <code>" + esc(adv.model_route_ref) + "</code>" : "") +
+          "</div></details></div>";
+      })
+      .catch(function () {
+        result.style.display = "block";
+        result.innerHTML = '<div class="ioi-ns-err">IOI Agent launch failed — the daemon did not answer.</div>';
+      })
+      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = "Start with IOI Agent"; } });
+  }
   function nsLaunch() {
     const el = document.getElementById("ioi-ns-modal");
     const result = document.getElementById("ioi-ns-result");
     const btn = document.getElementById("ioi-ns-launch");
     if (!el || !result) return;
+    if (nsGoal().length >= 4) { nsAgentLaunch(result, btn); return; }
     const branch = el.getAttribute("data-branch") || "project";
     const body = {};
     if (branch === "project") {
@@ -540,7 +651,7 @@
   #ioi-ns-modal[data-branch="project"] .ioi-ns-pane.project,#ioi-ns-modal[data-branch="url"] .ioi-ns-pane.url,#ioi-ns-modal[data-branch="scratch"] .ioi-ns-pane.scratch{display:block;}
   .ioi-ns-field{margin:0 0 10px;}
   .ioi-ns-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;margin-bottom:4px;font-weight:600;}
-  .ioi-ns-field select,.ioi-ns-field input{width:100%;background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:7px 10px;font:12.5px system-ui,sans-serif;}
+  .ioi-ns-field select,.ioi-ns-field input,.ioi-ns-field textarea{width:100%;box-sizing:border-box;background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:7px 10px;font:12.5px system-ui,sans-serif;resize:vertical;}
   .ioi-ns-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
   .ioi-ns-preview{border:1px solid #24262d;border-radius:10px;background:#0c0d10;padding:12px 14px;margin:6px 0 12px;font-size:12.5px;}
   .ioi-ns-preview b{color:#fff;}

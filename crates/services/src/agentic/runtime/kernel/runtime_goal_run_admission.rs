@@ -364,6 +364,136 @@ impl RuntimeGoalRunAdmissionCore {
     }
 }
 
+impl RuntimeGoalRunAdmissionCore {
+    /// select_ioi_agent_execution — the IOI Agent strategy planner (pure, deterministic v1).
+    ///
+    /// The user-facing product mode is IOI Agent; this decides how a launch is realized:
+    /// `direct` (one admitted harness binding) or `goal_run` (multi-harness compare/reconcile).
+    /// The v1 policy is deliberately deterministic and explainable — reason codes, no model
+    /// call, no fabricated "intelligence":
+    ///   - `direct`        → direct (the standard single-harness session, unchanged);
+    ///   - `compare`       → goal_run; fails closed when fewer than 2 implementers are eligible;
+    ///   - `private_local` → candidates restricted to local provider trust + a local model
+    ///                       route, then the auto rule applies (remote slots disabled);
+    ///   - `auto`          → goal_run when ≥2 implementers are eligible AND the goal reads
+    ///                       large/ambiguous (length ≥ 120 chars or an explicit compare-shaped
+    ///                       keyword); otherwise direct.
+    pub fn select_ioi_agent_execution(&self, request: &Value) -> AdmitResult<Value> {
+        const STRATEGIES: &[&str] = &["auto", "direct", "compare", "private_local"];
+        let strategy = enum_value(request, "strategy", STRATEGIES)?;
+        let goal = required_text(request, "normalized_goal", 4)?;
+        let conductor_ref = required_text(request, "conductor_ref", 1)?;
+        if !conductor_ref.starts_with("harness-profile:") {
+            return Err(admission_error(
+                "ioi_agent_conductor_invalid",
+                "IOI Agent selection requires a conductor harness profile.",
+                json!({ "conductor_ref": conductor_ref }),
+            ));
+        }
+        let privacy_posture = if strategy == "private_local" { "private_local" } else { "standard" };
+        let candidates = request
+            .get("implementer_candidates")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let preferred: Vec<String> = string_refs(request.get("preferred_harness_refs"));
+
+        let mut eligible: Vec<Value> = Vec::new();
+        let mut excluded: Vec<Value> = Vec::new();
+        for candidate in &candidates {
+            // Private-local is a categorical boundary: it excludes non-local trust and non-local
+            // routes BEFORE ordinary eligibility (an acceptance ref cannot opt remote trust in).
+            let mut reason: Option<String> = None;
+            if privacy_posture == "private_local" {
+                let trust = candidate.get("provider_trust").and_then(Value::as_str).unwrap_or("");
+                let route_local = candidate.get("model_route_local").and_then(Value::as_bool);
+                if trust != "local" {
+                    reason = Some("private_local_excludes_remote_trust".to_string());
+                } else if route_local == Some(false) {
+                    reason = Some("private_local_requires_local_model_route".to_string());
+                }
+            }
+            if reason.is_none() {
+                reason = eligibility_reason(candidate).map(str::to_string);
+            }
+            if reason.is_none()
+                && !preferred.is_empty()
+                && !preferred.iter().any(|p| {
+                    Some(p.as_str()) == candidate.get("profile_ref").and_then(Value::as_str)
+                })
+            {
+                reason = Some("not_in_preferred_harnesses".to_string());
+            }
+            match reason {
+                None => eligible.push(candidate.clone()),
+                Some(code) => excluded.push(json!({
+                    "profile_ref": candidate.get("profile_ref").cloned().unwrap_or(Value::Null),
+                    "harness": candidate.get("harness").cloned().unwrap_or(Value::Null),
+                    "reason_code": code,
+                })),
+            }
+        }
+
+        let compare_shaped = goal.len() >= 120
+            || ["compare", "review", "refactor", "migrate", "audit", "redesign", "multiple approaches"]
+                .iter()
+                .any(|kw| goal.to_lowercase().contains(kw));
+        let (kind, reason_code): (&str, &str) = match strategy.as_str() {
+            "direct" => ("direct", "strategy_direct_requested"),
+            "compare" => {
+                if eligible.len() < 2 {
+                    return Err(admission_error(
+                        "ioi_agent_compare_insufficient_implementers",
+                        "Compare needs at least two eligible local implementer harnesses.",
+                        json!({ "eligible": eligible.len(), "excluded": excluded }),
+                    ));
+                }
+                ("goal_run", "strategy_compare_requested")
+            }
+            _ => {
+                // auto / private_local share the auto rule over their (possibly filtered) pool.
+                if eligible.len() >= 2 && compare_shaped {
+                    ("goal_run", "auto_selected_goal_run_ambiguous_or_large")
+                } else {
+                    ("direct", "auto_selected_direct_simple")
+                }
+            }
+        };
+
+        // Direct selection order: an eligible preferred/implementer harness first (it was asked
+        // for), else the conductor-native worker — the standard session path, unchanged.
+        let selected_harness_ref = if kind == "direct" {
+            eligible
+                .first()
+                .and_then(|c| c.get("profile_ref").and_then(Value::as_str))
+                .unwrap_or(&conductor_ref)
+                .to_string()
+        } else {
+            String::new()
+        };
+
+        Ok(json!({
+            "schema_version": GOAL_RUN_ADMISSION_SCHEMA_VERSION,
+            "decision": "selected",
+            "agent": "ioi-agent",
+            "strategy": strategy,
+            "planned_execution_kind": kind,
+            "reason_codes": [reason_code],
+            "privacy_posture": privacy_posture,
+            "remote_slots_disabled": privacy_posture == "private_local",
+            "conductor_ref": conductor_ref,
+            "selected_harness_ref": if selected_harness_ref.is_empty() { Value::Null } else { json!(selected_harness_ref) },
+            "eligible_harness_refs": eligible
+                .iter()
+                .filter_map(|c| c.get("profile_ref").and_then(Value::as_str))
+                .collect::<Vec<_>>(),
+            "excluded_harnesses": excluded,
+            "max_parallel_invocations": GOAL_RUN_MAX_PARALLEL_INVOCATIONS,
+            "runtimeTruthSource": "daemon-runtime",
+        }))
+    }
+}
+
 /// Why a candidate is ineligible for an implementer role (None = eligible).
 fn eligibility_reason(candidate: &Value) -> Option<&'static str> {
     let text = |key: &str| candidate.get(key).and_then(Value::as_str).unwrap_or("");
@@ -605,6 +735,45 @@ mod tests {
         assert_eq!(
             err.code,
             "goal_run_invocation_provider_trust_acceptance_required"
+        );
+    }
+
+    #[test]
+    fn ioi_agent_strategy_selection_is_deterministic() {
+        let core = RuntimeGoalRunAdmissionCore;
+        let base = |strategy: &str, goal: &str| json!({
+            "strategy": strategy,
+            "normalized_goal": goal,
+            "conductor_ref": "harness-profile:hp_hypervisor_worker",
+            "implementer_candidates": [
+                implementer("opencode", "active", "runnable"),
+                implementer("deepseek_tui", "active", "runnable"),
+            ],
+        });
+        let auto_small = core.select_ioi_agent_execution(&base("auto", "Create a status file")).unwrap();
+        assert_eq!(auto_small["planned_execution_kind"], json!("direct"));
+        assert_eq!(auto_small["selected_harness_ref"], json!("harness-profile:hp_opencode"));
+        let auto_big = core
+            .select_ioi_agent_execution(&base("auto", "Compare two approaches to the retry loop and pick the safer one"))
+            .unwrap();
+        assert_eq!(auto_big["planned_execution_kind"], json!("goal_run"));
+        let compare = core.select_ioi_agent_execution(&base("compare", "Small goal")).unwrap();
+        assert_eq!(compare["planned_execution_kind"], json!("goal_run"));
+        // compare fails closed with one implementer
+        let mut one = base("compare", "Small goal");
+        one["implementer_candidates"] = json!([implementer("opencode", "active", "runnable")]);
+        assert_eq!(
+            core.select_ioi_agent_execution(&one).unwrap_err().code,
+            "ioi_agent_compare_insufficient_implementers"
+        );
+        // private_local excludes non-local trust with an explicit reason
+        let mut private = base("private_local", "Small goal");
+        private["implementer_candidates"][1]["provider_trust"] = json!("remote");
+        let selected = core.select_ioi_agent_execution(&private).unwrap();
+        assert_eq!(selected["remote_slots_disabled"], json!(true));
+        assert_eq!(
+            selected["excluded_harnesses"][0]["reason_code"],
+            json!("private_local_excludes_remote_trust")
         );
     }
 
