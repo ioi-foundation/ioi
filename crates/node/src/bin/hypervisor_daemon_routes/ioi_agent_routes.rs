@@ -539,12 +539,44 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "authority": "wallet execution grant at execute (403 challenge → grant)",
         })
     };
+    // Intelligence posture — what a projection WOULD include for the planned harness(es).
+    let allow_sensitive = policy
+        .pointer("/privacy/allow_private_projection")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let (i_entries, i_skills, i_affinities) =
+        super::ioi_intelligence_routes::gather_projection_inputs(&st).await;
+    let projection_ctx = super::ioi_intelligence_routes::build_projection_context(
+        &st,
+        &json!({
+            "goal": text(&facts, "goal"),
+            "harness_profile_ref": selection.get("selected_harness_ref").and_then(Value::as_str)
+                .unwrap_or_else(|| selection.get("eligible_harness_refs").and_then(|e| e.get(0)).and_then(Value::as_str).unwrap_or("")),
+            "model_route_ref": text(&facts, "route_ref"),
+            "privacy_posture": text(&selection, "privacy_posture"),
+            "allow_sensitive": allow_sensitive,
+        }),
+    )
+    .await;
+    let intelligence = super::ioi_intelligence_routes::plan_projection(
+        &i_entries, &i_skills, &i_affinities, &projection_ctx,
+    );
+    let space = super::ioi_intelligence_routes::ensure_default_space(&st);
     (
         StatusCode::OK,
         Json(json!({
             "ok": true,
             "agent": "ioi-agent",
             "coordination": "IOI Agent will coordinate this work",
+            "memory_space_refs": [space.get("space_ref").cloned().unwrap_or(Value::Null)],
+            "intelligence_projection_preview": {
+                "counts": intelligence["counts"],
+                "candidate_skill_refs": intelligence["included_skill_refs"],
+                "automation_affinity_match": intelligence["automation_affinity_match"],
+                "connector_context_refs": intelligence["connector_context_refs"],
+                "redacted": intelligence["redacted_entry_refs"],
+                "excluded": intelligence["excluded_refs_with_reasons"],
+            },
             "strategy": text(&selection, "strategy"),
             "planned_execution_kind": kind,
             "reason_codes": selection.get("reason_codes").cloned().unwrap_or(json!([])),
@@ -609,6 +641,12 @@ pub(crate) async fn handle_ioi_agent_launch(
         let kind = text(&launch, "execution_kind").to_string();
         let session_ref = text(&launch, "session_ref").to_string();
         let goal = text(&launch, "goal").to_string();
+        // Projections were created at PHASE A (so the wallet grant binds to the exact
+        // composed intent that executes). Direct reads the stored delivered intent here.
+        let delivered_intent = {
+            let stored = text(&launch, "delivered_intent");
+            if stored.is_empty() { goal.clone() } else { stored.to_string() }
+        };
         let outcome: Value;
         if kind == "goal_run" {
             let grid = text(&launch, "goal_run_id").to_string();
@@ -702,7 +740,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                     urlencoding_encode(&session_ref)
                 ),
                 "POST",
-                Some(&json!({ "intent": goal, "wallet_approval_grant": grant })),
+                Some(&json!({ "intent": delivered_intent, "wallet_approval_grant": grant })),
             )
             .await;
             if status != 200 {
@@ -771,6 +809,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                 "advanced": {
                     "goal_run_ref": if grid.is_empty() { Value::Null } else { json!(format!("goal://{grid}")) },
                     "policy_ref": launch.get("policy_ref").cloned().unwrap_or(Value::Null),
+                    "memory_projection_refs": launch.get("memory_projection_refs").cloned().unwrap_or(json!([])),
                     "policy_constraints_applied": launch.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
                     "harness_binding_ref": launch.get("harness_binding_ref").cloned().unwrap_or(Value::Null),
                     "harness_profile_ref": launch.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
@@ -862,6 +901,55 @@ pub(crate) async fn handle_ioi_agent_launch(
             .to_string();
     }
 
+    // Portable intelligence: create the scoped, receipted MemoryProjection(s) NOW — before the
+    // authority challenge — so the wallet grant binds to the exact intent that will execute
+    // (direct composes goal + rendered summary; goal_run projections attach per invocation).
+    let mut projection_refs: Vec<String> = Vec::new();
+    let projection_base = json!({
+        "goal": goal,
+        "launch_ref": format!("ioi-agent-launch://{launch_id}"),
+        "session_ref": session_ref,
+        "model_route_ref": route_ref,
+        "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+        "privacy_posture": text(&selection, "privacy_posture"),
+        "allow_sensitive": facts
+            .pointer("/policy/privacy/allow_private_projection")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    });
+    let mut delivered_intent = goal.clone();
+    if kind == "goal_run" {
+        if let Some(goal_run) = super::goalrun_routes::load_goal_run(&st, &goal_run_id) {
+            for cell in goal_run
+                .get("context_cells")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .filter(|c| text(c, "role") == "implementer")
+            {
+                let mut body = projection_base.clone();
+                body["goal_run_ref"] = json!(format!("goal://{goal_run_id}"));
+                body["harness_profile_ref"] = json!(text(cell, "harness_ref"));
+                let projection = super::ioi_intelligence_routes::create_projection(&st, &body).await;
+                projection_refs.push(text(&projection, "projection_ref").to_string());
+            }
+        }
+    } else {
+        let mut body = projection_base.clone();
+        body["harness_profile_ref"] = selection
+            .get("selected_harness_ref")
+            .cloned()
+            .unwrap_or(json!("harness-profile:hp_hypervisor_worker"));
+        let projection = super::ioi_intelligence_routes::create_projection(&st, &body).await;
+        let summary = text(&projection, "projection_summary").to_string();
+        if !summary.is_empty() {
+            delivered_intent =
+                format!("{goal}\n\n[Workspace intelligence — scoped projection]\n{summary}");
+        }
+        projection_refs.push(text(&projection, "projection_ref").to_string());
+    }
+
     // Relay the underlying lane's authority challenge (grant-less probe; nothing executes).
     let challenge_url = if kind == "goal_run" {
         format!("{}/v1/hypervisor/goal-runs/{goal_run_id}/start", st.base_url)
@@ -875,7 +963,7 @@ pub(crate) async fn handle_ioi_agent_launch(
     let challenge_body = if kind == "goal_run" {
         json!({})
     } else {
-        json!({ "intent": goal })
+        json!({ "intent": delivered_intent })
     };
     let (challenge_status, mut challenge) = self_call(&challenge_url, "POST", Some(&challenge_body)).await;
     if challenge_status != 403 {
@@ -903,6 +991,13 @@ pub(crate) async fn handle_ioi_agent_launch(
         "harness_binding_ref": created.pointer("/harness_binding/binding_id").cloned().unwrap_or(Value::Null),
         "model_route_ref": route_ref,
         "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+        "memory_projection_refs": projection_refs,
+        "delivered_intent": delivered_intent,
+        "privacy_posture": text(&selection, "privacy_posture"),
+        "allow_sensitive_projection": facts
+            .pointer("/policy/privacy/allow_private_projection")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         "policy_constraints_applied": selection.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
         "policy_constraints_relaxed": selection.get("policy_constraints_relaxed").cloned().unwrap_or(json!([])),
         "min_successful_invocations": selection.get("min_successful_invocations").cloned().unwrap_or(json!(0)),

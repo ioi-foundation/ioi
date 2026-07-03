@@ -416,6 +416,11 @@
         lines.push('<span class="nsp-k">Harnesses</span> ' + (j.eligible_harnesses || []).map(function (r) { return "<code>" + esc(String(r).replace("harness-profile:hp_", "")) + "</code>"; }).join(" ") + ((j.excluded_harnesses || []).length ? ' · excluded: ' + j.excluded_harnesses.map(function (x) { return '<span class="nsp-warn">' + esc(x.harness || x.profile_ref || "") + " (" + esc(x.reason_code || "") + ")</span>"; }).join(", ") : ""));
         lines.push('<span class="nsp-k">Model route</span> <code>' + esc(j.model_route_ref || "") + "</code> · " + esc(j.model_route_state || ""));
         if (j.remote_slots_disabled) lines.push('<span class="nsp-k">Privacy</span> private local — remote/provider-gated slots disabled');
+        var intel = j.intelligence_projection_preview;
+        if (intel && intel.counts) {
+          var aff = intel.automation_affinity_match;
+          lines.push('<span class="nsp-k">Intelligence</span> memory space <code>' + esc((j.memory_space_refs || [])[0] || "") + '</code> — ' + intel.counts.included_entries + ' entr' + (intel.counts.included_entries === 1 ? "y" : "ies") + ' + ' + intel.counts.included_skills + ' skill' + (intel.counts.included_skills === 1 ? "" : "s") + ' projected · ' + intel.counts.redacted + ' redacted · ' + intel.counts.excluded + ' excluded' + ((intel.connector_context_refs || []).length ? ' · connector context: ' + intel.connector_context_refs.length + ' ref(s)' : ' · no connector context') + (aff ? ' · affinity: <b>' + esc(aff.title || "") + '</b>' : ""));
+        }
         lines.push('<span class="nsp-k">Isolation</span> ' + esc(j.expected_isolation || ""));
         lines.push('<span class="nsp-k">Receipts</span> ' + (j.expected_receipt_refs || []).map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
         lines.push('<span class="nsp-k">Admission</span> ' + esc(((j.admission_preview || {}).kinds || []).join(" · ")) + " — " + esc((j.admission_preview || {}).authority || ""));
@@ -509,6 +514,7 @@
           '<div style="font-size:12px;margin-top:6px">execution: <code>' + esc(j.execution_kind || "") + "</code> · strategy <code>" + esc(j.strategy || "") + "</code>" +
           "<br>session: <code>" + esc(j.session_ref || "") + "</code>" +
           (adv.policy_ref ? "<br>launch policy: <code>" + esc(adv.policy_ref) + "</code>" : "") +
+          ((adv.memory_projection_refs || []).length ? "<br>memory projections: " + adv.memory_projection_refs.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" ") : "") +
           (adv.goal_run_ref ? "<br>GoalRun (internal orchestration): <code>" + esc(adv.goal_run_ref) + "</code>" : "") +
           (adv.harness_profile_ref ? "<br>harness: <code>" + esc(adv.harness_profile_ref) + "</code>" : "") +
           (adv.model_route_ref ? "<br>model route: <code>" + esc(adv.model_route_ref) + "</code>" : "") +

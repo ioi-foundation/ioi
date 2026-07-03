@@ -131,7 +131,7 @@ async function run() {
   await page.goto(`${SHELL}/__ioi/agent-studio`, { waitUntil: "domcontentloaded" });
   const tabCount = await page.locator("#astabs .tab").count();
   if (tabCount) {
-    ok("Agent Studio detail is an editor-with-tabs shell", tabCount === 5, `${tabCount} tabs (Configuration/Harness/Model routes/Launch policies/Activity)`);
+    ok("Agent Studio detail is an editor-with-tabs shell", tabCount === 8, `${tabCount} tabs (Configuration/Harness/Model routes/Launch policies/Connectors/Skills/Memory/Activity)`);
     ok("default tab shows configuration", await page.locator('.aspanel.on[data-aspanel="config"]').count() === 1);
     await page.locator('#astabs .tab[data-astab="harness-profiles"]').click();
     ok("harness-profiles tab activates its registry panel", await page.locator('.aspanel.on[data-aspanel="harness-profiles"]').count() === 1);

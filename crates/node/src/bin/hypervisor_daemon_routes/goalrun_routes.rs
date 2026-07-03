@@ -87,6 +87,10 @@ fn kernel_err(
     )
 }
 
+pub(crate) fn load_goal_run(st: &DaemonState, goal_run_id: &str) -> Option<Value> {
+    load(st, GOAL_RUN_KIND, goal_run_id)
+}
+
 fn load(st: &DaemonState, kind: &str, goal_run_id: &str) -> Option<Value> {
     read_record_dir(&st.data_dir, kind)
         .into_iter()
@@ -452,6 +456,10 @@ struct InvocationPlan {
     brief_ref: String,
     invocation_ref: String,
     objective: String,
+    /// Scoped intelligence projection for THIS harness (portable memory → rendered summary;
+    /// the raw MemoryEntry records never reach the driver).
+    memory_projection_ref: String,
+    projection_summary: String,
 }
 
 /// One admitted implementer invocation, end to end: isolated candidate session → adapter driver
@@ -562,7 +570,15 @@ async fn run_invocation(
     // workspace (bwrap-confined by the driver lane). The rendered input is adapter-private;
     // the durable contract stays the task brief.
     let (_, argv) = driver;
-    let outcome = run_host_spawn_lane(&argv, &workspace, &plan.objective, endpoint.as_deref()).await;
+    let delivered_objective = if plan.projection_summary.is_empty() {
+        plan.objective.clone()
+    } else {
+        format!(
+            "{}\n\n[Workspace intelligence — scoped projection]\n{}",
+            plan.objective, plan.projection_summary
+        )
+    };
+    let outcome = run_host_spawn_lane(&argv, &workspace, &delivered_objective, endpoint.as_deref()).await;
 
     // Persist normalized adapter events with the goal-run linkage.
     let run_tag = format!("{}_{}_{:x}", safe(&goal_run_id), plan.role_key, nanos());
@@ -680,12 +696,14 @@ async fn run_invocation(
         "status": if outcome.ok { "completed" } else { "failed" },
         "adapter_event_refs": adapter_event_refs,
         "adapter_event_count": outcome.adapter_events.len(),
+        "memory_projection_ref": plan.memory_projection_ref,
         "implementation_result": {
             "implementation_result_id": format!("implementation_result://ir_{}_{}", goal_run_id, plan.role_key),
             "goal_ref": goal_ref,
             "harness_invocation_ref": plan.invocation_ref,
             "harness_profile_ref": plan.profile_ref,
             "model_route_ref": route_ref,
+            "memory_projection_ref": plan.memory_projection_ref,
             "command_contract_ref": format!("command-contract://harness-shim/{}", safe(&shim)),
             "workspace_ref": format!("workspace://goal-run/{}/{}", goal_run_id, plan.role_key),
             "workspace_root": workspace,
@@ -773,6 +791,13 @@ pub(crate) async fn handle_goal_run_start(
             );
             object.insert("invocation_ref".into(), json!(invocation_ref));
         }
+        // Attach the harness-scoped MemoryProjection when the IOI Agent lane created one
+        // (matched by goal_run_ref + harness ref; absent = no projection, honest empty).
+        let projection = read_record_dir(&st.data_dir, "memory-projections")
+            .into_iter()
+            .find(|p| {
+                text(p, "goal_run_ref") == goal_ref && text(p, "harness_profile_ref") == profile_ref
+            });
         match kernel.admit_goal_run_harness_invocation(&request, &iso_now()) {
             Ok(_admitted) => admitted_plans.push(InvocationPlan {
                 role_key,
@@ -782,6 +807,14 @@ pub(crate) async fn handle_goal_run_start(
                 brief_ref,
                 invocation_ref,
                 objective: goal.clone(),
+                memory_projection_ref: projection
+                    .as_ref()
+                    .map(|p| text(p, "projection_ref").to_string())
+                    .unwrap_or_default(),
+                projection_summary: projection
+                    .as_ref()
+                    .map(|p| text(p, "projection_summary").to_string())
+                    .unwrap_or_default(),
             }),
             Err(error) => {
                 // Explicit partial: the role is recorded as a failed invocation with the

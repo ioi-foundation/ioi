@@ -580,6 +580,20 @@ pub(crate) async fn handle_work_ledger(
             }));
         }
     }
+    // Intelligence projections — the scoped memory a harness invocation actually received
+    // (refs + counts only; private bodies never enter the ledger).
+    for r in read_record_dir(&st.data_dir, "memory-projections") {
+        entries.push(json!({
+            "id": g(&r, "projection_id"), "kind": "memory_projection", "timestamp": g(&r, "created_at"),
+            "status": "projected", "projection_ref": g(&r, "projection_ref"),
+            "memory_space_ref": g(&r, "memory_space_ref"),
+            "session_ref": g(&r, "session_ref"), "goal_run_ref": g(&r, "goal_run_ref"),
+            "harness_profile_ref": g(&r, "harness_profile_ref"),
+            "policy_ref": g(&r, "policy_ref"),
+            "counts": g(&r, "counts"),
+            "receipt_ref": r.pointer("/receipt_refs/0").cloned().unwrap_or(Value::Null),
+        }));
+    }
     for r in read_record_dir(&st.data_dir, "goal-runs") {
         entries.push(json!({
             "id": g(&r, "goal_run_id"), "kind": "goal_run", "timestamp": g(&r, "updated_at"),

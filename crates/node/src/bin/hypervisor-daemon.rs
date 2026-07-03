@@ -38,6 +38,8 @@ mod domain_apps_routes;
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
 mod ioi_agent_routes;
+#[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
+mod ioi_intelligence_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -1117,6 +1119,55 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/ioi-agent/launch",
             post(ioi_agent_routes::handle_ioi_agent_launch),
+        )
+        // IOI Agent intelligence plane — portable memory/skills/affinities + scoped projections.
+        .route(
+            "/v1/hypervisor/memory-spaces",
+            get(ioi_intelligence_routes::handle_spaces_list)
+                .post(ioi_intelligence_routes::handle_spaces_create),
+        )
+        .route(
+            "/v1/hypervisor/memory-entries",
+            get(ioi_intelligence_routes::handle_entries_list)
+                .post(ioi_intelligence_routes::handle_entries_create),
+        )
+        .route(
+            "/v1/hypervisor/memory-entries/:id",
+            get(ioi_intelligence_routes::handle_entries_get)
+                .patch(ioi_intelligence_routes::handle_entries_patch),
+        )
+        .route(
+            "/v1/hypervisor/skill-entries",
+            get(ioi_intelligence_routes::handle_skills_list)
+                .post(ioi_intelligence_routes::handle_skills_create),
+        )
+        .route(
+            "/v1/hypervisor/skill-entries/:id",
+            get(ioi_intelligence_routes::handle_skills_get)
+                .patch(ioi_intelligence_routes::handle_skills_patch),
+        )
+        .route(
+            "/v1/hypervisor/automation-affinities",
+            get(ioi_intelligence_routes::handle_affinities_list)
+                .post(ioi_intelligence_routes::handle_affinities_create),
+        )
+        .route(
+            "/v1/hypervisor/automation-affinities/:id",
+            get(ioi_intelligence_routes::handle_affinities_get)
+                .patch(ioi_intelligence_routes::handle_affinities_patch),
+        )
+        .route(
+            "/v1/hypervisor/memory-projections/preview",
+            post(ioi_intelligence_routes::handle_projection_preview),
+        )
+        .route(
+            "/v1/hypervisor/memory-projections",
+            get(ioi_intelligence_routes::handle_projections_list)
+                .post(ioi_intelligence_routes::handle_projections_create),
+        )
+        .route(
+            "/v1/hypervisor/memory-projections/:id",
+            get(ioi_intelligence_routes::handle_projections_get),
         )
         .route(
             "/v1/hypervisor/ioi-agent/launch-policies",
