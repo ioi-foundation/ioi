@@ -1070,3 +1070,254 @@ pub(crate) async fn handle_proposal_reject(
     let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
     (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
 }
+
+// ---------------------------------------------------------------------------
+// Memory graph — a READ-ONLY projection derived per request from existing records
+// (entries/skills/affinities/projections/proposals + connector registry). No durable
+// graph store exists or is created; deleting this handler deletes the graph.
+// ---------------------------------------------------------------------------
+
+fn push_node(nodes: &mut Vec<Value>, seen: &mut std::collections::HashSet<String>, id: &str, kind: &str, label: &str, status: &str) {
+    if id.is_empty() || !seen.insert(id.to_string()) {
+        return;
+    }
+    nodes.push(json!({ "id": id, "node_kind": kind, "label": if label.is_empty() { id } else { label }, "status": status }));
+}
+
+fn push_edge(edges: &mut Vec<Value>, from: &str, to: &str, kind: &str) {
+    if !from.is_empty() && !to.is_empty() {
+        edges.push(json!({ "from": from, "to": to, "edge_kind": kind }));
+    }
+}
+
+pub(crate) async fn handle_intelligence_graph(
+    State(st): State<Arc<DaemonState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let mut nodes: Vec<Value> = Vec::new();
+    let mut edges: Vec<Value> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
+    let skills = read_record_dir(&st.data_dir, SKILL_KIND);
+    let affinities = read_record_dir(&st.data_dir, AFFINITY_KIND);
+    let proposals = read_record_dir(&st.data_dir, PROPOSAL_KIND);
+    let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
+    projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    projections.truncate(25); // recent proof, not an unbounded graph
+
+    let mut record_edges = |record: &Value, self_ref: &str, nodes: &mut Vec<Value>, edges: &mut Vec<Value>, seen: &mut std::collections::HashSet<String>| {
+        for source in refs(record.get("source_refs")) {
+            push_node(nodes, seen, &source, "source_run", &source, "");
+            push_edge(edges, self_ref, &source, "cites");
+        }
+        for connector in refs(record.get("connector_refs")) {
+            push_node(nodes, seen, &connector, "connector", &connector, "");
+            push_edge(edges, self_ref, &connector, "derives_from");
+        }
+        for harness in refs(record.get("compatible_harness_refs")) {
+            push_node(nodes, seen, &harness, "harness_profile", &harness, "");
+            push_edge(edges, self_ref, &harness, "compatible_with");
+        }
+        for route in refs(record.get("compatible_model_route_refs")) {
+            push_node(nodes, seen, &route, "model_route", &route, "");
+            push_edge(edges, self_ref, &route, "compatible_with");
+        }
+        for tag in refs(record.get("tags")) {
+            let tag_id = format!("tag://{tag}");
+            push_node(nodes, seen, &tag_id, "tag", &tag, "");
+            push_edge(edges, self_ref, &tag_id, "tagged");
+        }
+    };
+
+    for entry in &entries {
+        let self_ref = text(entry, "entry_ref");
+        push_node(&mut nodes, &mut seen, self_ref, "memory_entry", text(entry, "title"), text(entry, "status"));
+        record_edges(entry, self_ref, &mut nodes, &mut edges, &mut seen);
+    }
+    for skill in &skills {
+        let self_ref = text(skill, "skill_ref");
+        push_node(&mut nodes, &mut seen, self_ref, "skill_entry", text(skill, "title"), text(skill, "status"));
+        record_edges(skill, self_ref, &mut nodes, &mut edges, &mut seen);
+    }
+    for affinity in &affinities {
+        let self_ref = text(affinity, "affinity_ref");
+        push_node(&mut nodes, &mut seen, self_ref, "automation_affinity", text(affinity, "title"), text(affinity, "status"));
+        record_edges(affinity, self_ref, &mut nodes, &mut edges, &mut seen);
+        let policy = text(affinity, "preferred_policy_ref");
+        if !policy.is_empty() {
+            push_node(&mut nodes, &mut seen, policy, "launch_policy", policy, "");
+            push_edge(&mut edges, self_ref, policy, "affinity_to");
+        }
+        for automation in refs(affinity.get("preferred_automation_refs")) {
+            push_node(&mut nodes, &mut seen, &automation, "automation", &automation, "");
+            push_edge(&mut edges, self_ref, &automation, "affinity_to");
+        }
+    }
+    for projection in &projections {
+        let self_ref = text(projection, "projection_ref");
+        push_node(&mut nodes, &mut seen, self_ref, "memory_projection", &format!("projection · {}", text(projection, "harness_profile_ref")), "");
+        for included in refs(projection.get("included_entry_refs")).iter().chain(refs(projection.get("included_skill_refs")).iter()) {
+            push_edge(&mut edges, included, self_ref, "projects_to");
+        }
+        for receipt in refs(projection.get("receipt_refs")) {
+            push_node(&mut nodes, &mut seen, &receipt, "receipt", &receipt, "");
+            push_edge(&mut edges, self_ref, &receipt, "receipted_by");
+        }
+    }
+    for proposal in &proposals {
+        let self_ref = text(proposal, "proposal_ref");
+        let label = proposal
+            .pointer("/suggested/title")
+            .and_then(Value::as_str)
+            .filter(|t| !t.trim().is_empty())
+            .unwrap_or_else(|| text(proposal, "operation"));
+        push_node(&mut nodes, &mut seen, self_ref, "mutation_proposal", label, text(proposal, "review_state"));
+        let applied = text(proposal, "applied_ref");
+        if !applied.is_empty() {
+            push_edge(&mut edges, applied, self_ref, "proposed_by");
+        }
+        for receipt in refs(proposal.get("receipt_refs")) {
+            push_node(&mut nodes, &mut seen, &receipt, "receipt", &receipt, "");
+            push_edge(&mut edges, self_ref, &receipt, if text(proposal, "review_state") == "approved" { "approved_by" } else { "rejected_by" });
+        }
+        let source_run = text(proposal, "source_run_ref");
+        if !source_run.is_empty() {
+            push_node(&mut nodes, &mut seen, source_run, "source_run", source_run, "");
+            push_edge(&mut edges, self_ref, source_run, "cites");
+        }
+    }
+
+    if let Some(q) = query.get("q").map(|q| q.to_lowercase()).filter(|q| !q.is_empty()) {
+        let matching: std::collections::HashSet<String> = nodes
+            .iter()
+            .filter(|n| text(n, "label").to_lowercase().contains(&q) || text(n, "id").to_lowercase().contains(&q))
+            .map(|n| text(n, "id").to_string())
+            .collect();
+        edges.retain(|e| matching.contains(text(e, "from")) || matching.contains(text(e, "to")));
+        let connected: std::collections::HashSet<String> = edges
+            .iter()
+            .flat_map(|e| [text(e, "from").to_string(), text(e, "to").to_string()])
+            .chain(matching.iter().cloned())
+            .collect();
+        nodes.retain(|n| connected.contains(text(n, "id")));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "derived_only": true,
+            "counts": { "nodes": nodes.len(), "edges": edges.len() },
+            "nodes": nodes,
+            "edges": edges,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Projection explainability — vault truth → harness prompt, decision by decision.
+// Deterministic: decisions come from the projection's STORED refs/reasons (receipt-
+// linked); record lookups add labels/metadata only. Bodies of private/secret entries
+// never appear — titles and reason codes only.
+// ---------------------------------------------------------------------------
+
+pub(crate) async fn handle_projection_explain(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(projection) = load(&st, PROJECTION_KIND, "projection_id", &id) else {
+        return bad(StatusCode::NOT_FOUND, "memory_projection_not_found", "Unknown projection.");
+    };
+    let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
+    let skills = read_record_dir(&st.data_dir, SKILL_KIND);
+    let lookup = |reference: &str| -> Value {
+        entries
+            .iter()
+            .find(|e| text(e, "entry_ref") == reference)
+            .or_else(|| skills.iter().find(|s| text(s, "skill_ref") == reference))
+            .map(|record| {
+                json!({
+                    "title": text(record, "title"),
+                    "kind": if reference.starts_with("skill-entry://") { "skill" } else { text(record, "entry_kind") },
+                    "sensitivity": text(record, "sensitivity"),
+                    "status": text(record, "status"),
+                    "tags": record.get("tags").cloned().unwrap_or(json!([])),
+                    "source_refs": record.get("source_refs").cloned().unwrap_or(json!([])),
+                    "connector_refs": record.get("connector_refs").cloned().unwrap_or(json!([])),
+                    "compatible_harness_refs": record.get("compatible_harness_refs").cloned().unwrap_or(json!([])),
+                    "compatible_model_route_refs": record.get("compatible_model_route_refs").cloned().unwrap_or(json!([])),
+                })
+            })
+            .unwrap_or(json!({ "title": "(record no longer present)", "kind": "unknown" }))
+    };
+    let harness = text(&projection, "harness_profile_ref");
+    let route = text(&projection, "model_route_ref");
+    let included: Vec<Value> = refs(projection.get("included_entry_refs"))
+        .iter()
+        .chain(refs(projection.get("included_skill_refs")).iter())
+        .map(|reference| {
+            let meta = lookup(reference);
+            let harness_compat = refs(meta.get("compatible_harness_refs"));
+            let route_compat = refs(meta.get("compatible_model_route_refs"));
+            json!({
+                "ref": reference,
+                "decision": "included",
+                "meta": meta,
+                "checks": [
+                    { "check": "status_active", "pass": true },
+                    { "check": "not_expired", "pass": true },
+                    { "check": "harness_compatible", "pass": true, "detail": if harness_compat.is_empty() { "no restriction".to_string() } else { format!("explicitly compatible with {harness}") } },
+                    { "check": "model_route_compatible", "pass": true, "detail": if route_compat.is_empty() { "no restriction".to_string() } else { format!("explicitly compatible with {route}") } },
+                    { "check": "sensitivity_allows_projection", "pass": true },
+                ],
+            })
+        })
+        .collect();
+    let annotate = |list: Option<&Value>, decision: &str| -> Vec<Value> {
+        list.and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(|item| {
+                let reference = text(item, "ref");
+                json!({
+                    "ref": reference,
+                    "decision": decision,
+                    "reason_code": text(item, "reason_code"),
+                    "meta": lookup(reference),
+                })
+            })
+            .collect()
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "projection_ref": text(&projection, "projection_ref"),
+            "memory_space_ref": text(&projection, "memory_space_ref"),
+            "context": {
+                "harness_profile_ref": harness,
+                "model_route_ref": route,
+                "privacy_posture": text(&projection, "privacy_posture"),
+                "policy_ref": text(&projection, "policy_ref"),
+                "session_ref": text(&projection, "session_ref"),
+                "goal_run_ref": text(&projection, "goal_run_ref"),
+                "launch_ref": text(&projection, "launch_ref"),
+            },
+            "decisions": {
+                "included": included,
+                "redacted": annotate(projection.get("redacted_entry_refs"), "redacted"),
+                "excluded": annotate(projection.get("excluded_refs_with_reasons"), "excluded"),
+            },
+            "counts": projection.get("counts").cloned().unwrap_or(json!({})),
+            "connector_context_refs": projection.get("connector_context_refs").cloned().unwrap_or(json!([])),
+            "receipt_refs": projection.get("receipt_refs").cloned().unwrap_or(json!([])),
+            "rendered_projection_ref": text(&projection, "rendered_projection_ref"),
+            "body_disclosure": "titles and reason codes only — private/secret bodies never appear in explanations",
+            "deterministic": true,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}

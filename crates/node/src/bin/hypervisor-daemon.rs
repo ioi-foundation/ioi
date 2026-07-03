@@ -1157,6 +1157,14 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(ioi_intelligence_routes::handle_affinities_patch),
         )
         .route(
+            "/v1/hypervisor/intelligence/graph",
+            get(ioi_intelligence_routes::handle_intelligence_graph),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/projections/:id/explain",
+            get(ioi_intelligence_routes::handle_projection_explain),
+        )
+        .route(
             "/v1/hypervisor/intelligence/spaces/:id/export",
             get(ioi_intelligence_routes::handle_vault_export),
         )
