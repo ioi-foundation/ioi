@@ -34,6 +34,8 @@ mod authority_routes;
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
+#[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
+mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -1104,6 +1106,30 @@ async fn async_main() -> anyhow::Result<()> {
         // Domain Apps object plane (foundation) — draft DomainApp candidates over an ODK domain_app
         // surface descriptor. Draft-only: no generated/mounted runtime, no domain-action execution,
         // no marketplace publish. /blueprints stays 404.
+        // GoalRun plane — daemon-owned multi-harness orchestration (create → wallet-gated
+        // start → deterministic verify → admitted reconcile). Static sub-paths registered
+        // implicitly distinct from :id (axum matches deeper literals first).
+        .route(
+            "/v1/hypervisor/goal-runs",
+            get(goalrun_routes::handle_goal_runs_list)
+                .post(goalrun_routes::handle_goal_runs_create),
+        )
+        .route(
+            "/v1/hypervisor/goal-runs/:id",
+            get(goalrun_routes::handle_goal_run_get),
+        )
+        .route(
+            "/v1/hypervisor/goal-runs/:id/start",
+            post(goalrun_routes::handle_goal_run_start),
+        )
+        .route(
+            "/v1/hypervisor/goal-runs/:id/reconcile",
+            post(goalrun_routes::handle_goal_run_reconcile),
+        )
+        .route(
+            "/v1/hypervisor/goal-runs/:id/events",
+            get(goalrun_routes::handle_goal_run_events),
+        )
         .route(
             "/v1/hypervisor/domain-apps/overview",
             get(domain_apps_routes::handle_domain_apps_overview),

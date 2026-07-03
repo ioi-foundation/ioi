@@ -41,6 +41,7 @@ pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_doctor_report;
+pub mod runtime_goal_run_admission;
 pub mod runtime_harness_profile_mutation_admission;
 pub mod runtime_harness_session_binding_admission;
 pub mod runtime_harness_session_terminal_attach_admission;
@@ -721,6 +722,47 @@ impl RuntimeKernelService {
     > {
         runtime_model_route_mutation_admission::RuntimeModelRouteMutationAdmissionCore
             .admit(request, now_iso)
+    }
+
+    /// Validate + canonicalize a GoalRun creation admission (pure: bounded invocation budget,
+    /// real session/project binding, the orchestrate scope, receipts required).
+    pub fn admit_goal_run(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.admit_goal_run(request, now_iso)
+    }
+
+    /// Pure RoleTopology selection for the parallel_implement_reconcile policy — excludes
+    /// ineligible implementers with explicit reason codes (the run continues as a partial).
+    pub fn select_goal_run_role_topology(
+        &self,
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.select_role_topology(request)
+    }
+
+    /// Validate + canonicalize a single GoalRun harness invocation (pure fail-closed gate:
+    /// active + runnable + execution-wired + available route + local-or-accepted trust).
+    pub fn admit_goal_run_harness_invocation(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
+            .admit_harness_invocation(request, now_iso)
+    }
+
+    /// Validate + canonicalize a GoalRun reconciliation (pure: verified-candidate selection or
+    /// an explicit blocked partial; receipts required; the only lane into the target workspace).
+    pub fn admit_goal_run_reconciliation(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
+            .admit_reconciliation(request, now_iso)
     }
 
     /// Validate + canonicalize a harness-profile-mutation governance admission (pure: asserts the

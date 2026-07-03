@@ -739,14 +739,17 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "GoalRuns")}${chip("kind", "goal_run_invocation", "GoalRun invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
+    : e.kind === "goal_run" ? `goal · ${CX_ESC(String(e.normalized_goal || "").slice(0, 56))}`
+    : e.kind === "goal_run_invocation" ? `${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")} → ${CX_ESC(e.goal_run_ref || "")}`
+    : e.kind === "goal_run_reconciliation" ? `reconcile · ${CX_ESC(e.merge_strategy || "")} → ${CX_ESC(e.goal_run_ref || "")}`
     : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
     : e.kind === "kill_enforcement" ? `kill ${CX_ESC(e.subject_ref || "")}`
     : e.kind === "domain_app_runtime" ? `${CX_ESC(e.action || "runtime")} ${CX_ESC(e.domain_app_ref || "")}`
@@ -798,6 +801,7 @@ function renderWorkLedger(entries, scopedProject) {
       // the whole governed lifecycle is traversable from one proof (crosswalk: cross-reference map).
       function bl(label,ref,href){return ref?('<li>'+wesc(label)+': <a href="'+href+'" target="_top">'+wesc(ref)+' ↗</a></li>'):'';}
       var links='';
+      if(e.goal_run_ref){links+=bl('GoalRun',e.goal_run_ref,'/__ioi/run-timeline/goal-run/'+String(e.goal_run_ref).replace('goal://',''));}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
       if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
@@ -990,10 +994,91 @@ function renderEnvironments(summary, classes) {
   return automationsShell("Environments", styles + head + posture + table + script);
 }
 
+// ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
+// Server-rendered from the daemon goal-run + events records (real refs only, nothing fabricated).
+function renderGoalRunTimeline(g, invocations, verifications, events) {
+  const enc = encodeURIComponent;
+  const pill = (cls, label) => `<span class="pill ${cls}">${CX_ESC(label)}</span>`;
+  const stPill = (st) => pill(st === "complete" || st === "completed" ? "ok" : (st === "blocked" || st === "failed") ? "warn" : "muted", st || "—");
+  const grid = (pairs) => `<dl class="grid">${pairs.map(([k, v]) => `<dt>${CX_ESC(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+  const code = (v) => v ? `<code>${CX_ESC(String(v))}</code>` : "—";
+  const topo = g.role_topology || {};
+  const roles = `<div class="chips"><span class="chiplabel">Conductor</span><span class="pill ok">${CX_ESC(topo.conductor_ref || "")}</span></div>
+    <div class="chips"><span class="chiplabel">Implementers</span>${(topo.implementer_refs || []).map((r) => `<span class="pill muted">${CX_ESC(r)}</span>`).join("")}</div>
+    <div class="chips"><span class="chiplabel">Verifier</span><span class="pill muted">${CX_ESC(topo.verifier_ref || "")} · deterministic</span>${(topo.excluded_implementers || []).map((x) => `<span class="pill warn" title="${CX_ESC(x.reason_code || "")}">excluded: ${CX_ESC(x.harness || x.profile_ref || "")} (${CX_ESC(x.reason_code || "")})</span>`).join("")}</div>`;
+  const verdictOf = (inv) => {
+    const v = verifications.find((x) => x.harness_invocation_ref === inv.harness_invocation_id);
+    return v ? v.verdict : "—";
+  };
+  const invRows = invocations.map((inv) => {
+    const ir = inv.implementation_result || {};
+    const evCount = events.filter((e) => e.harness_invocation_ref === inv.harness_invocation_id).length;
+    return `<tr>
+      <td><b>${CX_ESC(inv.role_key || "")}</b><div style="color:#878a93;font-size:11.5px">${CX_ESC(inv.harness || "")} · <code style="font-size:10.5px">${CX_ESC(inv.model_route_ref || "")}</code></div></td>
+      <td>${stPill(inv.status)}</td>
+      <td>${pill(verdictOf(inv) === "pass" ? "ok" : verdictOf(inv) === "fail" ? "warn" : "muted", "verify: " + verdictOf(inv))}</td>
+      <td>${evCount} events</td>
+      <td>${(ir.changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
+      <td>${ir.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(ir.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((ir.state_root || "").slice(0, 22))}</div></td>
+    </tr>`;
+  }).join("");
+  const artifacts = invocations.flatMap((inv) => ((inv.implementation_result || {}).candidate_artifact_refs || []).map((r) => `<li><code>${CX_ESC(r)}</code> <span class="pill muted">${CX_ESC(inv.role_key || "")}</span></li>`)).join("");
+  const rec = g.reconciliation_ref ? null : null;
+  const recSection = g.reconciliation_ref
+    ? grid([
+        ["Result ref", code(g.reconciliation_ref)],
+        ["Final files", (g.final_changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"],
+        ["Run state", `${stPill(g.status)} ${pill("muted", g.continuation_state || "")}`],
+      ])
+    : `<div class="empty">Not reconciled yet — candidate artifacts stay isolated until an admitted reconciliation.</div>`;
+  const briefs = (g.task_briefs || []).map((b) => `<li><code>${CX_ESC(b.task_brief_id || "")}</code> — ${CX_ESC(b.objective_class || "")} · output contract: changed_files ${b.output_contract && b.output_contract.changed_files_required ? "required" : "optional"}</li>`).join("");
+  const proof = grid([
+    ["Admission", code((g.admission || {}).admission_id)],
+    ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
+    ["Capability lease", code(g.capability_lease_ref)],
+    ["Verifier evidence", (g.verification_refs || []).map((r) => `<code style="font-size:10.5px">${CX_ESC(r)}</code>`).join("<br>") || "—"],
+    ["Ledger", `<a href="/__ioi/work-ledger">proof stream →</a>`],
+  ]);
+  const inner = `<p><a href="/__ioi/work-ledger">← Work Ledger</a></p>
+    <h1>🎯 GoalRun <code style="font-size:15px">${CX_ESC(g.goal_run_id || "")}</code> ${stPill(g.status)}</h1>
+    <p class="sub">${CX_ESC(g.orchestration_policy || "")} · ${CX_ESC(g.active_loop_phase || "")} · target <code>${CX_ESC(g.target_session_ref || "")}</code></p>
+    <h2>Goal</h2><div class="grid" style="display:block;padding:14px 16px">${CX_ESC(g.normalized_goal || "")}</div>
+    <h2>Roles</h2>${roles}
+    <h2>Task briefs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the durable contract (rendered prompts are adapter-private)</span></h2><ul>${briefs || "<li>—</li>"}</ul>
+    <h2>Invocations (${invocations.length})</h2>${invocations.length ? `<table><thead><tr><th>Role</th><th>Status</th><th>Verifier</th><th>Events</th><th>Changed files</th><th>Proof</th></tr></thead><tbody>${invRows}</tbody></table>` : `<div class="empty">Not started.</div>`}
+    <h2>Candidate artifacts <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— isolated per implementer until reconciliation</span></h2><ul>${artifacts || "<li>—</li>"}</ul>
+    <h2>Reconciliation</h2>${recSection}
+    ${(g.blockers || []).length ? `<h2>Blockers (explicit partial)</h2><ul>${g.blockers.map((b) => `<li><span class="pill warn">${CX_ESC(b.reason_code || "")}</span> ${CX_ESC(b.message || "")}</li>`).join("")}</ul>` : ""}
+    <h2>Proof</h2>${proof}`;
+  return automationsShell(`GoalRun ${g.goal_run_id || ""}`, inner);
+}
+
+// Workbench GoalRuns panel — orchestrated multi-harness work for the estate's sessions
+// (role topology, invocation posture, final result, proof link). Additive to the grafted
+// master-detail shell; honest empty state.
+function renderWorkbenchGoalRuns(goalRuns) {
+  const enc = encodeURIComponent;
+  const rows = (goalRuns || []).slice(0, 10).map((g) => {
+    const topo = g.role_topology || {};
+    const st = g.status || "draft";
+    return `<tr>
+      <td>${CX_ESC(String(g.normalized_goal || "").slice(0, 64))}<div style="color:#878a93;font-size:11px"><code>${CX_ESC(g.goal_run_id || "")}</code> → <code>${CX_ESC(g.target_session_ref || "")}</code></div></td>
+      <td><span class="pill ${st === "complete" ? "ok" : st === "blocked" ? "warn" : "muted"}">${CX_ESC(st)}</span>${g.partial_result ? ' <span class="pill warn">partial</span>' : ""}</td>
+      <td>${(topo.implementer_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))}</span>`).join(" ")}</td>
+      <td>${(g.final_changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
+      <td><a href="/__ioi/run-timeline/goal-run/${enc(g.goal_run_id || "")}" target="_blank" rel="noopener">proof ↗</a></td>
+    </tr>`;
+  }).join("");
+  const body = (goalRuns || []).length
+    ? `<table><thead><tr><th>Goal</th><th>Status</th><th>Implementers</th><th>Final files</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty">No GoalRuns yet. Create one over a session to orchestrate multiple harnesses under one governed run.</div>`;
+  return `<h2 id="goal-runs">GoalRuns</h2><p class="sub" style="margin:-4px 0 12px">Daemon-orchestrated multi-harness work — parallel implementer cells over isolated candidate workspaces, verifier-admitted reconciliation into the session workspace.</p>${body}`;
+}
+
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
 // Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
 // /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
-function renderWorkbench(summary, editorTargets, sessionsRes) {
+function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
   summary = summary || {};
   const enc = encodeURIComponent;
   const envs = summary.environments || [];
@@ -1022,7 +1107,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes) {
     ? `<h2 id="editor-targets">Editors</h2><p class="sub" style="margin:-4px 0 12px">The daemon editor-target registry — every way to open a workspace, with its probed open posture and lease/revocation contract. Only an <b>openable</b> target is offered on environments below.</p><table><thead><tr><th>Editor</th><th>Open kind</th><th>Open posture</th><th>Lease / revocation</th></tr></thead><tbody>${etRows}</tbody></table>`
     : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes));
+    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns));
   }
   // Master-detail working shell (source shape: Workbench is the composition container, not a flat
   // launcher): environment rows select into a detail pane composed ENTIRELY from the three
@@ -1088,7 +1173,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes) {
     });});
   </script>`;
   const table = `${pager}<div class="wlwrap"><div><table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div>${drawer}</div>`;
-  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + script);
+  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns) + script);
 }
 
 // Sessions panel — the daemon session records with their ADMITTED harness bindings (selection is
@@ -3012,6 +3097,20 @@ const server = http.createServer((req, res) => {
       const rest = pathname.startsWith("/__ioi/run-timeline/") ? pathname.slice("/__ioi/run-timeline/".length) : "";
       let runId = "";
       let envId = "";
+      if (rest.startsWith("goal-run/")) {
+        // GoalRun proof page — the orchestration ladder as sections (Goal, Roles, Invocations,
+        // Candidate Artifacts, Reconciliation, Proof), rendered from the daemon records.
+        const grid = decodeURIComponent(rest.slice("goal-run/".length).split("/")[0]);
+        const [gRes, eRes] = await Promise.all([
+          fetch(`${DAEMON}/v1/hypervisor/goal-runs/${encodeURIComponent(grid)}`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/goal-runs/${encodeURIComponent(grid)}/events`).then((x) => x.json()).catch(() => ({})),
+        ]);
+        res.writeHead(gRes.ok ? 200 : 404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(gRes.ok
+          ? renderGoalRunTimeline(gRes.goal_run, eRes.invocations || [], eRes.verifications || [], eRes.events || [])
+          : automationsShell("GoalRun", `<div class="empty">GoalRun not found.</div>`));
+        return;
+      }
       if (rest.startsWith("env/")) {
         // /env/:envId — resolve to the env's latest run server-side (the launcher/embed is a plain
         // anchor/iframe; window.open after an async resolve is popup-blocked). Pass env so the page
@@ -3606,13 +3705,14 @@ const server = http.createServer((req, res) => {
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, etRes, sessRes] = await Promise.all([
+      const [sRes, etRes, sessRes, grRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkbench(sRes, etRes, sessRes));
+      res.end(renderWorkbench(sRes, etRes, sessRes, grRes.goal_runs || []));
       return;
     }
     // ---- New Session launcher (02-new-session graft) — the owned rail-modal's daemon-backed
