@@ -7661,21 +7661,21 @@ fn nanos_now() -> u128 {
 const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 300;
 
 /// Outcome of one real host-spawn lane run (truthful — failure reflects reality).
-struct HostLaneOutcome {
-    ok: bool,
-    exit_code: Option<i32>,
-    timed_out: bool,
-    spawn_error: Option<String>,
-    error: Option<String>,
-    summary: String,
-    files_written: Vec<String>,
+pub(crate) struct HostLaneOutcome {
+    pub(crate) ok: bool,
+    pub(crate) exit_code: Option<i32>,
+    pub(crate) timed_out: bool,
+    pub(crate) spawn_error: Option<String>,
+    pub(crate) error: Option<String>,
+    pub(crate) summary: String,
+    pub(crate) files_written: Vec<String>,
     /// (stream, line) transcript in emission order.
-    transcript: Vec<(String, String)>,
+    pub(crate) transcript: Vec<(String, String)>,
     /// Normalized HarnessAdapterEvent records streamed by an adapter driver (empty for the
     /// generic shim, which predates the event protocol).
-    adapter_events: Vec<Value>,
+    pub(crate) adapter_events: Vec<Value>,
     /// The driver's ImplementationResultPayload (ioi.hypervisor.implementation-result.v1).
-    implementation_result: Option<Value>,
+    pub(crate) implementation_result: Option<Value>,
 }
 
 /// Resolve the wired execution driver for the session's ADMITTED harness binding.
@@ -7685,7 +7685,7 @@ struct HostLaneOutcome {
 /// a private /tmp (the workspace is re-bound inside it) — a small local model mangling a path
 /// cannot write outside the admitted boundary. `Err` = the binding names an adapter whose
 /// substrate is missing RIGHT NOW (binary / driver shim / sandbox) — fail closed, no spawn.
-fn resolve_adapter_driver(
+pub(crate) fn resolve_adapter_driver(
     record: &Value,
     model: &str,
     workspace_root: &str,
@@ -7761,7 +7761,7 @@ fn resolve_adapter_driver(
 /// `__HYPERVISOR_HARNESS_RESULT__ {json}` line. The harness drives the model and
 /// edits the workspace; the daemon owns the spawn and reads the real output. No
 /// fabrication: the outcome (files, transcript, error) reflects what truly happened.
-async fn run_host_spawn_lane(
+pub(crate) async fn run_host_spawn_lane(
     argv: &[String],
     workspace_root: &str,
     intent: &str,
@@ -8370,7 +8370,7 @@ fn walk_workspace_records(root: &str) -> Vec<Value> {
 }
 
 /// Load a persisted session record by session_ref.
-fn load_session_record(st: &DaemonState, session_ref: &str) -> Option<Value> {
+pub(crate) fn load_session_record(st: &DaemonState, session_ref: &str) -> Option<Value> {
     read_record_dir(&st.data_dir, "sessions")
         .into_iter()
         .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))
@@ -8773,7 +8773,7 @@ fn session_execute_intent(body: &Value) -> Option<String> {
 /// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
 /// so a wallet can mint a bound grant. Lane-independent (both Lane A and Lane B
 /// gate execution identically).
-fn execute_authority_gate(
+pub(crate) fn execute_authority_gate(
     body: &Value,
     session_id: &str,
     workspace_root: &str,

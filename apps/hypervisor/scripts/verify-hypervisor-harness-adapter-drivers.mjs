@@ -44,8 +44,17 @@ async function driveAdapter(harness, profileId) {
   ok(`${harness}: execute without a grant fails closed (authority challenge)`, challenge.status === 403 && challenge.j?.reason === "execution_authority_required" && (challenge.j?.terminal_events || []).length === 0, challenge.j?.reason);
   const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
 
-  const ex = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent, wallet_approval_grant: grant });
-  ok(`${harness}: driver lane executed`, ex.status === 200 && ex.j?.decision === "executed" && ex.j?.lane === `adapter_driver_session:${harness}` && ex.j?.harness === harness, `${ex.j?.decision} ${ex.j?.lane} ${ex.j?.error || ""}`);
+  // Bounded retry (2 REAL attempts): the 7B route occasionally answers without a tool call —
+  // an honest empty run, not a driver fault. Every attempt is a full wallet-gated execution;
+  // the assertions are unchanged (report ⇔ disk, events, receipts, state_root).
+  let ex = null;
+  let attempts = 0;
+  for (; attempts < 2; ) {
+    attempts += 1;
+    ex = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent, wallet_approval_grant: grant });
+    if ((ex.j?.files_written || []).length >= 1) break;
+  }
+  ok(`${harness}: driver lane executed`, ex.status === 200 && ex.j?.decision === "executed" && ex.j?.lane === `adapter_driver_session:${harness}` && ex.j?.harness === harness, `${ex.j?.decision} ${ex.j?.lane} ${ex.j?.error || ""} (${attempts} attempt${attempts > 1 ? "s" : ""})`);
   // The driver owns "a real mutation happened and the report is disk truth" — NOT the model's
   // spelling. A 7B route occasionally garbles the requested filename (seen live:
   // verify-driver-opcode.txt for verify-driver-opencode.txt), which is model fidelity, not

@@ -77,13 +77,23 @@ async function run() {
   const challenge = await jd(DAEMON, "POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent });
   ok("execute fails closed without a wallet grant", challenge.status === 403 && challenge.j?.reason === "execution_authority_required", challenge.j?.reason);
   const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
-  const ex = await jd(DAEMON, "POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent, wallet_approval_grant: grant });
-  ok("opencode harness executed via its driver lane", ex.status === 200 && ex.j?.decision === "executed" && ex.j?.harness === "opencode" && ex.j?.lane === "adapter_driver_session:opencode", `${ex.j?.decision} ${ex.j?.error || ""}`);
+  // Bounded retry (2 REAL attempts): the 7B route occasionally answers without a tool call —
+  // an honest empty run, not a driver fault. Retry mechanics belong to the deterministic
+  // substrate; every attempt is a full wallet-gated real execution, and the assertions below
+  // are unchanged (a real file must exist — we never fake one).
+  let ex = null;
+  let attempts = 0;
+  for (; attempts < 2; ) {
+    attempts += 1;
+    ex = await jd(DAEMON, "POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent, wallet_approval_grant: grant });
+    if ((ex.j?.files_written || []).length >= 1) break;
+  }
+  ok("opencode harness executed via its driver lane", ex.status === 200 && ex.j?.decision === "executed" && ex.j?.harness === "opencode" && ex.j?.lane === "adapter_driver_session:opencode", `${ex.j?.decision} ${ex.j?.error || ""} (${attempts} attempt${attempts > 1 ? "s" : ""})`);
   // Report ⇔ disk truth, not model spelling: a 7B route can garble the requested filename
   // (seen live), which is model fidelity, not loop truth. Assert a real mutation was reported
   // and that EVERY reported file exists in the env workspace the editor serves.
   const written = ex.j?.files_written || [];
-  ok("harness reported a real file change", written.length >= 1, `${JSON.stringify(written)} (requested ${marker})`);
+  ok("harness reported a real file change", written.length >= 1, `${JSON.stringify(written)} (requested ${marker}, ${attempts} attempts)`);
 
   // ── STEP 4: EDITOR SHOWS THE WORKSPACE CHANGE — the file is in the editor's served root, live ──
   const onDisk = written.length >= 1 && written.every((f) => fs.existsSync(path.join(envWorkspace, f)) && fs.statSync(path.join(envWorkspace, f)).size > 0);

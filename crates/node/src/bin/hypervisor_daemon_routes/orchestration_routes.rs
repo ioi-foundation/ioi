@@ -536,6 +536,65 @@ pub(crate) async fn handle_work_ledger(
             "implementation_result": g(&out, "implementation_result"),
         }));
     }
+    // GoalRun proofs — multi-harness orchestration. Each role invocation and the reconciliation
+    // posted an agent-run-transcript (tamper-evident state_root); the run record itself carries
+    // the topology + continuation state. All three become first-class ledger entries so the
+    // whole orchestration (invocations → verifier evidence → reconciliation → final files) is
+    // reachable from one proof stream.
+    for t in by_run.values() {
+        let op = t.get("op").and_then(|v| v.as_str()).unwrap_or("");
+        if op != "goal_run_execute" && op != "goal_run_reconciliation" {
+            continue;
+        }
+        let out = t
+            .get("step_results")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .and_then(|s| s.get("output"))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let run_id = t.get("run_id").and_then(|v| v.as_str()).unwrap_or("");
+        if op == "goal_run_execute" {
+            entries.push(json!({
+                "id": run_id, "kind": "goal_run_invocation", "timestamp": g(t, "recorded_at"),
+                "status": g(&out, "exit_status"), "harness": g(&out, "harness"),
+                "role_key": g(&out, "role_key"), "goal_run_ref": g(&out, "goal_run_ref"),
+                "session_ref": g(&out, "session_ref"), "profile_ref": g(t, "profile_ref"),
+                "files_written": g(&out, "files_written"),
+                "state_root": g(t, "state_root"), "run_ref": run_id,
+                "timeline_ref": format!("/__ioi/run-timeline/{run_id}"),
+                "receipt_ref": g(&out, "receipt_ref"),
+                "implementation_result": g(&out, "implementation_result"),
+            }));
+        } else {
+            entries.push(json!({
+                "id": run_id, "kind": "goal_run_reconciliation", "timestamp": g(t, "recorded_at"),
+                "status": g(&out, "merge_strategy"), "goal_run_ref": g(&out, "goal_run_ref"),
+                "merge_strategy": g(&out, "merge_strategy"), "reason_code": g(&out, "reason_code"),
+                "selected_candidate_refs": g(&out, "selected_candidate_refs"),
+                "final_changed_files": g(&out, "final_changed_files"),
+                "verifier_evidence_refs": g(&out, "verifier_evidence_refs"),
+                "state_root": g(t, "state_root"), "run_ref": run_id,
+                "timeline_ref": format!("/__ioi/run-timeline/{run_id}"),
+                "receipt_ref": g(&out, "receipt_ref"),
+            }));
+        }
+    }
+    for r in read_record_dir(&st.data_dir, "goal-runs") {
+        entries.push(json!({
+            "id": g(&r, "goal_run_id"), "kind": "goal_run", "timestamp": g(&r, "updated_at"),
+            "status": g(&r, "status"), "goal_run_ref": g(&r, "goal_ref"),
+            "normalized_goal": g(&r, "normalized_goal"),
+            "orchestration_policy": g(&r, "orchestration_policy"),
+            "continuation_state": g(&r, "continuation_state"),
+            "partial_result": g(&r, "partial_result"),
+            "session_ref": g(&r, "target_session_ref"),
+            "invocation_refs": g(&r, "invocation_refs"),
+            "reconciliation_ref": g(&r, "reconciliation_ref"),
+            "final_changed_files": g(&r, "final_changed_files"),
+            "receipt_ref": r.pointer("/admission/receipt_refs/0").cloned().unwrap_or(Value::Null),
+        }));
+    }
     // Governed-lifecycle proofs — domain-app mount/serve/unmount/kill, marketplace publish, and
     // KillSwitch enforcement receipts. These are real state-root proofs; surface them in the ledger so
     // the whole governed lifecycle is reachable from one proof stream (not just automation runs).
