@@ -1157,6 +1157,27 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(ioi_intelligence_routes::handle_affinities_patch),
         )
         .route(
+            "/v1/hypervisor/intelligence/spaces/:id/export",
+            get(ioi_intelligence_routes::handle_vault_export),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/spaces/import",
+            post(ioi_intelligence_routes::handle_vault_import),
+        )
+        .route(
+            "/v1/hypervisor/memory-mutation-proposals",
+            get(ioi_intelligence_routes::handle_proposals_list)
+                .post(ioi_intelligence_routes::handle_proposals_create),
+        )
+        .route(
+            "/v1/hypervisor/memory-mutation-proposals/:id/approve",
+            post(ioi_intelligence_routes::handle_proposal_approve),
+        )
+        .route(
+            "/v1/hypervisor/memory-mutation-proposals/:id/reject",
+            post(ioi_intelligence_routes::handle_proposal_reject),
+        )
+        .route(
             "/v1/hypervisor/memory-projections/preview",
             post(ioi_intelligence_routes::handle_projection_preview),
         )

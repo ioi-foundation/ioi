@@ -145,6 +145,14 @@ fn validate_entry(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
     if let Some(v) = body.get("expires_at").and_then(Value::as_str) {
         record["expires_at"] = json!(v);
     }
+    // Self-describing records: the vault format serializes these explicitly, so defaults are
+    // stored rather than implied.
+    if record.get("entry_kind").and_then(Value::as_str).unwrap_or("").is_empty() {
+        record["entry_kind"] = json!("note");
+    }
+    if record.get("sensitivity").and_then(Value::as_str).unwrap_or("").is_empty() {
+        record["sensitivity"] = json!("normal");
+    }
     Ok(())
 }
 
@@ -620,4 +628,445 @@ pub(crate) async fn handle_projections_get(
         Some(record) => (StatusCode::OK, Json(json!({ "ok": true, "projection": record }))),
         None => bad(StatusCode::NOT_FOUND, "memory_projection_not_found", "Unknown projection."),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Obsidian-class portable vault — export/import the MemorySpace as human-readable
+// Markdown + frontmatter (strict `key: <json>` lines: readable AND machine-exact),
+// with a JSON manifest sidecar only for fields Markdown cannot safely carry
+// (structured payloads). Refs round-trip verbatim; credential material can neither
+// leave nor enter; import is conflict-EXPLICIT (identical → unchanged, differing →
+// reported conflict, never duplicate-spam).
+// ---------------------------------------------------------------------------
+
+const VAULT_SCHEMA_VERSION: &str = "ioi.hypervisor.memory-vault.v1";
+const CREDENTIAL_MARKERS: &[&str] = &["sealed_client_secret", "IOI_WALLET_SECRET", "-----BEGIN"];
+
+fn record_has_credential_material(record: &Value) -> bool {
+    let blob = serde_json::to_string(record).unwrap_or_default();
+    CREDENTIAL_MARKERS.iter().any(|marker| blob.contains(marker))
+}
+
+/// Frontmatter keys per family (order is the document contract).
+const ENTRY_FM_KEYS: &[&str] = &[
+    "entry_id", "entry_ref", "memory_space_ref", "entry_kind", "sensitivity", "status",
+    "tags", "source_refs", "connector_refs", "compatible_harness_refs",
+    "compatible_model_route_refs", "confidence", "expires_at", "created_at", "updated_at",
+];
+const SKILL_FM_KEYS: &[&str] = &[
+    "skill_id", "skill_ref", "memory_space_ref", "status", "description", "procedure_ref",
+    "trigger_conditions", "tool_requirements", "connector_requirements",
+    "compatible_harness_refs", "compatible_model_route_refs", "created_at", "updated_at",
+];
+const AFFINITY_FM_KEYS: &[&str] = &[
+    "affinity_id", "affinity_ref", "memory_space_ref", "status", "goal_pattern",
+    "preferred_policy_ref", "preferred_automation_refs", "preferred_harness_refs",
+    "preferred_model_route_refs", "required_connector_refs", "failure_policy",
+    "created_at", "updated_at",
+];
+
+fn md_document(record: &Value, keys: &[&str], title_key: &str, body_key: &str) -> String {
+    let mut out = String::from("---\n");
+    out.push_str(&format!("title: {}\n", serde_json::to_string(text(record, title_key)).unwrap_or_default()));
+    for key in keys {
+        if let Some(value) = record.get(*key) {
+            if !value.is_null() {
+                out.push_str(&format!("{key}: {}\n", serde_json::to_string(value).unwrap_or_default()));
+            }
+        }
+    }
+    out.push_str("---\n\n");
+    let body = text(record, body_key);
+    if !body.is_empty() {
+        out.push_str(body);
+        out.push('\n');
+    }
+    out
+}
+
+fn parse_md_document(content: &str) -> Option<(serde_json::Map<String, Value>, String)> {
+    let rest = content.strip_prefix("---\n")?;
+    let (frontmatter, body) = rest.split_once("\n---\n")?;
+    let mut map = serde_json::Map::new();
+    for line in frontmatter.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let (key, raw) = line.split_once(':')?;
+        let parsed: Value = serde_json::from_str(raw.trim()).ok()?;
+        map.insert(key.trim().to_string(), parsed);
+    }
+    Some((map, body.trim_start_matches('\n').trim_end().to_string()))
+}
+
+pub(crate) async fn handle_vault_export(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let Some(space) = load(&st, SPACE_KIND, "space_id", &id) else {
+        return bad(StatusCode::NOT_FOUND, "memory_space_not_found", "Unknown memory space.");
+    };
+    let space_ref = text(&space, "space_ref").to_string();
+    let in_space = |r: &Value| text(r, "memory_space_ref") == space_ref;
+    let mut files: Vec<Value> = vec![json!({
+        "path": "vault/space.md",
+        "content": md_document(&space, &["space_id", "space_ref", "scope", "owner_ref", "privacy_posture", "status", "created_at", "updated_at"], "display_name", "description"),
+    })];
+    let mut structured_payloads = serde_json::Map::new();
+    let mut scrubbed: Vec<Value> = Vec::new();
+    for entry in read_record_dir(&st.data_dir, ENTRY_KIND).iter().filter(|r| in_space(r)) {
+        // Belt + braces: the create lane already refuses credential material; a record that
+        // somehow carries it is SCRUBBED from the vault and reported, never exported.
+        if record_has_credential_material(entry) {
+            scrubbed.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": "credential_material_scrubbed" }));
+            continue;
+        }
+        files.push(json!({
+            "path": format!("vault/entries/{}.md", text(entry, "entry_id")),
+            "content": md_document(entry, ENTRY_FM_KEYS, "title", "body"),
+        }));
+        if let Some(payload) = entry.get("structured_payload") {
+            if !payload.is_null() {
+                structured_payloads.insert(text(entry, "entry_id").to_string(), payload.clone());
+            }
+        }
+    }
+    for skill in read_record_dir(&st.data_dir, SKILL_KIND).iter().filter(|r| in_space(r)) {
+        if record_has_credential_material(skill) {
+            scrubbed.push(json!({ "ref": text(skill, "skill_ref"), "reason_code": "credential_material_scrubbed" }));
+            continue;
+        }
+        files.push(json!({
+            "path": format!("vault/skills/{}.md", text(skill, "skill_id")),
+            "content": md_document(skill, SKILL_FM_KEYS, "title", "body"),
+        }));
+    }
+    for affinity in read_record_dir(&st.data_dir, AFFINITY_KIND).iter().filter(|r| in_space(r)) {
+        if record_has_credential_material(affinity) {
+            scrubbed.push(json!({ "ref": text(affinity, "affinity_ref"), "reason_code": "credential_material_scrubbed" }));
+            continue;
+        }
+        files.push(json!({
+            "path": format!("vault/affinities/{}.md", text(affinity, "affinity_id")),
+            "content": md_document(affinity, AFFINITY_FM_KEYS, "title", ""),
+        }));
+    }
+    let manifest = json!({
+        "schema_version": VAULT_SCHEMA_VERSION,
+        "space_ref": space_ref,
+        "exported_at": iso_now(),
+        "counts": {
+            "entries": files.iter().filter(|f| text(f, "path").starts_with("vault/entries/")).count(),
+            "skills": files.iter().filter(|f| text(f, "path").starts_with("vault/skills/")).count(),
+            "affinities": files.iter().filter(|f| text(f, "path").starts_with("vault/affinities/")).count(),
+        },
+        "sidecars": { "structured_payloads": structured_payloads },
+        "scrubbed": scrubbed,
+    });
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "vault": { "format": VAULT_SCHEMA_VERSION, "manifest": manifest, "files": files } })),
+    )
+}
+
+pub(crate) async fn handle_vault_import(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let vault = body.get("vault").cloned().unwrap_or(body.clone());
+    let files = vault.get("files").and_then(Value::as_array).cloned().unwrap_or_default();
+    if files.is_empty() {
+        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_vault_empty", "The vault bundle carries no files.");
+    }
+    // Whole-bundle credential scan FIRST — nothing imports if any file smells like a secret.
+    if record_has_credential_material(&vault) {
+        return bad(StatusCode::FORBIDDEN, "memory_vault_credential_material_forbidden", "Vault bundles must not contain credential material.");
+    }
+    let sidecars = vault
+        .pointer("/manifest/sidecars/structured_payloads")
+        .cloned()
+        .unwrap_or(json!({}));
+    let mut imported = json!({ "entries": 0, "skills": 0, "affinities": 0 });
+    let mut unchanged = 0u64;
+    let mut conflicts: Vec<Value> = Vec::new();
+    let mut rejected: Vec<Value> = Vec::new();
+    for file in &files {
+        let path = text(file, "path").to_string();
+        let (family, kind, id_key) = if path.starts_with("vault/entries/") {
+            ("entries", ENTRY_KIND, "entry_id")
+        } else if path.starts_with("vault/skills/") {
+            ("skills", SKILL_KIND, "skill_id")
+        } else if path.starts_with("vault/affinities/") {
+            ("affinities", AFFINITY_KIND, "affinity_id")
+        } else {
+            continue; // space.md / unknown paths are descriptive, not record-bearing
+        };
+        let Some((frontmatter, doc_body)) = parse_md_document(text(file, "content")) else {
+            rejected.push(json!({ "path": path, "reason_code": "frontmatter_unparseable" }));
+            continue;
+        };
+        let mut record = Value::Object(frontmatter);
+        if family != "affinities" && !doc_body.is_empty() {
+            record["body"] = json!(doc_body);
+        }
+        // Round-trip identity: keep original ids/refs. Validate through the SAME gates as
+        // live creation (enums, connector-derived constraints, credential guard).
+        let rid = text(&record, id_key).to_string();
+        if rid.is_empty() {
+            rejected.push(json!({ "path": path, "reason_code": "record_id_missing" }));
+            continue;
+        }
+        let validation = match family {
+            "entries" => {
+                let payload = sidecars.get(&rid).cloned();
+                if let Some(structured) = payload {
+                    record["structured_payload"] = structured;
+                }
+                let mut base = record.clone();
+                validate_entry(&record, &mut base).map(|_| base)
+            }
+            "skills" => {
+                let mut base = record.clone();
+                validate_skill(&record, &mut base).map(|_| base)
+            }
+            _ => {
+                let mut base = record.clone();
+                validate_affinity(&record, &mut base).map(|_| base)
+            }
+        };
+        let normalized = match validation {
+            Ok(normalized) => normalized,
+            Err((_, Json(err))) => {
+                rejected.push(json!({
+                    "path": path,
+                    "reason_code": err.pointer("/error/code").and_then(Value::as_str).unwrap_or("validation_failed"),
+                }));
+                continue;
+            }
+        };
+        if let Some(existing) = load(&st, kind, id_key, &rid) {
+            // Idempotence: identical content → unchanged; differing → explicit conflict, skip.
+            let mut a = existing.clone();
+            let mut b = normalized.clone();
+            for volatile in ["updated_at", "created_at", "imported_at", "runtimeTruthSource", "schema_version"] {
+                a.as_object_mut().map(|o| o.remove(volatile));
+                b.as_object_mut().map(|o| o.remove(volatile));
+            }
+            // Default-equivalence: legacy rows stored before defaults became explicit compare
+            // equal to their default-filled vault form (a real content edit still conflicts).
+            if family == "entries" {
+                for side in [&mut a, &mut b] {
+                    if side.get("entry_kind").and_then(Value::as_str).unwrap_or("").is_empty() {
+                        side["entry_kind"] = json!("note");
+                    }
+                    if side.get("sensitivity").and_then(Value::as_str).unwrap_or("").is_empty() {
+                        side["sensitivity"] = json!("normal");
+                    }
+                }
+            }
+            if a == b {
+                unchanged += 1;
+            } else {
+                conflicts.push(json!({ "path": path, "ref": text(&existing, &id_key.replace("_id", "_ref")), "reason_code": "differs_from_existing" }));
+            }
+            continue;
+        }
+        let mut stored = normalized;
+        stored["schema_version"] = json!(match family {
+            "entries" => "ioi.hypervisor.memory-entry.v1",
+            "skills" => "ioi.hypervisor.skill-entry.v1",
+            _ => "ioi.hypervisor.automation-affinity.v1",
+        });
+        stored["runtimeTruthSource"] = json!("daemon-runtime");
+        stored["imported_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, kind, &rid, &stored);
+        imported[family] = json!(imported[family].as_u64().unwrap_or(0) + 1);
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "imported": imported,
+            "unchanged": unchanged,
+            "conflicts": conflicts,
+            "rejected": rejected,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Memory mutation proposals — canon: harnesses/models PROPOSE ContextMutationEnvelope
+// changes; they never silently write durable memory. A proposal is evidence until an
+// operator approves it (durable change + context_mutation receipt) or rejects it
+// (stays as evidence with the review verdict).
+// ---------------------------------------------------------------------------
+
+const PROPOSAL_KIND: &str = "memory-mutation-proposals";
+const PROPOSAL_OPERATIONS: &[&str] = &["add", "supersede", "archive"];
+const MUTATION_TYPES: &[&str] = &[
+    "fact", "preference", "doctrine", "route", "procedure", "eval", "failure",
+    "tool_affordance", "game_lesson", "project_convention", "connector_observation",
+];
+const SOURCE_AUTHORITIES: &[&str] = &["user", "worker", "verifier", "benchmark", "service_delivery", "admin"];
+
+pub(crate) async fn handle_proposals_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    let mut proposals = read_record_dir(&st.data_dir, PROPOSAL_KIND);
+    if let Some(state) = query.get("review_state") {
+        proposals.retain(|p| text(p, "review_state") == state);
+    }
+    proposals.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    (StatusCode::OK, Json(json!({ "ok": true, "proposals": proposals })))
+}
+
+pub(crate) async fn handle_proposals_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let operation = text(&body, "operation");
+    if !PROPOSAL_OPERATIONS.contains(&operation) {
+        return bad(StatusCode::BAD_REQUEST, "memory_mutation_operation_invalid", "operation must be add|supersede|archive");
+    }
+    let mutation_type = text(&body, "mutation_type");
+    if !MUTATION_TYPES.contains(&mutation_type) {
+        return bad(StatusCode::BAD_REQUEST, "memory_mutation_type_invalid", &format!("mutation_type must be one of {MUTATION_TYPES:?}"));
+    }
+    let source_authority = { let v = text(&body, "source_authority"); if v.is_empty() { "worker" } else { v } };
+    if !SOURCE_AUTHORITIES.contains(&source_authority) {
+        return bad(StatusCode::BAD_REQUEST, "memory_mutation_source_authority_invalid", "invalid source_authority");
+    }
+    if record_has_credential_material(&body) {
+        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+    }
+    let suggested = body.get("suggested").cloned().unwrap_or(json!({}));
+    if operation != "archive" && text(&suggested, "title").trim().is_empty() {
+        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_mutation_suggested_title_required", "add/supersede proposals need suggested.title");
+    }
+    if operation != "add" && !text(&body, "target_ref").starts_with("memory-entry://") && !text(&body, "target_ref").starts_with("skill-entry://") {
+        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_mutation_target_required", "supersede/archive proposals need a memory-entry:// or skill-entry:// target_ref");
+    }
+    let id = format!("ctxmut_{:x}", nanos());
+    let space_ref = {
+        let requested = text(&body, "memory_space_ref");
+        if requested.is_empty() { "memory-space://ms_workspace_default".to_string() } else { requested.to_string() }
+    };
+    let record = json!({
+        "schema_version": "ioi.hypervisor.memory-mutation-proposal.v1",
+        "mutation_id": id,
+        "proposal_ref": format!("memory-mutation-proposal://{id}"),
+        "memory_space_ref": space_ref,
+        "operation": operation,
+        "mutation_type": mutation_type,
+        "target_ref": body.get("target_ref").cloned().unwrap_or(Value::Null),
+        "target_family": if text(&body, "target_family") == "skill" { "skill" } else { "memory" },
+        "suggested": suggested,
+        "reason": text(&body, "reason"),
+        "confidence": body.get("confidence").and_then(Value::as_f64).map(|c| c.clamp(0.0, 1.0)).unwrap_or(0.5),
+        "source_run_ref": body.get("source_run_ref").cloned().unwrap_or(Value::Null),
+        "source_authority": source_authority,
+        "evidence_refs": body.get("evidence_refs").cloned().unwrap_or(json!([])),
+        "review_state": "proposed",
+        "created_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "proposal": record })))
+}
+
+pub(crate) async fn handle_proposal_approve(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut proposal) = load(&st, PROPOSAL_KIND, "mutation_id", &id) else {
+        return bad(StatusCode::NOT_FOUND, "memory_mutation_not_found", "Unknown proposal.");
+    };
+    if text(&proposal, "review_state") != "proposed" {
+        return bad(StatusCode::CONFLICT, "memory_mutation_already_reviewed", "This proposal has already been reviewed.");
+    }
+    let operation = text(&proposal, "operation").to_string();
+    let family = if text(&proposal, "target_family") == "skill" { &SKILL_FAMILY } else { &ENTRY_FAMILY };
+    let validate: fn(&Value, &mut Value) -> Result<(), (StatusCode, Json<Value>)> =
+        if text(&proposal, "target_family") == "skill" { validate_skill } else { validate_entry };
+    let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
+    let applied_ref: String;
+    match operation.as_str() {
+        "add" => {
+            let (status, Json(response)) = family_create(&st, family, &suggested, validate);
+            if status != StatusCode::CREATED {
+                return (status, Json(response));
+            }
+            applied_ref = response
+                .pointer(&format!("/record/{}", family.ref_key))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+        }
+        "supersede" => {
+            let target = text(&proposal, "target_ref").rsplit('/').next().unwrap_or("").to_string();
+            let (status, Json(response)) = family_patch(&st, family, &target, &suggested, validate);
+            if status != StatusCode::OK {
+                return (status, Json(response));
+            }
+            applied_ref = text(&proposal, "target_ref").to_string();
+        }
+        _ => {
+            let target = text(&proposal, "target_ref").rsplit('/').next().unwrap_or("").to_string();
+            let (status, Json(response)) = family_patch(&st, family, &target, &json!({ "status": "archived" }), validate);
+            if status != StatusCode::OK {
+                return (status, Json(response));
+            }
+            applied_ref = text(&proposal, "target_ref").to_string();
+        }
+    }
+    // context_mutation receipt — the durable change is admitted evidence, never silent.
+    let receipt_ref = format!("receipt://hypervisor/memory-mutation/{id}");
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.memory-mutation",
+        "receipt_type": "context_mutation",
+        "mutation_id": id,
+        "proposal_ref": text(&proposal, "proposal_ref"),
+        "operation": operation,
+        "mutation_type": text(&proposal, "mutation_type"),
+        "applied_ref": applied_ref,
+        "source_run_ref": proposal.get("source_run_ref").cloned().unwrap_or(Value::Null),
+        "source_authority": text(&proposal, "source_authority"),
+        "at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("review_state".into(), json!("approved"));
+        object.insert("applied_ref".into(), json!(applied_ref));
+        object.insert("receipt_refs".into(), json!([receipt_ref]));
+        object.insert("reviewed_at".into(), json!(iso_now()));
+    }
+    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
+    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+}
+
+pub(crate) async fn handle_proposal_reject(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut proposal) = load(&st, PROPOSAL_KIND, "mutation_id", &id) else {
+        return bad(StatusCode::NOT_FOUND, "memory_mutation_not_found", "Unknown proposal.");
+    };
+    if text(&proposal, "review_state") != "proposed" {
+        return bad(StatusCode::CONFLICT, "memory_mutation_already_reviewed", "This proposal has already been reviewed.");
+    }
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("review_state".into(), json!("rejected"));
+        object.insert("review_reason".into(), json!(text(&body, "reason")));
+        object.insert("reviewed_at".into(), json!(iso_now()));
+    }
+    let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
+    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
 }

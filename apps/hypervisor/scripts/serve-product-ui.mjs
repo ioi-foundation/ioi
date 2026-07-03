@@ -1314,7 +1314,7 @@ function renderIntelSkills(skills) {
   return `<h2 id="skills">Skills</h2><p class="sub" style="margin:-4px 0 12px">Reusable capability/procedure records — portable across harness and model swaps; projections deliver them as scoped summaries.</p>${skills.length ? cards : `<div class="empty">No skills yet.</div>`}${form}`;
 }
 const INTEL_MEMORY_CATS = [["", "All"], ["concept", "Concepts"], ["entity", "Entities"], ["workstream", "Workstreams"], ["note", "Notes"], ["preference", "Preferences"], ["correction", "Corrections"], ["connector_derived", "Connector-derived"]];
-function renderIntelMemory(entries) {
+function renderIntelMemory(entries, proposals) {
   const chips = INTEL_MEMORY_CATS.map(([v, l]) => `<button class="chip" data-memcat="${v}" onclick="memCat(this)">${l}</button>`).join("");
   const rows = entries.map((e) => `<div class="card memcard" data-kind="${CX_ESC(e.entry_kind || "")}" data-blob="${CX_ESC(((e.title || "") + " " + (e.body || "") + " " + (e.tags || []).join(" ")).toLowerCase())}"><div class="main">
     <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
@@ -1340,7 +1340,27 @@ function renderIntelMemory(entries) {
     function memFilter(){var cat=(document.querySelector('[data-memcat].on')||{}).getAttribute?document.querySelector('[data-memcat].on').getAttribute('data-memcat'):'';var q=(document.getElementById('mem-search')||{value:''}).value.toLowerCase();
       document.querySelectorAll('.memcard').forEach(function(c){var okCat=!cat||c.getAttribute('data-kind')===cat;var okQ=!q||c.getAttribute('data-blob').indexOf(q)>=0;c.style.display=(okCat&&okQ)?'':'none';});}
   </script>`;
+  const vault = `<div class="row" style="margin:0 0 14px">
+      <a class="act" href="/__ioi/agent-studio/vault/export" download>Export vault</a>
+      <details style="display:inline-block"><summary class="act ghost" style="display:inline-block;cursor:pointer">Import vault</summary>
+        <form method="post" action="/__ioi/agent-studio/vault/import" style="margin-top:8px;max-width:640px">
+          <div class="field"><label>Vault bundle JSON (Markdown+frontmatter files inside)</label><textarea name="vault_json" rows="4" placeholder='{"format":"ioi.hypervisor.memory-vault.v1","files":[…]}'></textarea></div>
+          <button class="act" type="submit">Import (idempotent · conflict-explicit)</button>
+        </form>
+      </details>
+    </div>`;
+  proposals = proposals || [];
+  const open = proposals.filter((p) => p.review_state === "proposed");
+  const reviewed = proposals.filter((p) => p.review_state !== "proposed").slice(0, 5);
+  const propCard = (p, withActions) => `<div class="card"><div class="main">
+      <div class="name">${CX_ESC((p.suggested || {}).title || p.operation)} <span class="pill ${p.review_state === "approved" ? "ok" : p.review_state === "rejected" ? "warn" : "muted"}">${CX_ESC(p.review_state)}</span><span class="pill muted">${CX_ESC(p.operation)} · ${CX_ESC(p.mutation_type)}</span><span class="pill muted">${CX_ESC(p.source_authority)}</span></div>
+      <div class="meta"><code>${CX_ESC(p.proposal_ref || "")}</code> · ${CX_ESC(p.reason || "")} · confidence ${CX_ESC(String(p.confidence))}${p.source_run_ref ? ` · from <code>${CX_ESC(String(p.source_run_ref))}</code>` : ""}${p.applied_ref ? ` · applied <code>${CX_ESC(p.applied_ref)}</code>` : ""}</div>
+      </div><div>${withActions ? `<form class="inline" method="post" action="/__ioi/agent-studio/proposals/${encodeURIComponent(p.mutation_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/proposals/${encodeURIComponent(p.mutation_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>` : ""}</div></div>`;
+  const inbox = `<h2 id="proposal-inbox" style="margin-top:24px">Proposal inbox <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— harnesses/models propose durable memory changes; only an approved proposal writes (with a context_mutation receipt)</span></h2>
+    ${open.length ? open.map((p) => propCard(p, true)).join("") : `<div class="empty">No open proposals. Runs propose; nothing writes durable memory silently.</div>`}
+    ${reviewed.length ? `<h3 style="margin:14px 0 6px;font-size:12px;color:#878a93">Recently reviewed (evidence)</h3>` + reviewed.map((p) => propCard(p, false)).join("") : ""}`;
   return `<h2 id="memory">Memory</h2><p class="sub" style="margin:-4px 0 12px">Durable preferences, facts, concepts, entities, workstreams, notes, and corrections — daemon truth that survives harness/model swaps. Harnesses receive scoped projections, never this raw store.</p>
+    ${vault}${inbox}<h2 style="margin-top:24px">Entries</h2>
     <input id="mem-search" class="asearch" placeholder="Search memory…" oninput="memFilter()">
     <div class="chips">${chips}</div>
     ${entries.length ? rows : `<div class="empty">No memory yet. IOI Agent runs and operators add entries here.</div>`}${form}${script}`;
@@ -1581,7 +1601,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []))
     + panel("connectors", false, renderIntelConnectors(intel || {}))
     + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
-    + panel("memory", false, renderIntelMemory((intel || {}).entries || []))
+    + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || []))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
     function asTab(name){
@@ -4001,7 +4021,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -4015,6 +4035,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/automation-affinities"),
         J("/v1/hypervisor/connectors"),
         J("/v1/hypervisor/capability-leases"),
+        J("/v1/hypervisor/memory-mutation-proposals"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -4028,7 +4049,7 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [] },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [] },
       ));
       return;
     }
@@ -4068,6 +4089,55 @@ const server = http.createServer((req, res) => {
           return;
         }
         res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    // ---- Agent Studio portable-vault + mutation-proposal lanes (daemon proxies).
+    if (pathname === "/__ioi/agent-studio/vault/export" && req.method === "GET") {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/spaces/ms_workspace_default/export`).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      res.writeHead(r && r.status < 400 ? 200 : 502, {
+        "Content-Type": "application/json",
+        "Content-Disposition": 'attachment; filename="ioi-memory-vault.json"',
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify(j.vault || j, null, 2));
+      return;
+    }
+    if (pathname === "/__ioi/agent-studio/vault/import" && req.method === "POST") {
+      let bundle = {};
+      try {
+        const form = new URLSearchParams(body.toString());
+        bundle = JSON.parse(form.get("vault_json") || body.toString());
+      } catch { bundle = {}; }
+      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/spaces/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bundle.vault ? bundle : { vault: bundle }) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      if (!r || r.status >= 400) {
+        res.end(automationsShell("Vault import", `<div class="empty">Import rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+        return;
+      }
+      res.end(automationsShell("Vault import", `<h1>Vault imported</h1><dl class="grid">
+        <dt>Imported</dt><dd>${CX_ESC(JSON.stringify(j.imported))}</dd>
+        <dt>Unchanged (idempotent)</dt><dd>${CX_ESC(String(j.unchanged))}</dd>
+        <dt>Conflicts (skipped, explicit)</dt><dd>${(j.conflicts || []).length ? (j.conflicts || []).map((c) => `<code>${CX_ESC(c.ref || c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
+        <dt>Rejected</dt><dd>${(j.rejected || []).length ? (j.rejected || []).map((c) => `<code>${CX_ESC(c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
+      </dl><p><a class="act" href="/__ioi/agent-studio#memory">Back to Memory</a></p>`));
+      return;
+    }
+    {
+      const propAction = pathname.match(/^\/__ioi\/agent-studio\/proposals\/([^/]+)\/(approve|reject)$/);
+      if (propAction && req.method === "POST") {
+        const [, pid, act] = propAction;
+        const r = await fetch(`${DAEMON}/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(pid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: new URLSearchParams(body.toString()).get("reason") || "operator rejected" }) : "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Proposal", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
         res.end();
         return;
       }
