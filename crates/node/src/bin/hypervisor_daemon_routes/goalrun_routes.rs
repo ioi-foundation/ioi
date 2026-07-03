@@ -401,6 +401,8 @@ pub(crate) async fn handle_goal_runs_create(
             "status": "active",
         },
         "admission": { "admission_id": text(&admission, "admission_id"), "receipt_refs": admission.get("receipt_refs").cloned().unwrap_or(json!([])) },
+        // Optional launch-policy provenance (IOI Agent lane) — advanced/proof metadata only.
+        "policy_ref": body.get("policy_ref").cloned().unwrap_or(Value::Null),
         "invocation_refs": [],
         "verification_refs": [],
         "reconciliation_ref": Value::Null,

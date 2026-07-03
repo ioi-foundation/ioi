@@ -591,6 +591,7 @@ pub(crate) async fn handle_work_ledger(
             "session_ref": g(&r, "target_session_ref"),
             "invocation_refs": g(&r, "invocation_refs"),
             "reconciliation_ref": g(&r, "reconciliation_ref"),
+            "policy_ref": g(&r, "policy_ref"),
             "final_changed_files": g(&r, "final_changed_files"),
             "receipt_ref": r.pointer("/admission/receipt_refs/0").cloned().unwrap_or(Value::Null),
         }));

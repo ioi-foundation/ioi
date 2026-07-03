@@ -1035,6 +1035,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
   const briefs = (g.task_briefs || []).map((b) => `<li><code>${CX_ESC(b.task_brief_id || "")}</code> — ${CX_ESC(b.objective_class || "")} · output contract: changed_files ${b.output_contract && b.output_contract.changed_files_required ? "required" : "optional"}</li>`).join("");
   const proof = grid([
     ["GoalRun ref (internal)", code(g.goal_ref)],
+    ["Launch policy", g.policy_ref ? code(g.policy_ref) : "—"],
     ["Admission", code((g.admission || {}).admission_id)],
     ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
     ["Capability lease", code(g.capability_lease_ref)],
@@ -1257,7 +1258,58 @@ function renderModelRouteRegistry(modelRoutes) {
     ${modelRoutes.length ? `<table><thead><tr><th>Route</th><th>Model</th><th>Binding</th><th>Lifecycle</th><th>Availability</th><th>Credential</th><th>Controls</th></tr></thead><tbody>${mrRows}</tbody></table>` : `<div class="empty">No model routes registered. The daemon seeds the env-default route on first read of <code>/v1/hypervisor/model-routes</code>.</div>`}`;
 }
 
-function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes) {
+// ---- IOI Agent launch policies — durable routing/admission preference envelopes (the saved
+// strategy presets behind New Session). Seeded defaults are PROTECTED (clone to customize);
+// every policy is receipt-required. Registry-card shape with confirm-style actions — the same
+// grafted pattern as the harness/model registries, not a generic CRUD table.
+function renderLaunchPolicies(policies, profiles) {
+  const enc = encodeURIComponent;
+  policies = Array.isArray(policies) ? policies : [];
+  const chip = (cls, label) => `<span class="pill ${cls}">${CX_ESC(label)}</span>`;
+  const cards = policies.map((p) => {
+    const hp = p.harness_preferences || {};
+    const priv = p.privacy || {};
+    const asr = p.assurance || {};
+    const active = p.status === "active";
+    const acts = [
+      `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/clone"><button class="act ghost" type="submit">Clone</button></form>`,
+      active
+        ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/disable"><button class="act ghost" type="submit">Disable</button></form>`
+        : `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/enable"><button class="act" type="submit">Enable</button></form>`,
+      p.protected ? "" : `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/delete" onsubmit="return confirm('Delete this policy?')"><button class="act danger" type="submit">Delete</button></form>`,
+    ].join(" ");
+    return `<div class="card lpcard" data-policy="${CX_ESC(p.policy_id)}"><div class="main">
+      <div class="name">${CX_ESC(p.display_name || p.policy_id)}${p.protected ? ' <span class="pill muted" title="seeded default — clone to customize">protected</span>' : ""}${active ? ' <span class="pill ok">active</span>' : ' <span class="pill muted">disabled</span>'}</div>
+      <div class="meta"><code>${CX_ESC(p.policy_ref || "")}</code> · ${CX_ESC(p.description || "")}</div>
+      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}</div>
+      </div><div>${acts}</div></div>`;
+  }).join("");
+  const hpOpts = (profiles || []).map((p) => `${p.profile_ref || ""}`).filter(Boolean);
+  const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New policy</summary>
+    <form method="post" action="/__ioi/agent-studio/launch-policies" style="margin-top:10px;max-width:640px">
+      <div class="field"><label>Name</label><input name="display_name" required placeholder="OpenCode preferred"></div>
+      <div class="field"><label>Description</label><input name="description" placeholder="What this policy is for"></div>
+      <div class="two">
+        <div class="field"><label>Strategy preference</label><select name="strategy_preference"><option value="auto">auto</option><option value="direct">direct</option><option value="compare">compare</option><option value="private_local">private_local</option></select></div>
+        <div class="field"><label>Failure policy</label><select name="failure_policy"><option value="partial_ok">partial_ok</option><option value="stop_on_first_failure">stop_on_first_failure</option><option value="require_all">require_all</option><option value="retry_once">retry_once</option></select></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Preferred harness refs (csv)</label><input name="preferred_harness_refs" placeholder="${CX_ESC(hpOpts[1] || "harness-profile:hp_opencode")}"></div>
+        <div class="field"><label>Excluded harness refs (csv)</label><input name="excluded_harness_refs" placeholder=""></div>
+      </div>
+      <div class="field"><label><input type="checkbox" name="allow_fallback" style="width:auto"> allow fallback when constraints cannot be satisfied</label></div>
+      <div class="field"><label><input type="checkbox" name="local_only" style="width:auto"> private local (local trust + local routes only)</label></div>
+      <div class="two">
+        <div class="field"><label><input type="checkbox" name="require_compare" style="width:auto"> require compare (write only through reconciliation)</label></div>
+        <div class="field"><label>Min successful invocations</label><input name="min_successful_invocations" type="number" min="1" max="2" value="1"></div>
+      </div>
+      <div class="row"><button class="act" type="submit">Create policy</button></div>
+      <p class="sub" style="margin:6px 0 0">Receipts are mandatory on every policy; a policy is a routing/admission preference envelope, never a harness.</p>
+    </form></details>`;
+  return `<h2 id="launch-policies">Launch policies</h2><p class="sub" style="margin:-4px 0 12px">Saved IOI Agent strategy presets — the daemon planner composes a policy with live registry facts, authority, privacy posture, budget, and failure policy at launch. Seeded defaults are protected; clone to customize.</p>${policies.length ? cards : `<div class="empty">No launch policies yet.</div>`}${form}`;
+}
+
+function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, launchPolicies) {
   const enc = encodeURIComponent;
   agents = Array.isArray(agents) ? agents : [];
   profiles = Array.isArray(profiles) ? profiles : [];
@@ -1275,7 +1327,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
-    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes));
+    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -1411,12 +1463,14 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     <button class="tab active" data-astab="config" type="button">Configuration</button>
     <button class="tab" data-astab="harness-profiles" type="button">Harness profiles</button>
     <button class="tab" data-astab="model-routes" type="button">Model routes</button>
+    <button class="tab" data-astab="launch-policies" type="button">Launch policies</button>
     <button class="tab" data-astab="activity" type="button">Activity</button>
   </div>`;
   const panel = (name, on, inner) => `<div class="aspanel${on ? " on" : ""}" data-aspanel="${name}">${inner}</div>`;
   const panels = panel("config", true, `${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}`)
     + panel("harness-profiles", false, matrix || `<div class="empty">No harness profiles registered.</div>`)
     + panel("model-routes", false, routing)
+    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
     function asTab(name){
@@ -3757,12 +3811,13 @@ const server = http.createServer((req, res) => {
     }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr, et] = await Promise.all([
+      const [pj, envs, arp, mr, et, lp] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/editor-targets"),
+        J("/v1/hypervisor/ioi-agent/launch-policies?status=active"),
       ]);
       const environments = (envs.environments || [])
         .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
@@ -3788,6 +3843,14 @@ const server = http.createServer((req, res) => {
           default_route: r.default_route === true,
         })),
         default_route_ref: mr.default_route_ref || null,
+        launch_policies: (lp.policies || []).map((p) => ({
+          policy_ref: p.policy_ref,
+          policy_id: p.policy_id,
+          display_name: p.display_name,
+          description: p.description,
+          strategy_preference: p.strategy_preference,
+          protected: p.protected === true,
+        })),
         editor_targets: (et.targets || []).map((t) => ({
           target_id: t.target_id,
           display_name: (t.profile || {}).displayName || t.target_id,
@@ -3827,7 +3890,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -3835,6 +3898,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/agentops/conversations"),
         J("/v1/hypervisor/agent-run-transcripts"),
         J("/v1/hypervisor/model-routes"),
+        J("/v1/hypervisor/ioi-agent/launch-policies"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -3847,8 +3911,72 @@ const server = http.createServer((req, res) => {
         selId,
         q,
         mr.routes || [],
+        lp.policies || [],
       ));
       return;
+    }
+    // ---- Agent Studio launch-policy management: proxy the daemon policy plane (list is
+    // fetched with the studio page; these are the effectful lanes). Redirects land on the tab.
+    {
+      const lpAction = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/(clone|enable|disable|delete)$/);
+      if (lpAction && req.method === "POST") {
+        const [, pid, act] = lpAction;
+        const target = act === "clone"
+          ? { method: "POST", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}/clone`, body: "{}" }
+          : act === "delete"
+            ? { method: "DELETE", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: undefined }
+            : { method: "PATCH", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: JSON.stringify({ status: act === "enable" ? "active" : "disabled" }) };
+        const r = await fetch(`${DAEMON}${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Launch policies", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+      if (pathname === "/__ioi/agent-studio/launch-policies" && req.method === "POST") {
+        const form = new URLSearchParams(body.toString());
+        const csv = (k) => (form.get(k) || "").split(",").map((x) => x.trim()).filter(Boolean);
+        const payload = {
+          display_name: form.get("display_name") || "",
+          description: form.get("description") || "",
+          strategy_preference: form.get("strategy_preference") || "auto",
+          failure_policy: form.get("failure_policy") || "partial_ok",
+          harness_preferences: {
+            preferred_harness_refs: csv("preferred_harness_refs"),
+            excluded_harness_refs: csv("excluded_harness_refs"),
+            allow_fallback: form.get("allow_fallback") === "on",
+          },
+          privacy: {
+            local_only: form.get("local_only") === "on",
+            forbid_remote_trust: form.get("local_only") === "on",
+            forbid_provider_credentials: form.get("local_only") === "on",
+          },
+          assurance: {
+            require_compare: form.get("require_compare") === "on",
+            require_verifier: true,
+            min_successful_invocations: parseInt(form.get("min_successful_invocations") || "1", 10) || 1,
+            require_reconciliation_before_write: form.get("require_compare") === "on",
+          },
+        };
+        const editId = form.get("policy_id");
+        const url = editId ? `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(editId)}` : "/v1/hypervisor/ioi-agent/launch-policies";
+        const r = await fetch(`${DAEMON}${url}`, { method: editId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Launch policies", `<div class="empty">Save was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
     }
     // ---- Agent Studio model-route registry controls: proxy the effectful daemon routes
     // (probe / enable / disable / select-default), then return to the registry section.

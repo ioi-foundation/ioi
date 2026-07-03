@@ -38,6 +38,8 @@ use super::lifecycle_routes::load_session_record;
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 const LAUNCH_KIND: &str = "ioi-agent-launches";
+const POLICY_KIND: &str = "ioi-agent-launch-policies";
+const POLICY_SCHEMA_VERSION: &str = "ioi.hypervisor.ioi-agent-launch-policy.v1";
 const LAUNCH_SCHEMA_VERSION: &str = "ioi.hypervisor.ioi-agent-launch.v1";
 
 fn nanos() -> u128 {
@@ -94,13 +96,356 @@ fn route_is_local(endpoint: &str) -> bool {
     endpoint.contains("127.0.0.1") || endpoint.contains("localhost") || endpoint.is_empty()
 }
 
+// ---------------------------------------------------------------------------
+// Durable launch policies — routing/admission preference envelopes (never a harness).
+// Seeding model (the simpler honest one): the default set is PROTECTED — field edits and
+// deletes are rejected with a clone hint; enable/disable IS allowed so operators can hide a
+// default. Clones are ordinary editable records. receipt_required can never be disabled.
+// ---------------------------------------------------------------------------
+
+const POLICY_STRATEGIES: &[&str] = &["auto", "direct", "compare", "private_local"];
+const POLICY_FAILURE: &[&str] =
+    &["stop_on_first_failure", "partial_ok", "require_all", "retry_once"];
+const POLICY_SCOPES: &[&str] = &["personal", "project", "org"];
+
+fn load_policy(st: &DaemonState, id: &str) -> Option<Value> {
+    read_record_dir(&st.data_dir, POLICY_KIND)
+        .into_iter()
+        .find(|record| text(record, "policy_id") == id || text(record, "policy_ref") == id)
+}
+
+fn seed_policy(id: &str, name: &str, description: &str, body: Value) -> Value {
+    let mut record = json!({
+        "schema_version": POLICY_SCHEMA_VERSION,
+        "policy_id": id,
+        "policy_ref": format!("ioi-agent-policy://{id}"),
+        "status": "active",
+        "scope": "org",
+        "origin": "seeded",
+        "protected": true,
+        "display_name": name,
+        "description": description,
+        "receipt_required": true,
+        "concurrency_limit": 2,
+        "created_at": iso_now(),
+        "updated_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let (Some(target), Some(extra)) = (record.as_object_mut(), body.as_object()) {
+        for (key, value) in extra {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+    record
+}
+
+fn ensure_policy_seed(st: &DaemonState) {
+    if !read_record_dir(&st.data_dir, POLICY_KIND).is_empty() {
+        return;
+    }
+    let seeds = vec![
+        seed_policy("pol_auto_default", "Auto default", "IOI Agent decides — direct for simple work, compare for ambiguous/large work.", json!({
+            "strategy_preference": "auto",
+            "harness_preferences": { "preferred_harness_refs": [], "excluded_harness_refs": [], "allow_fallback": true },
+            "model_route_preferences": { "preferred_model_route_refs": [], "private_only": false },
+            "assurance": { "require_compare": false, "require_verifier": true, "min_successful_invocations": 1, "require_reconciliation_before_write": true },
+            "privacy": { "local_only": false, "forbid_remote_trust": false, "forbid_provider_credentials": false },
+            "failure_policy": "partial_ok",
+        })),
+        seed_policy("pol_fast_local", "Fast local", "Direct execution through the fastest eligible local harness.", json!({
+            "strategy_preference": "direct",
+            "harness_preferences": { "preferred_harness_refs": ["harness-profile:hp_opencode"], "excluded_harness_refs": [], "allow_fallback": true },
+            "model_route_preferences": { "preferred_model_route_refs": [], "private_only": true },
+            "assurance": { "require_compare": false, "require_verifier": true, "min_successful_invocations": 1, "require_reconciliation_before_write": false },
+            "privacy": { "local_only": true, "forbid_remote_trust": true, "forbid_provider_credentials": true },
+            "failure_policy": "retry_once",
+        })),
+        seed_policy("pol_private_local", "Private local", "Local/private-native routes and local harnesses only; remote and provider-gated slots disabled.", json!({
+            "strategy_preference": "private_local",
+            "harness_preferences": { "preferred_harness_refs": [], "excluded_harness_refs": [], "allow_fallback": false },
+            "model_route_preferences": { "preferred_model_route_refs": [], "private_only": true },
+            "assurance": { "require_compare": false, "require_verifier": true, "min_successful_invocations": 1, "require_reconciliation_before_write": true },
+            "privacy": { "local_only": true, "forbid_remote_trust": true, "forbid_provider_credentials": true },
+            "failure_policy": "partial_ok",
+        })),
+        seed_policy("pol_compare_before_write", "Compare before write", "Two implementers compare; the workspace changes only through an admitted reconciliation.", json!({
+            "strategy_preference": "compare",
+            "harness_preferences": { "preferred_harness_refs": [], "excluded_harness_refs": [], "allow_fallback": false },
+            "model_route_preferences": { "preferred_model_route_refs": [], "private_only": false },
+            "assurance": { "require_compare": true, "require_verifier": true, "min_successful_invocations": 1, "require_reconciliation_before_write": true },
+            "privacy": { "local_only": false, "forbid_remote_trust": false, "forbid_provider_credentials": false },
+            "failure_policy": "partial_ok",
+        })),
+        seed_policy("pol_high_assurance", "High assurance", "Compare required, both implementers must verify, reconciliation gates every write.", json!({
+            "strategy_preference": "compare",
+            "harness_preferences": { "preferred_harness_refs": [], "excluded_harness_refs": [], "allow_fallback": false },
+            "model_route_preferences": { "preferred_model_route_refs": [], "private_only": false },
+            "assurance": { "require_compare": true, "require_verifier": true, "min_successful_invocations": 2, "require_reconciliation_before_write": true },
+            "privacy": { "local_only": false, "forbid_remote_trust": false, "forbid_provider_credentials": false },
+            "failure_policy": "require_all",
+        })),
+    ];
+    for record in seeds {
+        let id = text(&record, "policy_id").to_string();
+        let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &record);
+    }
+}
+
+/// Validate + normalize a policy payload (create/patch). receipt_required is MANDATORY true.
+fn policy_payload(body: &Value, existing: Option<&Value>) -> Result<Value, (StatusCode, Json<Value>)> {
+    let mut record = existing.cloned().unwrap_or(json!({}));
+    if body.get("receipt_required").and_then(Value::as_bool) == Some(false) {
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            "ioi_agent_policy_receipts_mandatory",
+            "No launch policy may disable receipts.",
+        ));
+    }
+    for (key, allowed) in [
+        ("strategy_preference", POLICY_STRATEGIES),
+        ("failure_policy", POLICY_FAILURE),
+        ("scope", POLICY_SCOPES),
+    ] {
+        if let Some(value) = body.get(key).and_then(Value::as_str) {
+            if !allowed.contains(&value) {
+                return Err(bad(
+                    StatusCode::BAD_REQUEST,
+                    "ioi_agent_policy_field_invalid",
+                    &format!("{key} must be one of {allowed:?}"),
+                ));
+            }
+            record[key] = json!(value);
+        }
+    }
+    for key in ["display_name", "description"] {
+        if let Some(value) = body.get(key).and_then(Value::as_str) {
+            record[key] = json!(value.trim());
+        }
+    }
+    for key in ["harness_preferences", "model_route_preferences", "assurance", "privacy"] {
+        if let Some(value) = body.get(key) {
+            if !value.is_object() {
+                return Err(bad(
+                    StatusCode::BAD_REQUEST,
+                    "ioi_agent_policy_field_invalid",
+                    &format!("{key} must be an object"),
+                ));
+            }
+            record[key] = value.clone();
+        }
+    }
+    let harness_refs: Vec<String> = ["preferred_harness_refs", "excluded_harness_refs"]
+        .iter()
+        .flat_map(|key| {
+            record
+                .pointer(&format!("/harness_preferences/{key}"))
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+        })
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect();
+    for reference in &harness_refs {
+        if !reference.starts_with("harness-profile:") {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "ioi_agent_policy_ref_prefix_invalid",
+                "harness preference refs must be harness-profile: refs",
+            ));
+        }
+    }
+    if let Some(limit) = body.get("concurrency_limit").and_then(Value::as_u64) {
+        if limit == 0 || limit > 2 {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "ioi_agent_policy_concurrency_invalid",
+                "concurrency_limit must be 1..=2",
+            ));
+        }
+        record["concurrency_limit"] = json!(limit);
+    }
+    record["receipt_required"] = json!(true);
+    record["updated_at"] = json!(iso_now());
+    Ok(record)
+}
+
+pub(crate) async fn handle_policies_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    ensure_policy_seed(&st);
+    let mut policies = read_record_dir(&st.data_dir, POLICY_KIND);
+    if let Some(status) = query.get("status") {
+        policies.retain(|policy| text(policy, "status") == status);
+    }
+    policies.sort_by(|a, b| text(a, "display_name").cmp(text(b, "display_name")));
+    (StatusCode::OK, Json(json!({ "ok": true, "policies": policies })))
+}
+
+pub(crate) async fn handle_policies_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    ensure_policy_seed(&st);
+    if text(&body, "display_name").trim().is_empty() {
+        return bad(StatusCode::UNPROCESSABLE_ENTITY, "ioi_agent_policy_name_required", "A policy needs a display_name.");
+    }
+    let id = format!("pol_{:x}", nanos());
+    let base = json!({
+        "schema_version": POLICY_SCHEMA_VERSION,
+        "policy_id": id,
+        "policy_ref": format!("ioi-agent-policy://{id}"),
+        "status": "active",
+        "scope": "personal",
+        "origin": "authored",
+        "protected": false,
+        "strategy_preference": "auto",
+        "harness_preferences": { "preferred_harness_refs": [], "excluded_harness_refs": [], "allow_fallback": true },
+        "model_route_preferences": { "preferred_model_route_refs": [], "private_only": false },
+        "assurance": { "require_compare": false, "require_verifier": true, "min_successful_invocations": 1, "require_reconciliation_before_write": true },
+        "privacy": { "local_only": false, "forbid_remote_trust": false, "forbid_provider_credentials": false },
+        "failure_policy": "partial_ok",
+        "concurrency_limit": 2,
+        "receipt_required": true,
+        "created_at": iso_now(),
+    });
+    match policy_payload(&body, Some(&base)) {
+        Ok(record) => {
+            let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &record);
+            (StatusCode::CREATED, Json(json!({ "ok": true, "policy": record })))
+        }
+        Err(rejection) => rejection,
+    }
+}
+
+pub(crate) async fn handle_policies_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    ensure_policy_seed(&st);
+    match load_policy(&st, &id) {
+        Some(policy) => (StatusCode::OK, Json(json!({ "ok": true, "policy": policy }))),
+        None => bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy."),
+    }
+}
+
+pub(crate) async fn handle_policies_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(existing) = load_policy(&st, &id) else {
+        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+    };
+    let protected = existing.get("protected").and_then(Value::as_bool) == Some(true);
+    let only_status = body.as_object().map(|o| o.keys().all(|k| k == "status")).unwrap_or(false);
+    if protected && !only_status {
+        return bad(
+            StatusCode::CONFLICT,
+            "ioi_agent_policy_seeded_protected",
+            "Seeded default policies are protected — clone it to customize (enable/disable is allowed).",
+        );
+    }
+    let mut record = match policy_payload(&body, Some(&existing)) {
+        Ok(record) => record,
+        Err(rejection) => return rejection,
+    };
+    if let Some(status) = body.get("status").and_then(Value::as_str) {
+        if !["active", "disabled"].contains(&status) {
+            return bad(StatusCode::BAD_REQUEST, "ioi_agent_policy_field_invalid", "status must be active|disabled");
+        }
+        record["status"] = json!(status);
+    }
+    let pid = text(&record, "policy_id").to_string();
+    let _ = persist_record(&st.data_dir, POLICY_KIND, &pid, &record);
+    (StatusCode::OK, Json(json!({ "ok": true, "policy": record })))
+}
+
+pub(crate) async fn handle_policies_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(existing) = load_policy(&st, &id) else {
+        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+    };
+    if existing.get("protected").and_then(Value::as_bool) == Some(true) {
+        return bad(
+            StatusCode::CONFLICT,
+            "ioi_agent_policy_seeded_protected",
+            "Seeded default policies cannot be deleted — disable them instead.",
+        );
+    }
+    let pid = text(&existing, "policy_id").to_string();
+    let _ = super::remove_record(&st.data_dir, POLICY_KIND, &pid);
+    (StatusCode::OK, Json(json!({ "ok": true, "deleted": pid })))
+}
+
+pub(crate) async fn handle_policies_clone(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(source) = load_policy(&st, &id) else {
+        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+    };
+    let new_id = format!("pol_{:x}", nanos());
+    let mut clone = source.clone();
+    if let Some(obj) = clone.as_object_mut() {
+        obj.insert("policy_id".into(), json!(new_id));
+        obj.insert("policy_ref".into(), json!(format!("ioi-agent-policy://{new_id}")));
+        obj.insert("origin".into(), json!("cloned"));
+        obj.insert("protected".into(), json!(false));
+        obj.insert("scope".into(), json!("personal"));
+        obj.insert("status".into(), json!("active"));
+        obj.insert("cloned_from".into(), json!(text(&source, "policy_ref"))) ;
+        let name = body.get("display_name").and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("{} (copy)", text(&source, "display_name")));
+        obj.insert("display_name".into(), json!(name));
+        obj.insert("created_at".into(), json!(iso_now()));
+        obj.insert("updated_at".into(), json!(iso_now()));
+    }
+    let _ = persist_record(&st.data_dir, POLICY_KIND, &new_id, &clone);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "policy": clone })))
+}
+
 /// Gather LIVE facts and run the pure strategy planner. Shared by preview + launch.
 async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
     let goal = text(body, "goal").trim().to_string();
+    // Durable policy resolution (fail-closed): an unknown or disabled policy never launches.
+    ensure_policy_seed(st);
+    let policy = match body.get("policy_ref").and_then(Value::as_str).filter(|r| !r.is_empty()) {
+        Some(reference) => {
+            let Some(record) = load_policy(st, reference) else {
+                return Err(bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "ioi_agent_policy_unresolved",
+                    "The named launch policy does not exist.",
+                ));
+            };
+            if text(&record, "status") != "active" {
+                return Err(bad(
+                    StatusCode::CONFLICT,
+                    "ioi_agent_policy_disabled",
+                    "The named launch policy is disabled.",
+                ));
+            }
+            record
+        }
+        None => Value::Null,
+    };
+    // Strategy: an explicit user choice wins; otherwise the policy's preference; otherwise auto.
     let strategy = {
         let requested = text(body, "strategy").trim().to_lowercase();
-        if requested.is_empty() { "auto".to_string() } else { requested }
+        if !requested.is_empty() {
+            requested
+        } else if !policy.is_null() {
+            text(&policy, "strategy_preference").to_string()
+        } else {
+            "auto".to_string()
+        }
     };
+    let strategy = if strategy.is_empty() { "auto".to_string() } else { strategy };
     let profiles = live_profiles(st).await;
     let (route_ref, route_state, _model, endpoint) =
         route_fact(st, body.get("model_route_ref").and_then(Value::as_str));
@@ -124,6 +469,12 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
             "conductor_ref": text(&conductor, "profile_ref"),
             "implementer_candidates": implementer_candidates,
             "preferred_harness_refs": body.get("preferred_harness_refs").cloned().unwrap_or(json!([])),
+            "policy": if policy.is_null() { Value::Null } else { json!({
+                "policy_ref": text(&policy, "policy_ref"),
+                "harness_preferences": policy.get("harness_preferences").cloned().unwrap_or(json!({})),
+                "assurance": policy.get("assurance").cloned().unwrap_or(json!({})),
+                "privacy": policy.get("privacy").cloned().unwrap_or(json!({})),
+            }) },
         }))
         .map_err(kernel_err)?;
     let facts = json!({
@@ -131,6 +482,7 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
         "route_ref": route_ref,
         "route_state": route_state,
         "route_local": route_local,
+        "policy": policy,
     });
     Ok((selection, facts))
 }
@@ -151,9 +503,16 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
         Err(rejection) => return rejection,
     };
     let kind = text(&selection, "planned_execution_kind").to_string();
+    let policy = facts.get("policy").cloned().unwrap_or(Value::Null);
     let failure_policy = {
         let requested = text(&body, "failure_policy");
-        if requested.is_empty() { "continue_partial" } else { requested }
+        if !requested.is_empty() {
+            requested.to_string()
+        } else if !policy.is_null() {
+            text(&policy, "failure_policy").to_string()
+        } else {
+            "continue_partial".to_string()
+        }
     };
     let expected_receipts = if kind == "goal_run" {
         json!([
@@ -196,6 +555,16 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "model_route_state": facts.get("route_state").cloned().unwrap_or(Value::Null),
             "privacy_posture": text(&selection, "privacy_posture"),
             "remote_slots_disabled": selection.get("remote_slots_disabled").cloned().unwrap_or(json!(false)),
+            "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+            "policy_effective_summary": if policy.is_null() { Value::Null } else { json!(format!(
+                "{} · strategy {} · {} · fallback {}",
+                text(&policy, "display_name"),
+                text(&selection, "strategy"),
+                if text(&selection, "privacy_posture") == "private_local" { "private local" } else { "standard privacy" },
+                if policy.pointer("/harness_preferences/allow_fallback").and_then(Value::as_bool).unwrap_or(false) { "allowed" } else { "off" },
+            )) },
+            "policy_constraints_applied": selection.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
+            "policy_constraints_relaxed_or_blocked": selection.get("policy_constraints_relaxed").cloned().unwrap_or(json!([])),
             "budget": {
                 "max_parallel_invocations": selection.get("max_parallel_invocations").cloned().unwrap_or(json!(2)),
                 "failure_policy": failure_policy,
@@ -253,6 +622,62 @@ pub(crate) async fn handle_ioi_agent_launch(
                 return (
                     StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
                     Json(started),
+                );
+            }
+            // Assurance gate (policy min_successful_invocations): the target workspace is
+            // written ONLY through reconciliation, so an unmet minimum blocks reconcile —
+            // candidates stay isolated and the result names the reason. Never silent.
+            let min_required = launch
+                .get("min_successful_invocations")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let completed_count = started
+                .get("invocations")
+                .and_then(Value::as_array)
+                .map(|list| list.iter().filter(|i| text(i, "status") == "completed").count() as u64)
+                .unwrap_or(0);
+            if min_required > 0 && completed_count < min_required {
+                let outcome = json!({
+                    "goal_run": started.get("goal_run").cloned().unwrap_or(Value::Null),
+                    "invocations": started.get("invocations").cloned().unwrap_or(json!([])),
+                    "partial_result": true,
+                    "blockers": [{
+                        "reason_code": "policy_assurance_unmet",
+                        "message": format!("policy requires {min_required} successful invocations; {completed_count} completed — reconciliation withheld, candidates stay isolated"),
+                    }],
+                    "reconciliation": Value::Null,
+                });
+                if let Some(object) = launch.as_object_mut() {
+                    object.insert("state".into(), json!("executed"));
+                    object.insert("outcome".into(), outcome.clone());
+                    object.insert("executed_at".into(), json!(iso_now()));
+                }
+                let _ = persist_record(&st.data_dir, LAUNCH_KIND, &launch_id_in, &launch);
+                return (
+                    StatusCode::OK,
+                    Json(json!({
+                        "ok": true,
+                        "agent": "ioi-agent",
+                        "headline": "IOI Agent withheld the write — assurance policy unmet",
+                        "launch_id": launch_id_in,
+                        "execution_kind": "goal_run",
+                        "strategy": text(&launch, "strategy"),
+                        "session_ref": session_ref,
+                        "final_changed_files": [],
+                        "partial_result": true,
+                        "blockers": outcome.get("blockers").cloned().unwrap_or(json!([])),
+                        "links": {
+                            "workbench_url": "/__ioi/workbench",
+                            "run_timeline_url": format!("/__ioi/run-timeline/goal-run/{grid}"),
+                            "work_ledger_url": "/__ioi/work-ledger",
+                        },
+                        "advanced": {
+                            "goal_run_ref": format!("goal://{grid}"),
+                            "policy_ref": launch.get("policy_ref").cloned().unwrap_or(Value::Null),
+                            "outcome": outcome,
+                        },
+                        "runtimeTruthSource": "daemon-runtime",
+                    })),
                 );
             }
             let (_, reconciled) = self_call(
@@ -345,6 +770,8 @@ pub(crate) async fn handle_ioi_agent_launch(
                 },
                 "advanced": {
                     "goal_run_ref": if grid.is_empty() { Value::Null } else { json!(format!("goal://{grid}")) },
+                    "policy_ref": launch.get("policy_ref").cloned().unwrap_or(Value::Null),
+                    "policy_constraints_applied": launch.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
                     "harness_binding_ref": launch.get("harness_binding_ref").cloned().unwrap_or(Value::Null),
                     "harness_profile_ref": launch.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
                     "model_route_ref": launch.get("model_route_ref").cloned().unwrap_or(Value::Null),
@@ -414,7 +841,12 @@ pub(crate) async fn handle_ioi_agent_launch(
         let (gr_status, gr) = self_call(
             &format!("{}/v1/hypervisor/goal-runs", st.base_url),
             "POST",
-            Some(&json!({ "goal": goal, "session_ref": session_ref, "model_route_ref": route_ref })),
+            Some(&json!({
+                "goal": goal,
+                "session_ref": session_ref,
+                "model_route_ref": route_ref,
+                "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+            })),
         )
         .await;
         if gr_status != 201 {
@@ -470,6 +902,10 @@ pub(crate) async fn handle_ioi_agent_launch(
         "harness_profile_ref": if kind == "direct" { selection.get("selected_harness_ref").cloned().unwrap_or(Value::Null) } else { Value::Null },
         "harness_binding_ref": created.pointer("/harness_binding/binding_id").cloned().unwrap_or(Value::Null),
         "model_route_ref": route_ref,
+        "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+        "policy_constraints_applied": selection.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
+        "policy_constraints_relaxed": selection.get("policy_constraints_relaxed").cloned().unwrap_or(json!([])),
+        "min_successful_invocations": selection.get("min_successful_invocations").cloned().unwrap_or(json!(0)),
         "state": "prepared",
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
