@@ -28,7 +28,9 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use super::goalrun_routes::{fact_from_profile, live_profiles, route_fact};
+use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 pub(crate) const SPACE_KIND: &str = "memory-spaces";
 pub(crate) const ENTRY_KIND: &str = "memory-entries";
@@ -2088,5 +2090,342 @@ async fn finish_apply(st: &DaemonState, proposal: Value, applied_ref: String) ->
     match improvement_state_change(st, &id, &["approved"], "applied", json!({ "applied_ref": applied_ref, "receipt_refs": [receipt_ref] })).await {
         Ok(updated) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": updated }))),
         Err(rejection) => rejection,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Governed what-if simulation — replay stored evidence through the PURE planners with a
+// proposal's counterfactual overlay. Deterministic, derived, non-mutating by default
+// (save=true persists a receipted simulation report and stamps the proposal's
+// latest_simulation_ref). No model or harness is ever invoked; registry facts are the
+// CURRENT probed posture (recorded plainly on the report). Private/secret bodies never
+// appear — refs, counts, and reason codes only.
+// ---------------------------------------------------------------------------
+
+const SIMULATION_KIND: &str = "simulation-reports";
+
+/// The counterfactual overlay a proposal represents.
+struct Overlay {
+    policy_patch: Value,      // launch-policy fields (harness prefs / memory_posture / privacy / failure)
+    virtual_skill: Value,     // suggested SkillEntry (active+accepted) or Null
+    virtual_affinity: Value,  // suggested AutomationAffinity or Null
+}
+
+fn overlay_of(proposal: &Value) -> Overlay {
+    let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
+    match text(proposal, "proposal_kind") {
+        "launch_policy_suggestion" => Overlay { policy_patch: suggested, virtual_skill: Value::Null, virtual_affinity: Value::Null },
+        "skill_improvement" => Overlay {
+            policy_patch: json!({}),
+            virtual_skill: json!({
+                "skill_ref": "skill-entry://simulated",
+                "title": text(&suggested, "title"),
+                "description": text(&suggested, "description"),
+                "status": "active",
+                "quality_state": "accepted",
+                "compatible_harness_refs": suggested.get("compatible_harness_refs").cloned().unwrap_or(json!([])),
+                "compatible_model_route_refs": suggested.get("compatible_model_route_refs").cloned().unwrap_or(json!([])),
+            }),
+            virtual_affinity: Value::Null,
+        },
+        _ => Overlay {
+            policy_patch: json!({}),
+            virtual_skill: Value::Null,
+            virtual_affinity: json!({
+                "affinity_ref": "automation-affinity://simulated",
+                "title": text(&suggested, "title"),
+                "goal_pattern": text(&suggested, "goal_pattern"),
+                "preferred_policy_ref": text(&suggested, "preferred_policy_ref"),
+                "status": "active",
+                "quality_state": "accepted",
+            }),
+        },
+    }
+}
+
+/// Merge the overlay policy patch over a base policy record (target or defaults).
+fn overlaid_policy(base: &Value, patch: &Value) -> Value {
+    let mut merged = if base.is_object() { base.clone() } else { json!({}) };
+    if let (Some(target), Some(fields)) = (merged.as_object_mut(), patch.as_object()) {
+        for (key, value) in fields {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+    merged
+}
+
+fn projection_ctx_for(policy: &Value, harness: &str, route: &str, goal: &str, privacy: &str, live: Vec<String>) -> ProjectionContext {
+    let posture = policy.get("memory_posture").cloned().unwrap_or(Value::Null);
+    let private_mode = privacy == "private_local";
+    ProjectionContext {
+        harness_profile_ref: harness.to_string(),
+        model_route_ref: route.to_string(),
+        privacy_posture: privacy.to_string(),
+        allow_sensitive: policy.pointer("/privacy/allow_private_projection").and_then(Value::as_bool).unwrap_or(false),
+        live_connector_ids: live,
+        goal: goal.to_string(),
+        allow_candidate: posture.get("allow_candidate_memory_projection").and_then(Value::as_bool).unwrap_or(!private_mode),
+        include_disputed: posture.get("include_disputed_memory").and_then(Value::as_bool).unwrap_or(false),
+        max_stale_age_days: posture.get("max_stale_age").or_else(|| posture.get("max_stale_age_days")).and_then(Value::as_u64).unwrap_or(0),
+        require_accepted_for_private: posture.get("require_accepted_memory_for_private").and_then(Value::as_bool).unwrap_or(private_mode),
+    }
+}
+
+pub(crate) async fn handle_improvement_simulate(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+    else {
+        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+    };
+    let overlay = overlay_of(&proposal);
+
+    // Base policy: the proposal's target (when it names one) or bare defaults.
+    let base_policy = match text(&proposal, "target_ref").strip_prefix("ioi-agent-policy://") {
+        Some(pid) => load_policy_record(&st, pid).unwrap_or(json!({})),
+        None => json!({}),
+    };
+    let after_policy = overlaid_policy(&base_policy, &overlay.policy_patch);
+
+    // Current registry facts (recorded on the report — replay uses TODAY'S probed posture).
+    let profiles = live_profiles(&st).await;
+    let (route_ref, route_state, _, _) = route_fact(&st, None);
+    let kernel = RuntimeKernelService::new();
+    let conductor = profiles
+        .iter()
+        .find(|p| text(p, "harness") == "hypervisor_worker")
+        .map(|p| fact_from_profile(p, &route_ref, &route_state))
+        .unwrap_or(Value::Null);
+    let implementer_facts: Vec<Value> = ["opencode", "deepseek_tui", "codex", "claude_code"]
+        .iter()
+        .filter_map(|h| profiles.iter().find(|p| text(p, "harness") == *h))
+        .map(|p| fact_from_profile(p, &route_ref, &route_state))
+        .collect();
+    let select = |policy: &Value, goal: &str, strategy: &str| -> Value {
+        let policy_arg = if policy.as_object().map(|o| o.is_empty()).unwrap_or(true) {
+            Value::Null
+        } else {
+            json!({
+                "policy_ref": text(policy, "policy_ref"),
+                "harness_preferences": policy.get("harness_preferences").cloned().unwrap_or(json!({})),
+                "assurance": policy.get("assurance").cloned().unwrap_or(json!({})),
+                "privacy": policy.get("privacy").cloned().unwrap_or(json!({})),
+            })
+        };
+        kernel
+            .select_ioi_agent_execution(&json!({
+                "strategy": strategy,
+                "normalized_goal": goal,
+                "conductor_ref": text(&conductor, "profile_ref"),
+                "implementer_candidates": implementer_facts,
+                "policy": policy_arg,
+            }))
+            .unwrap_or_else(|e| json!({ "blocked": true, "reason_code": e.code }))
+    };
+
+    // Scenario subjects: explicit refs or the recent record windows.
+    let window = body.get("replay_window").and_then(Value::as_u64).unwrap_or(6) as usize;
+    let mut launches = read_record_dir(&st.data_dir, "ioi-agent-launches");
+    launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    launches.retain(|l| text(l, "state") == "executed");
+    launches.truncate(window);
+    let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
+    projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    projections.truncate(window);
+    let (entries, mut skills, affinities) = gather_projection_inputs(&st).await;
+    if !overlay.virtual_skill.is_null() {
+        skills.push(overlay.virtual_skill.clone());
+    }
+    let mut overlaid_affinities = affinities.clone();
+    if !overlay.virtual_affinity.is_null() {
+        overlaid_affinities.push(overlay.virtual_affinity.clone());
+    }
+    let live_ids = build_projection_context(&st, &json!({})).await.live_connector_ids;
+
+    let mut scenarios: Vec<Value> = Vec::new();
+    let mut changed_count = 0u64;
+    let mut blockers_introduced = 0u64;
+    let mut blockers_removed = 0u64;
+
+    // 1+4+6: launch replay — route/strategy selection + failure/blocker deltas.
+    for launch_record in &launches {
+        let goal = text(launch_record, "goal");
+        let strategy = { let s = text(launch_record, "strategy"); if s.is_empty() { "auto" } else { s } };
+        let before = select(&base_policy, goal, strategy);
+        let after = select(&after_policy, goal, strategy);
+        let before_blocked = before.get("blocked").is_some();
+        let after_blocked = after.get("blocked").is_some();
+        if !before_blocked && after_blocked { blockers_introduced += 1; }
+        if before_blocked && !after_blocked { blockers_removed += 1; }
+        let changed = before != after;
+        if changed { changed_count += 1; }
+        scenarios.push(json!({
+            "scenario_kind": "launch_replay",
+            "subject_ref": format!("ioi-agent-launch://{}", text(launch_record, "launch_id")),
+            "goal_pattern": goal_pattern_key(goal),
+            "before": {
+                "recorded_execution_kind": text(launch_record, "execution_kind"),
+                "recorded_harness_profile_ref": launch_record.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
+                "planned_execution_kind": before.get("planned_execution_kind").cloned().unwrap_or(Value::Null),
+                "selected_harness_ref": before.get("selected_harness_ref").cloned().unwrap_or(Value::Null),
+                "privacy_posture": before.get("privacy_posture").cloned().unwrap_or(Value::Null),
+                "blocked_reason": before.get("reason_code").cloned().unwrap_or(Value::Null),
+            },
+            "after": {
+                "planned_execution_kind": after.get("planned_execution_kind").cloned().unwrap_or(Value::Null),
+                "selected_harness_ref": after.get("selected_harness_ref").cloned().unwrap_or(Value::Null),
+                "eligible_harness_refs": after.get("eligible_harness_refs").cloned().unwrap_or(json!([])),
+                "privacy_posture": after.get("privacy_posture").cloned().unwrap_or(Value::Null),
+                "policy_constraints_applied": after.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
+                "blocked_reason": after.get("reason_code").cloned().unwrap_or(Value::Null),
+                "expected_receipt_classes": if after.get("planned_execution_kind") == Some(&json!("goal_run")) {
+                    json!(["receipt://goal-run/*/create", "receipt://hypervisor/goal-run-invocation/*", "receipt://hypervisor/goal-run-reconciliation/*"])
+                } else {
+                    json!(["receipt://hypervisor/session-execute/*"])
+                },
+                "failure_policy": after_policy.get("failure_policy").cloned().unwrap_or(Value::Null),
+            },
+            "changed": changed,
+            "evidence_refs": [format!("ioi-agent-launch://{}", text(launch_record, "launch_id"))],
+        }));
+        // 5: affinity matching replay for the same goals.
+        if !overlay.virtual_affinity.is_null() {
+            let pattern = text(&overlay.virtual_affinity, "goal_pattern").to_lowercase();
+            let matches_after = !pattern.is_empty() && goal.to_lowercase().contains(&pattern);
+            let matched_before = affinities.iter().any(|a| {
+                let p = text(a, "goal_pattern").to_lowercase();
+                text(a, "status") == "active" && !p.is_empty() && goal.to_lowercase().contains(&p)
+            });
+            if matches_after && !matched_before {
+                changed_count += 1;
+                scenarios.push(json!({
+                    "scenario_kind": "affinity_match_replay",
+                    "subject_ref": format!("ioi-agent-launch://{}", text(launch_record, "launch_id")),
+                    "before": { "automation_affinity_match": Value::Null },
+                    "after": { "automation_affinity_match": text(&overlay.virtual_affinity, "title") },
+                    "changed": true,
+                    "evidence_refs": [format!("ioi-agent-launch://{}", text(launch_record, "launch_id"))],
+                }));
+            }
+        }
+    }
+
+    // 2+3: memory projection replay — counts + newly included/excluded refs.
+    for projection in &projections {
+        let harness = text(projection, "harness_profile_ref");
+        let goal = text(projection, "launch_ref");
+        let privacy = text(projection, "privacy_posture");
+        let before_counts = projection.get("counts").cloned().unwrap_or(json!({}));
+        let ctx = projection_ctx_for(&after_policy, harness, &route_ref, goal, privacy, live_ids.clone());
+        let after_plan = plan_projection(&entries, &skills, &overlaid_affinities, &ctx);
+        let after_counts = after_plan.get("counts").cloned().unwrap_or(json!({}));
+        let skill_eligible = refs(after_plan.get("included_skill_refs"))
+            .iter()
+            .any(|r| r == "skill-entry://simulated");
+        let changed = before_counts != after_counts || skill_eligible;
+        if changed { changed_count += 1; }
+        scenarios.push(json!({
+            "scenario_kind": "memory_projection_replay",
+            "subject_ref": text(projection, "projection_ref"),
+            "before": { "counts": before_counts },
+            "after": {
+                "counts": after_counts,
+                "simulated_skill_eligible": skill_eligible,
+                "newly_redacted": after_plan.get("redacted_entry_refs").cloned().unwrap_or(json!([])),
+                "excluded_refs_with_reasons": after_plan.get("excluded_refs_with_reasons").cloned().unwrap_or(json!([])),
+            },
+            "changed": changed,
+            "evidence_refs": [text(projection, "projection_ref"), projection.pointer("/receipt_refs/0").and_then(Value::as_str).unwrap_or("")],
+        }));
+    }
+
+    // Deterministic report hash over the scenario content (no timestamps inside).
+    let canonical = serde_json::to_string(&scenarios).unwrap_or_default();
+    let report_hash = format!("sha256:{}", sha256_hex_str(&canonical));
+    let privacy_loosened = overlay.policy_patch.pointer("/privacy/allow_private_projection").and_then(Value::as_bool) == Some(true)
+        || overlay.policy_patch.pointer("/memory_posture/include_disputed_memory").and_then(Value::as_bool) == Some(true);
+    let high_impact = changed_count >= 3 || blockers_introduced > 0 || privacy_loosened;
+    let mut report = json!({
+        "schema_version": "ioi.hypervisor.simulation-report.v1",
+        "proposal_ref": text(&proposal, "proposal_ref"),
+        "proposal_kind": text(&proposal, "proposal_kind"),
+        "deterministic": true,
+        "derived_only": true,
+        "non_mutating": true,
+        "registry_posture": "current probed registry facts (recorded, not historical)",
+        "report_hash": report_hash,
+        "summary": {
+            "scenarios": scenarios.len(),
+            "changed": changed_count,
+            "blockers_introduced": blockers_introduced,
+            "blockers_removed": blockers_removed,
+        },
+        "governance": {
+            "high_impact": high_impact,
+            "requirement": if high_impact {
+                "governance_candidate: high-impact improvement application should gate on an ApprovalRequest/ReleaseControl (not yet enforced — candidate, not faked)"
+            } else {
+                "none"
+            },
+            "enforced": false,
+        },
+        "scenarios": scenarios,
+        "body_disclosure": "refs, counts, and reason codes only — private/secret bodies never appear",
+        "runtimeTruthSource": "daemon-runtime",
+    });
+
+    // Explicit save: durable receipted report + proposal stamp. Default: read-only.
+    if body.get("save").and_then(Value::as_bool) == Some(true) {
+        let sim_id = format!("sim_{:x}", nanos());
+        let receipt_ref = format!("receipt://hypervisor/simulation/{sim_id}");
+        if let Some(object) = report.as_object_mut() {
+            object.insert("simulation_id".into(), json!(sim_id));
+            object.insert("simulation_ref".into(), json!(format!("simulation-report://{sim_id}")));
+            object.insert("receipt_refs".into(), json!([receipt_ref]));
+            object.insert("created_at".into(), json!(iso_now()));
+        }
+        let _ = persist_record(&st.data_dir, SIMULATION_KIND, &sim_id, &report);
+        let receipt = json!({
+            "id": receipt_ref,
+            "kind": "hypervisor.simulation-report",
+            "simulation_ref": format!("simulation-report://{sim_id}"),
+            "proposal_ref": text(&proposal, "proposal_ref"),
+            "report_hash": report.get("report_hash").cloned().unwrap_or(Value::Null),
+            "summary": report.get("summary").cloned().unwrap_or(json!({})),
+            "high_impact": high_impact,
+            "at": iso_now(),
+            "runtimeTruthSource": "daemon-runtime",
+        });
+        let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+        if let Some(object) = proposal.as_object_mut() {
+            object.insert("latest_simulation_ref".into(), json!(format!("simulation-report://{sim_id}")));
+            object.insert("latest_simulation_hash".into(), report.get("report_hash").cloned().unwrap_or(Value::Null));
+            object.insert("latest_simulation_high_impact".into(), json!(high_impact));
+        }
+        let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal);
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "report": report })))
+}
+
+fn load_policy_record(st: &DaemonState, id: &str) -> Option<Value> {
+    read_record_dir(&st.data_dir, "ioi-agent-launch-policies")
+        .into_iter()
+        .find(|p| text(p, "policy_id") == id)
+}
+
+pub(crate) async fn handle_simulation_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    match read_record_dir(&st.data_dir, SIMULATION_KIND)
+        .into_iter()
+        .find(|r| text(r, "simulation_id") == id)
+    {
+        Some(report) => (StatusCode::OK, Json(json!({ "ok": true, "report": report }))),
+        None => bad(StatusCode::NOT_FOUND, "simulation_not_found", "Unknown simulation report."),
     }
 }
