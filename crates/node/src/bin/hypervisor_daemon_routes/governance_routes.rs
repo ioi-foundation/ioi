@@ -373,6 +373,8 @@ fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String
             "release-control" => Some(KIND_RELEASE),
             "kill-switch" => Some(KIND_KILL),
             "improvement-gate" => Some(KIND_GATE),
+            "improvement-proposal" => Some("improvement-proposals"),
+            "simulation-report" => Some("simulation-reports"),
             _ => None, // authority-action:// / connector:// / lease:// / route:// / http:// → named
         };
         if let Some(k) = kind {

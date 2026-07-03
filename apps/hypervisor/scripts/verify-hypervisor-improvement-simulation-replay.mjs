@@ -97,9 +97,9 @@ async function run() {
     (sim1.summary?.blockers_introduced || 0) >= 2 && sim1.summary?.scenarios >= 4 && sim1.summary?.changed >= 2,
     JSON.stringify(sim1.summary));
   const expectHigh = (sim1.summary?.changed || 0) >= 3 || (sim1.summary?.blockers_introduced || 0) > 0;
-  ok("high-impact gating is an honest governance CANDIDATE (flagged, named, NOT enforced)",
+  ok("high-impact gating is named AND enforced (approval + release gate at apply time)",
     sim1.governance?.high_impact === expectHigh && sim1.governance?.high_impact === true
-    && String(sim1.governance?.requirement || "").includes("governance_candidate") && sim1.governance?.enforced === false);
+    && String(sim1.governance?.requirement || "").includes("approval-request") && sim1.governance?.enforced === true);
 
   // ── Skill what-if: projection replay shows the virtual skill without creating it ──
   const skillSim = (await simulate(skillProp.improvement_id)).j?.report || {};
@@ -135,9 +135,14 @@ async function run() {
   const seedAfter = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
   ok("protected seed policies untouched by simulation", JSON.stringify(seedAfter) === JSON.stringify(seedBefore) && seedAfter.protected === true);
 
-  // ── Governance flow: simulate → approve → apply cites the simulation ──
+  // ── Governance flow: simulate → approve → satisfy the (possibly high-impact) gate → apply ──
   await simulate(skillProp.improvement_id, { save: true });
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${skillProp.improvement_id}/approve`);
+  const skillGate = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: skillProp.proposal_ref, request_kind: "improvement_apply", reason: "verifier gate" })).j?.approval_request || {};
+  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${skillGate.id}`, { transition: "approve", reviewer_ref: "principal://verifier" });
+  const skillRel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: skillProp.proposal_ref, reason: "verifier gate" })).j?.release_control || {};
+  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${skillRel.id}`, { transition: "open" });
+  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${skillProp.improvement_id}`, { approval_request_ref: skillGate.ref, release_control_ref: skillRel.ref });
   const applied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${skillProp.improvement_id}/apply`)).j?.proposal || {};
   ok("apply cites the latest simulation (evidence suggests, simulation previews, governance decides)",
     applied.state === "applied" && String(applied.applied_ref || "").startsWith("skill-entry://")
@@ -186,6 +191,8 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/skill-entries/${String(applied.applied_ref || "").replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/memory-entries/${secretEntry.entry_id}`, { status: "archived" });
+  await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${skillGate.id}`);
+  await jd("DELETE", `/v1/hypervisor/governance/release-controls/${skillRel.id}`);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
   const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
   ok("fixtures cleaned + drivers restored",

@@ -107,6 +107,14 @@ async function run() {
 
   // ── Launch-policy suggestion: protected seed applies via clone only ──
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/approve`);
+  // Governance gates (enforced since the simulation cut): policy improvements need a fresh
+  // saved simulation; if it lands high-impact, an approved ApprovalRequest + open ReleaseControl.
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/simulate`, { save: true });
+  const polGate = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: policyProp.proposal_ref, request_kind: "improvement_apply", reason: "verifier gate" })).j?.approval_request || {};
+  await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${polGate.id}`, { transition: "approve", reviewer_ref: "principal://verifier" });
+  const polRel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: policyProp.proposal_ref, reason: "verifier gate" })).j?.release_control || {};
+  await jd("PATCH", `/v1/hypervisor/governance/release-controls/${polRel.id}`, { transition: "open" });
+  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`, { approval_request_ref: polGate.ref, release_control_ref: polRel.ref });
   const policyApplied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/apply`)).j?.proposal || {};
   const cloneId = String(policyApplied.applied_ref || "").replace("ioi-agent-policy://", "");
   const clone = (await jd("GET", `/v1/hypervisor/ioi-agent/launch-policies/${cloneId}`)).j?.policy || {};
@@ -165,6 +173,8 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`, { status: "archived" });
   await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${cloneId}`);
   await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
+  await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${polGate.id}`);
+  await jd("DELETE", `/v1/hypervisor/governance/release-controls/${polRel.id}`);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
   const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
   ok("fixtures cleaned + drivers restored",
