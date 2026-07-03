@@ -1416,6 +1416,38 @@ function renderIntelMemory(entries, proposals, projections, review) {
     <div class="chips">${chips}</div>
     ${entries.length ? rows : `<div class="empty">No memory yet. IOI Agent runs and operators add entries here.</div>`}${form}${script}`;
 }
+// ---- Improvement proposals — outcome learning under governance. Mining is a derived
+// deterministic projection (propose = explicit action); proposals change NOTHING until an
+// operator approves AND applies (receipted); protected seed policies apply via clone only.
+function renderImprovementProposals(mining, improvements) {
+  const enc = encodeURIComponent;
+  const stPill = (st) => `<span class="pill ${st === "applied" ? "ok" : st === "rejected" ? "warn" : st === "approved" ? "ok" : "muted"}">${CX_ESC(st)}</span>`;
+  const mined = mining.map((c) => `<div class="card"><div class="main">
+      <div class="name" style="font-size:13px">${CX_ESC((c.suggested || {}).title || (c.suggested || {}).display_name || c.signal)} <span class="pill muted">${CX_ESC(c.candidate_kind)}</span><span class="pill warn">${CX_ESC(c.signal)}</span></div>
+      <div class="meta">×${CX_ESC(String(c.occurrences || 0))} occurrences · confidence ${CX_ESC(String(c.confidence || 0))} · ${(c.evidence_refs || []).length} evidence ref${(c.evidence_refs || []).length === 1 ? "" : "s"}</div>
+      </div><form class="inline" method="post" action="/__ioi/agent-studio/improvements/propose"><input type="hidden" name="candidate_json" value="${CX_ESC(JSON.stringify(c))}"><button class="act ghost" type="submit">Propose</button></form></div>`).join("");
+  const props = improvements.map((p) => {
+    const acts = p.state === "pending"
+      ? `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
+      : p.state === "approved"
+        ? `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
+        : "";
+    const appliedLink = p.applied_ref
+      ? String(p.applied_ref).startsWith("skill-entry://") ? ` · applied: <a href="/__ioi/agent-studio#skills"><code>${CX_ESC(p.applied_ref)}</code></a>`
+      : String(p.applied_ref).startsWith("ioi-agent-policy://") ? ` · applied: <a href="/__ioi/agent-studio#launch-policies"><code>${CX_ESC(p.applied_ref)}</code></a>`
+      : ` · applied: <code>${CX_ESC(p.applied_ref)}</code>` : "";
+    return `<div class="card"><div class="main">
+      <div class="name" style="font-size:13px">${CX_ESC((p.suggested || {}).title || (p.suggested || {}).display_name || p.signal)} ${stPill(p.state)}<span class="pill muted">${CX_ESC(p.proposal_kind)}</span><span class="pill warn">${CX_ESC(p.signal || "")}</span></div>
+      <div class="meta"><code style="font-size:10px">${CX_ESC(p.proposal_ref)}</code> · confidence ${CX_ESC(String(p.confidence))}${appliedLink}${(p.receipt_refs || []).length ? ` · <a href="/__ioi/work-ledger">receipt →</a>` : ""}</div>
+      <div class="chips" style="margin:6px 0 0">${(p.evidence_refs || []).slice(0, 4).map((r) => `<span class="pill muted" style="font-size:10px">${CX_ESC(String(r).slice(0, 44))}</span>`).join("")}${(p.evidence_refs || []).length > 4 ? `<span class="pill muted">+${(p.evidence_refs || []).length - 4} more</span>` : ""}</div>
+      </div><div>${acts}</div></div>`;
+  }).join("");
+  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; nothing changes without approve + apply + receipt</span></h2>
+    ${improvements.length ? props : `<div class="empty">No improvement proposals yet.</div>`}
+    <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Mined candidates (derived, not yet proposed)</h3>
+    ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}`;
+}
+
 function renderAutomationReadiness(affinities) {
   const cards = affinities.map((a) => `<div class="card"><div class="main">
     <div class="name">${CX_ESC(a.title || a.affinity_id)} ${intelStatusPill(a.status)}</div>
@@ -1649,7 +1681,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const panels = panel("config", true, `${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}`)
     + panel("harness-profiles", false, matrix || `<div class="empty">No harness profiles registered.</div>`)
     + panel("model-routes", false, routing)
-    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []))
+    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []) + renderImprovementProposals((intel || {}).mining || [], (intel || {}).improvements || []))
     + panel("connectors", false, renderIntelConnectors(intel || {}))
     + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
     + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || [], (intel || {}).projections || [], (intel || {}).review || []))
@@ -4072,7 +4104,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -4089,6 +4121,8 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/memory-mutation-proposals"),
         J("/v1/hypervisor/memory-projections"),
         J("/v1/hypervisor/intelligence/review-queue"),
+        J("/v1/hypervisor/intelligence/outcome-mining"),
+        J("/v1/hypervisor/intelligence/improvement-proposals"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -4102,7 +4136,7 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20) },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15) },
       ));
       return;
     }
@@ -4142,6 +4176,46 @@ const server = http.createServer((req, res) => {
           return;
         }
         res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    // ---- Outcome-learning improvement proposal lanes.
+    if (pathname === "/__ioi/agent-studio/improvements/propose" && req.method === "POST") {
+      let payload = {};
+      try { payload = JSON.parse(new URLSearchParams(body.toString()).get("candidate_json") || "{}"); } catch { payload = {}; }
+      const proposal = {
+        proposal_kind: payload.candidate_kind,
+        signal: payload.signal,
+        evidence_refs: payload.evidence_refs || [],
+        confidence: payload.confidence,
+        suggested: payload.suggested || {},
+        reason: `mined: ${payload.signal} × ${payload.occurrences || "?"}`,
+      };
+      if (payload.target_ref) proposal.target_ref = payload.target_ref;
+      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      if (!r || r.status >= 400) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(automationsShell("Improvement", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+        return;
+      }
+      res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+      res.end();
+      return;
+    }
+    {
+      const impAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/(approve|reject|apply)$/);
+      if (impAction && req.method === "POST") {
+        const [, iid, act] = impAction;
+        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: "operator rejected" }) : "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
         res.end();
         return;
       }

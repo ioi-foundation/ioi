@@ -597,6 +597,15 @@ pub(crate) async fn handle_work_ledger(
     // Memory lifecycle transitions — receipted quality-state changes (promote/dispute/stale/
     // supersede); the durable-truth audit trail for the intelligence plane.
     for r in read_record_dir(&st.data_dir, "receipts") {
+        if g(&r, "kind") == json!("hypervisor.improvement-applied") {
+            entries.push(json!({
+                "id": g(&r, "id"), "kind": "improvement_applied", "timestamp": g(&r, "at"),
+                "status": g(&r, "proposal_kind"), "signal": g(&r, "signal"),
+                "proposal_ref": g(&r, "proposal_ref"), "applied_ref": g(&r, "applied_ref"),
+                "evidence_refs": g(&r, "evidence_refs"), "receipt_ref": g(&r, "id"),
+            }));
+            continue;
+        }
         if g(&r, "kind") != json!("hypervisor.memory-lifecycle") {
             continue;
         }
