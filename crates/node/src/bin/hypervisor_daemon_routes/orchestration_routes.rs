@@ -607,6 +607,17 @@ pub(crate) async fn handle_work_ledger(
             }));
             continue;
         }
+        if g(&r, "kind") == json!("hypervisor.policy-rollout") {
+            entries.push(json!({
+                "id": g(&r, "id"), "kind": "policy_rollout", "timestamp": g(&r, "at"),
+                "status": g(&r, "action"), "policy_ref": g(&r, "policy_ref"),
+                "base_policy_ref": g(&r, "base_policy_ref"),
+                "proposal_ref": g(&r, "proposal_ref"), "simulation_ref": g(&r, "simulation_ref"),
+                "approval_request_ref": g(&r, "approval_request_ref"),
+                "release_control_ref": g(&r, "release_control_ref"), "receipt_ref": g(&r, "id"),
+            }));
+            continue;
+        }
         if g(&r, "kind") == json!("hypervisor.improvement-applied") {
             entries.push(json!({
                 "id": g(&r, "id"), "kind": "improvement_applied", "timestamp": g(&r, "at"),

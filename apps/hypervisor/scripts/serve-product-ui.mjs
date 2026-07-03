@@ -740,11 +740,11 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
@@ -806,6 +806,7 @@ function renderWorkLedger(entries, scopedProject) {
       var links='';
       if(e.projection_ref){links+=bl('Projection explain',e.projection_ref,'/__ioi/intelligence/projections/'+String(e.projection_ref).replace('memory-projection://','')+'/explain');}
       if(e.simulation_ref){links+=bl('Simulation report',e.simulation_ref,'/__ioi/intelligence/simulations/'+String(e.simulation_ref).replace('simulation-report://',''));}
+      if(e.kind==='policy_rollout'){links+=bl('Learned policy',e.policy_ref,'/__ioi/agent-studio#launch-policies')+bl('Base policy',e.base_policy_ref,'/__ioi/agent-studio#launch-policies');}
       if(e.goal_run_ref){links+=bl('GoalRun',e.goal_run_ref,'/__ioi/run-timeline/goal-run/'+String(e.goal_run_ref).replace('goal://',''));}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
@@ -1450,7 +1451,7 @@ function renderImprovementProposals(mining, improvements) {
         ? `<code style="font-size:10px">${CX_ESC(p.approval_request_ref)}</code> <span class="pill ${gate.approval_status === "approved" ? "ok" : "warn"}">${CX_ESC(gate.approval_status || "?")}</span>${gate.approval_status === "pending" ? ` <form class="inline" method="post" action="/__ioi/agent-studio/governance/approvals/${enc(apprId)}/approve"><button class="act ghost" type="submit">Approve request</button></form>` : ""}`
         : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/request-approval"><button class="act ghost" type="submit">Request approval</button></form>`}
       · ${p.release_control_ref
-        ? `<code style="font-size:10px">${CX_ESC(p.release_control_ref)}</code> <span class="pill ${gate.release_state === "open" ? "ok" : "warn"}">${CX_ESC(gate.release_state || "?")}</span>${gate.release_state !== "open" ? ` <form class="inline" method="post" action="/__ioi/agent-studio/governance/releases/${enc(relId)}/open"><button class="act ghost" type="submit">Open gate</button></form>` : ""}`
+        ? `<code style="font-size:10px">${CX_ESC(p.release_control_ref)}</code> <span class="pill ${gate.release_state === "open" ? "ok" : "warn"}">${CX_ESC(gate.release_state || "?")}${gate.release_rollout_mode && gate.release_rollout_mode !== "full" ? ` · ${CX_ESC(gate.release_rollout_mode)}` : ""}</span>${gate.release_state !== "open" ? ` <form class="inline" method="post" action="/__ioi/agent-studio/governance/releases/${enc(relId)}/open"><button class="act ghost" type="submit">Open gate</button></form>` : ""}`
         : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/open-release"><button class="act ghost" type="submit">Create release gate</button></form>`}
       · <details style="display:inline-block"><summary style="cursor:pointer;display:inline">attach existing</summary>
         <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/attach" style="margin-top:4px">
@@ -1506,7 +1507,14 @@ function renderLaunchPolicies(policies, profiles) {
     const priv = p.privacy || {};
     const asr = p.assurance || {};
     const active = p.status === "active";
+    const ro = p.rollout || null;
+    const roActs = ro && ro.state === "active"
+      ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/promote" onsubmit="return confirm('Promote to FULL rollout — every context using the base policy will see this learned variant?')"><button class="act" type="submit">Promote full</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/rollback"><button class="act ghost" type="submit">Roll back</button></form>`
+      : ro && ro.state === "promoted"
+        ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/rollback"><button class="act ghost" type="submit">Roll back</button></form>`
+        : "";
     const acts = [
+      roActs,
       `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/clone"><button class="act ghost" type="submit">Clone</button></form>`,
       active
         ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/disable"><button class="act ghost" type="submit">Disable</button></form>`
@@ -1516,7 +1524,7 @@ function renderLaunchPolicies(policies, profiles) {
     return `<div class="card lpcard" data-policy="${CX_ESC(p.policy_id)}"><div class="main">
       <div class="name">${CX_ESC(p.display_name || p.policy_id)}${p.protected ? ' <span class="pill muted" title="seeded default — clone to customize">protected</span>' : ""}${active ? ' <span class="pill ok">active</span>' : ' <span class="pill muted">disabled</span>'}</div>
       <div class="meta"><code>${CX_ESC(p.policy_ref || "")}</code> · ${CX_ESC(p.description || "")}</div>
-      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}</div>
+      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}${ro ? chip(ro.state === "active" ? "warn" : ro.state === "promoted" ? "ok" : "muted", `${ro.mode || "?"} rollout · ${ro.state}`) : ""}${ro ? chip("muted", "base " + String(ro.base_policy_ref || "").replace("ioi-agent-policy://", "")) : ""}${ro && ro.proposal_ref ? chip("muted", "learned") : ""}</div>
       </div><div>${acts}</div></div>`;
   }).join("");
   const hpOpts = (profiles || []).map((p) => `${p.profile_ref || ""}`).filter(Boolean);
@@ -4282,6 +4290,23 @@ const server = http.createServer((req, res) => {
       res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
       res.end();
       return;
+    }
+    // ---- Learned-policy rollout lanes (promote to full / roll back to base).
+    {
+      const rolloutAct = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/rollout\/(promote|rollback)$/);
+      if (rolloutAct && req.method === "POST") {
+        const [, pid, act] = rolloutAct;
+        const r = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Rollout", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
     }
     // ---- Improvement governance gate lanes (controls created/bound through the daemon).
     {

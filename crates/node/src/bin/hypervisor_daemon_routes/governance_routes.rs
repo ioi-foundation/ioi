@@ -514,6 +514,17 @@ pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Js
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, target) {
         return bad(&c, &m);
     }
+    let rollout_mode = { let m = str_field(&body, "rollout_mode"); if m.is_empty() { "full" } else { m } };
+    if !["canary", "cohort", "full"].contains(&rollout_mode) {
+        return bad("governance_rollout_mode_invalid", "rollout_mode must be canary | cohort | full");
+    }
+    let canary_percent = body.get("canary_percent").and_then(Value::as_u64).map(|v| v.min(100));
+    if rollout_mode == "canary" && canary_percent.is_none() {
+        return bad("governance_canary_percent_required", "canary rollout needs canary_percent (0-100)");
+    }
+    if rollout_mode == "cohort" && str_refs(&body, "cohort_refs").is_empty() {
+        return bad("governance_cohort_refs_required", "cohort rollout needs cohort_refs");
+    }
     let id = format!("rel_{:x}", nanos());
     let now = iso_now();
     let mut record = json!({
@@ -522,6 +533,14 @@ pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Js
         "id": id, "ref": format!("release-control://{id}"),
         "release_target_ref": target,
         "state": "closed",
+        "rollout_mode": rollout_mode,
+        "canary_percent": canary_percent.map(|v| json!(v)).unwrap_or(Value::Null),
+        "cohort_refs": str_refs(&body, "cohort_refs"),
+        "starts_at": body.get("starts_at").cloned().unwrap_or(Value::Null),
+        "ends_at": body.get("ends_at").cloned().unwrap_or(Value::Null),
+        "rollback_state": Value::Null,
+        "promoted_at": Value::Null,
+        "rolled_back_at": Value::Null,
         "rollback_requested": false,
         "recall_requested": false,
         "canary": body.get("canary").cloned().unwrap_or(Value::Null),
@@ -547,7 +566,7 @@ pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, Axu
             Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
         }
     }
-    for key in ["canary", "cohort", "enforcement_preview", "would_call", "required_authority_refs"] {
+    for key in ["canary", "cohort", "rollout_mode", "canary_percent", "cohort_refs", "starts_at", "ends_at", "enforcement_preview", "would_call", "required_authority_refs"] {
         if let Some(v) = body.get(key) { r[key] = v.clone(); }
     }
     r["updated_at"] = json!(iso_now());

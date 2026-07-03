@@ -35,7 +35,7 @@ use std::time::Duration;
 
 use super::goalrun_routes::{fact_from_profile, live_profiles, profile_by_harness, route_fact};
 use super::lifecycle_routes::load_session_record;
-use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, sha256_hex_str, DaemonState};
 
 const LAUNCH_KIND: &str = "ioi-agent-launches";
 const POLICY_KIND: &str = "ioi-agent-launch-policies";
@@ -409,6 +409,199 @@ pub(crate) async fn handle_policies_clone(
     (StatusCode::CREATED, Json(json!({ "ok": true, "policy": clone })))
 }
 
+// ---------------------------------------------------------------------------
+// Learned-policy rollouts — a canary/cohort ReleaseControl bounds WHO sees a learned policy
+// variant. The base policy is never mutated: an eligible context is silently upgraded to the
+// variant at plan time (recorded + explained), everyone else keeps base behavior. The
+// ReleaseControl stays the LIVE gate: a closed gate switches every context back to base.
+
+const GOV_RELEASE_KIND: &str = "governance-release-controls";
+
+/// Deterministic canary bucketing: sha256(context_seed:release_id) → 0..99.
+fn canary_bucket(seed: &str, release_id: &str) -> u64 {
+    let digest = sha256_hex_str(&format!("{seed}:{release_id}"));
+    u64::from_str_radix(digest.get(..8).unwrap_or("0"), 16).unwrap_or(0) % 100
+}
+
+/// Resolve the rollout variant (if any) that should replace `base` for THIS request context.
+/// Returns (variant_policy, explanation_note).
+fn resolve_policy_rollout(st: &DaemonState, base: &Value, body: &Value) -> Option<(Value, Value)> {
+    if base.is_null() {
+        return None;
+    }
+    let base_ref = text(base, "policy_ref").to_string();
+    let now = iso_now();
+    let mut variants: Vec<Value> = read_record_dir(&st.data_dir, POLICY_KIND)
+        .into_iter()
+        .filter(|record| {
+            text(record, "status") == "active"
+                && record.pointer("/rollout/base_policy_ref").and_then(Value::as_str) == Some(base_ref.as_str())
+                && ["active", "promoted"]
+                    .contains(&record.pointer("/rollout/state").and_then(Value::as_str).unwrap_or(""))
+        })
+        .collect();
+    variants.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    let context_refs: Vec<String> = ["project_ref", "principal_ref", "rollout_context_ref"]
+        .iter()
+        .filter_map(|key| body.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+    for variant in variants {
+        let control_ref = variant
+            .pointer("/rollout/release_control_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let control_id = control_ref.trim_start_matches("release-control://").to_string();
+        let Some(control) = read_record_dir(&st.data_dir, GOV_RELEASE_KIND)
+            .into_iter()
+            .find(|r| text(r, "id") == control_id)
+        else {
+            continue;
+        };
+        if text(&control, "state") != "open" {
+            continue; // gate closed → base behavior, no overlay
+        }
+        let starts = text(&control, "starts_at").to_string();
+        let ends = text(&control, "ends_at").to_string();
+        if (!starts.is_empty() && now < starts) || (!ends.is_empty() && now > ends) {
+            continue;
+        }
+        let promoted = variant.pointer("/rollout/state").and_then(Value::as_str) == Some("promoted");
+        let mode = {
+            let m = text(&control, "rollout_mode");
+            if m.is_empty() { "full".to_string() } else { m.to_string() }
+        };
+        let (eligible, reason) = if promoted {
+            (true, "rollout_promoted_full".to_string())
+        } else if mode == "full" {
+            (true, "rollout_full".to_string())
+        } else if mode == "cohort" {
+            let cohort: Vec<String> = control
+                .get("cohort_refs")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                .unwrap_or_default();
+            match context_refs.iter().find(|c| cohort.contains(c)) {
+                Some(hit) => (true, format!("rollout_cohort_match:{hit}")),
+                None => (false, "rollout_cohort_no_match".to_string()),
+            }
+        } else {
+            let percent = control.get("canary_percent").and_then(Value::as_u64).unwrap_or(0).min(100);
+            let seed = context_refs.first().cloned().unwrap_or_else(|| "anonymous-local".to_string());
+            let bucket = canary_bucket(&seed, &control_id);
+            (bucket < percent, format!("rollout_canary_bucket:{bucket}/{percent}"))
+        };
+        if eligible {
+            let note = json!({
+                "variant_policy_ref": text(&variant, "policy_ref"),
+                "base_policy_ref": base_ref,
+                "release_control_ref": control_ref,
+                "rollout_mode": mode,
+                "rollout_state": variant.pointer("/rollout/state").cloned().unwrap_or(Value::Null),
+                "reason_code": reason,
+                "proposal_ref": variant.pointer("/rollout/proposal_ref").cloned().unwrap_or(Value::Null),
+            });
+            return Some((variant, note));
+        }
+    }
+    None
+}
+
+/// Bind rollout provenance onto a (just-cloned) learned policy variant. Called by the
+/// improvement apply lane — the variant carries WHY it exists and what gates it.
+pub(crate) fn bind_policy_rollout(st: &DaemonState, policy_id: &str, rollout: Value) -> Option<Value> {
+    let mut policy = load_policy(st, policy_id)?;
+    policy["rollout"] = rollout;
+    policy["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, POLICY_KIND, policy_id, &policy);
+    Some(policy)
+}
+
+fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
+    let policy_id = text(policy, "policy_id");
+    let receipt_ref = format!("receipt://hypervisor/policy-rollout/{policy_id}-{action}");
+    let rollout = policy.get("rollout").cloned().unwrap_or(json!({}));
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.policy-rollout",
+        "action": action,
+        "policy_ref": text(policy, "policy_ref"),
+        "base_policy_ref": rollout.get("base_policy_ref").cloned().unwrap_or(Value::Null),
+        "release_control_ref": rollout.get("release_control_ref").cloned().unwrap_or(Value::Null),
+        "proposal_ref": rollout.get("proposal_ref").cloned().unwrap_or(Value::Null),
+        "simulation_ref": rollout.get("simulation_ref").cloned().unwrap_or(Value::Null),
+        "approval_request_ref": rollout.get("approval_request_ref").cloned().unwrap_or(Value::Null),
+        "at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    receipt_ref
+}
+
+fn patch_release_control(st: &DaemonState, control_ref: &str, fields: Value) {
+    let id = control_ref.trim_start_matches("release-control://").to_string();
+    if let Some(mut control) = read_record_dir(&st.data_dir, GOV_RELEASE_KIND)
+        .into_iter()
+        .find(|r| text(r, "id") == id)
+    {
+        if let (Some(target), Some(extra)) = (control.as_object_mut(), fields.as_object()) {
+            for (key, value) in extra {
+                target.insert(key.clone(), value.clone());
+            }
+        }
+        control["updated_at"] = json!(iso_now());
+        let _ = persist_record(&st.data_dir, GOV_RELEASE_KIND, &id, &control);
+    }
+}
+
+/// Promote: the learned variant becomes normal behavior for EVERY context that uses the base
+/// policy (still overlay-selected; the base record — often a protected seed — is never mutated).
+pub(crate) async fn handle_policy_rollout_promote(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut policy) = load_policy(&st, &id) else {
+        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_unresolved", "Unknown policy.");
+    };
+    if policy.pointer("/rollout/state").and_then(Value::as_str) != Some("active") {
+        return bad(StatusCode::CONFLICT, "policy_rollout_state_invalid", "Promote requires an ACTIVE rollout-bound learned policy.");
+    }
+    policy["rollout"]["state"] = json!("promoted");
+    policy["rollout"]["promoted_at"] = json!(iso_now());
+    policy["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
+    let control_ref = policy.pointer("/rollout/release_control_ref").and_then(Value::as_str).unwrap_or("").to_string();
+    patch_release_control(&st, &control_ref, json!({ "rollout_mode": "full", "promoted_at": iso_now() }));
+    let receipt_ref = rollout_receipt(&st, "promote", &policy);
+    (StatusCode::OK, Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })))
+}
+
+/// Rollback: the overlay stops selecting the variant ANYWHERE; base behavior resumes. The
+/// variant record and every proposal/simulation/approval/release evidence record is retained.
+pub(crate) async fn handle_policy_rollout_rollback(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut policy) = load_policy(&st, &id) else {
+        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_unresolved", "Unknown policy.");
+    };
+    if !["active", "promoted"].contains(&policy.pointer("/rollout/state").and_then(Value::as_str).unwrap_or("")) {
+        return bad(StatusCode::CONFLICT, "policy_rollout_state_invalid", "Rollback requires an ACTIVE or PROMOTED rollout-bound learned policy.");
+    }
+    policy["rollout"]["state"] = json!("rolled_back");
+    policy["rollout"]["rolled_back_at"] = json!(iso_now());
+    policy["status"] = json!("disabled"); // fail-closed: explicit selection of a rolled-back variant refuses
+    policy["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
+    let control_ref = policy.pointer("/rollout/release_control_ref").and_then(Value::as_str).unwrap_or("").to_string();
+    patch_release_control(&st, &control_ref, json!({ "rollback_state": "rolled_back", "rollback_requested": true, "rolled_back_at": iso_now() }));
+    let receipt_ref = rollout_receipt(&st, "rollback", &policy);
+    (StatusCode::OK, Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })))
+}
+
 /// Gather LIVE facts and run the pure strategy planner. Shared by preview + launch.
 async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
     let goal = text(body, "goal").trim().to_string();
@@ -433,6 +626,11 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
             record
         }
         None => Value::Null,
+    };
+    // Learned-policy rollout overlay: an eligible context is upgraded to the variant here.
+    let (policy, rollout_note) = match resolve_policy_rollout(st, &policy, body) {
+        Some((variant, note)) => (variant, note),
+        None => (policy, Value::Null),
     };
     // Strategy: an explicit user choice wins; otherwise the policy's preference; otherwise auto.
     let strategy = {
@@ -483,6 +681,7 @@ async fn plan(st: &DaemonState, body: &Value) -> Result<(Value, Value), (StatusC
         "route_state": route_state,
         "route_local": route_local,
         "policy": policy,
+        "policy_rollout": rollout_note,
     });
     Ok((selection, facts))
 }
@@ -589,6 +788,7 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "privacy_posture": text(&selection, "privacy_posture"),
             "remote_slots_disabled": selection.get("remote_slots_disabled").cloned().unwrap_or(json!(false)),
             "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+            "policy_rollout": facts.get("policy_rollout").cloned().unwrap_or(Value::Null),
             "policy_effective_summary": if policy.is_null() { Value::Null } else { json!(format!(
                 "{} · strategy {} · {} · fallback {}",
                 text(&policy, "display_name"),
@@ -993,6 +1193,7 @@ pub(crate) async fn handle_ioi_agent_launch(
         "harness_binding_ref": created.pointer("/harness_binding/binding_id").cloned().unwrap_or(Value::Null),
         "model_route_ref": route_ref,
         "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+        "policy_rollout": facts.get("policy_rollout").cloned().unwrap_or(Value::Null),
         "memory_projection_refs": projection_refs,
         "delivered_intent": delivered_intent,
         "privacy_posture": text(&selection, "privacy_posture"),
