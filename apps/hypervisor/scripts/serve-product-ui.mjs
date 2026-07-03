@@ -740,11 +740,11 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
@@ -805,6 +805,7 @@ function renderWorkLedger(entries, scopedProject) {
       function bl(label,ref,href){return ref?('<li>'+wesc(label)+': <a href="'+href+'" target="_top">'+wesc(ref)+' ↗</a></li>'):'';}
       var links='';
       if(e.projection_ref){links+=bl('Projection explain',e.projection_ref,'/__ioi/intelligence/projections/'+String(e.projection_ref).replace('memory-projection://','')+'/explain');}
+      if(e.simulation_ref){links+=bl('Simulation report',e.simulation_ref,'/__ioi/intelligence/simulations/'+String(e.simulation_ref).replace('simulation-report://',''));}
       if(e.goal_run_ref){links+=bl('GoalRun',e.goal_run_ref,'/__ioi/run-timeline/goal-run/'+String(e.goal_run_ref).replace('goal://',''));}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
@@ -1427,10 +1428,11 @@ function renderImprovementProposals(mining, improvements) {
       <div class="meta">×${CX_ESC(String(c.occurrences || 0))} occurrences · confidence ${CX_ESC(String(c.confidence || 0))} · ${(c.evidence_refs || []).length} evidence ref${(c.evidence_refs || []).length === 1 ? "" : "s"}</div>
       </div><form class="inline" method="post" action="/__ioi/agent-studio/improvements/propose"><input type="hidden" name="candidate_json" value="${CX_ESC(JSON.stringify(c))}"><button class="act ghost" type="submit">Propose</button></form></div>`).join("");
   const props = improvements.map((p) => {
+    const simBtn = `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/simulate"><button class="act ghost" type="submit" title="deterministic what-if replay over recent runs — no mutation">Simulate impact</button></form>`;
     const acts = p.state === "pending"
-      ? `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
+      ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
       : p.state === "approved"
-        ? `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
+        ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
         : "";
     const appliedLink = p.applied_ref
       ? String(p.applied_ref).startsWith("skill-entry://") ? ` · applied: <a href="/__ioi/agent-studio#skills"><code>${CX_ESC(p.applied_ref)}</code></a>`
@@ -1438,7 +1440,7 @@ function renderImprovementProposals(mining, improvements) {
       : ` · applied: <code>${CX_ESC(p.applied_ref)}</code>` : "";
     return `<div class="card"><div class="main">
       <div class="name" style="font-size:13px">${CX_ESC((p.suggested || {}).title || (p.suggested || {}).display_name || p.signal)} ${stPill(p.state)}<span class="pill muted">${CX_ESC(p.proposal_kind)}</span><span class="pill warn">${CX_ESC(p.signal || "")}</span></div>
-      <div class="meta"><code style="font-size:10px">${CX_ESC(p.proposal_ref)}</code> · confidence ${CX_ESC(String(p.confidence))}${appliedLink}${(p.receipt_refs || []).length ? ` · <a href="/__ioi/work-ledger">receipt →</a>` : ""}</div>
+      <div class="meta"><code style="font-size:10px">${CX_ESC(p.proposal_ref)}</code> · confidence ${CX_ESC(String(p.confidence))}${appliedLink}${(p.receipt_refs || []).length ? ` · <a href="/__ioi/work-ledger">receipt →</a>` : ""}${p.latest_simulation_ref ? ` · <a href="/__ioi/intelligence/simulations/${enc(String(p.latest_simulation_ref).replace("simulation-report://", ""))}">simulation${p.latest_simulation_high_impact ? " ⚠ high impact" : ""} →</a>` : ""}</div>
       <div class="chips" style="margin:6px 0 0">${(p.evidence_refs || []).slice(0, 4).map((r) => `<span class="pill muted" style="font-size:10px">${CX_ESC(String(r).slice(0, 44))}</span>`).join("")}${(p.evidence_refs || []).length > 4 ? `<span class="pill muted">+${(p.evidence_refs || []).length - 4} more</span>` : ""}</div>
       </div><div>${acts}</div></div>`;
   }).join("");
@@ -4177,6 +4179,57 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
         res.end();
+        return;
+      }
+    }
+    // ---- What-if simulation lanes (derived, deterministic; save = receipted report).
+    {
+      const simAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/simulate$/);
+      if (simAction && req.method === "POST") {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(simAction[1])}/simulate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ save: true }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        const simId = String(j.report?.simulation_ref || "").replace("simulation-report://", "");
+        if (!r || r.status >= 400 || !simId) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Simulation", `<div class="empty">Simulation failed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: `/__ioi/intelligence/simulations/${encodeURIComponent(simId)}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    {
+      const simPage = pathname.match(/^\/__ioi\/intelligence\/simulations\/([^/]+)$/);
+      if (simPage && req.method === "GET") {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/simulation-reports/${encodeURIComponent(simPage[1])}`).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        const rep = j.report;
+        if (!r || r.status >= 400 || !rep) {
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Simulation", `<div class="empty">Simulation report not found.</div>`));
+          return;
+        }
+        const sm = rep.summary || {};
+        const scRow = (sc) => `<tr>
+          <td><span class="pill muted">${CX_ESC(sc.scenario_kind)}</span><div style="color:#878a93;font-size:10px;word-break:break-all"><code>${CX_ESC(sc.subject_ref || "")}</code></div></td>
+          <td style="font-size:11px">${CX_ESC(JSON.stringify(sc.before || {}).slice(0, 160))}</td>
+          <td style="font-size:11px">${CX_ESC(JSON.stringify(sc.after || {}).slice(0, 160))}</td>
+          <td>${sc.changed ? '<span class="pill warn">changed</span>' : '<span class="pill muted">same</span>'}</td>
+        </tr>`;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Simulation report", `<p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio · Improvement proposals</a></p>
+          <h1>🔮 What-if simulation <span class="pill ok">deterministic</span> <span class="pill muted">non-mutating</span>${rep.governance?.high_impact ? ' <span class="pill warn">high impact</span>' : ""}</h1>
+          <p class="sub">${CX_ESC(rep.body_disclosure || "")} · ${CX_ESC(rep.registry_posture || "")}</p>
+          <dl class="grid">
+            <dt>Proposal</dt><dd><code>${CX_ESC(rep.proposal_ref || "")}</code> · ${CX_ESC(rep.proposal_kind || "")}</dd>
+            <dt>Report hash</dt><dd><code style="font-size:10.5px">${CX_ESC(rep.report_hash || "")}</code></dd>
+            <dt>Summary</dt><dd>${CX_ESC(String(sm.scenarios))} scenarios · <b>${CX_ESC(String(sm.changed))} changed</b> · ${CX_ESC(String(sm.blockers_removed))} blockers removed · ${CX_ESC(String(sm.blockers_introduced))} introduced</dd>
+            <dt>Governance</dt><dd>${CX_ESC(rep.governance?.requirement || "none")}</dd>
+            <dt>Receipts</dt><dd>${(rep.receipt_refs || []).map((x) => `<code>${CX_ESC(x)}</code>`).join(" ")} · <a href="/__ioi/work-ledger">ledger →</a></dd>
+          </dl>
+          <h2>Scenarios (${(rep.scenarios || []).length})</h2>
+          <table><thead><tr><th>Scenario</th><th>Before</th><th>After</th><th>Δ</th></tr></thead><tbody>${(rep.scenarios || []).map(scRow).join("")}</tbody></table>`));
         return;
       }
     }
