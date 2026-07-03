@@ -172,10 +172,22 @@ fn validate_skill(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
             record[key] = json!(v.trim());
         }
     }
-    for key in ["trigger_conditions", "tool_requirements", "connector_requirements", "compatible_harness_refs", "compatible_model_route_refs"] {
+    for key in ["trigger_conditions", "tool_requirements", "connector_requirements", "compatible_harness_refs", "compatible_model_route_refs", "source_refs", "memory_refs"] {
         if let Some(v) = body.get(key) {
             record[key] = v.clone();
         }
+    }
+    if let Some(state) = body.get("quality_state").and_then(Value::as_str) {
+        if !QUALITY_STATES.contains(&state) {
+            return Err(bad(StatusCode::BAD_REQUEST, "memory_quality_state_invalid", "quality_state must be candidate|accepted|stale|disputed|superseded"));
+        }
+        record["quality_state"] = json!(state);
+    }
+    if record.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+        record["quality_state"] = json!("accepted");
+    }
+    if let Some(v) = body.get("confidence").and_then(Value::as_f64) {
+        record["confidence"] = json!(v.clamp(0.0, 1.0));
     }
     Ok(())
 }
@@ -726,6 +738,7 @@ const ENTRY_FM_KEYS: &[&str] = &[
 const SKILL_FM_KEYS: &[&str] = &[
     "skill_id", "skill_ref", "memory_space_ref", "status", "description", "procedure_ref",
     "quality_state", "supersedes_ref", "superseded_by_ref", "marked_stale_at", "lifecycle_history",
+    "source_refs", "memory_refs", "confidence",
     "trigger_conditions", "tool_requirements", "connector_requirements",
     "compatible_harness_refs", "compatible_model_route_refs", "created_at", "updated_at",
 ];
@@ -1650,4 +1663,430 @@ pub(crate) async fn handle_review_queue(
             "runtimeTruthSource": "daemon-runtime",
         })),
     )
+}
+
+// ---------------------------------------------------------------------------
+// Outcome learning — repeated work becomes reusable skills, launch-policy suggestions,
+// and automation-readiness updates WITHOUT silent behavior change. Two lanes:
+//   1. outcome mining: a derived read projection (deterministic signals only, no LLM
+//      judging) over recent launches, goal runs, projections, and reviewed memory;
+//   2. improvement proposals: durable, evidence-bound records
+//      (pending → approved → applied | rejected | superseded). Creation changes NOTHING;
+//      apply performs the governed mutation through the ordinary object lanes and mints
+//      a receipt. Protected seed policies stay immutable — a policy suggestion applies by
+//      CLONING the seed and patching the clone.
+// ---------------------------------------------------------------------------
+
+const IMPROVEMENT_KIND: &str = "improvement-proposals";
+const IMPROVEMENT_KINDS: &[&str] =
+    &["skill_improvement", "launch_policy_suggestion", "automation_readiness"];
+const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+
+/// Normalize a goal to a deterministic pattern key: first four significant lowercase tokens.
+fn goal_pattern_key(goal: &str) -> String {
+    goal.to_lowercase()
+        .split_whitespace()
+        .filter(|token| token.len() > 2)
+        .take(4)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn mined_confidence(count: usize) -> f64 {
+    (0.4 + 0.1 * count as f64).min(0.9)
+}
+
+pub(crate) async fn handle_outcome_mining(
+    State(st): State<Arc<DaemonState>>,
+    Query(_q): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let mut launches = read_record_dir(&st.data_dir, "ioi-agent-launches");
+    launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    launches.truncate(50);
+    let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
+    let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
+    projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    projections.truncate(25);
+    let mut candidates: Vec<Value> = Vec::new();
+
+    // repeated_successful_goal_pattern + repeated_automation_ready_intent + harness preference
+    let mut by_pattern: HashMap<String, Vec<&Value>> = HashMap::new();
+    for launch in launches.iter().filter(|l| text(l, "state") == "executed") {
+        let succeeded = launch
+            .pointer("/outcome/blockers")
+            .and_then(Value::as_array)
+            .map(|b| b.is_empty())
+            .unwrap_or(true);
+        if succeeded && !text(launch, "goal").is_empty() {
+            by_pattern.entry(goal_pattern_key(text(launch, "goal"))).or_default().push(launch);
+        }
+    }
+    let mut harness_counts: HashMap<String, Vec<&Value>> = HashMap::new();
+    for launch in launches.iter().filter(|l| text(l, "state") == "executed") {
+        let harness = text(launch, "harness_profile_ref");
+        if !harness.is_empty() {
+            harness_counts.entry(harness.to_string()).or_default().push(launch);
+        }
+    }
+    for (pattern, group) in by_pattern.iter().filter(|(p, g)| !p.is_empty() && g.len() >= 2) {
+        let evidence: Vec<String> = group
+            .iter()
+            .map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id")))
+            .collect();
+        candidates.push(json!({
+            "candidate_kind": "skill_improvement",
+            "signal": "repeated_successful_goal_pattern",
+            "pattern": pattern,
+            "occurrences": group.len(),
+            "confidence": mined_confidence(group.len()),
+            "evidence_refs": evidence,
+            "suggested": {
+                "title": format!("Skill: {pattern}"),
+                "description": format!("Learned from {} successful runs matching \"{pattern}\"", group.len()),
+                "trigger_conditions": [pattern],
+            },
+        }));
+        candidates.push(json!({
+            "candidate_kind": "automation_readiness",
+            "signal": "repeated_automation_ready_intent",
+            "pattern": pattern,
+            "occurrences": group.len(),
+            "confidence": mined_confidence(group.len()),
+            "evidence_refs": group.iter().map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id"))).collect::<Vec<_>>(),
+            "suggested": {
+                "title": format!("Affinity: {pattern}"),
+                "goal_pattern": pattern,
+            },
+        }));
+    }
+    for (harness, group) in harness_counts.iter().filter(|(_, g)| g.len() >= 3) {
+        candidates.push(json!({
+            "candidate_kind": "launch_policy_suggestion",
+            "signal": "repeated_harness_model_preference",
+            "occurrences": group.len(),
+            "confidence": mined_confidence(group.len()),
+            "evidence_refs": group.iter().map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id"))).collect::<Vec<_>>(),
+            "suggested": {
+                "display_name": format!("Prefers {}", harness.replace("harness-profile:hp_", "")),
+                "harness_preferences": { "preferred_harness_refs": [harness], "excluded_harness_refs": [], "allow_fallback": true },
+            },
+        }));
+    }
+    // repeated_manual_correction
+    let corrections: Vec<&Value> = entries
+        .iter()
+        .filter(|e| text(e, "entry_kind") == "correction" && text(e, "status") == "active")
+        .collect();
+    if corrections.len() >= 2 {
+        candidates.push(json!({
+            "candidate_kind": "skill_improvement",
+            "signal": "repeated_manual_correction",
+            "occurrences": corrections.len(),
+            "confidence": mined_confidence(corrections.len()),
+            "evidence_refs": corrections.iter().map(|e| text(e, "entry_ref")).collect::<Vec<_>>(),
+            "suggested": {
+                "title": "Skill: apply recorded corrections",
+                "description": format!("{} recorded corrections indicate a repeatable procedure", corrections.len()),
+            },
+        }));
+    }
+    // repeated_memory_projection_inclusion
+    for entry in entries.iter().filter(|e| text(e, "status") == "active") {
+        let self_ref = text(entry, "entry_ref");
+        let uses = projections
+            .iter()
+            .filter(|p| refs(p.get("included_entry_refs")).iter().any(|r| r == self_ref))
+            .count();
+        if uses >= 5 && text(entry, "entry_kind") != "connector_derived" {
+            candidates.push(json!({
+                "candidate_kind": "skill_improvement",
+                "signal": "repeated_memory_projection_inclusion",
+                "occurrences": uses,
+                "confidence": mined_confidence(uses),
+                "evidence_refs": [self_ref],
+                "suggested": {
+                    "title": format!("Skill: {}", text(entry, "title")),
+                    "description": format!("Memory entry projected into {uses} recent runs — promotable to a reusable skill"),
+                    "memory_refs": [self_ref],
+                },
+            }));
+        }
+    }
+    // repeated_failure_blocker_class
+    let mut failure_counts: HashMap<String, Vec<String>> = HashMap::new();
+    for launch in &launches {
+        for blocker in launch
+            .pointer("/outcome/blockers")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+        {
+            let code = text(&blocker, "reason_code").to_string();
+            if !code.is_empty() {
+                failure_counts
+                    .entry(code)
+                    .or_default()
+                    .push(format!("ioi-agent-launch://{}", text(launch, "launch_id")));
+            }
+        }
+    }
+    for (code, evidence) in failure_counts.iter().filter(|(_, e)| e.len() >= 2) {
+        candidates.push(json!({
+            "candidate_kind": "launch_policy_suggestion",
+            "signal": "repeated_failure_blocker_class",
+            "failure_class": code,
+            "occurrences": evidence.len(),
+            "confidence": mined_confidence(evidence.len()),
+            "evidence_refs": evidence,
+            "suggested": {
+                "display_name": format!("Mitigate {code}"),
+                "failure_policy": "retry_once",
+            },
+        }));
+    }
+    candidates.sort_by(|a, b| {
+        b.get("occurrences").and_then(Value::as_u64).unwrap_or(0)
+            .cmp(&a.get("occurrences").and_then(Value::as_u64).unwrap_or(0))
+    });
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "deterministic_signals_only": true,
+            "derived_only": true,
+            "counts": { "candidates": candidates.len() },
+            "candidates": candidates,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+pub(crate) async fn handle_improvements_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(query): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    let mut proposals = read_record_dir(&st.data_dir, IMPROVEMENT_KIND);
+    if let Some(state) = query.get("state") {
+        proposals.retain(|p| text(p, "state") == state);
+    }
+    proposals.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    (StatusCode::OK, Json(json!({ "ok": true, "proposals": proposals })))
+}
+
+pub(crate) async fn handle_improvements_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let kind = text(&body, "proposal_kind");
+    if !IMPROVEMENT_KINDS.contains(&kind) {
+        return bad(StatusCode::BAD_REQUEST, "improvement_kind_invalid", "proposal_kind must be skill_improvement|launch_policy_suggestion|automation_readiness");
+    }
+    let evidence = refs(body.get("evidence_refs"));
+    if evidence.is_empty() {
+        return bad(StatusCode::UNPROCESSABLE_ENTITY, "improvement_evidence_required", "An improvement proposal binds to evidence refs (runs, projections, receipts, memory).");
+    }
+    if record_has_credential_material(&body) {
+        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+    }
+    let id = format!("imp_{:x}", nanos());
+    let record = json!({
+        "schema_version": "ioi.hypervisor.improvement-proposal.v1",
+        "improvement_id": id,
+        "proposal_ref": format!("improvement-proposal://{id}"),
+        "proposal_kind": kind,
+        "signal": text(&body, "signal"),
+        "target_ref": body.get("target_ref").cloned().unwrap_or(Value::Null),
+        "suggested": body.get("suggested").cloned().unwrap_or(json!({})),
+        "evidence_refs": evidence,
+        "confidence": body.get("confidence").and_then(Value::as_f64).map(|c| c.clamp(0.0, 1.0)).unwrap_or(0.5),
+        "reason": text(&body, "reason"),
+        "state": "pending",
+        "created_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "proposal": record })))
+}
+
+async fn improvement_state_change(
+    st: &DaemonState,
+    id: &str,
+    from: &[&str],
+    to: &str,
+    extra: Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let Some(mut proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+    else {
+        return Err(bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal."));
+    };
+    if !from.contains(&text(&proposal, "state")) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "improvement_state_invalid",
+            &format!("This transition requires state {from:?}."),
+        ));
+    }
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("state".into(), json!(to));
+        object.insert("reviewed_at".into(), json!(iso_now()));
+        if let Some(extra_obj) = extra.as_object() {
+            for (key, value) in extra_obj {
+                object.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, id, &proposal);
+    Ok(proposal)
+}
+
+pub(crate) async fn handle_improvement_approve(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    match improvement_state_change(&st, &id, &["pending"], "approved", json!({})).await {
+        Ok(proposal) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal }))),
+        Err(rejection) => rejection,
+    }
+}
+
+pub(crate) async fn handle_improvement_reject(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match improvement_state_change(&st, &id, &["pending", "approved"], "rejected", json!({ "review_reason": text(&body, "reason") })).await {
+        Ok(proposal) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal }))),
+        Err(rejection) => rejection,
+    }
+}
+
+pub(crate) async fn handle_improvement_apply(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+    else {
+        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+    };
+    if text(&proposal, "state") != "approved" {
+        return bad(StatusCode::CONFLICT, "improvement_not_approved", "Apply requires an APPROVED proposal (creation changes nothing; approval is the review).");
+    }
+    let kind = text(&proposal, "proposal_kind").to_string();
+    let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
+    let applied_ref: String;
+    match kind.as_str() {
+        "skill_improvement" => {
+            // Approved learning becomes an ACCEPTED skill carrying its evidence.
+            let mut payload = suggested.clone();
+            payload["quality_state"] = json!("accepted");
+            payload["source_refs"] = proposal.get("evidence_refs").cloned().unwrap_or(json!([]));
+            let (status, Json(response)) = family_create(&st, &SKILL_FAMILY, &payload, validate_skill);
+            if status != StatusCode::CREATED {
+                return (status, Json(response));
+            }
+            applied_ref = response.pointer("/record/skill_ref").and_then(Value::as_str).unwrap_or("").to_string();
+        }
+        "automation_readiness" => {
+            let target = text(&proposal, "target_ref");
+            if target.starts_with("automation-affinity://") {
+                let tid = target.trim_start_matches("automation-affinity://").to_string();
+                let (status, Json(response)) = family_patch(&st, &AFFINITY_FAMILY, &tid, &suggested, validate_affinity);
+                if status != StatusCode::OK {
+                    return (status, Json(response));
+                }
+                applied_ref = target.to_string();
+            } else {
+                let (status, Json(response)) = family_create(&st, &AFFINITY_FAMILY, &suggested, validate_affinity);
+                if status != StatusCode::CREATED {
+                    return (status, Json(response));
+                }
+                applied_ref = response.pointer("/record/affinity_ref").and_then(Value::as_str).unwrap_or("").to_string();
+            }
+        }
+        _ => {
+            // launch_policy_suggestion: NEVER mutates a protected seed — clone it, patch the clone;
+            // a non-protected target patches in place. Both through the ordinary policy lanes.
+            let target = text(&proposal, "target_ref").trim_start_matches("ioi-agent-policy://").to_string();
+            let client = reqwest::Client::new();
+            let patch_target: String;
+            if !target.is_empty() {
+                let existing = client
+                    .get(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}", st.base_url))
+                    .send().await.ok();
+                let policy = match existing {
+                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
+                    None => Value::Null,
+                };
+                let protected = policy.pointer("/policy/protected").and_then(Value::as_bool) == Some(true);
+                if protected {
+                    let cloned = client
+                        .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}/clone", st.base_url))
+                        .json(&json!({ "display_name": format!("{} (learned)", policy.pointer("/policy/display_name").and_then(Value::as_str).unwrap_or("policy")) }))
+                        .send().await.ok();
+                    let clone_body = match cloned {
+                        Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
+                        None => Value::Null,
+                    };
+                    patch_target = clone_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                    if patch_target.is_empty() {
+                        return bad(StatusCode::BAD_GATEWAY, "improvement_policy_clone_failed", "Could not clone the protected seed policy.");
+                    }
+                } else {
+                    patch_target = target;
+                }
+            } else {
+                // No target: create a fresh policy from the suggestion.
+                let created = client
+                    .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies", st.base_url))
+                    .json(&suggested)
+                    .send().await.ok();
+                let created_body = match created {
+                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
+                    None => Value::Null,
+                };
+                let pid = created_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                if pid.is_empty() {
+                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_create_failed", "Could not create the suggested policy.");
+                }
+                applied_ref = format!("ioi-agent-policy://{pid}");
+                return finish_apply(&st, proposal, applied_ref).await;
+            }
+            let patched = client
+                .patch(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{patch_target}", st.base_url))
+                .json(&suggested)
+                .send().await.ok();
+            let ok_patch = patched.map(|r| r.status().is_success()).unwrap_or(false);
+            if !ok_patch {
+                return bad(StatusCode::BAD_GATEWAY, "improvement_policy_patch_failed", "Policy patch was rejected.");
+            }
+            applied_ref = format!("ioi-agent-policy://{patch_target}");
+        }
+    }
+    finish_apply(&st, proposal, applied_ref).await
+}
+
+async fn finish_apply(st: &DaemonState, proposal: Value, applied_ref: String) -> (StatusCode, Json<Value>) {
+    let id = text(&proposal, "improvement_id").to_string();
+    let receipt_ref = format!("receipt://hypervisor/improvement/{id}");
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.improvement-applied",
+        "proposal_ref": text(&proposal, "proposal_ref"),
+        "proposal_kind": text(&proposal, "proposal_kind"),
+        "signal": text(&proposal, "signal"),
+        "applied_ref": applied_ref,
+        "evidence_refs": proposal.get("evidence_refs").cloned().unwrap_or(json!([])),
+        "at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    match improvement_state_change(st, &id, &["approved"], "applied", json!({ "applied_ref": applied_ref, "receipt_refs": [receipt_ref] })).await {
+        Ok(updated) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": updated }))),
+        Err(rejection) => rejection,
+    }
 }

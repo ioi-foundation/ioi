@@ -1165,6 +1165,27 @@ async fn async_main() -> anyhow::Result<()> {
             post(ioi_intelligence_routes::handle_skill_lifecycle),
         )
         .route(
+            "/v1/hypervisor/intelligence/outcome-mining",
+            get(ioi_intelligence_routes::handle_outcome_mining),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/improvement-proposals",
+            get(ioi_intelligence_routes::handle_improvements_list)
+                .post(ioi_intelligence_routes::handle_improvements_create),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/improvement-proposals/:id/approve",
+            post(ioi_intelligence_routes::handle_improvement_approve),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/improvement-proposals/:id/reject",
+            post(ioi_intelligence_routes::handle_improvement_reject),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/improvement-proposals/:id/apply",
+            post(ioi_intelligence_routes::handle_improvement_apply),
+        )
+        .route(
             "/v1/hypervisor/intelligence/review-queue",
             get(ioi_intelligence_routes::handle_review_queue),
         )
