@@ -740,17 +740,19 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
     : e.kind === "goal_run" ? `IOI Agent coordination · ${CX_ESC(String(e.normalized_goal || "").slice(0, 48))}`
     : e.kind === "goal_run_invocation" ? `IOI Agent · ${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")}`
     : e.kind === "goal_run_reconciliation" ? `IOI Agent reconcile · ${CX_ESC(e.merge_strategy || "")}`
+    : e.kind === "memory_lifecycle" ? `memory ${CX_ESC(e.status || "")} · ${CX_ESC(String(e.record_ref || "").slice(-18))} (${CX_ESC(e.from_quality_state || "")} → ${CX_ESC(e.to_quality_state || "")})`
+    : e.kind === "memory_projection" ? `intelligence projected · ${CX_ESC(String(e.harness_profile_ref || "").replace("harness-profile:hp_", ""))}`
     : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
     : e.kind === "kill_enforcement" ? `kill ${CX_ESC(e.subject_ref || "")}`
     : e.kind === "domain_app_runtime" ? `${CX_ESC(e.action || "runtime")} ${CX_ESC(e.domain_app_ref || "")}`
@@ -1315,12 +1317,13 @@ function renderIntelSkills(skills) {
   return `<h2 id="skills">Skills</h2><p class="sub" style="margin:-4px 0 12px">Reusable capability/procedure records — portable across harness and model swaps; projections deliver them as scoped summaries.</p>${skills.length ? cards : `<div class="empty">No skills yet.</div>`}${form}`;
 }
 const INTEL_MEMORY_CATS = [["", "All"], ["concept", "Concepts"], ["entity", "Entities"], ["workstream", "Workstreams"], ["note", "Notes"], ["preference", "Preferences"], ["correction", "Corrections"], ["connector_derived", "Connector-derived"]];
-function renderIntelMemory(entries, proposals, projections) {
+function renderIntelMemory(entries, proposals, projections, review) {
   const chips = INTEL_MEMORY_CATS.map(([v, l]) => `<button class="chip" data-memcat="${v}" onclick="memCat(this)">${l}</button>`).join("");
   const rows = entries.map((e) => `<div class="card memcard" data-kind="${CX_ESC(e.entry_kind || "")}" data-blob="${CX_ESC(((e.title || "") + " " + (e.body || "") + " " + (e.tags || []).join(" ")).toLowerCase())}"><div class="main">
-    <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
+    <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.quality_state === "accepted" || !e.quality_state ? "ok" : e.quality_state === "disputed" || e.quality_state === "superseded" ? "warn" : "muted"}">${CX_ESC(e.quality_state || "accepted")}</span><span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
     <div class="meta"><code>${CX_ESC(e.entry_ref || "")}</code>${e.sensitivity === "secret" ? " · <i>body never projected</i>" : e.body ? ` · ${CX_ESC(String(e.body).slice(0, 96))}` : ""}</div>
-    <div class="chips" style="margin:6px 0 0">${(e.compatible_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))} only</span>`).join("")}${(e.connector_refs || []).map((r) => `<span class="pill muted">via ${CX_ESC(String(r).slice(0, 28))}</span>`).join("")}${e.expires_at ? `<span class="pill warn">expires ${CX_ESC(e.expires_at)}</span>` : ""}</div>
+    <div class="chips" style="margin:6px 0 0">${(e.compatible_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))} only</span>`).join("")}${(e.connector_refs || []).map((r) => `<span class="pill muted">via ${CX_ESC(String(r).slice(0, 28))}</span>`).join("")}${e.expires_at ? `<span class="pill warn">expires ${CX_ESC(e.expires_at)}</span>` : ""}${e.supersedes_ref ? `<span class="pill muted">supersedes ${CX_ESC(String(e.supersedes_ref).slice(-14))}</span>` : ""}${e.superseded_by_ref ? `<span class="pill warn">superseded by ${CX_ESC(String(e.superseded_by_ref).slice(-14))}</span>` : ""}${(e.lifecycle_history || []).length ? `<span class="pill muted" title="${CX_ESC((e.lifecycle_history || []).map((h) => `${h.transition}: ${h.reason}`).join(" · "))}">${(e.lifecycle_history || []).length} transition${(e.lifecycle_history || []).length > 1 ? "s" : ""} · receipted</span>` : ""}</div>
+    ${e.status === "active" ? `<div class="row" style="margin:6px 0 0;gap:6px">${e.quality_state === "candidate" || e.quality_state === "disputed" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="promote"><input type="hidden" name="reason" value="operator promoted from Agent Studio"><button class="act" style="padding:4px 10px;font-size:11.5px" type="submit">Promote</button></form>` : ""}${e.quality_state !== "disputed" && e.quality_state !== "superseded" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="dispute"><input type="hidden" name="reason" value="operator disputed from Agent Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Dispute</button></form><form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="mark_stale"><input type="hidden" name="reason" value="operator marked stale from Agent Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Mark stale</button></form>` : ""}</div>` : ""}
     </div><div>${intelActions("memory", e.entry_id, e.status)}</div></div>`).join("");
   const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New memory entry</summary>
     <form method="post" action="/__ioi/agent-studio/intel/memory" style="margin-top:10px;max-width:640px">
@@ -1360,6 +1363,13 @@ function renderIntelMemory(entries, proposals, projections) {
   const inbox = `<h2 id="proposal-inbox" style="margin-top:24px">Proposal inbox <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— harnesses/models propose durable memory changes; only an approved proposal writes (with a context_mutation receipt)</span></h2>
     ${open.length ? open.map((p) => propCard(p, true)).join("") : `<div class="empty">No open proposals. Runs propose; nothing writes durable memory silently.</div>`}
     ${reviewed.length ? `<h3 style="margin:14px 0 6px;font-size:12px;color:#878a93">Recently reviewed (evidence)</h3>` + reviewed.map((p) => propCard(p, false)).join("") : ""}`;
+  review = review || [];
+  const reviewSec = `<h2 id="review-queue" style="margin-top:24px">Review queue <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic signals only (no LLM judging)</span></h2>
+    ${review.length ? review.map((it) => `<div class="card"><div class="main">
+      <div class="name" style="font-size:13px">${CX_ESC(it.title || it.ref)} <span class="pill muted">${CX_ESC(it.kind || "")}</span><span class="pill ${it.quality_state === "accepted" ? "ok" : "muted"}">${CX_ESC(it.quality_state || "")}</span></div>
+      <div class="meta"><code style="font-size:10px">${CX_ESC(it.ref)}</code>${it.projection_use_count ? ` · used in ${it.projection_use_count} projections` : ""}</div>
+      <div class="chips" style="margin:6px 0 0">${(it.signals || []).map((sg) => `<span class="pill warn">${CX_ESC(sg)}</span>`).join("")}</div>
+      </div></div>`).join("") : `<div class="empty">Nothing needs review — signals are computed from proposals, confidence, expiry, projection use, connector leases, and redaction frequency.</div>`}`;
   const graph = `<h2 id="memory-graph" style="margin-top:24px">Graph <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— derived read-only projection over the vault (no graph store)</span></h2>
     <input id="graph-search" class="asearch" placeholder="Search nodes…" oninput="graphSearch()">
     <div class="wlwrap"><div id="graph-nodes" style="max-height:420px;overflow:auto"><div class="empty">Loading graph…</div></div>
@@ -1401,7 +1411,7 @@ function renderIntelMemory(entries, proposals, projections) {
       <td><a class="act ghost" href="/__ioi/intelligence/projections/${encodeURIComponent(pr.projection_id)}/explain">Explain →</a></td>
     </tr>`).join("") + `</tbody></table>` : `<div class="empty">No projections yet — launch IOI Agent work to create them.</div>`}`;
   return `<h2 id="memory">Memory</h2><p class="sub" style="margin:-4px 0 12px">Durable preferences, facts, concepts, entities, workstreams, notes, and corrections — daemon truth that survives harness/model swaps. Harnesses receive scoped projections, never this raw store.</p>
-    ${vault}${inbox}${graph}${explainSec}<h2 style="margin-top:24px">Entries</h2>
+    ${vault}${inbox}${reviewSec}${graph}${explainSec}<h2 style="margin-top:24px">Entries</h2>
     <input id="mem-search" class="asearch" placeholder="Search memory…" oninput="memFilter()">
     <div class="chips">${chips}</div>
     ${entries.length ? rows : `<div class="empty">No memory yet. IOI Agent runs and operators add entries here.</div>`}${form}${script}`;
@@ -1642,7 +1652,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []))
     + panel("connectors", false, renderIntelConnectors(intel || {}))
     + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
-    + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || [], (intel || {}).projections || []))
+    + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || [], (intel || {}).projections || [], (intel || {}).review || []))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
     function asTab(name){
@@ -4062,7 +4072,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -4078,6 +4088,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/capability-leases"),
         J("/v1/hypervisor/memory-mutation-proposals"),
         J("/v1/hypervisor/memory-projections"),
+        J("/v1/hypervisor/intelligence/review-queue"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -4091,7 +4102,7 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20) },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20) },
       ));
       return;
     }
@@ -4135,6 +4146,27 @@ const server = http.createServer((req, res) => {
         return;
       }
     }
+    // ---- Memory lifecycle transitions + review queue lanes.
+    {
+      const lcAction = pathname.match(/^\/__ioi\/agent-studio\/intel\/(memory|skills)\/([^/]+)\/lifecycle$/);
+      if (lcAction && req.method === "POST") {
+        const [, family, rid] = lcAction;
+        const form = new URLSearchParams(body.toString());
+        const api = family === "memory" ? "memory-entries" : "skill-entries";
+        const payload = { transition: form.get("transition") || "", reason: form.get("reason") || "operator action from Agent Studio" };
+        if (form.get("superseded_by_ref")) payload.superseded_by_ref = form.get("superseded_by_ref");
+        const r = await fetch(`${DAEMON}/v1/hypervisor/${api}/${encodeURIComponent(rid)}/lifecycle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Memory lifecycle", `<div class="empty">Transition rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
     // ---- Memory graph (derived, read-only) + projection explainability lanes.
     if (pathname === "/__ioi/agent-studio/intel/graph" && req.method === "GET") {
       const q = new URL(req.url, "http://x").searchParams.get("q") || "";
@@ -4158,10 +4190,11 @@ const server = http.createServer((req, res) => {
         const dec = j.decisions || {};
         const row = (d) => `<tr><td><b>${CX_ESC((d.meta || {}).title || "")}</b><div style="color:#878a93;font-size:10.5px"><code>${CX_ESC(d.ref)}</code></div></td>
           <td><span class="pill muted">${CX_ESC((d.meta || {}).kind || "")}</span></td>
+          <td><span class="pill ${(d.meta || {}).quality_state === "accepted" ? "ok" : "muted"}">${CX_ESC((d.meta || {}).quality_state || "—")}</span></td>
           <td><span class="pill ${(d.meta || {}).sensitivity === "secret" || (d.meta || {}).sensitivity === "private" ? "warn" : "muted"}">${CX_ESC((d.meta || {}).sensitivity || "—")}</span></td>
           <td><span class="pill ${d.decision === "included" ? "ok" : "warn"}">${CX_ESC(d.decision)}</span>${d.reason_code ? ` <code style="font-size:10.5px">${CX_ESC(d.reason_code)}</code>` : ""}</td>
           <td style="font-size:11px;color:#878a93">${d.checks ? d.checks.map((c) => `${c.pass ? "✓" : "✗"} ${CX_ESC(c.check)}`).join("<br>") : "—"}</td></tr>`;
-        const table = (title, list) => `<h2>${title} (${(list || []).length})</h2>${(list || []).length ? `<table><thead><tr><th>Record</th><th>Kind</th><th>Sensitivity</th><th>Decision</th><th>Checks</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">none</div>`}`;
+        const table = (title, list) => `<h2>${title} (${(list || []).length})</h2>${(list || []).length ? `<table><thead><tr><th>Record</th><th>Kind</th><th>Quality</th><th>Sensitivity</th><th>Decision</th><th>Checks</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">none</div>`}`;
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(automationsShell("Projection explain", `<p><a href="/__ioi/agent-studio#memory">← Agent Studio · Memory</a></p>
           <h1>🧠 Projection explain <span class="pill ok">deterministic</span></h1>

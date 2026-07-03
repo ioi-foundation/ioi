@@ -222,7 +222,7 @@ fn policy_payload(body: &Value, existing: Option<&Value>) -> Result<Value, (Stat
             record[key] = json!(value.trim());
         }
     }
-    for key in ["harness_preferences", "model_route_preferences", "assurance", "privacy"] {
+    for key in ["harness_preferences", "model_route_preferences", "assurance", "privacy", "memory_posture"] {
         if let Some(value) = body.get(key) {
             if !value.is_object() {
                 return Err(bad(
@@ -555,6 +555,7 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "model_route_ref": text(&facts, "route_ref"),
             "privacy_posture": text(&selection, "privacy_posture"),
             "allow_sensitive": allow_sensitive,
+            "memory_posture": policy.get("memory_posture").cloned().unwrap_or(Value::Null),
         }),
     )
     .await;
@@ -916,6 +917,7 @@ pub(crate) async fn handle_ioi_agent_launch(
             .pointer("/policy/privacy/allow_private_projection")
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        "memory_posture": facts.pointer("/policy/memory_posture").cloned().unwrap_or(Value::Null),
     });
     let mut delivered_intent = goal.clone();
     if kind == "goal_run" {
