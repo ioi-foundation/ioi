@@ -1174,6 +1174,11 @@ async fn async_main() -> anyhow::Result<()> {
                 .post(ioi_intelligence_routes::handle_improvements_create),
         )
         .route(
+            "/v1/hypervisor/intelligence/improvement-proposals/:id",
+            get(ioi_intelligence_routes::handle_improvement_get)
+                .patch(ioi_intelligence_routes::handle_improvement_patch),
+        )
+        .route(
             "/v1/hypervisor/intelligence/improvement-proposals/:id/simulate",
             post(ioi_intelligence_routes::handle_improvement_simulate),
         )

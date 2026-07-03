@@ -1873,6 +1873,16 @@ pub(crate) async fn handle_improvements_list(
         proposals.retain(|p| text(p, "state") == state);
     }
     proposals.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    let proposals: Vec<Value> = proposals
+        .into_iter()
+        .map(|mut p| {
+            let gate = gate_projection(&st, &p);
+            if let Some(object) = p.as_object_mut() {
+                object.insert("gate".into(), gate);
+            }
+            p
+        })
+        .collect();
     (StatusCode::OK, Json(json!({ "ok": true, "proposals": proposals })))
 }
 
@@ -1965,6 +1975,210 @@ pub(crate) async fn handle_improvement_reject(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Improvement governance gates — high-impact learned changes cannot apply without a FRESH
+// simulation, an APPROVED ApprovalRequest, and an OPEN ReleaseControl targeting the proposal
+// or its simulation report. Inputs are loaded LIVE at evaluation time (stale stamped refs are
+// never trusted); the same pure evaluation feeds both apply enforcement and the list posture.
+
+const GOV_APPROVAL_KIND: &str = "governance-approval-requests";
+const GOV_RELEASE_KIND: &str = "governance-release-controls";
+
+/// Deterministic identity of WHAT a simulation previewed: the proposal's behavior-bearing
+/// fields. A report is fresh iff the live proposal still fingerprints to what was simulated.
+pub(crate) fn proposal_fingerprint(proposal: &Value) -> String {
+    let basis = json!({
+        "proposal_kind": text(proposal, "proposal_kind"),
+        "target_ref": proposal.get("target_ref").cloned().unwrap_or(Value::Null),
+        "suggested": proposal.get("suggested").cloned().unwrap_or(json!({})),
+        "evidence_refs": proposal.get("evidence_refs").cloned().unwrap_or(json!([])),
+    });
+    format!("sha256:{}", sha256_hex_str(&serde_json::to_string(&basis).unwrap_or_default()))
+}
+
+fn load_by_ref(st: &DaemonState, kind: &str, reference: &str, scheme: &str) -> Option<Value> {
+    let id = reference.strip_prefix(&format!("{scheme}://"))?;
+    read_record_dir(&st.data_dir, kind)
+        .into_iter()
+        .find(|r| text(r, "id") == id)
+}
+
+fn gate_inputs(st: &DaemonState, proposal: &Value) -> (Option<Value>, Option<Value>, Option<Value>) {
+    let report = text(proposal, "latest_simulation_ref")
+        .strip_prefix("simulation-report://")
+        .map(str::to_string)
+        .and_then(|id| {
+            read_record_dir(&st.data_dir, SIMULATION_KIND)
+                .into_iter()
+                .find(|r| text(r, "simulation_id") == id)
+        });
+    let approval = load_by_ref(st, GOV_APPROVAL_KIND, text(proposal, "approval_request_ref"), "approval-request");
+    let release = load_by_ref(st, GOV_RELEASE_KIND, text(proposal, "release_control_ref"), "release-control");
+    (report, approval, release)
+}
+
+pub(crate) struct GateDecision {
+    pub(crate) posture: &'static str,
+    pub(crate) block: Option<(&'static str, &'static str)>,
+}
+
+pub(crate) fn evaluate_improvement_gate(
+    proposal: &Value,
+    report: Option<&Value>,
+    approval: Option<&Value>,
+    release: Option<&Value>,
+) -> GateDecision {
+    let sim_ref = text(proposal, "latest_simulation_ref");
+    if sim_ref.is_empty() {
+        // Launch-policy suggestions change execution behavior — always previewable before apply.
+        if text(proposal, "proposal_kind") == "launch_policy_suggestion" {
+            return GateDecision {
+                posture: "simulation_required",
+                block: Some(("simulation_required", "Launch-policy improvements must carry a saved what-if simulation before apply.")),
+            };
+        }
+        return GateDecision { posture: "no_simulation", block: None };
+    }
+    let Some(report) = report else {
+        return GateDecision {
+            posture: "simulation_stale",
+            block: Some(("simulation_stale", "The cited simulation report no longer resolves — re-simulate the proposal as it stands now.")),
+        };
+    };
+    if text(report, "proposal_fingerprint") != proposal_fingerprint(proposal) {
+        return GateDecision {
+            posture: "simulation_stale",
+            block: Some(("simulation_stale", "The proposal changed after its last simulation — the report no longer previews THIS change. Re-simulate.")),
+        };
+    }
+    if report.pointer("/governance/high_impact").and_then(Value::as_bool) != Some(true) {
+        return GateDecision { posture: "low_impact", block: None };
+    }
+    let subject_ok = |candidate: &str| candidate == text(proposal, "proposal_ref") || candidate == sim_ref;
+    let Some(approval) = approval else {
+        return GateDecision {
+            posture: "awaiting_approval",
+            block: Some(("approval_required", "High-impact improvements require an ApprovalRequest targeting the proposal or its simulation report.")),
+        };
+    };
+    if !subject_ok(text(approval, "subject_ref")) {
+        return GateDecision {
+            posture: "awaiting_approval",
+            block: Some(("approval_required", "The bound ApprovalRequest does not target this proposal or its simulation report.")),
+        };
+    }
+    if text(approval, "status") != "approved" {
+        return GateDecision {
+            posture: "awaiting_approval",
+            block: Some(("approval_not_approved", "The bound ApprovalRequest is not APPROVED.")),
+        };
+    }
+    let Some(release) = release else {
+        return GateDecision {
+            posture: "awaiting_release",
+            block: Some(("release_control_required", "High-impact improvements require a ReleaseControl targeting the proposal or its simulation report.")),
+        };
+    };
+    if !subject_ok(text(release, "release_target_ref")) {
+        return GateDecision {
+            posture: "awaiting_release",
+            block: Some(("release_control_required", "The bound ReleaseControl does not target this proposal or its simulation report.")),
+        };
+    }
+    if text(release, "state") != "open" {
+        return GateDecision {
+            posture: "awaiting_release",
+            block: Some(("release_control_not_open", "The bound ReleaseControl gate is not OPEN.")),
+        };
+    }
+    GateDecision { posture: "ready", block: None }
+}
+
+fn gate_projection(st: &DaemonState, proposal: &Value) -> Value {
+    let (report, approval, release) = gate_inputs(st, proposal);
+    let gate = evaluate_improvement_gate(proposal, report.as_ref(), approval.as_ref(), release.as_ref());
+    json!({
+        "posture": gate.posture,
+        "block_code": gate.block.map(|(code, _)| code),
+        "high_impact": report.as_ref().and_then(|r| r.pointer("/governance/high_impact")).cloned().unwrap_or(Value::Null),
+        "approval_status": approval.as_ref().map(|a| text(a, "status").to_string()),
+        "release_state": release.as_ref().map(|r| text(r, "state").to_string()),
+    })
+}
+
+pub(crate) async fn handle_improvement_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+    else {
+        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+    };
+    let gate = gate_projection(&st, &proposal);
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("gate".into(), gate);
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+}
+
+pub(crate) async fn handle_improvement_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut proposal) = read_record_dir(&st.data_dir, IMPROVEMENT_KIND)
+        .into_iter()
+        .find(|p| text(p, "improvement_id") == id)
+    else {
+        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+    };
+    if !["pending", "approved"].contains(&text(&proposal, "state")) {
+        return bad(StatusCode::CONFLICT, "improvement_not_editable", "Only pending/approved proposals can be edited or bound to governance controls.");
+    }
+    if record_has_credential_material(&body) {
+        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+    }
+    // Governance binding: the control must exist NOW and target the proposal or its simulation.
+    let subjects = [
+        text(&proposal, "proposal_ref").to_string(),
+        text(&proposal, "latest_simulation_ref").to_string(),
+    ];
+    if let Some(reference) = body.get("approval_request_ref").and_then(Value::as_str) {
+        let Some(record) = load_by_ref(&st, GOV_APPROVAL_KIND, reference, "approval-request") else {
+            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_ref_unresolved", "approval_request_ref does not resolve to a recorded ApprovalRequest.");
+        };
+        if !subjects.contains(&text(&record, "subject_ref").to_string()) {
+            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_subject_mismatch", "The ApprovalRequest must target this proposal or its simulation report.");
+        }
+        proposal["approval_request_ref"] = json!(reference);
+    }
+    if let Some(reference) = body.get("release_control_ref").and_then(Value::as_str) {
+        let Some(record) = load_by_ref(&st, GOV_RELEASE_KIND, reference, "release-control") else {
+            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_ref_unresolved", "release_control_ref does not resolve to a recorded ReleaseControl.");
+        };
+        if !subjects.contains(&text(&record, "release_target_ref").to_string()) {
+            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_subject_mismatch", "The ReleaseControl must target this proposal or its simulation report.");
+        }
+        proposal["release_control_ref"] = json!(reference);
+    }
+    // Content mutation — freshness is NOT reset here; the fingerprint check at apply time
+    // makes any previously saved simulation stale automatically.
+    for key in ["suggested", "evidence_refs", "target_ref", "reason", "confidence"] {
+        if let Some(value) = body.get(key) {
+            proposal[key] = value.clone();
+        }
+    }
+    proposal["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal);
+    let gate = gate_projection(&st, &proposal);
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("gate".into(), gate);
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+}
+
 pub(crate) async fn handle_improvement_apply(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -1977,6 +2191,11 @@ pub(crate) async fn handle_improvement_apply(
     };
     if text(&proposal, "state") != "approved" {
         return bad(StatusCode::CONFLICT, "improvement_not_approved", "Apply requires an APPROVED proposal (creation changes nothing; approval is the review).");
+    }
+    let (report, approval, release) = gate_inputs(&st, &proposal);
+    let decision = evaluate_improvement_gate(&proposal, report.as_ref(), approval.as_ref(), release.as_ref());
+    if let Some((code, message)) = decision.block {
+        return bad(StatusCode::CONFLICT, code, message);
     }
     let kind = text(&proposal, "proposal_kind").to_string();
     let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
@@ -2083,6 +2302,10 @@ async fn finish_apply(st: &DaemonState, proposal: Value, applied_ref: String) ->
         "signal": text(&proposal, "signal"),
         "applied_ref": applied_ref,
         "evidence_refs": proposal.get("evidence_refs").cloned().unwrap_or(json!([])),
+        "simulation_ref": proposal.get("latest_simulation_ref").cloned().unwrap_or(Value::Null),
+        "report_hash": proposal.get("latest_simulation_hash").cloned().unwrap_or(Value::Null),
+        "approval_request_ref": proposal.get("approval_request_ref").cloned().unwrap_or(Value::Null),
+        "release_control_ref": proposal.get("release_control_ref").cloned().unwrap_or(Value::Null),
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
@@ -2236,9 +2459,10 @@ pub(crate) async fn handle_improvement_simulate(
     let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
     projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
     projections.truncate(window);
-    let (entries, mut skills, affinities) = gather_projection_inputs(&st).await;
+    let (entries, base_skills, affinities) = gather_projection_inputs(&st).await;
+    let mut overlaid_skills = base_skills.clone();
     if !overlay.virtual_skill.is_null() {
-        skills.push(overlay.virtual_skill.clone());
+        overlaid_skills.push(overlay.virtual_skill.clone());
     }
     let mut overlaid_affinities = affinities.clone();
     if !overlay.virtual_affinity.is_null() {
@@ -2319,9 +2543,12 @@ pub(crate) async fn handle_improvement_simulate(
         let harness = text(projection, "harness_profile_ref");
         let goal = text(projection, "launch_ref");
         let privacy = text(projection, "privacy_posture");
-        let before_counts = projection.get("counts").cloned().unwrap_or(json!({}));
+        let recorded_counts = projection.get("counts").cloned().unwrap_or(json!({}));
+        let base_ctx = projection_ctx_for(&base_policy, harness, &route_ref, goal, privacy, live_ids.clone());
+        let before_plan = plan_projection(&entries, &base_skills, &affinities, &base_ctx);
+        let before_counts = before_plan.get("counts").cloned().unwrap_or(json!({}));
         let ctx = projection_ctx_for(&after_policy, harness, &route_ref, goal, privacy, live_ids.clone());
-        let after_plan = plan_projection(&entries, &skills, &overlaid_affinities, &ctx);
+        let after_plan = plan_projection(&entries, &overlaid_skills, &overlaid_affinities, &ctx);
         let after_counts = after_plan.get("counts").cloned().unwrap_or(json!({}));
         let skill_eligible = refs(after_plan.get("included_skill_refs"))
             .iter()
@@ -2331,7 +2558,7 @@ pub(crate) async fn handle_improvement_simulate(
         scenarios.push(json!({
             "scenario_kind": "memory_projection_replay",
             "subject_ref": text(projection, "projection_ref"),
-            "before": { "counts": before_counts },
+            "before": { "counts": before_counts, "recorded_counts": recorded_counts },
             "after": {
                 "counts": after_counts,
                 "simulated_skill_eligible": skill_eligible,
@@ -2364,14 +2591,16 @@ pub(crate) async fn handle_improvement_simulate(
             "blockers_introduced": blockers_introduced,
             "blockers_removed": blockers_removed,
         },
+        "proposal_fingerprint": proposal_fingerprint(&proposal),
         "governance": {
             "high_impact": high_impact,
             "requirement": if high_impact {
-                "governance_candidate: high-impact improvement application should gate on an ApprovalRequest/ReleaseControl (not yet enforced — candidate, not faked)"
+                "enforced: applying this improvement requires a FRESH simulation, an APPROVED approval-request://, and an OPEN release-control:// targeting the proposal or this simulation report"
             } else {
                 "none"
             },
-            "enforced": false,
+            "enforced": high_impact,
+            "satisfiable_target_refs": [text(&proposal, "proposal_ref")],
         },
         "scenarios": scenarios,
         "body_disclosure": "refs, counts, and reason codes only — private/secret bodies never appear",
@@ -2387,6 +2616,12 @@ pub(crate) async fn handle_improvement_simulate(
             object.insert("simulation_ref".into(), json!(format!("simulation-report://{sim_id}")));
             object.insert("receipt_refs".into(), json!([receipt_ref]));
             object.insert("created_at".into(), json!(iso_now()));
+        }
+        if let Some(targets) = report
+            .pointer_mut("/governance/satisfiable_target_refs")
+            .and_then(Value::as_array_mut)
+        {
+            targets.push(json!(format!("simulation-report://{sim_id}")));
         }
         let _ = persist_record(&st.data_dir, SIMULATION_KIND, &sim_id, &report);
         let receipt = json!({
@@ -2427,5 +2662,112 @@ pub(crate) async fn handle_simulation_get(
     {
         Some(report) => (StatusCode::OK, Json(json!({ "ok": true, "report": report }))),
         None => bad(StatusCode::NOT_FOUND, "simulation_not_found", "Unknown simulation report."),
+    }
+}
+
+#[cfg(test)]
+mod improvement_gate_tests {
+    use super::*;
+
+    fn proposal(kind: &str, sim: Option<&str>) -> Value {
+        let mut p = json!({
+            "proposal_kind": kind,
+            "proposal_ref": "improvement-proposal://imp_t",
+            "target_ref": Value::Null,
+            "suggested": { "title": "t" },
+            "evidence_refs": ["x://e"],
+        });
+        if let Some(s) = sim {
+            p["latest_simulation_ref"] = json!(s);
+        }
+        p
+    }
+    fn fresh_report(p: &Value, high: bool) -> Value {
+        json!({
+            "proposal_fingerprint": proposal_fingerprint(p),
+            "governance": { "high_impact": high },
+        })
+    }
+
+    #[test]
+    fn policy_without_simulation_blocks() {
+        let p = proposal("launch_policy_suggestion", None);
+        let d = evaluate_improvement_gate(&p, None, None, None);
+        assert_eq!(d.posture, "simulation_required");
+        assert_eq!(d.block.unwrap().0, "simulation_required");
+    }
+
+    #[test]
+    fn skill_without_simulation_keeps_existing_behavior() {
+        let p = proposal("skill_improvement", None);
+        let d = evaluate_improvement_gate(&p, None, None, None);
+        assert_eq!(d.posture, "no_simulation");
+        assert!(d.block.is_none());
+    }
+
+    #[test]
+    fn mutated_proposal_makes_simulation_stale() {
+        let mut p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let report = fresh_report(&p, true);
+        p["suggested"] = json!({ "title": "changed after simulate" });
+        let d = evaluate_improvement_gate(&p, Some(&report), None, None);
+        assert_eq!(d.posture, "simulation_stale");
+        assert_eq!(d.block.unwrap().0, "simulation_stale");
+    }
+
+    #[test]
+    fn missing_report_record_is_stale_not_trusted() {
+        let p = proposal("skill_improvement", Some("simulation-report://sim_gone"));
+        let d = evaluate_improvement_gate(&p, None, None, None);
+        assert_eq!(d.block.unwrap().0, "simulation_stale");
+    }
+
+    #[test]
+    fn fresh_low_impact_applies_without_controls() {
+        let p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let report = fresh_report(&p, false);
+        let d = evaluate_improvement_gate(&p, Some(&report), None, None);
+        assert_eq!(d.posture, "low_impact");
+        assert!(d.block.is_none());
+    }
+
+    #[test]
+    fn high_impact_requires_approval_then_release() {
+        let p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let report = fresh_report(&p, true);
+        assert_eq!(evaluate_improvement_gate(&p, Some(&report), None, None).block.unwrap().0, "approval_required");
+        let pending = json!({ "subject_ref": "improvement-proposal://imp_t", "status": "pending" });
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), Some(&pending), None).block.unwrap().0,
+            "approval_not_approved"
+        );
+        let approved = json!({ "subject_ref": "simulation-report://sim_t", "status": "approved" });
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), None).block.unwrap().0,
+            "release_control_required"
+        );
+        let closed = json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "closed" });
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&closed)).block.unwrap().0,
+            "release_control_not_open"
+        );
+        let open = json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "open" });
+        let d = evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&open));
+        assert_eq!(d.posture, "ready");
+        assert!(d.block.is_none());
+    }
+
+    #[test]
+    fn wrong_subject_controls_do_not_satisfy_the_gate() {
+        let p = proposal("skill_improvement", Some("simulation-report://sim_t"));
+        let report = fresh_report(&p, true);
+        let foreign = json!({ "subject_ref": "improvement-proposal://imp_OTHER", "status": "approved" });
+        assert_eq!(evaluate_improvement_gate(&p, Some(&report), Some(&foreign), None).block.unwrap().0, "approval_required");
+        let approved = json!({ "subject_ref": "improvement-proposal://imp_t", "status": "approved" });
+        let foreign_rel = json!({ "release_target_ref": "simulation-report://sim_OTHER", "state": "open" });
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&foreign_rel)).block.unwrap().0,
+            "release_control_required"
+        );
     }
 }

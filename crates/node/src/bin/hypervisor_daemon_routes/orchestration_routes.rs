@@ -613,6 +613,9 @@ pub(crate) async fn handle_work_ledger(
                 "status": g(&r, "proposal_kind"), "signal": g(&r, "signal"),
                 "proposal_ref": g(&r, "proposal_ref"), "applied_ref": g(&r, "applied_ref"),
                 "evidence_refs": g(&r, "evidence_refs"), "receipt_ref": g(&r, "id"),
+                "simulation_ref": g(&r, "simulation_ref"), "report_hash": g(&r, "report_hash"),
+                "approval_request_ref": g(&r, "approval_request_ref"),
+                "release_control_ref": g(&r, "release_control_ref"),
             }));
             continue;
         }

@@ -1428,23 +1428,48 @@ function renderImprovementProposals(mining, improvements) {
       <div class="meta">×${CX_ESC(String(c.occurrences || 0))} occurrences · confidence ${CX_ESC(String(c.confidence || 0))} · ${(c.evidence_refs || []).length} evidence ref${(c.evidence_refs || []).length === 1 ? "" : "s"}</div>
       </div><form class="inline" method="post" action="/__ioi/agent-studio/improvements/propose"><input type="hidden" name="candidate_json" value="${CX_ESC(JSON.stringify(c))}"><button class="act ghost" type="submit">Propose</button></form></div>`).join("");
   const props = improvements.map((p) => {
+    const gate = p.gate || {};
+    const live = p.state === "pending" || p.state === "approved";
+    const gateLabel = { no_simulation: "no simulation", simulation_required: "simulation required", simulation_stale: "simulation stale", low_impact: "low impact", awaiting_approval: "awaiting approval", awaiting_release: "awaiting release", ready: "ready to apply" }[gate.posture] || gate.posture || "";
+    const gateChip = live && gateLabel ? `<span class="pill ${gate.block_code ? "warn" : "ok"}" title="${CX_ESC(gate.block_code ? `apply blocks: ${gate.block_code}` : "governance gate satisfied")}">${CX_ESC(gateLabel)}</span>` : "";
     const simBtn = `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/simulate"><button class="act ghost" type="submit" title="deterministic what-if replay over recent runs — no mutation">Simulate impact</button></form>`;
+    const applyBtn = gate.block_code
+      ? `<button class="act" type="button" disabled title="apply blocked: ${CX_ESC(gate.block_code)}">Apply</button>`
+      : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form>`;
     const acts = p.state === "pending"
       ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
       : p.state === "approved"
-        ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
+        ? `${simBtn} ${applyBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
         : "";
+    // High-impact governance row: bound control status + one-click create/transition + attach-existing.
+    const highPath = live && ["awaiting_approval", "awaiting_release", "ready"].includes(gate.posture);
+    const apprId = String(p.approval_request_ref || "").replace("approval-request://", "");
+    const relId = String(p.release_control_ref || "").replace("release-control://", "");
+    const govRow = highPath ? `<div class="meta" style="margin-top:5px" data-gov="${CX_ESC(p.improvement_id)}">gate:
+      ${p.approval_request_ref
+        ? `<code style="font-size:10px">${CX_ESC(p.approval_request_ref)}</code> <span class="pill ${gate.approval_status === "approved" ? "ok" : "warn"}">${CX_ESC(gate.approval_status || "?")}</span>${gate.approval_status === "pending" ? ` <form class="inline" method="post" action="/__ioi/agent-studio/governance/approvals/${enc(apprId)}/approve"><button class="act ghost" type="submit">Approve request</button></form>` : ""}`
+        : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/request-approval"><button class="act ghost" type="submit">Request approval</button></form>`}
+      · ${p.release_control_ref
+        ? `<code style="font-size:10px">${CX_ESC(p.release_control_ref)}</code> <span class="pill ${gate.release_state === "open" ? "ok" : "warn"}">${CX_ESC(gate.release_state || "?")}</span>${gate.release_state !== "open" ? ` <form class="inline" method="post" action="/__ioi/agent-studio/governance/releases/${enc(relId)}/open"><button class="act ghost" type="submit">Open gate</button></form>` : ""}`
+        : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/open-release"><button class="act ghost" type="submit">Create release gate</button></form>`}
+      · <details style="display:inline-block"><summary style="cursor:pointer;display:inline">attach existing</summary>
+        <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/governance/attach" style="margin-top:4px">
+          <input name="approval_request_ref" placeholder="approval-request://appr_…" style="width:220px;font-size:10px">
+          <input name="release_control_ref" placeholder="release-control://rel_…" style="width:220px;font-size:10px">
+          <button class="act ghost" type="submit">Attach</button>
+        </form></details></div>` : "";
     const appliedLink = p.applied_ref
       ? String(p.applied_ref).startsWith("skill-entry://") ? ` · applied: <a href="/__ioi/agent-studio#skills"><code>${CX_ESC(p.applied_ref)}</code></a>`
       : String(p.applied_ref).startsWith("ioi-agent-policy://") ? ` · applied: <a href="/__ioi/agent-studio#launch-policies"><code>${CX_ESC(p.applied_ref)}</code></a>`
       : ` · applied: <code>${CX_ESC(p.applied_ref)}</code>` : "";
     return `<div class="card"><div class="main">
-      <div class="name" style="font-size:13px">${CX_ESC((p.suggested || {}).title || (p.suggested || {}).display_name || p.signal)} ${stPill(p.state)}<span class="pill muted">${CX_ESC(p.proposal_kind)}</span><span class="pill warn">${CX_ESC(p.signal || "")}</span></div>
+      <div class="name" style="font-size:13px">${CX_ESC((p.suggested || {}).title || (p.suggested || {}).display_name || p.signal)} ${stPill(p.state)}<span class="pill muted">${CX_ESC(p.proposal_kind)}</span><span class="pill warn">${CX_ESC(p.signal || "")}</span>${gateChip}</div>
       <div class="meta"><code style="font-size:10px">${CX_ESC(p.proposal_ref)}</code> · confidence ${CX_ESC(String(p.confidence))}${appliedLink}${(p.receipt_refs || []).length ? ` · <a href="/__ioi/work-ledger">receipt →</a>` : ""}${p.latest_simulation_ref ? ` · <a href="/__ioi/intelligence/simulations/${enc(String(p.latest_simulation_ref).replace("simulation-report://", ""))}">simulation${p.latest_simulation_high_impact ? " ⚠ high impact" : ""} →</a>` : ""}</div>
       <div class="chips" style="margin:6px 0 0">${(p.evidence_refs || []).slice(0, 4).map((r) => `<span class="pill muted" style="font-size:10px">${CX_ESC(String(r).slice(0, 44))}</span>`).join("")}${(p.evidence_refs || []).length > 4 ? `<span class="pill muted">+${(p.evidence_refs || []).length - 4} more</span>` : ""}</div>
+      ${govRow}
       </div><div>${acts}</div></div>`;
   }).join("");
-  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; nothing changes without approve + apply + receipt</span></h2>
+  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release</span></h2>
     ${improvements.length ? props : `<div class="empty">No improvement proposals yet.</div>`}
     <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Mined candidates (derived, not yet proposed)</h3>
     ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}`;
@@ -4225,7 +4250,8 @@ const server = http.createServer((req, res) => {
             <dt>Proposal</dt><dd><code>${CX_ESC(rep.proposal_ref || "")}</code> · ${CX_ESC(rep.proposal_kind || "")}</dd>
             <dt>Report hash</dt><dd><code style="font-size:10.5px">${CX_ESC(rep.report_hash || "")}</code></dd>
             <dt>Summary</dt><dd>${CX_ESC(String(sm.scenarios))} scenarios · <b>${CX_ESC(String(sm.changed))} changed</b> · ${CX_ESC(String(sm.blockers_removed))} blockers removed · ${CX_ESC(String(sm.blockers_introduced))} introduced</dd>
-            <dt>Governance</dt><dd>${CX_ESC(rep.governance?.requirement || "none")}</dd>
+            <dt>Governance</dt><dd>${CX_ESC(rep.governance?.requirement || "none")}${rep.governance?.enforced ? ' <span class="pill warn">gate enforced at apply</span>' : ""}</dd>
+            <dt>Gate targets</dt><dd>${(rep.governance?.satisfiable_target_refs || []).map((x) => `<code>${CX_ESC(x)}</code>`).join(" ")} <span class="sub" style="text-transform:none;letter-spacing:0">— an ApprovalRequest / ReleaseControl targeting either ref satisfies this report's gate</span></dd>
             <dt>Receipts</dt><dd>${(rep.receipt_refs || []).map((x) => `<code>${CX_ESC(x)}</code>`).join(" ")} · <a href="/__ioi/work-ledger">ledger →</a></dd>
           </dl>
           <h2>Scenarios (${(rep.scenarios || []).length})</h2>
@@ -4256,6 +4282,60 @@ const server = http.createServer((req, res) => {
       res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
       res.end();
       return;
+    }
+    // ---- Improvement governance gate lanes (controls created/bound through the daemon).
+    {
+      const govBind = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/governance\/(request-approval|open-release|attach)$/);
+      if (govBind && req.method === "POST") {
+        const [, iid, act] = govBind;
+        const failPage = (j, label) => {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+        };
+        const pr = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
+        const proposalRef = (pr.proposal || {}).proposal_ref || "";
+        const attach = {};
+        if (act === "request-approval") {
+          const r = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: proposalRef, request_kind: "improvement_apply", reason: "gate a high-impact learned improvement" }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || r.status >= 400 || !(j.approval_request || {}).ref) { failPage(j, "request approval"); return; }
+          attach.approval_request_ref = j.approval_request.ref;
+        } else if (act === "open-release") {
+          const r = await fetch(`${DAEMON}/v1/hypervisor/governance/release-controls`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ release_target_ref: proposalRef, reason: "release gate for a high-impact learned improvement" }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || r.status >= 400 || !(j.release_control || {}).ref) { failPage(j, "create release gate"); return; }
+          attach.release_control_ref = j.release_control.ref;
+        } else {
+          const form = new URLSearchParams(body.toString());
+          for (const key of ["approval_request_ref", "release_control_ref"]) {
+            const v = (form.get(key) || "").trim();
+            if (v) attach[key] = v;
+          }
+        }
+        const r2 = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
+        const j2 = r2 ? await r2.json().catch(() => ({})) : {};
+        if (!r2 || r2.status >= 400) { failPage(j2, "bind governance refs"); return; }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    {
+      const govAct = pathname.match(/^\/__ioi\/agent-studio\/governance\/(approvals|releases)\/([^/]+)\/(approve|reject|open|close)$/);
+      if (govAct && req.method === "POST") {
+        const [, family, gid, transition] = govAct;
+        const path = family === "approvals" ? "approval-requests" : "release-controls";
+        const r = await fetch(`${DAEMON}/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition, reviewer_ref: "principal://operator" }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || j.ok === false) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
     }
     {
       const impAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/(approve|reject|apply)$/);
