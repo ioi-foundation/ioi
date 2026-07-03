@@ -802,6 +802,7 @@ function renderWorkLedger(entries, scopedProject) {
       // the whole governed lifecycle is traversable from one proof (crosswalk: cross-reference map).
       function bl(label,ref,href){return ref?('<li>'+wesc(label)+': <a href="'+href+'" target="_top">'+wesc(ref)+' ↗</a></li>'):'';}
       var links='';
+      if(e.projection_ref){links+=bl('Projection explain',e.projection_ref,'/__ioi/intelligence/projections/'+String(e.projection_ref).replace('memory-projection://','')+'/explain');}
       if(e.goal_run_ref){links+=bl('GoalRun',e.goal_run_ref,'/__ioi/run-timeline/goal-run/'+String(e.goal_run_ref).replace('goal://',''));}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
@@ -1020,7 +1021,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
       <td>${pill(verdictOf(inv) === "pass" ? "ok" : verdictOf(inv) === "fail" ? "warn" : "muted", "verify: " + verdictOf(inv))}</td>
       <td>${evCount} events</td>
       <td>${(ir.changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
-      <td>${inv.memory_projection_ref ? `<code style="font-size:10px" title="scoped intelligence projection (refs only)">${CX_ESC(String(inv.memory_projection_ref).slice(0, 40))}…</code>` : "—"}</td>
+      <td>${inv.memory_projection_ref ? `<a href="/__ioi/intelligence/projections/${enc(String(inv.memory_projection_ref).replace("memory-projection://", ""))}/explain" title="explain this projection (vault truth → harness prompt)"><code style="font-size:10px">${CX_ESC(String(inv.memory_projection_ref).slice(0, 40))}…</code></a>` : "—"}</td>
       <td>${ir.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(ir.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((ir.state_root || "").slice(0, 22))}</div></td>
     </tr>`;
   }).join("");
@@ -1038,7 +1039,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
   const proof = grid([
     ["GoalRun ref (internal)", code(g.goal_ref)],
     ["Launch policy", g.policy_ref ? code(g.policy_ref) : "—"],
-    ["Memory projections", projRefs.length ? projRefs.map((r) => `<code style="font-size:10.5px">${CX_ESC(r)}</code>`).join("<br>") : "—"],
+    ["Memory projections", projRefs.length ? projRefs.map((r) => `<a href="/__ioi/intelligence/projections/${enc(String(r).replace("memory-projection://", ""))}/explain"><code style="font-size:10.5px">${CX_ESC(r)}</code></a>`).join("<br>") : "—"],
     ["Admission", code((g.admission || {}).admission_id)],
     ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
     ["Capability lease", code(g.capability_lease_ref)],
@@ -1314,7 +1315,7 @@ function renderIntelSkills(skills) {
   return `<h2 id="skills">Skills</h2><p class="sub" style="margin:-4px 0 12px">Reusable capability/procedure records — portable across harness and model swaps; projections deliver them as scoped summaries.</p>${skills.length ? cards : `<div class="empty">No skills yet.</div>`}${form}`;
 }
 const INTEL_MEMORY_CATS = [["", "All"], ["concept", "Concepts"], ["entity", "Entities"], ["workstream", "Workstreams"], ["note", "Notes"], ["preference", "Preferences"], ["correction", "Corrections"], ["connector_derived", "Connector-derived"]];
-function renderIntelMemory(entries, proposals) {
+function renderIntelMemory(entries, proposals, projections) {
   const chips = INTEL_MEMORY_CATS.map(([v, l]) => `<button class="chip" data-memcat="${v}" onclick="memCat(this)">${l}</button>`).join("");
   const rows = entries.map((e) => `<div class="card memcard" data-kind="${CX_ESC(e.entry_kind || "")}" data-blob="${CX_ESC(((e.title || "") + " " + (e.body || "") + " " + (e.tags || []).join(" ")).toLowerCase())}"><div class="main">
     <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
@@ -1359,8 +1360,48 @@ function renderIntelMemory(entries, proposals) {
   const inbox = `<h2 id="proposal-inbox" style="margin-top:24px">Proposal inbox <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— harnesses/models propose durable memory changes; only an approved proposal writes (with a context_mutation receipt)</span></h2>
     ${open.length ? open.map((p) => propCard(p, true)).join("") : `<div class="empty">No open proposals. Runs propose; nothing writes durable memory silently.</div>`}
     ${reviewed.length ? `<h3 style="margin:14px 0 6px;font-size:12px;color:#878a93">Recently reviewed (evidence)</h3>` + reviewed.map((p) => propCard(p, false)).join("") : ""}`;
+  const graph = `<h2 id="memory-graph" style="margin-top:24px">Graph <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— derived read-only projection over the vault (no graph store)</span></h2>
+    <input id="graph-search" class="asearch" placeholder="Search nodes…" oninput="graphSearch()">
+    <div class="wlwrap"><div id="graph-nodes" style="max-height:420px;overflow:auto"><div class="empty">Loading graph…</div></div>
+    <div class="wldrawer" id="graph-detail"><div class="sub" style="margin:0">Select a node to inspect its refs and edges.</div></div></div>
+    <script>
+      var GRAPH = null;
+      function graphLoad(q){
+        fetch('/__ioi/agent-studio/intel/graph' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function(r){return r.json();}).then(function(j){
+          GRAPH = j;
+          var box = document.getElementById('graph-nodes');
+          if (!j.nodes || !j.nodes.length) { box.innerHTML = '<div class="empty">No nodes match.</div>'; return; }
+          box.innerHTML = '<div class="sub" style="margin:0 0 8px">' + j.counts.nodes + ' nodes · ' + j.counts.edges + ' edges</div>' + j.nodes.slice(0, 200).map(function(n, i){
+            return '<div class="card memnode" style="padding:8px 12px;cursor:pointer" data-gi="' + i + '"><div class="main"><div class="name" style="font-size:12.5px">' + esc2(n.label) + ' <span class="pill muted">' + esc2(n.node_kind) + '</span>' + (n.status ? ' <span class="pill ' + (n.status === 'active' || n.status === 'approved' ? 'ok' : 'muted') + '">' + esc2(n.status) + '</span>' : '') + '</div><div class="meta" style="font-size:10.5px;word-break:break-all"><code>' + esc2(n.id) + '</code></div></div></div>';
+          }).join('');
+          box.querySelectorAll('.memnode').forEach(function(card){ card.addEventListener('click', function(){ graphSelect(parseInt(card.getAttribute('data-gi'), 10)); }); });
+        });
+      }
+      function esc2(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+      var graphTimer = null;
+      function graphSearch(){ if (graphTimer) clearTimeout(graphTimer); graphTimer = setTimeout(function(){ graphLoad(document.getElementById('graph-search').value.trim()); }, 250); }
+      function graphSelect(i){
+        var n = GRAPH.nodes[i]; if (!n) return;
+        var outgoing = GRAPH.edges.filter(function(e){ return e.from === n.id; });
+        var incoming = GRAPH.edges.filter(function(e){ return e.to === n.id; });
+        var line = function(e, dir){ var other = dir === 'out' ? e.to : e.from; return '<div style="padding:3px 0;border-bottom:1px solid #16181d;font-size:11.5px"><span class="pill muted">' + esc2(e.edge_kind) + (dir === 'out' ? ' →' : ' ←') + '</span> <code style="font-size:10px;word-break:break-all">' + esc2(other) + '</code></div>'; };
+        document.getElementById('graph-detail').innerHTML = '<h3 style="margin:0 0 6px">' + esc2(n.label) + '</h3><div class="wlgrid"><div class="wlk">Kind</div><div class="wlv">' + esc2(n.node_kind) + '</div><div class="wlk">Ref</div><div class="wlv"><code style="font-size:10px">' + esc2(n.id) + '</code></div></div>' +
+          '<h4 style="margin:10px 0 4px;font-size:11px;text-transform:uppercase;color:#878a93">Edges out (' + outgoing.length + ')</h4>' + (outgoing.map(function(e){ return line(e, 'out'); }).join('') || '<div class="sub" style="margin:0">none</div>') +
+          '<h4 style="margin:10px 0 4px;font-size:11px;text-transform:uppercase;color:#878a93">Edges in (' + incoming.length + ')</h4>' + (incoming.map(function(e){ return line(e, 'in'); }).join('') || '<div class="sub" style="margin:0">none</div>');
+      }
+      graphLoad('');
+    </script>`;
+  const projList = projections || [];
+  const explainSec = `<h2 id="projection-explain" style="margin-top:24px">Projection explain</h2>
+    <p class="sub" style="margin:-4px 0 12px">Every projection is explainable — vault truth to harness prompt, with reason codes and receipts.</p>
+    ${projList.length ? `<table><thead><tr><th>Projection</th><th>Harness</th><th>Counts</th><th></th></tr></thead><tbody>` + projList.slice(0, 8).map((pr) => `<tr>
+      <td><code style="font-size:10.5px">${CX_ESC(pr.projection_ref || "")}</code><div style="color:#878a93;font-size:10.5px">${CX_ESC(pr.goal_run_ref || pr.session_ref || "")}</div></td>
+      <td>${CX_ESC(String(pr.harness_profile_ref || "").replace("harness-profile:hp_", ""))}</td>
+      <td style="font-size:11px">${CX_ESC(JSON.stringify(pr.counts || {}))}</td>
+      <td><a class="act ghost" href="/__ioi/intelligence/projections/${encodeURIComponent(pr.projection_id)}/explain">Explain →</a></td>
+    </tr>`).join("") + `</tbody></table>` : `<div class="empty">No projections yet — launch IOI Agent work to create them.</div>`}`;
   return `<h2 id="memory">Memory</h2><p class="sub" style="margin:-4px 0 12px">Durable preferences, facts, concepts, entities, workstreams, notes, and corrections — daemon truth that survives harness/model swaps. Harnesses receive scoped projections, never this raw store.</p>
-    ${vault}${inbox}<h2 style="margin-top:24px">Entries</h2>
+    ${vault}${inbox}${graph}${explainSec}<h2 style="margin-top:24px">Entries</h2>
     <input id="mem-search" class="asearch" placeholder="Search memory…" oninput="memFilter()">
     <div class="chips">${chips}</div>
     ${entries.length ? rows : `<div class="empty">No memory yet. IOI Agent runs and operators add entries here.</div>`}${form}${script}`;
@@ -1601,7 +1642,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []))
     + panel("connectors", false, renderIntelConnectors(intel || {}))
     + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
-    + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || []))
+    + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || [], (intel || {}).projections || []))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
     function asTab(name){
@@ -4021,7 +4062,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -4036,6 +4077,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/connectors"),
         J("/v1/hypervisor/capability-leases"),
         J("/v1/hypervisor/memory-mutation-proposals"),
+        J("/v1/hypervisor/memory-projections"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -4049,7 +4091,7 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [] },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20) },
       ));
       return;
     }
@@ -4090,6 +4132,49 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
         res.end();
+        return;
+      }
+    }
+    // ---- Memory graph (derived, read-only) + projection explainability lanes.
+    if (pathname === "/__ioi/agent-studio/intel/graph" && req.method === "GET") {
+      const q = new URL(req.url, "http://x").searchParams.get("q") || "";
+      const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/graph${q ? "?q=" + encodeURIComponent(q) : ""}`).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { ok: false };
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(j));
+      return;
+    }
+    {
+      const explainMatch = pathname.match(/^\/__ioi\/intelligence\/projections\/([^/]+)\/explain$/);
+      if (explainMatch && req.method === "GET") {
+        const r = await fetch(`${DAEMON}/v1/hypervisor/intelligence/projections/${encodeURIComponent(explainMatch[1])}/explain`).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Projection", `<div class="empty">Projection not found.</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          return;
+        }
+        const ctx = j.context || {};
+        const dec = j.decisions || {};
+        const row = (d) => `<tr><td><b>${CX_ESC((d.meta || {}).title || "")}</b><div style="color:#878a93;font-size:10.5px"><code>${CX_ESC(d.ref)}</code></div></td>
+          <td><span class="pill muted">${CX_ESC((d.meta || {}).kind || "")}</span></td>
+          <td><span class="pill ${(d.meta || {}).sensitivity === "secret" || (d.meta || {}).sensitivity === "private" ? "warn" : "muted"}">${CX_ESC((d.meta || {}).sensitivity || "—")}</span></td>
+          <td><span class="pill ${d.decision === "included" ? "ok" : "warn"}">${CX_ESC(d.decision)}</span>${d.reason_code ? ` <code style="font-size:10.5px">${CX_ESC(d.reason_code)}</code>` : ""}</td>
+          <td style="font-size:11px;color:#878a93">${d.checks ? d.checks.map((c) => `${c.pass ? "✓" : "✗"} ${CX_ESC(c.check)}`).join("<br>") : "—"}</td></tr>`;
+        const table = (title, list) => `<h2>${title} (${(list || []).length})</h2>${(list || []).length ? `<table><thead><tr><th>Record</th><th>Kind</th><th>Sensitivity</th><th>Decision</th><th>Checks</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">none</div>`}`;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Projection explain", `<p><a href="/__ioi/agent-studio#memory">← Agent Studio · Memory</a></p>
+          <h1>🧠 Projection explain <span class="pill ok">deterministic</span></h1>
+          <p class="sub">Vault truth → harness prompt, decision by decision. ${CX_ESC(j.body_disclosure || "")}</p>
+          <dl class="grid">
+            <dt>Projection</dt><dd><code>${CX_ESC(j.projection_ref || "")}</code></dd>
+            <dt>Memory space</dt><dd><code>${CX_ESC(j.memory_space_ref || "")}</code></dd>
+            <dt>Harness · route</dt><dd><code>${CX_ESC(ctx.harness_profile_ref || "")}</code> · <code>${CX_ESC(ctx.model_route_ref || "")}</code></dd>
+            <dt>Privacy · policy</dt><dd>${CX_ESC(ctx.privacy_posture || "")} · ${ctx.policy_ref ? `<code>${CX_ESC(ctx.policy_ref)}</code>` : "no policy"}</dd>
+            <dt>Bound to</dt><dd>${["goal_run_ref", "session_ref", "launch_ref"].map((k) => ctx[k] ? `<code>${CX_ESC(ctx[k])}</code>` : "").filter(Boolean).join(" · ") || "—"}</dd>
+            <dt>Receipts</dt><dd>${(j.receipt_refs || []).map((r2) => `<code>${CX_ESC(r2)}</code>`).join(" ")}</dd>
+          </dl>
+          ${table("Included", dec.included)}${table("Redacted", dec.redacted)}${table("Excluded", dec.excluded)}`));
         return;
       }
     }
