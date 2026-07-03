@@ -10978,7 +10978,7 @@ fn login_possible(data_dir: &str) -> bool {
 /// Resolve the effective enforcement decision: mode "always"/"never", or "auto" → enforce when
 /// exposed. SAFE default: an exposed instance enforces. When enforcement is wanted but no login is
 /// possible, we still enforce (fail-safe) — the operator bootstraps via the exempt bootstrap endpoint.
-fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
+pub(crate) fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
     let policy = auth_policy(data_dir);
     let mode = policy["mode"]
         .as_str()
@@ -11031,7 +11031,7 @@ fn ensure_bootstrap_token(data_dir: &str) -> String {
 }
 /// Resolve the calling principal from a session cookie (ioi_session=) or a Bearer token (session
 /// token OR an API access token whose hash we stored). Returns the public principal record.
-fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
+pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<Value> {
     // 1) session cookie
     let mut session_tok: Option<String> = None;
     if let Some(cookie) = headers.get("cookie").and_then(|c| c.to_str().ok()) {

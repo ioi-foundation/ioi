@@ -42,8 +42,12 @@ const preview = async (extra) => (await jd("POST", "/v1/hypervisor/ioi-agent/lau
 
 async function run() {
   const tag = Date.now().toString(16);
-  const cohortRef = `project://prj_vfycrb_${tag}`;
   const BASE = "ioi-agent-policy://pol_fast_local";
+  // Rollout context now derives from DAEMON-KNOWN truth: the cohort member must be a real project.
+  await jd("POST", "/v1/hypervisor/projects", { project_name: `vfycrb-${tag}`, repository_url: `https://github.com/ioi-foundation/vfycrb-${tag}` });
+  const projRecords = (await jd("GET", "/v1/hypervisor/projects")).j;
+  const projectId = ((projRecords.records || projRecords.projects || []).find((x) => String(x.project_id || "").includes(`vfycrb-${tag}`)) || {}).project_id || "";
+  const cohortRef = `project://${projectId}`;
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/enable");
   const l1 = await launch({ goal: `vfycrb${tag} exercise the rollout lane once`, strategy: "direct" });
   const l2 = await launch({ goal: `vfycrb${tag} exercise the rollout lane again`, strategy: "direct" });
@@ -91,7 +95,7 @@ async function run() {
     JSON.stringify(seedAfter) === JSON.stringify(seedBefore) && seedAfter.protected === true && !JSON.stringify(seedAfter).includes(marker));
 
   // ── Scoped selection: only the cohort sees the learned policy ──
-  const elig = await preview({ project_ref: cohortRef });
+  const elig = await preview({ project_ref: projectId });
   ok("eligible cohort context is upgraded to the variant with an explained reason",
     elig.policy_ref === variantRef && String(elig.policy_rollout?.reason_code || "").startsWith("rollout_cohort_match")
     && elig.policy_rollout?.base_policy_ref === BASE && elig.privacy_posture !== "private_local");
@@ -113,7 +117,7 @@ async function run() {
 
   // ── The ReleaseControl stays the LIVE gate: closing it switches everyone back to base ──
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "close" });
-  const gateClosed = await preview({ project_ref: cohortRef });
+  const gateClosed = await preview({ project_ref: projectId });
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" });
   ok("closing the release gate disables the overlay even for the cohort",
     gateClosed.policy_ref === BASE && gateClosed.policy_rollout === null);
@@ -169,7 +173,7 @@ async function run() {
   ok("rollback disables the overlay: variant rolled_back + disabled, ReleaseControl records it",
     rolledBack.rollout?.state === "rolled_back" && !!rolledBack.rollout?.rolled_back_at && rolledBack.status === "disabled"
     && relRolled.rollback_state === "rolled_back" && !!relRolled.rolled_back_at);
-  const backToBase = await preview({ project_ref: cohortRef });
+  const backToBase = await preview({ project_ref: projectId });
   const explicitVariant = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "explicit variant probe", policy_ref: variantRef });
   ok("all contexts return to base; explicit selection of the rolled-back variant fails closed",
     backToBase.policy_ref === BASE && backToBase.policy_rollout === null
