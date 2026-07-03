@@ -263,6 +263,14 @@
       el.addEventListener("change", (e) => {
         if (!e.target || !e.target.id) return;
         if (e.target.id === "ioi-ns-harness") { nsHarnessTouched = true; renderNsKnobs(); }
+        if (e.target.id === "ioi-ns-strategy") nsStrategyTouched = true;
+        if (e.target.id === "ioi-ns-policy") {
+          // The policy sets the strategy default (still user-overridable afterwards).
+          var pol = nsPolicy();
+          var strat = document.getElementById("ioi-ns-strategy");
+          if (pol && strat && pol.strategy_preference) { strat.value = pol.strategy_preference; }
+          nsStrategyTouched = false;
+        }
         if (e.target.id.indexOf("ioi-ns-") === 0) renderNsPreview();
       });
       el.addEventListener("input", (e) => { if (e.target && (e.target.id === "ioi-ns-url" || e.target.id === "ioi-ns-goal")) renderNsPreview(); });
@@ -309,6 +317,12 @@
     body.innerHTML =
       '<div class="ioi-ns-field"><label>What should IOI Agent do?</label><textarea id="ioi-ns-goal" rows="2" placeholder="Describe the goal — IOI Agent will coordinate the work. Leave empty to only create a session."></textarea></div>' +
       '<div class="ioi-ns-grid" style="grid-template-columns:1fr 1fr">' +
+      '<div class="ioi-ns-field"><label>Launch policy (saved preset)</label><select id="ioi-ns-policy">' +
+      '<option value="">No policy — manual choices</option>' +
+      (nsCtx.launch_policies || []).map(function (p) {
+        return '<option value="' + esc(p.policy_ref) + '"' + (p.policy_id === "pol_auto_default" ? " selected" : "") + ">" + esc(p.display_name) + " — " + esc(p.strategy_preference) + (p.protected ? " · default" : "") + "</option>";
+      }).join("") +
+      "</select></div>" +
       '<div class="ioi-ns-field"><label>Execution strategy</label><select id="ioi-ns-strategy">' +
       '<option value="auto" selected>Auto — IOI Agent decides</option>' +
       '<option value="direct">Direct — one harness</option>' +
@@ -366,6 +380,14 @@
   // create-session path; that is NOT a user preference for IOI Agent (it would silently
   // force direct-native and starve Auto/Compare). Only an explicit user selection counts.
   var nsHarnessTouched = false;
+  // Strategy is sent only when the user explicitly picked one — otherwise the selected
+  // policy's preference (or auto) decides daemon-side.
+  var nsStrategyTouched = false;
+  function nsPolicy() {
+    var sel = document.getElementById("ioi-ns-policy");
+    if (!sel || !sel.value) return null;
+    return (nsCtx.launch_policies || []).find(function (p) { return p.policy_ref === sel.value; }) || null;
+  }
   function nsGoal() { var g = document.getElementById("ioi-ns-goal"); return g ? g.value.trim() : ""; }
   function nsStrategy() { var sel = document.getElementById("ioi-ns-strategy"); return sel && sel.value ? sel.value : "auto"; }
   function renderNsAgentPreview() {
@@ -374,7 +396,10 @@
     var box = document.getElementById("ioi-ns-preview");
     if (!box) return;
     var seq = ++nsPreviewSeq;
-    var payload = { goal: nsGoal(), strategy: nsStrategy() };
+    var payload = { goal: nsGoal() };
+    if (nsStrategyTouched) payload.strategy = nsStrategy();
+    var pol = nsPolicy();
+    if (pol) payload.policy_ref = pol.policy_ref;
     var routeSel = document.getElementById("ioi-ns-model");
     if (routeSel && routeSel.value) payload.model_route_ref = routeSel.value;
     var hp = nsProfile();
@@ -386,6 +411,7 @@
         if (j.error) { box.innerHTML = '<span class="nsp-k nsp-warn">Preview</span> <span class="nsp-warn">' + esc(j.error.code || "unavailable") + (j.error.message ? " — " + esc(j.error.message) : "") + "</span>"; return; }
         var lines = [];
         lines.push('<span class="nsp-k">IOI Agent</span> <b>' + esc(j.coordination || "IOI Agent will coordinate this work") + "</b>");
+        if (j.policy_effective_summary) lines.push('<span class="nsp-k">Policy</span> ' + esc(j.policy_effective_summary) + ((j.policy_constraints_applied || []).length ? ' <span style="color:#6f7280">(applies: ' + esc(j.policy_constraints_applied.join(", ")) + ")</span>" : "") + ((j.policy_constraints_relaxed_or_blocked || []).length ? ' <span class="nsp-warn">relaxed: ' + esc(j.policy_constraints_relaxed_or_blocked.join(", ")) + "</span>" : ""));
         lines.push('<span class="nsp-k">Plan</span> strategy <b>' + esc(j.strategy) + "</b> → " + (j.planned_execution_kind === "goal_run" ? "<b>compare across harnesses, verified and reconciled</b>" : "<b>direct — one admitted harness</b>") + ' <span style="color:#6f7280">(' + esc((j.reason_codes || []).join(", ")) + ")</span>");
         lines.push('<span class="nsp-k">Harnesses</span> ' + (j.eligible_harnesses || []).map(function (r) { return "<code>" + esc(String(r).replace("harness-profile:hp_", "")) + "</code>"; }).join(" ") + ((j.excluded_harnesses || []).length ? ' · excluded: ' + j.excluded_harnesses.map(function (x) { return '<span class="nsp-warn">' + esc(x.harness || x.profile_ref || "") + " (" + esc(x.reason_code || "") + ")</span>"; }).join(", ") : ""));
         lines.push('<span class="nsp-k">Model route</span> <code>' + esc(j.model_route_ref || "") + "</code> · " + esc(j.model_route_state || ""));
@@ -440,7 +466,10 @@
     // grant → execute) and returns the coordinated result with proof links.
     var el = document.getElementById("ioi-ns-modal");
     var branch = el.getAttribute("data-branch") || "project";
-    var body = { goal: nsGoal(), strategy: nsStrategy() };
+    var body = { goal: nsGoal() };
+    if (nsStrategyTouched) body.strategy = nsStrategy();
+    var pol = nsPolicy();
+    if (pol) body.policy_ref = pol.policy_ref;
     if (branch === "project") { var pv = (document.getElementById("ioi-ns-project") || {}).value; if (pv) body.project_ref = pv; }
     if (branch === "url") {
       var u = ((document.getElementById("ioi-ns-url") || {}).value || "").trim();
@@ -479,6 +508,7 @@
           '<details style="margin-top:8px"><summary style="cursor:pointer">Advanced / proof details</summary>' +
           '<div style="font-size:12px;margin-top:6px">execution: <code>' + esc(j.execution_kind || "") + "</code> · strategy <code>" + esc(j.strategy || "") + "</code>" +
           "<br>session: <code>" + esc(j.session_ref || "") + "</code>" +
+          (adv.policy_ref ? "<br>launch policy: <code>" + esc(adv.policy_ref) + "</code>" : "") +
           (adv.goal_run_ref ? "<br>GoalRun (internal orchestration): <code>" + esc(adv.goal_run_ref) + "</code>" : "") +
           (adv.harness_profile_ref ? "<br>harness: <code>" + esc(adv.harness_profile_ref) + "</code>" : "") +
           (adv.model_route_ref ? "<br>model route: <code>" + esc(adv.model_route_ref) + "</code>" : "") +

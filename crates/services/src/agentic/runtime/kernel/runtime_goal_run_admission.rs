@@ -390,7 +390,48 @@ impl RuntimeGoalRunAdmissionCore {
                 json!({ "conductor_ref": conductor_ref }),
             ));
         }
-        let privacy_posture = if strategy == "private_local" { "private_local" } else { "standard" };
+        // Optional durable launch-policy envelope (routing/admission preferences) — composed
+        // with the live facts, never a harness itself. receipt_required cannot be disabled.
+        let policy = request.get("policy").cloned().unwrap_or(Value::Null);
+        let policy_ref = policy
+            .get("policy_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let allow_fallback = policy
+            .pointer("/harness_preferences/allow_fallback")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let policy_private = policy
+            .pointer("/privacy/local_only")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            || policy
+                .pointer("/privacy/forbid_remote_trust")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            || policy
+                .pointer("/privacy/forbid_provider_credentials")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+        let require_compare = policy
+            .pointer("/assurance/require_compare")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let policy_excluded: Vec<String> =
+            string_refs(policy.pointer("/harness_preferences/excluded_harness_refs"));
+        let policy_preferred: Vec<String> =
+            string_refs(policy.pointer("/harness_preferences/preferred_harness_refs"));
+        let mut constraints_applied: Vec<String> = Vec::new();
+        let mut constraints_relaxed: Vec<String> = Vec::new();
+        let privacy_posture = if strategy == "private_local" || policy_private {
+            if policy_private {
+                constraints_applied.push("privacy_local_only".to_string());
+            }
+            "private_local"
+        } else {
+            "standard"
+        };
         let candidates = request
             .get("implementer_candidates")
             .and_then(Value::as_array)
@@ -413,6 +454,13 @@ impl RuntimeGoalRunAdmissionCore {
                     reason = Some("private_local_requires_local_model_route".to_string());
                 }
             }
+            if reason.is_none()
+                && policy_excluded
+                    .iter()
+                    .any(|x| Some(x.as_str()) == candidate.get("profile_ref").and_then(Value::as_str))
+            {
+                reason = Some("policy_excluded".to_string());
+            }
             if reason.is_none() {
                 reason = eligibility_reason(candidate).map(str::to_string);
             }
@@ -434,28 +482,60 @@ impl RuntimeGoalRunAdmissionCore {
             }
         }
 
+        // Policy preferred harnesses are an ORDERING preference over the eligible pool (a soft
+        // steer), unlike request-level preferred which is a hard filter the caller asked for.
+        if !policy_preferred.is_empty() && !eligible.is_empty() {
+            eligible.sort_by_key(|candidate| {
+                let profile = candidate.get("profile_ref").and_then(Value::as_str).unwrap_or("");
+                policy_preferred
+                    .iter()
+                    .position(|p| p == profile)
+                    .unwrap_or(usize::MAX)
+            });
+            constraints_applied.push("policy_preferred_ordering".to_string());
+        }
+        if !policy_excluded.is_empty() {
+            constraints_applied.push("policy_excluded_harnesses".to_string());
+        }
         let compare_shaped = goal.len() >= 120
             || ["compare", "review", "refactor", "migrate", "audit", "redesign", "multiple approaches"]
                 .iter()
                 .any(|kw| goal.to_lowercase().contains(kw));
-        let (kind, reason_code): (&str, &str) = match strategy.as_str() {
-            "direct" => ("direct", "strategy_direct_requested"),
-            "compare" => {
-                if eligible.len() < 2 {
+        let compare_forced = strategy == "compare" || require_compare;
+        if require_compare {
+            constraints_applied.push("assurance_require_compare".to_string());
+        }
+        let (kind, reason_code): (&str, &str) = if compare_forced {
+            if eligible.len() < 2 {
+                if allow_fallback {
+                    // Explicit relaxation — recorded, never silent.
+                    constraints_relaxed
+                        .push("require_compare_relaxed_insufficient_implementers".to_string());
+                    ("direct", "policy_compare_relaxed_to_direct")
+                } else {
                     return Err(admission_error(
-                        "ioi_agent_compare_insufficient_implementers",
-                        "Compare needs at least two eligible local implementer harnesses.",
-                        json!({ "eligible": eligible.len(), "excluded": excluded }),
+                        if require_compare {
+                            "ioi_agent_policy_compare_unsatisfiable"
+                        } else {
+                            "ioi_agent_compare_insufficient_implementers"
+                        },
+                        "Compare needs at least two eligible local implementer harnesses (policy allow_fallback is off).",
+                        json!({ "eligible": eligible.len(), "excluded": excluded, "policy_ref": policy_ref }),
                     ));
                 }
+            } else {
                 ("goal_run", "strategy_compare_requested")
             }
-            _ => {
-                // auto / private_local share the auto rule over their (possibly filtered) pool.
-                if eligible.len() >= 2 && compare_shaped {
-                    ("goal_run", "auto_selected_goal_run_ambiguous_or_large")
-                } else {
-                    ("direct", "auto_selected_direct_simple")
+        } else {
+            match strategy.as_str() {
+                "direct" => ("direct", "strategy_direct_requested"),
+                _ => {
+                    // auto / private_local share the auto rule over their (possibly filtered) pool.
+                    if eligible.len() >= 2 && compare_shaped {
+                        ("goal_run", "auto_selected_goal_run_ambiguous_or_large")
+                    } else {
+                        ("direct", "auto_selected_direct_simple")
+                    }
                 }
             }
         };
@@ -489,6 +569,13 @@ impl RuntimeGoalRunAdmissionCore {
                 .collect::<Vec<_>>(),
             "excluded_harnesses": excluded,
             "max_parallel_invocations": GOAL_RUN_MAX_PARALLEL_INVOCATIONS,
+            "policy_ref": if policy_ref.is_empty() { Value::Null } else { json!(policy_ref) },
+            "policy_constraints_applied": constraints_applied,
+            "policy_constraints_relaxed": constraints_relaxed,
+            "min_successful_invocations": policy
+                .pointer("/assurance/min_successful_invocations")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
             "runtimeTruthSource": "daemon-runtime",
         }))
     }
@@ -773,6 +860,85 @@ mod tests {
         assert_eq!(selected["remote_slots_disabled"], json!(true));
         assert_eq!(
             selected["excluded_harnesses"][0]["reason_code"],
+            json!("private_local_excludes_remote_trust")
+        );
+    }
+
+    #[test]
+    fn launch_policy_envelope_composes_deterministically() {
+        let core = RuntimeGoalRunAdmissionCore;
+        let base = |policy: Value| json!({
+            "strategy": "auto",
+            "normalized_goal": "Create a status file",
+            "conductor_ref": "harness-profile:hp_hypervisor_worker",
+            "implementer_candidates": [
+                implementer("opencode", "active", "runnable"),
+                implementer("deepseek_tui", "active", "runnable"),
+            ],
+            "policy": policy,
+        });
+        // require_compare forces goal_run and records the applied constraint.
+        let assured = core
+            .select_ioi_agent_execution(&base(json!({
+                "policy_ref": "ioi-agent-policy://pol_high",
+                "assurance": { "require_compare": true },
+                "harness_preferences": { "allow_fallback": false },
+            })))
+            .unwrap();
+        assert_eq!(assured["planned_execution_kind"], json!("goal_run"));
+        assert!(assured["policy_constraints_applied"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("assurance_require_compare")));
+        // require_compare with one implementer: fail closed without fallback…
+        let mut one = base(json!({
+            "policy_ref": "ioi-agent-policy://pol_high",
+            "assurance": { "require_compare": true },
+        }));
+        one["implementer_candidates"] = json!([implementer("opencode", "active", "runnable")]);
+        assert_eq!(
+            core.select_ioi_agent_execution(&one).unwrap_err().code,
+            "ioi_agent_policy_compare_unsatisfiable"
+        );
+        // …and an EXPLICIT recorded relaxation with allow_fallback.
+        let mut relaxed = one.clone();
+        relaxed["policy"]["harness_preferences"] = json!({ "allow_fallback": true });
+        let out = core.select_ioi_agent_execution(&relaxed).unwrap();
+        assert_eq!(out["planned_execution_kind"], json!("direct"));
+        assert!(out["policy_constraints_relaxed"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("require_compare_relaxed_insufficient_implementers")));
+        // policy exclusion is a hard filter with its own reason code.
+        let excluded = core
+            .select_ioi_agent_execution(&base(json!({
+                "policy_ref": "ioi-agent-policy://pol_x",
+                "harness_preferences": { "excluded_harness_refs": ["harness-profile:hp_deepseek_tui"] },
+            })))
+            .unwrap();
+        assert_eq!(
+            excluded["excluded_harnesses"][0]["reason_code"],
+            json!("policy_excluded")
+        );
+        // policy preferred ordering steers direct selection without filtering.
+        let steered = core
+            .select_ioi_agent_execution(&base(json!({
+                "policy_ref": "ioi-agent-policy://pol_ds",
+                "harness_preferences": { "preferred_harness_refs": ["harness-profile:hp_deepseek_tui"] },
+            })))
+            .unwrap();
+        assert_eq!(steered["selected_harness_ref"], json!("harness-profile:hp_deepseek_tui"));
+        assert_eq!(steered["eligible_harness_refs"][0], json!("harness-profile:hp_deepseek_tui"));
+        // policy privacy composes the categorical private-local boundary.
+        let mut private = base(json!({
+            "policy_ref": "ioi-agent-policy://pol_priv",
+            "privacy": { "local_only": true },
+        }));
+        private["implementer_candidates"][1]["provider_trust"] = json!("remote");
+        let out = core.select_ioi_agent_execution(&private).unwrap();
+        assert_eq!(out["privacy_posture"], json!("private_local"));
+        assert_eq!(
+            out["excluded_harnesses"][0]["reason_code"],
             json!("private_local_excludes_remote_trust")
         );
     }

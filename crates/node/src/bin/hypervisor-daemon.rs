@@ -1119,6 +1119,21 @@ async fn async_main() -> anyhow::Result<()> {
             post(ioi_agent_routes::handle_ioi_agent_launch),
         )
         .route(
+            "/v1/hypervisor/ioi-agent/launch-policies",
+            get(ioi_agent_routes::handle_policies_list)
+                .post(ioi_agent_routes::handle_policies_create),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launch-policies/:id",
+            get(ioi_agent_routes::handle_policies_get)
+                .patch(ioi_agent_routes::handle_policies_patch)
+                .delete(ioi_agent_routes::handle_policies_delete),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launch-policies/:id/clone",
+            post(ioi_agent_routes::handle_policies_clone),
+        )
+        .route(
             "/v1/hypervisor/ioi-agent/launches",
             get(ioi_agent_routes::handle_ioi_agent_launches_list),
         )
