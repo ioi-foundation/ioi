@@ -145,13 +145,23 @@ fn validate_entry(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
     if let Some(v) = body.get("expires_at").and_then(Value::as_str) {
         record["expires_at"] = json!(v);
     }
+    if let Some(state) = body.get("quality_state").and_then(Value::as_str) {
+        if !QUALITY_STATES.contains(&state) {
+            return Err(bad(StatusCode::BAD_REQUEST, "memory_quality_state_invalid", "quality_state must be candidate|accepted|stale|disputed|superseded"));
+        }
+        record["quality_state"] = json!(state);
+    }
     // Self-describing records: the vault format serializes these explicitly, so defaults are
-    // stored rather than implied.
+    // stored rather than implied. Operator-authored entries are ACCEPTED; model/run claims
+    // arrive as proposals and become candidates.
     if record.get("entry_kind").and_then(Value::as_str).unwrap_or("").is_empty() {
         record["entry_kind"] = json!("note");
     }
     if record.get("sensitivity").and_then(Value::as_str).unwrap_or("").is_empty() {
         record["sensitivity"] = json!("normal");
+    }
+    if record.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+        record["quality_state"] = json!("accepted");
     }
     Ok(())
 }
@@ -360,6 +370,12 @@ pub(crate) struct ProjectionContext {
     pub allow_sensitive: bool,         // launch policy permits private-sensitivity inclusion
     pub live_connector_ids: Vec<String>, // connectors with a usable auth posture (lease-backed)
     pub goal: String,
+    // Memory quality posture (policy-bound; private mode is stricter by default; no
+    // harness/model can widen these — they arrive only via the launch policy).
+    pub allow_candidate: bool,
+    pub include_disputed: bool,
+    pub max_stale_age_days: u64,
+    pub require_accepted_for_private: bool,
 }
 
 /// Why a record is excluded (None = include). Secret entries are ALWAYS redacted.
@@ -372,6 +388,28 @@ fn exclusion_reason(record: &Value, ctx: &ProjectionContext, now: &str) -> Optio
     let expires = text(record, "expires_at");
     if !expires.is_empty() && expires < now {
         return Some("expired");
+    }
+    // Quality lifecycle gates (deterministic, policy-bound).
+    match quality_of(record) {
+        "superseded" => return Some("superseded"),
+        "disputed" if !ctx.include_disputed => return Some("disputed_excluded_by_policy"),
+        "stale" if ctx.max_stale_age_days == 0 => return Some("stale"),
+        "stale" => {
+            // Coarse deterministic tolerance: a policy max_stale_age_days > 0 admits stale
+            // records marked within that window (lexicographic ISO date-prefix compare).
+            let marked = text(record, "marked_stale_at");
+            let stale_days = ctx.max_stale_age_days.min(28) as u32;
+            let mut bound = now.to_string();
+            if let Some(day) = now.get(8..10).and_then(|d| d.parse::<u32>().ok()) {
+                let floor = day.saturating_sub(stale_days).max(1);
+                bound.replace_range(8..10, &format!("{floor:02}"));
+            }
+            if marked.is_empty() || marked < bound.as_str() {
+                return Some("stale_beyond_policy_age");
+            }
+        }
+        "candidate" if !ctx.allow_candidate => return Some("candidate_excluded_by_policy"),
+        _ => {}
     }
     let harness_compat = refs(record.get("compatible_harness_refs"));
     if !harness_compat.is_empty() && !harness_compat.contains(&ctx.harness_profile_ref) {
@@ -411,11 +449,17 @@ pub(crate) fn plan_projection(
             Some(reason) => excluded.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": reason })),
             None => {
                 let sensitivity = text(entry, "sensitivity");
-                // secret NEVER projects; private projects only when the policy allows.
+                // secret NEVER projects; private projects only when the policy allows —
+                // and, when the policy demands it, only ACCEPTED private memory projects.
                 if sensitivity == "secret" {
                     redacted.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": "sensitivity_secret_always_redacted" }));
                 } else if sensitivity == "private" && !ctx.allow_sensitive {
                     redacted.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": "sensitivity_private_policy_disallows" }));
+                } else if sensitivity == "private"
+                    && ctx.require_accepted_for_private
+                    && quality_of(entry) != "accepted"
+                {
+                    redacted.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": "private_requires_accepted_memory" }));
                 } else {
                     included_entries.push(entry);
                 }
@@ -446,12 +490,15 @@ pub(crate) fn plan_projection(
             matched_affinity = Some(affinity);
         }
     }
+    // Accepted memory leads the rendered summary; candidates follow, labeled.
+    included_entries.sort_by_key(|entry| if quality_of(entry) == "accepted" { 0 } else { 1 });
     // Rendered summary: titles + non-private bodies only — the harness-facing artifact.
     let mut lines: Vec<String> = Vec::new();
     for entry in &included_entries {
         let body = text(entry, "body");
         lines.push(format!(
-            "[{}] {}{}",
+            "[{}{}] {}{}",
+            if quality_of(entry) == "candidate" { "candidate " } else { "" },
             text(entry, "entry_kind"),
             text(entry, "title"),
             if body.is_empty() { String::new() } else { format!(": {}", body.chars().take(240).collect::<String>()) }
@@ -518,13 +565,35 @@ pub(crate) async fn build_projection_context(st: &DaemonState, body: &Value) -> 
             .unwrap_or_default(),
         None => Vec::new(),
     };
+    let privacy = if text(body, "privacy_posture").is_empty() { "standard".to_string() } else { text(body, "privacy_posture").to_string() };
+    let posture = body.get("memory_posture").cloned().unwrap_or(Value::Null);
+    let private_mode = privacy == "private_local";
     ProjectionContext {
         harness_profile_ref: text(body, "harness_profile_ref").to_string(),
         model_route_ref: text(body, "model_route_ref").to_string(),
-        privacy_posture: if text(body, "privacy_posture").is_empty() { "standard".into() } else { text(body, "privacy_posture").to_string() },
+        privacy_posture: privacy,
         allow_sensitive: body.get("allow_sensitive").and_then(Value::as_bool).unwrap_or(false),
         live_connector_ids: live_ids,
         goal: text(body, "goal").to_string(),
+        // Private mode is stricter by default: candidates excluded, accepted required for
+        // private-sensitivity memory. A policy may widen standard mode, never a harness.
+        allow_candidate: posture
+            .get("allow_candidate_memory_projection")
+            .and_then(Value::as_bool)
+            .unwrap_or(!private_mode),
+        include_disputed: posture
+            .get("include_disputed_memory")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        max_stale_age_days: posture
+            .get("max_stale_age")
+            .or_else(|| posture.get("max_stale_age_days"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        require_accepted_for_private: posture
+            .get("require_accepted_memory_for_private")
+            .and_then(Value::as_bool)
+            .unwrap_or(private_mode),
     }
 }
 
@@ -650,11 +719,13 @@ fn record_has_credential_material(record: &Value) -> bool {
 /// Frontmatter keys per family (order is the document contract).
 const ENTRY_FM_KEYS: &[&str] = &[
     "entry_id", "entry_ref", "memory_space_ref", "entry_kind", "sensitivity", "status",
+    "quality_state", "supersedes_ref", "superseded_by_ref", "marked_stale_at", "lifecycle_history",
     "tags", "source_refs", "connector_refs", "compatible_harness_refs",
     "compatible_model_route_refs", "confidence", "expires_at", "created_at", "updated_at",
 ];
 const SKILL_FM_KEYS: &[&str] = &[
     "skill_id", "skill_ref", "memory_space_ref", "status", "description", "procedure_ref",
+    "quality_state", "supersedes_ref", "superseded_by_ref", "marked_stale_at", "lifecycle_history",
     "trigger_conditions", "tool_requirements", "connector_requirements",
     "compatible_harness_refs", "compatible_model_route_refs", "created_at", "updated_at",
 ];
@@ -866,6 +937,11 @@ pub(crate) async fn handle_vault_import(
                     }
                 }
             }
+            for side in [&mut a, &mut b] {
+                if side.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+                    side["quality_state"] = json!("accepted");
+                }
+            }
             if a == b {
                 unchanged += 1;
             } else {
@@ -993,7 +1069,12 @@ pub(crate) async fn handle_proposal_approve(
     let family = if text(&proposal, "target_family") == "skill" { &SKILL_FAMILY } else { &ENTRY_FAMILY };
     let validate: fn(&Value, &mut Value) -> Result<(), (StatusCode, Json<Value>)> =
         if text(&proposal, "target_family") == "skill" { validate_skill } else { validate_entry };
-    let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
+    let mut suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
+    // Model/run claims never auto-promote: approval yields a CANDIDATE entry unless the
+    // reviewer explicitly promotes to accepted at approval time.
+    if suggested.get("quality_state").is_none() {
+        suggested["quality_state"] = json!("candidate");
+    }
     let applied_ref: String;
     match operation.as_str() {
         "add" => {
@@ -1241,6 +1322,7 @@ pub(crate) async fn handle_projection_explain(
                 json!({
                     "title": text(record, "title"),
                     "kind": if reference.starts_with("skill-entry://") { "skill" } else { text(record, "entry_kind") },
+                    "quality_state": quality_of(record),
                     "sensitivity": text(record, "sensitivity"),
                     "status": text(record, "status"),
                     "tags": record.get("tags").cloned().unwrap_or(json!([])),
@@ -1317,6 +1399,254 @@ pub(crate) async fn handle_projection_explain(
             "rendered_projection_ref": text(&projection, "rendered_projection_ref"),
             "body_disclosure": "titles and reason codes only — private/secret bodies never appear in explanations",
             "deterministic": true,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Memory lifecycle — QUALITY posture (candidate/accepted/stale/disputed/superseded),
+// orthogonal to status (active/archived/revoked, unchanged). Every transition is
+// reason-coded, receipted, and appended to the record's lifecycle history. Model
+// claims never auto-promote: proposal approval creates CANDIDATE entries by default;
+// only an explicit operator promote (or a policy that says accepted) makes truth.
+// ---------------------------------------------------------------------------
+
+pub(crate) const QUALITY_STATES: &[&str] =
+    &["candidate", "accepted", "stale", "disputed", "superseded"];
+
+/// quality_state with the grandfather rule: records created before the lifecycle cut
+/// (operator-authored) read as accepted.
+pub(crate) fn quality_of(record: &Value) -> &str {
+    let state = text(record, "quality_state");
+    if state.is_empty() { "accepted" } else { state }
+}
+
+const TRANSITIONS: &[(&str, &str)] = &[
+    ("promote", "accepted"),
+    ("dispute", "disputed"),
+    ("mark_stale", "stale"),
+    ("supersede", "superseded"),
+    ("accept", "accepted"),
+];
+
+async fn lifecycle_transition(
+    st: &DaemonState,
+    family: &Family,
+    id: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut record) = load(st, family.kind, family.id_key, id) else {
+        return bad(StatusCode::NOT_FOUND, "intelligence_record_not_found", "Unknown record.");
+    };
+    let transition = text(body, "transition");
+    let Some((_, to_state)) = TRANSITIONS.iter().find(|(t, _)| *t == transition) else {
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "memory_lifecycle_transition_invalid",
+            "transition must be promote|dispute|mark_stale|supersede|accept",
+        );
+    };
+    let reason = text(body, "reason");
+    if reason.trim().is_empty() {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "memory_lifecycle_reason_required",
+            "Every lifecycle transition carries a reason.",
+        );
+    }
+    let from_state = quality_of(&record).to_string();
+    if transition == "promote" && from_state != "candidate" && from_state != "disputed" {
+        return bad(
+            StatusCode::CONFLICT,
+            "memory_lifecycle_promote_invalid",
+            "Promote applies to candidate (or disputed-resolved) records.",
+        );
+    }
+    let mut superseded_by = Value::Null;
+    if transition == "supersede" {
+        let new_ref = text(body, "superseded_by_ref");
+        if !new_ref.starts_with(family.ref_scheme) {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "memory_lifecycle_superseded_by_required",
+                "supersede requires superseded_by_ref of the same family.",
+            );
+        }
+        let new_id = new_ref.trim_start_matches(family.ref_scheme).to_string();
+        let Some(mut successor) = load(st, family.kind, family.id_key, &new_id) else {
+            return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_lifecycle_successor_unresolved", "The superseding record does not exist.");
+        };
+        successor["supersedes_ref"] = json!(text(&record, family.ref_key));
+        successor["updated_at"] = json!(iso_now());
+        let sid = text(&successor, family.id_key).to_string();
+        let _ = persist_record(&st.data_dir, family.kind, &sid, &successor);
+        superseded_by = json!(new_ref);
+    }
+    let receipt_ref = format!(
+        "receipt://hypervisor/memory-lifecycle/{}_{}_{:x}",
+        text(&record, family.id_key),
+        transition,
+        nanos()
+    );
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.memory-lifecycle",
+        "receipt_type": "context_mutation",
+        "record_ref": text(&record, family.ref_key),
+        "transition": transition,
+        "from_quality_state": from_state,
+        "to_quality_state": to_state,
+        "reason": reason,
+        "superseded_by_ref": superseded_by,
+        "at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    let mut history = record.get("lifecycle_history").and_then(Value::as_array).cloned().unwrap_or_default();
+    history.push(json!({
+        "transition": transition, "from": from_state, "to": to_state,
+        "reason": reason, "receipt_ref": receipt_ref, "at": iso_now(),
+    }));
+    if let Some(object) = record.as_object_mut() {
+        object.insert("quality_state".into(), json!(to_state));
+        if transition == "mark_stale" {
+            object.insert("marked_stale_at".into(), json!(iso_now()));
+        }
+        if !superseded_by.is_null() {
+            object.insert("superseded_by_ref".into(), superseded_by.clone());
+        }
+        object.insert("lifecycle_history".into(), json!(history));
+        object.insert("updated_at".into(), json!(iso_now()));
+    }
+    let rid = text(&record, family.id_key).to_string();
+    let _ = persist_record(&st.data_dir, family.kind, &rid, &record);
+    (StatusCode::OK, Json(json!({ "ok": true, "record": record, "receipt_ref": receipt_ref })))
+}
+
+pub(crate) async fn handle_entry_lifecycle(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    lifecycle_transition(&st, &ENTRY_FAMILY, &id, &body).await
+}
+
+pub(crate) async fn handle_skill_lifecycle(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    lifecycle_transition(&st, &SKILL_FAMILY, &id, &body).await
+}
+
+// ---------------------------------------------------------------------------
+// Review queue — deterministic signals only (no LLM judging). Derived per request.
+// ---------------------------------------------------------------------------
+
+pub(crate) async fn handle_review_queue(
+    State(st): State<Arc<DaemonState>>,
+    Query(_q): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    ensure_default_space(&st);
+    let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
+    let proposals = read_record_dir(&st.data_dir, PROPOSAL_KIND);
+    let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
+    projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    projections.truncate(25);
+    let live_ids: Vec<String> = {
+        let ctx = build_projection_context(&st, &json!({})).await;
+        ctx.live_connector_ids
+    };
+    let now = iso_now();
+    let soon = {
+        // "expiring within 7 days" — ISO strings compare lexicographically; compute a rough
+        // +7d bound from the date prefix (deterministic, no chrono dependency).
+        let mut bound = now.clone();
+        if let Some(day) = now.get(8..10).and_then(|d| d.parse::<u32>().ok()) {
+            bound.replace_range(8..10, &format!("{:02}", (day + 7).min(28).max(day % 28)));
+        }
+        bound
+    };
+    let mut items: Vec<Value> = Vec::new();
+    // proposal signals
+    for proposal in proposals.iter().filter(|p| text(p, "review_state") == "proposed") {
+        items.push(json!({
+            "ref": text(proposal, "proposal_ref"),
+            "title": proposal.pointer("/suggested/title").and_then(Value::as_str).unwrap_or(text(proposal, "operation")),
+            "kind": "mutation_proposal",
+            "signals": ["proposed_by_run"],
+            "quality_state": "proposed",
+        }));
+    }
+    let lower_titles: Vec<(String, String)> = entries
+        .iter()
+        .filter(|e| text(e, "status") == "active")
+        .map(|e| (text(e, "title").to_lowercase(), text(e, "entry_ref").to_string()))
+        .collect();
+    for entry in entries.iter().filter(|e| text(e, "status") == "active") {
+        let self_ref = text(entry, "entry_ref");
+        let mut signals: Vec<&str> = Vec::new();
+        let title = text(entry, "title").to_lowercase();
+        if lower_titles.iter().any(|(t, r)| *t == title && r != self_ref) {
+            signals.push("conflict_with_existing");
+        }
+        if entry.get("confidence").and_then(Value::as_f64).map(|c| c < 0.5).unwrap_or(false) {
+            signals.push("low_confidence");
+        }
+        let expires = text(entry, "expires_at");
+        if !expires.is_empty() && expires < soon.as_str() {
+            signals.push("expired_or_expiring");
+        }
+        let uses = projections
+            .iter()
+            .filter(|p| refs(p.get("included_entry_refs")).iter().any(|r| r == self_ref))
+            .count();
+        if uses >= 3 {
+            signals.push("repeated_projection_use");
+        }
+        if text(entry, "entry_kind") == "connector_derived" {
+            let connected = refs(entry.get("connector_refs"))
+                .iter()
+                .any(|c| live_ids.iter().any(|l| c.contains(l.as_str())));
+            if !connected {
+                signals.push("connector_lease_missing");
+            }
+        }
+        if text(entry, "sensitivity") == "private" {
+            let redactions = projections
+                .iter()
+                .filter(|p| {
+                    p.get("redacted_entry_refs")
+                        .and_then(Value::as_array)
+                        .map(|list| list.iter().any(|r| text(r, "ref") == self_ref))
+                        .unwrap_or(false)
+                })
+                .count();
+            if redactions >= 3 {
+                signals.push("private_redaction_frequent");
+            }
+        }
+        if !signals.is_empty() {
+            items.push(json!({
+                "ref": self_ref,
+                "title": text(entry, "title"),
+                "kind": text(entry, "entry_kind"),
+                "quality_state": quality_of(entry),
+                "sensitivity": text(entry, "sensitivity"),
+                "projection_use_count": uses,
+                "signals": signals,
+            }));
+        }
+    }
+    items.sort_by_key(|item| std::cmp::Reverse(item.get("signals").and_then(Value::as_array).map(Vec::len).unwrap_or(0)));
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "deterministic_signals_only": true,
+            "items": items,
+            "counts": { "items": items.len() },
             "runtimeTruthSource": "daemon-runtime",
         })),
     )

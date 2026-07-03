@@ -1157,6 +1157,18 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(ioi_intelligence_routes::handle_affinities_patch),
         )
         .route(
+            "/v1/hypervisor/memory-entries/:id/lifecycle",
+            post(ioi_intelligence_routes::handle_entry_lifecycle),
+        )
+        .route(
+            "/v1/hypervisor/skill-entries/:id/lifecycle",
+            post(ioi_intelligence_routes::handle_skill_lifecycle),
+        )
+        .route(
+            "/v1/hypervisor/intelligence/review-queue",
+            get(ioi_intelligence_routes::handle_review_queue),
+        )
+        .route(
             "/v1/hypervisor/intelligence/graph",
             get(ioi_intelligence_routes::handle_intelligence_graph),
         )

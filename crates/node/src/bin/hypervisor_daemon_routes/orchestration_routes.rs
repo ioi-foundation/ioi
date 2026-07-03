@@ -594,6 +594,20 @@ pub(crate) async fn handle_work_ledger(
             "receipt_ref": r.pointer("/receipt_refs/0").cloned().unwrap_or(Value::Null),
         }));
     }
+    // Memory lifecycle transitions — receipted quality-state changes (promote/dispute/stale/
+    // supersede); the durable-truth audit trail for the intelligence plane.
+    for r in read_record_dir(&st.data_dir, "receipts") {
+        if g(&r, "kind") != json!("hypervisor.memory-lifecycle") {
+            continue;
+        }
+        entries.push(json!({
+            "id": g(&r, "id"), "kind": "memory_lifecycle", "timestamp": g(&r, "at"),
+            "status": g(&r, "transition"), "record_ref": g(&r, "record_ref"),
+            "from_quality_state": g(&r, "from_quality_state"), "to_quality_state": g(&r, "to_quality_state"),
+            "reason": g(&r, "reason"), "superseded_by_ref": g(&r, "superseded_by_ref"),
+            "receipt_ref": g(&r, "id"),
+        }));
+    }
     for r in read_record_dir(&st.data_dir, "goal-runs") {
         entries.push(json!({
             "id": g(&r, "goal_run_id"), "kind": "goal_run", "timestamp": g(&r, "updated_at"),
