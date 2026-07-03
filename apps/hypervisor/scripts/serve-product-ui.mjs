@@ -1020,6 +1020,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
       <td>${pill(verdictOf(inv) === "pass" ? "ok" : verdictOf(inv) === "fail" ? "warn" : "muted", "verify: " + verdictOf(inv))}</td>
       <td>${evCount} events</td>
       <td>${(ir.changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
+      <td>${inv.memory_projection_ref ? `<code style="font-size:10px" title="scoped intelligence projection (refs only)">${CX_ESC(String(inv.memory_projection_ref).slice(0, 40))}…</code>` : "—"}</td>
       <td>${ir.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(ir.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((ir.state_root || "").slice(0, 22))}</div></td>
     </tr>`;
   }).join("");
@@ -1033,9 +1034,11 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
       ])
     : `<div class="empty">Not reconciled yet — candidate artifacts stay isolated until an admitted reconciliation.</div>`;
   const briefs = (g.task_briefs || []).map((b) => `<li><code>${CX_ESC(b.task_brief_id || "")}</code> — ${CX_ESC(b.objective_class || "")} · output contract: changed_files ${b.output_contract && b.output_contract.changed_files_required ? "required" : "optional"}</li>`).join("");
+  const projRefs = invocations.map((inv) => inv.memory_projection_ref).filter(Boolean);
   const proof = grid([
     ["GoalRun ref (internal)", code(g.goal_ref)],
     ["Launch policy", g.policy_ref ? code(g.policy_ref) : "—"],
+    ["Memory projections", projRefs.length ? projRefs.map((r) => `<code style="font-size:10.5px">${CX_ESC(r)}</code>`).join("<br>") : "—"],
     ["Admission", code((g.admission || {}).admission_id)],
     ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
     ["Capability lease", code(g.capability_lease_ref)],
@@ -1048,7 +1051,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
     <h2>Goal</h2><div class="grid" style="display:block;padding:14px 16px">${CX_ESC(g.normalized_goal || "")}</div>
     <h2>Roles</h2>${roles}
     <h2>Task briefs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the durable contract (rendered prompts are adapter-private)</span></h2><ul>${briefs || "<li>—</li>"}</ul>
-    <h2>Invocations (${invocations.length})</h2>${invocations.length ? `<table><thead><tr><th>Role</th><th>Status</th><th>Verifier</th><th>Events</th><th>Changed files</th><th>Proof</th></tr></thead><tbody>${invRows}</tbody></table>` : `<div class="empty">Not started.</div>`}
+    <h2>Invocations (${invocations.length})</h2>${invocations.length ? `<table><thead><tr><th>Role</th><th>Status</th><th>Verifier</th><th>Events</th><th>Changed files</th><th>Memory projection</th><th>Proof</th></tr></thead><tbody>${invRows}</tbody></table>` : `<div class="empty">Not started.</div>`}
     <h2>Candidate artifacts <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— isolated per implementer until reconciliation</span></h2><ul>${artifacts || "<li>—</li>"}</ul>
     <h2>Reconciliation</h2>${recSection}
     ${(g.blockers || []).length ? `<h2>Blockers (explicit partial)</h2><ul>${g.blockers.map((b) => `<li><span class="pill warn">${CX_ESC(b.reason_code || "")}</span> ${CX_ESC(b.message || "")}</li>`).join("")}</ul>` : ""}
@@ -1262,6 +1265,108 @@ function renderModelRouteRegistry(modelRoutes) {
 // strategy presets behind New Session). Seeded defaults are PROTECTED (clone to customize);
 // every policy is receipt-required. Registry-card shape with confirm-style actions — the same
 // grafted pattern as the harness/model registries, not a generic CRUD table.
+// ---- IOI Agent intelligence cockpit (Agent Studio) — portable memory, skills, and agent/
+// policy-scoped connector context. Ownership boundaries: Developer & Integrations OWNS
+// connectors (vault/secrets never appear here); Automations OWNS automations (affinities are a
+// readiness section under Launch policies, never a sibling tab).
+function intelStatusPill(st) { return `<span class="pill ${st === "active" ? "ok" : st === "revoked" ? "warn" : "muted"}">${CX_ESC(st || "")}</span>`; }
+function intelActions(family, id, status) {
+  const enc = encodeURIComponent;
+  const acts = [];
+  if (status === "active") {
+    acts.push(`<form class="inline" method="post" action="/__ioi/agent-studio/intel/${family}/${enc(id)}/archive"><button class="act ghost" type="submit">Archive</button></form>`);
+    if (family === "memory") acts.push(`<form class="inline" method="post" action="/__ioi/agent-studio/intel/${family}/${enc(id)}/revoke" onsubmit="return confirm('Revoke this entry? It will be excluded from every future projection.')"><button class="act danger" type="submit">Revoke</button></form>`);
+  } else {
+    acts.push(`<form class="inline" method="post" action="/__ioi/agent-studio/intel/${family}/${enc(id)}/activate"><button class="act" type="submit">Reactivate</button></form>`);
+  }
+  return acts.join(" ");
+}
+function renderIntelConnectors(intel) {
+  const connectors = intel.connectors || [];
+  const leases = intel.leases || [];
+  const entries = (intel.entries || []).filter((e) => e.entry_kind === "connector_derived");
+  const rows = connectors.map((c) => {
+    const bound = c.auth_posture === "token-lease:bound" || c.auth_posture === "open" || c.auth_posture === "local-none";
+    const myLeases = leases.filter((l) => String(l.backing_provider || "").includes(c.connector_id) || String(l.resource_refs || "").includes(c.connector_id)).length;
+    const derived = entries.filter((e) => (e.connector_refs || []).some((r) => String(r).includes(c.connector_id))).length;
+    return `<tr><td><b>${CX_ESC(c.name || c.service)}</b><div style="color:#878a93;font-size:11px"><code>${CX_ESC(c.connector_id)}</code></div></td>
+      <td><span class="pill ${bound ? "ok" : "warn"}">${bound ? "lease-ready" : "needs auth"}</span></td>
+      <td>${(c.allowed_tools || []).length || (c.kind === "mcp" ? "discovered on connect" : 0)}</td>
+      <td>${myLeases}</td>
+      <td>${derived ? `<span class="pill ok">${derived} context entr${derived > 1 ? "ies" : "y"}</span>` : "—"}</td></tr>`;
+  }).join("");
+  return `<h2 id="connectors">Connector access <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— agent/policy-scoped view; connectors are owned and managed in <a href="/__ioi/connections">Developer & Integrations →</a></span></h2>
+    <p class="sub" style="margin:-4px 0 12px">What the agent substrate can reach through capability leases, and the connector-derived context memory carries. Vault credentials never appear here.</p>
+    ${connectors.length ? `<table><thead><tr><th>Connector</th><th>Lease posture</th><th>Tools</th><th>Leases issued</th><th>Derived context</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">No connectors registered yet.</div>`}`;
+}
+function renderIntelSkills(skills) {
+  const cards = skills.map((sk) => `<div class="card"><div class="main">
+    <div class="name">${CX_ESC(sk.title || sk.skill_id)} ${intelStatusPill(sk.status)}</div>
+    <div class="meta"><code>${CX_ESC(sk.skill_ref || "")}</code> · ${CX_ESC(sk.description || "")}</div>
+    <div class="chips" style="margin:6px 0 0">${(sk.compatible_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))}</span>`).join("") || '<span class="pill muted">all harnesses</span>'}${(sk.connector_requirements || []).map((r) => `<span class="pill warn">needs ${CX_ESC(String(r))}</span>`).join("")}</div>
+    </div><div>${intelActions("skills", sk.skill_id, sk.status)}</div></div>`).join("");
+  const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New skill</summary>
+    <form method="post" action="/__ioi/agent-studio/intel/skills" style="margin-top:10px;max-width:600px">
+      <div class="field"><label>Title</label><input name="title" required></div>
+      <div class="field"><label>Description / procedure</label><textarea name="body" rows="3"></textarea></div>
+      <div class="row"><button class="act" type="submit">Create skill</button></div>
+    </form></details>`;
+  return `<h2 id="skills">Skills</h2><p class="sub" style="margin:-4px 0 12px">Reusable capability/procedure records — portable across harness and model swaps; projections deliver them as scoped summaries.</p>${skills.length ? cards : `<div class="empty">No skills yet.</div>`}${form}`;
+}
+const INTEL_MEMORY_CATS = [["", "All"], ["concept", "Concepts"], ["entity", "Entities"], ["workstream", "Workstreams"], ["note", "Notes"], ["preference", "Preferences"], ["correction", "Corrections"], ["connector_derived", "Connector-derived"]];
+function renderIntelMemory(entries) {
+  const chips = INTEL_MEMORY_CATS.map(([v, l]) => `<button class="chip" data-memcat="${v}" onclick="memCat(this)">${l}</button>`).join("");
+  const rows = entries.map((e) => `<div class="card memcard" data-kind="${CX_ESC(e.entry_kind || "")}" data-blob="${CX_ESC(((e.title || "") + " " + (e.body || "") + " " + (e.tags || []).join(" ")).toLowerCase())}"><div class="main">
+    <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
+    <div class="meta"><code>${CX_ESC(e.entry_ref || "")}</code>${e.sensitivity === "secret" ? " · <i>body never projected</i>" : e.body ? ` · ${CX_ESC(String(e.body).slice(0, 96))}` : ""}</div>
+    <div class="chips" style="margin:6px 0 0">${(e.compatible_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))} only</span>`).join("")}${(e.connector_refs || []).map((r) => `<span class="pill muted">via ${CX_ESC(String(r).slice(0, 28))}</span>`).join("")}${e.expires_at ? `<span class="pill warn">expires ${CX_ESC(e.expires_at)}</span>` : ""}</div>
+    </div><div>${intelActions("memory", e.entry_id, e.status)}</div></div>`).join("");
+  const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New memory entry</summary>
+    <form method="post" action="/__ioi/agent-studio/intel/memory" style="margin-top:10px;max-width:640px">
+      <div class="field"><label>Title</label><input name="title" required></div>
+      <div class="field"><label>Body</label><textarea name="body" rows="2"></textarea></div>
+      <div class="two">
+        <div class="field"><label>Kind</label><select name="entry_kind">${INTEL_MEMORY_CATS.slice(1).map(([v]) => `<option value="${v}">${v}</option>`).join("")}<option value="fact">fact</option><option value="instruction">instruction</option></select></div>
+        <div class="field"><label>Sensitivity</label><select name="sensitivity"><option value="normal">normal</option><option value="private">private — projected only when policy allows</option><option value="secret">secret — never projected</option></select></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Connector refs (csv, for connector-derived)</label><input name="connector_refs"></div>
+        <div class="field"><label>Compatible harness refs (csv, empty = all)</label><input name="compatible_harness_refs"></div>
+      </div>
+      <div class="row"><button class="act" type="submit">Create entry</button></div>
+    </form></details>`;
+  const script = `<script>
+    function memCat(btn){document.querySelectorAll('[data-memcat]').forEach(function(b){b.classList.toggle('on',b===btn);});memFilter();}
+    function memFilter(){var cat=(document.querySelector('[data-memcat].on')||{}).getAttribute?document.querySelector('[data-memcat].on').getAttribute('data-memcat'):'';var q=(document.getElementById('mem-search')||{value:''}).value.toLowerCase();
+      document.querySelectorAll('.memcard').forEach(function(c){var okCat=!cat||c.getAttribute('data-kind')===cat;var okQ=!q||c.getAttribute('data-blob').indexOf(q)>=0;c.style.display=(okCat&&okQ)?'':'none';});}
+  </script>`;
+  return `<h2 id="memory">Memory</h2><p class="sub" style="margin:-4px 0 12px">Durable preferences, facts, concepts, entities, workstreams, notes, and corrections — daemon truth that survives harness/model swaps. Harnesses receive scoped projections, never this raw store.</p>
+    <input id="mem-search" class="asearch" placeholder="Search memory…" oninput="memFilter()">
+    <div class="chips">${chips}</div>
+    ${entries.length ? rows : `<div class="empty">No memory yet. IOI Agent runs and operators add entries here.</div>`}${form}${script}`;
+}
+function renderAutomationReadiness(affinities) {
+  const cards = affinities.map((a) => `<div class="card"><div class="main">
+    <div class="name">${CX_ESC(a.title || a.affinity_id)} ${intelStatusPill(a.status)}</div>
+    <div class="meta">goal pattern <code>${CX_ESC(a.goal_pattern || "")}</code>${a.preferred_policy_ref ? ` → <code>${CX_ESC(a.preferred_policy_ref)}</code>` : ""}</div>
+    <div class="chips" style="margin:6px 0 0">${(a.preferred_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))}</span>`).join("")}${(a.preferred_automation_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r))}</span>`).join("")}${(a.required_connector_refs || []).map((r) => `<span class="pill warn">needs ${CX_ESC(String(r).slice(0, 24))}</span>`).join("")}</div>
+    </div><div>${intelActions("affinities", a.affinity_id, a.status)}</div></div>`).join("");
+  const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New affinity</summary>
+    <form method="post" action="/__ioi/agent-studio/intel/affinities" style="margin-top:10px;max-width:640px">
+      <div class="field"><label>Title</label><input name="title" required></div>
+      <div class="two">
+        <div class="field"><label>Goal pattern (substring match)</label><input name="goal_pattern" required placeholder="status file"></div>
+        <div class="field"><label>Preferred policy ref</label><input name="preferred_policy_ref" placeholder="ioi-agent-policy://pol_fast_local"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Preferred automation refs (csv)</label><input name="preferred_automation_refs" placeholder="automation://auto_…"></div>
+        <div class="field"><label>Preferred harness refs (csv)</label><input name="preferred_harness_refs"></div>
+      </div>
+      <div class="row"><button class="act" type="submit">Create affinity</button></div>
+    </form></details>`;
+  return `<h2 id="automation-readiness" style="margin-top:28px">Automation readiness</h2><p class="sub" style="margin:-4px 0 12px">Affinities between goal patterns, launch policies, and existing <a href="/__ioi/automations">Hypervisor Automations →</a> (which own triggers/schedules/runs). At launch, a matching affinity steers policy/harness selection in the projection.</p>${affinities.length ? cards : `<div class="empty">No automation affinities yet.</div>`}${form}`;
+}
+
 function renderLaunchPolicies(policies, profiles) {
   const enc = encodeURIComponent;
   policies = Array.isArray(policies) ? policies : [];
@@ -1309,7 +1414,7 @@ function renderLaunchPolicies(policies, profiles) {
   return `<h2 id="launch-policies">Launch policies</h2><p class="sub" style="margin:-4px 0 12px">Saved IOI Agent strategy presets — the daemon planner composes a policy with live registry facts, authority, privacy posture, budget, and failure policy at launch. Seeded defaults are protected; clone to customize.</p>${policies.length ? cards : `<div class="empty">No launch policies yet.</div>`}${form}`;
 }
 
-function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, launchPolicies) {
+function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, launchPolicies, intel) {
   const enc = encodeURIComponent;
   agents = Array.isArray(agents) ? agents : [];
   profiles = Array.isArray(profiles) ? profiles : [];
@@ -1464,13 +1569,19 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     <button class="tab" data-astab="harness-profiles" type="button">Harness profiles</button>
     <button class="tab" data-astab="model-routes" type="button">Model routes</button>
     <button class="tab" data-astab="launch-policies" type="button">Launch policies</button>
+    <button class="tab" data-astab="connectors" type="button">Connectors</button>
+    <button class="tab" data-astab="skills" type="button">Skills</button>
+    <button class="tab" data-astab="memory" type="button">Memory</button>
     <button class="tab" data-astab="activity" type="button">Activity</button>
   </div>`;
   const panel = (name, on, inner) => `<div class="aspanel${on ? " on" : ""}" data-aspanel="${name}">${inner}</div>`;
   const panels = panel("config", true, `${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}`)
     + panel("harness-profiles", false, matrix || `<div class="empty">No harness profiles registered.</div>`)
     + panel("model-routes", false, routing)
-    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles))
+    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []))
+    + panel("connectors", false, renderIntelConnectors(intel || {}))
+    + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
+    + panel("memory", false, renderIntelMemory((intel || {}).entries || []))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
     function asTab(name){
@@ -3890,7 +4001,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -3899,6 +4010,11 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/agent-run-transcripts"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/ioi-agent/launch-policies"),
+        J("/v1/hypervisor/memory-entries"),
+        J("/v1/hypervisor/skill-entries"),
+        J("/v1/hypervisor/automation-affinities"),
+        J("/v1/hypervisor/connectors"),
+        J("/v1/hypervisor/capability-leases"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
@@ -3912,8 +4028,49 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [] },
       ));
       return;
+    }
+    // ---- Agent Studio intelligence-cockpit lanes: proxy the daemon intelligence plane.
+    {
+      const intelAction = pathname.match(/^\/__ioi\/agent-studio\/intel\/(memory|skills|affinities)(?:\/([^/]+)\/(archive|revoke|activate))?$/);
+      if (intelAction && req.method === "POST") {
+        const [, family, rid, act] = intelAction;
+        const api = family === "memory" ? "memory-entries" : family === "skills" ? "skill-entries" : "automation-affinities";
+        let target;
+        if (rid && act) {
+          target = { method: "PATCH", url: `/v1/hypervisor/${api}/${encodeURIComponent(rid)}`, body: JSON.stringify({ status: act === "activate" ? "active" : act === "archive" ? "archived" : "revoked" }) };
+        } else {
+          const form = new URLSearchParams(body.toString());
+          const csv = (k) => (form.get(k) || "").split(",").map((x) => x.trim()).filter(Boolean);
+          const payload = { title: form.get("title") || "", body: form.get("body") || "", description: form.get("body") || "" };
+          if (family === "memory") {
+            payload.entry_kind = form.get("entry_kind") || "note";
+            payload.sensitivity = form.get("sensitivity") || "normal";
+            if (csv("connector_refs").length) payload.connector_refs = csv("connector_refs");
+            if (csv("compatible_harness_refs").length) payload.compatible_harness_refs = csv("compatible_harness_refs");
+          }
+          if (family === "affinities") {
+            payload.goal_pattern = form.get("goal_pattern") || "";
+            if (form.get("preferred_policy_ref")) payload.preferred_policy_ref = form.get("preferred_policy_ref");
+            if (csv("preferred_automation_refs").length) payload.preferred_automation_refs = csv("preferred_automation_refs");
+            if (csv("preferred_harness_refs").length) payload.preferred_harness_refs = csv("preferred_harness_refs");
+          }
+          target = { method: "POST", url: `/v1/hypervisor/${api}`, body: JSON.stringify(payload) };
+        }
+        const r = await fetch(`${DAEMON}${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Intelligence", `<div class="empty">Rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#${family === "memory" ? "memory" : family}">← Agent Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
     }
     // ---- Agent Studio launch-policy management: proxy the daemon policy plane (list is
     // fetched with the studio page; these are the effectful lanes). Redirects land on the tab.
