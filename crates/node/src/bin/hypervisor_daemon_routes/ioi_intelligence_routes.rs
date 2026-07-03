@@ -2103,6 +2103,7 @@ fn gate_projection(st: &DaemonState, proposal: &Value) -> Value {
         "high_impact": report.as_ref().and_then(|r| r.pointer("/governance/high_impact")).cloned().unwrap_or(Value::Null),
         "approval_status": approval.as_ref().map(|a| text(a, "status").to_string()),
         "release_state": release.as_ref().map(|r| text(r, "state").to_string()),
+        "release_rollout_mode": release.as_ref().map(|r| { let m = text(r, "rollout_mode"); if m.is_empty() { "full".to_string() } else { m.to_string() } }),
     })
 }
 
@@ -2234,6 +2235,49 @@ pub(crate) async fn handle_improvement_apply(
             // a non-protected target patches in place. Both through the ordinary policy lanes.
             let target = text(&proposal, "target_ref").trim_start_matches("ioi-agent-policy://").to_string();
             let client = reqwest::Client::new();
+            // A canary/cohort ReleaseControl bounds the audience: apply creates a rollout-bound
+            // VARIANT (clone + patch + rollout provenance) — the base policy is never replaced.
+            let rollout_mode = release.as_ref().map(|r| text(r, "rollout_mode").to_string()).unwrap_or_default();
+            if rollout_mode == "canary" || rollout_mode == "cohort" {
+                if target.is_empty() {
+                    return bad(StatusCode::UNPROCESSABLE_ENTITY, "improvement_rollout_target_required", "A canary/cohort rollout needs a target base policy to bound against.");
+                }
+                let base = load_policy_record(&st, &target).unwrap_or(Value::Null);
+                let cloned = client
+                    .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}/clone", st.base_url))
+                    .json(&json!({ "display_name": format!("{} ({} rollout)", text(&base, "display_name"), rollout_mode) }))
+                    .send().await.ok();
+                let clone_body = match cloned {
+                    Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
+                    None => Value::Null,
+                };
+                let variant_id = clone_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                if variant_id.is_empty() {
+                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_clone_failed", "Could not clone the base policy for the rollout variant.");
+                }
+                let patched = client
+                    .patch(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{variant_id}", st.base_url))
+                    .json(&suggested)
+                    .send().await.ok();
+                if !patched.map(|r| r.status().is_success()).unwrap_or(false) {
+                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_patch_failed", "Rollout variant patch was rejected.");
+                }
+                let bound = super::ioi_agent_routes::bind_policy_rollout(&st, &variant_id, json!({
+                    "base_policy_ref": format!("ioi-agent-policy://{target}"),
+                    "release_control_ref": proposal.get("release_control_ref").cloned().unwrap_or(Value::Null),
+                    "proposal_ref": text(&proposal, "proposal_ref"),
+                    "simulation_ref": proposal.get("latest_simulation_ref").cloned().unwrap_or(Value::Null),
+                    "approval_request_ref": proposal.get("approval_request_ref").cloned().unwrap_or(Value::Null),
+                    "mode": rollout_mode,
+                    "state": "active",
+                    "applied_at": iso_now(),
+                }));
+                if bound.is_none() {
+                    return bad(StatusCode::BAD_GATEWAY, "improvement_rollout_bind_failed", "Could not bind rollout provenance to the variant.");
+                }
+                applied_ref = format!("ioi-agent-policy://{variant_id}");
+                return finish_apply(&st, proposal, applied_ref).await;
+            }
             let patch_target: String;
             if !target.is_empty() {
                 let existing = client

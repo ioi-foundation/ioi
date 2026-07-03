@@ -56,3 +56,30 @@ refs an ApprovalRequest / ReleaseControl may target.
 Apply mints `receipt://hypervisor/improvement/*` citing `simulation_ref`, `report_hash`,
 `approval_request_ref`, and `release_control_ref`; the Work Ledger `improvement_applied`
 entry carries and backlinks the full chain.
+
+## Canary release + rollback (learned-policy rollouts)
+
+A canary/cohort `ReleaseControl` bounds WHO sees a high-impact learned policy before full
+rollout. `rollout_mode: canary | cohort | full` with `canary_percent` (deterministic
+sha256(context:release_id) → 0..99 bucketing), `cohort_refs`, `starts_at`/`ends_at`,
+`rollback_state`, `promoted_at`/`rolled_back_at`.
+
+- **Apply under canary/cohort** creates a rollout-bound VARIANT (clone of the target base +
+  suggested patch + rollout provenance: base/release/proposal/simulation/approval refs).
+  The base policy — often a protected seed — is NEVER replaced.
+- **Selection** happens at launch plan time: an eligible context (matched via
+  `project_ref` / `principal_ref` / `rollout_context_ref` on preview/launch) is silently
+  upgraded to the variant, recorded and explained (`policy_rollout` note with reason codes
+  `rollout_cohort_match:* | rollout_canary_bucket:* | rollout_full | rollout_promoted_full`)
+  on the preview response and the launch record. Everyone else keeps base behavior.
+- **The ReleaseControl stays the LIVE gate**: closing it switches every context back to
+  base immediately; the time window is honored.
+- **Promote** (`POST …/launch-policies/:id/rollout/promote`): the variant becomes normal
+  behavior for every context using the base (still overlay-selected — the base record is
+  never mutated); ReleaseControl flips to `rollout_mode: full` + `promoted_at`.
+- **Rollback** (`POST …/rollout/rollback`): the overlay stops selecting the variant
+  anywhere; the variant is retained (`rollout.state: rolled_back`, status disabled so
+  explicit selection fails closed); ReleaseControl records `rollback_state`. No
+  proposal/simulation/approval/release evidence is deleted.
+- Both lanes mint `receipt://hypervisor/policy-rollout/*` receipts citing the full chain;
+  the Work Ledger indexes them as `policy_rollout` entries with backlinks.

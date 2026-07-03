@@ -1260,6 +1260,14 @@ async fn async_main() -> anyhow::Result<()> {
             post(ioi_agent_routes::handle_policies_clone),
         )
         .route(
+            "/v1/hypervisor/ioi-agent/launch-policies/:id/rollout/promote",
+            post(ioi_agent_routes::handle_policy_rollout_promote),
+        )
+        .route(
+            "/v1/hypervisor/ioi-agent/launch-policies/:id/rollout/rollback",
+            post(ioi_agent_routes::handle_policy_rollout_rollback),
+        )
+        .route(
             "/v1/hypervisor/ioi-agent/launches",
             get(ioi_agent_routes::handle_ioi_agent_launches_list),
         )
