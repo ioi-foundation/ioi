@@ -1812,6 +1812,8 @@ pub(crate) async fn handle_environment_create(
             "effective_venue": policy.get("effective_venue").cloned().unwrap_or_else(|| policy["venue"].clone()),
             "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(serde_json::Value::Null),
             "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
+            "advisory_ref": policy.get("advisory_ref").cloned().unwrap_or(serde_json::Value::Null),
+            "advisory_candidate_refs": policy.get("advisory_candidate_refs").cloned().unwrap_or(json!([])),
         });
     }
     persist_env(&st.data_dir, &env)?;

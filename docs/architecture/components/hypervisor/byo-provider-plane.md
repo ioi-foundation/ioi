@@ -164,6 +164,13 @@ provider eligibility, and preflight posture:
 
 Done-bar: `apps/hypervisor/scripts/verify-hypervisor-placement-venue-picker.mjs`.
 
+The `hypervisor_choose` venue is filled by the decentralized.cloud candidate
+plane (`/v1/hypervisor/cloud-candidates/*` — canonical doctrine
+`../../domains/decentralized/cloud.md`): evidence-bound, expiring candidates
+derived from local facts, a deterministic reason-coded advisory, and explicit
+`no_eligible_candidate` fallback to `run_local`. Candidates are never
+authority; no fee objects, quotes, or RoutingDecisionReceipt exist.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

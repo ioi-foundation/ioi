@@ -48,6 +48,8 @@ mod editor_proxy;
 mod editor_routes;
 #[path = "hypervisor_daemon_routes/endgame_routes.rs"]
 mod endgame_routes;
+#[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
+mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
@@ -1561,6 +1563,30 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/placement/preview",
             get(orchestration_routes::handle_placement_preview),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/intents",
+            post(decentralized_cloud_routes::handle_intent_create),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/intents/:id",
+            get(decentralized_cloud_routes::handle_intent_get),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/candidates",
+            get(decentralized_cloud_routes::handle_candidates_list),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/candidates/refresh",
+            post(decentralized_cloud_routes::handle_candidates_refresh),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/candidate-sources",
+            get(decentralized_cloud_routes::handle_candidate_sources),
+        )
+        .route(
+            "/v1/hypervisor/cloud-candidates/placement-advisory",
+            get(decentralized_cloud_routes::handle_placement_advisory),
         )
         .route(
             "/v1/hypervisor/warm-pools",

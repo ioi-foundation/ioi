@@ -1418,9 +1418,9 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     });
     let choose = json!({
         "venue": "hypervisor_choose", "display_name": "Let Hypervisor choose",
-        "summary": "Hypervisor picks the venue from live candidates. PLANNED — the decentralized.cloud candidate plane does not exist yet, so there is nothing honest to choose from.",
-        "available": false, "selectable": true, "status": "planned",
-        "planned_reason": "decentralized.cloud candidate plane not built — Hypervisor does not place runs for payment today; choosing this records an advisory preference and execution stays local",
+        "summary": "Hypervisor recommends among your REAL venues from live, evidence-bound candidates (local facts only this cut). Advisory — a candidate is never authority, and routed-for-payment placement still does not exist.",
+        "available": false, "selectable": true, "status": "advisory",
+        "advisory_note": "candidates derive from the verified provider catalog, environment-class eligibility, preflight posture, and receipt history; external sources without adapters are candidate_source_unavailable — never fake prices. No routing fee, no RoutingDecisionReceipt.",
         "candidates": Vec::<Value>::new(),
         "fee": venue_fee("hypervisor_choose"),
         "providers": [],
@@ -1428,7 +1428,21 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     vec![local, byo, cloud, choose]
 }
 
-async fn live_environment_classes(base: &str) -> Vec<Value> {
+/// Fold the live advisory into the hypervisor_choose venue card (candidates + availability).
+pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
+    if let Some(card) = venues.iter_mut().find(|v| v["venue"] == "hypervisor_choose") {
+        let eligible = advisory.get("eligible").and_then(Value::as_u64).unwrap_or(0);
+        card["available"] = json!(eligible > 0);
+        card["advisory_ref"] = advisory.get("advisory_ref").cloned().unwrap_or(Value::Null);
+        card["candidates"] = advisory.get("candidates").cloned().unwrap_or(json!([]));
+        card["recommendation"] = advisory.get("recommendation").cloned().unwrap_or(Value::Null);
+        card["no_eligible_candidate"] = advisory.get("no_eligible_candidate").cloned().unwrap_or(Value::Null);
+        card["routing_fee_basis"] = advisory.get("routing_fee_basis").cloned().unwrap_or(Value::Null);
+        card["fee_object_minted"] = json!(false);
+    }
+}
+
+pub(crate) async fn live_environment_classes(base: &str) -> Vec<Value> {
     call(base, "GET", "/v1/hypervisor/environment-classes", None)
         .await
         .ok()
@@ -1439,9 +1453,13 @@ async fn live_environment_classes(base: &str) -> Vec<Value> {
 /// GET /v1/hypervisor/placement/venues — the four venue cards, live-composed.
 pub(crate) async fn handle_placement_venues(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let classes = live_environment_classes(&st.base_url).await;
+    let mut venues = compose_venues(&st.data_dir, &classes);
+    let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
+    let advisory = super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await;
+    attach_choose_advisory(&mut venues, &advisory);
     Json(json!({
         "schema_version": "ioi.hypervisor.placement-venues.v1",
-        "venues": compose_venues(&st.data_dir, &classes),
+        "venues": venues,
         "fee_bases": fee_bases_taxonomy(),
         "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost",
         "no_fee_objects": "this plane mints no fee object, no quote, and no RoutingDecisionReceipt",
@@ -1499,6 +1517,11 @@ pub(crate) async fn handle_venue_policy_put(
         });
     }
     let advisory = venue == "hypervisor_choose";
+    let mut advisory_block = Value::Null;
+    if advisory {
+        let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
+        advisory_block = super::decentralized_cloud_routes::advisory_for(&st, &intent, true).await;
+    }
     let prior = load_venue_policy(&st.data_dir);
     let mut history = prior.get("history").and_then(Value::as_array).cloned().unwrap_or_default();
     if prior.get("default").and_then(Value::as_bool) != Some(true) {
@@ -1511,13 +1534,19 @@ pub(crate) async fn handle_venue_policy_put(
         "provider_account_ref": if account_ref.is_empty() { Value::Null } else { json!(account_ref) },
         "provider_snapshot": provider_snapshot,
         "advisory": advisory,
-        "effective_venue": if advisory { "run_local" } else { venue },
-        "advisory_note": if advisory { json!("hypervisor_choose is a planned placeholder — recorded as your preference, execution stays local until the decentralized.cloud candidate plane exists; never a hidden auto") } else { Value::Null },
+        "effective_venue": if advisory {
+            advisory_block.get("effective_venue").cloned().unwrap_or(json!("run_local"))
+        } else { json!(venue) },
+        "advisory_ref": if advisory { advisory_block.get("advisory_ref").cloned().unwrap_or(Value::Null) } else { Value::Null },
+        "advisory_recommendation": if advisory { advisory_block.get("recommendation").cloned().unwrap_or(Value::Null) } else { Value::Null },
+        "advisory_candidate_refs": if advisory { advisory_block.get("candidate_refs").cloned().unwrap_or(json!([])) } else { json!([]) },
+        "no_eligible_candidate": if advisory { advisory_block.get("no_eligible_candidate").cloned().unwrap_or(Value::Null) } else { Value::Null },
+        "advisory_note": if advisory { json!("advisory recommendation from live, evidence-bound candidates (never a hidden auto); a candidate is not authority and cannot provision — execution keeps requiring wallet grants") } else { Value::Null },
         "chosen_at": iso_now(),
         "history": history,
     });
     let _ = persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": record, "fee": venue_fee(venue) })))
+    (StatusCode::OK, Json(json!({ "ok": true, "policy": record, "fee": venue_fee(venue), "advisory": advisory_block })))
 }
 
 /// The receipt kinds a launch/lifecycle at this venue will mint — NAMED BEFORE LAUNCH.
@@ -1553,7 +1582,9 @@ pub(crate) fn venue_receipts_expected(venue: &str, data_dir: &str) -> Value {
         }
         "hypervisor_choose" => {
             let mut r = base;
-            r.push(json!("advisory placeholder — execution stays local; a RoutingDecisionReceipt exists only when routed-for-payment placement exists (none today)"));
+            r.push(json!("placement-advisory://adv_* — the advisory that recommended this placement (persisted evidence)"));
+            r.push(json!("cloud-resource-candidate://crc_* — the evidence-bound candidates considered (expiring; never authority)"));
+            r.push(json!("a RoutingDecisionReceipt exists only when routed-for-payment placement exists (none today; fee_object_minted stays false)"));
             json!(r)
         }
         _ => json!(base),
@@ -1581,12 +1612,17 @@ pub(crate) async fn handle_placement_preview(
     let provider_card = venue_card.get("providers").and_then(Value::as_array).and_then(|ps| {
         ps.iter().find(|p| p["account_ref"].as_str() == Some(account_ref.as_str())).cloned()
     });
+    let advisory = if venue == "hypervisor_choose" {
+        let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
+        super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await
+    } else { Value::Null };
     Json(json!({
         "schema_version": "ioi.hypervisor.placement-preview.v1",
         "policy": policy,
         "venue": venue,
         "venue_card": venue_card,
         "provider_card": provider_card,
+        "advisory": advisory,
         "fee": venue_fee(&venue),
         "receipts_expected": venue_receipts_expected(&venue, &st.data_dir),
         "quote": Value::Null,

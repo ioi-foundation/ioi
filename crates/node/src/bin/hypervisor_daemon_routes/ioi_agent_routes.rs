@@ -953,6 +953,10 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(Value::Null),
             "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
             "advisory_note": policy.get("advisory_note").cloned().unwrap_or(Value::Null),
+            "advisory_ref": policy.get("advisory_ref").cloned().unwrap_or(Value::Null),
+            "advisory_recommendation": policy.get("advisory_recommendation").cloned().unwrap_or(Value::Null),
+            "advisory_candidate_refs": policy.get("advisory_candidate_refs").cloned().unwrap_or(json!([])),
+            "no_eligible_candidate": policy.get("no_eligible_candidate").cloned().unwrap_or(Value::Null),
             "fee": super::orchestration_routes::venue_fee(&venue),
             "receipts_expected": super::orchestration_routes::venue_receipts_expected(&venue, &st.data_dir),
         })
@@ -1022,6 +1026,10 @@ fn placement_venue_snapshot(st: &DaemonState) -> Value {
         "effective_venue": policy.get("effective_venue").cloned().unwrap_or_else(|| policy["venue"].clone()),
         "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(Value::Null),
         "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
+        "advisory_ref": policy.get("advisory_ref").cloned().unwrap_or(Value::Null),
+        "advisory_recommendation": policy.get("advisory_recommendation").cloned().unwrap_or(Value::Null),
+        "advisory_candidate_refs": policy.get("advisory_candidate_refs").cloned().unwrap_or(json!([])),
+        "no_eligible_candidate": policy.get("no_eligible_candidate").cloned().unwrap_or(Value::Null),
     })
 }
 

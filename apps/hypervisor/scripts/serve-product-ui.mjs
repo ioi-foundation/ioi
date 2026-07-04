@@ -987,7 +987,7 @@ function renderPlacementVenues(venuesRes, policyRes) {
     const fee = v.fee || {};
     return `<div class="venue-card${chosen ? " chosen" : ""}" data-venue="${CX_ESC(v.venue)}" style="border:1px solid ${chosen ? "#3c9d64" : "#24262d"};border-radius:12px;background:#0c0d10;padding:12px 14px">
       <b>${CX_ESC(v.display_name)}</b>
-      ${v.status === "planned" ? `<span class="pill muted" style="border-style:dashed">planned</span>` : v.available ? `<span class="pill ok">available</span>` : `<span class="pill warn">unavailable</span>`}
+      ${v.status === "planned" ? `<span class="pill muted" style="border-style:dashed">planned</span>` : v.status === "advisory" ? `<span class="pill ${v.available ? "ok" : "muted"}">advisory</span>` : v.available ? `<span class="pill ok">available</span>` : `<span class="pill warn">unavailable</span>`}
       ${chosen ? `<span class="pill ok">chosen</span>` : ""}
       <div class="sub" style="margin:4px 0 6px;text-transform:none;letter-spacing:0">${CX_ESC(v.summary || "")}</div>
       <div style="font-size:12px"><b>fee basis: ${CX_ESC(fee.fee_basis || "none")}</b> · cost owner: ${CX_ESC(fee.cost_owner || "customer")}</div>
@@ -997,10 +997,32 @@ function renderPlacementVenues(venuesRes, policyRes) {
       ${v.quote_policy ? `<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(v.quote_policy)}</div>` : ""}
       ${(v.environment_classes || {}).supported && v.environment_classes.supported.length ? `<div class="chips" style="margin-top:6px"><span class="chiplabel">classes</span>${v.environment_classes.supported.map((c) => `<span class="pill muted">${CX_ESC(c)}</span>`).join("")}</div>` : ""}
       ${(v.providers || []).map(providerCard).join("")}
+      ${v.status === "advisory" ? renderCandidateCards(v) : ""}
     </div>`;
   };
   return `<div id="env-placement-venues"><h2>Placement</h2><p class="sub" style="margin:-4px 0 10px">Where governed work runs — an explicit choice, never hidden behind auto. Pick a venue in New Session; the chosen policy is daemon truth (<code>placement-venue-policy</code>). ${CX_ESC((venuesRes || {}).spend_rule || "")}</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">${venues.map(card).join("")}</div></div>`;
+}
+
+// Candidate cards for the advisory venue — evidence-bound proposals from LOCAL FACTS
+// (never authority, expiring). Honest empty state when nothing is placement-eligible.
+function renderCandidateCards(v) {
+  const cands = (v.candidates || []).filter((c) => c.placement_eligible);
+  const rec = v.recommendation;
+  const head = rec
+    ? `<div style="font-size:12px;margin-top:8px">advisory recommends <b>${CX_ESC(rec.venue || "")}</b>${rec.display_name ? " · " + CX_ESC(rec.display_name) : ""} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(${CX_ESC((rec.reason_codes || []).join(", "))})</span></div>`
+    : `<div class="sub" style="margin:8px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.no_eligible_candidate || "no eligible candidate — effective venue stays run_local")}</div>`;
+  const card = (c) => {
+    const rel = c.reliability || {};
+    return `<div style="border:1px solid #1b1d23;border-radius:9px;padding:9px 11px;margin:6px 0">
+      <b>${CX_ESC(c.display_name || c.provider_kind || "")}</b> <span class="pill muted">${CX_ESC(c.provider_kind || "")}</span>
+      <span class="pill ${c.status === "active" ? "ok" : "warn"}">${CX_ESC(c.status || "")}</span>
+      <span class="pill muted">spend owner: ${CX_ESC((c.spend_estimate || {}).cost_owner || "customer")}</span>
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(c.runtime_class || "")} · custody ${CX_ESC(((c.custody_plan || {}).supported_postures || []).join("/"))} · ${CX_ESC(c.coverage_state || "")}${rel.ops_ok !== undefined ? ` · ops ${rel.ops_ok}✓/${rel.ops_failed || 0}✗` : ""}</div>
+      <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">expires ${CX_ESC(c.expires_at || "")} · <code>${CX_ESC(c.candidate_ref || "")}</code></div>
+    </div>`;
+  };
+  return head + cands.map(card).join("");
 }
 
 function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes) {
