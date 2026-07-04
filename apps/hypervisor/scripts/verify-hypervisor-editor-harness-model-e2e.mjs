@@ -27,9 +27,30 @@ const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765"
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(base, method, p, body) {
-  const r = await fetch(`${base}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
+import http from "node:http";
+// node:http, not fetch: synchronous harness-execute calls legitimately exceed undici's fixed
+// 300s headers timeout under the 600s hot-host driver budget (CPU-only local inference).
+function jd(base, method, p, body) {
+  const target = new URL(`${base}${p}`);
+  const payload = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
+        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => { raw += c; });
+        res.on("end", () => {
+          let j = {};
+          try { j = JSON.parse(raw); } catch { j = {}; }
+          resolve({ status: res.statusCode, j });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 async function run() {

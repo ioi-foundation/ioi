@@ -182,6 +182,8 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
 
     // ---- Section 2: identity posture.
     let identity_posture = json!({
+        "deployment_auth_posture": authpol.get("deployment_auth_posture").cloned().unwrap_or(Value::Null),
+        "rollout_trust": authpol.get("rollout_trust").cloned().unwrap_or(Value::Null),
         "effective_enforced": authpol.get("effective_enforced").cloned().unwrap_or(Value::Null),
         "exposed": authpol.get("exposed").cloned().unwrap_or(Value::Null),
         "login_possible": authpol.get("login_possible").cloned().unwrap_or(Value::Null),

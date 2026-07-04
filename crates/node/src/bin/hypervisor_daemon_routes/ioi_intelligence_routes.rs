@@ -1873,10 +1873,11 @@ pub(crate) async fn handle_improvements_list(
         proposals.retain(|p| text(p, "state") == state);
     }
     proposals.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
+    let (sims, approvals, releases) = gate_record_sets(&st);
     let proposals: Vec<Value> = proposals
         .into_iter()
         .map(|mut p| {
-            let gate = gate_projection(&st, &p);
+            let gate = gate_projection_from(&p, &sims, &approvals, &releases);
             if let Some(object) = p.as_object_mut() {
                 object.insert("gate".into(), gate);
             }
@@ -2003,18 +2004,37 @@ fn load_by_ref(st: &DaemonState, kind: &str, reference: &str, scheme: &str) -> O
         .find(|r| text(r, "id") == id)
 }
 
-fn gate_inputs(st: &DaemonState, proposal: &Value) -> (Option<Value>, Option<Value>, Option<Value>) {
+/// Pick a proposal's gate inputs out of PRE-LOADED record sets (list handlers load each
+/// directory once — per-proposal directory re-reads made the list O(N×dir) as records grew).
+fn gate_inputs_from(
+    proposal: &Value,
+    sims: &[Value],
+    approvals: &[Value],
+    releases: &[Value],
+) -> (Option<Value>, Option<Value>, Option<Value>) {
     let report = text(proposal, "latest_simulation_ref")
         .strip_prefix("simulation-report://")
-        .map(str::to_string)
-        .and_then(|id| {
-            read_record_dir(&st.data_dir, SIMULATION_KIND)
-                .into_iter()
-                .find(|r| text(r, "simulation_id") == id)
-        });
-    let approval = load_by_ref(st, GOV_APPROVAL_KIND, text(proposal, "approval_request_ref"), "approval-request");
-    let release = load_by_ref(st, GOV_RELEASE_KIND, text(proposal, "release_control_ref"), "release-control");
+        .and_then(|id| sims.iter().find(|r| text(r, "simulation_id") == id).cloned());
+    let approval = text(proposal, "approval_request_ref")
+        .strip_prefix("approval-request://")
+        .and_then(|id| approvals.iter().find(|r| text(r, "id") == id).cloned());
+    let release = text(proposal, "release_control_ref")
+        .strip_prefix("release-control://")
+        .and_then(|id| releases.iter().find(|r| text(r, "id") == id).cloned());
     (report, approval, release)
+}
+
+fn gate_record_sets(st: &DaemonState) -> (Vec<Value>, Vec<Value>, Vec<Value>) {
+    (
+        read_record_dir(&st.data_dir, SIMULATION_KIND),
+        read_record_dir(&st.data_dir, GOV_APPROVAL_KIND),
+        read_record_dir(&st.data_dir, GOV_RELEASE_KIND),
+    )
+}
+
+fn gate_inputs(st: &DaemonState, proposal: &Value) -> (Option<Value>, Option<Value>, Option<Value>) {
+    let (sims, approvals, releases) = gate_record_sets(st);
+    gate_inputs_from(proposal, &sims, &approvals, &releases)
 }
 
 pub(crate) struct GateDecision {
@@ -2095,7 +2115,12 @@ pub(crate) fn evaluate_improvement_gate(
 }
 
 fn gate_projection(st: &DaemonState, proposal: &Value) -> Value {
-    let (report, approval, release) = gate_inputs(st, proposal);
+    let (sims, approvals, releases) = gate_record_sets(st);
+    gate_projection_from(proposal, &sims, &approvals, &releases)
+}
+
+fn gate_projection_from(proposal: &Value, sims: &[Value], approvals: &[Value], releases: &[Value]) -> Value {
+    let (report, approval, release) = gate_inputs_from(proposal, sims, approvals, releases);
     let gate = evaluate_improvement_gate(proposal, report.as_ref(), approval.as_ref(), release.as_ref());
     json!({
         "posture": gate.posture,

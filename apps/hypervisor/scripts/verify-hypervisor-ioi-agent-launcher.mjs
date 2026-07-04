@@ -103,8 +103,11 @@ async function run() {
   let attempts = 0;
   for (; attempts < 2; ) {
     attempts += 1;
+    // Clear the previous attempt's result FIRST — otherwise the wait below resolves
+    // instantly on stale text and reads attempt N-1's outcome while N is still running.
+    await page.evaluate(() => { const el = document.getElementById("ioi-ns-result"); if (el) el.textContent = ""; });
     await page.click("#ioi-ns-launch");
-    await page.waitForFunction(() => /coordinated this work|rejected|failed/i.test(document.getElementById("ioi-ns-result")?.textContent || ""), null, { timeout: 180000 });
+    await page.waitForFunction(() => /coordinated this work|rejected|failed/i.test(document.getElementById("ioi-ns-result")?.textContent || ""), null, { timeout: 420000 });
     resultText = await page.locator("#ioi-ns-result").innerText();
     if (new RegExp(`ui-agent-${tag}\\.txt`).test(resultText)) break;
   }

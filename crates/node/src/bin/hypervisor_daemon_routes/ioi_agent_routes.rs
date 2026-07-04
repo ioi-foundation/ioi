@@ -35,7 +35,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::goalrun_routes::{fact_from_profile, live_profiles, profile_by_harness, route_fact};
-use super::lifecycle_routes::{auth_enforced, load_session_record, resolve_principal};
+use super::lifecycle_routes::{deployment_auth_posture, load_session_record, resolve_principal};
 use super::{iso_now, persist_record, read_record_dir, sha256_hex_str, DaemonState};
 
 const LAUNCH_KIND: &str = "ioi-agent-launches";
@@ -433,6 +433,23 @@ pub(crate) struct RolloutContext {
     source: &'static str,
     seed: String,
     posture_note: String,
+    /// local_development | exposed_untrusted | authenticated_managed — high-trust rollout
+    /// eligibility (outside local_development) accepts ONLY authenticated/daemon-known sources.
+    posture: &'static str,
+}
+
+/// Sources a high-trust posture accepts for learned-rollout eligibility.
+fn trusted_source(source: &str) -> bool {
+    source == "authenticated_principal" || source == "project" || source == "org"
+}
+
+/// The posture-specific block reason for an untrusted context source.
+fn untrusted_block_reason(source: &str) -> &'static str {
+    if source == "explicit_override" {
+        "rollout_explicit_override_disallowed"
+    } else {
+        "rollout_requires_authenticated_context"
+    }
 }
 
 fn derive_rollout_context(st: &DaemonState, headers: &HeaderMap, body: &Value) -> RolloutContext {
@@ -457,16 +474,21 @@ fn derive_rollout_context(st: &DaemonState, headers: &HeaderMap, body: &Value) -
     if let Some(explicit) = body.get("rollout_context_ref").and_then(Value::as_str).map(str::trim).filter(|r| !r.is_empty()) {
         refs.push((explicit.to_string(), "explicit_override"));
     }
-    let posture_note = if authenticated.is_none() && !auth_enforced(&st.data_dir, headers) {
-        "identity enforcement inactive — deterministic local wallet-holder posture".to_string()
-    } else {
-        String::new()
+    let posture = deployment_auth_posture(&st.data_dir, headers);
+    let posture_note = match posture {
+        "local_development" if authenticated.is_none() => {
+            "identity enforcement inactive — deterministic local wallet-holder posture (local development only)".to_string()
+        }
+        "exposed_untrusted" => {
+            "EXPOSED without enforced authentication — learned rollouts require an authenticated principal or daemon-known project; enable authentication".to_string()
+        }
+        _ => String::new(),
     };
     if refs.is_empty() {
         refs.push(("principal://local-operator".to_string(), "anonymous"));
     }
     let (seed, source) = (refs[0].0.clone(), refs[0].1);
-    RolloutContext { refs, source, seed, posture_note }
+    RolloutContext { refs, source, seed, posture_note, posture }
 }
 
 fn rollout_context_fact(ctx: &RolloutContext) -> Value {
@@ -474,6 +496,8 @@ fn rollout_context_fact(ctx: &RolloutContext) -> Value {
         "source": ctx.source,
         "refs": ctx.refs.iter().map(|(r, src)| json!({ "ref": r, "source": src })).collect::<Vec<Value>>(),
         "seed": ctx.seed,
+        "deployment_posture": ctx.posture,
+        "explicit_override_allowed": ctx.posture == "local_development",
         "posture_note": if ctx.posture_note.is_empty() { Value::Null } else { json!(ctx.posture_note) },
     })
 }
@@ -537,11 +561,18 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
         // (eligible?, reason, matched ref/source, matched cohort object)
         let mut matched: Option<(String, &'static str, Option<Value>, String)> = None;
         let mut miss_reason = String::new();
+        let seed_trusted = ctx.posture == "local_development" || trusted_source(ctx.source);
+        if (promoted || mode == "full" || mode == "canary") && !seed_trusted {
+            // Anonymous/override contexts never activate learned overlays outside local dev.
+            skip(untrusted_block_reason(ctx.source).to_string());
+            continue;
+        }
         if promoted {
             matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_promoted_full".to_string()));
         } else if mode == "full" {
             matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_full".to_string()));
         } else if mode == "cohort" {
+            let high_trust = ctx.posture != "local_development";
             let entries: Vec<String> = control
                 .get("cohort_refs")
                 .and_then(Value::as_array)
@@ -549,7 +580,18 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
                 .unwrap_or_default();
             let mut any_active_cohort = false;
             let mut any_disabled_cohort = false;
+            let mut untrusted_hit: Option<&'static str> = None;
             for entry in &entries {
+                let members_match = |members: &[String]| -> (Option<(String, &'static str)>, Option<&'static str>) {
+                    // Trusted sources only outside local_development; remember what an
+                    // UNTRUSTED ref would have matched so the block is named, not silent.
+                    let trusted = ctx.refs.iter().find(|(r, src)| members.contains(r) && (!high_trust || trusted_source(src)));
+                    if let Some((r, src)) = trusted {
+                        return (Some((r.clone(), src)), None);
+                    }
+                    let untrusted = ctx.refs.iter().find(|(r, _)| members.contains(r));
+                    (None, untrusted.map(|(_, src)| untrusted_block_reason(src)))
+                };
                 if let Some(cohort_id) = entry.strip_prefix("cohort://") {
                     let Some(cohort) = read_record_dir(&st.data_dir, "governance-cohorts")
                         .into_iter()
@@ -567,30 +609,30 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
                         .and_then(Value::as_array)
                         .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
                         .unwrap_or_default();
-                    if let Some((context_ref, source)) = ctx.refs.iter().find(|(r, _)| members.contains(r)) {
-                        matched = Some((
-                            context_ref.clone(),
-                            source,
-                            Some(cohort.clone()),
-                            format!("rollout_cohort_match:{entry}"),
-                        ));
+                    let (hit, blocked) = members_match(&members);
+                    if let Some(reason) = blocked {
+                        untrusted_hit = Some(reason);
+                    }
+                    if let Some((context_ref, source)) = hit {
+                        matched = Some((context_ref, source, Some(cohort.clone()), format!("rollout_cohort_match:{entry}")));
                         break;
                     }
                 } else {
                     // DEPRECATED raw member ref (pre-cohort-object controls) — still honored, marked.
-                    if let Some((context_ref, source)) = ctx.refs.iter().find(|(r, _)| r == entry) {
-                        matched = Some((
-                            context_ref.clone(),
-                            source,
-                            None,
-                            format!("rollout_cohort_match_deprecated_raw:{entry}"),
-                        ));
+                    let (hit, blocked) = members_match(std::slice::from_ref(entry));
+                    if let Some(reason) = blocked {
+                        untrusted_hit = Some(reason);
+                    }
+                    if let Some((context_ref, source)) = hit {
+                        matched = Some((context_ref, source, None, format!("rollout_cohort_match_deprecated_raw:{entry}")));
                         break;
                     }
                 }
             }
             if matched.is_none() {
-                miss_reason = if any_disabled_cohort && !any_active_cohort {
+                miss_reason = if let Some(blocked) = untrusted_hit {
+                    blocked.to_string()
+                } else if any_disabled_cohort && !any_active_cohort {
                     "rollout_cohort_disabled".to_string()
                 } else {
                     "rollout_cohort_no_match".to_string()
@@ -925,6 +967,7 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "policy_rollout_skipped": facts.get("policy_rollout_skipped").cloned().unwrap_or(json!([])),
             "rollout_context_source": facts.pointer("/rollout_context/source").cloned().unwrap_or(Value::Null),
             "rollout_context": facts.get("rollout_context").cloned().unwrap_or(Value::Null),
+            "deployment_auth_posture": facts.pointer("/rollout_context/deployment_posture").cloned().unwrap_or(Value::Null),
             "policy_effective_summary": if policy.is_null() { Value::Null } else { json!(format!(
                 "{} · strategy {} · {} · fallback {}",
                 text(&policy, "display_name"),
@@ -1347,6 +1390,38 @@ pub(crate) async fn handle_ioi_agent_launch(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, LAUNCH_KIND, &launch_id, &record);
+
+    // A rollout blocked by DEPLOYMENT POSTURE (not mere non-membership) is a security decision —
+    // receipt it so the Work Ledger shows what was refused and why.
+    let posture_blocked: Vec<Value> = facts
+        .get("policy_rollout_skipped")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter(|x| {
+                    matches!(
+                        x.get("reason_code").and_then(Value::as_str).unwrap_or(""),
+                        "rollout_explicit_override_disallowed" | "rollout_requires_authenticated_context"
+                    )
+                })
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    if !posture_blocked.is_empty() {
+        let receipt_ref = format!("receipt://hypervisor/rollout-enforcement/{launch_id}");
+        let receipt = json!({
+            "id": receipt_ref,
+            "kind": "hypervisor.rollout-enforcement",
+            "launch_ref": format!("ioi-agent-launch://{launch_id}"),
+            "deployment_posture": facts.pointer("/rollout_context/deployment_posture").cloned().unwrap_or(Value::Null),
+            "rollout_context_source": facts.pointer("/rollout_context/source").cloned().unwrap_or(Value::Null),
+            "blocked": posture_blocked,
+            "at": iso_now(),
+            "runtimeTruthSource": "daemon-runtime",
+        });
+        let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    }
 
     // The 403 challenge, augmented with the launch identity + refs (the client mints the wallet
     // grant against approval.policy_hash/request_hash and calls launch again with launch_id).

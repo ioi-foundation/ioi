@@ -38,7 +38,10 @@ const SUITES = [
 let failed = 0;
 for (const [label, file] of SUITES) {
   console.log(`\n━━ ${label} — ${file}`);
-  const r = spawnSync(process.execPath, [path.join(HERE, file)], { stdio: "inherit", timeout: 10 * 60 * 1000 });
+  // Paired budget ladder (hot-host doctrine): shim task 600s → daemon lane reap 660s →
+  // per-suite ceiling must cover 2 sequential real driver runs + overhead. CPU-only local
+  // model gates treat inference latency as stochastic, never deterministic.
+  const r = spawnSync(process.execPath, [path.join(HERE, file)], { stdio: "inherit", timeout: 30 * 60 * 1000 });
   if (r.status !== 0) failed++;
 }
 console.log(`\nharness adapter execution readiness: ${failed ? "FAIL" : "OK"} (${SUITES.length - failed}/${SUITES.length} suites)`);
