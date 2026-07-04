@@ -24,7 +24,13 @@ const workspace = String(options.cd || process.cwd());
 const endpoint = String(
   options["model-endpoint"] || process.env.IOI_HYPERVISOR_MODEL_UPSTREAM || "http://127.0.0.1:11434",
 ).replace(/\/+$/, "").replace(/\/v1$/, "");
-const childTimeoutMs = Number(options["task-timeout-ms"] || 270000);
+// HOT-HOST INFERENCE BUDGET (paired-budget invariant — keep these aligned):
+//   shim task budget (here, 600s)  <  daemon HOST_SPAWN_LANE_TIMEOUT_SECS (660s)  <  any
+//   composite/per-suite ceiling. The shim must emit its honest timeout/result BEFORE the
+//   daemon lane reaps the child, or the invocation loses its result entirely. CPU-only
+//   local-model gates treat inference latency and stop-discipline as STOCHASTIC (bounded
+//   real retries, honest-completion break conditions) — never as deterministic constants.
+const childTimeoutMs = Number(options["task-timeout-ms"] || 600000);
 
 const configPath = writeTempConfig("ioi-deepseek-", "config.toml", [
   `provider = "ollama"`,

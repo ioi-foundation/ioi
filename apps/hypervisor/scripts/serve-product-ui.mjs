@@ -740,11 +740,11 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
@@ -834,8 +834,9 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops) {
+function renderOperations(ops, authpol) {
   ops = ops || {};
+  authpol = authpol || {};
   const sch = ops.scheduler || { automations: [] };
   const runs = ops.runs || {};
   const wh = ops.webhooks || {};
@@ -917,7 +918,10 @@ function renderOperations(ops) {
     <h2>Needs attention</h2>${attnSection}
     </div>${drawer}</div>
     <h2>Webhook health</h2>${whSection}${script}`;
-  return automationsShell("Operations", inner);
+  const posture = authpol.deployment_auth_posture || "";
+  const rtNote = (authpol.rollout_trust || {}).note || "";
+  const postureStrip = posture ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill ${posture === "authenticated_managed" ? "ok" : posture === "exposed_untrusted" ? "warn" : "muted"}">${CX_ESC(posture)}</span> · enforcement ${authpol.effective_enforced ? `<span class="pill ok">enforced</span>` : `<span class="pill muted">not enforced</span>`} · exposed ${authpol.exposed ? `<span class="pill warn">yes</span>` : `<span class="pill muted">no</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtNote)} · <a href="/__ioi/governance">Governance →</a></div></div>` : "";
+  return automationsShell("Operations", postureStrip + inner);
 }
 
 // ---- Environments — where work runs: env lifecycle, readiness, services/ports/tasks, substrate
@@ -2409,7 +2413,13 @@ function renderGovernance(ov, controls, tab) {
 
   // 2. Identity posture
   const pol = ip.policy || {}; const cp = ip.current_principal || {};
+  const posture = ip.deployment_auth_posture || "";
+  const posturePill = posture === "authenticated_managed" ? `<span class="pill ok">authenticated_managed</span>`
+    : posture === "exposed_untrusted" ? `<span class="pill warn">exposed_untrusted</span>`
+    : `<span class="pill muted">${CX_ESC(posture || "local_development")}</span>`;
+  const rtrust = ip.rollout_trust || {};
   const idGrid = `<dl class="grid">
+    <dt>Deployment posture</dt><dd id="auth-posture">${posturePill} · rollout trust ${rtrust.high_trust_required ? `<span class="pill warn">high-trust sources required</span>` : `<span class="pill muted">local-dev sources allowed</span>`} · explicit override ${rtrust.explicit_override_allowed ? `<span class="pill muted">allowed (labeled)</span>` : `<span class="pill warn">fails closed</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtrust.note || "")}</div></dd>
     <dt>Enforcement</dt><dd>${boolPill(ip.effective_enforced, "enforced", "not enforced")} · exposed ${boolPill(ip.exposed, "yes", "no")} · login ${boolPill(ip.login_possible, "possible", "off")}</dd>
     <dt>Policy</dt><dd>mode ${CX_ESC(pol.mode || "—")} · require_auth ${CX_ESC(String(pol.require_authentication ?? "—"))}${(pol.allowed_methods || []).length ? " · methods " + (pol.allowed_methods || []).map((m) => `<code>${CX_ESC(m)}</code>`).join(" ") : ""}</dd>
     <dt>Current principal</dt><dd>authenticated ${boolPill(cp.authenticated, "yes", "no")}${cp.role ? " · role <code>" + CX_ESC(cp.role) + "</code>" : ""}${cp.status ? " · " + CX_ESC(cp.status) : ""}</dd>
@@ -4003,9 +4013,12 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const r = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({}));
+      const [r, authpol] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
+      ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r));
+      res.end(renderOperations(r, authpol));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.

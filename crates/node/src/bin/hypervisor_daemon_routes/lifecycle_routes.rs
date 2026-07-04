@@ -7658,7 +7658,7 @@ fn nanos_now() -> u128 {
         .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
-const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 300;
+const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 660; // shim task budget (600s) + reap margin — the shim must emit its honest timeout result BEFORE the lane reaps it
 
 /// Outcome of one real host-spawn lane run (truthful — failure reflects reality).
 pub(crate) struct HostLaneOutcome {
@@ -10996,6 +10996,21 @@ pub(crate) fn auth_enforced(data_dir: &str, headers: &HeaderMap) -> bool {
         _ => daemon_exposed() || request_exposed(headers),
     }
 }
+/// Deployment auth posture — how much trust identity claims deserve on THIS instance:
+/// `local_development` (loopback, unenforced), `exposed_untrusted` (reachable from outside but
+/// enforcement explicitly off), `authenticated_managed` (enforcement active, incl. fail-safe
+/// exposed-auto). High-trust rollout behavior keys off this posture.
+pub(crate) fn deployment_auth_posture(data_dir: &str, headers: &HeaderMap) -> &'static str {
+    let exposed = daemon_exposed() || request_exposed(headers);
+    if auth_enforced(data_dir, headers) {
+        "authenticated_managed"
+    } else if exposed {
+        "exposed_untrusted"
+    } else {
+        "local_development"
+    }
+}
+
 /// Startup notice: if this instance is exposed (non-loopback bind) with no login configured,
 /// enforcement is ON (fail-safe) — print a one-time bootstrap token for the host operator (log access).
 pub(crate) fn startup_auth_notice(data_dir: &str) {
@@ -11264,8 +11279,15 @@ pub(crate) async fn handle_auth_policy_get(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Json<Value> {
+    let posture = deployment_auth_posture(&st.data_dir, &headers);
     Json(
-        json!({ "ok": true, "policy": auth_policy(&st.data_dir), "effective_enforced": auth_enforced(&st.data_dir, &headers), "exposed": daemon_exposed() || request_exposed(&headers), "login_possible": login_possible(&st.data_dir) }),
+        json!({ "ok": true, "policy": auth_policy(&st.data_dir), "effective_enforced": auth_enforced(&st.data_dir, &headers), "exposed": daemon_exposed() || request_exposed(&headers), "login_possible": login_possible(&st.data_dir),
+            "deployment_auth_posture": posture,
+            "rollout_trust": {
+                "high_trust_required": posture != "local_development",
+                "explicit_override_allowed": posture == "local_development",
+                "note": if posture == "local_development" { "local development — deterministic local principal posture; explicit rollout overrides allowed and labeled" } else { "exposed/managed — learned rollouts require an authenticated principal or daemon-known project; explicit overrides fail closed" },
+            } }),
     )
 }
 /// PUT /v1/hypervisor/auth/policy — set the enforcement mode (auto|always|never) / allowed methods.

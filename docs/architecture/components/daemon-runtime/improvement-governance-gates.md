@@ -109,3 +109,27 @@ Rollout eligibility derives from DAEMON-KNOWN truth, never arbitrary caller text
   principal's bucket is stable across calls and cannot be steered by request text.
 - Rollout receipts and Work Ledger `policy_rollout` entries cite `cohort_refs` +
   `rollout_mode` alongside the proposal/simulation/approval/release chain.
+
+## Deployment auth posture + high-trust rollout enforcement
+
+The daemon declares which world it runs in — `deployment_auth_posture` on
+`/v1/hypervisor/auth/policy`, the governance overview identity section, launch
+preview/launch responses, Operations, and the New Session preview:
+
+- **local_development** — loopback, enforcement inactive. Deterministic local-operator
+  posture; explicit `rollout_context_ref` overrides remain usable and are LABELED.
+- **exposed_untrusted** — reachable from outside (non-loopback bind or forwarded request)
+  with enforcement explicitly off. Honest warning; high-trust rollout rules apply.
+- **authenticated_managed** — auth enforcement active (mode `always`, or `auto` while
+  exposed — the fail-safe default). Sensitive endpoints (launch preview/launch,
+  improvement apply, cohorts, release controls, memory vault export/import) return 401
+  unauthenticated; only login/bootstrap lanes are exempt.
+
+Outside `local_development`, learned-rollout eligibility accepts ONLY high-trust derived
+sources (authenticated principal, daemon-known project/org): explicit overrides fail
+closed with `rollout_explicit_override_disallowed`, anonymous contexts fail closed with
+`rollout_requires_authenticated_context` (cohort membership, canary bucketing, full and
+promoted overlays alike). A rollout blocked by POSTURE (not mere non-membership) at launch
+time is a receipted security decision — `receipt://hypervisor/rollout-enforcement/*`,
+indexed in the Work Ledger as `rollout_enforcement` entries carrying the posture, the
+context source, and the blocked variants with reasons.

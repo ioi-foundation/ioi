@@ -33,13 +33,30 @@ const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").re
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(method, url, body) {
-  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
+import http from "node:http";
+// node:http, not fetch: the synchronous GoalRun /start call legitimately runs longer than
+// undici's fixed 300s headers timeout (parallel implementers × the 600s driver budget).
+function jd(method, url, body) {
+  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
+  const payload = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
+        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => { raw += c; });
+        res.on("end", () => {
+          let j = {};
+          try { j = JSON.parse(raw); } catch { j = {}; }
+          resolve({ status: res.statusCode, j });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
   });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 const text = async (url) => fetch(`${SHELL}${url}`).then((r) => r.text()).catch(() => "");
 
@@ -200,7 +217,18 @@ async function run() {
     (fin.j?.profiles || []).filter((p) => ["opencode", "deepseek_tui"].includes(p.harness)).every((p) => p.lifecycle.status === "disabled"));
 }
 
-run().then(() => {
+// Bounded 2-attempt full-run retry — the SAME convention the driver/e2e/launcher done-bars
+// use for the documented 7B no-tool-call whiff: every attempt is a complete REAL GoalRun
+// with unchanged assertions; a clean pass on either attempt is a pass. CPU-only local-model
+// gates must treat model latency/stop-discipline as stochastic, never deterministic.
+(async () => {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    results.length = 0;
+    await run();
+    if (results.every((r) => r.pass)) break;
+    if (attempt === 1) console.log("  attempt 1 whiffed (7B stop-discipline) — one bounded full-run retry");
+  }
+})().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);

@@ -23,9 +23,30 @@ const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765"
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(method, p, body) {
-  const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
+import http from "node:http";
+// node:http, not fetch: synchronous driver-run calls legitimately exceed undici's fixed
+// 300s headers timeout under the 600s hot-host driver budget (CPU-only local inference).
+function jd(method, p, body) {
+  const target = new URL(`${DAEMON}${p}`);
+  const payload = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
+        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => { raw += c; });
+        res.on("end", () => {
+          let j = {};
+          try { j = JSON.parse(raw); } catch { j = {}; }
+          resolve({ status: res.statusCode, j });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 async function driveAdapter(harness, profileId) {
@@ -52,7 +73,10 @@ async function driveAdapter(harness, profileId) {
   for (; attempts < 2; ) {
     attempts += 1;
     ex = await jd("POST", `/v1/hypervisor/sessions/${encodeURIComponent(sid)}/execute`, { intent, wallet_approval_grant: grant });
-    if ((ex.j?.files_written || []).length >= 1) break;
+    // Break only on HONEST completion — a timed-out wander can still have written files,
+    // and that attempt must not satisfy the gate (seen live: adapter_timed_out with the
+    // requested file present). files_written alone is necessary but not sufficient.
+    if (ex.j?.decision === "executed" && (ex.j?.files_written || []).length >= 1) break;
   }
   ok(`${harness}: driver lane executed`, ex.status === 200 && ex.j?.decision === "executed" && ex.j?.lane === `adapter_driver_session:${harness}` && ex.j?.harness === harness, `${ex.j?.decision} ${ex.j?.lane} ${ex.j?.error || ""} (${attempts} attempt${attempts > 1 ? "s" : ""})`);
   // The driver owns "a real mutation happened and the report is disk truth" — NOT the model's
