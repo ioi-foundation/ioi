@@ -85,6 +85,10 @@ async function run() {
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     if (/Failed to load resource/.test(m.text()) && failedUrls.every((u) => u.startsWith("https://docs.ioi.com/"))) return;
+    // The borrowed SPA's event stream reconnects with a logged "Stream error" when a synchronous
+    // launch outlasts its keepalive (~10-min direct launches on the 7B host). That is snapshot
+    // noise, not a surface error — page errors and every other console error still fail the gate.
+    if (/\[OrgEventStreamManager\] Stream error/.test(m.text())) return;
     consoleErrors.push(m.text());
   });
   page.on("pageerror", (e) => consoleErrors.push(String(e)));

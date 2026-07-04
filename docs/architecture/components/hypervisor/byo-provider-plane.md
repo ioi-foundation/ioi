@@ -130,6 +130,40 @@ placement, and charges only where it provides control-plane, orchestration,
 routing, custody, or managed-capacity value.
 ```
 
+### Implemented contract (placement picker cut)
+
+Daemon truth, live-composed from ProviderAccount records, environment-class
+provider eligibility, and preflight posture:
+
+- `GET /v1/hypervisor/placement/venues` — the four venue cards (`run_local` ·
+  `use_my_infrastructure` · `pick_provider` · `hypervisor_choose`) with
+  per-venue fee posture (`fee_basis`, explanation, `fee_object_minted: false`,
+  `cost_owner: customer`), kind-level capability hints (GPU / storage / IP /
+  snapshot — labeled hints, never probed claims), connected/not-connected
+  provider cards with verified/unverified + preflight reasons, and the declared
+  `fee_bases` taxonomy (`none | subscription_control_plane |
+  adapter_orchestration_fee | routing_fee | managed_margin`). No fee objects,
+  no invented quotes (`quote: null` + quote policy), no RoutingDecisionReceipt.
+- `GET|PUT /v1/hypervisor/placement/venue-policy` — the durable chosen venue
+  (`ioi.hypervisor.placement-venue-policy.v1`, singleton `current`, history
+  appended). Provider-pinned venues require a resolvable ProviderAccount of the
+  right family; `hypervisor_choose` is accepted as an ADVISORY placeholder
+  (`effective_venue: run_local`, explicit note) until the decentralized.cloud
+  candidate plane exists — venue selection is never hidden behind auto.
+- `GET /v1/hypervisor/placement/preview` — the pre-launch placement projection:
+  venue card + pinned provider posture + fee copy + `receipts_expected` (the
+  PlacementDecision / ProviderOperationReceipt / budget-discovery / lease
+  receipt kinds a run at this venue mints — named before launch).
+- Consumption: ioi-agent launch previews carry a `placement` block; launch
+  phase A and environment create snapshot the venue policy in force
+  (provenance — substrate stays local until session relocation lands). Provider
+  receipts surface in the Work Ledger as `provider_crossing` proof entries.
+- Surfaces: New Session modal venue picker (four explicit choices, fee copy,
+  provider pinning); Environments shows the venue cards + provider cards;
+  Operations links provider receipts into the ledger.
+
+Done-bar: `apps/hypervisor/scripts/verify-hypervisor-placement-venue-picker.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

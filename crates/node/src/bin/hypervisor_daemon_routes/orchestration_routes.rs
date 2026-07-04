@@ -490,6 +490,18 @@ pub(crate) async fn handle_work_ledger(
             "step_results": g(&e, "step_results"),
         }));
     }
+    // Provider crossings — every BYO provider lifecycle op minted a provider receipt (success
+    // AND failure); surface them so provider work is reachable from the one proof stream.
+    for r in read_record_dir(&st.data_dir, "provider-receipts") {
+        entries.push(json!({
+            "id": g(&r, "receipt_id"), "kind": "provider_crossing", "timestamp": g(&r, "at"),
+            "status": g(&r, "outcome"), "op": g(&r, "op"), "provider": g(&r, "provider"),
+            "account_ref": g(&r, "account_ref"), "environment_ref": g(&r, "environment_ref"),
+            "receipt_ref": g(&r, "receipt_ref"), "grant_ref": g(&r, "grant_ref"),
+            "cost_estimate": g(&r, "cost_estimate"),
+            "provider_health_ref": "/__ioi/operations#ops-provider-health",
+        }));
+    }
     // Webhook trigger receipts (accepted/rejected proofs).
     for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
         let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -1248,6 +1260,338 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
         "placements": decisions.len(),
         "cold_start": cold_start, "prebuild_hit": prebuild_hit, "warm_claim": warm_claim, "cache_hit": cache_hit,
         "at": iso_now()
+    }))
+}
+
+// ============================ M. PLACEMENT VENUES + FEE/RECEIPT PREVIEW ==========================
+//
+// The placement EXPERIENCE over the BYO provider plane: four venues — run_local ·
+// use_my_infrastructure · pick_provider · hypervisor_choose — composed LIVE from ProviderAccount
+// records, environment-class provider eligibility, and preflight posture. Fee bases are DECLARED
+// COPY, never fee objects: this plane mints no fee, no quote, and no RoutingDecisionReceipt
+// (economic canon: fees attach to orchestration and governance — never hidden provider markup;
+// a routing fee becomes legitimate only when IOI itself places runs for payment). "Let Hypervisor
+// choose" stays a PLANNED placeholder with an advisory-empty candidate list until the
+// decentralized.cloud candidate plane exists — venue selection is never hidden behind auto.
+
+const VENUE_POLICY_KIND: &str = "placement-venue-policy";
+const VENUE_IDS: &[&str] = &["run_local", "use_my_infrastructure", "pick_provider", "hypervisor_choose"];
+const CLOUD_KINDS: &[&str] = &["aws", "gcp", "k8s", "vast", "akash"];
+
+/// Kind-level capability hints (GPU / storage / IP / snapshot) — labeled hints, never probed
+/// claims. Per-provider semantics preserved; nothing flattened into a fake generic cloud.
+fn venue_capability_hints(kind: &str) -> Value {
+    let (gpu, storage, ip, snapshot) = match kind {
+        "local" => ("host-dependent", "host disk", "loopback / local", "daemon snapshots + sha256 state roots (real)"),
+        "baremetal_ssh" => ("host-dependent (your node's hardware)", "node disk", "node endpoint (you own it)", "daemon-custody tar + admitted sha256 (real)"),
+        "aws" | "gcp" => ("GPU instances (adapter pending)", "block volumes (adapter pending)", "static/elastic IPs (adapter pending)", "volume snapshots → daemon custody (adapter pending)"),
+        "k8s" => ("cluster-scheduler dependent", "persistent volumes", "service/ingress IPs (cluster-dependent)", "custody-dependent (adapter pending)"),
+        "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
+        "akash" => ("deployment-lease GPUs (adapter pending)", "lease-scoped persistent storage", "IP leases", "daemon custody when the adapter lands"),
+        _ => ("unknown", "unknown", "unknown", "unknown"),
+    };
+    json!({ "gpu": gpu, "persistent_storage": storage, "ip": ip, "snapshot": snapshot,
+            "basis": "kind-level hints — not probed claims" })
+}
+
+/// The declared fee taxonomy. COPY ONLY — no fee objects exist on this plane.
+fn fee_bases_taxonomy() -> Value {
+    json!({
+        "none": "No fee. Nothing is charged on this path.",
+        "subscription_control_plane": "The control plane (governance, receipts, authority, estate surfaces) is covered by the subscription — not metered per run.",
+        "adapter_orchestration_fee": "A visible flat fee attached to adapter orchestration operations — never a percentage of customer provider spend.",
+        "routing_fee": "A visible fee for one-click routed placement, legitimate only with a challengeable RoutingDecisionReceipt (Routing Fee Covenant). Not charged today — no routing exists.",
+        "managed_margin": "Margin on Hypervisor-managed execution where Hypervisor bears the provider bill. Not offered today.",
+    })
+}
+
+/// Per-venue fee posture: {fee_basis, fee_explanation, fee_object_minted:false, cost_owner}.
+pub(crate) fn venue_fee(venue: &str) -> Value {
+    let (basis, explanation) = match venue {
+        "run_local" => ("none", "No fee. Local execution is the conformance reference; the control plane is covered by your subscription (subscription_control_plane), not metered per run."),
+        "use_my_infrastructure" => ("none", "No provider-spend percentage. Your nodes, your spend — Hypervisor records, governs, and receipts the work; it does not hide markup inside provider cost. When Hypervisor performs the provider lifecycle for you (provisioning, snapshot custody, restore, receipts), a visible adapter orchestration fee may apply in a future cut — never a percentage of your spend. Nothing is charged today."),
+        "pick_provider" => ("adapter_orchestration_fee", "Provider spend stays customer-borne at cost on your own account. When a cloud adapter lands, a visible flat orchestration fee attaches to adapter operations — never a percentage of your provider spend. Nothing is charged today: cloud kinds are credential + preflight only."),
+        "hypervisor_choose" => ("routing_fee", "When Hypervisor places runs for payment (decentralized.cloud), a visible routing fee applies with a challengeable RoutingDecisionReceipt; managed execution would carry a declared managed_margin. Neither exists today — this venue is a planned placeholder, and choosing it never hides the decision."),
+        _ => ("none", "unknown venue"),
+    };
+    json!({ "fee_basis": basis, "fee_explanation": explanation, "fee_object_minted": false, "cost_owner": "customer" })
+}
+
+fn provider_card(account: &Value, venue: &str, classes: &[Value]) -> Value {
+    let s = |k: &str| account.get(k).and_then(Value::as_str).unwrap_or("");
+    let kind = s("kind");
+    let preflight = account.get("preflight").cloned().unwrap_or(Value::Null);
+    let reason = match s("status") {
+        "verified" => "verified — preflight admitted".to_string(),
+        "revoked" => "credential revoked — rebind to use this account".to_string(),
+        _ if preflight.is_null() => "unverified — bind a credential and run preflight".to_string(),
+        _ => format!(
+            "unverified — preflight refused: {}",
+            preflight.pointer("/evidence/reason").and_then(Value::as_str).unwrap_or("see preflight evidence")
+        ),
+    };
+    let eligible_classes: Vec<&str> = classes
+        .iter()
+        .filter(|c| {
+            c.pointer("/provider_eligibility/provider_kinds")
+                .and_then(Value::as_array)
+                .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind)))
+                .unwrap_or(false)
+        })
+        .filter_map(|c| c.get("id").and_then(Value::as_str))
+        .collect();
+    json!({
+        "account_ref": s("account_ref"),
+        "display_name": s("display_name"),
+        "kind": kind,
+        "connected": true,
+        "status": s("status"),
+        "reason": reason,
+        "preflight_at": preflight.get("at").cloned().unwrap_or(Value::Null),
+        "environment_classes": if eligible_classes.is_empty() { json!({ "supported": [], "note": "no runtime classes yet — classes land with this kind's adapter" }) } else { json!({ "supported": eligible_classes }) },
+        "capability_hints": venue_capability_hints(kind),
+        "cost_owner": "customer",
+        "provider_spend_borne_by": "customer",
+        "fee_basis": venue_fee(venue)["fee_basis"],
+        "lifecycle": if kind == "baremetal_ssh" { "full (provider-ops lane)" } else { "credential_preflight_only — lifecycle ops fail closed with named reasons until the adapter cut" },
+    })
+}
+
+/// Compose the four venue cards from live daemon truth (accounts + environment classes).
+fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
+    let accounts = read_record_dir(data_dir, "provider-accounts");
+    let ssh_accounts: Vec<&Value> = accounts.iter().filter(|a| a["kind"].as_str() == Some("baremetal_ssh")).collect();
+    let cloud_accounts: Vec<&Value> = accounts.iter().filter(|a| CLOUD_KINDS.contains(&a["kind"].as_str().unwrap_or(""))).collect();
+    let class_ids_for = |kind: &str| -> Vec<String> {
+        classes.iter()
+            .filter(|c| c.pointer("/provider_eligibility/provider_kinds").and_then(Value::as_array)
+                .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind))).unwrap_or(false))
+            .filter_map(|c| c.get("id").and_then(Value::as_str).map(str::to_string))
+            .collect()
+    };
+    let verified_ssh = ssh_accounts.iter().any(|a| a["status"].as_str() == Some("verified"));
+
+    let local = json!({
+        "venue": "run_local", "display_name": "Run local",
+        "summary": "This machine — the conformance reference. Sessions, microVMs, snapshots, and receipts all run under the local daemon.",
+        "available": true, "selectable": true,
+        "environment_classes": { "supported": class_ids_for("local") },
+        "capability_hints": venue_capability_hints("local"),
+        "fee": venue_fee("run_local"),
+        "providers": [],
+    });
+    let byo = json!({
+        "venue": "use_my_infrastructure", "display_name": "Use my infrastructure",
+        "summary": "Your own bare-metal / homelab nodes over the baremetal_ssh provider adapter — full lifecycle with daemon-custody snapshots.",
+        "available": verified_ssh, "selectable": true,
+        "availability_note": if verified_ssh { Value::Null } else { json!("no verified baremetal_ssh account yet — create one, bind an ssh key, and preflight it") },
+        "environment_classes": { "supported": class_ids_for("baremetal_ssh") },
+        "capability_hints": venue_capability_hints("baremetal_ssh"),
+        "fee": venue_fee("use_my_infrastructure"),
+        "providers": ssh_accounts.iter().map(|a| provider_card(a, "use_my_infrastructure", classes)).collect::<Vec<_>>(),
+    });
+    // Pick a cloud: connected accounts as cards + a not-connected stub per remaining kind, so
+    // the choice is visible even before any account exists (never hidden).
+    let mut cloud_cards: Vec<Value> = cloud_accounts.iter().map(|a| provider_card(a, "pick_provider", classes)).collect();
+    for kind in CLOUD_KINDS {
+        if !cloud_accounts.iter().any(|a| a["kind"].as_str() == Some(*kind)) {
+            cloud_cards.push(json!({
+                "kind": kind, "connected": false, "status": "not_connected",
+                "reason": "no ProviderAccount for this kind yet",
+                "connect_hint": "POST /v1/hypervisor/provider-accounts { kind, display_name, … } then bind a credential and preflight",
+                "capability_hints": venue_capability_hints(kind),
+                "cost_owner": "customer", "fee_basis": "adapter_orchestration_fee",
+                "lifecycle": "credential_preflight_only — lifecycle ops fail closed with named reasons until the adapter cut",
+            }));
+        }
+    }
+    let cloud = json!({
+        "venue": "pick_provider", "display_name": "Pick a cloud",
+        "summary": "A specific provider account you own (AWS · GCP · K8s · Vast · Akash). Credential + preflight are real today; lifecycle lands per-adapter.",
+        "available": !cloud_accounts.is_empty(), "selectable": true,
+        "availability_note": if cloud_accounts.is_empty() { json!("no cloud provider account connected yet") } else { Value::Null },
+        "quote": Value::Null,
+        "quote_policy": "no invented quotes — provider quotes land with each adapter, as provider evidence",
+        "environment_classes": { "supported": Vec::<String>::new(), "note": "cloud runtime classes land with each adapter" },
+        "fee": venue_fee("pick_provider"),
+        "providers": cloud_cards,
+    });
+    let choose = json!({
+        "venue": "hypervisor_choose", "display_name": "Let Hypervisor choose",
+        "summary": "Hypervisor picks the venue from live candidates. PLANNED — the decentralized.cloud candidate plane does not exist yet, so there is nothing honest to choose from.",
+        "available": false, "selectable": true, "status": "planned",
+        "planned_reason": "decentralized.cloud candidate plane not built — Hypervisor does not place runs for payment today; choosing this records an advisory preference and execution stays local",
+        "candidates": Vec::<Value>::new(),
+        "fee": venue_fee("hypervisor_choose"),
+        "providers": [],
+    });
+    vec![local, byo, cloud, choose]
+}
+
+async fn live_environment_classes(base: &str) -> Vec<Value> {
+    call(base, "GET", "/v1/hypervisor/environment-classes", None)
+        .await
+        .ok()
+        .and_then(|v| v.get("environmentClasses").and_then(Value::as_array).cloned())
+        .unwrap_or_default()
+}
+
+/// GET /v1/hypervisor/placement/venues — the four venue cards, live-composed.
+pub(crate) async fn handle_placement_venues(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let classes = live_environment_classes(&st.base_url).await;
+    Json(json!({
+        "schema_version": "ioi.hypervisor.placement-venues.v1",
+        "venues": compose_venues(&st.data_dir, &classes),
+        "fee_bases": fee_bases_taxonomy(),
+        "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost",
+        "no_fee_objects": "this plane mints no fee object, no quote, and no RoutingDecisionReceipt",
+        "at": iso_now(),
+    }))
+}
+
+pub(crate) fn load_venue_policy(data_dir: &str) -> Value {
+    read_record_dir(data_dir, VENUE_POLICY_KIND)
+        .into_iter()
+        .find(|r| r["policy_id"].as_str() == Some("current"))
+        .unwrap_or_else(|| json!({
+            "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
+            "policy_id": "current", "venue": "run_local", "default": true,
+            "note": "no venue chosen yet — local is the conformance default, not a hidden auto",
+        }))
+}
+
+/// GET /v1/hypervisor/placement/venue-policy — the durable chosen venue.
+pub(crate) async fn handle_venue_policy_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let policy = load_venue_policy(&st.data_dir);
+    let fee = venue_fee(policy["venue"].as_str().unwrap_or("run_local"));
+    Json(json!({ "ok": true, "policy": policy, "fee": fee, "at": iso_now() }))
+}
+
+/// PUT /v1/hypervisor/placement/venue-policy — choose a venue (durable, explicit, never hidden).
+/// Venues needing a provider require a resolvable ProviderAccount of the right family;
+/// hypervisor_choose is accepted as an ADVISORY placeholder (effective venue stays run_local).
+pub(crate) async fn handle_venue_policy_put(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let venue = body.get("venue").and_then(Value::as_str).unwrap_or("");
+    if !VENUE_IDS.contains(&venue) {
+        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_venue_invalid", "message": format!("venue must be one of {VENUE_IDS:?}") } })));
+    }
+    let account_ref = body.get("provider_account_ref").and_then(Value::as_str).unwrap_or("");
+    let mut provider_snapshot = Value::Null;
+    if venue == "use_my_infrastructure" || venue == "pick_provider" {
+        let accounts = read_record_dir(&st.data_dir, "provider-accounts");
+        let Some(account) = accounts.iter().find(|a| {
+            a["account_ref"].as_str() == Some(account_ref) || a["account_id"].as_str() == Some(account_ref)
+        }) else {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_account_required", "message": "this venue pins a ProviderAccount — pass provider_account_ref for an existing account" } })));
+        };
+        let kind = account["kind"].as_str().unwrap_or("");
+        let family_ok = if venue == "use_my_infrastructure" { kind == "baremetal_ssh" } else { CLOUD_KINDS.contains(&kind) };
+        if !family_ok {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_kind_mismatch", "message": format!("'{kind}' accounts do not belong to venue '{venue}'") } })));
+        }
+        // Snapshot posture at choice time — the preview re-reads LIVE state, this is provenance.
+        provider_snapshot = json!({
+            "account_ref": account["account_ref"], "display_name": account["display_name"],
+            "kind": kind, "status_at_choice": account["status"],
+        });
+    }
+    let advisory = venue == "hypervisor_choose";
+    let prior = load_venue_policy(&st.data_dir);
+    let mut history = prior.get("history").and_then(Value::as_array).cloned().unwrap_or_default();
+    if prior.get("default").and_then(Value::as_bool) != Some(true) {
+        history.push(json!({ "venue": prior["venue"], "provider_account_ref": prior["provider_account_ref"], "chosen_at": prior["chosen_at"] }));
+    }
+    let record = json!({
+        "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
+        "policy_id": "current",
+        "venue": venue,
+        "provider_account_ref": if account_ref.is_empty() { Value::Null } else { json!(account_ref) },
+        "provider_snapshot": provider_snapshot,
+        "advisory": advisory,
+        "effective_venue": if advisory { "run_local" } else { venue },
+        "advisory_note": if advisory { json!("hypervisor_choose is a planned placeholder — recorded as your preference, execution stays local until the decentralized.cloud candidate plane exists; never a hidden auto") } else { Value::Null },
+        "chosen_at": iso_now(),
+        "history": history,
+    });
+    let _ = persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record);
+    (StatusCode::OK, Json(json!({ "ok": true, "policy": record, "fee": venue_fee(venue) })))
+}
+
+/// The receipt kinds a launch/lifecycle at this venue will mint — NAMED BEFORE LAUNCH.
+pub(crate) fn venue_receipts_expected(venue: &str, data_dir: &str) -> Value {
+    let base = vec![
+        json!("receipt://hypervisor/session-provision/* — session create"),
+        json!("agentgres://harness-profile-receipt/* — harness binding admission"),
+        json!("work-ledger entries with tamper-evident state roots"),
+    ];
+    let provider_set = vec![
+        json!("agentgres://provider-receipt/prc_* — one per provider lifecycle op, success AND failure"),
+        json!("ioi.hypervisor.provider-operation.v1 (pop_*) — the admitted-operation record"),
+        json!("capability-lease descriptor persisted (never carries a secret) + wallet grant_ref"),
+        json!("ioi.hypervisor.placement-decision.v1 (plc_*) when placement resolve is consulted"),
+    ];
+    match venue {
+        "use_my_infrastructure" => {
+            let mut r = base;
+            r.extend(provider_set);
+            r.push(json!("budget discovery note (local_free — customer-borne, no metered spend)"));
+            json!(r)
+        }
+        "pick_provider" => {
+            let mut r = base;
+            r.extend(provider_set);
+            let has_budget = read_record_dir(data_dir, "resource-budgets").iter().any(|b| b["scope"].as_str() == Some("external_spend"));
+            r.push(json!("external_spend budget discovery BEFORE any mutation (409 budget_blocked without headroom)"));
+            if !has_budget {
+                r.push(json!("⚠ no external_spend budget exists yet — metered mutations will be budget_blocked until one is created"));
+            }
+            r.push(json!("honesty: cloud lifecycle ops fail closed with PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED until this kind's adapter cut"));
+            json!(r)
+        }
+        "hypervisor_choose" => {
+            let mut r = base;
+            r.push(json!("advisory placeholder — execution stays local; a RoutingDecisionReceipt exists only when routed-for-payment placement exists (none today)"));
+            json!(r)
+        }
+        _ => json!(base),
+    }
+}
+
+/// GET /v1/hypervisor/placement/preview[?venue=&provider_account_ref=] — the pre-launch
+/// placement preview: venue card, pinned provider posture, fee copy, and the receipts a run
+/// will mint — NAMED BEFORE LAUNCH. Uses the stored policy unless overridden by query params.
+pub(crate) async fn handle_placement_preview(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
+    let policy = load_venue_policy(&st.data_dir);
+    let venue = q.get("venue").map(String::as_str)
+        .filter(|v| VENUE_IDS.contains(v))
+        .unwrap_or_else(|| policy["venue"].as_str().unwrap_or("run_local"))
+        .to_string();
+    let account_ref = q.get("provider_account_ref").cloned()
+        .or_else(|| policy.get("provider_account_ref").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_default();
+    let classes = live_environment_classes(&st.base_url).await;
+    let venues = compose_venues(&st.data_dir, &classes);
+    let venue_card = venues.iter().find(|v| v["venue"].as_str() == Some(venue.as_str())).cloned().unwrap_or(Value::Null);
+    let provider_card = venue_card.get("providers").and_then(Value::as_array).and_then(|ps| {
+        ps.iter().find(|p| p["account_ref"].as_str() == Some(account_ref.as_str())).cloned()
+    });
+    Json(json!({
+        "schema_version": "ioi.hypervisor.placement-preview.v1",
+        "policy": policy,
+        "venue": venue,
+        "venue_card": venue_card,
+        "provider_card": provider_card,
+        "fee": venue_fee(&venue),
+        "receipts_expected": venue_receipts_expected(&venue, &st.data_dir),
+        "quote": Value::Null,
+        "quote_policy": "no invented quotes — provider quotes land with each adapter, as provider evidence",
+        "at": iso_now(),
     }))
 }
 

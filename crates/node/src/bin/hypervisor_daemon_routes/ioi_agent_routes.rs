@@ -941,6 +941,22 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
         &i_entries, &i_skills, &i_affinities, &projection_ctx,
     );
     let space = super::ioi_intelligence_routes::ensure_default_space(&st);
+    // The chosen placement venue (durable policy) travels on every preview so New Session states
+    // WHERE the work runs, what fee basis applies (declared copy — never a fee object), and which
+    // receipts the venue mints — named before launch.
+    let placement_block = {
+        let policy = super::orchestration_routes::load_venue_policy(&st.data_dir);
+        let venue = policy["venue"].as_str().unwrap_or("run_local").to_string();
+        json!({
+            "venue": venue,
+            "effective_venue": policy.get("effective_venue").cloned().unwrap_or(json!(venue.clone())),
+            "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(Value::Null),
+            "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
+            "advisory_note": policy.get("advisory_note").cloned().unwrap_or(Value::Null),
+            "fee": super::orchestration_routes::venue_fee(&venue),
+            "receipts_expected": super::orchestration_routes::venue_receipts_expected(&venue, &st.data_dir),
+        })
+    };
     (
         StatusCode::OK,
         Json(json!({
@@ -992,9 +1008,21 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             },
             "expected_receipt_refs": expected_receipts,
             "admission_preview": admission_preview,
+            "placement": placement_block,
             "runtimeTruthSource": "daemon-runtime",
         })),
     )
+}
+
+/// The venue policy in force, snapshotted onto launch/environment records (provenance).
+fn placement_venue_snapshot(st: &DaemonState) -> Value {
+    let policy = super::orchestration_routes::load_venue_policy(&st.data_dir);
+    json!({
+        "venue": policy["venue"],
+        "effective_venue": policy.get("effective_venue").cloned().unwrap_or_else(|| policy["venue"].clone()),
+        "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(Value::Null),
+        "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
+    })
 }
 
 fn load_launch(st: &DaemonState, launch_id: &str) -> Option<Value> {
@@ -1389,6 +1417,10 @@ pub(crate) async fn handle_ioi_agent_launch(
         "policy_constraints_applied": selection.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
         "policy_constraints_relaxed": selection.get("policy_constraints_relaxed").cloned().unwrap_or(json!([])),
         "min_successful_invocations": selection.get("min_successful_invocations").cloned().unwrap_or(json!(0)),
+        // Placement venue snapshot at phase A — the launch record carries which venue policy was
+        // in force when the composed intent was grant-bound (provenance, not behavior: execution
+        // stays on the effective venue's lane; remote session relocation is a later cut).
+        "placement_venue": placement_venue_snapshot(&st),
         "state": "prepared",
         "created_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
