@@ -83,7 +83,11 @@ async fn self_call(url: &str, method: &str, body: Option<&Value>) -> (u16, Value
         Some(payload) => builder.json(payload),
         None => builder,
     };
-    match builder.timeout(Duration::from_millis(600_000)).send().await {
+    // Budget ladder: shim 600s < spawn lane 660s < THIS self-call < composite suite 30m. A compare
+    // goal-run start wraps up to two 660s-reaped invocations plus a bounded full-run retry and
+    // verify/reconcile, so the wrapper must sit at the suite ceiling — 600s here deterministically
+    // broke compare launches (self_call_failed) whenever one implementer ran to its shim budget.
+    match builder.timeout(Duration::from_millis(1_800_000)).send().await {
         Ok(resp) => {
             let status = resp.status().as_u16();
             (status, resp.json::<Value>().await.unwrap_or(Value::Null))

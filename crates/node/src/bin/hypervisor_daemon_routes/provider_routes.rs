@@ -15,11 +15,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::extract::State;
+use axum::extract::{Path as AxumPath, State};
+use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
-use super::{iso_now, persist_record, DaemonState};
+use super::lifecycle_routes::{
+    authorize_capability_lease, open_scm_token, seal_scm_token, CapabilityLeaseRequest,
+};
+use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -54,13 +59,34 @@ fn provider_receipt(
     op: &str,
     outcome: &str,
 ) -> String {
+    provider_receipt_ext(data_dir, provider, env_ref, op, outcome, &json!({}))
+}
+
+/// Enriched provider receipt — BYO account operations cite the account, the capability-lease
+/// descriptor (never a secret), the grant, credential source, and the cost estimate. Written on
+/// SUCCESS AND FAILURE alike: a refused crossing is evidence too.
+fn provider_receipt_ext(
+    data_dir: &str,
+    provider: &str,
+    env_ref: &str,
+    op: &str,
+    outcome: &str,
+    extra: &Value,
+) -> String {
     let id = format!("prc_{:x}", nanos());
     let receipt_ref = format!("agentgres://provider-receipt/{id}");
-    let rec = json!({
+    let mut rec = json!({
         "schema_version": "ioi.hypervisor.provider-receipt.v1",
         "receipt_id": id, "receipt_ref": receipt_ref,
         "provider": provider, "environment_ref": env_ref, "op": op, "outcome": outcome, "at": iso_now()
     });
+    if let (Some(target), Some(fields)) = (rec.as_object_mut(), extra.as_object()) {
+        for (key, value) in fields {
+            if !value.is_null() {
+                target.insert(key.clone(), value.clone());
+            }
+        }
+    }
     let _ = persist_record(data_dir, "provider-receipts", &id, &rec);
     receipt_ref
 }
@@ -363,6 +389,408 @@ impl EnvironmentProvider for CloudVpcProvider {
     }
 }
 
+// =================================================================================================
+// BYO PROVIDER PLANE — durable ProviderAccount objects over the same EnvironmentProvider trait.
+//
+// Doctrine (economic-flywheel-and-pricing-boundaries.md): BYO provider spend is CUSTOMER-BORNE.
+// The daemon records, governs, estimates, and reconciles — it never hides markup inside provider
+// cost. Provider-native state is evidence; daemon/Agentgres admitted state (sha256 state roots,
+// receipts, admitted operations) is truth. NO routing fee, NO broker, NO RoutingDecisionReceipt
+// exists in this plane — those become legitimate only when IOI itself places runs for payment.
+
+const ACCOUNT_KIND: &str = "provider-accounts";
+const CREDENTIAL_VAULT: &str = "provider-credentials";
+const MATERIAL_KIND: &str = "provider-materials";
+const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "akash"];
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("sha256:{:x}", hasher.finalize())
+}
+
+fn text<'a>(v: &'a Value, key: &str) -> &'a str {
+    v.get(key).and_then(Value::as_str).unwrap_or("")
+}
+
+fn load_account(data_dir: &str, id_or_ref: &str) -> Option<Value> {
+    let id = id_or_ref.trim_start_matches("provider-account://");
+    read_record_dir(data_dir, ACCOUNT_KIND)
+        .into_iter()
+        .find(|a| text(a, "account_id") == id)
+}
+
+fn load_account_credential(data_dir: &str, account_id: &str) -> Option<Value> {
+    read_record_dir(data_dir, CREDENTIAL_VAULT)
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(account_id))
+}
+
+/// Per-kind adapter capabilities — provider-specific semantics preserved, never a fake generic
+/// cloud (providers-and-environments.md:162). Privacy posture is honest: no "private" label
+/// without custody proof.
+fn kind_capabilities(kind: &str) -> Value {
+    match kind {
+        "baremetal_ssh" => json!({ "locality": "remote", "isolation": "customer_host", "restore": true, "remote": true, "transport": "ssh", "credentials_required": true, "authority_gated": true, "privacy": "customer_controlled_host", "lifecycle": "full" }),
+        "aws" | "gcp" => json!({ "locality": "remote", "isolation": "vm_kernel", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_shared_responsibility", "lifecycle": "credential_preflight_only" }),
+        "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
+        "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
+        "akash" => json!({ "locality": "remote", "isolation": "deployment_lease", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "depin_host_NOT_private", "lifecycle": "credential_preflight_only" }),
+        other => json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") }),
+    }
+}
+
+/// external_spend budget posture MUST be discovered BEFORE any provider mutation
+/// (providers-and-environments.md:1114 — "Budget exhaustion must be discovered before provider
+/// mutation or new external spend"). bare-metal SSH is customer-borne with no metered spend.
+fn discover_budget(data_dir: &str, kind: &str, op: &str) -> Result<Value, String> {
+    if kind == "baremetal_ssh" {
+        return Ok(json!({
+            "scope": "local_free",
+            "admitted": true,
+            "discovered_before_mutation": true,
+            "cost_estimate": { "amount": 0.0, "currency": "USD", "basis": "customer_borne_byo — bare-metal SSH node, no metered provider spend" },
+            "provider_spend_borne_by": "customer",
+        }));
+    }
+    let budgets = read_record_dir(data_dir, "resource-budgets");
+    let Some(budget) = budgets.iter().find(|b| b["scope"].as_str() == Some("external_spend")) else {
+        return Err(format!("budget_undiscovered_before_mutation — '{op}' on a metered provider requires an external_spend resource budget to exist first (POST /v1/hypervisor/resource/budgets)"));
+    };
+    let limit = budget["limit"].as_f64().unwrap_or(0.0);
+    let spent = budget["spent"].as_f64().unwrap_or(0.0);
+    if spent >= limit {
+        return Err(format!("budget_exhausted_before_mutation — external_spend budget '{}' has {spent}/{limit} spent; refusing provider mutation", text(budget, "budget_id")));
+    }
+    Ok(json!({
+        "scope": "external_spend",
+        "admitted": true,
+        "discovered_before_mutation": true,
+        "budget_ref": format!("budget://{}", text(budget, "budget_id")),
+        "remaining": limit - spent,
+        "provider_spend_borne_by": "customer",
+    }))
+}
+
+/// Materialize the account's sealed SSH key to a 0600 file for the ssh client; removed on drop.
+struct KeyGuard(PathBuf);
+impl Drop for KeyGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+fn materialize_ssh_key(data_dir: &str, account_id: &str) -> Result<(PathBuf, KeyGuard, Option<String>), String> {
+    let cred = load_account_credential(data_dir, account_id)
+        .ok_or("provider_credential_unbound — bind an ssh_key credential to this account first")?;
+    let key = cred["sealed_token"]
+        .as_str()
+        .and_then(open_scm_token)
+        .ok_or("provider_credential_unresolved — sealed ssh key did not decrypt (seal passphrase mismatch?)")?;
+    let dir = Path::new(data_dir).join("provider-ssh");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(format!("{}.key", safe(account_id)));
+    std::fs::write(&path, format!("{}\n", key.trim_end())).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    let key_source = cred["key_source"].as_str().map(str::to_string);
+    Ok((path.clone(), KeyGuard(path), key_source))
+}
+
+// --- baremetal_ssh: the FIRST REAL BYO adapter. SSH is a provider, not a local shortcut: ---
+// --- credential binding, preflight, full lifecycle, receipts — CI-verifiable over loopback. ---
+struct SshProvider {
+    account: Value,
+    key_path: PathBuf,
+}
+impl SshProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn endpoint(&self) -> (String, String, String) {
+        let ep = self.account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+        (
+            text(&ep, "host").to_string(),
+            ep.get("port").and_then(Value::as_u64).unwrap_or(22).to_string(),
+            text(&ep, "user").to_string(),
+        )
+    }
+    fn known_hosts(&self, data_dir: &str) -> String {
+        Path::new(data_dir)
+            .join("provider-ssh/known_hosts")
+            .to_string_lossy()
+            .to_string()
+    }
+    fn base_args(&self, data_dir: &str) -> Vec<String> {
+        let (host, port, user) = self.endpoint();
+        vec![
+            "-p".into(), port,
+            "-i".into(), self.key_path.to_string_lossy().to_string(),
+            "-o".into(), "BatchMode=yes".into(),
+            "-o".into(), "StrictHostKeyChecking=accept-new".into(),
+            "-o".into(), format!("UserKnownHostsFile={}", self.known_hosts(data_dir)),
+            "-o".into(), "ConnectTimeout=8".into(),
+            format!("{user}@{host}"),
+        ]
+    }
+    fn node_root(env_ref: &str) -> String {
+        format!("\"$HOME\"/.ioi-hypervisor-nodes/{}", safe(env_ref))
+    }
+    fn run_script(&self, data_dir: &str, script: &str, stdin_bytes: Option<&[u8]>) -> Result<(i32, Vec<u8>, String), String> {
+        let mut cmd = std::process::Command::new("ssh");
+        cmd.args(self.base_args(data_dir)).arg(script);
+        cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+        if stdin_bytes.is_some() {
+            cmd.stdin(std::process::Stdio::piped());
+        } else {
+            cmd.stdin(std::process::Stdio::null());
+        }
+        let mut child = cmd.spawn().map_err(|e| format!("ssh spawn failed: {e}"))?;
+        if let Some(bytes) = stdin_bytes {
+            use std::io::Write;
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(bytes).map_err(|e| format!("ssh stdin failed: {e}"))?;
+            }
+        }
+        let out = child.wait_with_output().map_err(|e| e.to_string())?;
+        Ok((
+            out.status.code().unwrap_or(-1),
+            out.stdout,
+            String::from_utf8_lossy(&out.stderr).trim_end().to_string(),
+        ))
+    }
+    fn op_ref(&self, op: &str, env_ref: &str) -> String {
+        format!("provider-account://{}/op/{op}/{}", self.account_id(), safe(env_ref))
+    }
+}
+impl EnvironmentProvider for SshProvider {
+    fn id(&self) -> &str {
+        "baremetal-ssh"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("baremetal_ssh");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("verified bare-metal SSH node ({})", text(&self.account, "display_name"))),
+            "revoked" => ("revoked", "credential revoked — rebind to use this account".into()),
+            _ => ("unverified", "credential bound but preflight has not admitted this node yet".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        // The real probe runs in handle_provider_account_preflight (needs data_dir for ssh);
+        // this trait lane reports the recorded posture.
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(), "account_ref": text(&self.account, "account_ref"), "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, _plan: &Value) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("set -e; IOI_ROOT={root}; mkdir -p \"$IOI_ROOT/workspace\"; printf 'byo ssh node workspace for {env}\\n' > \"$IOI_ROOT/workspace/README.node\"; printf created > \"$IOI_ROOT/phase\"; echo \"$IOI_ROOT\"", env = safe(env_ref));
+        let (code, stdout, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 {
+            return Err(format!("ssh create failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("create", env_ref), "node_root": String::from_utf8_lossy(&stdout).trim(), "phase": "created" }))
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("set -e; IOI_ROOT={root}; test -d \"$IOI_ROOT/workspace\" || {{ echo missing >&2; exit 4; }}; printf ready > \"$IOI_ROOT/phase\"");
+        let (code, _, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 {
+            return Err(format!("ssh start failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("start", env_ref), "phase": "ready" }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let quoted = command.replace('\'', "'\\''");
+        let script = format!("set -e; IOI_ROOT={root}; [ \"$(cat \"$IOI_ROOT/phase\" 2>/dev/null)\" = ready ] || {{ echo not-ready >&2; exit 5; }}; cd \"$IOI_ROOT/workspace\"; sh -c '{quoted}'");
+        let (code, stdout, stderr) = self.run_script(data_dir, &script, None)?;
+        Ok(json!({
+            "provider_operation_ref": self.op_ref("workrun", env_ref),
+            "exit_code": code,
+            "stdout": String::from_utf8_lossy(&stdout).trim_end(),
+            "stderr": stderr,
+        }))
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("IOI_ROOT={root}; printf stopped > \"$IOI_ROOT/phase\"");
+        let (code, _, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 {
+            return Err(format!("ssh stop failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("stop", env_ref), "phase": "stopped" }))
+    }
+    /// Snapshot custody: the remote workspace streams BACK to daemon custody; the daemon computes
+    /// sha256 and admits the material. Blob existence on the node is never restore truth.
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("set -e; IOI_ROOT={root}; cd \"$IOI_ROOT/workspace\"; tar -czf - .");
+        let (code, tar_bytes, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 || tar_bytes.is_empty() {
+            return Err(format!("ssh snapshot failed (exit {code}): {stderr}"));
+        }
+        let state_root = sha256_bytes(&tar_bytes);
+        let stamp = format!("{:x}", nanos());
+        let dir = Path::new(data_dir)
+            .join(MATERIAL_KIND)
+            .join(safe(self.account_id()))
+            .join(safe(env_ref));
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let file = dir.join(format!("{stamp}.tar.gz"));
+        std::fs::write(&file, &tar_bytes).map_err(|e| e.to_string())?;
+        let material_id = format!("pmat_{stamp}");
+        let material_ref = format!("provider-material://{}/{}/{stamp}", safe(self.account_id()), safe(env_ref));
+        let record = json!({
+            "schema_version": "ioi.hypervisor.provider-material.v1",
+            "material_id": material_id,
+            "material_ref": material_ref,
+            "account_ref": text(&self.account, "account_ref"),
+            "environment_ref": env_ref,
+            "state_root": state_root,
+            "bytes": tar_bytes.len(),
+            "custody": "daemon",
+            "path": file.to_string_lossy(),
+            "at": iso_now(),
+        });
+        let _ = persist_record(data_dir, MATERIAL_KIND, &material_id, &record);
+        Ok(json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon", "bytes": tar_bytes.len(), "admitted": true }))
+    }
+    /// Restore truth = daemon-admitted sha256, never blob existence: re-hash the custody bytes
+    /// against the ADMITTED state_root and refuse on mismatch before touching the node.
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let material = read_record_dir(data_dir, MATERIAL_KIND)
+            .into_iter()
+            .find(|m| text(m, "material_ref") == material_ref)
+            .ok_or(format!("restore material '{material_ref}' is not daemon-admitted"))?;
+        let bytes = std::fs::read(text(&material, "path"))
+            .map_err(|e| format!("custody material unreadable: {e}"))?;
+        let admitted = text(&material, "state_root");
+        let actual = sha256_bytes(&bytes);
+        if actual != admitted {
+            return Err(format!("restore_material_hash_mismatch — custody bytes hash {actual} but admitted state_root is {admitted}; refusing restore (blob existence is not restore truth)"));
+        }
+        let root = Self::node_root(env_ref);
+        let script = format!("set -e; IOI_ROOT={root}; rm -rf \"$IOI_ROOT/workspace\"; mkdir -p \"$IOI_ROOT/workspace\"; tar -xzf - -C \"$IOI_ROOT/workspace\"; printf ready > \"$IOI_ROOT/phase\"");
+        let (code, _, stderr) = self.run_script(data_dir, &script, Some(&bytes))?;
+        if code != 0 {
+            return Err(format!("ssh restore failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("restore", env_ref), "phase": "ready", "restored_from": material_ref, "state_root_verified": admitted }))
+    }
+    fn inject_outage(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("set -e; IOI_ROOT={root}; rm -rf \"$IOI_ROOT/workspace\"; printf outage > \"$IOI_ROOT/phase\"");
+        let (code, _, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 {
+            return Err(format!("ssh outage injection failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("inject_outage", env_ref), "phase": "outage", "workspace_lost": true }))
+    }
+    fn recover(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut materials: Vec<Value> = read_record_dir(data_dir, MATERIAL_KIND)
+            .into_iter()
+            .filter(|m| text(m, "environment_ref") == env_ref && text(m, "account_ref") == text(&self.account, "account_ref"))
+            .collect();
+        materials.sort_by(|a, b| text(a, "material_id").cmp(text(b, "material_id")));
+        let latest = materials.pop().ok_or("no daemon-admitted restore material to recover from")?;
+        let restored = self.restore(data_dir, env_ref, text(&latest, "material_ref"))?;
+        Ok(json!({ "provider_operation_ref": self.op_ref("recover", env_ref), "phase": "ready", "recovered_from": text(&latest, "material_ref"), "state_root_verified": restored.get("state_root_verified").cloned().unwrap_or(Value::Null) }))
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let root = Self::node_root(env_ref);
+        let script = format!("IOI_ROOT={root}; rm -rf \"$IOI_ROOT\"; test ! -d \"$IOI_ROOT\" && echo gone");
+        let (code, stdout, stderr) = self.run_script(data_dir, &script, None)?;
+        if code != 0 {
+            return Err(format!("ssh delete failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": self.op_ref("delete", env_ref), "cleanup_verified": String::from_utf8_lossy(&stdout).trim() == "gone" }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        let root = Self::node_root(env_ref);
+        let script = format!("IOI_ROOT={root}; printf '%s\\n' \"$(cat \"$IOI_ROOT/phase\" 2>/dev/null || echo absent)\"; ls \"$IOI_ROOT/workspace\" 2>/dev/null | wc -l");
+        match self.run_script(data_dir, &script, None) {
+            Ok((_, stdout, _)) => {
+                let out = String::from_utf8_lossy(&stdout);
+                let mut lines = out.lines();
+                let phase = lines.next().unwrap_or("unknown").to_string();
+                let files = lines.next().unwrap_or("0").trim().to_string();
+                json!({ "provider": self.id(), "account_ref": text(&self.account, "account_ref"), "environment_ref": env_ref, "phase": phase, "workspace_files": files })
+            }
+            Err(e) => json!({ "provider": self.id(), "environment_ref": env_ref, "phase": "unreachable", "error": e }),
+        }
+    }
+}
+
+// --- cloud kinds (aws|gcp|k8s|vast|akash): credential + preflight ONLY in this cut. Every ---
+// --- lifecycle op fails closed with a NAMED reason — never a fake cloud (cloud-vpc pattern). ---
+struct CloudKindProvider {
+    account: Value,
+}
+impl CloudKindProvider {
+    fn kind(&self) -> String {
+        text(&self.account, "kind").to_string()
+    }
+    fn not_implemented(&self) -> String {
+        let kind = self.kind();
+        format!("PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED — '{kind}' accounts are credential+preflight only in this cut; the lifecycle lands with the {kind} adapter (Vast → Akash → hyperscaler ladder). Not faked.")
+    }
+}
+impl EnvironmentProvider for CloudKindProvider {
+    fn id(&self) -> &str {
+        "cloud-kind"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities(&self.kind());
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("credential_verified", format!("'{}' credential verified — preflight only until its adapter cut", self.kind())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the credential to verify this account".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.kind(), "account_ref": text(&self.account, "account_ref"), "lifecycle": "credential_preflight_only", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, _d: &str, _e: &str, _p: &Value) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn start(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn workrun(&self, _d: &str, _e: &str, _c: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn stop(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn snapshot(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn restore(&self, _d: &str, _e: &str, _m: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn delete(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err(self.not_implemented())
+    }
+    fn observe(&self, _d: &str, _e: &str) -> Value {
+        json!({ "provider": self.kind(), "status": text(&self.account, "status"), "lifecycle": "credential_preflight_only", "reason": self.not_implemented() })
+    }
+}
+
 fn registry() -> Vec<Box<dyn EnvironmentProvider>> {
     vec![
         Box::new(LocalMicrovmProvider),
@@ -374,16 +802,307 @@ fn resolve(id: &str) -> Option<Box<dyn EnvironmentProvider>> {
     registry().into_iter().find(|p| p.id() == id)
 }
 
-/// GET /v1/hypervisor/providers — the provider registry with capabilities + honest status.
-pub(crate) async fn handle_providers_list(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
-    let providers: Vec<Value> = registry().iter().map(|p| {
+/// Resolve an ACCOUNT-backed adapter (provider_id = "pacc_*" | "provider-account://pacc_*").
+/// SSH accounts need the sealed key materialized — the KeyGuard removes it when the op ends.
+fn resolve_account_adapter(
+    data_dir: &str,
+    id: &str,
+) -> Option<Result<(Value, Box<dyn EnvironmentProvider>, Option<KeyGuard>), String>> {
+    if !(id.starts_with("pacc_") || id.starts_with("provider-account://")) {
+        return None;
+    }
+    let Some(account) = load_account(data_dir, id) else {
+        return Some(Err(format!("unknown provider account '{id}'")));
+    };
+    if text(&account, "kind") == "baremetal_ssh" {
+        match materialize_ssh_key(data_dir, text(&account, "account_id")) {
+            Ok((key_path, guard, _)) => Some(Ok((
+                account.clone(),
+                Box::new(SshProvider { account, key_path }),
+                Some(guard),
+            ))),
+            Err(e) => Some(Err(e)),
+        }
+    } else {
+        Some(Ok((account.clone(), Box::new(CloudKindProvider { account }), None)))
+    }
+}
+
+// ---- ProviderAccount CRUD --------------------------------------------------------------------
+
+pub(crate) async fn handle_provider_accounts_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut accounts = read_record_dir(&st.data_dir, ACCOUNT_KIND);
+    accounts.sort_by(|a, b| text(a, "created_at").cmp(text(b, "created_at")));
+    Json(json!({ "schema_version": "ioi.hypervisor.provider-accounts.v1", "accounts": accounts, "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost", "at": iso_now() }))
+}
+
+pub(crate) async fn handle_provider_account_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let kind = text(&body, "kind");
+    if !ACCOUNT_KINDS.contains(&kind) {
+        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_kind_invalid", "message": format!("kind must be one of {ACCOUNT_KINDS:?}") } })));
+    }
+    let display_name = text(&body, "display_name");
+    if display_name.is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_display_name_required", "message": "a provider account needs a display_name" } })));
+    }
+    if kind == "baremetal_ssh" {
+        let ep = body.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+        if text(&ep, "host").is_empty() || text(&ep, "user").is_empty() {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_endpoint_required", "message": "baremetal_ssh needs endpoint {host, user, port?}" } })));
+        }
+    }
+    let id = format!("pacc_{:x}", nanos());
+    let now = iso_now();
+    let record = json!({
+        "schema_version": "ioi.hypervisor.provider-account.v1",
+        "account_id": id,
+        "account_ref": format!("provider-account://{id}"),
+        "display_name": display_name,
+        "kind": kind,
+        "status": "unverified",
+        "credential_binding_ref": Value::Null,
+        "endpoint": body.get("endpoint").cloned().unwrap_or_else(|| json!({})),
+        "provider_spend_borne_by": "customer",
+        "budget_policy_ref": body.get("budget_policy_ref").cloned().unwrap_or(Value::Null),
+        "capabilities": kind_capabilities(kind),
+        "created_at": now, "updated_at": now,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record);
+    (StatusCode::CREATED, Json(json!({ "ok": true, "account": record })))
+}
+
+pub(crate) async fn handle_provider_account_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    match load_account(&st.data_dir, &id) {
+        Some(account) => (StatusCode::OK, Json(json!({ "ok": true, "account": account }))),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }))),
+    }
+}
+
+pub(crate) async fn handle_provider_account_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut account) = load_account(&st.data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+    };
+    for key in ["display_name", "endpoint", "budget_policy_ref"] {
+        if let Some(v) = body.get(key) {
+            account[key] = v.clone();
+        }
+    }
+    // Endpoint changes invalidate a prior preflight verdict — posture must be re-proven.
+    if body.get("endpoint").is_some() && text(&account, "status") == "verified" {
+        account["status"] = json!("unverified");
+        account["preflight"] = Value::Null;
+    }
+    account["updated_at"] = json!(iso_now());
+    let aid = text(&account, "account_id").to_string();
+    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    (StatusCode::OK, Json(json!({ "ok": true, "account": account })))
+}
+
+pub(crate) async fn handle_provider_account_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let Some(account) = load_account(&st.data_dir, &id) else {
+        return Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }));
+    };
+    let aid = text(&account, "account_id").to_string();
+    let removed = super::remove_record(&st.data_dir, ACCOUNT_KIND, &aid);
+    if let Some(cred) = load_account_credential(&st.data_dir, &aid) {
+        let cid = text(&cred, "credential_id").to_string();
+        let _ = super::remove_record(&st.data_dir, CREDENTIAL_VAULT, &cid);
+    }
+    Json(json!({ "ok": removed, "removed": removed, "account_id": aid }))
+}
+
+// ---- ProviderCredentialBinding — sealed material, presence-provable, never exported ----------
+
+pub(crate) async fn handle_provider_account_credential(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut account) = load_account(&st.data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+    };
+    let aid = text(&account, "account_id").to_string();
+    let kind = text(&account, "kind").to_string();
+    // Per-kind primary secret: sealed with the SAME dcrypt ladder as every other credential.
+    let (cred_kind, secret) = match kind.as_str() {
+        "baremetal_ssh" => ("ssh-key", text(&body, "private_key")),
+        "aws" => ("aws-sigv4", text(&body, "secret_access_key")),
+        "gcp" => ("oidc-workload", text(&body, "service_account_key")),
+        "k8s" => ("bearer", text(&body, "token")),
+        "vast" | "akash" => ("bearer", text(&body, "api_key")),
+        _ => ("bearer", text(&body, "token")),
+    };
+    if secret.trim().is_empty() {
+        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_credential_material_required", "message": format!("'{kind}' accounts bind their secret material at this route (never returned, sealed at rest)") } })));
+    }
+    let Some(sealed) = seal_scm_token(secret) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "provider_credential_seal_failed" } })));
+    };
+    let fingerprint = sha256_bytes(secret.as_bytes());
+    let cred_id = format!("pcred_{aid}");
+    let mut record = json!({
+        "schema_version": "ioi.hypervisor.provider-credential.v1",
+        "credential_id": cred_id,
+        // connector_id keys the CapabilityLease gateway lookup — one spine, no new gate.
+        "connector_id": aid,
+        "kind": cred_kind,
+        "key_source": std::env::var("IOI_WALLET_SECRET_PASS").map(|_| "wallet-secret").unwrap_or("local-mode"),
+        "fingerprint": fingerprint,
+        // Non-secret aux hints (region/project/cluster) travel in the clear; secrets never do.
+        "aux": body.get("aux").cloned().unwrap_or_else(|| json!({})),
+        "bound_at": iso_now(),
+    });
+    // The sealed material lands under the field name resolve_sealed_credential reads for this
+    // kind, so provider credentials ride the SAME gateway resolver as the connector estate.
+    let sealed_field = if cred_kind == "aws-sigv4" { "sealed_secret_access_key" } else { "sealed_token" };
+    record[sealed_field] = json!(sealed);
+    // Non-secret resolver hints (token_url, client_id, audience, …) are read from the record
+    // ROOT by the canonical oidc-workload/oauth-refresh branches — splice them up from aux.
+    if let Some(aux) = body.get("aux").and_then(Value::as_object) {
+        for hint in ["token_url", "client_id", "audience", "scopes", "subject_token_type", "subject_token_file", "access_key_id", "region"] {
+            if let Some(v) = aux.get(hint).filter(|v| v.is_string()) {
+                record[hint] = v.clone();
+            }
+        }
+    }
+    let _ = persist_record(&st.data_dir, CREDENTIAL_VAULT, &cred_id, &record);
+    account["credential_binding_ref"] = json!(format!("credential://{CREDENTIAL_VAULT}/{cred_id}"));
+    account["status"] = json!("unverified");
+    account["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    let receipt = provider_receipt_ext(&st.data_dir, &kind, "-", "credential_bind", "ok", &json!({ "account_ref": text(&account, "account_ref"), "credential_kind": cred_kind, "fingerprint": fingerprint }));
+    (StatusCode::CREATED, Json(json!({ "ok": true, "account": account, "credential": { "credential_id": cred_id, "kind": cred_kind, "fingerprint": fingerprint, "sealed": true }, "receipt_ref": receipt })))
+}
+
+pub(crate) async fn handle_provider_account_credential_revoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
+    let Some(mut account) = load_account(&st.data_dir, &id) else {
+        return Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }));
+    };
+    let aid = text(&account, "account_id").to_string();
+    let removed = load_account_credential(&st.data_dir, &aid)
+        .map(|c| super::remove_record(&st.data_dir, CREDENTIAL_VAULT, text(&c, "credential_id")))
+        .unwrap_or(false);
+    account["credential_binding_ref"] = Value::Null;
+    account["status"] = json!("revoked");
+    account["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    let receipt = provider_receipt_ext(&st.data_dir, text(&account, "kind"), "-", "credential_revoke", "ok", &json!({ "account_ref": text(&account, "account_ref") }));
+    Json(json!({ "ok": true, "revoked": removed, "account": account, "receipt_ref": receipt }))
+}
+
+/// POST /provider-accounts/:id/preflight — the REAL probe. SSH: connect + posture evidence.
+/// Cloud kinds: credential resolvability + endpoint hints (honest: no cloud API call this cut).
+pub(crate) async fn handle_provider_account_preflight(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut account) = load_account(&st.data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+    };
+    let aid = text(&account, "account_id").to_string();
+    let kind = text(&account, "kind").to_string();
+    let (admit, evidence): (bool, Value) = if kind == "baremetal_ssh" {
+        match materialize_ssh_key(&st.data_dir, &aid) {
+            Err(e) => (false, json!({ "reason": e })),
+            Ok((key_path, _guard, key_source)) => {
+                let ssh = SshProvider { account: account.clone(), key_path };
+                match ssh.run_script(&st.data_dir, "echo IOI-PREFLIGHT-OK; uname -sm; command -v tar >/dev/null && echo tar-ok || echo tar-missing", None) {
+                    Err(e) => (false, json!({ "reason": e })),
+                    Ok((code, stdout, stderr)) => {
+                        let out = String::from_utf8_lossy(&stdout).trim().to_string();
+                        let admit = code == 0 && out.contains("IOI-PREFLIGHT-OK") && out.contains("tar-ok");
+                        (admit, json!({ "exit_code": code, "posture": out, "stderr": stderr, "credential_key_source": key_source, "probe": "real ssh connect + uname + tar presence" }))
+                    }
+                }
+            }
+        }
+    } else {
+        match load_account_credential(&st.data_dir, &aid) {
+            None => (false, json!({ "reason": "provider_credential_unbound" })),
+            Some(cred) => {
+                let sealed = cred["sealed_token"].as_str().or(cred["sealed_secret_access_key"].as_str());
+                let resolvable = sealed.and_then(open_scm_token).is_some();
+                (resolvable, json!({ "credential_kind": text(&cred, "kind"), "credential_resolvable": resolvable, "fingerprint": text(&cred, "fingerprint"), "probe": "credential seal round-trip only — no cloud API call in this cut (lifecycle lands with the adapter)", "lifecycle": "credential_preflight_only" }))
+            }
+        }
+    };
+    account["preflight"] = json!({ "admit": admit, "evidence": evidence, "at": iso_now() });
+    account["status"] = json!(if admit { "verified" } else { "unverified" });
+    account["updated_at"] = json!(iso_now());
+    let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
+    let receipt = provider_receipt_ext(&st.data_dir, &kind, "-", "preflight", if admit { "ok" } else { "preflight_failed" }, &json!({ "account_ref": text(&account, "account_ref"), "evidence": account["preflight"]["evidence"] }));
+    (StatusCode::OK, Json(json!({ "ok": admit, "account": account, "receipt_ref": receipt })))
+}
+
+/// GET /provider-materials — daemon-custody snapshot material (admitted state roots).
+pub(crate) async fn handle_provider_materials(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut materials = read_record_dir(&st.data_dir, MATERIAL_KIND);
+    materials.sort_by(|a, b| text(b, "material_id").cmp(text(a, "material_id")));
+    Json(json!({ "schema_version": "ioi.hypervisor.provider-materials.v1", "custody_rule": "blob existence is not restore truth — restores admit by daemon-recorded sha256 state_root", "materials": materials, "at": iso_now() }))
+}
+
+/// GET /v1/hypervisor/providers — static adapters × durable BYO accounts, honest per-entry
+/// status. Placement reads THIS catalog live, so a verified account becomes placeable with no
+/// extra wiring (deterministic selection only — no routing fee, no smart placement).
+pub(crate) async fn handle_providers_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut providers: Vec<Value> = registry().iter().map(|p| {
         let (status, reason) = p.status();
         json!({ "provider_ref": p.id(), "capabilities": p.capabilities(), "status": status, "reason": reason })
     }).collect();
+    let mut accounts_out: Vec<Value> = Vec::new();
+    for account in read_record_dir(&st.data_dir, ACCOUNT_KIND) {
+        let kind = text(&account, "kind").to_string();
+        let (status, reason) = if kind == "baremetal_ssh" {
+            match text(&account, "status") {
+                "verified" => ("available", format!("verified bare-metal SSH node ({})", text(&account, "display_name"))),
+                "revoked" => ("revoked", "credential revoked".to_string()),
+                _ => ("unverified", "bind + preflight to admit this node".to_string()),
+            }
+        } else {
+            match text(&account, "status") {
+                "verified" => ("credential_verified", format!("'{kind}' credential verified — lifecycle lands with its adapter cut")),
+                "revoked" => ("revoked", "credential revoked".to_string()),
+                _ => ("unverified", "bind + preflight the credential".to_string()),
+            }
+        };
+        let mut caps = kind_capabilities(&kind);
+        caps["provider_spend_borne_by"] = json!("customer");
+        let entry = json!({
+            "provider_ref": format!("account:{}", text(&account, "account_id")),
+            "account_ref": text(&account, "account_ref"),
+            "kind": kind,
+            "display_name": text(&account, "display_name"),
+            "capabilities": caps,
+            "status": status,
+            "reason": reason,
+            "provider_spend_borne_by": "customer",
+        });
+        providers.push(entry.clone());
+        accounts_out.push(entry);
+    }
     Json(json!({
         "schema_version": "ioi.hypervisor.providers.v1",
         "first_remote_provider_target": "other:loopback-runner",
         "providers": providers,
+        "accounts": accounts_out,
+        "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup",
         "truth_rule": "provider-native IDs are evidence refs only; the daemon owns admitted ops, state roots, restore refs, and receipts",
         "at": iso_now()
     }))
@@ -396,7 +1115,7 @@ pub(crate) async fn handle_providers_list(State(_st): State<Arc<DaemonState>>) -
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let provider_id = body
         .get("provider_id")
@@ -408,8 +1127,119 @@ pub(crate) async fn handle_provider_op(
         .and_then(|v| v.as_str())
         .unwrap_or("env-default")
         .to_string();
+
+    // ── BYO account lane: budget BEFORE mutation, REAL wallet grant (never a presence check),
+    //    capability-lease receipts on every path. The KeyGuard removes the materialized ssh key.
+    if let Some(resolved) = resolve_account_adapter(data_dir, provider_id) {
+        let (account, provider, _key_guard) = match resolved {
+            Ok(triple) => triple,
+            Err(reason) => {
+                let receipt = provider_receipt_ext(data_dir, provider_id, &env_ref, op, "credential_unresolved", &json!({ "error": reason }));
+                return (StatusCode::PRECONDITION_REQUIRED, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": reason, "receipt_ref": receipt })));
+            }
+        };
+        let account_id = text(&account, "account_id").to_string();
+        let account_ref = text(&account, "account_ref").to_string();
+        let kind = text(&account, "kind").to_string();
+        let mutation = !matches!(op, "preflight" | "observe");
+        let mut budget_note = Value::Null;
+        let mut lease_note = Value::Null;
+        let mut grant_ref = Value::Null;
+        if mutation {
+            // 1) external_spend posture is discovered BEFORE any provider mutation.
+            match discover_budget(data_dir, &kind, op) {
+                Ok(note) => budget_note = note,
+                Err(reason) => {
+                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "budget_blocked", &json!({ "account_ref": account_ref, "error": reason }));
+                    return (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "reason": reason, "receipt_ref": receipt })));
+                }
+            }
+            // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
+            //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
+            let lease_req = CapabilityLeaseRequest {
+                authority_provider_ref: "wallet.network".to_string(),
+                backing_provider: format!("provider:account:{account_id}"),
+                allowed_tools: vec![format!("provider.{op}")],
+                resource_refs: vec![account_ref.clone(), env_ref.clone()],
+                scopes: vec!["provider.provision".to_string()],
+                policy_domain: "hypervisor.provider.op.policy.v1".to_string(),
+                request_domain: "hypervisor.provider.op.request.v1".to_string(),
+                request_facets: json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind }),
+                credential_connector_id: Some(account_id.clone()),
+                credential_store: CREDENTIAL_VAULT.to_string(),
+                credential_required: true,
+                github_host_fallback: false,
+                receipt_required: true,
+                revocation_ref: format!("provider-accounts/{account_id}/credential"),
+                authority_reason: "provider_operation_authority_required".to_string(),
+                grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
+            };
+            match authorize_capability_lease(&st, &lease_req).await {
+                Err((status, challenge)) => {
+                    let outcome = if status == StatusCode::PRECONDITION_REQUIRED { "credential_unresolved" } else { "authority_missing" };
+                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, outcome, &json!({ "account_ref": account_ref, "budget_discovery": budget_note }));
+                    let mut payload = challenge;
+                    if let Some(object) = payload.as_object_mut() {
+                        object.insert("receipt_ref".into(), json!(receipt));
+                        object.insert("account_ref".into(), json!(account_ref));
+                    }
+                    return (status, Json(payload));
+                }
+                Ok(lease) => {
+                    lease_note = lease.descriptor.clone();
+                    grant_ref = json!(lease.grant_ref);
+                }
+            }
+        }
+        let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
+        let command = body.get("command").and_then(|v| v.as_str()).unwrap_or("true");
+        let material_ref = body.get("material_ref").and_then(|v| v.as_str()).unwrap_or("");
+        let result = match op {
+            "preflight" => Ok(provider.preflight(&plan)),
+            "create" => provider.create(data_dir, &env_ref, &plan),
+            "start" => provider.start(data_dir, &env_ref),
+            "workrun" => provider.workrun(data_dir, &env_ref, command),
+            "stop" => provider.stop(data_dir, &env_ref),
+            "snapshot" => provider.snapshot(data_dir, &env_ref),
+            "restore" => provider.restore(data_dir, &env_ref, material_ref),
+            "inject_outage" => provider.inject_outage(data_dir, &env_ref),
+            "recover" => provider.recover(data_dir, &env_ref),
+            "delete" => provider.delete(data_dir, &env_ref),
+            "observe" => Ok(provider.observe(data_dir, &env_ref)),
+            other => Err(format!("unknown op '{other}'")),
+        };
+        let cost_estimate = budget_note.get("cost_estimate").cloned().unwrap_or(Value::Null);
+        return match result {
+            Ok(evidence) => {
+                let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "ok", &json!({
+                    "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
+                    "cost_estimate": cost_estimate, "budget_discovery": budget_note,
+                }));
+                let op_id = format!("pop_{:x}", nanos());
+                let record = json!({
+                    "schema_version": "ioi.hypervisor.provider-operation.v1",
+                    "operation_id": op_id, "provider": kind, "account_ref": account_ref,
+                    "environment_ref": env_ref, "op": op, "evidence": evidence,
+                    "grant_ref": grant_ref, "budget_discovery": budget_note, "cost_estimate": cost_estimate,
+                    "receipt_ref": receipt, "at": iso_now()
+                });
+                let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
+                (StatusCode::OK, Json(json!({ "ok": true, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt, "cost_estimate": cost_estimate })))
+            }
+            Err(reason) => {
+                let outcome = if reason.contains("NOT_IMPLEMENTED") { "not_implemented" } else if reason.contains("hash_mismatch") { "restore_refused" } else { "error" };
+                let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, outcome, &json!({
+                    "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note, "error": reason,
+                }));
+                (StatusCode::OK, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt })))
+            }
+        };
+    }
+
+    // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc) — unchanged. ──
     let Some(provider) = resolve(provider_id) else {
-        return Json(json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'") }));
+        let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "error");
+        return (StatusCode::OK, Json(json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'"), "receipt_ref": receipt })));
     };
 
     // Remote/external providers require an authority grant for provider-credential materialization.
@@ -423,9 +1253,9 @@ pub(crate) async fn handle_provider_op(
         && body.get("grant_ref").and_then(|v| v.as_str()).is_none()
     {
         let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "authority_missing");
-        return Json(
+        return (StatusCode::OK, Json(
             json!({ "ok": false, "op": op, "provider": provider_id, "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)", "receipt_ref": receipt }),
-        );
+        ));
     }
 
     let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
@@ -463,9 +1293,9 @@ pub(crate) async fn handle_provider_op(
                 "op": op, "evidence": evidence, "receipt_ref": receipt, "at": iso_now()
             });
             let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
-            Json(
+            (StatusCode::OK, Json(
                 json!({ "ok": true, "op": op, "provider": provider_id, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt }),
-            )
+            ))
         }
         Err(reason) => {
             let outcome = if reason.contains("NOT_CONFIGURED") {
@@ -474,11 +1304,24 @@ pub(crate) async fn handle_provider_op(
                 "error"
             };
             let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, outcome);
-            Json(
+            (StatusCode::OK, Json(
                 json!({ "ok": false, "op": op, "provider": provider_id, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
-            )
+            ))
         }
     }
+}
+
+/// GET /v1/hypervisor/provider-receipts — the crossing audit trail (success AND failure receipts;
+/// a refused crossing is evidence too). Descriptors only — never credential material.
+pub(crate) async fn handle_provider_receipts(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut receipts = super::read_record_dir(&st.data_dir, "provider-receipts");
+    receipts.sort_by(|a, b| text(b, "receipt_id").cmp(text(a, "receipt_id")));
+    Json(json!({
+        "schema_version": "ioi.hypervisor.provider-receipts.v1",
+        "spend_rule": "BYO provider spend is customer-borne; receipts record and reconcile it — never hidden markup",
+        "receipts": receipts,
+        "at": iso_now()
+    }))
 }
 
 /// GET /v1/hypervisor/provider-operations — the admitted-operation audit trail (daemon truth).

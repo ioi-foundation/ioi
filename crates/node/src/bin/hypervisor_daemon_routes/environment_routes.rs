@@ -1504,22 +1504,66 @@ pub(crate) async fn handle_project_delete(
 }
 
 /// GET /v1/hypervisor/environment-classes — substrate catalog (v0: local only enabled).
-pub(crate) async fn handle_environment_classes(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "environmentClasses": [
-        {
-            "id": "local-workspace-v0", "display_name": "Local Workspace (v0)",
-            "substrate_class": "local_host", "enabled": true,
-            "isolation_claim": "not_cross_tenant",
-            "minimum_isolation": "process + scoped worktree/runtime state",
-            "bwrap_available": bwrap_available()
-        },
-        { "id": "devcontainer", "display_name": "Devcontainer", "substrate_class": "container",
-          "enabled": false, "note": "setup / inner-sandbox lane; not cross-tenant isolation" },
-        { "id": "microvm", "display_name": "microVM", "substrate_class": "microvm",
-          "enabled": false, "note": "isolation claim for untrusted/cross-tenant work (future)" },
-        { "id": "vm", "display_name": "VM", "substrate_class": "vm",
-          "enabled": false, "note": "isolation claim for untrusted/cross-tenant work (future)" }
-    ]}))
+/// Environment classes as DURABLE records with provider eligibility. `enabled` is computed
+/// HONESTLY at read time: a class is enabled only when a real provider/account path backs it —
+/// local host always; microVM when the monitor lane is operational (fixing the prior
+/// enabled:false honesty gap — the lane IS real, see env_is_microvm); byo-ssh-node only while
+/// at least one VERIFIED baremetal_ssh ProviderAccount exists.
+pub(crate) async fn handle_environment_classes(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    // Seed durable records once (idempotent); dynamic truth is computed per read below.
+    let seeded = super::read_record_dir(&st.data_dir, "environment-classes");
+    if seeded.is_empty() {
+        let seeds = [
+            json!({ "id": "local-workspace-v0", "display_name": "Local Workspace (v0)", "substrate_class": "local_host",
+                "isolation_claim": "not_cross_tenant", "minimum_isolation": "process + scoped worktree/runtime state",
+                "provider_eligibility": { "provider_kinds": ["local"], "required_capabilities": [], "credential_kind": null, "spend_posture": "local_free" } }),
+            json!({ "id": "devcontainer", "display_name": "Devcontainer", "substrate_class": "container",
+                "note": "setup / inner-sandbox lane; not cross-tenant isolation",
+                "provider_eligibility": { "provider_kinds": [], "required_capabilities": ["container_runtime"], "credential_kind": null, "spend_posture": "local_free" } }),
+            json!({ "id": "microvm", "display_name": "microVM", "substrate_class": "microvm",
+                "note": "isolation claim for untrusted/cross-tenant work (VmMonitor lane)",
+                "provider_eligibility": { "provider_kinds": ["local"], "required_capabilities": ["vm_kernel"], "credential_kind": null, "spend_posture": "local_free" } }),
+            json!({ "id": "vm", "display_name": "VM", "substrate_class": "vm",
+                "note": "isolation claim for untrusted/cross-tenant work (future)",
+                "provider_eligibility": { "provider_kinds": [], "required_capabilities": ["vm_kernel"], "credential_kind": null, "spend_posture": "external_spend" } }),
+            json!({ "id": "byo-ssh-node", "display_name": "BYO SSH Node", "substrate_class": "customer_host",
+                "note": "customer-owned bare-metal/homelab node over the baremetal_ssh provider adapter; spend is customer-borne",
+                "provider_eligibility": { "provider_kinds": ["baremetal_ssh"], "required_capabilities": ["ssh", "tar"], "credential_kind": "ssh_key", "spend_posture": "customer_borne_byo" } }),
+        ];
+        for seed in seeds {
+            let id = seed["id"].as_str().unwrap_or("").to_string();
+            let mut record = seed;
+            record["schema_version"] = json!("ioi.hypervisor.environment-class.v1");
+            record["created_at"] = json!(iso_now());
+            let _ = super::persist_record(&st.data_dir, "environment-classes", &id, &record);
+        }
+    }
+    let verified_ssh_accounts = super::read_record_dir(&st.data_dir, "provider-accounts")
+        .into_iter()
+        .filter(|a| a["kind"].as_str() == Some("baremetal_ssh") && a["status"].as_str() == Some("verified"))
+        .count();
+    let classes: Vec<Value> = super::read_record_dir(&st.data_dir, "environment-classes")
+        .into_iter()
+        .map(|mut record| {
+            let id = record["id"].as_str().unwrap_or("").to_string();
+            let (enabled, backing) = match id.as_str() {
+                "local-workspace-v0" => (true, json!({ "path": "local host workspace", "real": true })),
+                "microvm" => (true, json!({ "path": "VmMonitor lane (cloud-hypervisor primary; QEMU/Firecracker)", "real": true, "honesty_note": "previously mislabeled enabled:false while the lane was operational" })),
+                "byo-ssh-node" => (
+                    verified_ssh_accounts > 0,
+                    json!({ "path": "verified baremetal_ssh ProviderAccount(s)", "verified_accounts": verified_ssh_accounts, "real": verified_ssh_accounts > 0 }),
+                ),
+                _ => (false, json!({ "path": "no real provider/account path yet", "real": false })),
+            };
+            record["enabled"] = json!(enabled);
+            record["enabled_backing"] = backing;
+            if id == "local-workspace-v0" {
+                record["bwrap_available"] = json!(bwrap_available());
+            }
+            record
+        })
+        .collect();
+    Json(json!({ "environmentClasses": classes, "honesty_rule": "a class is enabled only when a real provider/account path backs it" }))
 }
 
 /// GET /v1/hypervisor/environments

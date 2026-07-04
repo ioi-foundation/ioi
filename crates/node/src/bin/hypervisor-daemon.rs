@@ -1674,6 +1674,34 @@ async fn async_main() -> anyhow::Result<()> {
             post(provider_routes::handle_provider_op),
         )
         .route(
+            "/v1/hypervisor/provider-accounts",
+            get(provider_routes::handle_provider_accounts_list)
+                .post(provider_routes::handle_provider_account_create),
+        )
+        .route(
+            "/v1/hypervisor/provider-accounts/:id",
+            get(provider_routes::handle_provider_account_get)
+                .patch(provider_routes::handle_provider_account_patch)
+                .delete(provider_routes::handle_provider_account_delete),
+        )
+        .route(
+            "/v1/hypervisor/provider-accounts/:id/credential",
+            post(provider_routes::handle_provider_account_credential)
+                .delete(provider_routes::handle_provider_account_credential_revoke),
+        )
+        .route(
+            "/v1/hypervisor/provider-accounts/:id/preflight",
+            post(provider_routes::handle_provider_account_preflight),
+        )
+        .route(
+            "/v1/hypervisor/provider-materials",
+            get(provider_routes::handle_provider_materials),
+        )
+        .route(
+            "/v1/hypervisor/provider-receipts",
+            get(provider_routes::handle_provider_receipts),
+        )
+        .route(
             "/v1/hypervisor/provider-operations",
             get(provider_routes::handle_provider_operations),
         )
