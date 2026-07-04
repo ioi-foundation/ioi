@@ -76,12 +76,12 @@ async function run() {
     venues.pick_provider.fee?.fee_basis === "adapter_orchestration_fee"
     && /never a percentage/i.test(venues.pick_provider.fee?.fee_explanation || "")
     && /nothing is charged today/i.test(venues.pick_provider.fee?.fee_explanation || ""));
-  ok("hypervisor_choose is a PLANNED placeholder: advisory-empty candidates, routing-fee covenant named",
-    venues.hypervisor_choose.status === "planned" && venues.hypervisor_choose.available === false
-    && (venues.hypervisor_choose.candidates || []).length === 0
+  ok("hypervisor_choose is the ADVISORY lane: candidate plane fills it, routing-fee covenant still named",
+    venues.hypervisor_choose.status === "advisory"
     && venues.hypervisor_choose.fee?.fee_basis === "routing_fee"
     && /RoutingDecisionReceipt/.test(venues.hypervisor_choose.fee?.fee_explanation || "")
-    && /decentralized\.cloud/.test(venues.hypervisor_choose.planned_reason || ""));
+    && venues.hypervisor_choose.fee_object_minted === false
+    && Array.isArray(venues.hypervisor_choose.candidates));
   const venuesStr = JSON.stringify(venuesRes);
   ok("no invented quotes and no fee objects anywhere in the catalog",
     venues.pick_provider.quote === null && /no invented quotes/.test(venues.pick_provider.quote_policy || "")
@@ -102,8 +102,10 @@ async function run() {
     && chooseByo.j.policy?.provider_snapshot?.status_at_choice === "verified"
     && chooseByo.j.fee?.fee_basis === "none");
   const chooseAuto = await jd("PUT", "/v1/hypervisor/placement/venue-policy", { venue: "hypervisor_choose" });
-  ok("hypervisor_choose records an ADVISORY preference — effective venue stays local, note explicit",
-    chooseAuto.j.policy?.advisory === true && chooseAuto.j.policy?.effective_venue === "run_local"
+  ok("hypervisor_choose records an ADVISORY preference — live advisory resolves the effective venue, note explicit",
+    chooseAuto.j.policy?.advisory === true
+    && ["run_local", "use_my_infrastructure", "pick_provider"].includes(chooseAuto.j.policy?.effective_venue)
+    && String(chooseAuto.j.policy?.advisory_ref || "").startsWith("placement-advisory://")
     && /never a hidden auto/.test(chooseAuto.j.policy?.advisory_note || ""));
   const history = (await jd("GET", "/v1/hypervisor/placement/venue-policy")).j.policy?.history || [];
   ok("venue changes append history (the choice trail is auditable)",
@@ -185,11 +187,11 @@ async function run() {
   await page.waitForFunction(() => /orchestration fee/i.test(document.getElementById("ioi-ns-venue-fee")?.innerText || ""), null, { timeout: 10000 });
   ok("pinned-cloud fee copy in modal explains the orchestration fee (never a percentage)",
     /never a percentage/i.test(await feeText()));
-  const plannedBadge = await page.locator('.ioi-ns-venue-opt[data-venue="hypervisor_choose"] .ioi-ns-venue-badge').innerText();
+  const advisoryBadge = await page.locator('.ioi-ns-venue-opt[data-venue="hypervisor_choose"] .ioi-ns-venue-badge').innerText();
   await page.click('.ioi-ns-venue-opt[data-venue="hypervisor_choose"]');
   await page.waitForFunction(() => /routing fee|RoutingDecisionReceipt/i.test(document.getElementById("ioi-ns-venue-fee")?.innerText || ""), null, { timeout: 10000 });
-  ok("hypervisor_choose renders PLANNED and states the routing-fee covenant — never a hidden auto",
-    /planned/i.test(plannedBadge) && /planned placeholder|advisory|candidate plane/i.test(await feeText()));
+  ok("hypervisor_choose renders the ADVISORY lane and states the routing-fee covenant — never a hidden auto",
+    /advisory/i.test(advisoryBadge) && /Advisory recommends|no eligible candidate/i.test(await feeText()));
   // The preview consumes the chosen policy: placement line + venue receipts named before launch.
   await page.click('.ioi-ns-venue-opt[data-venue="use_my_infrastructure"]');
   await page.waitForFunction(() => /no provider-spend percentage/i.test(document.getElementById("ioi-ns-venue-fee")?.innerText || ""), null, { timeout: 10000 });

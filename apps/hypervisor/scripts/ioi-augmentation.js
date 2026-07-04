@@ -372,9 +372,11 @@
     if (!pl.venues || !pl.venues.length) return "";
     var current = nsCurrentVenue();
     var btns = pl.venues.map(function (v) {
+      var advisory = v.status === "advisory";
       var planned = v.status === "planned";
       var cls = "ioi-ns-venue-opt" + (v.venue === current ? " sel" : "") + (planned ? " planned" : "");
       var badge = planned ? ' <span class="ioi-ns-venue-badge">planned</span>'
+        : advisory ? ' <span class="ioi-ns-venue-badge">advisory</span>'
         : (v.available === false ? ' <span class="ioi-ns-venue-badge warn">unavailable</span>' : "");
       return '<button type="button" class="' + cls + '" data-venue="' + esc(v.venue) + '" title="' + esc(v.summary || "") + '">' + esc(v.display_name) + badge + "</button>";
     }).join("");
@@ -396,6 +398,24 @@
     if (v.availability_note) lines.push('<span class="nsp-warn">' + esc(v.availability_note) + "</span>");
     if (v.status === "planned") lines.push('<span class="nsp-warn">' + esc(v.planned_reason || "planned") + "</span>");
     if (v.quote_policy) lines.push('<span style="color:#6f7280">' + esc(v.quote_policy) + "</span>");
+    if (v.status === "advisory") {
+      var cands = (v.candidates || []).filter(function (c) { return c.placement_eligible; });
+      var rec = v.recommendation;
+      if (rec) lines.push('Advisory recommends <b>' + esc(rec.venue || "") + "</b>" + (rec.display_name ? " · " + esc(rec.display_name) : "") + ' <span style="color:#6f7280">(' + esc((rec.reason_codes || []).join(", ")) + ")</span>");
+      if (cands.length) {
+        lines.push('<span style="color:#6f7280">Candidates (evidence-bound, expiring — never authority):</span>');
+        cands.slice(0, 4).forEach(function (c) {
+          var rel = c.reliability || {};
+          lines.push("· <b>" + esc(c.display_name || c.provider_kind) + "</b> · " + esc(c.runtime_class || "") +
+            " · custody " + esc(((c.custody_plan || {}).supported_postures || []).join("/")) +
+            " · spend owner " + esc(((c.spend_estimate || {}).cost_owner) || "customer") +
+            " · " + esc(c.coverage_state || "") +
+            (rel.ops_ok !== undefined ? " · ops " + rel.ops_ok + "✓/" + (rel.ops_failed || 0) + "✗" : ""));
+        });
+      } else {
+        lines.push('<span class="nsp-warn">' + esc(v.no_eligible_candidate || "no eligible candidate — effective venue stays run_local") + "</span>");
+      }
+    }
     fee.innerHTML = lines.join("<br>");
     var needsProvider = current === "use_my_infrastructure" || current === "pick_provider";
     if (wrap) wrap.style.display = needsProvider ? "block" : "none";
@@ -513,6 +533,7 @@
             + (j.placement.provider_account_ref ? " · pinned <code>" + esc(j.placement.provider_account_ref) + "</code>" : "")
             + (j.placement.advisory ? ' <span class="nsp-warn">(advisory placeholder — effective venue ' + esc(j.placement.effective_venue || "run_local") + ")</span>" : "")
             + ' · fee basis <b>' + esc(pf.fee_basis || "none") + "</b> <span style=\"color:#6f7280\">(" + esc(pf.fee_explanation || "") + ")</span>");
+          if (j.placement.advisory_ref) lines.push('<span class="nsp-k">Advisory</span> <code>' + esc(j.placement.advisory_ref) + "</code>" + (j.placement.advisory_recommendation ? " → <b>" + esc(j.placement.advisory_recommendation.venue || "") + "</b>" : "") + ((j.placement.advisory_candidate_refs || []).length ? " · candidates " + j.placement.advisory_candidate_refs.map(function (r) { return "<code>" + esc(String(r).slice(0, 46)) + "</code>"; }).join(" ") : "") + (j.placement.no_eligible_candidate ? ' <span class="nsp-warn">' + esc(j.placement.no_eligible_candidate) + "</span>" : ""));
           if ((j.placement.receipts_expected || []).length) lines.push('<span class="nsp-k">Venue receipts</span> ' + j.placement.receipts_expected.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
         }
         lines.push('<span class="nsp-k">Receipts</span> ' + (j.expected_receipt_refs || []).map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
