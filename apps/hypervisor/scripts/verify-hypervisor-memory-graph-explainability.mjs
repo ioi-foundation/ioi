@@ -9,6 +9,7 @@
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-memory-graph-explainability.mjs (≈2–4 min)
 
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -21,11 +22,29 @@ const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").re
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(method, url, body) {
-  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
-    method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined,
+// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
+// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
+function jd(method, url, body) {
+  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
+  const payload = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
+        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => { raw += c; });
+        res.on("end", () => {
+          let j = {};
+          try { j = JSON.parse(raw); } catch { j = {}; }
+          resolve({ status: res.statusCode, j });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
   });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 
 async function run() {

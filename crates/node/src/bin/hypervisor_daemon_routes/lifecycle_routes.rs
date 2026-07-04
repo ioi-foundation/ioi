@@ -8847,49 +8847,49 @@ const SCM_ABANDON_SCOPES: &[&str] = &["scm_pr_close", "remote_publish"];
 // ================================================================================================
 
 /// What a caller declares to request a capability lease for one crossing.
-struct CapabilityLeaseRequest {
+pub(crate) struct CapabilityLeaseRequest {
     /// Who authorizes the crossing (the grant authority). Default "wallet.network".
-    authority_provider_ref: String,
+    pub(crate) authority_provider_ref: String,
     /// What credential backs the lease: "scm:host:github" | "scm:connector:<id>" | "none".
-    backing_provider: String,
+    pub(crate) backing_provider: String,
     /// The operations this lease permits, e.g. ["scm.publish"], ["scm.pr.close"].
-    allowed_tools: Vec<String>,
+    pub(crate) allowed_tools: Vec<String>,
     /// The scoped resources the lease is bound to (remote_url, environment_id, pr_url, …).
-    resource_refs: Vec<String>,
+    pub(crate) resource_refs: Vec<String>,
     /// The wallet capability scopes the grant must carry.
-    scopes: Vec<String>,
+    pub(crate) scopes: Vec<String>,
     /// Stable domain tags so a grant can never be replayed across operation kinds.
-    policy_domain: String,
-    request_domain: String,
+    pub(crate) policy_domain: String,
+    pub(crate) request_domain: String,
     /// Request-specific binding params folded into the request hash (branch, pr#, intent, …).
-    request_facets: Value,
+    pub(crate) request_facets: Value,
     /// Connector whose sealed credential to resolve (None = authority-only crossing, no secret).
-    credential_connector_id: Option<String>,
+    pub(crate) credential_connector_id: Option<String>,
     /// Which sealed-credential vault to resolve from ("scm-credentials" for SCM, "connector-
     /// credentials" for the generic estate). The same gateway serves every connector family.
-    credential_store: String,
+    pub(crate) credential_store: String,
     /// Fail closed (428) if the credential is required but unresolved.
-    credential_required: bool,
+    pub(crate) credential_required: bool,
     /// Allow the github host git-auth fallback (a repo lease borrows the connected host token).
-    github_host_fallback: bool,
+    pub(crate) github_host_fallback: bool,
     /// Whether a receipt must be emitted for this crossing.
-    receipt_required: bool,
+    pub(crate) receipt_required: bool,
     /// How the backing authority is revoked (the revocation surface).
-    revocation_ref: String,
+    pub(crate) revocation_ref: String,
     /// Reason string surfaced on the 403 challenge (per-crossing for API clarity).
-    authority_reason: String,
+    pub(crate) authority_reason: String,
     /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
-    grant_value: Value,
+    pub(crate) grant_value: Value,
 }
 
 /// The authorized lease. `token` is for the daemon to USE; it is NEVER serialized or returned.
-struct AuthorizedCapabilityLease {
+pub(crate) struct AuthorizedCapabilityLease {
     /// The 9-field lease descriptor (persisted + embeddable in receipts; carries NO secret).
-    descriptor: Value,
-    token: Option<String>,
-    grant_ref: String,
-    credential_source: Option<String>,
-    credential_key_source: Option<String>,
+    pub(crate) descriptor: Value,
+    pub(crate) token: Option<String>,
+    pub(crate) grant_ref: String,
+    pub(crate) credential_source: Option<String>,
+    pub(crate) credential_key_source: Option<String>,
 }
 
 fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
@@ -9016,7 +9016,7 @@ async fn resolve_sealed_credential(
 /// → issue + persist the lease. Returns the authorized lease, or a (StatusCode, body) the caller
 /// returns verbatim. This is THE crossing — publish/abandon/future-connectors all route through it.
 /// Async because some credential kinds (github-app) MINT a fresh token (network) at resolution time.
-async fn authorize_capability_lease(
+pub(crate) async fn authorize_capability_lease(
     st: &Arc<DaemonState>,
     req: &CapabilityLeaseRequest,
 ) -> Result<AuthorizedCapabilityLease, (StatusCode, Value)> {
@@ -10425,12 +10425,12 @@ fn scm_key_source() -> &'static str {
         "local-mode-fallback"
     }
 }
-fn seal_scm_token(token: &str) -> Option<String> {
+pub(crate) fn seal_scm_token(token: &str) -> Option<String> {
     ioi_crypto::key_store::encrypt_key(token.as_bytes(), &scm_secret_passphrase())
         .ok()
         .map(hex::encode)
 }
-fn open_scm_token(sealed_hex: &str) -> Option<String> {
+pub(crate) fn open_scm_token(sealed_hex: &str) -> Option<String> {
     let bytes = hex::decode(sealed_hex).ok()?;
     let plain = ioi_crypto::key_store::decrypt_key(&bytes, &scm_secret_passphrase()).ok()?;
     String::from_utf8(plain.0.to_vec()).ok()

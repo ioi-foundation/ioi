@@ -12,6 +12,7 @@
 // Exposure is simulated with x-forwarded-host (the daemon's own detection lane).
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs
 
+import http from "node:http";
 import { chromium } from "playwright";
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -20,12 +21,29 @@ const EXPOSED = { "x-forwarded-host": "hv.example.com" };
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(method, url, body, headers) {
-  const r = await fetch(url.startsWith("http") ? url : `${DAEMON}${url}`, {
-    method, headers: { "content-type": "application/json", ...(headers || {}) },
-    body: body ? JSON.stringify(body) : undefined,
+// node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
+// fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
+function jd(method, url, body, headers) {
+  const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
+  const payload = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
+        headers: { "content-type": "application/json", ...(headers || {}), ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => { raw += c; });
+        res.on("end", () => {
+          let j = {};
+          try { j = JSON.parse(raw); } catch { j = {}; }
+          resolve({ status: res.statusCode, j });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
   });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 const BASE = "ioi-agent-policy://pol_fast_local";
 const preview = async (extra, headers) => jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", {

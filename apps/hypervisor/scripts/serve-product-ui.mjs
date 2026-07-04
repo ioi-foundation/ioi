@@ -834,9 +834,11 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol) {
+function renderOperations(ops, authpol, prov, provReceipts) {
   ops = ops || {};
   authpol = authpol || {};
+  prov = prov || {};
+  provReceipts = provReceipts || {};
   const sch = ops.scheduler || { automations: [] };
   const runs = ops.runs || {};
   const wh = ops.webhooks || {};
@@ -885,6 +887,21 @@ function renderOperations(ops, authpol) {
   const whSection = ((wh.accepted || 0) + (wh.rejected || 0))
     ? whStat + `<table><thead><tr><th>Automation</th><th>Result</th><th>Reason</th><th>Payload</th><th>Received</th></tr></thead><tbody>${(wh.recent || []).map(whRow).join("")}</tbody></table>`
     : `<div class="empty">No webhook triggers yet. Enable a webhook on an automation to populate webhook health.</div>`;
+  // Provider health — BYO ProviderAccount posture (preflight verdicts) + the crossing receipt
+  // trail. Spend transparency is stated in-surface: BYO provider spend is customer-borne, never
+  // hidden markup. Real records only (daemon /providers + /provider-receipts).
+  const provAccounts = prov.accounts || [];
+  const provStatusPill = (s) => (s === "available" || s === "credential_verified") ? "ok" : s === "revoked" ? "warn" : "muted";
+  const provRows = provAccounts.map((a) => `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><span class="pill ${provStatusPill(a.status)}">${CX_ESC(a.status || "")}</span><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(a.reason || "")}</div></td><td><span class="pill muted">customer-borne spend</span></td></tr>`).join("");
+  const provTable = provAccounts.length
+    ? `<table><thead><tr><th>Provider account</th><th>Kind</th><th>Health · preflight</th><th>Spend</th></tr></thead><tbody>${provRows}</tbody></table>`
+    : `<div class="empty">No BYO provider accounts yet. Add one under Environments → Provider accounts to run governed work on your own nodes.</div>`;
+  const prcs = (provReceipts.receipts || []).slice(0, 8);
+  const prcRows = prcs.map((r) => `<tr><td><code>${CX_ESC(r.op || "")}</code></td><td>${CX_ESC(r.provider || "")}</td><td><span class="pill ${r.outcome === "ok" ? "ok" : "warn"}">${CX_ESC(r.outcome || "")}</span></td><td><code style="font-size:10.5px">${CX_ESC(r.account_ref || r.environment_ref || "—")}</code></td><td>${CX_ESC(r.at || "")}</td></tr>`).join("");
+  const prcTable = prcs.length
+    ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th></tr></thead><tbody>${prcRows}</tbody></table>`
+    : `<div class="empty">No provider receipts yet — every provider crossing (success or failure) writes one.</div>`;
+  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
   // drawer join needs no client re-implementation of cron/interval rendering.
   const autosById = {};
@@ -917,7 +934,8 @@ function renderOperations(ops, authpol) {
     <h2 style="margin-top:0">Run health</h2>${runSection}
     <h2>Needs attention</h2>${attnSection}
     </div>${drawer}</div>
-    <h2>Webhook health</h2>${whSection}${script}`;
+    <h2>Webhook health</h2>${whSection}
+    ${provSection}${script}`;
   const posture = authpol.deployment_auth_posture || "";
   const rtNote = (authpol.rollout_trust || {}).note || "";
   const postureStrip = posture ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill ${posture === "authenticated_managed" ? "ok" : posture === "exposed_untrusted" ? "warn" : "muted"}">${CX_ESC(posture)}</span> · enforcement ${authpol.effective_enforced ? `<span class="pill ok">enforced</span>` : `<span class="pill muted">not enforced</span>`} · exposed ${authpol.exposed ? `<span class="pill warn">yes</span>` : `<span class="pill muted">no</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtNote)} · <a href="/__ioi/governance">Governance →</a></div></div>` : "";
@@ -942,14 +960,29 @@ function envPager(base, summary) {
 
 // Environments — substrate bridge. Reads the daemon env-summary projection (counts + a paged slim
 // slice); still fetches /environment-classes for posture. Does NOT pull the full env list.
-function renderEnvironments(summary, classes) {
+function renderEnvironments(summary, classes, providerAccounts) {
   summary = summary || {};
+  providerAccounts = providerAccounts || {};
   const enc = encodeURIComponent;
   const envs = summary.environments || [];
   const head = `<h1>Environments</h1><p class="sub">Where work runs — environment lifecycle, readiness, services/ports/tasks, and substrate posture. Open a session or workbench, or jump to its run timeline.</p>`;
   const posture = `<h2>Substrate posture</h2><div class="chips">${(classes || []).map((c) => `<span class="pill ${c.enabled !== false ? "ok" : "muted"}">${CX_ESC(c.id || "")} · ${CX_ESC(c.substrate_class || "")}${c.enabled === false ? " · disabled" : ""}</span>`).join("")}</div>`;
+  // Provider accounts — the BYO provider plane lives INSIDE Environments (canon: provider posture
+  // is not a peer control plane). Durable ProviderAccount records: kind, health, credential
+  // binding, preflight verdict — and the spend rule stated plainly: customer-borne, never markup.
+  const pAccounts = providerAccounts.accounts || [];
+  const paPill = (s) => s === "verified" ? "ok" : s === "revoked" ? "warn" : "muted";
+  const paRows = pAccounts.map((a) => {
+    const pf = a.preflight || {};
+    const ep = a.endpoint || {};
+    const target = a.kind === "baremetal_ssh" ? `${ep.user || "?"}@${ep.host || "?"}:${ep.port || 22}` : (ep.region || ep.endpoint || "—");
+    return `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><code style="font-size:11px">${CX_ESC(target)}</code></td><td><span class="pill ${a.credential_binding_ref ? "ok" : "muted"}">${a.credential_binding_ref ? "bound · sealed" : "unbound"}</span></td><td><span class="pill ${paPill(a.status)}">${CX_ESC(a.status || "")}</span>${pf.at ? `<div style="color:#878a93;font-size:11px;margin-top:1px">preflight ${pf.admit ? "admitted" : "refused"} · ${CX_ESC(pf.at)}</div>` : ""}</td><td><span class="pill muted">customer-borne</span></td></tr>`;
+  }).join("");
+  const paSection = `<div id="env-provider-accounts"><h2>Provider accounts</h2><p class="sub" style="margin:-4px 0 10px">Bring-your-own compute: durable provider accounts backing environment classes. ${CX_ESC(providerAccounts.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost")}.</p>${pAccounts.length
+    ? `<table><thead><tr><th>Account</th><th>Kind</th><th>Target</th><th>Credential</th><th>Status · preflight</th><th>Spend</th></tr></thead><tbody>${paRows}</tbody></table>`
+    : `<div class="empty">No provider accounts yet. Create one via <code>POST /v1/hypervisor/provider-accounts</code> (kinds: baremetal_ssh · aws · gcp · k8s · vast · akash), bind a sealed credential, and preflight it — spend stays customer-borne.</div>`}</div>`;
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Environments", head + posture + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
+    return automationsShell("Environments", head + posture + paSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
   }
   // Master-detail lifecycle console (source shape: providers-and-environments is a lifecycle
   // CONSOLE, not a flat list): rows select into a right-hand detail drawer that loads the full
@@ -1001,7 +1034,7 @@ function renderEnvironments(summary, classes) {
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
     }
   </script>`;
-  return automationsShell("Environments", styles + head + posture + table + script);
+  return automationsShell("Environments", styles + head + posture + paSection + table + script);
 }
 
 // ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
@@ -4013,23 +4046,26 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol] = await Promise.all([
+      const [r, authpol, prov, provReceipts] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/provider-receipts`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol));
+      res.end(renderOperations(r, authpol, prov, provReceipts));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
     if (pathname === "/__ioi/environments" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, cRes] = await Promise.all([
+      const [sRes, cRes, paRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEnvironments(sRes, cRes.environmentClasses || []));
+      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes));
       return;
     }
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
@@ -4062,8 +4098,25 @@ const server = http.createServer((req, res) => {
       return;
     }
     if (pathname === "/__ioi/api/ioi-agent/launch" && req.method === "POST") {
-      const phaseA = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
-      const a = phaseA ? await phaseA.json().catch(() => ({})) : { error: { code: "daemon_unavailable" } };
+      // node:http for both phases — undici fetch caps the response-header wait at a fixed 300s,
+      // but a synchronous launch legitimately runs to the daemon's execution budgets (compare:
+      // up to two 660s-reaped invocations + retry). The relay must outwait the daemon, not undici.
+      const daemonLaunch = (payload) => new Promise((resolve) => {
+        const target = new URL(`${DAEMON}/v1/hypervisor/ioi-agent/launch`);
+        const reqUp = http.request(
+          { hostname: target.hostname, port: target.port, path: target.pathname, method: "POST",
+            headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } },
+          (r) => {
+            let raw = "";
+            r.on("data", (c) => { raw += c; });
+            r.on("end", () => { let j = {}; try { j = JSON.parse(raw); } catch {} resolve({ status: r.statusCode, j }); });
+          },
+        );
+        reqUp.on("error", () => resolve(null));
+        reqUp.write(payload); reqUp.end();
+      });
+      const phaseA = await daemonLaunch(body.toString() || "{}");
+      const a = phaseA ? phaseA.j : { error: { code: "daemon_unavailable" } };
       if (!phaseA || (phaseA.status !== 403 && phaseA.status >= 400) || a.reason !== "execution_authority_required") {
         res.writeHead(phaseA ? phaseA.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
         res.end(JSON.stringify(a));
@@ -4077,8 +4130,8 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, error: { code: "wallet_grant_mint_failed", message: String(e?.message || e) } }));
         return;
       }
-      const phaseB = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ launch_id: a.launch_id, wallet_approval_grant: grant }) }).catch(() => null);
-      const b = phaseB ? await phaseB.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
+      const phaseB = await daemonLaunch(JSON.stringify({ launch_id: a.launch_id, wallet_approval_grant: grant }));
+      const b = phaseB ? phaseB.j : { ok: false, error: { code: "daemon_unavailable" } };
       res.writeHead(phaseB ? phaseB.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(b));
       return;
