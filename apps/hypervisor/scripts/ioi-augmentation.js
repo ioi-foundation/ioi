@@ -256,6 +256,8 @@
         if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; }
         const tab = e.target.closest("[data-ns-branch]");
         if (tab) { el.setAttribute("data-branch", tab.getAttribute("data-ns-branch")); renderNsPreview(); return; }
+        const venueBtn = e.target.closest(".ioi-ns-venue-opt");
+        if (venueBtn) { nsChooseVenue(venueBtn.getAttribute("data-venue")); return; }
         if (e.target.closest("#ioi-ns-launch")) { nsLaunch(); return; }
         if (e.target.closest("#ioi-ns-retry")) { nsCtx = null; loadNsContext(); return; }
         if (e.target.closest('a[href^="/__ioi/"]')) { el.classList.remove("open"); } // handoff opens in-shell via the capture handler
@@ -263,6 +265,7 @@
       el.addEventListener("change", (e) => {
         if (!e.target || !e.target.id) return;
         if (e.target.id === "ioi-ns-harness") { nsHarnessTouched = true; renderNsKnobs(); }
+        if (e.target.id === "ioi-ns-venue-provider") { nsChooseVenue(nsCurrentVenue()); return; }
         if (e.target.id === "ioi-ns-strategy") nsStrategyTouched = true;
         if (e.target.id === "ioi-ns-policy") {
           // The policy sets the strategy default (still user-overridable afterwards).
@@ -331,6 +334,7 @@
       "</select></div>" +
       '<div class="ioi-ns-field"><label>On failure</label><select id="ioi-ns-failure"><option value="continue_partial" selected>Continue with explicit partial result</option><option value="block">Block and report</option></select></div>' +
       "</div>" +
+      nsVenueSection() +
       '<div class="ioi-ns-tabs"><button class="ioi-ns-tab" data-ns-branch="project">Start from project</button><button class="ioi-ns-tab" data-ns-branch="url">Start from URL</button><button class="ioi-ns-tab" data-ns-branch="scratch">Start from scratch</button></div>' +
       '<div class="ioi-ns-pane project"><div class="ioi-ns-field"><label>Project</label><select id="ioi-ns-project">' + projOpts + "</select></div></div>" +
       '<div class="ioi-ns-pane url"><div class="ioi-ns-field"><label>Repository / PR / issue URL</label><input id="ioi-ns-url" placeholder="https://…"></div></div>' +
@@ -350,7 +354,85 @@
     const def = profiles.find((p) => p.default && !nsHarnessReason(p));
     if (def) hp.value = def.profile_ref;
     nsHarnessTouched = false;
+    nsRenderVenueDetail();
     renderNsKnobs();
+  }
+  // ── Placement venue picker — DAEMON truth (placement/venues + venue-policy); the choice is
+  // durable, explicit, and never hidden behind auto. Fee bases are declared copy, never fee
+  // objects; "Let Hypervisor choose" renders planned/disabled-looking until the
+  // decentralized.cloud candidate plane exists (choosing it records an advisory preference).
+  function nsPlacement() { return (nsCtx && nsCtx.placement) || { venues: [], policy: null }; }
+  function nsVenueFor(id) { return (nsPlacement().venues || []).find(function (v) { return v.venue === id; }) || null; }
+  function nsCurrentVenue() {
+    var pol = nsPlacement().policy;
+    return (pol && pol.venue) || "run_local";
+  }
+  function nsVenueSection() {
+    var pl = nsPlacement();
+    if (!pl.venues || !pl.venues.length) return "";
+    var current = nsCurrentVenue();
+    var btns = pl.venues.map(function (v) {
+      var planned = v.status === "planned";
+      var cls = "ioi-ns-venue-opt" + (v.venue === current ? " sel" : "") + (planned ? " planned" : "");
+      var badge = planned ? ' <span class="ioi-ns-venue-badge">planned</span>'
+        : (v.available === false ? ' <span class="ioi-ns-venue-badge warn">unavailable</span>' : "");
+      return '<button type="button" class="' + cls + '" data-venue="' + esc(v.venue) + '" title="' + esc(v.summary || "") + '">' + esc(v.display_name) + badge + "</button>";
+    }).join("");
+    return '<div class="ioi-ns-field" id="ioi-ns-placement"><label>Where should this run? (placement venue — explicit, never hidden)</label>' +
+      '<div id="ioi-ns-venues">' + btns + "</div>" +
+      '<div id="ioi-ns-venue-provider-wrap" style="display:none;margin-top:6px"><select id="ioi-ns-venue-provider"></select></div>' +
+      '<div id="ioi-ns-venue-fee" class="ioi-ns-venue-fee"></div></div>';
+  }
+  function nsRenderVenueDetail() {
+    var current = nsCurrentVenue();
+    var v = nsVenueFor(current);
+    var fee = document.getElementById("ioi-ns-venue-fee");
+    var wrap = document.getElementById("ioi-ns-venue-provider-wrap");
+    var sel = document.getElementById("ioi-ns-venue-provider");
+    document.querySelectorAll(".ioi-ns-venue-opt").forEach(function (b) { b.classList.toggle("sel", b.getAttribute("data-venue") === current); });
+    if (!v || !fee) return;
+    var f = v.fee || {};
+    var lines = ['<b>' + esc((f.fee_basis || "none")) + "</b> — " + esc(f.fee_explanation || "")];
+    if (v.availability_note) lines.push('<span class="nsp-warn">' + esc(v.availability_note) + "</span>");
+    if (v.status === "planned") lines.push('<span class="nsp-warn">' + esc(v.planned_reason || "planned") + "</span>");
+    if (v.quote_policy) lines.push('<span style="color:#6f7280">' + esc(v.quote_policy) + "</span>");
+    fee.innerHTML = lines.join("<br>");
+    var needsProvider = current === "use_my_infrastructure" || current === "pick_provider";
+    if (wrap) wrap.style.display = needsProvider ? "block" : "none";
+    if (needsProvider && sel) {
+      var pol = nsPlacement().policy || {};
+      var cards = (v.providers || []).filter(function (p) { return p.connected; });
+      sel.innerHTML = cards.length
+        ? cards.map(function (p) {
+            return '<option value="' + esc(p.account_ref) + '"' + (pol.provider_account_ref === p.account_ref ? " selected" : "") + ">" + esc(p.display_name || p.account_ref) + " · " + esc(p.kind) + " — " + esc(p.status) + "</option>";
+          }).join("")
+        : '<option value="">(no connected account for this venue yet)</option>';
+    }
+  }
+  function nsChooseVenue(venue) {
+    var body = { venue: venue };
+    var v = nsVenueFor(venue);
+    var sel = document.getElementById("ioi-ns-venue-provider");
+    var needsProvider = venue === "use_my_infrastructure" || venue === "pick_provider";
+    if (needsProvider) {
+      var cards = ((v && v.providers) || []).filter(function (p) { return p.connected; });
+      var selBelongs = sel && sel.value && cards.some(function (p) { return p.account_ref === sel.value; });
+      var ref = (selBelongs ? sel.value : "") || (cards[0] && cards[0].account_ref) || "";
+      if (!ref) {
+        var fee = document.getElementById("ioi-ns-venue-fee");
+        if (fee) fee.innerHTML = '<span class="nsp-warn">This venue pins a ProviderAccount — connect one under Environments → Provider accounts first.</span>';
+        return;
+      }
+      body.provider_account_ref = ref;
+    }
+    fetch("/__ioi/api/placement/venue-policy", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.policy) { nsCtx.placement.policy = j.policy; }
+        nsRenderVenueDetail();
+        renderNsPreview();
+      })
+      .catch(function () {});
   }
   function renderNsKnobs() {
     const p = nsProfile();
@@ -425,6 +507,14 @@
           lines.push('<span class="nsp-k">Intelligence</span> memory space <code>' + esc((j.memory_space_refs || [])[0] || "") + '</code> — ' + intel.counts.included_entries + ' entr' + (intel.counts.included_entries === 1 ? "y" : "ies") + ' + ' + intel.counts.included_skills + ' skill' + (intel.counts.included_skills === 1 ? "" : "s") + ' projected · ' + intel.counts.redacted + ' redacted · ' + intel.counts.excluded + ' excluded' + ((intel.connector_context_refs || []).length ? ' · connector context: ' + intel.connector_context_refs.length + ' ref(s)' : ' · no connector context') + (aff ? ' · affinity: <b>' + esc(aff.title || "") + '</b>' : ""));
         }
         lines.push('<span class="nsp-k">Isolation</span> ' + esc(j.expected_isolation || ""));
+        if (j.placement) {
+          var pf = j.placement.fee || {};
+          lines.push('<span class="nsp-k">Placement</span> venue <b>' + esc(j.placement.venue || "run_local") + "</b>"
+            + (j.placement.provider_account_ref ? " · pinned <code>" + esc(j.placement.provider_account_ref) + "</code>" : "")
+            + (j.placement.advisory ? ' <span class="nsp-warn">(advisory placeholder — effective venue ' + esc(j.placement.effective_venue || "run_local") + ")</span>" : "")
+            + ' · fee basis <b>' + esc(pf.fee_basis || "none") + "</b> <span style=\"color:#6f7280\">(" + esc(pf.fee_explanation || "") + ")</span>");
+          if ((j.placement.receipts_expected || []).length) lines.push('<span class="nsp-k">Venue receipts</span> ' + j.placement.receipts_expected.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
+        }
         lines.push('<span class="nsp-k">Receipts</span> ' + (j.expected_receipt_refs || []).map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
         lines.push('<span class="nsp-k">Admission</span> ' + esc(((j.admission_preview || {}).kinds || []).join(" · ")) + " — " + esc((j.admission_preview || {}).authority || ""));
         box.innerHTML = lines.join("<br>");
@@ -692,6 +782,14 @@
   .ioi-ns-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;margin-bottom:4px;font-weight:600;}
   .ioi-ns-field select,.ioi-ns-field input,.ioi-ns-field textarea{width:100%;box-sizing:border-box;background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:7px 10px;font:12.5px system-ui,sans-serif;resize:vertical;}
   .ioi-ns-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+  #ioi-ns-venues{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px;}
+  .ioi-ns-venue-opt{border:1px solid #2a2c33;border-radius:9px;background:#101116;color:#c9ccd4;padding:7px 12px;font-size:12.5px;cursor:pointer;}
+  .ioi-ns-venue-opt:hover{background:#15171c;}
+  .ioi-ns-venue-opt.sel{border-color:#3c9d64;background:#10241a;color:#fff;}
+  .ioi-ns-venue-opt.planned{opacity:.65;border-style:dashed;}
+  .ioi-ns-venue-badge{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#8f939d;border:1px solid #2a2c33;border-radius:6px;padding:1px 5px;margin-left:4px;}
+  .ioi-ns-venue-badge.warn{color:#e2b93d;border-color:#4c4322;}
+  .ioi-ns-venue-fee{border-left:2px solid #2a2c33;margin-top:6px;padding:4px 0 4px 10px;font-size:12px;color:#9a9da6;}
   .ioi-ns-preview{border:1px solid #24262d;border-radius:10px;background:#0c0d10;padding:12px 14px;margin:6px 0 12px;font-size:12.5px;}
   .ioi-ns-preview b{color:#fff;}
   .ioi-ns-preview .nsp-k{color:#878a93;display:inline-block;min-width:96px;}

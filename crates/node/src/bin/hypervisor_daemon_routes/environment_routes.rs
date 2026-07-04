@@ -1803,6 +1803,17 @@ pub(crate) async fn handle_environment_create(
         "info",
         "environment created (local_workspace_provider_v0)",
     );
+    // Snapshot the placement venue policy in force at create (provenance — the picker's chosen
+    // venue is consumable estate truth; substrate stays local until relocation lands).
+    {
+        let policy = super::orchestration_routes::load_venue_policy(&st.data_dir);
+        env["spec"]["placement_venue"] = json!({
+            "venue": policy["venue"],
+            "effective_venue": policy.get("effective_venue").cloned().unwrap_or_else(|| policy["venue"].clone()),
+            "provider_account_ref": policy.get("provider_account_ref").cloned().unwrap_or(serde_json::Value::Null),
+            "advisory": policy.get("advisory").cloned().unwrap_or(json!(false)),
+        });
+    }
     persist_env(&st.data_dir, &env)?;
     Ok(Json(json!({ "environment": env })))
 }

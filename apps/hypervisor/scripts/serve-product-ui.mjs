@@ -740,13 +740,15 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
-  const title = (e) => e.kind === "harness_execution"
+  const title = (e) => e.kind === "provider_crossing"
+    ? `provider ${CX_ESC(e.op || "op")} · ${CX_ESC(e.provider || "")} ${CX_ESC(String(e.account_ref || e.environment_ref || "").slice(-22))}`
+    : e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
     : e.kind === "goal_run" ? `IOI Agent coordination · ${CX_ESC(String(e.normalized_goal || "").slice(0, 48))}`
     : e.kind === "goal_run_invocation" ? `IOI Agent · ${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")}`
@@ -798,6 +800,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.kind==='harness_execution'){h+=row('Harness',e.harness)+row('Session',e.session_ref)+row('Profile',e.profile_ref)+row('Files changed',(e.files_written||[]).join(', '))+row('Receipt',e.receipt_ref);
         if(e.implementation_result){h+=row('Adapter',e.implementation_result.adapter)+row('Model',e.implementation_result.model)+row('Exit code',e.implementation_result.exit_code);}}
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
+      if(e.kind==='provider_crossing'){h+=row('Op',e.op)+row('Provider',e.provider)+row('Account',e.account_ref)+row('Environment',e.environment_ref)+row('Receipt',e.receipt_ref)+row('Grant',e.grant_ref)+row('Cost estimate',e.cost_estimate?JSON.stringify(e.cost_estimate):'');}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
       // Backlinks — this ledger entry is an executable cross-reference map: every cross-object
       // ref it names is rendered as a navigable link into the surface that owns that object, so
@@ -813,6 +816,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
       if(e.candidate_ref){links+=bl('Publish candidate',e.candidate_ref,'/__ioi/marketplace');}
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
+      if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
@@ -897,9 +901,9 @@ function renderOperations(ops, authpol, prov, provReceipts) {
     ? `<table><thead><tr><th>Provider account</th><th>Kind</th><th>Health · preflight</th><th>Spend</th></tr></thead><tbody>${provRows}</tbody></table>`
     : `<div class="empty">No BYO provider accounts yet. Add one under Environments → Provider accounts to run governed work on your own nodes.</div>`;
   const prcs = (provReceipts.receipts || []).slice(0, 8);
-  const prcRows = prcs.map((r) => `<tr><td><code>${CX_ESC(r.op || "")}</code></td><td>${CX_ESC(r.provider || "")}</td><td><span class="pill ${r.outcome === "ok" ? "ok" : "warn"}">${CX_ESC(r.outcome || "")}</span></td><td><code style="font-size:10.5px">${CX_ESC(r.account_ref || r.environment_ref || "—")}</code></td><td>${CX_ESC(r.at || "")}</td></tr>`).join("");
+  const prcRows = prcs.map((r) => `<tr><td><code>${CX_ESC(r.op || "")}</code></td><td>${CX_ESC(r.provider || "")}</td><td><span class="pill ${r.outcome === "ok" ? "ok" : "warn"}">${CX_ESC(r.outcome || "")}</span></td><td><code style="font-size:10.5px">${CX_ESC(r.account_ref || r.environment_ref || "—")}</code></td><td>${CX_ESC(r.at || "")}</td><td><a href="/__ioi/work-ledger" title="provider crossings in the proof stream">ledger →</a></td></tr>`).join("");
   const prcTable = prcs.length
-    ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th></tr></thead><tbody>${prcRows}</tbody></table>`
+    ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th><th>Proof</th></tr></thead><tbody>${prcRows}</tbody></table>`
     : `<div class="empty">No provider receipts yet — every provider crossing (success or failure) writes one.</div>`;
   const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
@@ -960,7 +964,46 @@ function envPager(base, summary) {
 
 // Environments — substrate bridge. Reads the daemon env-summary projection (counts + a paged slim
 // slice); still fetches /environment-classes for posture. Does NOT pull the full env list.
-function renderEnvironments(summary, classes, providerAccounts) {
+// Placement venue cards — the four explicit choices over the BYO provider plane. Fee bases are
+// declared copy (never fee objects); "Let Hypervisor choose" renders planned until the
+// decentralized.cloud candidate plane exists. Provider cards show connected-account state,
+// verified/unverified + preflight reasons, runtime classes, capability hints, and cost owner.
+function renderPlacementVenues(venuesRes, policyRes) {
+  const venues = (venuesRes || {}).venues || [];
+  if (!venues.length) return "";
+  const policy = (policyRes || {}).policy || {};
+  const hintChips = (h) => h ? ["gpu", "persistent_storage", "ip", "snapshot"].map((k) => `<span class="pill muted" title="${CX_ESC(k)}">${CX_ESC(k.replace("persistent_storage", "storage"))}: ${CX_ESC(h[k] || "?")}</span>`).join(" ") : "";
+  const providerCard = (p) => `<div style="border:1px solid #1b1d23;border-radius:9px;padding:9px 11px;margin:6px 0">
+      <b>${CX_ESC(p.display_name || p.kind)}</b> <span class="pill muted">${CX_ESC(p.kind || "")}</span>
+      <span class="pill ${p.status === "verified" ? "ok" : p.connected === false ? "muted" : "warn"}">${CX_ESC(p.status || "")}</span>
+      <span class="pill muted">cost owner: ${CX_ESC(p.cost_owner || "customer")}</span>
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(p.reason || p.connect_hint || "")}</div>
+      <div class="chips" style="margin-top:4px">${hintChips(p.capability_hints)}</div>
+      <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">classes: ${CX_ESC(((p.environment_classes || {}).supported || []).join(", ") || (p.environment_classes || {}).note || "—")} · ${CX_ESC(p.lifecycle || "")}</div>
+      ${p.account_ref ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0"><code>${CX_ESC(p.account_ref)}</code></div>` : ""}
+    </div>`;
+  const card = (v) => {
+    const chosen = policy.venue === v.venue;
+    const fee = v.fee || {};
+    return `<div class="venue-card${chosen ? " chosen" : ""}" data-venue="${CX_ESC(v.venue)}" style="border:1px solid ${chosen ? "#3c9d64" : "#24262d"};border-radius:12px;background:#0c0d10;padding:12px 14px">
+      <b>${CX_ESC(v.display_name)}</b>
+      ${v.status === "planned" ? `<span class="pill muted" style="border-style:dashed">planned</span>` : v.available ? `<span class="pill ok">available</span>` : `<span class="pill warn">unavailable</span>`}
+      ${chosen ? `<span class="pill ok">chosen</span>` : ""}
+      <div class="sub" style="margin:4px 0 6px;text-transform:none;letter-spacing:0">${CX_ESC(v.summary || "")}</div>
+      <div style="font-size:12px"><b>fee basis: ${CX_ESC(fee.fee_basis || "none")}</b> · cost owner: ${CX_ESC(fee.cost_owner || "customer")}</div>
+      <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(fee.fee_explanation || "")}</div>
+      ${v.availability_note ? `<div class="sub" style="margin:4px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.availability_note)}</div>` : ""}
+      ${v.planned_reason ? `<div class="sub" style="margin:4px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.planned_reason)}</div>` : ""}
+      ${v.quote_policy ? `<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(v.quote_policy)}</div>` : ""}
+      ${(v.environment_classes || {}).supported && v.environment_classes.supported.length ? `<div class="chips" style="margin-top:6px"><span class="chiplabel">classes</span>${v.environment_classes.supported.map((c) => `<span class="pill muted">${CX_ESC(c)}</span>`).join("")}</div>` : ""}
+      ${(v.providers || []).map(providerCard).join("")}
+    </div>`;
+  };
+  return `<div id="env-placement-venues"><h2>Placement</h2><p class="sub" style="margin:-4px 0 10px">Where governed work runs — an explicit choice, never hidden behind auto. Pick a venue in New Session; the chosen policy is daemon truth (<code>placement-venue-policy</code>). ${CX_ESC((venuesRes || {}).spend_rule || "")}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">${venues.map(card).join("")}</div></div>`;
+}
+
+function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes) {
   summary = summary || {};
   providerAccounts = providerAccounts || {};
   const enc = encodeURIComponent;
@@ -981,8 +1024,9 @@ function renderEnvironments(summary, classes, providerAccounts) {
   const paSection = `<div id="env-provider-accounts"><h2>Provider accounts</h2><p class="sub" style="margin:-4px 0 10px">Bring-your-own compute: durable provider accounts backing environment classes. ${CX_ESC(providerAccounts.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost")}.</p>${pAccounts.length
     ? `<table><thead><tr><th>Account</th><th>Kind</th><th>Target</th><th>Credential</th><th>Status · preflight</th><th>Spend</th></tr></thead><tbody>${paRows}</tbody></table>`
     : `<div class="empty">No provider accounts yet. Create one via <code>POST /v1/hypervisor/provider-accounts</code> (kinds: baremetal_ssh · aws · gcp · k8s · vast · akash), bind a sealed credential, and preflight it — spend stays customer-borne.</div>`}</div>`;
+  const venueSection = renderPlacementVenues(venuesRes, policyRes);
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Environments", head + posture + paSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
+    return automationsShell("Environments", head + posture + venueSection + paSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
   }
   // Master-detail lifecycle console (source shape: providers-and-environments is a lifecycle
   // CONSOLE, not a flat list): rows select into a right-hand detail drawer that loads the full
@@ -1034,7 +1078,7 @@ function renderEnvironments(summary, classes, providerAccounts) {
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
     }
   </script>`;
-  return automationsShell("Environments", styles + head + posture + paSection + table + script);
+  return automationsShell("Environments", styles + head + posture + venueSection + paSection + table + script);
 }
 
 // ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
@@ -4059,13 +4103,15 @@ const server = http.createServer((req, res) => {
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
     if (pathname === "/__ioi/environments" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, cRes, paRes] = await Promise.all([
+      const [sRes, cRes, paRes, pvRes, ppRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/placement/venues`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes));
+      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes));
       return;
     }
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
@@ -4136,15 +4182,30 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify(b));
       return;
     }
+    // Placement venue policy relay — the picker's durable choice is DAEMON truth, not UI state.
+    if (pathname === "/__ioi/api/placement/venue-policy") {
+      const method = req.method === "PUT" || req.method === "POST" ? "PUT" : "GET";
+      const r = await fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: method === "PUT" ? (body.toString() || "{}") : undefined,
+      }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
+      res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(j));
+      return;
+    }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr, et, lp] = await Promise.all([
+      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/editor-targets"),
         J("/v1/hypervisor/ioi-agent/launch-policies?status=active"),
+        J("/v1/hypervisor/placement/venues"),
+        J("/v1/hypervisor/placement/venue-policy"),
       ]);
       const environments = (envs.environments || [])
         .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
@@ -4185,6 +4246,7 @@ const server = http.createServer((req, res) => {
           openable: (t.open_posture || {}).openable === true,
           reason: (t.open_posture || {}).probe?.evidence?.note || ((t.open_posture || {}).probe?.evidence?.required_binary ? `${(t.open_posture || {}).probe.evidence.required_binary} not on PATH` : ""),
         })),
+        placement: { venues: plVenues.venues || [], policy: plPolicy.policy || null, fee_bases: plVenues.fee_bases || {} },
       }));
       return;
     }

@@ -1550,6 +1550,19 @@ async fn async_main() -> anyhow::Result<()> {
             get(orchestration_routes::handle_placement_metrics),
         )
         .route(
+            "/v1/hypervisor/placement/venues",
+            get(orchestration_routes::handle_placement_venues),
+        )
+        .route(
+            "/v1/hypervisor/placement/venue-policy",
+            get(orchestration_routes::handle_venue_policy_get)
+                .put(orchestration_routes::handle_venue_policy_put),
+        )
+        .route(
+            "/v1/hypervisor/placement/preview",
+            get(orchestration_routes::handle_placement_preview),
+        )
+        .route(
             "/v1/hypervisor/warm-pools",
             get(orchestration_routes::handle_warm_pool_list)
                 .post(orchestration_routes::handle_warm_pool_create),
