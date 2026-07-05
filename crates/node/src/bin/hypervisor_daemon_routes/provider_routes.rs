@@ -422,7 +422,7 @@ const ACCOUNT_KIND: &str = "provider-accounts";
 const EXPOSURE_KIND: &str = "provider-spend-exposures";
 const CREDENTIAL_VAULT: &str = "provider-credentials";
 const MATERIAL_KIND: &str = "provider-materials";
-const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
+const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "azure", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
 
 fn sha256_bytes(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -475,6 +475,18 @@ fn kind_capabilities(kind: &str) -> Value {
             "privacy": "customer_cloud_iam_scoped",
             "custody": "Standard unless proven otherwise; provider-native instance/disk/snapshot ids are evidence only",
             "provider_spend": "customer-borne on-demand spend",
+            "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
+        "azure" => json!({ "locality": "remote", "isolation": "vm_kernel",
+            "lane": "ENTERPRISE customer-cloud — your Azure subscription, your service-principal boundary, your Activity Log",
+            "authority_model": "service-principal / managed-identity over Azure Resource Manager — the sealed credential's Entra scope bounds every action (entra_service_principal_scope_dependent)",
+            "scoping": "subscription / RESOURCE GROUP / location posture recorded per VM",
+            "network_posture": "VNet/subnet/NSG posture recorded per VM; SSH requires an NSG allow rule + a reachable public IP — private-only or NSG-denied postures fail closed, never fake-ready",
+            "instance_lifecycle": "VM create → boot → stop/DEALLOCATE/start/restart → delete (stopped still bills compute; only DEALLOCATED halts compute billing; managed disks keep billing until delete)",
+            "volumes": "managed OS disk posture recorded; native disk/snapshot/resource ids are EVIDENCE only — daemon custody state roots remain restore truth",
+            "restore": true, "remote": true, "credentials_required": true, "authority_gated": true,
+            "privacy": "customer_cloud_iam_scoped",
+            "custody": "Standard unless proven otherwise; provider-native VM/disk/snapshot/resource ids are evidence only",
+            "provider_spend": "customer-borne pay-as-you-go spend",
             "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
@@ -2362,6 +2374,338 @@ impl EnvironmentProvider for GcpProvider {
     }
 }
 
+// --- azure GUARDED LIFECYCLE: the third ENTERPRISE hyperscaler lane and the first fully    ---
+// --- NEW account kind — Azure semantics: service-principal authority over ARM,              ---
+// --- subscription/resource-group/location scoping, VNet/subnet/NSG posture, stopped-vs-     ---
+// --- DEALLOCATED billing honesty, managed OS disks. Native ids EVIDENCE ONLY.               ---
+const AZURE_INSTANCE_KIND: &str = "azure-instances";
+
+fn load_azure_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    let mut mine: Vec<Value> = read_record_dir(data_dir, AZURE_INSTANCE_KIND)
+        .into_iter()
+        .filter(|i| text(i, "account_id") == account_id && text(i, "environment_ref") == env_ref)
+        .collect();
+    mine.sort_by(|a, b| text(a, "record_id").cmp(text(b, "record_id")));
+    mine.pop()
+}
+
+struct AzureProvider {
+    account: Value,
+}
+impl AzureProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_azure_instance(data_dir, self.account_id(), env_ref)
+    }
+    fn save_instance(&self, data_dir: &str, inst: &Value) {
+        let id = text(inst, "record_id").to_string();
+        let _ = persist_record(data_dir, AZURE_INSTANCE_KIND, &id, inst);
+    }
+    fn push_event(inst: &mut Value, kind: &str, detail: String) {
+        let mut events = inst.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
+                            "execution_mode": inst["execution_mode"] }));
+        inst["events"] = json!(events);
+    }
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let inst = self.instance(data_dir, env_ref)
+            .ok_or("azure_vm_absent — provision with the quote-gated create op first")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("azure_vm_deleted — this instance was already deleted".into());
+        }
+        let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
+        if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+            return Err("azure_ssh_bootstrap_unknown — the VM has no proven ssh endpoint (it gains one only after boot polling proves readiness through a reachable VNet/NSG posture; VM provisioning state alone is never readiness)".into());
+        }
+        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("azure_ssh_key_unreadable: {e}"))?;
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("azure-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (azure vm)", text(&self.account, "display_name")),
+            "kind": "azure", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+    fn network_reachable(inst: &Value) -> Result<(), String> {
+        let external_ip = inst.pointer("/network_posture/public_ip").and_then(Value::as_bool).unwrap_or(true);
+        let ingress = inst.pointer("/network_posture/ssh_ingress").and_then(Value::as_bool).unwrap_or(true);
+        if !external_ip {
+            return Err("azure_ssh_ingress_unreachable — private-only network posture (no public IP): SSH readiness cannot be proven; workspace ops fail closed, never fake-ready. Attach a public IP / reachable path (Bastion) or use a BYO node inside the VNet".into());
+        }
+        if !ingress {
+            return Err("azure_ssh_ingress_unreachable — the NSG posture declares no SSH allow rule: readiness cannot be proven; add an NSG allow rule for the daemon's source or use a reachable path".into());
+        }
+        Ok(())
+    }
+}
+impl EnvironmentProvider for AzureProvider {
+    fn id(&self) -> &str {
+        "azure-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("azure");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, delete required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded azure VM enterprise lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the service-principal credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.instance(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("azure_vm_already_provisioned — {} is live for this environment; delete it first", text(&existing, "vm_name")));
+            }
+        }
+        let mode = self.mode();
+        if mode == "live" {
+            if load_account_credential(data_dir, self.account_id()).is_none() {
+                return Err("azure_live_credentials_absent — live ARM lifecycle needs a bound, resolvable service-principal credential; live execution is never claimed unauthenticated".into());
+            }
+            return Err("azure_live_api_flow_not_implemented — the ARM virtualMachines create/get flow lands with the live harness cut; a fake VM is never minted".into());
+        }
+        if mode != "simulator" {
+            return Err("azure_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+        }
+        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
+            return Err("azure_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+        }
+        let stamp = nanos();
+        let record_id = format!("azinst_{stamp:x}");
+        let vm_name = format!("sim-vm-{stamp:x}");
+        let disk_name = format!("sim-osdisk-{stamp:x}");
+        let subscription = {
+            let p = plan.get("subscription_id").and_then(Value::as_str).unwrap_or("");
+            if p.is_empty() { "sim-subscription" } else { p }
+        };
+        let resource_group = {
+            let p = plan.get("resource_group").and_then(Value::as_str).unwrap_or("");
+            if p.is_empty() { "sim-rg" } else { p }
+        };
+        let location = text(plan, "location").to_string();
+        let network = plan.get("network_posture").cloned()
+            .unwrap_or_else(|| json!({ "posture_label": "default_vnet_simulator", "public_ip": true, "ssh_ingress": true }));
+        let native_path = format!("/subscriptions/{subscription}/resourceGroups/{resource_group}/providers/Microsoft.Compute/virtualMachines/{vm_name}");
+        let mut inst = json!({
+            "schema_version": "ioi.hypervisor.azure-instance.v1",
+            "record_id": record_id, "vm_name": vm_name,
+            "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+            "environment_ref": env_ref, "status": "Creating",
+            "execution_mode": "simulated_control_plane",
+            "subscription_id": subscription, "resource_group": resource_group, "location": location, "vm_size": plan["vm_size"],
+            "network_posture": network,
+            "os_disk": { "disk_name": disk_name, "gb": plan["disk_gb"],
+                         "delete_with_vm": true,
+                         "note": "SIMULATED managed OS disk — native disk ids are evidence only, never restore truth" },
+            "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+            "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+            "teardown_policy": plan["teardown_policy"],
+            "sim_ssh": sim_ssh,
+            "ssh": Value::Null,
+            "events": [],
+            "provider_native": { "resource_id": native_path, "disk_name": disk_name,
+                "note": "SIMULATED ARM resource/managed-disk ids — evidence only, never restore or billing truth; no real Azure VM exists" },
+            "created_at": iso_now(),
+        });
+        let posture_label = inst.pointer("/network_posture/posture_label").and_then(Value::as_str).unwrap_or("?").to_string();
+        Self::push_event(&mut inst, "vm_create_accepted", format!("{} in {location} ({posture_label}) — Activity Log refs land with the live harness (the Activity Log is the customer's)", text(plan, "vm_size")));
+        self.save_instance(data_dir, &inst);
+        Ok(json!({
+            "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+            "instance": { "vm_name": vm_name, "status": "Creating", "execution_mode": "simulated_control_plane" },
+            "subscription_id": subscription, "resource_group": resource_group, "location": location,
+            "network_posture": inst["network_posture"],
+            "os_disk": inst["os_disk"],
+            "provider_native": inst["provider_native"],
+            "ssh_ready": false,
+            "live_provisioning_not_run": true,
+            "note": "VM creating — run start to boot-poll; workspace ops fail closed (azure_ssh_bootstrap_unknown) until ssh readiness is PROVEN through a reachable VNet/NSG posture (provisioning state alone is never readiness)",
+            "teardown_required": true,
+        }))
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("azure_vm_deleted".into());
+        }
+        let mut boot_evidence = Value::Null;
+        if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
+            if text(&inst, "execution_mode") == "live" {
+                return Err("azure_live_api_flow_not_implemented — no live VM exists to boot-poll".into());
+            }
+            Self::network_reachable(&inst)?;
+            let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
+            boot_evidence = json!({ "polled_attempts": 1, "vm_state": "VM running",
+                "public_ip": sim_ssh["host"], "ssh_port": sim_ssh.get("port").cloned().unwrap_or(json!(22)),
+                "posture": inst["network_posture"], "proven_at": iso_now(),
+                "note": "simulated boot resolved through the declared reachable VNet/NSG posture — 'VM running' state alone was not treated as readiness" });
+            inst["ssh"] = sim_ssh;
+            inst["ssh_ready_evidence"] = boot_evidence.clone();
+            Self::push_event(&mut inst, "boot_proven", "ssh readiness proven through the reachable VNet/NSG posture".into());
+            self.save_instance(data_dir, &inst);
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            lane.create(data_dir, env_ref, &json!({}))?;
+            inst["workspace_bootstrapped"] = json!(true);
+        }
+        lane.start(data_dir, env_ref)?;
+        let was_stopped = matches!(text(&inst, "status"), "VM deallocated" | "VM stopped");
+        inst["status"] = json!("VM running");
+        Self::push_event(&mut inst, "vm_started", if was_stopped {
+            "started from deallocated — compute billing resumes; a dynamic public IP changes across deallocate/start (a static IP pins it); the simulator retains the fixture endpoint".into()
+        } else { "workspace running".into() });
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "vm_name": inst["vm_name"], "status": "VM running", "ssh_ready": true,
+                   "boot_evidence": boot_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // REAL Azure stop semantics, stated exactly: a merely-STOPPED VM (guest shutdown)
+        // KEEPS billing compute; only DEALLOCATED releases the hardware and halts compute
+        // billing. This op DEALLOCATES (the honest cost-control default) and says so;
+        // managed disks (and any static public IP) keep billing until delete either way.
+        let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        inst["status"] = json!("VM deallocated");
+        Self::push_event(&mut inst, "vm_deallocated", "DEALLOCATED (not merely stopped) — compute billing halts; a merely-stopped VM would keep billing compute; managed disks keep billing until delete".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "vm_name": inst["vm_name"], "status": "VM deallocated",
+                   "deallocated": true,
+                   "spend_note": "Azure stop-vs-deallocate honesty: this op DEALLOCATES — compute billing halts only because the VM is deallocated (a merely-stopped VM keeps billing compute); managed disks keep billing until delete — the exposure stays open until teardown",
+                   "lane": stopped }))
+    }
+    fn restart(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // Azure VM restart: in-place restart, endpoint retained (no deallocation).
+        let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let _ = lane.stop(data_dir, env_ref);
+        lane.start(data_dir, env_ref)?;
+        inst["status"] = json!("VM running");
+        Self::push_event(&mut inst, "vm_restarted", "in-place restart — endpoint retained, no deallocation (a deallocate/start cycle, by contrast, changes a dynamic public IP)".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
+                   "vm_name": inst["vm_name"], "status": "VM running",
+                   "note": "Azure restart semantics — endpoint retained; compute billing keeps accruing (no deallocation)" }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let mut evidence = lane.snapshot(data_dir, env_ref)?;
+        let native = json!({
+            "snapshot_name": format!("sim-snapshot-{:x}", nanos()),
+            "disk_name": inst.pointer("/os_disk/disk_name").cloned().unwrap_or(Value::Null),
+            "note": "SIMULATED managed-disk snapshot name — evidence only, NEVER restore truth; restores admit by the daemon state_root",
+        });
+        if let Some(o) = evidence.as_object_mut() {
+            o.insert("provider_native_snapshot".into(), native.clone());
+        }
+        inst["last_native_snapshot"] = native;
+        Self::push_event(&mut inst, "snapshot_taken", "daemon-custody snapshot admitted; managed-disk-style native name recorded as evidence".into());
+        self.save_instance(data_dir, &inst);
+        Ok(evidence)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("azure_outage_injection_not_supported — deleting a paid VM is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("azure_recover_not_supported — recovery is re-create + restore from daemon/storage custody; run create + restore explicitly".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let native_teardown = if text(&inst, "execution_mode") == "live" {
+            json!({ "destroyed": false, "error": "azure_live_api_flow_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live virtualMachines delete call exists yet" })
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED delete failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Azure portal (compute and managed disks may still accrue)" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — VM deleted, managed OS disk deleted with the VM per delete option; no real Azure VM existed" })
+        };
+        inst["status"] = json!("torn_down");
+        inst["torn_down_at"] = json!(iso_now());
+        Self::push_event(&mut inst, "vm_deleted", "delete always — managed OS disk deleted with the VM per delete option".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "vm_name": inst["vm_name"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
+        Ok(json!({
+            "vm_name": inst["vm_name"],
+            "events": inst.get("events").cloned().unwrap_or(json!([])),
+            "execution_mode": inst["execution_mode"],
+            "basis": "daemon-recorded VM lifecycle events (simulated control plane labelled); Activity Log refs land with the live harness — the Activity Log is the customer's",
+        }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.instance(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            Some(inst) => {
+                let torn = text(&inst, "status") == "torn_down";
+                let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && !torn;
+                let lane_view = if torn { Value::Null }
+                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" }) }
+                    else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "vm_name": inst["vm_name"], "status": inst["status"],
+                        "execution_mode": inst["execution_mode"],
+                        "subscription_id": inst["subscription_id"], "resource_group": inst["resource_group"], "location": inst["location"], "vm_size": inst["vm_size"],
+                        "network_posture": inst["network_posture"], "os_disk": inst["os_disk"],
+                        "events_tail": inst.get("events").and_then(Value::as_array).map(|e| e.iter().rev().take(5).cloned().collect::<Vec<_>>()).unwrap_or_default(),
+                        "provider_native": inst["provider_native"],
+                        "teardown_state": if torn { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
 // --- aws GUARDED LIFECYCLE: the first ENTERPRISE hyperscaler lane. Not a marketplace, not a ---
 // --- generic VM clone: IAM/SigV4 authority, region/AZ, VPC/security-group posture, EC2      ---
 // --- lifecycle with REAL stop/start/restart semantics, EBS root volume posture. Provider-   ---
@@ -3191,6 +3535,12 @@ fn resolve_account_adapter(
     {
         return Some(Ok((account.clone(), Box::new(AwsProvider { account }), None)));
     }
+    if text(&account, "kind") == "azure"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(AzureProvider { account }), None)));
+    }
     if text(&account, "kind") == "gcp"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
@@ -3331,6 +3681,7 @@ pub(crate) async fn handle_provider_account_credential(
         "baremetal_ssh" => ("ssh-key", text(&body, "private_key")),
         "aws" => ("aws-sigv4", text(&body, "secret_access_key")),
         "gcp" => ("gcp-service-account", text(&body, "service_account_key")),
+        "azure" => ("azure-service-principal", text(&body, "client_secret")),
         "k8s" => ("bearer", text(&body, "token")),
         "vast" | "runpod" | "lambda_cloud" | "akash" => ("bearer", text(&body, "api_key")),
         _ => ("bearer", text(&body, "token")),
@@ -3362,7 +3713,8 @@ pub(crate) async fn handle_provider_account_credential(
     // Non-secret resolver hints (token_url, client_id, audience, …) are read from the record
     // ROOT by the canonical oidc-workload/oauth-refresh branches — splice them up from aux.
     if let Some(aux) = body.get("aux").and_then(Value::as_object) {
-        for hint in ["token_url", "client_id", "audience", "scopes", "subject_token_type", "subject_token_file", "access_key_id", "region"] {
+        for hint in ["token_url", "client_id", "audience", "scopes", "subject_token_type", "subject_token_file", "access_key_id", "region",
+                     "tenant_id", "subscription_id", "resource_group", "location"] {
             if let Some(v) = aux.get(hint).filter(|v| v.is_string()) {
                 record[hint] = v.clone();
             }
@@ -3553,7 +3905,7 @@ pub(crate) async fn handle_provider_op(
             // simulator/live) — exactly what the capabilities text promises. Mode-less accounts
             // stay credential_preflight_only: create crosses the wallet and fails closed with
             // the named PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED lane (never a fake).
-            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp")
+            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure")
                 && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
@@ -3615,19 +3967,22 @@ pub(crate) async fn handle_provider_op(
                 // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
                 // VPC/subnet(/security-group|firewall) config or the labelled default simulator
                 // posture, with reachability flags (public/external IP + SSH ingress).
-                let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp") {
+                let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
                     let configured = body.get("network").cloned()
                         .or_else(|| account.pointer("/endpoint/network").cloned())
                         .filter(|n| !n.is_null());
                     let (explicit_label, default_label) = if kind == "gcp" {
                         ("explicit_network_config", "default_network_simulator")
+                    } else if kind == "azure" {
+                        ("explicit_vnet_config", "default_vnet_simulator")
                     } else {
                         ("explicit_vpc_config", "default_vpc_simulator")
                     };
                     match configured {
                         Some(n) => {
                             let explicit = n.get("vpc_id").is_some() || n.get("subnet_id").is_some() || n.get("security_group_id").is_some()
-                                || n.get("network").is_some() || n.get("subnetwork").is_some() || n.get("firewall").is_some();
+                                || n.get("network").is_some() || n.get("subnetwork").is_some() || n.get("firewall").is_some()
+                                || n.get("vnet").is_some() || n.get("subnet").is_some() || n.get("nsg").is_some();
                             let mut posture = n.clone();
                             if let Some(o) = posture.as_object_mut() {
                                 o.entry("public_ip").or_insert(json!(true));
@@ -3646,6 +4001,12 @@ pub(crate) async fn handle_provider_op(
                     "project": candidate.get("project").cloned().unwrap_or(Value::Null),
                     "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
                     "machine_type": candidate.get("machine_type").cloned().unwrap_or(Value::Null),
+                    "subscription_id": candidate.get("subscription_id").cloned().unwrap_or(Value::Null),
+                    "resource_group": body.get("resource_group").cloned()
+                        .or_else(|| candidate.get("resource_group").cloned())
+                        .unwrap_or(Value::Null),
+                    "location": candidate.get("location").cloned().unwrap_or(Value::Null),
+                    "vm_size": candidate.get("vm_size").cloned().unwrap_or(Value::Null),
                     "network_posture": aws_network,
                     "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
                     "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
@@ -3687,6 +4048,7 @@ pub(crate) async fn handle_provider_op(
                     if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
                         for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "az", "instance_type", "disk_gb",
                                     "project", "zone", "machine_type",
+                                    "subscription_id", "resource_group", "location", "vm_size",
                                     "network_posture", "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
                                     "restore_material_ref", "archive_ref", "teardown_policy", "execution_mode"] {
                             if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
@@ -3797,7 +4159,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp") {
+                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();

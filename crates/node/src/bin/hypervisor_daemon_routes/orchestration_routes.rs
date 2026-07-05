@@ -1307,7 +1307,7 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
 
 const VENUE_POLICY_KIND: &str = "placement-venue-policy";
 const VENUE_IDS: &[&str] = &["run_local", "use_my_infrastructure", "pick_provider", "hypervisor_choose"];
-const CLOUD_KINDS: &[&str] = &["aws", "gcp", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
+const CLOUD_KINDS: &[&str] = &["aws", "gcp", "azure", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
 
 /// Kind-level capability hints (GPU / storage / IP / snapshot) — labeled hints, never probed
 /// claims. Per-provider semantics preserved; nothing flattened into a fake generic cloud.
@@ -1317,6 +1317,7 @@ fn venue_capability_hints(kind: &str) -> Value {
         "baremetal_ssh" => ("host-dependent (your node's hardware)", "node disk", "node endpoint (you own it)", "daemon-custody tar + admitted sha256 (real)"),
         "aws" => ("EC2 instances — enterprise customer-cloud (guarded adapter)", "EBS root volumes (native ids evidence-only)", "VPC/security-group posture; public or Elastic IPs (evidence)", "daemon custody via the ssh lane; EBS snapshots evidence-only"),
         "gcp" => ("Compute Engine machine types — enterprise customer-cloud (guarded adapter)", "Persistent Disk boot volumes (native ids evidence-only)", "VPC network/firewall posture; external or static IPs (evidence)", "daemon custody via the ssh lane; PD snapshots evidence-only"),
+        "azure" => ("Azure VM sizes — enterprise customer-cloud (guarded adapter)", "managed OS disks (native ids evidence-only)", "VNet/NSG posture; public or static IPs (evidence)", "daemon custody via the ssh lane; managed-disk snapshots evidence-only"),
         "k8s" => ("cluster-scheduler dependent", "persistent volumes", "service/ingress IPs (cluster-dependent)", "custody-dependent (adapter pending)"),
         "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
         "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),

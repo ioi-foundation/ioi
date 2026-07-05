@@ -8998,6 +8998,17 @@ async fn resolve_sealed_credential(
             key_source,
         );
     }
+    if rec["kind"].as_str() == Some("azure-service-principal") {
+        // An Azure service principal exchanges tenant_id + client_id + the sealed client
+        // secret for ARM tokens at invoke time — not a static bearer. Signal sealed-secret
+        // presence so the wallet gate passes; the invoke reads the sealed secret and mints.
+        let present = rec["sealed_token"].as_str().is_some();
+        return (
+            present.then(|| "azure-service-principal".to_string()),
+            present.then(|| "azure-service-principal".to_string()),
+            key_source,
+        );
+    }
     if rec["kind"].as_str() == Some("gcp-service-account") {
         // A GCP service-account KEY mints OAuth tokens at invoke time (signed JWT), not a
         // static bearer. Signal sealed-key presence so the wallet gate passes; the invoke
